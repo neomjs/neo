@@ -2,7 +2,6 @@
     "name": "neo.mjs",
     "version": "1.0.0",
     "description": "The webworkers driven UI framework",
-    "private": true,
     "repository": {
         "type": "git",
         "url": "https://github.com/neomjs/neo.git"
