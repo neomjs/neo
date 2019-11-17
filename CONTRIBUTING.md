@@ -1,6 +1,6 @@
 # neo.mjs Contributing Guide
 
-I am very excited that you are interested in contributing to neo.mjs.
+We are very excited that you are interested in contributing to neo.mjs.
 
 No worries, you don't need to be a guru, ninja or rockstar to support the project.
 
@@ -18,7 +18,7 @@ No worries, you don't need to be a guru, ninja or rockstar to support the projec
     3.  Please like or comment on current tickets.
         This is a great help to figure out which tickets are the most important ones for the neo.mjs community.
 3.  Contribute to the neo.mjs code base
-    1.  Please *always* create a new issue inside our <a href="../../issues">Issues Tracker</a> first and wait for approval.
+    1.  Please ***always*** create a new issue inside our <a href="../../issues">Issues Tracker</a> first and wait for approval.
         This ensures that your idea fits the scope of the project and makes it less likely to get a rejected PR.
         We will do our best to reply to new tickets within 7d max. In case we don't, feel free to bump the ticket.
     2.  In case you want to work on an existing ticket, please add a comment there are get the ticket assigned to you.
