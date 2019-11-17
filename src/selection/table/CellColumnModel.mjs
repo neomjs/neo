@@ -7,36 +7,38 @@ import {default as VDomUtil} from '../../util/VDom.mjs';
  * @extends Neo.selection.table.CellModel
  */
 class CellColumnModel extends CellModel {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.selection.table.CellColumnModel'
-             * @private
-             */
-            className: 'Neo.selection.table.CellColumnModel',
-            /**
-             * @member {String} ntype='selection-table-cellcolumnmodel'
-             * @private
-             */
-            ntype: 'selection-table-cellcolumnmodel',
-            /**
-             * @member {String} cls='neo-selection-cellcolumnmodel'
-             * @private
-             */
-            cls: 'neo-selection-cellcolumnmodel',
-            /**
-             * @member {String} selectedColumnCellCls='selected-column-cell'
-             * @private
-             */
-            selectedColumnCellCls: 'selected-column-cell',
-            /**
-             * @member {Array|null} selectedColumnCellIds=null
-             * @private
-             */
-            selectedColumnCellIds: null
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.selection.table.CellColumnModel'
+         * @private
+         */
+        className: 'Neo.selection.table.CellColumnModel',
+        /**
+         * @member {String} ntype='selection-table-cellcolumnmodel'
+         * @private
+         */
+        ntype: 'selection-table-cellcolumnmodel',
+        /**
+         * @member {String} cls='neo-selection-cellcolumnmodel'
+         * @private
+         */
+        cls: 'neo-selection-cellcolumnmodel',
+        /**
+         * @member {String} selectedColumnCellCls='selected-column-cell'
+         * @private
+         */
+        selectedColumnCellCls: 'selected-column-cell',
+        /**
+         * @member {Array|null} selectedColumnCellIds=null
+         * @private
+         */
+        selectedColumnCellIds: null
+    }}
 
+    /**
+     *
+     * @param {Object} config
+     */
     constructor(config) {
         super(config);
 

@@ -6,25 +6,23 @@ import {default as VDomUtil} from '../../util/VDom.mjs';
  * @extends Neo.selection.Model
  */
 class ColumnModel extends Model {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.selection.table.ColumnModel'
-             * @private
-             */
-            className: 'Neo.selection.table.ColumnModel',
-            /**
-             * @member {String} ntype='selection-table-columnmodel'
-             * @private
-             */
-            ntype: 'selection-table-columnmodel',
-            /**
-             * @member {String} cls='selection-columnmodel'
-             * @private
-             */
-            cls: 'neo-selection-columnmodel'
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.selection.table.ColumnModel'
+         * @private
+         */
+        className: 'Neo.selection.table.ColumnModel',
+        /**
+         * @member {String} ntype='selection-table-columnmodel'
+         * @private
+         */
+        ntype: 'selection-table-columnmodel',
+        /**
+         * @member {String} cls='selection-columnmodel'
+         * @private
+         */
+        cls: 'neo-selection-columnmodel'
+    }}
 
     /**
      *

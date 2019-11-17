@@ -300,7 +300,7 @@ class Base {
     /**
      * <p>Enhancing the toString() method, e.g.</p>
      * `Neo.create('Neo.component.Button').toString() => "[object Neo.component.Button (neo-button-1)]"`
-     * @returns {string}
+     * @returns {String}
      */
     get [Symbol.toStringTag]() {
         return this.className + ' (id:' + this.id + ')';
@@ -312,7 +312,7 @@ class Base {
      * <p>With this change:</p>
      * `Neo.collection.Base.prototype instanceof Neo.core.Base => false`<br>
      * `Neo.create(Neo.collection.Base) instanceof Neo.core.Base => true`
-     * @returns {boolean}
+     * @returns {Boolean}
      */
     static [Symbol.hasInstance](instance) {
         if (!instance) {

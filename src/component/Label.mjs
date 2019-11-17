@@ -34,7 +34,7 @@ class Label extends Component {
     }}
 
     /**
-     * Tiggered after the text config got changed
+     * Triggered after the text config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private

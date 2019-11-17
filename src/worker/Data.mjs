@@ -1,17 +1,17 @@
 import Neo                       from '../Neo.mjs';
+import Base                      from './Base.mjs';
 import {default as StoreManager} from '../manager/Store.mjs';
 import Util                      from '../core/Util.mjs';
-import Worker                    from './Worker.mjs';
 import Xhr                       from '../Xhr.mjs';
 
 /**
  * The Data worker is responsible to handle all of the communication to the backend (e.g. Ajax-calls).
  * See the tutorials for further infos.
  * @class Neo.worker.Data
- * @extends Neo.worker.Worker
+ * @extends Neo.worker.Base
  * @singleton
  */
-class Data extends Worker {
+class Data extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.worker.Data'

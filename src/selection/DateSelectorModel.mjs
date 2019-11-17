@@ -6,25 +6,23 @@ import Model    from './Model.mjs';
  * @extends Neo.selection.Model
  */
 class DateSelectorModel extends Model {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.selection.DateSelectorModel'
-             * @private
-             */
-            className: 'Neo.selection.DateSelectorModel',
-            /**
-             * @member {String} ntype='selection-dateselectormodel'
-             * @private
-             */
-            ntype: 'selection-dateselectormodel',
-            /**
-             * true to stay inside the same column when navigating up or downwards
-             * @member {Boolean} stayInColumn=false
-             */
-            stayInColumn: false
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.selection.DateSelectorModel'
+         * @private
+         */
+        className: 'Neo.selection.DateSelectorModel',
+        /**
+         * @member {String} ntype='selection-dateselectormodel'
+         * @private
+         */
+        ntype: 'selection-dateselectormodel',
+        /**
+         * true to stay inside the same column when navigating up or downwards
+         * @member {Boolean} stayInColumn=false
+         */
+        stayInColumn: false
+    }}
 
     /**
      *

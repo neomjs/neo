@@ -102,7 +102,7 @@ class Base extends Component {
     }
 
     /**
-     * Tiggered after the disableSelection config got changed
+     * Triggered after the disableSelection config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @private
@@ -116,7 +116,7 @@ class Base extends Component {
     }
 
     /**
-     * Tiggered after the selectionModel config got changed
+     * Triggered after the selectionModel config got changed
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
      * @private
@@ -150,7 +150,7 @@ class Base extends Component {
     }
 
     /**
-     * Tiggered before the selectionModel config gets changed.
+     * Triggered before the selectionModel config gets changed.
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
      * @private
@@ -164,7 +164,7 @@ class Base extends Component {
     }
 
     /**
-     * Tiggered before the store config gets changed.
+     * Triggered before the store config gets changed.
      * @param {Object|Neo.data.Store} value
      * @param {Object|Neo.data.Store} oldValue
      * @returns {Neo.data.Store}
@@ -181,7 +181,7 @@ class Base extends Component {
     }
 
     /**
-     * Tiggered after the useCheckBoxes config got changed
+     * Triggered after the useCheckBoxes config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @private

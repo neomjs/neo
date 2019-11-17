@@ -42,7 +42,7 @@ class Component extends Base {
     }
 
     /**
-     * Tiggered when accessing the view config
+     * Triggered when accessing the view config
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @private
@@ -52,7 +52,7 @@ class Component extends Base {
     }
 
     /**
-     * Tiggered before the view config gets changed
+     * Triggered before the view config gets changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @private

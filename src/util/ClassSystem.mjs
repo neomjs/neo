@@ -6,11 +6,15 @@ import Base from '../core/Base.mjs';
  */
 class ClassSystem extends Base {
     static getConfig() {return {
+        /**
+         * @member {String} className='Neo.util.ClassSystem'
+         * @private
+         */
         className: 'Neo.util.ClassSystem'
     }}
 
     /**
-     * can get used inside beforeSet mehods in case you want to create instances like stores,
+     * can get used inside beforeSet methods in case you want to create instances like stores,
      * @param {Object|Neo.core.Base|null} config
      * @param {Neo.core.Base} [DefaultClass=null]
      * @param {Object} [defaultValues={}]

@@ -144,7 +144,7 @@ class Circle extends Component {
         }
 
         if (!me.itemImagePath) {
-            me.itemImagePath = Neo.config.resourcesPath + 'examples/images/';
+            me.itemImagePath = Neo.config.resourcesPath + 'examples/';
         }
 
         domListeners.push({
@@ -312,7 +312,7 @@ class Circle extends Component {
     }
 
     /**
-     * Tiggered after the selectionModel config got changed
+     * Triggered after the selectionModel config got changed
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
      * @private
@@ -336,7 +336,7 @@ class Circle extends Component {
     }
 
     /**
-     * Tiggered before the selectionModel config gets changed.
+     * Triggered before the selectionModel config gets changed.
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
      * @private

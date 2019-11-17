@@ -5,24 +5,22 @@ import Model from './Model.mjs';
  * @extends Neo.selection.Model
  */
 class ListModel extends Model {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.selection.ListModel'
-             * @private
-             */
-            className: 'Neo.selection.ListModel',
-            /**
-             * @member {String} ntype='selection-listmodel'
-             * @private
-             */
-            ntype: 'selection-listmodel',
-            /**
-             * @member {Boolean} stayInList=true
-             */
-            stayInList: true
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.selection.ListModel'
+         * @private
+         */
+        className: 'Neo.selection.ListModel',
+        /**
+         * @member {String} ntype='selection-listmodel'
+         * @private
+         */
+        ntype: 'selection-listmodel',
+        /**
+         * @member {Boolean} stayInList=true
+         */
+        stayInList: true
+    }}
 
     /**
      *

@@ -5,25 +5,23 @@ import Model from '../Model.mjs';
  * @extends Neo.selection.Model
  */
 class CellModel extends Model {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.selection.table.CellModel'
-             * @private
-             */
-            className: 'Neo.selection.table.CellModel',
-            /**
-             * @member {String} ntype='selection-table-cellmodel'
-             * @private
-             */
-            ntype: 'selection-table-cellmodel',
-            /**
-             * @member {String} cls='selection-cellmodel'
-             * @private
-             */
-            cls: 'neo-selection-cellmodel'
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.selection.table.CellModel'
+         * @private
+         */
+        className: 'Neo.selection.table.CellModel',
+        /**
+         * @member {String} ntype='selection-table-cellmodel'
+         * @private
+         */
+        ntype: 'selection-table-cellmodel',
+        /**
+         * @member {String} cls='selection-cellmodel'
+         * @private
+         */
+        cls: 'neo-selection-cellmodel'
+    }}
 
     /**
      *

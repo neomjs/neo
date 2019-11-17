@@ -8,31 +8,33 @@ import {default as VDomUtil} from '../../util/VDom.mjs';
  * @extends Neo.selection.table.CellModel
  */
 class CellRowModel extends CellModel {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.selection.table.CellRowModel'
-             * @private
-             */
-            className: 'Neo.selection.table.CellRowModel',
-            /**
-             * @member {String} ntype='selection-table-cellrowmodel'
-             * @private
-             */
-            ntype: 'selection-table-cellrowmodel',
-            /**
-             * @member {String} cls='neo-selection-cellrowmodel'
-             * @private
-             */
-            cls: 'neo-selection-cellrowmodel',
-            /**
-             * @member {Array|null} selectedRowIds=null
-             * @private
-             */
-            selectedRowIds: null
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.selection.table.CellRowModel'
+         * @private
+         */
+        className: 'Neo.selection.table.CellRowModel',
+        /**
+         * @member {String} ntype='selection-table-cellrowmodel'
+         * @private
+         */
+        ntype: 'selection-table-cellrowmodel',
+        /**
+         * @member {String} cls='neo-selection-cellrowmodel'
+         * @private
+         */
+        cls: 'neo-selection-cellrowmodel',
+        /**
+         * @member {Array|null} selectedRowIds=null
+         * @private
+         */
+        selectedRowIds: null
+    }}
 
+    /**
+     *
+     * @param {Object} config
+     */
     constructor(config) {
         super(config);
 

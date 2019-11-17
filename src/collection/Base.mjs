@@ -47,7 +47,7 @@ class Base extends CoreBase {
         allItems: null,
         /**
          * True to sort the collection items when adding / inserting new ones
-         * @member {boolean} autoSort
+         * @member {Boolean} autoSort
          */
         autoSort: true,
         /**

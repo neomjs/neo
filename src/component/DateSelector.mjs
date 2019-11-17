@@ -228,7 +228,7 @@ class DateSelector extends Component {
     }
 
     /**
-     * Tiggered after the showCellBorders config got changed
+     * Triggered after the showCellBorders config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @private
@@ -242,7 +242,7 @@ class DateSelector extends Component {
     }
 
     /**
-     * Tiggered after the isUpdating config got changed
+     * Triggered after the isUpdating config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @private
@@ -260,7 +260,7 @@ class DateSelector extends Component {
     }
 
     /**
-     * Tiggered after the showDisabledDays config got changed
+     * Triggered after the showDisabledDays config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @private
@@ -272,7 +272,7 @@ class DateSelector extends Component {
     }
 
     /**
-     * Tiggered after the selectionModel config got changed
+     * Triggered after the selectionModel config got changed
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
      * @private
@@ -317,7 +317,7 @@ class DateSelector extends Component {
     }
 
     /**
-     * Tiggered before the dayNameFormat config gets changed
+     * Triggered before the dayNameFormat config gets changed
      * @param {String} value
      * @param {String} oldValue
      * @private
@@ -327,7 +327,7 @@ class DateSelector extends Component {
     }
 
     /**
-     * Tiggered before the selectionModel config gets changed.
+     * Triggered before the selectionModel config gets changed.
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
      * @private
@@ -341,7 +341,7 @@ class DateSelector extends Component {
     }
 
     /**
-     * Tiggered before the weekStartDay config gets changed
+     * Triggered before the weekStartDay config gets changed
      * @param {String} value
      * @param {String} oldValue
      * @private

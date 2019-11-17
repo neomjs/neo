@@ -16,45 +16,43 @@ class Model extends Base {
         observable: true
     }}
 
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.selection.Model'
-             * @private
-             */
-            className: 'Neo.selection.Model',
-            /**
-             * @member {String} ntype='selection-model'
-             * @private
-             */
-            ntype: 'selection-model',
-            /**
-             * Placeholder for extended classes to add a custom css rule to this owner component
-             * @member {String|null} cls=null
-             * @private
-             */
-            cls: null,
-            /**
-             * @member {Array} items=[]
-             * @private
-             */
-            items: [],
-            /**
-             * @member {String} selectedCls='selected'
-             */
-            selectedCls: 'neo-selected',
-            /**
-             * @member {Boolean} singleSelect=true
-             */
-            singleSelect: true,
-            /**
-             * Internally saves the view id, but the getter will return the matching instance
-             * @member {Object} view_=null
-             * @private
-             */
-            view_: null
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.selection.Model'
+         * @private
+         */
+        className: 'Neo.selection.Model',
+        /**
+         * @member {String} ntype='selection-model'
+         * @private
+         */
+        ntype: 'selection-model',
+        /**
+         * Placeholder for extended classes to add a custom css rule to this owner component
+         * @member {String|null} cls=null
+         * @private
+         */
+        cls: null,
+        /**
+         * @member {Array} items=[]
+         * @private
+         */
+        items: [],
+        /**
+         * @member {String} selectedCls='selected'
+         */
+        selectedCls: 'neo-selected',
+        /**
+         * @member {Boolean} singleSelect=true
+         */
+        singleSelect: true,
+        /**
+         * Internally saves the view id, but the getter will return the matching instance
+         * @member {Object} view_=null
+         * @private
+         */
+        view_: null
+    }}
 
     /**
      * Gets triggered before getting the value of the view config

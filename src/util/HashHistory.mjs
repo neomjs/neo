@@ -16,10 +16,26 @@ class HashHistory extends Base {
     }}
 
     static getConfig() {return {
+        /**
+         * @member {String} className='Neo.util.ClassSystem'
+         * @private
+         */
         className: 'Neo.util.HashHistory',
-        ntype    : 'hash-history',
+        /**
+         * @member {String} ntype='hash-history'
+         * @private
+         */
+        ntype: 'hash-history',
+        /**
+         * @member {Boolean} singleton=true
+         * @private
+         */
         singleton: true,
-        stack    : []
+        /**
+         * @member {Array} stack=[]
+         * @private
+         */
+        stack: []
     }}
 
     first() {

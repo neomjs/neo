@@ -427,7 +427,7 @@ class Helix extends Component {
     }
 
     /**
-     * Tiggered before the selectionModel config gets changed.
+     * Triggered before the selectionModel config gets changed.
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
      * @private

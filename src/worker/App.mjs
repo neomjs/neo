@@ -1,19 +1,19 @@
 import Neo             from '../Neo.mjs';
+import Base            from './Base.mjs';
 import * as core       from '../core/_export.mjs';
 import DomEventManager from '../manager/DomEvent.mjs';
 import Instance        from '../manager/Instance.mjs';
 import Application     from '../controller/Application.mjs';
 import HashHistory     from '../util/HashHistory.mjs';
-import Worker          from './Worker.mjs';
 
 /**
  * The App worker contains most parts of the framework as well as all apps which get created.
  * See the tutorials for further infos.
  * @class Neo.worker.App
- * @extends Neo.worker.Worker
+ * @extends Neo.worker.Base
  * @singleton
  */
-class App extends Worker {
+class App extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.worker.App'

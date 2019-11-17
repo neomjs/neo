@@ -103,7 +103,7 @@ class Button extends BaseButton {
     }
 
     /**
-     * Tiggered after the draggable config got changed
+     * Triggered after the draggable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @private
