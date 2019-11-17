@@ -1,3 +1,8 @@
+<p align="center">
+  <a href="https://www.npmjs.com/package/neo.mjs"><img src="https://img.shields.io/npm/v/neo.mjs.svg" alt="Version"></a>
+  <a href="https://www.npmjs.com/package/neo.mjs"><img src="https://img.shields.io/npm/l/neo.mjs.svg" alt="License"></a>
+</p>
+
 # neo.mjs (Beta Version)
 The webworkers driven UI framework
 
