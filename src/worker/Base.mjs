@@ -1,15 +1,15 @@
-import Base               from '../core/Base.mjs';
-import Observable         from '../core/Observable.mjs';
-import Message            from './Message.mjs';
-import RemoteMethodAccess from './mixins/RemoteMethodAccess.mjs';
+import {default as CoreBase} from '../core/Base.mjs';
+import Observable            from '../core/Observable.mjs';
+import Message               from './Message.mjs';
+import RemoteMethodAccess    from './mixins/RemoteMethodAccess.mjs';
 
 /**
  * The abstract base class for the App, Data & VDom worker
- * @class Neo.worker.Worker
+ * @class Neo.worker.Base
  * @extends Neo.core.Base
  * @abstract
  */
-class Worker extends Base {
+class Base extends CoreBase {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.worker.Worker'
@@ -148,6 +148,6 @@ class Worker extends Base {
     }
 }
 
-Neo.applyClassConfig(Worker);
+Neo.applyClassConfig(Base);
 
-export {Worker as default};
+export {Base as default};
