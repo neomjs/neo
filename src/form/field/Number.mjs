@@ -75,7 +75,7 @@ class Number extends Text {
      * @param {Number} oldValue
      * @private
      */
-    afterSetMaxValue(value) {
+    afterSetMaxValue(value, oldValue) {
         this.changeInputElKey('max', value);
     }
 
@@ -84,7 +84,7 @@ class Number extends Text {
      * @param {Number} oldValue
      * @private
      */
-    afterSetMinValue(value) {
+    afterSetMinValue(value, oldValue) {
         this.changeInputElKey('min', value);
     }
 
@@ -93,7 +93,7 @@ class Number extends Text {
      * @param {Number} oldValue
      * @private
      */
-    afterSetStepSize(value) {
+    afterSetStepSize(value, oldValue) {
         let me  = this,
             val = me.value,
             modulo;
@@ -215,6 +215,9 @@ class Number extends Text {
         }
     }
 
+    /**
+     *
+     */
     updateTriggers() {
         let me       = this,
             triggers = me.triggers || [];
