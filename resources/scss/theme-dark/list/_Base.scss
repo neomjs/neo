@@ -1,0 +1,27 @@
+$neoMap: map-merge($neoMap, (
+    'list-container-background-color'    : #33343d,
+    'list-container-border'              : 1px solid #282829,
+    'list-container-list-color'          : #bbb,
+    'list-item-background-color'         : #33343d,
+    'list-item-background-color-hover'   : lighten(#33343d, 10%),
+    'list-item-background-color-selected': #64B5F6,
+    'list-item-color-selected'           : #2b2b2b,
+    'list-item-glyph-color'              : inherit,
+    'list-item-highlight-search-color'   : #fff,
+    'list-item-padding'                  : 5px
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-dark { // .neo-list-container
+        --list-container-background-color    : #{neo(list-container-background-color)};
+        --list-container-border              : #{neo(list-container-border)};
+        --list-container-list-color          : #{neo(list-container-list-color)};
+        --list-item-background-color         : #{neo(list-item-background-color)};
+        --list-item-background-color-hover   : #{neo(list-item-background-color-hover)};
+        --list-item-background-color-selected: #{neo(list-item-background-color-selected)};
+        --list-item-color-selected           : #{neo(list-item-color-selected)};
+        --list-item-glyph-color              : #{neo(list-item-glyph-color)};
+        --list-item-highlight-search-color   : #{neo(list-item-highlight-search-color)};
+        --list-item-padding                  : #{neo(list-item-padding)};
+    }
+}

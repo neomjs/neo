@@ -1,0 +1,23 @@
+$neoMap: map-merge($neoMap, (
+    'docs-header-container-background-color'         : #fff,
+    'docs-header-container-background-image'         : none,
+    'docs-header-container-logo-text-background-clip': text,
+    'docs-header-container-logo-text-color'          : rgba(0,0,0,0.6),
+    'docs-header-container-logo-text-font-size'      : 28px,
+    'docs-header-container-logo-text-font-weight'    : 800,
+    'docs-header-container-logo-padding'             : 10px,
+    'docs-header-container-logo-text-shadow'         : 2px 2px 3px rgba(200,200,200,0.1)
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-light { // .neo-docs-header-container
+        --docs-header-container-background-color         : #{neo(docs-header-container-background-color)};
+        --docs-header-container-background-image         : #{neo(docs-header-container-background-image)};
+        --docs-header-container-logo-text-background-clip: #{neo(docs-header-container-logo-text-background-clip)};
+        --docs-header-container-logo-text-color          : #{neo(docs-header-container-logo-text-color)};
+        --docs-header-container-logo-text-font-size      : #{neo(docs-header-container-logo-text-font-size)};
+        --docs-header-container-logo-text-font-weight    : #{neo(docs-header-container-logo-text-font-weight)};
+        --docs-header-container-logo-padding             : #{neo(docs-header-container-logo-padding)};
+        --docs-header-container-logo-text-shadow         : #{neo(docs-header-container-logo-text-shadow)};
+    }
+}

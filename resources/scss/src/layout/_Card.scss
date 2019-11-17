@@ -1,0 +1,16 @@
+.neo-layout-card {
+    display    : flex;
+    align-items: stretch;
+}
+
+.neo-layout-card-item {
+    flex: 1 0 100%;
+
+    &.active-item {
+
+    }
+
+    &.inactive-item {
+        display: none !important;
+    }
+}

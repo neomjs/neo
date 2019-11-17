@@ -1,0 +1,11 @@
+$neoMap: map-merge($neoMap, (
+    'tree-list-color'          : #666,
+    'tree-list-menu-item-color': #1c60a0
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-light { // .neo-tree-list
+        --tree-list-color          : #{neo(tree-list-color)};
+        --tree-list-menu-item-color: #{neo(tree-list-menu-item-color)};
+    }
+}

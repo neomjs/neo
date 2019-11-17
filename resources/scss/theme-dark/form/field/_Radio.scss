@@ -1,0 +1,11 @@
+$neoMap: map-merge($neoMap, (
+    'radiofield-color'        : #eee,
+    'radiofield-checked-color': #64B5F6
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-dark { // .neo-radiofield
+        --radiofield-color        : #{neo(radiofield-color)};
+        --radiofield-checked-color: #{neo(radiofield-checked-color)};
+    }
+}

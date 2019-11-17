@@ -1,0 +1,11 @@
+$neoMap: map-merge($neoMap, (
+    'docs-classdetails-headercomponent-background-color': #fff,
+    'docs-classdetails-headerpanel-border-right'        : 1px solid #ddd
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-light { // .neo-docs-classdetails-headercontainer
+        --docs-classdetails-headercomponent-background-color: #{neo(docs-classdetails-headercomponent-background-color)};
+        --docs-classdetails-headerpanel-border-right        : #{neo(docs-classdetails-headerpanel-border-right)};
+    }
+}

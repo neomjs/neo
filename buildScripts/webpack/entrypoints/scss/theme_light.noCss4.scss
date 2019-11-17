@@ -1,0 +1,8 @@
+@use "sass:map";
+$neoMap: ();
+
+$useCss4Vars: false;
+
+@import "../../../../resources/scss/mixins/all";
+@import "../../../../resources/scss/theme-light/all";
+@import "../../../../resources/scss/src/all";

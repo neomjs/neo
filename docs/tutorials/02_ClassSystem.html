@@ -1,0 +1,171 @@
+<div class="neo-header-text-container">
+    <span class="neo-header-text">Tutorial: Class System</span>
+</div>
+<article>
+    <ol>
+        <li>Flaws of the ES6+ class system
+            <ol>
+                <li>No &quot;this&quot; inside constructors before the parent call</li>
+                <li>It is not possible to define properties inside the class body without using get &amp; set</li>
+                <li>No private methods or properties</li>
+                <li>No support for mixins</li>
+            </ol>
+        </li>
+        <li>Neo Modules &amp; Classes
+            <ol>
+                <li>One Class per File</li>
+                <li>Each Class is &quot;wrapped&quot; inside a JS Module</li>
+                <li>Private Class methods</li>
+                <li>*.mjs</li>
+            </ol>
+        </li>
+        <li>Neo ES6+ Class Enhancements
+            <ol>
+                <li>Neo.applyClassConfig</li>
+                <li>Reducing boiler plate code</li>
+            </ol>
+        </li>
+    </ol>
+    <h4>(1) Flaws of the ES6+ class system</h4>
+    <p>(1.1.) This might not sound like a big deal at first, but it does prevent any pre-processing inside the
+        constructor chain.</p>
+    <pre><code>class TabContainer extends Container {
+    constructor(config) {
+        //let me = this; // breaks!
+        super(config);
+        let me = this;  //ok
+    }
+}</code></pre>
+    <p>(1.2.) The most likely biggest flaw is that you can not define any properties directly inside the class body,
+        as well as a missing config system.</p>
+    <pre><code>class TabContainer extends Container {
+    activeIndex: 1 // nope
+    static foo: 'bar' // impossible as well
+}</code></pre>
+    <p>There is hope: <a target="_blank" href="https://tc39.github.io/proposal-class-fields/#sec-private-bound-names">https://tc39.github.io/proposal-class-fields/#sec-private-bound-names</a>
+    </p>
+    <p>(1.3.) Although there are some proposals out there for many years, still not implemented.</p>
+    <p>(1.4.) Independant whether you like the mixin pattern or not, it is just not possible.</p>
+    <hr>
+    <h4>(2) Neo Modules &amp; Classes</h4>
+    <p>(2.1.) One Class per File. Might sound trivial from classic OOP concepts, but we do stick to it and recommend you
+        to
+        do the same for your application files.</p>
+    <p>(2.2) As soon as you want to extend an ES6+ class, you need to ensure that the base class is available.
+        One good way to achieve this is to use import:</p>
+    <p><a target="_blank" href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import">https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import</a>
+    </p>
+    <p>This automatially makes the file a JS module and you will notice that we will at least export the Class
+        at the end of of each module.</p>
+    <p>(2.3) Having the JS Module around each Class definition allows us to place methods outside of the class
+        deinition,
+        but still between the import and export statements. A nice place for &quot;private&quot; methods or attributes
+        which can get
+        accessed from Class methods easily, but not as easy from the outside world.</p>
+    <p>(2.4.) In case you missed it, *.mjs is not something we came up with, but the new standard file extension name
+        for
+        Javascript Modules. You can find more details e.g. in Axels Blog:</p>
+    <p>
+        <a target="_blank" href="http://2ality.com/2017/05/es-module-specifiers.html">http://2ality.com/2017/05/es-module-specifiers.html</a>
+    </p>
+    <hr>
+    <h4>(3) Neo ES6+ Class Enhancements</h4>
+    <p>(3.1.) To reduce the issue of 1.2. we created Neo.applyClassConfig (Neo.mjs),
+        which does get called in every Class File at the very bottom (before the export statement).
+        If you look at Neo Class / Module files, like component/Button.mjs, you will notice 2 methods at the top of the
+        class body:</p>
+    <h5>getStaticConfig</h5><h5>getConfig</h5>
+    <p>Both methods simply return an object. Put all static keys into getStaticConfig and all other ones into getConfig.
+        Neo.applyClassConfig <strong>(strongly recommended to look at the source code)</strong> will apply all static
+        configs to the class
+        constructor (as well as adding the staticConfig object itself there) and all non static configs will get added
+        using
+        Object.defineProperty() on the Class prototype.</p>
+    <p>So, why is a &quot;config system&quot; useful, you might ask yourself at this point.
+        This can easily get showcased using a simple example:</p>
+    <pre><code>class TabContainer extends Container {
+    get activeIndex() {
+        return this._activeIndex || 0;
+    }
+    set activeIndex(value) {
+        this._activeIndex = value;
+    }
+}</code></pre>
+    <p>So far so good, we now have an activeIndex property which will use _activeIndex to read &amp; save its value.
+        Now you might want to extend this class:</p>
+    <pre><code>class MyTabContainer extends TabContainer {
+    static getConfig() {return {
+        _activeIndex: 1
+    }}
+}</code></pre>
+    <p>Ok, this one was easy. _activeIndex will get applied as a class property.
+        Neither the first version with 0 nor the second one using the underscore and the value of 1 will trigger the
+        setter.
+        When you call:</p>
+    <pre><code>Neo.create(MyTabContainer);</code></pre>
+    <p>the constructor of our Base Class (Neo.core.Base) will call initConfig(),
+        which will apply _activeIndex to the instance, silently setting the value</p>
+    <pre><code>class MyTabContainer2 extends TabContainer {
+    static getConfig() {return {
+        activeIndex: 1
+    }}
+}</code></pre>
+    <p>Now it does get more interesting. You want to trigger the setter when creating an instance,
+        but you definitely do <strong>not</strong> want to override the activeIndex property defined via get &amp; set
+        with the new one.
+        No worries, Neo.applyClassConfig will check the base class prototype chain and in case it does find a property
+        with the
+        same name, it will not override the version having the setter. Instead it will only apply activeIndex inside the
+        config
+        object itself.
+        Now, when you call:</p>
+    <pre><code>Neo.create(MyTabContainer2);</code></pre>
+    <p>the constructor of our Base Class (Neo.core.Base) will call initConfig(),
+        which will apply activeIndex to your instance and this will call the setter.</p>
+    <pre><code>Neo.create(MyTabContainer2, {
+    activeIndex: 2
+});</code></pre>
+    <p>This will also call the setter <strong>once</strong>, this time using the value of 2
+        (initConfig does merge the prototype config object with the one you pass into Neo.create -&gt; the constructor)
+    </p>
+    <p>(3.2.) Reducing boiler plate code. When looking back at the first TabContainer example you will probably think:
+        Damn, in case I want to define many properties via get&amp;set which all just save&amp;get their value inside an
+        undercored
+        version of its name key, this will create quite some overhead.</p>
+    <p>To avoid this and make your code more beautiful, we added a trailing underscore for class configs:</p>
+    <pre><code>class TabContainer extends Container {
+    static getConfig() {return {
+        activeIndex_: 0
+    }}
+}</code></pre>
+    <p>Look close: activeIndex<span style="color:red;font-size:200%;">_</span> .This gets you the exact same result as
+        the previous example:</p>
+    <pre><code>class TabContainer extends Container {
+    get activeIndex() {
+        return this._activeIndex || 0;
+    }
+    set activeIndex(value) {
+        this._activeIndex = value;
+    }
+}</code></pre>
+    <p>Even better, this also <strong>optionally</strong> gives you support for 3 more methods you can use:</p>
+    <pre><code>class TabContainer extends Container {
+    static getConfig() {return {
+        activeIndex_: 0
+    }}
+
+    beforeSetActiveIndex(value, oldValue) {
+        return 42; // the answer to Life, the Universe, and Everything
+    }
+
+    beforeGetActiveIndex(value) {
+        return 5; // but hey, why tell anyone?
+    }
+
+    // this one would only get called in case value !== oldValue
+    afterSetActiveIndex(value, oldValue) {
+        // update the UI
+    }
+}</code></pre>
+    <p><a href="module-Neo.html#~autoGenerateGetSet">Details here</a></p>
+</article>

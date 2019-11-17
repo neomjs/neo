@@ -1,0 +1,88 @@
+.neo-toolbar {
+    background-color: v(toolbar-background-color);
+    box-sizing      : border-box;
+    padding         : v(toolbar-padding);
+
+    .neo-button {
+        margin: 0;
+    }
+
+    &.neo-dock-left {
+        .neo-button {
+            padding: 12px 6px;
+
+            @if neo(button-use-gradients) == true {
+                background-image: linear-gradient(to right, #{v(button-background-gradient-start)}, #{v(button-background-gradient-end)});
+            }
+
+            &.icon-left {
+                flex-direction: column-reverse;
+
+                .neo-button-glyph {
+                    margin: 10px 0 0 0;
+                }
+            }
+        }
+
+        .neo-button-glyph {
+            transform: rotate(-90deg);
+        }
+
+        .neo-button-text {
+            transform: rotate(180deg);
+            writing-mode: vertical-rl;
+        }
+
+        .neo-label {
+            margin-bottom: 10px;
+            margin-top   : 10px;
+            transform    : rotate(180deg);
+            writing-mode : vertical-rl;
+        }
+    }
+
+    &.neo-dock-right {
+        .neo-button {
+            padding: 12px 6px;
+
+            @if neo(button-use-gradients) == true {
+                background-image: linear-gradient(to left, #{v(button-background-gradient-start)}, #{v(button-background-gradient-end)});
+            }
+
+            &.icon-left {
+                flex-direction: column;
+
+                .neo-button-glyph {
+                    margin: 0 0 10px 0;
+                }
+            }
+        }
+
+        .neo-button-glyph {
+            transform: rotate(90deg);
+        }
+
+        .neo-button-text {
+            writing-mode: vertical-lr;
+        }
+
+        .neo-label {
+            margin-bottom: 10px;
+            margin-top   : 10px;
+            writing-mode : vertical-lr
+        }
+    }
+
+    &.neo-dock-bottom, &.neo-dock-top {
+        .neo-button {
+            &.icon-left {
+                .neo-button-glyph {
+                    margin: 0 6px 0 0;
+                }
+            }
+        }
+        .neo-label {
+            margin: 0 10px 0 5px;
+        }
+    }
+}

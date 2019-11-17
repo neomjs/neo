@@ -1,0 +1,19 @@
+.neo-trigger-clear {
+    border-left-color: v(textfield-border-color);
+    overflow         : hidden;
+    transition       : 250ms width cubic-bezier(0.4, 0, 0.2, 1);
+
+    &.neo-align-start {
+        border-left : 0;
+        border-right: 1px solid v(textfield-border-color);
+
+        &.neo-is-hidden {
+            border-right-color: transparent;
+        }
+    }
+
+    &.neo-is-hidden {
+        border-left-color: transparent;
+        width            : 0;
+    }
+}

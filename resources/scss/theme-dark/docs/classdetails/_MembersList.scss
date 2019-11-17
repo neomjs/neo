@@ -1,0 +1,37 @@
+$neoMap: map-merge($neoMap, (
+    'docs-classhierarchy-memberslist-background-color' : #282b2b,
+    'docs-memberlist-group-header-background-color'    : #33343d,
+    'docs-memberlist-group-header-color'               : #bbb,
+    'docs-param-table-list-item-background-color'      : #323232,
+    'docs-param-table-list-item-background-image'      : linear-gradient(lighten(#323232, 2%), #323232),
+    'docs-param-table-list-item-header-background-clip': text,
+    'docs-param-table-list-item-header-text-shadow'    : 2px 2px 3px rgba(200,200,200,0.1),
+    'docs-param-table-list-item-highlight-search-color': #ccc,
+    'docs-param-table-source-link-color'               : #555,
+    'docs-param-table-source-link-color-hover'         : #bbb,
+    'docs-param-table-thead-background-color'          : #343537,
+    'docs-param-table-thead-background-image'          : linear-gradient(#414244, #343537),
+    'docs-param-table-tr-background-clip'              : text,
+    'docs-param-table-tr-color'                        : rgba(0,0,0,0.6),
+    'docs-param-table-tr-text-shadow'                  : 2px 2px 3px rgba(200,200,200,0.1)
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-dark { // .docs-classhierarchy-memberslist
+        --docs-classhierarchy-memberslist-background-color : #{neo(docs-classhierarchy-memberslist-background-color)};
+        --docs-memberlist-group-header-background-color    : #{neo(docs-memberlist-group-header-background-color)};
+        --docs-memberlist-group-header-color               : #{neo(docs-memberlist-group-header-color)};
+        --docs-param-table-list-item-background-color      : #{neo(docs-param-table-list-item-background-color)};
+        --docs-param-table-list-item-background-image      : #{neo(docs-param-table-list-item-background-image)};
+        --docs-param-table-list-item-header-background-clip: #{neo(docs-param-table-list-item-header-background-clip)};
+        --docs-param-table-list-item-header-text-shadow    : #{neo(docs-param-table-list-item-header-text-shadow)};
+        --docs-param-table-list-item-highlight-search-color: #{neo(docs-param-table-list-item-highlight-search-color)};
+        --docs-param-table-source-link-color               : #{neo(docs-param-table-source-link-color)};
+        --docs-param-table-source-link-color-hover         : #{neo(docs-param-table-source-link-color-hover)};
+        --docs-param-table-thead-background-color          : #{neo(docs-param-table-thead-background-color)};
+        --docs-param-table-thead-background-image          : #{neo(docs-param-table-thead-background-image)};
+        --docs-param-table-tr-background-clip              : #{neo(docs-param-table-tr-background-clip)};
+        --docs-param-table-tr-color                        : #{neo(docs-param-table-tr-color)};
+        --docs-param-table-tr-text-shadow                  : #{neo(docs-param-table-tr-text-shadow)};
+    }
+}

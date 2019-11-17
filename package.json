@@ -1,0 +1,63 @@
+{
+    "name": "neo.mjs",
+    "version": "1.0.0",
+    "description": "The webworkers driven UI framework",
+    "private": true,
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/neomjs/neo.git"
+    },
+    "scripts": {
+        "webpack-dev-server => open": "webpack-dev-server --open",
+        "create-app": "node ./buildScripts/createApp.js",
+        "dev-build-my-apps": "webpack --config ./buildScripts/webpack/development/webpack.config.myapps.js",
+        "prod-build-my-apps": "webpack --config ./buildScripts/webpack/production/webpack.config.myapps.js",
+        "generate-docs-json": "node ./buildScripts/docs/jsdocx.js",
+        "build-development": "webpack --config ./buildScripts/webpack/development/webpack.config.js",
+        "build-production": "webpack --config ./buildScripts/webpack/production/webpack.config.js",
+        "dev-css-structure": "webpack --config ./buildScripts/webpack/development/webpack.scss.config.js --env.json_file=neo.structure.json",
+        "dev-theme-dark": "webpack --config ./buildScripts/webpack/development/webpack.scss.config.js --env.json_file=theme.dark.json",
+        "dev-theme-light": "webpack --config ./buildScripts/webpack/development/webpack.scss.config.js --env.json_file=theme.light.json",
+        "prod-css-structure": "webpack --config ./buildScripts/webpack/production/webpack.scss.config.js --env.json_file=neo.structure.json",
+        "prod-theme-dark": "webpack --config ./buildScripts/webpack/production/webpack.scss.config.js --env.json_file=theme.dark.json",
+        "prod-theme-light": "webpack --config ./buildScripts/webpack/production/webpack.scss.config.js --env.json_file=theme.light.json",
+        "dev-theme-dark-no-css4": "webpack --config ./buildScripts/webpack/development/webpack.scss.config.js --env.json_file=theme.dark.noCss4.json",
+        "dev-theme-light-no-css4": "webpack --config ./buildScripts/webpack/development/webpack.scss.config.js --env.json_file=theme.light.noCss4.json",
+        "prod-theme-dark-no-css4": "webpack --config ./buildScripts/webpack/production/webpack.scss.config.js --env.json_file=theme.dark.noCss4.json",
+        "prod-theme-light-no-css4": "webpack --config ./buildScripts/webpack/production/webpack.scss.config.js --env.json_file=theme.light.noCss4.json",
+        "markdown-to-html": "node ./buildScripts/markdownToHtml.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [],
+    "author": "Tobias Uhlig, Rich Waters",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/neomjs/neo/issues"
+    },
+    "homepage": "https://github.com/neomjs/neo",
+    "devDependencies": {
+        "@fortawesome/fontawesome-free": "^5.11.2",
+        "autoprefixer": "^9.7.1",
+        "clean-webpack-plugin": "^3.0.0",
+        "css-loader": "^3.2.0",
+        "cssnano": "^4.1.10",
+        "deasync": "^0.1.15",
+        "fs": "^0.0.1-security",
+        "highlightjs-line-numbers.js": "^2.7.0",
+        "html-webpack-plugin": "^3.2.0",
+        "inquirer": "^7.0.0",
+        "jsdoc": "^3.6.3",
+        "jsdoc-x": "^4.0.3",
+        "markdown-to-html": "^0.0.13",
+        "mini-css-extract-plugin": "^0.8.0",
+        "node-sass": "^4.13.0",
+        "postcss-loader": "^3.0.0",
+        "sass-loader": "^8.0.0",
+        "siesta-lite": "^5.3.0",
+        "style-loader": "^1.0.0",
+        "webpack": "^4.41.2",
+        "webpack-cli": "^3.3.10",
+        "webpack-dev-server": "^3.9.0",
+        "webpack-node-externals": "^1.7.2"
+    }
+}

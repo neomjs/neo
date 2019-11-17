@@ -1,0 +1,19 @@
+.neo-searchfield {
+    &::before {
+        color      : v(searchfield-glyph-color);
+        content    : "\f002";
+        display    : inline-block;
+        font-family: "Font Awesome 5 Free";
+        font-size  : 14px;
+        font-weight: 900;
+        padding    : 7px;
+        position   : absolute;
+        width      : 25px
+    }
+
+    &.neo-textfield {
+        .neo-textfield-input {
+            padding-left: 25px;
+        }
+    }
+}

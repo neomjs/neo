@@ -1,0 +1,29 @@
+$neoMap: map-merge($neoMap, (
+        'table-cell-background-color-hover'                    : lighten(#33343d, 70%),
+        'table-cellmodel-selected-cell-background-color'       : lighten(#64B5F6, 22%),
+        'table-cellmodel-selected-cell-color'                  : #2b2b2b,
+        'table-cellmodel-selected-column-cell-background-color': lighten(#4f558a, 52%),
+        'table-cellmodel-selected-column-cell-color'           : #2b2b2b,
+        'table-cellrowmodel-selected-cell-background-color'    : lighten(#64B5F6, 22%),
+        'table-cellrowmodel-selected-cell-color'               : #2b2b2b,
+        'table-cellrowmodel-selected-row-cell-background-color': lighten(#4f558a, 52%),
+        'table-cellrowmodel-selected-row-cell-color'           : #2b2b2b,
+        'table-rowmodel-selected-cell-background-color'        : lighten(#64B5F6, 22%),
+        'table-rowmodel-selected-cell-color'                   : #2b2b2b
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-light { // .neo-table-view
+        --table-cell-background-color-hover                    : #{neo(table-cell-background-color-hover)};
+        --table-cellmodel-selected-cell-background-color       : #{neo(table-cellmodel-selected-cell-background-color)};
+        --table-cellmodel-selected-cell-color                  : #{neo(table-cellmodel-selected-cell-color)};
+        --table-cellmodel-selected-column-cell-background-color: #{neo(table-cellmodel-selected-column-cell-background-color)};
+        --table-cellmodel-selected-column-cell-color           : #{neo(table-cellmodel-selected-column-cell-color)};
+        --table-cellrowmodel-selected-cell-background-color    : #{neo(table-cellrowmodel-selected-cell-background-color)};
+        --table-cellrowmodel-selected-cell-color               : #{neo(table-cellrowmodel-selected-cell-color)};
+        --table-cellrowmodel-selected-row-cell-background-color: #{neo(table-cellrowmodel-selected-row-cell-background-color)};
+        --table-cellrowmodel-selected-row-cell-color           : #{neo(table-cellrowmodel-selected-row-cell-color)};
+        --table-rowmodel-selected-cell-background-color        : #{neo(table-rowmodel-selected-cell-background-color)};
+        --table-rowmodel-selected-cell-color                   : #{neo(table-rowmodel-selected-cell-color)};
+    }
+}

@@ -1,0 +1,17 @@
+$neoMap: map-merge($neoMap, (
+    'table-container-border-color'              : #2b2b2b,
+    'table-container-cell-background-color'     : #3c3f41,
+    'table-container-cell-background-color-even': #323232,
+    'table-container-color'                     : #bbb,
+    'table-container-header-cell-border-bottom' : 2px solid #2b2b2b
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-dark { // .neo-table-container
+        --table-container-border-color              : #{neo(table-container-border-color)};
+        --table-container-cell-background-color     : #{neo(table-container-cell-background-color)};
+        --table-container-cell-background-color-even: #{neo(table-container-cell-background-color-even)};
+        --table-container-color                     : #{neo(table-container-color)};
+        --table-container-header-cell-border-bottom : #{neo(table-container-header-cell-border-bottom)};
+    }
+}

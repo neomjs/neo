@@ -1,0 +1,52 @@
+$neoMap: map-merge($neoMap, (
+    'dateselector-background-color'              : #323232,
+    'dateselector-border-color'                  : #3c3f41,
+    'dateselector-cell-background-color'         : #323232,
+    'dateselector-cell-background-color-disabled': #323232,
+    'dateselector-cell-color'                    : #bbb,
+    'dateselector-cell-color-disabled'           : #555,
+    'dateselector-cell-color-selected'           : #bbb,
+    'dateselector-cell-opacity-disabled'         : 1,
+    'dateselector-cell-today-border-color'       : #5d83a7,
+    'dateselector-color'                         : #bbb,
+    'dateselector-content-border-top'            : none,
+    'dateselector-header-background-color'       : #323232,
+    'dateselector-header-border-bottom'          : none,
+    'dateselector-header-cell-background-color'  : #33343d,
+    'dateselector-header-cell-border-bottom'     : none,
+    'dateselector-header-cell-color'             : #bbb,
+    'dateselector-header-month-text-color'       : #ccc,
+    'dateselector-header-year-text-color'        : #bbb,
+    'dateselector-nav-button-background-color'   : #323232,
+    'dateselector-nav-button-color'              : #bbb,
+    'dateselector-nav-button-color-hover'        : #ddd,
+    'dateselector-nav-button-inner-border'       : none
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-dark { // .neo-dateselector
+        --dateselector-background-color              : #{neo(dateselector-background-color)};
+        --dateselector-border-color                  : #{neo(dateselector-border-color)};
+        --dateselector-cell-background-color         : #{neo(dateselector-cell-background-color)};
+        --dateselector-cell-background-color-disabled: #{neo(dateselector-cell-background-color-disabled)};
+        --dateselector-cell-color                    : #{neo(dateselector-cell-color)};
+        --dateselector-cell-color-disabled           : #{neo(dateselector-cell-color-disabled)};
+        --dateselector-cell-color-selected           : #{neo(dateselector-cell-color-selected)};
+        --dateselector-cell-opacity-disabled         : #{neo(dateselector-cell-opacity-disabled)};
+        --dateselector-cell-today-border-color       : #{neo(dateselector-cell-today-border-color)};
+        --dateselector-color                         : #{neo(dateselector-color)};
+        --dateselector-content-border-top            : #{neo(dateselector-content-border-top)};
+        --dateselector-header-background-color       : #{neo(dateselector-header-background-color)};
+        --dateselector-header-border-bottom          : #{neo(dateselector-header-border-bottom)};
+        --dateselector-header-cell-background-color  : #{neo(dateselector-header-cell-background-color)};
+        --dateselector-header-cell-border-bottom     : #{neo(dateselector-header-cell-border-bottom)};
+        --dateselector-header-cell-color             : #{neo(dateselector-header-cell-color)};
+        --dateselector-header-month-text-color       : #{neo(dateselector-header-month-text-color)};
+        --dateselector-header-year-text-color        : #{neo(dateselector-header-year-text-color)};
+        --dateselector-nav-button-background-color   : #{neo(dateselector-nav-button-background-color)};
+        --dateselector-nav-button-border             : #{neo(dateselector-nav-button-border)};
+        --dateselector-nav-button-color              : #{neo(dateselector-nav-button-color)};
+        --dateselector-nav-button-color-hover        : #{neo(dateselector-nav-button-color-hover)};
+        --dateselector-nav-button-inner-border       : #{neo(dateselector-nav-button-inner-border)};
+    }
+}

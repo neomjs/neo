@@ -1,0 +1,26 @@
+{
+    "bodyTag": "<body>",
+    "buildFolder": "../../../dist/development",
+    "environment": "development",
+    "mainInput": "./src/Main.mjs",
+    "mainOutput": "main.js",
+
+    "workers": {
+        "data": {
+            "input": "./src/worker/Data.mjs",
+            "output": "dataworker.js"
+        },
+        "vdom": {
+            "input": "./src/worker/VDom.mjs",
+            "output": "vdomworker.js"
+        }
+    },
+
+    "apps": {
+        "RealWorld": {
+            "input": "myApps/RealWorld.mjs",
+            "output": "/apps/realworld/",
+            "title": "RealWorld"
+        }
+    }
+}

@@ -1,0 +1,22 @@
+<!DOCTYPE HTML>
+<html manifest="">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <title>Neo EmailField</title>
+</head>
+<body>
+    <script>
+        Neo = self.Neo || {}; Neo.config = Neo.config || {};
+
+        Object.assign(Neo.config, {
+            appPath       : 'examples/form/field/email/app.mjs',
+            basePath      : '../../../../',
+            environment   : 'development',
+            isExperimental: true
+        });
+    </script>
+
+    <script src="../../../../src/Main.mjs" type="module"></script>
+</body>
+</html>

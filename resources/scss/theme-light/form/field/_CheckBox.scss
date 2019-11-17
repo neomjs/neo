@@ -1,0 +1,11 @@
+$neoMap: map-merge($neoMap, (
+    'checkboxfield-color'        : #aaa,
+    'checkboxfield-checked-color': #1c60a0
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-light { // .neo-checkboxfield
+        --checkboxfield-color        : #{neo(checkboxfield-color)};
+        --checkboxfield-checked-color: #{neo(checkboxfield-checked-color)};
+    }
+}

@@ -1,0 +1,13 @@
+$neoMap: map-merge($neoMap, (
+    'pickerfield-container-background-color': #323232,
+    'pickerfield-container-border'          : none,
+    'pickerfield-container-box-shadow'      : 0 5px 10px rgba(0,0,0,.4)
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-light { // .neo-pickerfield
+        --pickerfield-container-background-color: #{neo(pickerfield-container-background-)};
+        --pickerfield-container-border          : #{neo(pickerfield-container-border)};
+        --pickerfield-container-box-shadow      : #{neo(pickerfield-container-box-shadow)};
+    }
+}

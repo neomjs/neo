@@ -1,0 +1,120 @@
+.neo-table-wrapper {
+    overflow: auto;
+    height  : 100%;
+}
+
+.neo-table-container {
+    border          : 1px solid v(table-container-border-color);
+    border-top-width: 0;
+    border-spacing  : 0;
+    color           : v(table-container-color);
+    font-size       : 13px;
+    font-weight     : 400;
+    line-height     : 19px;
+    overflow        : auto;
+
+    tr {
+        height    : 32px !important;
+        max-height: 32px !important;
+    }
+
+    tr:last-child {
+        td {
+            border-bottom-width: 0 !important;
+        }
+    }
+
+    tr:nth-child(even) {
+        td {
+            background-color: v(table-container-cell-background-color-even);
+        }
+    }
+
+    td, th {
+        min-width: 200px; // for testing
+        height   : inherit;
+        width    : inherit;
+
+        &:last-child {
+            border-right-color : transparent;
+        }
+
+        &.neo-locked {
+            position : sticky;
+        }
+    }
+
+    td {
+        background-color: v(table-container-cell-background-color);
+        border-bottom   : 1px solid v(table-container-border-color);
+        border-right    : 1px solid v(table-container-border-color);
+        border-top      : 1px solid transparent;
+        height          : 32px !important;
+        max-height      : 32px !important;
+        padding         : 2px 10px 2px;
+
+        &.neo-locked {
+            z-index: 10;
+        }
+    }
+
+    th {
+        border-bottom: v(table-container-header-cell-border-bottom);
+        border-right : 1px solid v(table-container-border-color);
+        border-top   : 1px solid v(table-container-border-color);
+        padding      : 0;
+        position     : sticky;
+        top          : 0;
+        z-index      : 10;
+
+        &.neo-locked {
+            z-index: 30;
+        }
+    }
+}
+
+.neo-table-wrapper {
+    &.neo-use-custom-scrollbar {
+        &::-webkit-scrollbar {
+            width:9px; // the top level needs a value or all sub classes get ignored
+
+            &:horizontal {
+                height:9px;
+            }
+
+            &:vertical {
+                width:9px;
+            }
+        }
+
+        &::-webkit-scrollbar-track {
+            -webkit-border-radius:5px;
+            border-radius:5px;
+            background:rgba(0,0,0,0.1);
+
+            &:vertical {
+                margin-top: 32px;
+            }
+        }
+
+        &::-webkit-scrollbar-thumb {
+            -webkit-border-radius:5px;
+            border-radius:5px;
+            background:rgba(0,0,0,0.2);
+        }
+
+        &::-webkit-scrollbar-thumb:hover {
+            background:rgba(0,0,0,0.4);
+        }
+
+        &::-webkit-scrollbar-thumb:window-inactive {
+            background:rgba(0,0,0,0.05);
+        }
+
+        &::-webkit-scrollbar-corner {
+            background-color: transparent;
+        }
+    }
+}
+
+#myTableContainer ::-webkit-scrollbar-track:horizontal {margin-left: 400px;}

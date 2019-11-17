@@ -1,0 +1,54 @@
+.neo-numberfield {
+    // https://trac.webkit.org/wiki/Styling%20Form%20Controls#inputelement
+    input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+    }
+    input::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    input[type=number] {
+        -moz-appearance: textfield;
+    }
+
+    .neo-input-wrapper {
+        .neo-field-trigger {
+            &.neo-spin-buttons {
+                border-left: 0;
+
+                &:hover {
+                    background-color: inherit;
+                    color           : inherit;
+                }
+            }
+        }
+    }
+
+    .neo-spin-button {
+        border-left: 1px solid v(textfield-border-color);
+        color      : v(trigger-color);
+        cursor     : pointer;
+        display    : block;
+        font-size  : 10px;
+        height     : 50%;
+        line-height: 11px;
+        text-align : center;
+        width      : 22px;
+
+        &.neo-up {
+            border-bottom: 1px solid v(textfield-border-color);
+            height       : calc(50% + .5px); // honoring the bottom border
+        }
+
+        &.neo-down {
+            height     : calc(50% - .5px);
+            line-height: 13px;
+        }
+
+        &:hover {
+            background-color: v(trigger-background-color-hover);
+            color           : v(trigger-color-hover);
+        }
+    }
+}

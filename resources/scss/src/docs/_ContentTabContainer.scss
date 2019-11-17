@@ -1,0 +1,26 @@
+.docs-content-tabcontainer {
+    overflow: hidden;
+
+    .docs-tab-header-toolbar {
+        background-color: v(docs-content-tabcontainer-tab-header-toolbar-background-color);
+
+        .neo-button-glyph {
+            pointer-events: all;
+            margin        : 0 4px 0 0 !important;
+            width         : 16px;
+
+            &:hover {
+                color : v(docs-content-tabcontainer-tab-header-toolbar-glyph-color-hover);
+                cursor: pointer;
+
+                &::before {
+                    content: "\f057" !important;
+                }
+            }
+        }
+    }
+
+    .neo-docs-tab-content-container {
+        border: 0;
+    }
+}

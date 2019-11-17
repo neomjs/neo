@@ -1,0 +1,88 @@
+.neo-disabled {
+    .neo-button {
+        cursor: default;
+    }
+}
+
+.neo-button {
+    align-items        : center;
+    background-color   : v(button-background-color);
+    background-image   : v(button-background-image);
+    border             : v(button-border);
+    border-radius      : v(button-border-radius);
+    box-sizing         : border-box;
+    cursor             : pointer;
+    display            : flex;
+    flex-direction     : row;
+    justify-content    : center;
+    margin             : v(button-margin);
+    padding            : v(button-padding);
+    position           : relative;
+    white-space        : nowrap;
+    -webkit-appearance : button;
+
+    &:active {
+        background-color: v(button-active-background-color) !important;
+        background-image: none !important;
+        border-color    : v(button-active-border-color);
+        color           : v(button-active-color) !important;
+    }
+
+    &:hover {
+        background-color: v(button-hover-background-color);
+        background-image: none !important;
+        border-color    : v(button-hover-border-color);
+        color           : v(button-hover-color);
+    }
+
+    &.no-text {
+        .neo-button-glyph {
+            margin: 0 !important;
+        }
+    }
+
+    .neo-button-glyph {
+        color         : v(button-glyph-color);
+        font-size     : 12px;
+        margin        : 0 6px 0 0;
+        pointer-events: none;
+    }
+
+    .neo-button-text {
+        color         : v(button-text-color);
+        font-family   : v(button-text-font-family);
+        font-size     : v(button-text-font-size);
+        font-weight   : v(button-text-font-weight);
+        line-height   : v(button-text-line-height);
+        pointer-events: none;
+        text-transform: v(button-text-transform);
+    }
+
+    &:focus {
+        outline : 0;
+    }
+
+    &.icon-bottom {
+        flex-direction: column-reverse;
+
+        .neo-button-glyph {
+            margin: 6px 0 0 0;
+        }
+    }
+
+    &.icon-right {
+        flex-direction: row-reverse;
+
+        .neo-button-glyph {
+            margin: 0 0 0 6px;
+        }
+    }
+
+    &.icon-top {
+        flex-direction: column;
+
+        .neo-button-glyph {
+            margin: 0 0 6px 0;
+        }
+    }
+}

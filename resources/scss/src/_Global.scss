@@ -1,0 +1,30 @@
+html, .neo-body-viewport {
+    height: 100%;
+    width : 100%;
+}
+
+.neo-body {
+    background-color: v(neo-background-color);
+    color           : v(neo-color);
+    font-family     : v(neo-font-family);
+    margin          : 0;
+
+    -webkit-font-smoothing: v(neo-font-smoothing);
+}
+
+.neo-body, .neo-body * {
+     box-sizing: border-box;
+ }
+
+.neo-disabled {
+    opacity       : v(neo-disabled-opacity);
+    pointer-events: none;
+}
+
+.neo-transition-600 {
+    transition: all 0.6s ease-in-out !important;
+}
+
+.neo-transition-1000 {
+    transition: all 1s ease-in-out !important;
+}

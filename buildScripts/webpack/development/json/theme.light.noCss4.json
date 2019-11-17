@@ -1,0 +1,5 @@
+{
+    "buildFolder": "../../../dist/development",
+    "entry"      : "./buildScripts/webpack/entrypoints/scss/theme_light.noCss4.scss.mjs",
+    "output"     : "neo-theme-light-no-css4.css"
+}

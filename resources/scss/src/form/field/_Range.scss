@@ -1,0 +1,37 @@
+.neo-rangefield {
+    .neo-rangefield-input {
+        margin-top: 12px;
+    }
+
+    input[type=range] {
+        -webkit-appearance: none;
+
+        &:focus {
+            outline: none;
+        }
+    }
+
+    input[type=range]::-webkit-slider-runnable-track {
+        background   : #3c3f41;
+        border-radius: 2px;
+        cursor       : pointer;
+        height       : 4px;
+        margin-top   : -8px;
+        width        : 100%;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+        background   : #bbb;
+        border-color : #3c3f41;
+        border-radius: 50%;
+        cursor       : ew-resize;
+        height       : 15px;
+        margin-top   : -5px;
+        width        : 15px;
+        will-change  : box-shadow;
+
+        &:active {
+            box-shadow: 0 0 0 4px rgba(51, 153, 204, 0.49);
+        }
+    }
+}

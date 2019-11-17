@@ -1,0 +1,13 @@
+$neoMap: map-merge($neoMap, (
+    'trigger-background-color-hover': #33343d,
+    'trigger-color'                 : #bbb,
+    'trigger-color-hover'           : #ddd
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-dark {
+        --trigger-background-color-hover: #{neo(trigger-background-color-hover)};
+        --trigger-color                 : #{neo(trigger-color)};
+        --trigger-color-hover           : #{neo(trigger-color-hover)};
+    }
+}

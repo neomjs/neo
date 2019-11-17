@@ -1,0 +1,31 @@
+@function neo($key) {
+    @return map-get($neoMap, $key);
+}
+
+@function calcVar($name, $operator, $value) {
+    @if($useCss4Vars) {
+             @if ($operator == '+') {@return calc(#{v(#{$name})} + #{$value});}
+        @else if ($operator == '-') {@return calc(#{v(#{$name})} - #{$value});}
+        @else if ($operator == '*') {@return calc(#{v(#{$name})} * #{$value});}
+        @else if ($operator == '/') {@return calc(#{v(#{$name})} / #{$value});}
+    } @else {
+        $var: neo($name);
+
+             @if ($operator == '+') {@return calc(#{$var} + #{$value});}
+        @else if ($operator == '-') {@return calc(#{$var} - #{$value});}
+        @else if ($operator == '*') {@return calc(#{$var} * #{$value});}
+        @else if ($operator == '/') {@return calc(#{$var} / #{$value});}
+    }
+}
+
+@function v($name, $fallback: null) {
+    @if($useCss4Vars) {
+        @if($fallback) {
+            @return var(--#{$name}, #{$fallback});
+        } @else {
+            @return var(--#{$name});
+        }
+    } @else {
+        @return #{neo($name)};
+    }
+}
