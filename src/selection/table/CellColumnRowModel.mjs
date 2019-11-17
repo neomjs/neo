@@ -7,36 +7,38 @@ import {default as VDomUtil} from '../../util/VDom.mjs';
  * @extends Neo.selection.table.CellRowModel
  */
 class CellColumnRowModel extends CellRowModel {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.selection.table.CellColumnRowModel'
-             * @private
-             */
-            className: 'Neo.selection.table.CellColumnRowModel',
-            /**
-             * @member {String} ntype='selection-table-cellcolumnrowmodel'
-             * @private
-             */
-            ntype: 'selection-table-cellcolumnrowmodel',
-            /**
-             * @member {String} cls='neo-selection-cellcolumnrowmodel'
-             * @private
-             */
-            cls: 'neo-selection-cellcolumnrowmodel',
-            /**
-             * @member {String} selectedColumnCellCls='selected-column-cell'
-             * @private
-             */
-            selectedColumnCellCls: 'selected-column-cell',
-            /**
-             * @member {Array|null} selectedColumnCellIds=null
-             * @private
-             */
-            selectedColumnCellIds: null
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.selection.table.CellColumnRowModel'
+         * @private
+         */
+        className: 'Neo.selection.table.CellColumnRowModel',
+        /**
+         * @member {String} ntype='selection-table-cellcolumnrowmodel'
+         * @private
+         */
+        ntype: 'selection-table-cellcolumnrowmodel',
+        /**
+         * @member {String} cls='neo-selection-cellcolumnrowmodel'
+         * @private
+         */
+        cls: 'neo-selection-cellcolumnrowmodel',
+        /**
+         * @member {String} selectedColumnCellCls='selected-column-cell'
+         * @private
+         */
+        selectedColumnCellCls: 'selected-column-cell',
+        /**
+         * @member {Array|null} selectedColumnCellIds=null
+         * @private
+         */
+        selectedColumnCellIds: null
+    }}
 
+    /**
+     *
+     * @param {Object} config
+     */
     constructor(config) {
         super(config);
 

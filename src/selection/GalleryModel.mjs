@@ -7,26 +7,24 @@ import NeoArray from '../util/Array.mjs';
  * @extends Neo.selection.Model
  */
 class GalleryModel extends Model {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.selection.GalleryModel'
-             * @private
-             */
-            className: 'Neo.selection.GalleryModel',
-            /**
-             * @member {String} ntype='selection-gallerymodel'
-             * @private
-             */
-            ntype: 'selection-gallerymodel',
-            /**
-             * True to stay in the same column when navigating with the up and down keys,
-             * otherwise you will navigate to the next / prev column when moving out
-             * @member {Boolean} stayInRow=false
-             */
-            stayInRow: false
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.selection.GalleryModel'
+         * @private
+         */
+        className: 'Neo.selection.GalleryModel',
+        /**
+         * @member {String} ntype='selection-gallerymodel'
+         * @private
+         */
+        ntype: 'selection-gallerymodel',
+        /**
+         * True to stay in the same column when navigating with the up and down keys,
+         * otherwise you will navigate to the next / prev column when moving out
+         * @member {Boolean} stayInRow=false
+         */
+        stayInRow: false
+    }}
 
     /**
      *

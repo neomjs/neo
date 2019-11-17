@@ -6,25 +6,23 @@ import {default as VDomUtil} from '../../util/VDom.mjs';
  * @extends Neo.selection.Model
  */
 class RowModel extends Model {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.selection.table.RowModel'
-             * @private
-             */
-            className: 'Neo.selection.table.RowModel',
-            /**
-             * @member {String} ntype='selection-table-rowmodel'
-             * @private
-             */
-            ntype: 'selection-table-rowmodel',
-            /**
-             * @member {String} cls='selection-rowmodel'
-             * @private
-             */
-            cls: 'neo-selection-rowmodel'
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.selection.table.RowModel'
+         * @private
+         */
+        className: 'Neo.selection.table.RowModel',
+        /**
+         * @member {String} ntype='selection-table-rowmodel'
+         * @private
+         */
+        ntype: 'selection-table-rowmodel',
+        /**
+         * @member {String} cls='selection-rowmodel'
+         * @private
+         */
+        cls: 'neo-selection-rowmodel'
+    }}
 
     /**
      *
@@ -143,7 +141,6 @@ class RowModel extends Model {
             });
         }
     }
-
 
     /**
      *

@@ -5,20 +5,18 @@ import Model from './Model.mjs';
  * @extends Neo.selection.Model
  */
 class CircleModel extends Model {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.selection.CircleModel'
-             * @private
-             */
-            className: 'Neo.selection.CircleModel',
-            /**
-             * @member {String} ntype='selection-circlemodel'
-             * @private
-             */
-            ntype: 'selection-circlemodel'
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.selection.CircleModel'
+         * @private
+         */
+        className: 'Neo.selection.CircleModel',
+        /**
+         * @member {String} ntype='selection-circlemodel'
+         * @private
+         */
+        ntype: 'selection-circlemodel'
+    }}
 
     /**
      *
