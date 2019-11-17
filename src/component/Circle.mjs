@@ -144,7 +144,7 @@ class Circle extends Component {
         }
 
         if (!me.itemImagePath) {
-            me.itemImagePath = Neo.config.resourcesPath + 'examples/images/';
+            me.itemImagePath = Neo.config.resourcesPath + 'examples/';
         }
 
         domListeners.push({
