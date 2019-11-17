@@ -16,5 +16,11 @@
         }
     },
 
-    "apps": {}
+    "apps": {
+        "RealWorld": {
+            "input": "myApps/RealWorld.mjs",
+            "output": "/apps/realworld/",
+            "title": "RealWorld"
+        }
+    }
 }
