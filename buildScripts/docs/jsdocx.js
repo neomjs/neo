@@ -104,7 +104,13 @@ function generateStructure(target, parentId, docs) {
                 docItem = docs[i];
 
                 if ((docItem.$kind === 'class' || docItem.$kind === 'module') && docItem.neoClassName === className) {
-                    srcPath = docItem.meta.path.substr(docItem.meta.path.indexOf('neoteric/') + 9) + '/' + docItem.meta.filename;
+                    if (docItem.meta.path.indexOf('neoteric/') > -1) {
+                        srcPath = docItem.meta.path.substr(docItem.meta.path.indexOf('neoteric/') + 9) + '/' + docItem.meta.filename;
+                    } else if (docItem.meta.path.substr(docItem.meta.path.indexOf('neomjs/') > -1)) {
+                        srcPath = docItem.meta.path.substr(docItem.meta.path.indexOf('neomjs/') + 7) + '/' + docItem.meta.filename;
+                    } else {
+                        srcPath = docItem.meta.path.substr(docItem.meta.path.indexOf('neo/') + 4) + '/' + docItem.meta.filename;
+                    }
 
                     if (docItem.tags) {
                         j         = 0;
