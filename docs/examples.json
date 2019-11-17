@@ -1,0 +1,267 @@
+[
+    {
+        "id"      : 1,
+        "isLeaf"  : false,
+        "name"    : "Configuration",
+        "parentId": null
+    },
+    {
+        "id"      : 2,
+        "isLeaf"  : false,
+        "name"    : "component",
+        "parentId": 1
+    },
+    {
+        "id"      : 3,
+        "isLeaf"  : true,
+        "name"    : "Button",
+        "parentId": 2,
+        "path"    : "../../../examples/component/button/MainContainer.mjs"
+    },
+    {
+        "id"      : 4,
+        "isLeaf"  : true,
+        "name"    : "Chip",
+        "parentId": 2,
+        "path"    : "../../../examples/component/chip/MainContainer.mjs"
+    },
+    {
+        "id"      : 5,
+        "isLeaf"  : true,
+        "name"    : "Circle",
+        "parentId": 2,
+        "path"    : "../../../examples/component/circle/MainContainer.mjs"
+    },
+    {
+        "id"      : 6,
+        "isLeaf"  : true,
+        "name"    : "DateSelector",
+        "parentId": 2,
+        "path"    : "../../../examples/component/dateSelector/MainContainer.mjs"
+    },
+    {
+        "id"      : 7,
+        "isLeaf"  : true,
+        "name"    : "Gallery",
+        "parentId": 2,
+        "path"    : "../../../examples/component/gallery/GalleryMainContainer.mjs"
+    },
+    {
+        "id"      : 8,
+        "isLeaf"  : true,
+        "name"    : "Helix",
+        "parentId": 2,
+        "path"    : "../../../examples/component/helix/HelixMainContainer.mjs"
+    },
+    {
+        "id"      : 9,
+        "isLeaf"  : false,
+        "name"    : "form",
+        "parentId": 1
+    },
+    {
+        "id"      : 10,
+        "isLeaf"  : false,
+        "name"    : "field",
+        "parentId": 9
+    },
+    {
+        "id"      : 11,
+        "isLeaf"  : true,
+        "name"    : "Chip",
+        "parentId": 10,
+        "path"    : "../../../examples/form/field/chip/MainContainer.mjs"
+    },
+    {
+        "id"      : 12,
+        "isLeaf"  : true,
+        "name"    : "Date",
+        "parentId": 10,
+        "path"    : "../../../examples/form/field/date/MainContainer.mjs"
+    },
+    {
+        "id"      : 13,
+        "isLeaf"  : true,
+        "name"    : "Email",
+        "parentId": 10,
+        "path"    : "../../../examples/form/field/email/MainContainer.mjs"
+    },
+    {
+        "id"      : 14,
+        "isLeaf"  : true,
+        "name"    : "Number",
+        "parentId": 10,
+        "path"    : "../../../examples/form/field/number/MainContainer.mjs"
+    },
+    {
+        "id"      : 15,
+        "isLeaf"  : true,
+        "name"    : "Picker",
+        "parentId": 10,
+        "path"    : "../../../examples/form/field/picker/MainContainer.mjs"
+    },
+    {
+        "id"      : 16,
+        "isLeaf"  : true,
+        "name"    : "Select",
+        "parentId": 10,
+        "path"    : "../../../examples/form/field/select/MainContainer.mjs"
+    },
+    {
+        "id"      : 17,
+        "isLeaf"  : true,
+        "name"    : "Text",
+        "parentId": 10,
+        "path"    : "../../../examples/form/field/text/MainContainer.mjs"
+    },
+    {
+        "id"      : 18,
+        "isLeaf"  : true,
+        "name"    : "TextArea",
+        "parentId": 10,
+        "path"    : "../../../examples/form/field/textarea/MainContainer.mjs"
+    },
+    {
+        "id"      : 19,
+        "isLeaf"  : true,
+        "name"    : "Time",
+        "parentId": 10,
+        "path"    : "../../../examples/form/field/time/MainContainer.mjs"
+    },
+    {
+        "id"      : 20,
+        "isLeaf"  : false,
+        "name"    : "list",
+        "parentId": 1
+    },
+    {
+        "id"      : 21,
+        "isLeaf"  : true,
+        "name"    : "Base",
+        "parentId": 20,
+        "path"    : "../../../examples/list/base/MainContainer.mjs"
+    },
+    {
+        "id"      : 22,
+        "isLeaf"  : true,
+        "name"    : "Chip",
+        "parentId": 20,
+        "path"    : "../../../examples/list/chip/MainContainer.mjs"
+    },
+    {
+        "id"      : 23,
+        "isLeaf"  : false,
+        "name"    : "tab",
+        "parentId": 1
+    },
+    {
+        "id"      : 24,
+        "isLeaf"  : true,
+        "name"    : "Container",
+        "parentId": 23,
+        "path"    : "../../../examples/tab/container/MainContainer.mjs"
+    },
+    {
+        "id"      : 25,
+        "isLeaf"  : false,
+        "name"    : "table",
+        "parentId": 1
+    },
+    {
+        "id"      : 26,
+        "isLeaf"  : true,
+        "name"    : "Container",
+        "parentId": 25,
+        "path"    : "../../../examples/table/container/MainContainer.mjs"
+    },
+    {
+        "id"      : 27,
+        "isLeaf"  : false,
+        "name"    : "TodoList",
+        "parentId": null
+    },
+    {
+        "id"      : 28,
+        "isLeaf"  : true,
+        "name"    : "Version 1",
+        "parentId": 27,
+        "path"    : "../../../examples/todoList/version1/MainComponent.mjs"
+    },
+    {
+        "id"      : 29,
+        "isLeaf"  : true,
+        "name"    : "Version 2",
+        "parentId": 27,
+        "path"    : "../../../examples/todoList/version2/MainContainer.mjs"
+    },
+    {
+        "id"       : 30,
+        "collapsed": true,
+        "isLeaf"   : false,
+        "name"     : "Others",
+        "parentId" : null
+    },
+    {
+        "id"      : 31,
+        "isLeaf"  : true,
+        "name"    : "Container",
+        "parentId": 30,
+        "path"    : "../../../examples/container/MainContainer.mjs"
+    },
+    {
+        "id"      : 32,
+        "isLeaf"  : true,
+        "name"    : "Fields",
+        "parentId": 30,
+        "path"    : "../../../examples/fields/MainContainer.mjs"
+    },
+    {
+        "id"      : 33,
+        "isLeaf"  : true,
+        "name"    : "Panel",
+        "parentId": 30,
+        "path"    : "../../../examples/panel/MainContainer.mjs"
+    },
+    {
+        "id"      : 34,
+        "isLeaf"  : true,
+        "name"    : "Table Performance",
+        "parentId": 30,
+        "path"    : [
+            "../../../examples/tablePerformance/MainContainer.mjs",
+            "../../../examples/tablePerformance/MainContainer2.mjs",
+            "../../../examples/tablePerformance/MainContainer3.mjs"
+        ]
+    },
+    {
+        "id"      : 35,
+        "isLeaf"  : true,
+        "name"    : "Table & Store",
+        "parentId": 30,
+        "path"    : "../../../examples/tableStore/MainContainer.mjs"
+    },
+    {
+        "id"      : 36,
+        "isLeaf"  : true,
+        "name"    : "Tabs",
+        "parentId": 30,
+        "path"    : [
+            "../../../examples/tabs/MainContainer.mjs",
+            "../../../examples/tabs/MainContainer2.mjs"
+        ]
+    },
+    {
+        "id"      : 37,
+        "isLeaf"  : true,
+        "name"    : "Viewport",
+        "parentId": 30,
+        "path"    : "../../../examples/viewport/MainContainer.mjs"
+    },
+    {
+        "id"      : 38,
+        "isLeaf"  : true,
+        "name"    : "Window",
+        "parentId": 30,
+        "path"    : "../../../examples/window/MainContainer.mjs"
+    }
+]

@@ -1,0 +1,504 @@
+<div class="neo-header-text-container" xmlns="http://www.w3.org/1999/html">
+    <span class="neo-header-text">Tutorial: Building a TodoList, Version 1</span>
+</div>
+<article>
+    <h3>About the tutorial</h3>
+    <p>
+        This tutorial is split into 2 versions.
+    </p>
+    <ol>
+        <li>The first version will start from scratch extending component.Base as well as dealing with the basic setup.</br>
+        The goal is to give you a basic understanding on how to craft a custom component and work with the virtual dom.</li>
+        <li>Version 2 will use a viewport, list & store and shows you how to solve the task using all Neo has to offer for it.</li>
+    </ol>
+    You can find the code-related results of each of these 2 tutorials inside neoteric/examples/todoList.</br>
+    They are also available inside the examples tab of the docs app.
+    <h3>1) Basic Setup</h3>
+    <p>
+        Since this might be your first App using Neo, let us start with the basic file structure.</br>
+        I created 3 new files inside the neoteric/examples folder:
+    </p>
+    <img src="./resources/images/tutorials/todolist-v1-files.png">
+    <ol>
+        <li><h4>index.html:</h4>
+            The index file needs to include Main.mjs, which is the starting point of the Neo main thread.</br>
+            You can use this file to add config options for the Neo framework.</br>
+            Take a look at API/Neo => config for further details.
+            <pre><code>&lt;!DOCTYPE HTML&gt;
+    &lt;html manifest=""&gt;
+    &lt;head&gt;
+        &lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;
+        &lt;meta charset="UTF-8"&gt;
+        &lt;title&gt;Neo TodoList version1&lt;/title&gt;
+    &lt;/head&gt;
+    &lt;body&gt;
+        &lt;script&gt;
+            Neo = self.Neo || {}; Neo.config = Neo.config || {};
+
+            Object.assign(Neo.config, {
+                appPath       : 'examples/todoList/version1/app.mjs',
+                basePath      : '../../../',
+                environment   : 'development',
+                isExperimental: true
+            });
+        &lt;/script&gt;
+
+        &lt;script src="../../../src/Main.mjs" type="module"&gt;&lt;/script&gt;
+    &lt;/body&gt;
+    &lt;/html&gt;</code></pre></li>
+        <li><h4>app.mjs:</h4>
+            <p>
+                This file is the main entry point for the apps that you create using Neo.</br>
+                Once the workers are started, the App worker will dynamically import this file.</br>
+                You need to import your main view here, give your App a name and point to the directory of the app code base.</br>
+                Be aware: Inside this scope, there is no window or window.document.</br>
+                If you like to, you can use Neo.app() multiple times to create more than one App.
+            </p>
+        <pre><code>import MainComponent from './MainComponent.mjs';
+
+Neo.onStart = function() {
+    Neo.app({
+        appPath : 'examples/todoList/version1/',
+        mainView: MainComponent,
+        name    : 'TodoListApp1'
+    });
+};</code></pre>
+        </li>
+        <li><h4>MainComponent.mjs:</h4>
+            <p>The class definition of your main App view. In "full screen" mode, you would most likely extend container.Viewport,
+            in case you want to render a Neo App inside an already existing Container, you can do this as well.</br>
+            In this case you would use renderTo: 'nodeId' inside your app.mjs file.</br>
+            For version1 we will just extend component.Base to get you familiar with some basic concepts.</p>
+        <pre><code>import {default as Component} from '../../../src/component/Base.mjs';
+
+/**
+ * @class TodoListApp1.MainComponent
+ * @extends Neo.component.Base
+ */
+class MainComponent extends Component {
+    static getConfig() {return {
+        className: 'TodoListApp1.MainComponent',
+        ntype    : 'todolistapp1-maincomponent',
+
+        autoMount: true,
+        height   : 150,
+        margin   : 10,
+        width    : 300,
+
+        vdom: {
+            tag  : 'div',
+            style: {
+                border: '1px solid #000',
+                margin: '20px'
+            }
+        }
+    }}
+}
+
+Neo.applyClassConfig(MainComponent);
+
+export {MainComponent as default};</code></pre>
+        </li>
+    </ol>
+    <p>This is literally all you need to do to get started crafting your first custom component!</p>
+    <p>Moving forward from here we will only need to apply changes to MainComponent.mjs.</p>
+    <p>As a first step, let us add some content into our component:</p>
+    <pre><code>import {default as Component} from '../../../src/component/Base.mjs';
+
+/**
+ * @class TodoListApp1.MainComponent
+ * @extends Neo.component.Base
+ */
+class MainComponent extends Component {
+    static getConfig() {return {
+        className: 'TodoListApp1.MainComponent',
+        ntype    : 'todolistapp1-maincomponent',
+
+        autoMount: true,
+        height   : 150,
+        margin   : 10,
+        maxWidth : 300,
+        style    : {border: '1px solid #000', margin: '20px', overflow: 'scroll'},
+        width    : 300,
+
+        /**
+         * @member {Object[]} data
+         */
+        data: [
+            {id: 1, done: true,  text: 'Todo Item 1'},
+            {id: 2, done: false, text: 'Todo Item 2'},
+            {id: 3, done: false, text: 'Todo Item 3'}
+        ],
+
+        vdom: {
+            tag: 'div',
+            cn : [{
+                tag: 'ol',
+                cn : []
+            }, {
+                tag: 'div',
+                cn : [{
+                    tag     : 'input',
+                    required: true,
+                    style   : {marginLeft: '20px'}
+                }, {
+                    tag  : 'button',
+                    html : 'Add Item',
+                    style: {marginLeft: '10px'}
+                }]
+            }]
+        }
+    }}
+
+    constructor(config) {
+        super(config);
+        this.createItems(this.data || []);
+    }
+
+    createItems(data) {
+        let me   = this,
+            vdom = me.vdom,
+            cls;
+
+        data.forEach(item => {
+            cls = ['todo-item'];
+
+            if (item.done) {
+                cls.push('fa', 'fa-check');
+            } else {
+                cls.push('far', 'fa-square');
+            }
+
+            vdom.cn[0].cn.push({
+                tag: 'li',
+                cn : [{
+                    tag  : 'span',
+                    cls  : cls,
+                    style: {cursor: 'pointer', width: '20px'}
+                }, {
+                    vtype: 'text',
+                    html : item.text
+                }]
+            });
+        });
+
+        me.vdom = vdom;
+    }
+}
+
+Neo.applyClassConfig(MainComponent);
+
+export {MainComponent as default};</code></pre>
+    <p>
+        We moved "style" from the top level vdom node to the component level, which is equivalent.</br>
+        height, margin, maxWidth & width are convenience shortcuts: they default to px and get assigned to the top level
+        vdom node style property. Take a look at API/component/Base for a full list of the available configs!
+    </p>
+    <p>
+        We added the custom config "data", which contains the information we need to initially render some todo-items.</br>
+        Our constructor will call createItems() passing this data array.
+    </p>
+    <p>
+        createItems() will iterate through the data array and push the new items into vdom.cn[0].cn</br>
+        This is the ol tag which we defined inside our vdom skeleton.
+    </p>
+    <p>
+        Afterwards we call me.vdom = vdom; which is not an assignment, but a setter.</br>
+        Since our component is neither rendered nor mounted at this point, it will just change the vdom object though.
+    </p>
+    <p>
+        vtype: 'text' is useful to add innerHTML behind (or before) the span tag without creating a new tag.
+    </p>
+    <p>
+        Side node: You should not use so many inline styles and go for (S)CSS files instead.
+    </p>
+    <p>
+        Our App will look like this now:
+    </p>
+
+    <div style="border:1px solid #000;margin:20px;overflow:scroll;height:200px;width:300px;max-width:300px;" id="neo-todolistapp1-maincomponent-1">
+        <ol id="neo-vnode-7">
+            <li id="neo-vnode-2"><span style="cursor:pointer;width:20px;" class="todo-item fa fa-check" id="neo-vnode-1"></span>Todo Item 1</li>
+            <li id="neo-vnode-4"><span style="cursor:pointer;width:20px;" class="todo-item far fa-square" id="neo-vnode-3"></span>Todo Item 2</li>
+            <li id="neo-vnode-6"><span style="cursor:pointer;width:20px;" class="todo-item far fa-square" id="neo-vnode-5"></span>Todo Item 3</li>
+        </ol>
+        <div id="neo-vnode-10">
+            <input style="margin-left:20px;" class="todo-input" id="neo-vnode-8" required="">
+            <button style="margin-left:10px;" class="todo-add-button" id="neo-vnode-9">Add Item</button>
+        </div>
+    </div>
+    
+    <p>The generated DOM will be:</p>
+    <pre><code>&lt;div style="border:1px solid #000;margin:20px;overflow:scroll;height:200px;width:300px;max-width:300px;" id="neo-todolistapp1-maincomponent-1"&gt;
+    &lt;ol id="neo-vnode-7"&gt;
+        &lt;li id="neo-vnode-2"&gt;&lt;span style="cursor:pointer;width:20px;" class="todo-item fa fa-check" id="neo-vnode-1"&gt;&lt;/span&gt;Todo Item 1&lt;/li&gt;
+        &lt;li id="neo-vnode-4"&gt;&lt;span style="cursor:pointer;width:20px;" class="todo-item far fa-square" id="neo-vnode-3"&gt;&lt;/span&gt;Todo Item 2&lt;/li&gt;
+        &lt;li id="neo-vnode-6"&gt;&lt;span style="cursor:pointer;width:20px;" class="todo-item far fa-square" id="neo-vnode-5"&gt;&lt;/span&gt;Todo Item 3&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;div id="neo-vnode-10"&gt;
+        &lt;input style="margin-left:20px;" class="todo-input" id="neo-vnode-8" required=""&gt;
+        &lt;button style="margin-left:10px;" class="todo-add-button" id="neo-vnode-9"&gt;Add Item&lt;/button&gt;
+    &lt;/div&gt;
+&lt;/div&gt;</code></pre>
+    <p>
+        You will notice that all dom nodes got an id. This is important for the vdom
+        Engine to detect moved nodes.</br>
+        Since a todoList without any logic is no fun, let's change this!
+    </p>
+    <pre><code>constructor(config) {
+    super(config);
+
+    let me           = this,
+        domListeners = me.domListeners || [];
+
+    domListeners.push(
+        {click: me.onAddButtonClick,   delegate: 'todo-add-button'},
+        {click: me.onCheckIconClick,   delegate: 'todo-item'},
+        {input: me.onInputFieldChange, delegate: 'todo-input'}
+    );
+
+    me.domListeners = domListeners;
+
+    me.createItems(me.data || []);
+}</code></pre>
+    <p>
+        To interact with the real dom, it is important to use dom listeners. You can assign them locally to any dom node
+        (in which case you need to add local: true and a dom id), but there is no need to do so. Neo will assign listeners to
+        the document.body for all important events and they will get delegated to your components main node. In case you want
+        to delegate further down to specific child nodes inside your component, using css classnames is a smart way to assign them to element groups.</br>
+        (you can delegate to specific node ids as well using # => delegate: '#myNodeId')
+    </p>
+    <p>
+        At this point our "Add Item" button will trigger onAddButtonClick() when it receives a click event, all check or square
+        icons will receive onCheckIconClick() and the input field will call onInputFieldChange() in case an input event fires.
+    </p>
+
+    <pre><code>onInputFieldChange(data) {
+    this.inputValue = data.value;
+}</code></pre>
+    <p>I added a new custom config into the component (inputValue:null), which will now get the real value of the textfield.</p>
+    <pre><code>onAddButtonClick() {
+    let me = this;
+
+    if (me.inputValue) {
+        me.createItems([{
+            id  : null,
+            done: false,
+            text: me.inputValue
+        }]);
+    }
+}</code></pre>
+    <p>
+        Once we receive a button click, we do a check if there is a value (assigning a todo item without a name makes little sense).
+        In case there is content, we use createItems() like before (we set the id to null, assuming it would get generated on your backend.
+    </p>
+    <p>
+        Afterwards we call me.vdom = vdom; again.</br>
+        <b>Now this part is really important:</b> At this point, our component will already be rendered & mounted.</br>
+        Instead of just changing the vdom object locally, the setter will now send the new vdom to the vdom worker thread, it will get checked
+        for delta updates and create a new vnode and then the main thread applies the delta updates to the real DOM.
+    </p>
+    <p>
+        In case you do add a new todo item and log the resulting deltas (main.DomAccess => logDeltaUpdates:true, you will see something like:
+    </p>
+    <pre><code>{
+    action   : "insertNode",
+    id       : "neo-vnode-12",
+    index    : 3,
+    outerHTML: "&lt;li id="neo-vnode-12"&gt;&lt;span style="cursor:pointer;width:20px;" class="todo-item far fa-square" id="neo-vnode-11"&gt;&lt;/span&gt;Learn Neo&lt;/li&gt;",
+    parentId : "neo-vnode-7"
+}</code></pre>
+    <p>
+        The last missing dom listener is onCheckIconClick:
+    </p>
+    <pre><code>onCheckIconClick(data) {
+    let me     = this,
+        cls    = ['far', 'fa-square'],
+        oldCls = ['fa',  'fa-check'],
+        vdom   = me.vdom,
+        node   = VdomUtil.findVdomChild(me.vdom, data.path[0].id).vdom;
+
+    if (data.path[0].cls.includes('fa-square')) {
+        cls    = ['fa',  'fa-check'];
+        oldCls = ['far', 'fa-square'];
+    }
+
+    NeoArray.remove(node.cls, oldCls);
+    NeoArray.add(node.cls, cls);
+
+    me.vdom = vdom;
+}</code></pre>
+    <p>
+        We imported NeoArray & VdomUtil to keep the logic short.<br>
+        NeoArray add() & remove() can pass an array of items which will add / remove each item, in case it is not already there / exists.<br>
+        VdomUtil.findVdomChild() can either pass a node id or an opts object, containing multiple vdom properties to search for.
+        E.g. VdomUtil.findVdomChild(me.vdom, {tag:'div', cls:'color-red'}). It does return the vdom (node), the parent node and the index inside
+        the parent node cn array.<br>
+        Take a look at API/util/Array and API/util/Vdom for further infos!
+    </p>
+    <p>
+        Of course you could as well manually iterate through the list items and spot the one with the matching id.
+    </p>
+    <p>
+        The data param contains the info of the dom event (converted into json), it is available for all dom event listeners.<br>
+        We are checking the first item inside the event path and just replace the square with a check icon or vice versa.<br>
+        Again we are calling me.vdom = vdom; which will result in an delta update like this:
+    </p>
+    <pre><code>{
+    cls: {
+        add:    ["fa", "fa-check"]
+        remove: ["far", "fa-square"]
+    }
+}</code></pre>
+    <p>
+        Here is the full code of our todoList component:
+    </p>
+
+    <pre><code style="height: 500px;">import {default as Component} from '../../../src/component/Base.mjs';
+import NeoArray               from '../../../src/util/Array.mjs';
+import {default as VdomUtil}  from '../../../src/util/VDom.mjs';
+
+/**
+ * @class TodoListApp1.MainComponent
+ * @extends Neo.component.Base
+ */
+class MainComponent extends Component {
+    static getConfig() {return {
+        className: 'TodoListApp1.MainComponent',
+        ntype    : 'todolistapp1-maincomponent',
+
+        autoMount: true,
+        height   : 200,
+        margin   : 10,
+        maxWidth : 300,
+        style    : {border: '1px solid #000', margin: '20px', overflow: 'scroll'},
+        width    : 300,
+
+        /**
+         * @member {Object[]} data
+         */
+        data: [
+            {id: 1, done: true,  text: 'Todo Item 1'},
+            {id: 2, done: false, text: 'Todo Item 2'},
+            {id: 3, done: false, text: 'Todo Item 3'}
+        ],
+
+        /**
+         * @member {String|null} inputValue=null
+         */
+        inputValue: null,
+
+        vdom: {
+            tag: 'div',
+            cn : [{
+                tag: 'ol',
+                cn : []
+            }, {
+                tag: 'div',
+                cn : [{
+                    tag     : 'input',
+                    cls     : ['todo-input'],
+                    required: true,
+                    style   : {marginLeft: '20px'}
+                }, {
+                    tag  : 'button',
+                    cls  : ['todo-add-button'],
+                    html : 'Add Item',
+                    style: {marginLeft: '10px'}
+                }]
+            }]
+        }
+    }}
+
+    constructor(config) {
+        super(config);
+
+        let me           = this,
+            domListeners = me.domListeners || [];
+
+        domListeners.push(
+            {click: me.onAddButtonClick,   delegate: 'todo-add-button'},
+            {click: me.onCheckIconClick,   delegate: 'todo-item'},
+            {input: me.onInputFieldChange, delegate: 'todo-input'}
+        );
+
+        me.domListeners = domListeners;
+
+        me.createItems(me.data || []);
+    }
+
+    createItems(data) {
+        let me   = this,
+            vdom = me.vdom,
+            cls;
+
+        data.forEach(item => {
+            cls = ['todo-item'];
+
+            if (item.done) {
+                cls.push('fa', 'fa-check');
+            } else {
+                cls.push('far', 'fa-square');
+            }
+
+            vdom.cn[0].cn.push({
+                tag: 'li',
+                cn : [{
+                    tag  : 'span',
+                    cls  : cls,
+                    style: {cursor: 'pointer', width: '20px'}
+                }, {
+                    vtype: 'text',
+                    html : item.text
+                }]
+            });
+        });
+
+        me.vdom = vdom;
+    }
+
+    onAddButtonClick() {
+        let me = this;
+
+        if (me.inputValue) {
+            me.createItems([{
+                id  : null,
+                done: false,
+                text: me.inputValue
+            }]);
+        }
+    }
+
+    onCheckIconClick(data) {
+        let me     = this,
+            cls    = ['far', 'fa-square'],
+            oldCls = ['fa',  'fa-check'],
+            vdom   = me.vdom,
+            node   = VdomUtil.findVdomChild(me.vdom, data.path[0].id).vdom;
+
+        if (data.path[0].cls.includes('fa-square')) {
+            cls    = ['fa',  'fa-check'];
+            oldCls = ['far', 'fa-square'];
+        }
+
+        NeoArray.remove(node.cls, oldCls);
+        NeoArray.add(node.cls, cls);
+
+        me.vdom = vdom;
+    }
+
+    onInputFieldChange(data) {
+        this.inputValue = data.value;
+    }
+}
+
+Neo.applyClassConfig(MainComponent);
+
+export {MainComponent as default};</code></pre>
+    <p>
+        This is already the end of the version1 tutorial. Version2 will show you how to solve the task easier.
+    </p>
+    <p>
+        We hope this tutorial helped you to get a basic understanding on how to create a first custom component and on how to work with dom listeners!
+    </p>
+</article>

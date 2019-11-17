@@ -1,0 +1,156 @@
+<div class="neo-header-text-container">
+    <span class="neo-header-text">Tutorial: Virtual DOM & Virtual Nodes</span>
+</div>
+<article>
+    <h4>Virtual DOM (Vdom)</h4>
+    <p>Since most parts of the neoteric framework as well as all apps you will create run inside the App worker,
+    there is no direct access to the DOM (window & window.document are undefined inside the worker scope).</p>
+    <p>Neoteric uses a custom JSON / JS-Object based vdom engine to handle the component markup and the changes.
+    As an example, let's take a look at the component.Button markup:</p>
+    <pre><code>_vdom: {
+    tag: 'button',
+    cn : [{
+        tag: 'span',
+        cls: ['neo-button-glyph']
+    }, {
+        tag: 'span',
+        cls: ['neo-button-text']
+    }]
+}</code></pre>
+    <p>This template filled with content would create a resulting html like:</p>
+    <pre><code>&lt;button class="neo-button icon-left" id="neo-button-1000"&gt;
+    &lt;span class="neo-button-glyph fa fa-home" id="neo-vnode-1000">&lt;/span&gt;
+    &lt;span class="neo-button-text" id="neo-vnode-1001">Hello World&lt;/span&gt;
+&lt;/button&gt;</code></pre>
+    <p>Which will look like this:</p>
+    <button class="neo-button icon-left" id="neo-button-1000">
+        <span class="neo-button-glyph fa fa-home" id="neo-vnode-1000"></span>
+        <span class="neo-button-text" id="neo-vnode-1001">Hello World</span>
+    </button>
+    <p>Available properties for each vdom object are:</p>
+    <pre><code>{String}        tag|nodeName           the tag of the node
+{String}        html|innerHTML         node.innerHTML
+{Array}         children|childNodes|cn child nodes
+{Array|String}  cls                    node.className
+{Number|String} height                 shortcut for style.height, defaults to px
+{String}        id                     the dom id, will get auto-populated if not set (e.g. neo-vnode-1)
+{Number|String} minHeight              shortcut for style.minHeight, defaults to px
+{Number|String} minWidth               shortcut for style.minWidth, defaults to px
+{Object|String} style                  camel cased style definitions
+{Number|String} width                  shortcut for style.width, defaults to px
+</code></pre>
+    <p>For more details, take a look at:
+        <a class="neo-docs-view-source-link" href="#viewSource=vdom.Helper&amp;line=223">vdom.Helper:parseHelper()</a>
+    </p>
+    <hr>
+    <h4>Rendering an app</h4>
+    <p>Once you created your app, you will call the render() method for its main view.
+        This will send the full vdom tree to the Vdom worker and create a Virtual Node (VNode) tree.<br>
+        See: <a class="neo-docs-view-source-link" href="#viewSource=component.Base&amp;line=769">component.Base:render()</a>
+    </p>
+    <p>The top level vnode will contain the full html as a string inside the outerHTML property.
+        If you want to, you could create an outerHTML property for each sub-node as well
+        (take a look at the vdom.Helper config returnChildNodeOuterHtml: false.
+        Not recommended or needed to change it, but it could help you for debugging purposes).
+    </p>
+    <hr>
+    <h4>Mounting an app</h4>
+    <p>Once you call mount() on your application main view (or in case the autoMount config is set to true),
+        the App worker will send the html to the main thread which will inject the html into a given DOM node id
+        or the framework will take care of the DOM node itself in case the main view is a container.Viewport.
+    </p>
+    <hr>
+    <h4>Virtual Nodes (Vnodes)</h4>
+    <p>After render() gets called on your main view, the framework will assign the relevant vnode sub-trees
+        to each container item in a recursive way. So at this point, every rendered component of your app will
+        have a vdom and a vnode property.
+    </p>
+    <hr>
+    <h4>Delta Updates</h4>
+    <p>After your app is mounted, you can modify the vdom of each component directly to trigger delta updates.
+        As an example:</p>
+    <pre><code>myButton.iconColor='red';</code></pre>
+    <p>This "assignment" will trigger the setter method of this config, which will call:</p>
+    <pre><code>afterSetIconColor(value) {
+    let me       = this,
+        vdom     = me.vdom,
+        iconNode = me.getVdomRoot().cn[0];
+
+    if (!iconNode.style) {
+        iconNode.style = {};
+    }
+
+    if (value && value !== '') {
+        iconNode.style.color = value;
+        me.vdom = vdom;
+    }
+}</code></pre>
+    <p>The result could look like this:</p>
+    <button class="neo-button icon-left" id="neo-button-1001">
+        <span style="color:red;" class="neo-button-glyph fa fa-home" id="neo-vnode-1002"></span>
+        <span class="neo-button-text" id="neo-vnode-1003">Hello World</span>
+    </button>
+    <p>The key here is me.vdom = vdom; which will trigger the vdom config setter, resulting in:
+    </p>
+    <pre><code>/**
+ * Gets called after the vdom config gets changed in case the component is already mounted (delta updates).
+ * @param {Object} vdom
+ * @param {Neo.vdom.VNode} vnode
+ * @private
+ */
+updateVdom(vdom, vnode) {
+    let me = this;
+
+    Neo.vdom.Helper.update({
+        vdom : vdom,
+        vnode: vnode
+    }).then(data => {
+        Object.keys(me.vnode).forEach(key => {
+            delete me.vnode[key];
+        });
+
+        Object.assign(me.vnode, data.vnode);
+
+        me.syncVdomIds(me.vnode, me.vdom);
+    }).catch(err => {
+        console.log('Error attempting to update component dom', err, me);
+    });
+}</code></pre>
+    <p>The App worker will send the vdom & vnode property of this component to the VDom worker,
+        which will create a new vnode using the vdom and then compare the old & new vnodes to calculate the deltas,
+        which will modify the DOM as needed inside the main thread. Take a look at:<br>
+        <a class="neo-docs-view-source-link" href="#viewSource=vdom.Helper&amp;line=102">vdom.Helper:update()</a>
+    </p>
+    <p>The given example will create an deltas array like:</p>
+    <pre><code>deltas: [{
+    id: 'neo-button-1000',
+    style: {
+        color: 'red'
+    }
+}]</code></pre>
+    <p>The deltas will get sent to the main thread &
+        main.DomAccess:update() will apply each delta update to the real DOM automatically.</p>
+    <hr>
+    <h4>The virtual dom engine for delta updates is optional!</h4>
+    <p>In case you do know exactly what needs to change for a given component, you can also manually create the deltas
+        and send the result from the App worker to the main thread.
+        We do recommend to keep the vdom in sync though, since a top level component update could revert the manual changes
+        otherwise. One example for this strategy would be component.Helix:</p>
+    <pre><code>afterSetPerspective(value) {
+    let me = this;
+
+    if (me.mounted) {
+        Neo.currentWorker.promiseMessage('main', {
+            action: 'updateDom',
+            deltas: {
+                id   : me.vdom.id,
+                style: {
+                    perspective: value + 'px'
+                }
+            }
+        });
+
+        me.updateCloneTranslate();
+    }
+}</code></pre>
+</article>
