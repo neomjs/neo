@@ -1,0 +1,29 @@
+<!DOCTYPE HTML>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <title>Neo Tabs</title>
+</head>
+<body style="margin: 10px">
+    <p>TabContainer App 1</p>
+    <div id="main-container"></div>
+    <br>
+    <p>TabContainer App 2</p>
+    <div id="main-container2"></div>
+    <br>
+    <div id="main-container3"></div>
+
+    <script>
+        Neo = self.Neo || {}; Neo.config = Neo.config || {};
+
+        Object.assign(Neo.config, {
+            appPath       : 'examples/tabs/app.mjs',
+            basePath      : '../../',
+            environment   : 'development',
+            isExperimental: true
+        });
+    </script>
+
+    <script src="../../src/Main.mjs" type="module"></script>
+</body>
+</html>

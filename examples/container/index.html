@@ -1,0 +1,25 @@
+<!DOCTYPE HTML>
+<html manifest="">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <title>Neo Containers</title>
+</head>
+<body style="margin: 10px">
+    <p>Container Demo</p>
+    <div id="main-container"></div>
+
+    <script>
+        Neo = self.Neo || {}; Neo.config = Neo.config || {};
+
+        Object.assign(Neo.config, {
+            appPath       : 'examples/container/app.mjs',
+            basePath      : '../../',
+            environment   : 'development',
+            isExperimental: true
+        });
+    </script>
+
+    <script src="../../src/Main.mjs" type="module"></script>
+</body>
+</html>
