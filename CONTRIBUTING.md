@@ -27,3 +27,5 @@ No worries, you don't need to be a guru, ninja or rockstar to support the projec
     4.  Please create PRs for the dev branch and not for master.
 4.  In case you created a nice app or component using neo.mjs, please let us know about it.
     1.  We are always interested to feature client projects in blog posts or on social media.
+    
+Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters

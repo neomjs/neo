@@ -42,3 +42,5 @@ localhost/neo/dist/development/examples/helix/
 localhost/neo/dist/production/examples/helix/
 
 The build (dist) versions also work in Firefox & Safari and do not require the Chrome flag.
+
+Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters

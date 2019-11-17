@@ -15,3 +15,5 @@ Please take a look at the <a href=".github/GETTING_STARTED.md">Getting Started G
 ### Join our Slack Channel for questions & feedback:
 
 <a href="https://join.slack.com/t/neotericjs/shared_invite/enQtNDk2NjEwMTIxODQ2LWRjNGQ3ZTMzODRmZGM2NDM2NzZmZTMzZmE2YjEwNDM4NDhjZDllNWY2ZDkwOWQ5N2JmZWViYjYzZTg5YjdiMDc">Slack Channel Invite Link</a>
+
+Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters

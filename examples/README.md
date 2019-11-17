@@ -35,3 +35,4 @@ Ensure your server has a mime-type configured for Javascript Modules (.mjs) file
 - Go to Preferences -> Build, Execution, Deployment -> Debugger
 - Built-in server -> Allow unsigned requests (true)
 
+Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
