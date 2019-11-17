@@ -15,9 +15,9 @@ Just to make a point on how much time & effort has already been spent on neo.mjs
 
 3520 commits Tobias Uhlig
 
-&nbsp;&nbsp;182 commits Rich Waters
+&nbsp;&nbsp;&nbsp;182 commits Rich Waters
 
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;8 commits Arthur Rubens
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;8 commits Arthur Rubens
    
 (4 single commits of others)   
 
