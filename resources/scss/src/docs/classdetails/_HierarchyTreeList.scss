@@ -1,0 +1,15 @@
+.docs-classhierarchy-treelist.neo-list {
+    border-color: #3c3f41;
+
+    .neo-list-item {
+        .neo-list-item-content:before {
+            content: "\f14a";
+        }
+    }
+
+    .neo-list-item.unchecked {
+        .neo-list-item-content:before {
+            content: "\f0c8";
+        }
+    }
+}

@@ -1,0 +1,111 @@
+.neo-grid-container {
+    border        : 1px solid #2b2b2b;
+    border-spacing: 0;
+    font-size     : 13px;
+    font-weight   : 400;
+    height        : 100%;
+    line-height   : 19px;
+    overflow      : hidden;
+    //position      : relative;
+
+    .neo-grid-header-toolbar {
+        //position: sticky;
+        //top     : 0;
+        display : table;
+        width   : 100%;
+    }
+
+    .neo-grid-row {
+        display   : table-row;
+        height    : 32px !important;
+        max-height: 32px !important;
+        width     : 100%;
+    }
+
+    .neo-grid-header-toolbar .neo-grid-row:nth-child(1) .neo-grid-header-cell {
+        z-index : 10;
+    }
+
+    .neo-grid-body {
+        display   : block;
+        max-height: 300px; // an initial dummy value to reduce the flickering until the real height is available
+        overflow-y: scroll;
+    }
+
+    .neo-grid-row:last-child {
+        .neo-grid-cell {
+            border-bottom-width: 0 !important;
+        }
+    }
+
+    .neo-grid-row:nth-child(even) {
+        .neo-grid-cell {
+            background-color: #323232;
+        }
+    }
+
+    .neo-grid-header-cell {
+        position: sticky;
+        top     : 0;
+        z-index : 5;
+    }
+
+    .neo-grid-header-cell:nth-child(1) {
+        position: sticky;
+        left    : 0;
+        top     : 0;
+        z-index : 200 !important;
+    }
+
+    .neo-grid-cell:nth-child(1) {
+        position: sticky;
+        left     : 0;
+        z-index  : 20;
+    }
+
+    .neo-grid-cell, .neo-grid-header-cell {
+        border-bottom: 1px solid #2b2b2b;
+        border-right : 1px solid #2b2b2b;
+        height       : inherit;
+        min-width    : 300px;
+
+        &:last-child {
+            border-right-width : 0;
+        }
+
+        &.neo-locked {
+            position: sticky;
+            left    : 0;
+        }
+    }
+
+    .neo-grid-cell {
+        background-color: #3c3f41;
+        display         : table-cell;
+        height          : 32px !important;
+        max-height      : 32px !important;
+        padding         : 2px 10px 2px;
+    }
+
+    .neo-grid-header-cell {
+        display: table-cell;
+        padding: 0;
+    }
+
+    /* Scrollbars */
+    /*&::-webkit-scrollbar {
+        display: none;
+    }*/
+
+    .neo-grid-y-scroller {
+        background-color: green;
+        height: 100%;
+        position: absolute;
+        right: 0;
+        top: 32px;
+        width: 17px;
+        overflow: auto;
+        transform: translateZ(0);
+        -webkit-transform: translateZ(0);
+    }
+}

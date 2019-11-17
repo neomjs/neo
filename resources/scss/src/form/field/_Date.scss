@@ -1,0 +1,21 @@
+.neo-datefield {
+    // remove the default browser controls
+
+    // Chrome & Safari:
+    input::-webkit-clear-button,
+    input::-webkit-inner-spin-button,
+    input::-webkit-calendar-picker-indicator,
+    input::-webkit-outer-spin-button {
+        display           : none;
+        margin            : 0;
+        -webkit-appearance: none;
+    }
+
+    // Firefox => no luck => https://gitlab.com/tobiu/neoteric/issues/198
+    ::-moz-datetime-reset-button {
+        display: none;
+    }
+    .datetime-reset-button {
+        display: none;
+    }
+}

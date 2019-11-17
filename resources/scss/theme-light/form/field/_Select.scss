@@ -1,0 +1,21 @@
+$neoMap: map-merge($neoMap, (
+    'selectfield-input-hint-color'              : #333,
+    'selectfield-input-hint-opacity'            : 0.6,
+    'selectfield-list-search-background-color'  : inherit,
+    'selectfield-list-search-color'             : red,
+    'selectfield-list-search-color-selected'    : red,
+    'selectfield-picker-container-border'       : 1px solid #1c60a0,
+    'selectfield-picker-container-border-radius': 3px
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-light { // .neo-selectfield
+        --selectfield-input-hint-color              : #{neo(selectfield-input-hint-color)};
+        --selectfield-input-hint-opacity            : #{neo(selectfield-input-hint-opacity)};
+        --selectfield-list-search-background-color  : #{neo(selectfield-list-search-background-color)};
+        --selectfield-list-search-color             : #{neo(selectfield-list-search-color)};
+        --selectfield-list-search-color-selected    : #{neo(selectfield-list-search-color-selected)};
+        --selectfield-picker-container-border       : #{neo(selectfield-picker-container-border)};
+        --selectfield-picker-container-border-radius: #{neo(selectfield-picker-container-border-radius)};
+    }
+}

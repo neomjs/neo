@@ -1,0 +1,51 @@
+$neoMap: map-merge($neoMap, (
+    'button-active-background-color'  : #ddd,
+    'button-active-border-color'      : #1c60a0,
+    'button-active-color'             : #1c60a0,
+    'button-background-color'         : #fff,
+    'button-background-image'         : none,
+    'button-background-gradient-end'  : #323536,
+    'button-background-gradient-start': #434749,
+    'button-border'                   : 1px solid #ddd,
+    'button-border-radius'            : 3px,
+    'button-glyph-color'              : #1c60a0,
+    'button-hover-background-color'   : #fff,
+    'button-hover-border-color'       : #1c60a0,
+    'button-hover-color'              : #bbb,
+    'button-margin'                   : 2px,
+    'button-padding'                  : 5px 12px 5px 12px,
+    'button-text-color'               : #1c60a0,
+    'button-text-font-family'         : Helvetica Neue,
+    'button-text-font-size'           : 11px,
+    'button-text-font-weight'         : 600,
+    'button-text-line-height'         : 11px,
+    'button-text-transform'           : uppercase,
+    'button-use-gradients'            : false
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-light { // .neo-button
+        --button-active-background-color  : #{neo(button-active-background-color)};
+        --button-active-border-color      : #{neo(button-active-border-color)};
+        --button-active-color             : #{neo(button-active-color)};
+        --button-background-color         : #{neo(button-background-color)};
+        --button-background-image         : #{neo(button-background-image)};
+        --button-background-gradient-end  : #{neo(button-background-gradient-end)};
+        --button-background-gradient-start: #{neo(button-background-gradient-start)};
+        --button-border                   : #{neo(button-border)};
+        --button-border-radius            : #{neo(button-border-radius)};
+        --button-glyph-color              : #{neo(button-glyph-color)};
+        --button-hover-background-color   : #{neo(button-hover-background-color)};
+        --button-hover-border-color       : #{neo(button-hover-border-color)};
+        --button-hover-color              : #{neo(button-hover-color)};
+        --button-margin                   : #{neo(button-margin)};
+        --button-padding                  : #{neo(button-padding)};
+        --button-text-color               : #{neo(button-text-color)};
+        --button-text-font-family         : #{neo(button-text-font-family)};
+        --button-text-font-size           : #{neo(button-text-font-size)};
+        --button-text-font-weight         : #{neo(button-text-font-weight)};
+        --button-text-line-height         : #{neo(button-text-line-height)};
+        --button-text-transform           : #{neo(button-text-transform)};
+        --button-use-gradients            : #{neo(button-use-gradients)};
+    }
+}

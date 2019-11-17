@@ -1,0 +1,60 @@
+.neo-tree-list {
+    border  : none;
+    color   : v(tree-list-color);
+    display : flex;
+    position: relative;
+
+    .neo-list-container {
+        flex: 1;
+    }
+
+    .neo-list-item {
+        margin-right: 10px;
+
+        .neo-list-item-content:before {
+            color      : v(list-item-glyph-color); // todo: tree-list var
+            content    : "\f1f9";
+            display    : inline-block;
+            font-family: "Font Awesome 5 Free";
+            font-weight: 900;
+            width      : 25px;
+        }
+    }
+
+    .neo-treelist-menu-item {
+        cursor  : pointer;
+        position: absolute;
+        height  : 25px;
+        right   : 5px;
+        width   : 20px;
+        z-index : 1000;
+
+        .neo-treelist-menu-item-content {
+            pointer-events: none;
+        }
+
+        .neo-treelist-menu-item-content:before {
+            color      : v(tree-list-menu-item-color);
+            display    : inline-block;
+            font-family: "Font Awesome 5 Free";
+            font-weight: 900;
+            width      : 25px;
+        }
+    }
+
+    .neo-treelist-collapse-all-icon {
+        top: 5px;
+
+        .neo-treelist-menu-item-content:before {
+            content: "\f07b";
+        }
+    }
+
+    .neo-treelist-expand-all-icon {
+        top: 30px;
+
+        .neo-treelist-menu-item-content:before {
+            content: "\f07c";
+        }
+    }
+}

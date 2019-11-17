@@ -1,0 +1,12 @@
+.neo-pickerfield {
+    .neo-picker-container {
+        background-color: v(pickerfield-container-background-color);
+        border          : v(pickerfield-container-border);
+        box-shadow      : v(pickerfield-container-box-shadow);
+        position        : fixed;
+
+        &:focus {
+            outline: none;
+        }
+    }
+}

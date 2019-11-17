@@ -1,0 +1,169 @@
+.neo-circle-component {
+    background-color: #000;
+    border          : 1px solid #3c3f41;
+    position        : relative;
+
+    &:focus {
+        outline: 0;
+    }
+
+    .neo-circle {
+        align-items      : center;
+        background-color : rgba(62, 123, 134, 0.302);
+        background-image : linear-gradient(#468b95, #366b77);
+        border-radius    : 50%;
+        color            : rgb(223, 220, 215);
+        cursor           : default;
+        display          : flex;
+        flex-direction   : column;
+        font-family      : "Lato", "Helvetica Neue";
+        font-size        : 12px;
+        font-weight      : 300;
+        justify-content  : center;
+        line-height      : 14px;
+        overflow         : hidden;
+        position         : absolute;
+        text-overflow    : ellipsis;
+        transition       : all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+        user-select      : none;
+        white-space      : nowrap;
+        z-index          : 20;
+
+        div {
+            display: block;
+        }
+
+        .neo-circle-name {
+            pointer-events: none;
+        }
+
+        .neo-count-items {
+            font-size     : 20px;
+            line-height   : 24px;
+            pointer-events: none;
+        }
+    }
+
+    .neo-circle-center {
+        height         : 1px;
+        left           : 50%;
+        position       : absolute;
+        top            : 48%;
+        transform-style: preserve-3d;
+        transition     : all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+        width          : 1px;
+
+        &.neo-flipped {
+            .neo-circle-back {
+                transform: rotateY(0deg);
+            }
+
+            .neo-circle-front {
+                transform: rotateY(180deg);
+            }
+        }
+
+        &.no-transition {
+            transition: none;
+        }
+
+        .neo-circle-back {
+            align-items        : center;
+            backface-visibility: hidden;
+            background-color   : #1f2627;
+            border-radius      : 50%;
+            color              : rgb(223, 220, 215);
+            cursor             : default;
+            display            : flex;
+            flex-direction     : column;
+            height             : 182px;
+            justify-content    : center;
+            left               : -91px;
+            overflow           : hidden;
+            position           : absolute;
+            top                : -91px;
+            transform          : rotateY(180deg);
+            transition         : all .4s ease-in-out;
+            width              : 182px;
+
+            .neo-backside-icon {
+                cursor  : pointer;
+                position: absolute;
+
+                &.neo-flip {
+                    top : 132px;
+                    left:  75px;
+                }
+
+                &.neo-pencil {
+                    top : 40px;
+                    left: 25px;
+                }
+
+                &.neo-trash {
+                    top :  40px;
+                    left: 130px;
+                }
+            }
+
+            div {
+                display: block;
+            }
+        }
+
+        .neo-circle-front {
+            backface-visibility: hidden;
+            position           : absolute;
+            transform          : rotateX(0deg) rotateY(0deg) rotateZ(0deg);
+            transition         : transform .4s ease-in-out;
+            will-change        : transform;
+        }
+    }
+
+    .neo-circle-item {
+        border-radius  : 50%;
+        opacity        : 0;
+        position       : absolute;
+        transform-style: preserve-3d;
+        will-change    : height, left, top, opacity, transform, width;
+        z-index        : 30;
+
+        transition:
+            opacity 300ms cubic-bezier(0.4, 0, 0.2, 1),
+            height  300ms cubic-bezier(0.4, 0, 0.2, 1),
+            left    300ms cubic-bezier(0.4, 0, 0.2, 1),
+            top     300ms cubic-bezier(0.4, 0, 0.2, 1),
+            width   300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+        &:focus {
+            outline: 0;
+        }
+
+        &.neo-selected {
+            box-shadow: 0 0 0 3px red;
+        }
+    }
+
+    .neo-circle-item-image {
+        border-radius      : 50%;
+        height             : 30px;
+        pointer-events     : none;
+        transition         : all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+        transition-property: height, margin-left, margin-top, width;
+        will-change        : height, left, top, width;
+        width              : 30px;
+    }
+
+    .neo-outer-circle {
+        background-color   : rgba(62, 123, 134, 0.302);
+        border-radius      : 50%;
+        color              : #fff;
+        position           : absolute;
+        text-align         : center;
+        transition         : all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+        transition-property: height, left, top, width;
+        will-change        : height, left, top, width;
+        vertical-align     : middle;
+        z-index            : 10;
+    }
+}

@@ -1,0 +1,14 @@
+.neo-examples-configuration-panel {
+    .neo-toolbar {
+        border       : 0;
+        border-bottom: 1px solid v(panel-border-color);
+    }
+}
+
+.neo-examples-configuration-panel-body {
+    overflow-y: scroll;
+}
+
+.neo-examples-tab-component {
+    background-color: v(examples-tab-component-background-color);
+}

@@ -1,0 +1,67 @@
+.neo-table-view {
+    .neo-table-row {
+        &:hover {
+            .neo-table-cell {
+                background-color: v(table-cell-background-color-hover);
+            }
+        }
+
+        // selection.RowModel
+        &.neo-selected {
+            .neo-table-cell {
+                background-color: v(table-rowmodel-selected-cell-background-color);
+                color           : v(table-rowmodel-selected-cell-color);
+            }
+        }
+
+        // selection.CellModel
+        .neo-table-cell {
+            &.neo-selected {
+                background-color: v(table-cellmodel-selected-cell-background-color) !important;
+                color           : v(table-cellmodel-selected-cell-color) !important;
+            }
+
+            &.selected-column-cell {
+                background-color: v(table-cellmodel-selected-column-cell-background-color);
+                color           : v(table-cellmodel-selected-column-cell-color);
+            }
+        }
+    }
+}
+
+.neo-selection-cellrowmodel,
+.neo-selection-cellcolumnrowmodel{
+    .neo-table-row {
+        &.neo-selected {
+            .neo-table-cell {
+                background-color: v(table-cellrowmodel-selected-row-cell-background-color);
+                color           : v(table-cellrowmodel-selected-row-cell-color);
+            }
+        }
+
+        .neo-table-cell {
+            &.neo-selected {
+                background-color: v(table-cellrowmodel-selected-cell-background-color);
+                color           : v(table-cellrowmodel-selected-cell-color);
+            }
+        }
+    }
+}
+
+.neo-selection-cellcolumnmodel,
+.neo-selection-cellcolumnrowmodel,
+.neo-selection-cellmodel,
+.neo-selection-columnmodel,
+.neo-selection-cellrowmodel,
+.neo-selection-rowmodel {
+    .neo-table-row {
+        &:focus {
+            outline: 0;
+        }
+        .neo-table-cell {
+            &:focus {
+                outline: 0;
+            }
+        }
+    }
+}

@@ -1,0 +1,193 @@
+.neo-textfield {
+    align-items  : center;
+    display      : flex;
+    height       : 27px;
+    margin-bottom: 5px;
+    margin-top   : 5px;
+    white-space  : nowrap;
+
+    &.neo-focus {
+        .neo-input-wrapper {
+            border-color: v(textfield-border-color-active);
+        }
+    }
+
+    &.label-bottom {
+        align-items   : start;
+        flex-direction: column-reverse;
+
+        .neo-textfield-label {
+            margin-top: 3px;
+        }
+    }
+
+    &.label-inline {
+        font-size: 14px;
+        position : relative;
+
+        &.neo-focus {
+            .neo-label-wrapper {
+                .neo-center-border, .neo-left-border, .neo-right-border {
+                    border-bottom-color: v(textfield-border-color-active);
+                }
+
+                .neo-left-border, .neo-right-border {
+                    border-top-color: v(textfield-border-color-active);
+                }
+
+                .neo-center-border {
+                    border-top-color: transparent;
+                }
+
+                .neo-left-border {
+                    border-left-color: v(textfield-border-color-active);
+                }
+
+                .neo-right-border {
+                    border-right-color: v(textfield-border-color-active);
+                }
+            }
+
+            .neo-textfield-label {
+                color    : v(textfield-border-color-active) !important;
+                transform: translateX(4px) translateY(-65%) scale(.7);
+            }
+        }
+
+        &.neo-has-content {
+            .neo-center-border {
+                border-top-color: transparent !important;
+            }
+
+            .neo-textfield-label {
+                color    : #777;
+                transform: translateX(4px) translateY(-65%) scale(.7);
+            }
+        }
+
+        .neo-field-trigger {
+            z-index: 2;
+        }
+
+        .neo-input-wrapper {
+            border-color: transparent;
+        }
+
+        .neo-label-wrapper {
+            display : flex;
+            height  : 100%;
+            position: absolute;
+            width   : 100%;
+
+            .neo-center-border {
+                border-bottom: 1px solid v(textfield-border-color);
+                border-top   : 1px solid v(textfield-border-color);
+                flex         : 0 0 auto;
+            }
+
+            .neo-left-border {
+                border      : 1px solid v(textfield-border-color);
+                border-right: 0;
+                flex        : 0 0 auto;
+                width       : 12px
+            }
+
+            .neo-right-border {
+                border     : 1px solid v(textfield-border-color);
+                border-left: 0;
+                flex       : 1 0 auto;
+            }
+        }
+
+        .neo-textfield-input {
+            background-color: transparent;
+            border-color    : transparent;
+            padding-left    : 16px;
+            z-index         : 1;
+
+            &:focus{ // todo: switch to .neo-focus
+                border-color: transparent;
+            }
+        }
+
+        .neo-textfield-label {
+            margin-top      : 4px;
+            max-width       : 100%;
+            text-overflow   : clip;
+            transform-origin: left top;
+            transition      : transform 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+            will-change     : color, transform;
+        }
+    }
+
+    &.label-right {
+        flex-direction: row-reverse;
+
+        .neo-textfield-label {
+            text-align: right;
+        }
+    }
+
+    &.label-top {
+        align-items   : start;
+        flex-direction: column;
+
+        .neo-textfield-label {
+            margin-bottom: 3px;
+        }
+    }
+
+    .neo-input-wrapper {
+        background-color: v(textfield-input-background-color);
+        border          : 1px solid v(textfield-border-color);
+        border-radius   : v(textfield-border-radius);
+        display         : flex;
+        flex            : 1 1 100px;
+        min-height      : 25px;
+        overflow        : hidden;
+
+        .neo-textfield-input {
+            border       : none;
+            border-radius: 0;
+            flex         : 1 1 30px;
+            min-height   : 25px;
+            width        : 30px;
+
+            &:invalid {
+                border: 1px solid brown;
+            }
+        }
+    }
+
+    .neo-textfield-input {
+        background-color: v(textfield-input-background-color);
+        border          : 1px solid v(textfield-border-color);
+        border-radius   : v(textfield-border-radius);
+        color           : v(textfield-input-color);
+        font            : 400 13px/17px 'Helvetica Neue';
+        min-height      : 27px;
+        padding         : 3px 6px 2px;
+        transition      : 250ms border-color cubic-bezier(0.4, 0, 0.2, 1);
+        width           : 140px;
+
+        &:focus{
+            border-color: #5d83a7;
+            outline     : none;
+        }
+
+        &:invalid {
+            border-color: brown;
+        }
+
+        &::-webkit-input-placeholder {
+            color  : v(textfield-input-placeholder-color) !important;
+            opacity: v(textfield-input-placeholder-opacity) !important;
+        }
+    }
+
+    .neo-textfield-label {
+        color  : v(textfield-label-color);
+        display: inline-block;
+        flex   : 0 0 auto;
+    }
+}

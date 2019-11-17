@@ -1,0 +1,23 @@
+$neoMap: map-merge($neoMap, (
+    'textfield-border-color'             : #424242,
+    'textfield-border-color-active'      : #5d83a7,
+    'textfield-border-radius'            : 0,
+    'textfield-input-background-color'   : #2b2b2b,
+    'textfield-input-color'              : #ccc,
+    'textfield-input-placeholder-color'  : #ccc,
+    'textfield-input-placeholder-opacity': 0.6,
+    'textfield-label-color'              : #bbb
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-dark { // .neo-textfield
+        --textfield-border-color             : #{neo(textfield-border-color)};
+        --textfield-border-color-active      : #{neo(textfield-border-color-active)};
+        --textfield-border-radius            : #{neo(textfield-border-radius)};
+        --textfield-input-background-color   : #{neo(textfield-input-background-color)};
+        --textfield-input-color              : #{neo(textfield-input-color)};
+        --textfield-input-placeholder-color  : #{neo(textfield-input-placeholder-color)};
+        --textfield-input-placeholder-opacity: #{neo(textfield-input-placeholder-opacity)};
+        --textfield-label-color              : #{neo(textfield-label-color)};
+    }
+}

@@ -1,0 +1,15 @@
+$neoMap: map-merge($neoMap, (
+    'table-header-button-background-color': #5d83a7,
+    'table-header-button-background-image': none,
+    'table-header-button-color'           : #fff,
+    'table-header-button-glyph-color'     : #fff
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-light { // .neo-table-header-button
+        --table-header-button-background-color: #{neo(table-header-button-background-color)};
+        --table-header-button-background-image: #{neo(table-header-button-background-image)};
+        --table-header-button-color           : #{neo(table-header-button-color)};
+        --table-header-button-glyph-color     : #{neo(table-header-button-glyph-color)};
+    }
+}

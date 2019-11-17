@@ -1,0 +1,31 @@
+$neoMap: map-merge($neoMap, (
+    'chip-align-items'             : center,
+    'chip-border'                  : 1px solid #ddd,
+    'chip-border-color-focus'      : #1c60a0,
+    'chip-border-radius'           : 15px,
+    'chip-close-button-color'      : #ddd,
+    'chip-close-button-color-hover': #1c60a0,
+    'chip-glyph-color'             : #1c60a0,
+    'chip-height'                  : 30px,
+    'chip-justify-content'         : center,
+    'chip-text-align'              : left,
+    'chip-text-color'              : #000,
+    'chip-text-font-size'          : 12px
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-light { // .neo-chip
+        --chip-align-items             : #{neo(chip-align-items)};
+        --chip-border                  : #{neo(chip-border)};
+        --chip-border-color-focus      : #{neo(chip-border-color-focus)};
+        --chip-border-radius           : #{neo(chip-border-radius)};
+        --chip-close-button-color      : #{neo(chip-close-button-color)};
+        --chip-close-button-color-hover: #{neo(chip-close-button-color-hover)};
+        --chip-glyph-color             : #{neo(chip-glyph-color)};
+        --chip-height                  : #{neo(chip-height)};
+        --chip-justify-content         : #{neo(chip-justify-content)};
+        --chip-text-align              : #{neo(chip-text-align)};
+        --chip-text-color              : #{neo(chip-text-color)};
+        --chip-text-font-size          : #{neo(chip-text-font-size)};
+    }
+}

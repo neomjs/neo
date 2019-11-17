@@ -1,0 +1,17 @@
+$neoMap: map-merge($neoMap, (
+    'neo-background-color': #fafafa,
+    'neo-color'           : #000,
+    'neo-disabled-opacity': 0.5,
+    'neo-font-family'     : Helvetica Neue,
+    'neo-font-smoothing'  : antialiased
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-light {
+        --neo-background-color: #{neo(neo-background-color)};
+        --neo-color           : #{neo(neo-color)};
+        --neo-disabled-opacity: #{neo(neo-disabled-opacity)};
+        --neo-font-family     : #{neo(neo-font-family)};
+        --neo-font-smoothing  : #{neo(neo-font-smoothing)};
+    }
+}

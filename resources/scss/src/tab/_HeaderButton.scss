@@ -1,0 +1,137 @@
+@keyframes delaybgcolor {
+      0% {background-color: transparent;}
+     99% {background-color: transparent;}
+    100% {background-color: v(tab-indicator-background-color-active);}
+}
+
+.neo-tab-header-button {
+    background-image: v(tab-button-background-image);
+    border-radius   : v(tab-button-border-radius);
+    border-width    : 0;
+    height          : 25px;
+    margin          : 0;
+    padding         : 7px 12px 6px 12px;
+    text-transform  : v(tab-button-text-transform);
+
+    &:active {
+        .neo-button-glyph {
+            color: v(tab-button-glyph-color-active);
+        }
+    }
+
+    &:hover {
+        background-image: none;
+
+        .neo-button-glyph {
+            color: v(tab-button-glyph-color-over);
+        }
+    }
+
+    &.pressed {
+        background-image: v(tab-button-background-image-pressed) !important;
+        cursor          : default;
+
+        .neo-button-glyph {
+            color: v(tab-button-glyph-color-pressed);
+        }
+
+        .neo-tab-button-indicator {
+            animation-duration: 260ms;
+            animation-name    : delaybgcolor;
+            background-color  : v(tab-indicator-background-color-active);
+        }
+    }
+
+    .neo-button-glyph {
+        color: v(tab-button-glyph-color);
+    }
+
+    .neo-button-text {
+        color: v(tab-button-text-color);
+    }
+
+    .neo-tab-button-indicator {
+        background-color: transparent;
+        //bottom          : calc(#{v(tab-strip-height)} * -1);
+        bottom          : calcVar(tab-strip-height, '*', -1);
+        height          : v(tab-strip-height);
+        position        : absolute;
+        width           : 100%;
+        z-index         : 2;
+    }
+}
+
+.neo-tab-header-toolbar {
+    background-color: transparent;
+    padding         : 0;
+
+    &.neo-dock-bottom {
+        .neo-tab-header-button {
+            /*@if $button-use-gradients == true {
+                background-image: linear-gradient(to top, #393d3e, #282b2b);
+            }*/
+
+            &.pressed {
+                @if neo(tab-button-pressed-use-gradient) == true {
+                    background-image: linear-gradient(to top, #434749, #323536) !important;
+                }
+            }
+        }
+
+        .neo-tab-button-indicator {
+            bottom: unset;
+            height: v(tab-strip-height);
+            //top   : calc(#{v(tab-strip-height)} * -1);
+            top  : calcVar(tab-strip-height, '*', -1);
+            width : 100%;
+        }
+    }
+
+    &.neo-dock-left {
+        .neo-tab-header-button {
+            height: unset;
+            width : 25px;
+
+            /*@if $button-use-gradients == true {
+                background-image: linear-gradient(to right, #393d3e, #282b2b);
+            }*/
+
+            &.pressed {
+                @if neo(tab-button-pressed-use-gradient) == true {
+                    background-image: linear-gradient(to right, #434749, #323536) !important;
+                }
+            }
+        }
+
+        .neo-tab-button-indicator {
+            bottom: unset;
+            height: 100%;
+            right : calcVar(tab-strip-height, '*', -1);
+            width : v(tab-strip-height);
+        }
+    }
+
+    &.neo-dock-right {
+        .neo-tab-header-button {
+            height: unset;
+            width : 25px;
+
+            /*@if $button-use-gradients == true {
+                background-image: linear-gradient(to left, #393d3e, #282b2b);
+            }*/
+
+            &.pressed {
+                @if neo(tab-button-pressed-use-gradient) == true {
+                    background-image: linear-gradient(to left, #434749, #323536) !important;
+                }
+            }
+        }
+
+        .neo-tab-button-indicator {
+            bottom: unset;
+            height: 100%;
+            left  : calcVar(tab-strip-height, '*', -1);
+            width : v(tab-strip-height);
+        }
+    }
+}

@@ -1,0 +1,82 @@
+.neo-list-container {
+    background-color: v(list-container-background-color);
+    border          : v(list-container-border);
+    overflow        : auto;
+}
+
+.neo-list {
+    color               : v(list-container-list-color);
+    list-style-type     : none;
+    margin-block-start  : 0;
+    margin-block-end    : 0;
+    margin-inline-start : 0;
+    margin-inline-end   : 0;
+    padding-inline-start: 0;
+
+    &.neo-use-checkicons {
+        .neo-list-item:before {
+            color      : v(list-item-glyph-color);
+            content    : "\f0c8";
+            display    : inline-block;
+            font-family: "Font Awesome 5 Free";
+            width      : 25px;
+        }
+
+        .neo-list-item.neo-selected:before {
+            content    : "\f00c";
+            font-weight: 900;
+        }
+    }
+
+    .neo-list-item {
+        background-color: v(list-item-background-color);
+        cursor          : pointer;
+        padding         : v(list-item-padding);
+        white-space     : nowrap;
+
+        &:focus {
+            outline: 0;
+        }
+
+        &:hover {
+            background-color: v(list-item-background-color-hover);
+        }
+
+        &.neo-selected {
+            background-color: v(list-item-background-color-selected);
+            color           : v(list-item-color-selected);
+        }
+
+        .neo-highlight-search {
+            color: v(list-item-highlight-search-color);
+        }
+    }
+
+    .neo-list-item-leaf-singleton {
+        .neo-list-item-content:before {
+            content: "\f35a";
+        }
+    }
+
+    .neo-list-folder {
+        + .neo-list {
+            display: none;
+        }
+
+        .neo-list-item-content:before {
+            content    : "\f07b" !important;
+            margin-left: 0;
+        }
+    }
+
+    .neo-list-folder.neo-folder-open {
+        + .neo-list {
+            display: block;
+        }
+
+        .neo-list-item-content:before {
+            content    : "\f07c" !important;
+            margin-left: 0;
+        }
+    }
+}

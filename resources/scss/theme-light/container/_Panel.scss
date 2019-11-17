@@ -1,0 +1,11 @@
+$neoMap: map-merge($neoMap, (
+    'panel-border-color'     : #ddd,
+    'panel-header-text-color': #666
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-light { // .neo-panel
+        --panel-border-color     : #{neo(panel-border-color)};
+        --panel-header-text-color: #{neo(panel-header-text-color)};
+    }
+}

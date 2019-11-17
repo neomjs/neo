@@ -1,0 +1,64 @@
+.neo-gallery {
+    background-color: #000;
+    display         : block;
+    border          : 1px solid #3c3f41;
+    margin          : 0 auto;
+    overflow        : hidden;
+    perspective     : 600px;
+    text-align      : center;
+    transform-style : preserve-3d;
+
+    .contacts-gallery-panel {
+        transform : translateZ(0px);
+    }
+
+    .neo-gallery-item {
+        &:focus {
+            outline: 0;
+        }
+    }
+
+    .view {
+        display        : block;
+        position       : absolute;
+        transform-style: preserve-3d;
+    }
+
+    .origin {
+        left: 50%;
+        top : 50%;
+    }
+
+    .camera {
+        transform                 : rotateY(30deg);
+        transition-duration       : 5s;
+        transition-property       : transform;
+        transition-timing-function: cubic-bezier(0.2, 0.6, 0.6, 0.9);
+    }
+
+    .dolly {
+        transition-duration       : 550ms;
+        transition-property       : transform;
+        transition-timing-function: ease-out;
+        transform                 : translate3d(0, 0, 0);
+    }
+
+    .image-wrap {
+        &.neo-reflection img {
+            // neoteric/issues/47 => it can not get applied on the wrapper el for now
+            -webkit-box-reflect: below 2px -webkit-gradient(linear, left top, left bottom, from(transparent), color-stop(0.5, transparent), to(rgba(0, 0, 0, 0.3)));
+            transform-style: flat;
+        }
+    }
+
+    .image-wrap img {
+        pointer-events     : none;
+        transition-property: transform;
+        transition-duration: 550ms;
+    }
+
+    .image-wrap.neo-selected img {
+        transform: translate3d(0, 0, 180px) scale(1.5);
+        -webkit-box-reflect: unset !important;
+    }
+}

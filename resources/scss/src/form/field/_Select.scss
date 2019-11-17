@@ -1,0 +1,43 @@
+.neo-selectfield {
+    .neo-input-field-wrapper {
+        flex    : 1 1 30px;
+        position: relative;
+
+        .neo-textfield-input, .neo-typeahead-input {
+            height  : 100% !important;
+            left    : 0;
+            position: absolute;
+            top     : 0;
+            width   : 100% !important;
+        }
+
+        .neo-textfield-input {
+            background-color: transparent;
+        }
+
+        .neo-typeahead-input {
+            border-color: transparent;
+            color       : v(selectfield-input-hint-color);
+            min-height  : 25px;
+            opacity     : v(selectfield-input-hint-opacity);
+        }
+    }
+
+    .neo-list {
+        .neo-highlight-search {
+            background-color: v(selectfield-list-search-background-color);
+            color           : v(selectfield-list-search-color) !important;
+        }
+
+        .neo-selected {
+            .neo-highlight-search {
+                color: v(selectfield-list-search-color-selected) !important;
+            }
+        }
+    }
+
+    .neo-picker-container {
+        border       : v(selectfield-picker-container-border);
+        border-radius: v(selectfield-picker-container-border-radius);
+    }
+}
