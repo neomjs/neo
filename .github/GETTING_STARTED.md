@@ -29,7 +29,7 @@ localhost/neo/examples/helix/
 #### This does require setting a Chrome flag for now (strongly recommended for development!).
 chrome://flags/#enable-experimental-web-platform-features (Copy the link into a new browser Tab)
 
-See: <a href="./examples/README.md">./examples/README.md</a> for more details!
+See: <a href="../examples/README.md">examples/README.md</a> for more details!
 
 After using the development and / or production build,
 1. npm run build-development
