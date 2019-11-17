@@ -480,7 +480,7 @@ class Base extends CoreBase {
      * @param {Boolean} oldValue
      * @private
      */
-    afterSetDisabled(value) {
+    afterSetDisabled(value, oldValue) {
         let me  = this,
             cls = me.cls;
 
@@ -527,7 +527,7 @@ class Base extends CoreBase {
      * @param {Number|String|null} oldValue
      * @private
      */
-    afterSetHeight(value) {
+    afterSetHeight(value, oldValue) {
         this.changeVdomRootKey('height', value);
     }
 
@@ -537,7 +537,7 @@ class Base extends CoreBase {
      * @param {String|null} oldValue
      * @private
      */
-    afterSetHtml(value) {
+    afterSetHtml(value, oldValue) {
         this.changeVdomRootKey('html', value);
     }
 
@@ -547,7 +547,7 @@ class Base extends CoreBase {
      * @param {String|null} oldValue
      * @private
      */
-    afterSetId(value) {
+    afterSetId(value, oldValue) {
         this.changeVdomRootKey('id', value);
     }
 
@@ -557,7 +557,7 @@ class Base extends CoreBase {
      * @param {Number|String|null} oldValue
      * @private
      */
-    afterSetMaxHeight(value) {
+    afterSetMaxHeight(value, oldValue) {
         this.changeVdomRootKey('maxHeight', value);
     }
 
@@ -567,7 +567,7 @@ class Base extends CoreBase {
      * @param {Number|String|null} oldValue
      * @private
      */
-    afterSetMaxWidth(value) {
+    afterSetMaxWidth(value, oldValue) {
         this.changeVdomRootKey('maxWidth', value);
     }
 
@@ -577,7 +577,7 @@ class Base extends CoreBase {
      * @param {Number|String|null} oldValue
      * @private
      */
-    afterSetMinHeight(value) {
+    afterSetMinHeight(value, oldValue) {
         this.changeVdomRootKey('minHeight', value);
     }
 
@@ -587,7 +587,7 @@ class Base extends CoreBase {
      * @param {Number|String|null} oldValue
      * @private
      */
-    afterSetMinWidth(value) {
+    afterSetMinWidth(value, oldValue) {
         this.changeVdomRootKey('minWidth', value);
     }
 
@@ -641,7 +641,7 @@ class Base extends CoreBase {
      * @param {Boolean} oldValue
      * @private
      */
-    afterSetTooltips(value) {
+    afterSetTooltips(value, oldValue) {
         if (value) {
             let me = this;
 
@@ -663,7 +663,7 @@ class Base extends CoreBase {
      * @param {Object|null} oldValue
      * @private
      */
-    afterSetVnode(value) {
+    afterSetVnode(value, oldValue) {
         if (value) {
             this.syncVnodeTree();
         }
@@ -675,7 +675,7 @@ class Base extends CoreBase {
      * @param {Number|String|null} oldValue
      * @private
      */
-    afterSetWidth(value) {
+    afterSetWidth(value, oldValue) {
         this.changeVdomRootKey('width', value);
     }
 
@@ -685,7 +685,7 @@ class Base extends CoreBase {
      * @param {Object} oldValue
      * @private
      */
-    afterSetWrapperStyle(value) {
+    afterSetWrapperStyle(value, oldValue) {
         if (value && !Neo.isEmpty(value)) {
             let vdom = this.vdom;
 

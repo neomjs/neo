@@ -651,6 +651,10 @@ class Text extends Base {
         return false;
     }
 
+    /**
+     *
+     * @returns {Boolean}
+     */
     isEmpty() {
         return !(this.value && this.value.toString().length > 0);
     }
