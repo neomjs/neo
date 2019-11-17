@@ -1,6 +1,6 @@
 # neo.mjs: Getting Started Guide
 
-1. Clone this repo to your system (e.g. git clone https://gitlab.com/tobiu/neoteric.git) to get the files
+1. Clone this repo to your system (e.g. git clone https://github.com/neomjs/neo.git) to get the files
 
 2. Open the checked out top level folder inside your terminal / cmd
 
@@ -23,13 +23,13 @@
 6. npm run create-app
 
 #### You can run the examples & docs app **without** any JS build directly:  
-localhost/neoteric/docs/  
-localhost/neoteric/examples/helix/
+localhost/neo/docs/  
+localhost/neo/examples/helix/
 
 #### This does require setting a Chrome flag for now (strongly recommended for development!).
 chrome://flags/#enable-experimental-web-platform-features (Copy the link into a new browser Tab)
 
-See: <a href="./examples/README.md">examples/README.md</a> for more details!
+See: <a href="./examples/README.md">./examples/README.md</a> for more details!
 
 After using the development and / or production build,
 1. npm run build-development
@@ -37,8 +37,8 @@ After using the development and / or production build,
 
 you can run the examples like this:
 
-localhost/neoteric/dist/development/examples/helix/
+localhost/neo/dist/development/examples/helix/
 
-localhost/neoteric/dist/production/examples/helix/
+localhost/neo/dist/production/examples/helix/
 
 The build (dist) versions also work in Firefox & Safari and do not require the Chrome flag.
