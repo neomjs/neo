@@ -162,7 +162,7 @@ class Select extends Picker {
     }
 
     /**
-     * Tiggered before the store config gets changed.
+     * Triggered before the store config gets changed.
      * @param {Object|Neo.data.Store|null} value
      * @param {Neo.data.Store} oldValue
      * @returns {Neo.data.Store}

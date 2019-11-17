@@ -27,7 +27,7 @@ class HeaderToolbar extends Toolbar {
     }}
 
     /**
-     * Tiggered after the useActiveTabIndicator config got changed
+     * Triggered after the useActiveTabIndicator config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @private

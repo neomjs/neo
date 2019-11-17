@@ -132,7 +132,7 @@ class Filter extends Base {
     }
 
     /**
-     * Tiggered before the operator config gets changed.
+     * Triggered before the operator config gets changed.
      * @param {String|null} value
      * @param {String} oldValue
      * @returns {String}

@@ -138,7 +138,7 @@ class Number extends Text {
     }
 
     /**
-     * Tiggered before the triggerPosition config gets changed
+     * Triggered before the triggerPosition config gets changed
      * @param {String} value
      * @param {String} oldValue
      * @private

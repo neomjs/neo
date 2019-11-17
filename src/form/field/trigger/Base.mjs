@@ -163,7 +163,7 @@ class Base extends Component {
     }
 
     /**
-     * Tiggered before the align config gets changed
+     * Triggered before the align config gets changed
      * @param {String} value
      * @param {String} oldValue
      * @private

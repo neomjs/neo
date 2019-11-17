@@ -235,7 +235,7 @@ class Button extends Component {
     }
 
     /**
-     * Tiggered before the iconPosition config gets changed
+     * Triggered before the iconPosition config gets changed
      * @param {String} value
      * @param {String} oldValue
      * @private

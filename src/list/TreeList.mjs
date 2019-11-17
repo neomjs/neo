@@ -72,7 +72,7 @@ class TreeList extends Base {
     }
 
     /**
-     * Tiggered before the store config gets changed.
+     * Triggered before the store config gets changed.
      * @param {Object|Neo.data.Store} value
      * @param {Object|Neo.data.Store} oldValue
      * @returns {Neo.data.Store}

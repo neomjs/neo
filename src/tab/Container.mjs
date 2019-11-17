@@ -111,7 +111,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Tiggered after the activeIndex config got changed
+     * Triggered after the activeIndex config got changed
      * @param {Number} value
      * @param {Number} oldValue
      * @private
@@ -133,7 +133,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Tiggered after the plain config got changed
+     * Triggered after the plain config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @private
@@ -148,7 +148,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Tiggered after the tabBarPosition config got changed
+     * Triggered after the tabBarPosition config got changed
      * @param {String} value 'top', 'right', 'bottom', 'left'
      * @param {String} oldValue 'top', 'right', 'bottom', 'left'
      * @private
@@ -174,7 +174,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Tiggered after the useActiveTabIndicator config got changed
+     * Triggered after the useActiveTabIndicator config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @private
@@ -187,7 +187,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Tiggered before the tabBarPosition config gets changed
+     * Triggered before the tabBarPosition config gets changed
      * @param {String} value
      * @param {String} oldValue
      * @private

@@ -207,7 +207,7 @@ class Text extends Base {
     }
 
     /**
-     * Tiggered after the labelPosition config got changed
+     * Triggered after the labelPosition config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private
@@ -451,7 +451,7 @@ class Text extends Base {
     }
 
     /**
-     * Tiggered before the labelPosition config gets changed
+     * Triggered before the labelPosition config gets changed
      * @param {String} value
      * @param {String} oldValue
      * @private

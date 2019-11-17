@@ -151,7 +151,7 @@ class Time extends Picker {
     }
 
     /**
-     * Tiggered before the maxValue config gets changed
+     * Triggered before the maxValue config gets changed
      * @param {String} value
      * @param {String} oldValue
      * @private
@@ -162,7 +162,7 @@ class Time extends Picker {
     }
 
     /**
-     * Tiggered before the minValue config gets changed
+     * Triggered before the minValue config gets changed
      * @param {String} value
      * @param {String} oldValue
      * @private

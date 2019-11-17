@@ -163,7 +163,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Tiggered after the selectionModel config got changed
+     * Triggered after the selectionModel config got changed
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
      * @private
@@ -175,7 +175,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Tiggered after the useCustomScrollbars config got changed
+     * Triggered after the useCustomScrollbars config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @private
@@ -208,7 +208,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Tiggered before the columns config gets changed.
+     * Triggered before the columns config gets changed.
      * @param {Array} value
      * @param {Array} oldValue
      * @private
@@ -222,7 +222,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Tiggered before the headerToolbarId config gets changed.
+     * Triggered before the headerToolbarId config gets changed.
      * @param {String} value
      * @param {String} oldValue
      * @private
@@ -232,7 +232,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Tiggered before the selectionModel config gets changed.
+     * Triggered before the selectionModel config gets changed.
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
      * @private
@@ -246,7 +246,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Tiggered before the store config gets changed.
+     * Triggered before the store config gets changed.
      * @param {Neo.data.Store} value
      * @param {Neo.data.Store} oldValue
      * @private
@@ -270,7 +270,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Tiggered before the viewId config gets changed.
+     * Triggered before the viewId config gets changed.
      * @param {String} value
      * @param {String} oldValue
      * @private
