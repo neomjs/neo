@@ -24,7 +24,7 @@
 
 #### You can run the examples & docs app **without** any JS build directly:  
 localhost/neo/docs/  
-localhost/neo/examples/helix/
+localhost/neo/examples/component/helix/
 
 #### This does require setting a Chrome flag for now (strongly recommended for development!).
 chrome://flags/#enable-experimental-web-platform-features (Copy the link into a new browser Tab)
@@ -37,9 +37,9 @@ After using the development and / or production build,
 
 you can run the examples like this:
 
-localhost/neo/dist/development/examples/helix/
+localhost/neo/dist/development/examples/component/helix/
 
-localhost/neo/dist/production/examples/helix/
+localhost/neo/dist/production/examples/component/helix/
 
 The build (dist) versions also work in Firefox & Safari and do not require the Chrome flag.
 
