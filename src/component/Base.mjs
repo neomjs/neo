@@ -702,7 +702,7 @@ class Base extends CoreBase {
      * @private
      */
     beforeGetController(value, oldValue) {
-        return Neo.get(value);
+        return value && Neo.get(value);
     }
 
     /**
@@ -871,6 +871,27 @@ class Base extends CoreBase {
         }).catch(err => {
             console.log('Error attmpting to receive focus for component', err, me);
         });
+    }
+
+    getController() {
+        let controller = this.controller,
+            i, len, parents;
+
+        if (controller) {
+            return controller;
+        }
+
+        parents = ComponentManager.getParents(this);
+        i       = 0;
+        len     = parents.length;
+
+        for (; i < len; i++) {
+            if (parents[i].controller) {
+                return parents[i].controller;
+            }
+        }
+
+        return null;
     }
 
     /**

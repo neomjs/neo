@@ -144,6 +144,7 @@ class MainContainerController extends ComponentController {
         if (!me[key]) {
             me[key] = Neo.create({
                 module   : module,
+                parentId : me.view.id,
                 reference: reference
             });
         }
