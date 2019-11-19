@@ -27,4 +27,9 @@ Just to make a point on how much time & effort has already been spent on neo.mjs
 
 <img alt="neo.mjs commit history" src="./images/neomjs-commit-history.png">
 
+I would also like a ***big*** thank you to everyone who provided feedback prior to the public release!
+
+Best regards
+Tobi
+
 Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
