@@ -30,6 +30,10 @@ class HeaderComponent extends Component {
          */
         loggedIn_: false,
         /**
+         * @member {String} userName_=null
+         */
+        userName_: null,
+        /**
          * @member {Object} _vdom
          */
         _vdom: {
@@ -156,6 +160,25 @@ class HeaderComponent extends Component {
             list.cn[3].removeDom = !value; // profile
             list.cn[4].removeDom = value;  // login
             list.cn[5].removeDom = value;  // register
+
+            me.vdom = vdom;
+        }
+    }
+
+    /**
+     * Triggered after the userName config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetUserName(value, oldValue) {
+        if (value) {
+            let me          = this,
+                vdom        = me.vdom,
+                profileLink = vdom.cn[0].cn[1].cn[3].cn[0];
+
+            profileLink.href = '#/profile/' + value;
+            profileLink.html = '&nbsp;'     + value;
 
             me.vdom = vdom;
         }

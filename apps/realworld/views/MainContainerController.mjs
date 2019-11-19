@@ -75,7 +75,17 @@ class MainContainerController extends ComponentController {
      */
     afterSetCurrentUser(value, oldValue) {
         if (typeof oldValue === 'object') {
-            this.getReference('header').loggedIn = true;
+            let header = this.getReference('header'),
+                vdom   = header.vdom;
+
+            // bulk update
+            header.silentVdomUpdate = true;
+
+            header.userName = value.username;
+            header.loggedIn = true;
+
+            header.silentVdomUpdate = false;
+            header.vdom = vdom;
         }
     }
 
