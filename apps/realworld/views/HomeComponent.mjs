@@ -94,16 +94,9 @@ class HomeComponent extends Component {
                         }, {
                             tag: 'nav',
                             cn : [{
-                                tag: 'ul',
-                                cls: ['pagination'],
-                                cn : [{
-                                    tag: 'li',
-                                    cls: ['page-item'],
-                                    cn : [{
-                                        cls : ['page-link'],
-                                        html: 1
-                                    }]
-                                }]
+                                tag : 'ul',
+                                cls : ['pagination'],
+                                flag: 'pagination'
                             }]
                         }]
                     }]
@@ -177,20 +170,37 @@ class HomeComponent extends Component {
      * @private
      */
     afterSetCountArticles(value, oldValue) {
-        let me         = this,
-            container  = me.getContainer(),
-            pageSize   = me.pageSize,
-            countPages = Math.ceil(value / pageSize),
-            i          = 0,
-            vdom       = me.vdom;
+        let me          = this,
+            vdom        = me.vdom,
+            pagination  = VDomUtil.getByFlag(vdom, 'pagination'),
+            pageSize    = me.pageSize,
+            countPages  = Math.ceil(value / pageSize),
+            currentPage = 1, // todo
+            i           = 1,
+            cls;
 
-        console.log('afterSetCountArticles', value, countPages);
+        console.log('afterSetCountArticles', value, countPages, pagination);
 
         if (countPages < 2) {
             // todo: hide the paging bbar
         } else {
-            for (; i < countPages; i++) {
+            pagination.cn = [];
 
+            for (; i <= countPages; i++) {
+                cls = ['page-item'];
+
+                if (i === currentPage) {
+                    cls.push('active');
+                }
+
+                pagination.cn.push({
+                    tag: 'li',
+                    cls: cls,
+                    cn : [{
+                        cls : ['page-link'],
+                        html: i
+                    }]
+                });
             }
         }
 
