@@ -114,20 +114,22 @@ class MainContainerController extends Component {
         if (value.hasOwnProperty('viewSource')) {
             record = structureStore.find('className', value.viewSource)[0];
 
-            tab = contentTabContainer.add({
-                ntype        : 'classdetails-sourceviewcomponent',
-                id           : value.viewSource + '__source',
-                line         : value.line,
-                structureData: record,
+            if (record) {
+                tab = contentTabContainer.add({
+                    ntype        : 'classdetails-sourceviewcomponent',
+                    id           : value.viewSource + '__source',
+                    line         : value.line,
+                    structureData: record,
 
-                tabButtonConfig: {
-                    iconCls: 'fa fa-code',
-                    text   : record.name
-                }
-            });
+                    tabButtonConfig: {
+                        iconCls: 'fa fa-code',
+                        text   : record.name
+                    }
+                });
 
-            // adjust the highlighted line for already added source view tabs
-            tab.line = value.line;
+                // adjust the highlighted line for already added source view tabs
+                tab.line = value.line;
+            }
         }
     }
 

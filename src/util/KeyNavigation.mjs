@@ -65,23 +65,26 @@ class KeyNavigation extends Base {
      * @param {Object} data
      */
     onKeyDown(data) {
-        let me           = this,
-            upperCaseKey = data.key.toUpperCase(),
-            scope;
+        // Using the chrome auto-fill feature does trigger a keydown event, not containing a key. See: #64
+        if (data.key) {
+            let me           = this,
+                upperCaseKey = data.key.toUpperCase(),
+                scope;
 
-        upperCaseKey = me.parseUpperCaseKey(upperCaseKey);
+            upperCaseKey = me.parseUpperCaseKey(upperCaseKey);
 
-        // console.log('KeyNavigation onKeyDown', upperCaseKey, data, me.keys);
+            // console.log('KeyNavigation onKeyDown', upperCaseKey, data, me.keys);
 
-        me.keys.forEach(key => {
-            scope = Neo.get(key.scope);
+            me.keys.forEach(key => {
+                scope = Neo.get(key.scope);
 
-            if (key.key.toUpperCase() === upperCaseKey) {
-                if (scope[key.fn]) {
-                    scope[key.fn].apply(scope, [data]);
+                if (key.key.toUpperCase() === upperCaseKey) {
+                    if (scope[key.fn]) {
+                        scope[key.fn].apply(scope, [data]);
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 
     /**

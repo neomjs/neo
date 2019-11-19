@@ -113,7 +113,7 @@ class HomeComponent extends Component {
     }
 
     /**
-     * Tiggered after the articlePreviews config got changed
+     * Triggered after the articlePreviews config got changed
      * @param {Object[]|null} value
      * @param {Object[]|null} oldValue
      * @private
@@ -150,7 +150,7 @@ class HomeComponent extends Component {
     }
 
     /**
-     * Tiggered after the pageSize config got changed
+     * Triggered after the pageSize config got changed
      * @param {Number} value
      * @param {Number} oldValue
      * @private

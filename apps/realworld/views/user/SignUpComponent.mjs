@@ -36,6 +36,12 @@ class SignUpComponent extends Component {
             {name: 'password', placeholder: 'Password',  type: 'password'}
         ],
         /**
+         * @member {Object} keys
+         */
+        keys: {
+            'Enter': 'onKeyDownEnter'
+        },
+        /**
          * @member {String} mode_='signup'
          * @private
          */
@@ -99,7 +105,7 @@ class SignUpComponent extends Component {
     }
 
     /**
-     * Tiggered after the errors config got changed
+     * Triggered after the errors config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
      * @private
@@ -122,7 +128,7 @@ class SignUpComponent extends Component {
     }
 
     /**
-     * Tiggered after the fieldsets config got changed
+     * Triggered after the fieldsets config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private
@@ -152,7 +158,7 @@ class SignUpComponent extends Component {
     }
 
     /**
-     * Tiggered after the mode config got changed
+     * Triggered after the mode config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private
@@ -196,9 +202,16 @@ class SignUpComponent extends Component {
     }
 
     /**
-     * @aram {Object} data
+     *
      */
-    onSubmitButtonClick() {console.log(LOCAL_STORAGE_KEY);
+    onKeyDownEnter() {
+        this.onSubmitButtonClick();
+    }
+
+    /**
+     *
+     */
+    onSubmitButtonClick() {
         let me       = this,
             isSignup = me.mode === 'signup',
             ids      = [me.getInputId('email'), me.getInputId('password')],
@@ -225,8 +238,6 @@ class SignUpComponent extends Component {
                 userData.user.username = data[2].value;
             }
 
-            console.log(userData);
-
             UserApi.post({
                 data: JSON.stringify(userData),
                 slug: isSignup ? '' : '/login'
@@ -236,14 +247,7 @@ class SignUpComponent extends Component {
                 if (errors) {
                     me.errors = errors;
                 } else {
-                    // todo: redirect to home
-
-                    Neo.Main.createLocalStorageItem({
-                        key  : LOCAL_STORAGE_KEY,
-                        value: data.json.user.token
-                    }).then(data => {
-                        console.log('saved', data);
-                    });
+                    me.getController().login(data.json.user);
                 }
             });
         });

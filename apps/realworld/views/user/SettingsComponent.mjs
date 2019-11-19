@@ -89,12 +89,46 @@ class SettingsComponent extends Component {
                                     html: 'Update Settings'
                                 }]
                             }]
+                        }, {
+                            tag: 'hr'
+                        }, {
+                            tag : 'button',
+                            cls : ['btn', 'btn-outline-danger'],
+                            html: 'Or click here to logout.'
                         }]
                     }]
                 }]
             }]
         }
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push({
+            click: {
+                fn      : me.onLogoutButtonClick,
+                delegate: '.btn-outline-danger',
+                scope   : me
+            }
+        });
+
+        me.domListeners = domListeners;
+    }
+
+    /**
+     *
+     */
+    onLogoutButtonClick() {
+        this.getController().logout();
+    }
 }
 
 Neo.applyClassConfig(SettingsComponent);

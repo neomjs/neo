@@ -4,7 +4,7 @@ import DomEventManager from '../../../src/manager/DomEvent.mjs';
 import Instance        from '../../../src/manager/Instance.mjs';
 import Application     from '../../../src/controller/Application.mjs';
 import HashHistory     from '../../../src/util/HashHistory.mjs';
-import Worker          from '../../../src/worker/Worker.mjs';
+import Worker          from '../../../src/worker/Base.mjs';
 
 /**
  * FireFox breaks when including dynamic imports, even in case they are inside unreachable code.

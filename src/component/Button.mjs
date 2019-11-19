@@ -74,13 +74,10 @@ class Button extends Component {
          */
         _vdom: {
             tag: 'button',
-            cn : [{
-                tag: 'span',
-                cls: ['neo-button-glyph']
-            }, {
-                tag: 'span',
-                cls: ['neo-button-text']
-            }]
+            cn : [
+                {tag: 'span', cls: ['neo-button-glyph']},
+                {tag: 'span', cls: ['neo-button-text']}
+            ]
         }
     }}
 

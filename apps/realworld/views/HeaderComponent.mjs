@@ -26,6 +26,14 @@ class HeaderComponent extends Component {
          */
         cls: ['navbar navbar-light'],
         /**
+         * @member {Boolean} loggedIn_=false
+         */
+        loggedIn_: false,
+        /**
+         * @member {String} userName_=null
+         */
+        userName_: null,
+        /**
          * @member {Object} _vdom
          */
         _vdom: {
@@ -51,9 +59,10 @@ class HeaderComponent extends Component {
                             html: 'Home'
                         }]
                     }, {
-                        tag: 'li',
-                        cls: ['nav-item'],
-                        cn : [{
+                        tag      : 'li',
+                        cls      : ['nav-item'],
+                        removeDom: true,
+                        cn: [{
                             tag : 'a',
                             cls : ['nav-link'],
                             href: '#newpost',
@@ -66,8 +75,9 @@ class HeaderComponent extends Component {
                             }]
                         }]
                     }, {
-                        tag: 'li',
-                        cls: ['nav-item'],
+                        tag      : 'li',
+                        cls      : ['nav-item'],
+                        removeDom: true,
                         cn : [{
                             tag : 'a',
                             cls : ['nav-link'],
@@ -79,6 +89,25 @@ class HeaderComponent extends Component {
                                 vtype: 'text',
                                 html : '&nbsp;Settings'
                             }]
+                        }]
+                    }, {
+                        tag      : 'li',
+                        cls      : ['nav-item'],
+                        removeDom: true,
+                        cn: [{
+                            tag : 'a',
+                            cls : ['nav-link'],
+                            href: '#/profile',
+                            html: '&nbsp;Profile'
+                        }]
+                    }, {
+                        tag: 'li',
+                        cls: ['nav-item'],
+                        cn : [{
+                            tag : 'a',
+                            cls : ['nav-link'],
+                            href: '#/login',
+                            html: 'Sign in'
                         }]
                     }, {
                         tag: 'li',
@@ -96,24 +125,7 @@ class HeaderComponent extends Component {
     }}
 
     /**
-     *
-     * @param {String} value
-     * @returns {Number} The tartget index
-     */
-    getActiveIndex(value) {
-        switch (value) {
-            case 'newpost'     : return 1;
-            case 'usersettings': return 2;
-            case '/login'      : return 3;
-            case '/register'   : return 3;
-        }
-
-        // default to home
-        return 0;
-    }
-
-    /**
-     * Tiggered after the activeItem config got changed
+     * Triggered after the activeItem config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private
@@ -129,6 +141,65 @@ class HeaderComponent extends Component {
         NeoArray.add(vdom.cn[0].cn[1].cn[me.getActiveIndex(value)].cn[0].cls, 'active');
 
         me.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the loggedIn config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @private
+     */
+    afterSetLoggedIn(value, oldValue) {
+        if (Neo.isBoolean(oldValue)) {
+            let me   = this,
+                vdom = me.vdom,
+                list = vdom.cn[0].cn[1];
+
+            list.cn[1].removeDom = !value; // newpost
+            list.cn[2].removeDom = !value; // usersettings
+            list.cn[3].removeDom = !value; // profile
+            list.cn[4].removeDom = value;  // login
+            list.cn[5].removeDom = value;  // register
+
+            me.vdom = vdom;
+        }
+    }
+
+    /**
+     * Triggered after the userName config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetUserName(value, oldValue) {
+        if (value) {
+            let me          = this,
+                vdom        = me.vdom,
+                profileLink = vdom.cn[0].cn[1].cn[3].cn[0];
+
+            profileLink.href = '#/profile/' + value;
+            profileLink.html = '&nbsp;'     + value;
+
+            me.vdom = vdom;
+        }
+    }
+
+    /**
+     *
+     * @param {String} value
+     * @returns {Number} The target index
+     */
+    getActiveIndex(value) {
+        switch (value) {
+            case 'newpost'     : return 1;
+            case 'usersettings': return 2;
+            case '/profile'    : return 3;
+            case '/login'      : return 4;
+            case '/register'   : return 5;
+        }
+
+        // default to home
+        return 0;
     }
 }
 

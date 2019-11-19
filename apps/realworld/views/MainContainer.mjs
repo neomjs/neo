@@ -38,7 +38,8 @@ class MainContainer extends Viewport {
         layout: {ntype: 'base'},
 
         items: [{
-            module: HeaderComponent
+            module   : HeaderComponent,
+            reference: 'header'
         }, {
             module: FooterComponent
         }]

@@ -3,6 +3,7 @@ import {default as ArticleApi}          from '../api/Article.mjs';
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
 import CreateComponent                  from './article/CreateComponent.mjs';
 import HomeComponent                    from './HomeComponent.mjs';
+import {LOCAL_STORAGE_KEY}             from '../api/config.mjs';
 import {default as ProfileApi}          from '../api/Profile.mjs';
 import ProfileComponent                 from './user/ProfileComponent.mjs';
 import SettingsComponent                from './user/SettingsComponent.mjs';
@@ -26,6 +27,12 @@ class MainContainerController extends ComponentController {
          * @private
          */
         createComponent: null,
+        /**
+         * Stores the current user data after logging in
+         * @member {Object|null} currentUser_=null
+         * @private
+         */
+        currentUser_: null,
         /**
          * @member {RealWorld.views.HomeComponent|null} homeComponent=null
          * @private
@@ -62,6 +69,28 @@ class MainContainerController extends ComponentController {
     }
 
     /**
+     * Triggered after the currentUser config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @private
+     */
+    afterSetCurrentUser(value, oldValue) {
+        if (typeof oldValue === 'object') {
+            let header = this.getReference('header'),
+                vdom   = header.vdom;
+
+            // bulk update
+            header.silentVdomUpdate = true;
+
+            header.userName = value.username;
+            header.loggedIn = true;
+
+            header.silentVdomUpdate = false;
+            header.vdom = vdom;
+        }
+    }
+
+    /**
      *
      */
     getArticles() {
@@ -77,7 +106,7 @@ class MainContainerController extends ComponentController {
             ArticleApi.get({
                 resource: '/user' // edge case, user instead of users
             }).then(data => {
-                console.log(data.json);
+                this.currentUser = data.json.user;
             });
         }
     }
@@ -116,11 +145,49 @@ class MainContainerController extends ComponentController {
         if (!me[key]) {
             me[key] = Neo.create({
                 module   : module,
+                parentId : me.view.id,
                 reference: reference
             });
         }
 
         return me[key];
+    }
+
+    /**
+     * @param {Object} userData
+     */
+    login(userData) {
+        this.getReference('header').loggedIn = true;
+
+        Neo.Main.createLocalStorageItem({
+            key  : LOCAL_STORAGE_KEY,
+            value: userData.token
+        }).then(() => {
+            // wait until the header vdom-update is done to avoid showing sign up & sign in twice
+            setTimeout(() => {
+                Neo.Main.setRoute({
+                    value: '/'
+                });
+            }, 50);
+        });
+    }
+
+    /**
+     *
+     */
+    logout() {
+        this.getReference('header').loggedIn = false;
+
+        Neo.Main.destroyLocalStorageItem({
+            key: LOCAL_STORAGE_KEY
+        }).then(() => {
+            // wait until the header vdom-update is done to avoid showing sign up & sign in twice
+            setTimeout(() => {
+                Neo.Main.setRoute({
+                    value: '/'
+                });
+            }, 50);
+        });
     }
 
     /**

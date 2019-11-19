@@ -92,7 +92,7 @@ class PreviewComponent extends Component {
     }}
 
     /**
-     * Tiggered after the author config got changed
+     * Triggered after the author config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private
@@ -111,7 +111,7 @@ class PreviewComponent extends Component {
     }
 
     /**
-     * Tiggered after the createdAt config got changed
+     * Triggered after the createdAt config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private
@@ -129,7 +129,7 @@ class PreviewComponent extends Component {
     }
 
     /**
-     * Tiggered after the description config got changed
+     * Triggered after the description config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private
@@ -142,7 +142,7 @@ class PreviewComponent extends Component {
     }
 
     /**
-     * Tiggered after the favoritesCount config got changed
+     * Triggered after the favoritesCount config got changed
      * @param {Number} value
      * @param {Number} oldValue
      * @private
@@ -155,7 +155,7 @@ class PreviewComponent extends Component {
     }
 
     /**
-     * Tiggered after the slug config got changed
+     * Triggered after the slug config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private
@@ -168,7 +168,7 @@ class PreviewComponent extends Component {
     }
 
     /**
-     * Tiggered after the tagList config got changed
+     * Triggered after the tagList config got changed
      * @param {Array} value
      * @param {Array} oldValue
      * @private
@@ -200,7 +200,7 @@ class PreviewComponent extends Component {
     }
 
     /**
-     * Tiggered after the title config got changed
+     * Triggered after the title config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private
@@ -213,7 +213,7 @@ class PreviewComponent extends Component {
     }
 
     /**
-     * Tiggered after the userImage config got changed
+     * Triggered after the userImage config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private

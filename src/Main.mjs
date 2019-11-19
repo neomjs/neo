@@ -64,6 +64,7 @@ class Main extends core.Base {
                 'createLocalStorageItem',
                 'destroyLocalStorageItem',
                 'readLocalStorageItem',
+                'setRoute',
                 'updateLocalStorageItem'
             ]
         },
@@ -300,6 +301,15 @@ class Main extends core.Base {
         }
 
         me.running = false;
+    }
+
+    /**
+     * Change the location.hash value
+     * @param {Object} data
+     * @param {String} data.value
+     */
+    setRoute(data) {
+        window.location.hash = data.value;
     }
 }
 
