@@ -78,7 +78,8 @@ class CreateComponent extends Component {
                                 }, {
                                     tag : 'button',
                                     cls : ['btn', 'btn-lg', 'btn-primary', 'pull-xs-right'],
-                                    html: 'Publish Article'
+                                    html: 'Publish Article',
+                                    type: 'button' // override the default submit type
                                 }]
                             }]
                         }]
