@@ -3,6 +3,7 @@ import {default as ArticleApi}          from '../api/Article.mjs';
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
 import CreateComponent                  from './article/CreateComponent.mjs';
 import HomeComponent                    from './HomeComponent.mjs';
+import {LOCAL_STORAGE_KEY}             from '../api/config.mjs';
 import {default as ProfileApi}          from '../api/Profile.mjs';
 import ProfileComponent                 from './user/ProfileComponent.mjs';
 import SettingsComponent                from './user/SettingsComponent.mjs';
@@ -150,6 +151,24 @@ class MainContainerController extends ComponentController {
         }
 
         return me[key];
+    }
+
+    /**
+     *
+     */
+    logout() {
+        this.getReference('header').loggedIn = false;
+
+        Neo.Main.destroyLocalStorageItem({
+            key: LOCAL_STORAGE_KEY
+        }).then(() => {
+            // wait until the header vdom-update is done to avoid showing sign up & sign in twice
+            setTimeout(() => {
+                Neo.Main.setRoute({
+                    value: '/'
+                });
+            }, 50);
+        });
     }
 
     /**

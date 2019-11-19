@@ -1,5 +1,4 @@
 import {default as Component} from '../../../../src/component/Base.mjs';
-import {LOCAL_STORAGE_KEY}    from '../../api/config.mjs';
 
 /**
  * @class RealWorld.views.user.SettingsComponent
@@ -128,13 +127,7 @@ class SettingsComponent extends Component {
      *
      */
     onLogoutButtonClick() {
-        Neo.Main.destroyLocalStorageItem({
-            key: LOCAL_STORAGE_KEY
-        }).then(() => {
-            Neo.Main.setRoute({
-                value: '/'
-            });
-        });
+        this.getController().logout();
     }
 }
 
