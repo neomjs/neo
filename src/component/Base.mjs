@@ -873,6 +873,10 @@ class Base extends CoreBase {
         });
     }
 
+    /**
+     * Returns this.controller or the closest parent controller
+     * @returns {Neo.controller.Base|null}
+     */
     getController() {
         let controller = this.controller,
             i, len, parents;
