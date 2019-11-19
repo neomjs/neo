@@ -238,8 +238,6 @@ class SignUpComponent extends Component {
                 userData.user.username = data[2].value;
             }
 
-            console.log(userData);
-
             UserApi.post({
                 data: JSON.stringify(userData),
                 slug: isSignup ? '' : '/login'
@@ -249,14 +247,7 @@ class SignUpComponent extends Component {
                 if (errors) {
                     me.errors = errors;
                 } else {
-                    // todo: redirect to home
-
-                    Neo.Main.createLocalStorageItem({
-                        key  : LOCAL_STORAGE_KEY,
-                        value: data.json.user.token
-                    }).then(data => {
-                        console.log('saved', data);
-                    });
+                    me.getController().login(data.json.user);
                 }
             });
         });

@@ -154,6 +154,25 @@ class MainContainerController extends ComponentController {
     }
 
     /**
+     * @param {Object} userData
+     */
+    login(userData) {
+        this.getReference('header').loggedIn = true;
+
+        Neo.Main.createLocalStorageItem({
+            key  : LOCAL_STORAGE_KEY,
+            value: userData.token
+        }).then(() => {
+            // wait until the header vdom-update is done to avoid showing sign up & sign in twice
+            setTimeout(() => {
+                Neo.Main.setRoute({
+                    value: '/'
+                });
+            }, 50);
+        });
+    }
+
+    /**
      *
      */
     logout() {
