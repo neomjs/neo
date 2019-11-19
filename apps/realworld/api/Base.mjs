@@ -101,11 +101,12 @@ class Base extends CoreBase {
      * @param {String|null} token
      */
     onReady(token) {
-        //console.log('ready', this.id, token);
         let me = this;
 
-        me.defaultHeaders = me.defaultHeaders || {};
-        me.defaultHeaders['Authorization'] = 'Token ' + token;
+        if (token) {
+            me.defaultHeaders = me.defaultHeaders || {};
+            me.defaultHeaders['Authorization'] = 'Token ' + token;
+        }
 
         me.isReady = true;
         me.fire('ready', token);

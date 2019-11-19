@@ -130,8 +130,10 @@ class SettingsComponent extends Component {
     onLogoutButtonClick() {
         Neo.Main.destroyLocalStorageItem({
             key: LOCAL_STORAGE_KEY
-        }).then(data => {
-            console.log('token destroyed');
+        }).then(() => {
+            Neo.Main.setRoute({
+                value: '/'
+            });
         });
     }
 }
