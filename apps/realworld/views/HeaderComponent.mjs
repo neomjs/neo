@@ -57,7 +57,6 @@ class HeaderComponent extends Component {
                     }, {
                         tag      : 'li',
                         cls      : ['nav-item'],
-                        flag     : 'newpost',
                         removeDom: true,
                         cn: [{
                             tag : 'a',
@@ -74,9 +73,8 @@ class HeaderComponent extends Component {
                     }, {
                         tag      : 'li',
                         cls      : ['nav-item'],
-                        flag     : 'usersettings',
                         removeDom: true,
-                        cn: [{
+                        cn : [{
                             tag : 'a',
                             cls : ['nav-link'],
                             href: '#usersettings',
@@ -89,20 +87,28 @@ class HeaderComponent extends Component {
                             }]
                         }]
                     }, {
-                        tag : 'li',
-                        cls : ['nav-item'],
-                        flag: 'login',
-                        cn  : [{
+                        tag      : 'li',
+                        cls      : ['nav-item'],
+                        removeDom: true,
+                        cn: [{
+                            tag : 'a',
+                            cls : ['nav-link'],
+                            href: '#/profile',
+                            html: '&nbsp;Profile'
+                        }]
+                    }, {
+                        tag: 'li',
+                        cls: ['nav-item'],
+                        cn : [{
                             tag : 'a',
                             cls : ['nav-link'],
                             href: '#/login',
                             html: 'Sign in'
                         }]
                     }, {
-                        tag : 'li',
-                        cls : ['nav-item'],
-                        flag: 'register',
-                        cn  : [{
+                        tag: 'li',
+                        cls: ['nav-item'],
+                        cn : [{
                             tag : 'a',
                             cls : ['nav-link'],
                             href: '#/register',
@@ -147,8 +153,9 @@ class HeaderComponent extends Component {
 
             list.cn[1].removeDom = !value; // newpost
             list.cn[2].removeDom = !value; // usersettings
-            list.cn[3].removeDom = value;  // login
-            list.cn[4].removeDom = value;  // register
+            list.cn[3].removeDom = !value; // profile
+            list.cn[4].removeDom = value;  // login
+            list.cn[5].removeDom = value;  // register
 
             me.vdom = vdom;
         }
@@ -163,8 +170,9 @@ class HeaderComponent extends Component {
         switch (value) {
             case 'newpost'     : return 1;
             case 'usersettings': return 2;
-            case '/login'      : return 3;
-            case '/register'   : return 3;
+            case '/profile'    : return 3;
+            case '/login'      : return 4;
+            case '/register'   : return 5;
         }
 
         // default to home
