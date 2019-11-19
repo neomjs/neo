@@ -36,6 +36,12 @@ class SignUpComponent extends Component {
             {name: 'password', placeholder: 'Password',  type: 'password'}
         ],
         /**
+         * @member {Object} keys
+         */
+        keys: {
+            'Enter': 'onKeyDownEnter'
+        },
+        /**
          * @member {String} mode_='signup'
          * @private
          */
@@ -196,9 +202,16 @@ class SignUpComponent extends Component {
     }
 
     /**
-     * @aram {Object} data
+     *
      */
-    onSubmitButtonClick() {console.log(LOCAL_STORAGE_KEY);
+    onKeyDownEnter() {
+        this.onSubmitButtonClick();
+    }
+
+    /**
+     *
+     */
+    onSubmitButtonClick() {
         let me       = this,
             isSignup = me.mode === 'signup',
             ids      = [me.getInputId('email'), me.getInputId('password')],
