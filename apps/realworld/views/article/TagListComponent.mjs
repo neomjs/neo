@@ -41,7 +41,7 @@ class TagListComponent extends Component {
     }}
 
     /**
-     * Tiggered after the tags config got changed
+     * Triggered after the tags config got changed
      * @param {String[]|null} value
      * @param {String[]|null} oldValue
      * @private

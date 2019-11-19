@@ -113,7 +113,7 @@ class HeaderComponent extends Component {
     }
 
     /**
-     * Tiggered after the activeItem config got changed
+     * Triggered after the activeItem config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private

@@ -27,6 +27,12 @@ class MainContainerController extends ComponentController {
          */
         createComponent: null,
         /**
+         * Stores the current user data after logging in
+         * @member {Object|null} currentUser_=null
+         * @private
+         */
+        currentUser_: null,
+        /**
          * @member {RealWorld.views.HomeComponent|null} homeComponent=null
          * @private
          */
@@ -62,6 +68,18 @@ class MainContainerController extends ComponentController {
     }
 
     /**
+     * Triggered after the currentUser config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @private
+     */
+    afterSetCurrentUser(value, oldValue) {
+        if (typeof oldValue === 'object') {
+            console.log('afterSetCurrentUser', value);
+        }
+    }
+
+    /**
      *
      */
     getArticles() {
@@ -77,7 +95,7 @@ class MainContainerController extends ComponentController {
             ArticleApi.get({
                 resource: '/user' // edge case, user instead of users
             }).then(data => {
-                console.log(data.json);
+                this.currentUser = data.json.user;
             });
         }
     }

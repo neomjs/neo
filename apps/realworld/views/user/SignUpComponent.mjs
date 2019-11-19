@@ -99,7 +99,7 @@ class SignUpComponent extends Component {
     }
 
     /**
-     * Tiggered after the errors config got changed
+     * Triggered after the errors config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
      * @private
@@ -122,7 +122,7 @@ class SignUpComponent extends Component {
     }
 
     /**
-     * Tiggered after the fieldsets config got changed
+     * Triggered after the fieldsets config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private
@@ -152,7 +152,7 @@ class SignUpComponent extends Component {
     }
 
     /**
-     * Tiggered after the mode config got changed
+     * Triggered after the mode config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private

@@ -114,7 +114,7 @@ class ProfileComponent extends Component {
     }}
 
     /**
-     * Tiggered after the bio config got changed
+     * Triggered after the bio config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private
@@ -129,7 +129,7 @@ class ProfileComponent extends Component {
     }
 
     /**
-     * Tiggered after the following config got changed
+     * Triggered after the following config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @private
@@ -146,7 +146,7 @@ class ProfileComponent extends Component {
     }
 
     /**
-     * Tiggered after the image config got changed
+     * Triggered after the image config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private
@@ -159,7 +159,7 @@ class ProfileComponent extends Component {
     }
 
     /**
-     * Tiggered after the username config got changed
+     * Triggered after the username config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private
