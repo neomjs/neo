@@ -174,23 +174,15 @@ class ProfileComponent extends Component {
 
     /**
      *
-     * @param {Object} data
+     * @param {Object} configs
      */
-    update(data) {
-        let me   = this,
-            vdom = me.vdom;
-
-        me.silentVdomUpdate = true;
-
-        Object.assign(me, {
-            bio      : data.bio,
-            following: data.following,
-            image    : data.image,
-            username : data.username
+    update(configs) {
+        this.bulkConfigUpdate({
+            bio      : configs.bio,
+            following: configs.following,
+            image    : configs.image,
+            username : configs.username
         });
-
-        me.silentVdomUpdate = false;
-        me.vdom = vdom;
     }
 }
 
