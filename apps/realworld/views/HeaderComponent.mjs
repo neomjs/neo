@@ -55,9 +55,11 @@ class HeaderComponent extends Component {
                             html: 'Home'
                         }]
                     }, {
-                        tag: 'li',
-                        cls: ['nav-item'],
-                        cn : [{
+                        tag      : 'li',
+                        cls      : ['nav-item'],
+                        flag     : 'newpost',
+                        removeDom: true,
+                        cn: [{
                             tag : 'a',
                             cls : ['nav-link'],
                             href: '#newpost',
@@ -70,9 +72,11 @@ class HeaderComponent extends Component {
                             }]
                         }]
                     }, {
-                        tag: 'li',
-                        cls: ['nav-item'],
-                        cn : [{
+                        tag      : 'li',
+                        cls      : ['nav-item'],
+                        flag     : 'usersettings',
+                        removeDom: true,
+                        cn: [{
                             tag : 'a',
                             cls : ['nav-link'],
                             href: '#usersettings',
@@ -85,9 +89,20 @@ class HeaderComponent extends Component {
                             }]
                         }]
                     }, {
-                        tag: 'li',
-                        cls: ['nav-item'],
-                        cn : [{
+                        tag : 'li',
+                        cls : ['nav-item'],
+                        flag: 'login',
+                        cn  : [{
+                            tag : 'a',
+                            cls : ['nav-link'],
+                            href: '#/login',
+                            html: 'Sign in'
+                        }]
+                    }, {
+                        tag : 'li',
+                        cls : ['nav-item'],
+                        flag: 'register',
+                        cn  : [{
                             tag : 'a',
                             cls : ['nav-link'],
                             href: '#/register',
@@ -127,11 +142,15 @@ class HeaderComponent extends Component {
     afterSetLoggedIn(value, oldValue) {
         if (Neo.isBoolean(oldValue)) {
             let me   = this,
-                vdom = me.vdom;
+                vdom = me.vdom,
+                list = vdom.cn[0].cn[1];
 
-            console.log('afterSetLoggedIn', value, oldValue);
+            list.cn[1].removeDom = !value; // newpost
+            list.cn[2].removeDom = !value; // usersettings
+            list.cn[3].removeDom = value;  // login
+            list.cn[4].removeDom = value;  // register
 
-            // me.vdom = vdom;
+            me.vdom = vdom;
         }
     }
 
