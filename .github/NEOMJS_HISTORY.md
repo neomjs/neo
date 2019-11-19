@@ -18,8 +18,12 @@ Just to make a point on how much time & effort has already been spent on neo.mjs
 &nbsp;&nbsp;&nbsp;182 commits Rich Waters
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;8 commits Arthur Rubens
-   
-(4 single commits of others)   
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2 commits Kevin Cassidy
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1 commits Herb Jellinek
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1 commits Nils Dehl
 
 <img alt="neo.mjs commit history" src="./images/neomjs-commit-history.png">
 
