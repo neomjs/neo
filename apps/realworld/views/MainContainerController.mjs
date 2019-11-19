@@ -90,7 +90,10 @@ class MainContainerController extends ComponentController {
         ArticleApi.get({
             params : {offset: 0, limit: 10}
         }).then(data => {
-            this.homeComponent.articlePreviews = data.json.articles;
+            this.homeComponent.bulkConfigUpdate({
+                articlePreviews: data.json.articles,
+                countArticles  : data.json.articlesCount
+            });
         });
     }
 

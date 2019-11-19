@@ -28,6 +28,10 @@ class HomeComponent extends Component {
          */
         cls: ['home-page'],
         /**
+         * @member {Number} countArticles_=10
+         */
+        countArticles_: 10,
+        /**
          * @member {Number} pageSize_=10
          */
         pageSize_: 10,
@@ -87,6 +91,20 @@ class HomeComponent extends Component {
                                     }]
                                 }]
                             }]
+                        }, {
+                            tag: 'nav',
+                            cn : [{
+                                tag: 'ul',
+                                cls: ['pagination'],
+                                cn : [{
+                                    tag: 'li',
+                                    cls: ['page-item'],
+                                    cn : [{
+                                        cls : ['page-link'],
+                                        html: 1
+                                    }]
+                                }]
+                            }]
                         }]
                     }]
                 }]
@@ -121,9 +139,10 @@ class HomeComponent extends Component {
     afterSetArticlePreviews(value, oldValue) {
         let me        = this,
             container = me.getContainer(),
+            footer    = container.cn.pop(),
             vdom      = me.vdom;
 
-        console.log(value);
+        console.log('afterSetArticlePreviews', value);
 
         container.cn = [container.cn.shift()];
 
@@ -144,9 +163,38 @@ class HomeComponent extends Component {
 
                 container.cn.push(me.previewComponents[index].vdom);
             });
-
-            me.vdom = vdom;
         }
+
+        container.cn.push(footer);
+
+        me.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the countArticles config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @private
+     */
+    afterSetCountArticles(value, oldValue) {
+        let me         = this,
+            container  = me.getContainer(),
+            pageSize   = me.pageSize,
+            countPages = Math.ceil(value / pageSize),
+            i          = 0,
+            vdom       = me.vdom;
+
+        console.log('afterSetCountArticles', value, countPages);
+
+        if (countPages < 2) {
+            // todo: hide the paging bbar
+        } else {
+            for (; i < countPages; i++) {
+
+            }
+        }
+
+        me.vdom = vdom;
     }
 
     /**
