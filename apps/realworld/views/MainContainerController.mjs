@@ -75,7 +75,7 @@ class MainContainerController extends ComponentController {
      */
     afterSetCurrentUser(value, oldValue) {
         if (typeof oldValue === 'object') {
-            console.log('afterSetCurrentUser', value);
+            this.getReference('header').loggedIn = true;
         }
     }
 
