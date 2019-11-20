@@ -50,7 +50,8 @@ class DomAccess extends Base {
                 'getBoundingClientRect',
                 'scrollIntoView',
                 'selectNode',
-                'swapStyleSheet'
+                'swapStyleSheet',
+                'windowScrollTo'
             ]
         },
         /**
@@ -355,6 +356,21 @@ class DomAccess extends Base {
         }
 
         return {id: data.id};
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} [data.behavior='smooth'] // auto or smooth
+     * @param {String} [data.left=0]
+     * @param {String} [data.top=0]
+     */
+    windowScrollTo(data) {
+        window.scrollTo({
+            behavior: data.behavior || 'smooth',
+            left    : data.left     || 0,
+            top     : data.top      || 0
+        });
     }
 
     /**
