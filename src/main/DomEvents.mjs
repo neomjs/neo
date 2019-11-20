@@ -33,12 +33,8 @@ const lastWheelEvent = {
     target: null
 };
 
-const preventClickTargets = [];
-
-const preventContextmenuTargets = [
-    'neo-circle',
-    'neo-circle-back'
-];
+const preventClickTargets       = [],
+      preventContextmenuTargets = [];
 
 /**
  * @class Neo.main.DomEvents
@@ -74,7 +70,7 @@ class DomEvents extends Base {
         remote: {
             app: [
                 'addDomListener',
-                'registerPreventDefaultTarget'
+                'registerPreventDefaultTargets'
             ]
         }
     }}
@@ -498,21 +494,30 @@ class DomEvents extends Base {
     /**
      *
      * @param {Object} data
-     * @param {String} data.cls
+     * @param {Array|String} data.cls
      * @param {String} data.name
      */
-    registerPreventDefaultTarget(data) {
+    registerPreventDefaultTargets(data) {
         let preventArray;
+
+        if (!Array.isArray(data.cls)) {
+            data.cls = [data.cls];
+        }
 
         switch (data.name) {
             case 'click':
                 preventArray = preventClickTargets;
                 break;
+            case 'contextmenu':
+                preventArray = preventContextmenuTargets;
+                break;
         }
 
-        if (!preventArray.includes(data.cls)) {
-            preventArray.push(data.cls);
-        }
+        data.cls.forEach(cls => {
+            if (!preventArray.includes(cls)) {
+                preventArray.push(cls);
+            }
+        });
     }
 
     /**

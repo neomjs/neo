@@ -135,6 +135,11 @@ class Circle extends Component {
     constructor(config) {
         super(config);
 
+        Neo.main.DomEvents.registerPreventDefaultTargets({
+            name: 'contextmenu',
+            cls : ['neo-circle', 'neo-circle-back']
+        });
+
         let me           = this,
             domListeners = me.domListeners,
             vdom         = me.vdom;
