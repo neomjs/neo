@@ -33,6 +33,8 @@ const lastWheelEvent = {
     target: null
 };
 
+const preventClickTargets = [];
+
 const preventContextmenuTargets = [
     'neo-circle',
     'neo-circle-back'
@@ -70,7 +72,10 @@ class DomEvents extends Base {
          * @private
          */
         remote: {
-            app: ['addDomListener']
+            app: [
+                'addDomListener',
+                'registerPreventDefaultTarget'
+            ]
         }
     }}
 
@@ -292,7 +297,13 @@ class DomEvents extends Base {
      * @param {Object} event
      */
     onClick(event) {
-        this.sendMessageToApp(this.getMouseEventData(event));
+        let me = this;
+
+        me.sendMessageToApp(me.getMouseEventData(event));
+
+        if (me.testPathInclusion(event, preventClickTargets)) {
+            event.preventDefault();
+        }
     }
 
     /**
@@ -482,6 +493,26 @@ class DomEvents extends Base {
         }
 
         return value;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.cls
+     * @param {String} data.name
+     */
+    registerPreventDefaultTarget(data) {
+        let preventArray;
+
+        switch (data.name) {
+            case 'click':
+                preventArray = preventClickTargets;
+                break;
+        }
+
+        if (!preventArray.includes(data.cls)) {
+            preventArray.push(data.cls);
+        }
     }
 
     /**

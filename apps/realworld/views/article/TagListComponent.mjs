@@ -41,6 +41,19 @@ class TagListComponent extends Component {
     }}
 
     /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        Neo.main.DomEvents.registerPreventDefaultTarget({
+            name: 'click',
+            cls : 'tag-pill'
+        });
+    }
+
+    /**
      * Triggered after the tags config got changed
      * @param {String[]|null} value
      * @param {String[]|null} oldValue
