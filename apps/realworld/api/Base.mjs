@@ -72,8 +72,36 @@ class Base extends CoreBase {
      * @param {String} [opts.slug]
      * @returns {Promise<any>}
      */
+    delete(opts={}) {
+        console.log('delete', opts);
+
+        return Neo.Xhr.promiseJson({
+            data   : opts.data,
+            method : 'DELETE',
+            params : opts.params,
+            url    : API_URL + (opts.resource || this.resource) + (opts.slug ? '/' + opts.slug : ''),
+
+            headers: {
+                ...this.defaultHeaders || {},
+                'Content-Type'    : 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        }).catch(error => {
+            console.log('RealWorld.api.Base:get()', error);
+        });
+    }
+
+    /**
+     *
+     * @param {Object} [opts={}]
+     * @param {Object} [opts.data]
+     * @param {Object} [opts.params]
+     * @param {String} [opts.resource]
+     * @param {String} [opts.slug]
+     * @returns {Promise<any>}
+     */
     get(opts={}) {
-        console.log(opts);
+        console.log('get', opts);
 
         return Neo.Xhr.promiseJson({
             data   : opts.data,
@@ -117,7 +145,7 @@ class Base extends CoreBase {
      * @returns {Promise<any>}
      */
     post(opts={}) {
-        console.log(opts);
+        console.log('post', opts);
 
         return Neo.Xhr.promiseJson({
             data   : opts.data,
