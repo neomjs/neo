@@ -22,11 +22,6 @@ class Base extends CoreBase {
          */
         className: 'RealWorld.api.Base',
         /**
-         * @member {String} ntype='realworld-api-base'
-         * @private
-         */
-        ntype: 'realworld-api-base',
-        /**
          * @member {Object|null} defaultHeaders=null
          */
         defaultHeaders: null,

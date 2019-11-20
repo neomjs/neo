@@ -12,11 +12,6 @@ class Favorite extends Base {
          */
         className: 'RealWorld.api.Favorite',
         /**
-         * @member {String} ntype='realworld-api-favorite'
-         * @private
-         */
-        ntype: 'realworld-api-favorite',
-        /**
          * @member {String} resource='/articles'
          */
         resource: '/articles' // todo: `articles/${slug}/favorite`

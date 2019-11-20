@@ -12,11 +12,6 @@ class Profile extends Base {
          */
         className: 'RealWorld.api.Profile',
         /**
-         * @member {String} ntype='realworld-api-profile'
-         * @private
-         */
-        ntype: 'realworld-api-profile',
-        /**
          * @member {String} resource='/profiles'
          */
         resource: '/profiles'
