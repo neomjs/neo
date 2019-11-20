@@ -278,7 +278,13 @@ class PreviewComponent extends Component {
      * @param {Object} data
      */
     onFavoriteButtonClick(data) {
-        this.favorited = !this.favorited;
+        let me        = this,
+            favorited = !me.favorited;
+
+        me.bulkConfigUpdate({
+            favorited     : favorited,
+            favoritesCount: favorited ? (me.favoritesCount + 1) : (me.favoritesCount - 1)
+        });
     }
 }
 
