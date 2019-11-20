@@ -181,7 +181,8 @@ class HomeComponent extends Component {
 
                 if (!me.previewComponents[index]) {
                     me.previewComponents[index] = Neo.create({
-                        module: PreviewComponent,
+                        module  : PreviewComponent,
+                        parentId: me.id,
                         ...config
                     });
                 } else {

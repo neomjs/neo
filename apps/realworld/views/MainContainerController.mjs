@@ -2,6 +2,7 @@ import {default as ArticleComponent}    from './article/Component.mjs';
 import {default as ArticleApi}          from '../api/Article.mjs';
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
 import CreateComponent                  from './article/CreateComponent.mjs';
+import {default as FavoriteApi}          from '../api/Favorite.mjs';
 import HomeComponent                    from './HomeComponent.mjs';
 import {LOCAL_STORAGE_KEY}             from '../api/config.mjs';
 import {default as ProfileApi}          from '../api/Profile.mjs';
@@ -98,6 +99,15 @@ class MainContainerController extends ComponentController {
                 userName: value.username
             });
         }
+    }
+
+    /**
+     *
+     * @param {String} slug
+     * @param {Boolean} favorited
+     */
+    favoriteArticle(slug, favorited) {
+        console.log('favoriteArticle', favorited);
     }
 
     /**

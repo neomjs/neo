@@ -174,13 +174,19 @@ class PreviewComponent extends Component {
      * @private
      */
     afterSetFavorited(value, oldValue) {
-        let vdom   = this.vdom,
+        let me     = this,
+            vdom   = me.vdom,
             button = vdom.cn[0].cn[2];
 
         NeoArray.add(button.cls, value ? 'btn-primary' : 'btn-outline-primary');
         NeoArray.remove(button.cls, value ? 'btn-outline-primary' : 'btn-primary');
 
-        this.vdom = vdom;
+        me.vdom = vdom;
+
+        // ignore the initial setter call
+        if (Neo.isBoolean(oldValue)) {
+            me.getController().favoriteArticle(me.slug, value);
+        }
     }
 
     /**
@@ -272,7 +278,7 @@ class PreviewComponent extends Component {
      * @param {Object} data
      */
     onFavoriteButtonClick(data) {
-        console.log('onFavoriteButtonClick', data.path[0]);
+        this.favorited = !this.favorited;
     }
 }
 

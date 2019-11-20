@@ -16,6 +16,22 @@ class Favorite extends Base {
          */
         resource: '/articles' // todo: `articles/${slug}/favorite`
     }}
+
+    /**
+     *
+     * @param {String} slug
+     */
+    add(slug) {
+        console.log('add', slug);
+    }
+
+    /**
+     *
+     * @param {String} slug
+     */
+    remove(slug) {
+        console.log('remove', slug);
+    }
 }
 
 Neo.applyClassConfig(Favorite);
