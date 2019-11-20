@@ -51,6 +51,19 @@ class TagListComponent extends Component {
             name: 'click',
             cls : 'tag-pill'
         });
+
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push({
+            click: {
+                fn      : me.onTagLinkClick,
+                delegate: '.tag-pill',
+                scope   : me
+            }
+        });
+
+        me.domListeners = domListeners;
     }
 
     /**
@@ -72,7 +85,7 @@ class TagListComponent extends Component {
                     cls : ['tag-pill', 'tag-default'],
                     href: '',
                     html: item,
-                    id  : me.getTagId(item)
+                    id  : me.getTagVdomId(item)
                 });
             });
 
@@ -82,11 +95,28 @@ class TagListComponent extends Component {
 
     /**
      *
+     * @param {String} nodeId
+     * @returns {String}
+     */
+    getTagId(nodeId) {
+        return nodeId.split('__')[1];
+    }
+
+    /**
+     *
      * @param {String} name
      * @returns {String}
      */
-    getTagId(name) {
+    getTagVdomId(name) {
         return this.id + '__' + name;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onTagLinkClick(data) {
+        console.log('onTagLinkClick', this.getTagId(data.path[0].id));
     }
 }
 
