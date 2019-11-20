@@ -166,12 +166,10 @@ class DeltaUpdates extends Base {
         let me   = this,
             node = me.getElement(delta.id);
 
-        console.log('du_updateVtext', delta);
-        console.log(node.innerHTML);
-        console.log(node.childNodes);
-
         if (!delta.oldValue) {
             node.innerHTML += delta.value;
+        } else {
+            node.innerHTML = node.innerHTML.replace(delta.oldValue, delta.value);
         }
     }
 
