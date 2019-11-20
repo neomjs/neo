@@ -261,7 +261,7 @@ class HomeComponent extends Component {
 
             me.vdom = vdom;
 
-            me.getController().articlesOffset = (value - 1) * 10;
+            me.getController().articlesOffset = (value - 1) * me.pageSize;
         }
     }
 
