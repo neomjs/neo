@@ -172,6 +172,7 @@ class HomeComponent extends Component {
                     author        : item.author.username,
                     createdAt     : item.createdAt,
                     description   : item.description,
+                    favorited     : item.favorited,
                     favoritesCount: item.favoritesCount,
                     slug          : item.slug,
                     title         : item.title,

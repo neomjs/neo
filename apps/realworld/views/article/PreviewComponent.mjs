@@ -1,4 +1,5 @@
 import {default as Component} from '../../../../src/component/Base.mjs';
+import NeoArray               from '../../../../src/util/Array.mjs';
 import {default as VDomUtil}  from '../../../../src/util/VDom.mjs';
 
 /**
@@ -34,6 +35,10 @@ class PreviewComponent extends Component {
          * @member {String|null} description_=null
          */
         description_: null,
+        /**
+         * @member {Boolean} favorited_=false
+         */
+        favorited_: false,
         /**
          * @member {Number|null} favoritesCount_=null
          */
@@ -72,7 +77,7 @@ class PreviewComponent extends Component {
                     ]
                 }, {
                     tag: 'button',
-                    cls: ['btn', 'btn-outline-primary', 'btn-sm', 'pull-xs-right'],
+                    cls: ['btn', 'btn-sm', 'pull-xs-right'],
                     cn : [
                         {tag  : 'i',    cls : ['ion-heart']},
                         {vtype: 'text', flag: 'favoritesCount'}
@@ -90,6 +95,27 @@ class PreviewComponent extends Component {
             }]
         }
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push({
+            click: {
+                fn      : me.onFavoriteButtonClick,
+                delegate: '.pull-xs-right',
+                scope   : me
+            }
+        });
+
+        me.domListeners = domListeners;
+    }
 
     /**
      * Triggered after the author config got changed
@@ -138,6 +164,22 @@ class PreviewComponent extends Component {
         let vdom = this.vdom;
 
         VDomUtil.getByFlag(vdom, 'description').html = value;
+        this.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the favorited config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @private
+     */
+    afterSetFavorited(value, oldValue) {
+        let vdom   = this.vdom,
+            button = vdom.cn[0].cn[2];
+
+        NeoArray.add(button.cls, value ? 'btn-primary' : 'btn-outline-primary');
+        NeoArray.remove(button.cls, value ? 'btn-outline-primary' : 'btn-primary');
+
         this.vdom = vdom;
     }
 
@@ -223,6 +265,14 @@ class PreviewComponent extends Component {
 
         VDomUtil.getByFlag(vdom, 'userImageLink').cn[0].src = value;
         this.vdom = vdom;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onFavoriteButtonClick(data) {
+        console.log('onFavoriteButtonClick', data.path[0]);
     }
 }
 
