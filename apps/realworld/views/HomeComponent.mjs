@@ -141,7 +141,12 @@ class HomeComponent extends Component {
             vdom = me.vdom;
 
         me.tagList = Neo.create({
-            module: TagListComponent
+            module  : TagListComponent,
+            parentId: me.id,
+
+            listeners: {
+                tagChange: me.onTagChange
+            }
         });
 
         vdom.cn[1].cn[0].cn.push(me.tagList.vdom);
@@ -325,6 +330,10 @@ class HomeComponent extends Component {
      */
     onPageNavLinkClick(data) {
         this.currentPage = this.getNavLinkId(data.path[0].id);
+    }
+
+    onTagChange(value, oldValue) {
+        console.log('onTagChange', value);
     }
 }
 

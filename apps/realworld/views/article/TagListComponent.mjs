@@ -5,6 +5,15 @@ import {default as Component} from '../../../../src/component/Base.mjs';
  * @extends Neo.component.Base
  */
 class TagListComponent extends Component {
+    static getStaticConfig() {return {
+        /**
+         * True automatically applies the core.Observable mixin
+         * @member {Boolean} observable=true
+         * @static
+         */
+        observable: true
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.views.article.TagListComponent'
@@ -16,6 +25,10 @@ class TagListComponent extends Component {
          * @private
          */
         ntype: 'realworld-article-taglistcomponent',
+        /**
+         * @member {String|null} activeTag_
+         */
+        activeTag_: null,
         /**
          * @member {String[]} cls=['col-md-3']
          */
@@ -64,6 +77,18 @@ class TagListComponent extends Component {
         });
 
         me.domListeners = domListeners;
+    }
+
+    /**
+     * Triggered after the activeTag config got changed
+     * @param {String[]|null} value
+     * @param {String[]|null} oldValue
+     * @private
+     */
+    afterSetActiveTag(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.fire('tagChange', value);
+        }
     }
 
     /**
@@ -116,7 +141,7 @@ class TagListComponent extends Component {
      * @param {Object} data
      */
     onTagLinkClick(data) {
-        console.log('onTagLinkClick', this.getTagId(data.path[0].id));
+        this.activeTag = this.getTagId(data.path[0].id);
     }
 }
 
