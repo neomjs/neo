@@ -74,9 +74,10 @@ class HomeComponent extends Component {
                         cn : [{
                             cls: ['feed-toggle'],
                             cn : [{
-                                tag: 'ul',
-                                cls: ['nav', 'nav-pills', 'outline-active'],
-                                cn : [{
+                                tag : 'ul',
+                                cls : ['nav', 'nav-pills', 'outline-active'],
+                                flag: 'feed-header',
+                                cn: [{
                                     tag: 'li',
                                     cls: ['nav-item'],
                                     cn : [{
@@ -145,7 +146,8 @@ class HomeComponent extends Component {
             parentId: me.id,
 
             listeners: {
-                tagChange: me.onTagChange
+                tagChange: me.onTagChange,
+                scope    : me
             }
         });
 
@@ -332,8 +334,39 @@ class HomeComponent extends Component {
         this.currentPage = this.getNavLinkId(data.path[0].id);
     }
 
-    onTagChange(value, oldValue) {
-        console.log('onTagChange', value);
+    /**
+     *
+     * @param {Object} opts
+     * @param {String|null} opts.oldValue
+     * @param {String|null} opts.value
+     */
+    onTagChange(opts) {
+        let me         = this,
+            vdom       = me.vdom,
+            feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
+            html       = '# ' + opts.value;
+
+        feedHeader.cn[0].cn[0].cls = ['nav-link'];
+        feedHeader.cn[1].cn[0].cls = ['nav-link'];
+
+        if (feedHeader.cn.length < 3) {
+            feedHeader.cn.push({
+                tag: 'li',
+                cls: ['nav-item'],
+                cn : [{
+                    tag: 'a',
+                    cls: ['nav-link', 'active'],
+                    href: '',
+                    html: html
+                }]
+            })
+        } else {
+            feedHeader.cn[2].cn[0].html = html;
+        }
+
+        me.vdom = vdom;
+
+        // todo: reload the feed with the new tag param
     }
 }
 
