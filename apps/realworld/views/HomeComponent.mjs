@@ -1,4 +1,5 @@
 import {default as Component} from '../../../src/component/Base.mjs';
+import NeoArray               from '../../../src/util/Array.mjs';
 import PreviewComponent       from './article/PreviewComponent.mjs';
 import TagListComponent       from './article/TagListComponent.mjs';
 import {default as VDomUtil}  from '../../../src/util/VDom.mjs';
@@ -240,7 +241,19 @@ class HomeComponent extends Component {
      * @private
      */
     afterSetCurrentPage(value, oldValue) {
-        console.log('afterSetCurrentPage', value);
+        let me   = this,
+            vdom = me.vdom,
+            node, oldNode;
+
+        if (me.mounted) {
+            node    = VDomUtil.findVdomChild(vdom, me.getNavLinkVdomId(value)).parentNode;
+            oldNode = VDomUtil.findVdomChild(vdom, me.getNavLinkVdomId(oldValue)).parentNode;
+
+            NeoArray.add(node.cls, 'active');
+            NeoArray.remove(oldNode.cls, 'active');
+
+            me.vdom = vdom;
+        }
     }
 
     /**
