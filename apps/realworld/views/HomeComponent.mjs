@@ -162,8 +162,6 @@ class HomeComponent extends Component {
             vdom      = me.vdom,
             config;
 
-        console.log('afterSetArticlePreviews', value);
-
         container.cn = [container.cn.shift()];
 
         if (Array.isArray(value)) {
