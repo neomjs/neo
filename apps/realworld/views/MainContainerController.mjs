@@ -23,6 +23,10 @@ class MainContainerController extends ComponentController {
          */
         className: 'RealWorld.views.MainContainerController',
         /**
+         * @member {Number} articlesOffset_=0
+         */
+        articlesOffset_: 0,
+        /**
          * @member {RealWorld.views.article.CreateComponent|null} createComponent=null
          * @private
          */
@@ -69,6 +73,19 @@ class MainContainerController extends ComponentController {
     }
 
     /**
+     * Triggered after the articlesOffset config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @private
+     */
+    afterSetArticlesOffset(value, oldValue) {
+        // ignore the initial config setter call
+        if (Neo.isNumber(oldValue)) {
+            this.getArticles();
+        }
+    }
+
+    /**
      * Triggered after the currentUser config got changed
      * @param {Object} value
      * @param {Object} oldValue
@@ -88,7 +105,10 @@ class MainContainerController extends ComponentController {
      */
     getArticles() {
         ArticleApi.get({
-            params : {offset: 0, limit: 10}
+            params: {
+                limit : 10,
+                offset: this.articlesOffset
+            }
         }).then(data => {
             this.homeComponent.bulkConfigUpdate({
                 articlePreviews: data.json.articles,

@@ -159,7 +159,8 @@ class HomeComponent extends Component {
         let me        = this,
             container = me.getContainer(),
             footer    = container.cn.pop(),
-            vdom      = me.vdom;
+            vdom      = me.vdom,
+            config;
 
         console.log('afterSetArticlePreviews', value);
 
@@ -167,17 +168,23 @@ class HomeComponent extends Component {
 
         if (Array.isArray(value)) {
             value.forEach((item, index) => {
+                config = {
+                    author        : item.author.username,
+                    createdAt     : item.createdAt,
+                    description   : item.description,
+                    favoritesCount: item.favoritesCount,
+                    slug          : item.slug,
+                    title         : item.title,
+                    userImage     : item.author.image
+                };
+
                 if (!me.previewComponents[index]) {
                     me.previewComponents[index] = Neo.create({
-                        module        : PreviewComponent,
-                        author        : item.author.username,
-                        createdAt     : item.createdAt,
-                        description   : item.description,
-                        favoritesCount: item.favoritesCount,
-                        slug          : item.slug,
-                        title         : item.title,
-                        userImage     : item.author.image
+                        module: PreviewComponent,
+                        ...config
                     });
+                } else {
+                    me.previewComponents[index].bulkConfigUpdate(config);
                 }
 
                 container.cn.push(me.previewComponents[index].vdom);
@@ -253,6 +260,8 @@ class HomeComponent extends Component {
             NeoArray.remove(oldNode.cls, 'active');
 
             me.vdom = vdom;
+
+            me.getController().articlesOffset = (value - 1) * 10;
         }
     }
 
