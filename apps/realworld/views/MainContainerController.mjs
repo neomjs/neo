@@ -107,7 +107,7 @@ class MainContainerController extends ComponentController {
      * @param {Boolean} favorited
      */
     favoriteArticle(slug, favorited) {
-        console.log('favoriteArticle', favorited);
+        FavoriteApi[favorited ? 'add' : 'remove'](slug);
     }
 
     /**

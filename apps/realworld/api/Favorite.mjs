@@ -10,11 +10,7 @@ class Favorite extends Base {
          * @member {String} className='RealWorld.api.Favorite'
          * @private
          */
-        className: 'RealWorld.api.Favorite',
-        /**
-         * @member {String} resource='/articles'
-         */
-        resource: '/articles' // todo: `articles/${slug}/favorite`
+        className: 'RealWorld.api.Favorite'
     }}
 
     /**
@@ -22,7 +18,9 @@ class Favorite extends Base {
      * @param {String} slug
      */
     add(slug) {
-        console.log('add', slug);
+        return this.post({
+            url: `/articles/${slug}/favorite`
+        });
     }
 
     /**
@@ -30,7 +28,9 @@ class Favorite extends Base {
      * @param {String} slug
      */
     remove(slug) {
-        console.log('remove', slug);
+        return this.delete({
+            url: `/articles/${slug}/favorite`
+        });
     }
 }
 
