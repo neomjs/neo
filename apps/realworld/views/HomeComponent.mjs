@@ -32,6 +32,10 @@ class HomeComponent extends Component {
          */
         countArticles_: 10,
         /**
+         * @member {Number} countArticles_=10
+         */
+        currentPage_: 1,
+        /**
          * @member {Number} pageSize_=10
          */
         pageSize_: 10,
@@ -107,6 +111,27 @@ class HomeComponent extends Component {
 
     /**
      *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push({
+            click: {
+                fn      : me.onPageNavLinkClick,
+                delegate: '.page-link',
+                scope   : me
+            }
+        });
+
+        me.domListeners = domListeners;
+    }
+
+    /**
+     *
      */
     onConstructed() {
         super.onConstructed();
@@ -175,11 +200,9 @@ class HomeComponent extends Component {
             pagination  = VDomUtil.getByFlag(vdom, 'pagination'),
             pageSize    = me.pageSize,
             countPages  = Math.ceil(value / pageSize),
-            currentPage = 1, // todo
+            currentPage = me.currentPage,
             i           = 1,
             cls;
-
-        console.log('afterSetCountArticles', value, countPages, pagination);
 
         if (countPages < 2) {
             // todo: hide the paging bbar
@@ -197,7 +220,10 @@ class HomeComponent extends Component {
                     tag: 'li',
                     cls: cls,
                     cn : [{
+                        tag : 'a',
                         cls : ['page-link'],
+                        id  : me.getNavLinkVdomId(i),
+                        // href: '', // todo: the styling is based on an existing href attribute, we would need an e.preventDefault() call to add it
                         html: i
                     }]
                 });
@@ -205,6 +231,16 @@ class HomeComponent extends Component {
         }
 
         me.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the currentPage config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @private
+     */
+    afterSetCurrentPage(value, oldValue) {
+        console.log('afterSetCurrentPage', value);
     }
 
     /**
@@ -239,6 +275,32 @@ class HomeComponent extends Component {
     getContainer() {
         let el = VDomUtil.findVdomChild(this.vdom, {cls: 'col-md-9'});
         return el && el.vdom;
+    }
+
+    /**
+     *
+     * @param {String} nodeId
+     * @returns {Number}
+     */
+    getNavLinkId(nodeId) {
+        return parseInt(nodeId.split('__')[1]);
+    }
+
+    /**
+     *
+     * @param {Number|String} id
+     * @returns {String}
+     */
+    getNavLinkVdomId(id) {
+        return this.id + '__' + id;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onPageNavLinkClick(data) {
+        this.currentPage = this.getNavLinkId(data.path[0].id);
     }
 }
 
