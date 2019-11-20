@@ -184,7 +184,7 @@ class HomeComponent extends Component {
                         ...config
                     });
                 } else {
-                    me.previewComponents[index].bulkConfigUpdate(config);
+                    me.previewComponents[index].bulkConfigUpdate(config, true); // hint: try this call with false and compare the delta updates
                 }
 
                 container.cn.push(me.previewComponents[index].vdom);

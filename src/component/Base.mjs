@@ -780,8 +780,9 @@ class Base extends CoreBase {
     /**
      * Convenience shortcut for bulk updates, just doing one vdom update call
      * @param {Object} configs
+     * @param {Boolean} [silent=false]
      */
-    bulkConfigUpdate(configs) {
+    bulkConfigUpdate(configs, silent=false) {
         let me   = this,
             vdom = me.vdom;
 
@@ -790,7 +791,8 @@ class Base extends CoreBase {
         Object.assign(me, configs);
 
         me.silentVdomUpdate = false;
-        me.vdom = vdom;
+
+        me[silent ? '_vdom' : 'vdom'] = vdom;
     }
 
     /**
