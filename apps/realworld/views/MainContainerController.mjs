@@ -116,7 +116,10 @@ class MainContainerController extends ComponentController {
      * @param {Boolean} follow
      */
     followUser(slug, follow) {
-        UserApi[follow ? 'follow' : 'unfollow'](slug);
+        ProfileApi[follow ? 'follow' : 'unfollow'](slug).then(data => {
+            console.log('followUser cb', data);
+            // todo: update profile cmp => data.profile.following
+        });
     }
 
     /**
