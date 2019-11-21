@@ -37,6 +37,13 @@ class HomeComponent extends Component {
          */
         currentPage_: 1,
         /**
+         * @member {Object[]} feeds_
+         */
+        feeds_: [
+            {name: 'Your Feed',   disabled: true},
+            {name: 'Global Feed', active  : true}
+        ],
+        /**
          * @member {Number} pageSize_=10
          */
         pageSize_: 10,
@@ -77,25 +84,7 @@ class HomeComponent extends Component {
                                 tag : 'ul',
                                 cls : ['nav', 'nav-pills', 'outline-active'],
                                 flag: 'feed-header',
-                                cn: [{
-                                    tag: 'li',
-                                    cls: ['nav-item'],
-                                    cn : [{
-                                        tag: 'a',
-                                        cls: ['prevent-click', 'nav-link', 'disabled'],
-                                        href: '',
-                                        html: 'Your Feed'
-                                    }]
-                                }, {
-                                    tag: 'li',
-                                    cls: ['nav-item'],
-                                    cn : [{
-                                        tag: 'a',
-                                        cls: ['prevent-click', 'nav-link', 'active'],
-                                        href: '',
-                                        html: 'Global Feed'
-                                    }]
-                                }]
+                                cn  : []
                             }]
                         }, {
                             tag: 'nav',
@@ -127,6 +116,12 @@ class HomeComponent extends Component {
             domListeners = me.domListeners;
 
         domListeners.push({
+            click: {
+                fn      : me.onNavLinkClick,
+                delegate: '.nav-link',
+                scope   : me
+            }
+        }, {
             click: {
                 fn      : me.onPageNavLinkClick,
                 delegate: '.page-link',
@@ -185,6 +180,7 @@ class HomeComponent extends Component {
                     favorited     : item.favorited,
                     favoritesCount: item.favoritesCount,
                     slug          : item.slug,
+                    tagList       : item.tagList,
                     title         : item.title,
                     userImage     : item.author.image
                 };
@@ -241,9 +237,9 @@ class HomeComponent extends Component {
                     cls: cls,
                     cn : [{
                         tag : 'a',
-                        cls : ['page-link'],
+                        cls : ['page-link', 'prevent-click'],
                         id  : me.getNavLinkVdomId(i),
-                        // href: '', // todo: the styling is based on an existing href attribute, we would need an e.preventDefault() call to add it
+                        href: '',
                         html: i
                     }]
                 });
@@ -277,6 +273,41 @@ class HomeComponent extends Component {
 
             Neo.main.DomAccess.windowScrollTo({});
         }
+    }
+
+    /**
+     * Triggered after the feeds config got changed
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
+     * @private
+     */
+    afterSetFeeds(value, oldValue) {
+        let me         = this,
+            vdom       = me.vdom,
+            feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
+            cls;
+
+        feedHeader.cn = [];
+
+        value.forEach((item, index) => {
+            cls = ['prevent-click', 'nav-link'];
+
+            if (item.active)   {cls.push('active');}
+            if (item.disabled) {cls.push('disabled');}
+
+            feedHeader.cn.push({
+                tag: 'li',
+                cls: ['nav-item'],
+                id : me.id + '__nav-item_' + index,
+                cn : [{
+                    tag: 'a',
+                    cls: cls,
+                    href: '',
+                    html: item.name,
+                    id  : me.id + '__nav-item-link_' + index,
+                }]
+            });
+        });
     }
 
     /**
@@ -335,6 +366,40 @@ class HomeComponent extends Component {
      *
      * @param {Object} data
      */
+    onNavLinkClick(data) {
+        let me         = this,
+            vdom       = me.vdom,
+            el         = VDomUtil.findVdomChild(vdom, data.path[0].id),
+            feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
+            opts;
+
+        switch(el.vdom.html) {
+            case 'Global Feed':
+                opts = {};
+                break;
+            case 'Your Feed':
+                opts = {}; // todo
+                break;
+            default: // tag
+                opts = {
+                    tag: el.vdom.html.substring(2) // remove the '# '
+                };
+                break;
+        }
+
+        feedHeader.cn.forEach(item => {
+            NeoArray[item.id === el.parentNode.id ? 'add' : 'remove'](item.cn[0].cls, 'active');
+        });
+
+        me.vdom = vdom;
+
+        me.getController().getArticles(opts);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onPageNavLinkClick(data) {
         this.currentPage = this.getNavLinkId(data.path[0].id);
     }
@@ -346,30 +411,27 @@ class HomeComponent extends Component {
      * @param {String|null} opts.value
      */
     onTagChange(opts) {
-        let me         = this,
-            vdom       = me.vdom,
-            feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
-            html       = '# ' + opts.value;
+        let me    = this,
+            feeds = me.feeds,
+            name  = '# ' + opts.value;
 
-        feedHeader.cn[0].cn[0].cls = ['prevent-click', 'nav-link'];
-        feedHeader.cn[1].cn[0].cls = ['prevent-click', 'nav-link'];
+        feeds.forEach(item => {
+            item.active = false;
+        });
 
-        if (feedHeader.cn.length < 3) {
-            feedHeader.cn.push({
-                tag: 'li',
-                cls: ['nav-item'],
-                cn : [{
-                    tag: 'a',
-                    cls: ['prevent-click', 'nav-link', 'active'],
-                    href: '',
-                    html: html
-                }]
-            })
+        if (feeds.length < 3) {
+            feeds.push({
+                active: true,
+                name  : name
+            });
         } else {
-            feedHeader.cn[2].cn[0].html = html;
+            Object.assign(feeds[2], {
+                active: true,
+                name  : name
+            });
         }
 
-        me.vdom = vdom;
+        me.feeds = feeds;
 
         me.getController().getArticles({
             tag: opts.value

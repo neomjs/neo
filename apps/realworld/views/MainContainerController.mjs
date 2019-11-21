@@ -112,6 +112,17 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @param {String} slug
+     * @param {Boolean} follow
+     */
+    followUser(slug, follow) {
+        ProfileApi[follow ? 'follow' : 'unfollow'](slug).then(data => {
+            this.profileComponent.following = data.json.profile.following;
+        });
+    }
+
+    /**
+     *
      */
     getArticles(opts={}) {
         ArticleApi.get({
@@ -146,7 +157,10 @@ class MainContainerController extends ComponentController {
         ProfileApi.get({
             slug: slug
         }).then(data => {
-            this.profileComponent.update(data.json.profile);
+            this.profileComponent.update({
+                ...data.json.profile,
+                myProfile: data.json.profile.username === this.currentUser.username
+            });
         });
     }
 

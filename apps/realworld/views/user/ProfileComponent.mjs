@@ -1,4 +1,5 @@
 import {default as Component} from '../../../../src/component/Base.mjs';
+import NeoArray               from '../../../../src/util/Array.mjs';
 import {default as VDomUtil}  from '../../../../src/util/VDom.mjs';
 
 /**
@@ -33,6 +34,10 @@ class ProfileComponent extends Component {
          * @member {String|null} image_=null
          */
         image_: null,
+        /**
+         * @member {Boolean} myProfile_=false
+         */
+        myProfile_: false,
         /**
          * @member {String|null} username_=null
          */
@@ -114,6 +119,27 @@ class ProfileComponent extends Component {
     }}
 
     /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push({
+            click: {
+                fn      : me.onFollowButtonClick,
+                delegate: '.action-btn',
+                scope   : me
+            }
+        });
+
+        me.domListeners = domListeners;
+    }
+
+    /**
      * Triggered after the bio config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -135,9 +161,13 @@ class ProfileComponent extends Component {
      * @private
      */
     afterSetFollowing(value, oldValue) {
-        if (Neo.isBoolean(value)) {console.log('following', value);
+        if (Neo.isBoolean(value)) {
             let vdom = this.vdom,
                 node = VDomUtil.getByFlag(vdom, 'following');
+
+            // tobiu: did not see this one in the specs, but the react & vue app do it
+            NeoArray.remove(node.cls, value ? 'btn-outline-secondary' : 'btn-secondary');
+            NeoArray.add(node.cls, value ? 'btn-secondary' : 'btn-outline-secondary');
 
             node.cn[0].cls  = [value ? 'ion-minus-round' : 'ion-plus-round'];
             node.cn[1].html = value ? ' Unfollow ' : ' Follow ';
@@ -159,6 +189,21 @@ class ProfileComponent extends Component {
     }
 
     /**
+     * Triggered after the myProfile config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @private
+     */
+    afterSetMyProfile(value, oldValue) {
+        if (Neo.isBoolean(value)) {
+            let vdom = this.vdom;
+
+            VDomUtil.getByFlag(vdom, 'following').removeDom = value;
+            this.vdom = vdom;
+        }
+    }
+
+    /**
      * Triggered after the username config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -174,6 +219,16 @@ class ProfileComponent extends Component {
 
     /**
      *
+     * @param {Object} data
+     */
+    onFollowButtonClick(data) {
+        let me = this;
+
+        me.getController().followUser(me.username, !me.following);
+    }
+
+    /**
+     *
      * @param {Object} configs
      */
     update(configs) {
@@ -181,6 +236,7 @@ class ProfileComponent extends Component {
             bio      : configs.bio,
             following: configs.following,
             image    : configs.image,
+            myProfile: configs.myProfile,
             username : configs.username
         });
     }
