@@ -138,7 +138,9 @@ class MainContainerController extends ComponentController {
             console.log('getArticle', article);
 
             this.articleComponent.bulkConfigUpdate({
-                title: article.title
+                body    : article.body,
+                title   : article.title,
+                userName: article.author.username
             });
         });
     }

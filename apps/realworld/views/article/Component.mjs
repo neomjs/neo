@@ -18,6 +18,10 @@ class Component extends BaseComponent {
          */
         ntype: 'realworld-article-component',
         /**
+         * @member {String|null} body_=null
+         */
+        body_: null,
+        /**
          * @member {String[]} cls=['article-page']
          */
         cls: ['article-page'],
@@ -25,6 +29,10 @@ class Component extends BaseComponent {
          * @member {String|null} title_=null
          */
         title_: null,
+        /**
+         * @member {String|null} userName_=null
+         */
+        userName_: null,
         /**
          * @member {Object} _vdom
          */
@@ -50,8 +58,8 @@ class Component extends BaseComponent {
                             cn : [{
                                 tag : 'a',
                                 cls : ['author'],
-                                href: '',
-                                html: 'Eric Simons'
+                                flag: 'userName',
+                                href: ''
                             }, {
                                 tag : 'span',
                                 cls : ['date'],
@@ -108,17 +116,8 @@ class Component extends BaseComponent {
                 cn : [{
                     cls: ['row', 'article-content'],
                     cn : [{
-                        cls: ['col-md-12'],
-                        cn : [{
-                            tag : 'p',
-                            html: 'Web development technologies have evolved at an incredible clip over the past few years.'
-                        }, {
-                            tag : 'h2',
-                            html: 'Introducing RealWorld.'
-                        }, {
-                            tag : 'p',
-                            html: 'It\'s a great solution for learning how other frameworks work.'
-                        }]
+                        cls : ['col-md-12'],
+                        flag: 'body'
                     }]
                 }, {
                     tag: 'hr'
@@ -300,6 +299,20 @@ class Component extends BaseComponent {
     }}
 
     /**
+     * Triggered after the body config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetBody(value, oldValue) {
+        let vdom = this.vdom;
+
+        // todo: markdown parsing => #78
+        VDomUtil.getByFlag(vdom, 'body').html = value;
+        this.vdom = vdom;
+    }
+
+    /**
      * Triggered after the title config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -307,8 +320,21 @@ class Component extends BaseComponent {
      */
     afterSetTitle(value, oldValue) {
         let vdom = this.vdom;
-console.log('afterSetTitle', value);
+
         VDomUtil.getByFlag(vdom, 'title').html = value;
+        this.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the userName config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetUserName(value, oldValue) {
+        let vdom = this.vdom;
+
+        VDomUtil.getByFlag(vdom, 'userName').html = value;
         this.vdom = vdom;
     }
 }
