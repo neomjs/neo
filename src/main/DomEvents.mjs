@@ -255,6 +255,7 @@ class DomEvents extends Base {
             clientTop        : node.clientTop,
             clientWidth      : node.clientWidth,
             cls              : node.classList ? [...node.classList] : [],
+            data             : {...node.dataset},
             draggable        : node.draggable,
             hidden           : node.hidden,
             id               : node.id,
