@@ -26,9 +26,17 @@ class Component extends BaseComponent {
          */
         body_: null,
         /**
+         * @member {String|null} createdAt_=null
+         */
+        createdAt_: null,
+        /**
          * @member {String[]} cls=['article-page']
          */
         cls: ['article-page'],
+        /**
+         * @member {Number|null} favoritesCount_=null
+         */
+        favoritesCount_: null,
         /**
          * @member {String|null} title_=null
          */
@@ -63,7 +71,7 @@ class Component extends BaseComponent {
                             }, {
                                 tag : 'span',
                                 cls : ['date'],
-                                html: 'January 20th'
+                                flag: 'createdAt'
                             }]
                         }, {
                             tag: 'button',
@@ -106,7 +114,7 @@ class Component extends BaseComponent {
                             }, {
                                 tag : 'span',
                                 cls : ['counter'],
-                                html: '(29)'
+                                flag: 'favoritesCount'
                             }]
                         }]
                     }]
@@ -213,7 +221,8 @@ class Component extends BaseComponent {
                                 }, {
                                     tag : 'button',
                                     cls : ['btn', 'btn-sm', 'btn-primary'],
-                                    html: 'Post Comment'
+                                    html: 'Post Comment',
+                                    type: 'button' // override the default submit type
                                 }]
                             }]
                         }, {
@@ -310,6 +319,41 @@ class Component extends BaseComponent {
         // todo: markdown parsing => #78
         VDomUtil.getByFlag(vdom, 'body').html = value;
         this.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the createdAt config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetCreatedAt(value, oldValue) {
+        if (value) {
+            let vdom = this.vdom;
+
+            VDomUtil.getByFlag(vdom, 'createdAt').html = new Intl.DateTimeFormat('en-US', {
+                day  : 'numeric',
+                month: 'long',
+                year : 'numeric'
+            }).format(new Date(value));
+
+            this.vdom = vdom;
+        }
+    }
+
+    /**
+     * Triggered after the favoritesCount config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetFavoritesCount(value, oldValue) {
+        if (Neo.isNumber(value)) {
+            let vdom = this.vdom;
+
+            VDomUtil.getByFlag(vdom, 'favoritesCount').html = `(${value})`;
+            this.vdom = vdom;
+        }
     }
 
     /**
