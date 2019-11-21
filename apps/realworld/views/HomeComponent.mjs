@@ -180,6 +180,7 @@ class HomeComponent extends Component {
                     favorited     : item.favorited,
                     favoritesCount: item.favoritesCount,
                     slug          : item.slug,
+                    tagList       : item.tagList,
                     title         : item.title,
                     userImage     : item.author.image
                 };
