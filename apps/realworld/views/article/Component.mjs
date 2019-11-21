@@ -84,6 +84,7 @@ class Component extends BaseComponent {
                                 html : '&nbsp;'
                             }, {
                                 vtype: 'text',
+                                flag : 'username',
                                 html : 'Follow Eric Simons'
                             }, {
                                 vtype: 'text',
@@ -145,6 +146,7 @@ class Component extends BaseComponent {
                             cn : [{
                                 tag : 'a',
                                 cls : ['author'],
+                                flag: 'username',
                                 href: '',
                                 html: 'Eric Simons'
                             }, {
@@ -163,6 +165,7 @@ class Component extends BaseComponent {
                                 html : '&nbsp;'
                             }, {
                                 vtype: 'text',
+                                flag : 'username',
                                 html : 'Follow Eric Simons'
                             }, {
                                 vtype: 'text',
@@ -378,6 +381,8 @@ class Component extends BaseComponent {
     afterSetAuthor(value, oldValue) {
         if (value) {
             let vdom = this.vdom;
+
+            console.log(VDomUtil.getFlags(vdom, 'username'));
 
             VDomUtil.getByFlag(vdom, 'userimage').src = value.image;
             VDomUtil.getByFlag(vdom, 'username').html = value.username;

@@ -107,13 +107,42 @@ class VDom extends Base {
 
     /**
      * Convenience shortcut for findVdomChild(vdom, {flag: flag});
-     * @param {Object} [vdom]
-     * @param {String} flag The flag reference spedified on the target vdom child node
+     * @param {Object} vdom
+     * @param {String} flag The flag reference specified on the target vdom child node
      * @returns {Object} vdom
      */
     static getByFlag(vdom, flag) {
         let node = VDom.findVdomChild(vdom, {flag: flag});
         return node && node.vdom;
+    }
+
+    /**
+     *
+     * @param {Object} vdom
+     * @param {String} flag
+     * @param {Array} [matchArray]
+     * @return {Array} an array of vdom nodes which match the flag
+     */
+    static getFlags(vdom, flag, matchArray) {
+        if (!matchArray) {
+            matchArray = [];
+
+            if (vdom.flag === flag) {
+                matchArray.push(vdom);
+            }
+        }
+
+        let childNodes = vdom && vdom.cn || [];
+
+        childNodes.forEach(childNode => {
+            if (childNode.flag === flag) {
+                matchArray.push(childNode);
+            }
+
+            matchArray = VDom.getFlags(childNode, flag, matchArray);
+        });
+
+        return matchArray;
     }
 
     /**
