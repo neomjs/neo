@@ -18,6 +18,10 @@ class Component extends BaseComponent {
          */
         ntype: 'realworld-article-component',
         /**
+         * @member {Object|null} author_=null
+         */
+        author_: null,
+        /**
          * @member {String|null} body_=null
          */
         body_: null,
@@ -29,10 +33,6 @@ class Component extends BaseComponent {
          * @member {String|null} title_=null
          */
         title_: null,
-        /**
-         * @member {String|null} userName_=null
-         */
-        userName_: null,
         /**
          * @member {Object} _vdom
          */
@@ -50,15 +50,15 @@ class Component extends BaseComponent {
                             tag : 'a',
                             href: '',
                             cn  : [{
-                                tag: 'img',
-                                src: 'http://i.imgur.com/Qr71crq.jpg'
+                                tag : 'img',
+                                flag: 'userimage'
                             }]
                         }, {
                             cls: ['info'],
                             cn : [{
                                 tag : 'a',
                                 cls : ['author'],
-                                flag: 'userName',
+                                flag: 'username',
                                 href: ''
                             }, {
                                 tag : 'span',
@@ -326,16 +326,19 @@ class Component extends BaseComponent {
     }
 
     /**
-     * Triggered after the userName config got changed
+     * Triggered after the author config got changed
      * @param {String} value
      * @param {String} oldValue
      * @private
      */
-    afterSetUserName(value, oldValue) {
-        let vdom = this.vdom;
+    afterSetAuthor(value, oldValue) {
+        if (value) {
+            let vdom = this.vdom;
 
-        VDomUtil.getByFlag(vdom, 'userName').html = value;
-        this.vdom = vdom;
+            VDomUtil.getByFlag(vdom, 'userimage').src = value.image;
+            VDomUtil.getByFlag(vdom, 'username').html = value.username;
+            this.vdom = vdom;
+        }
     }
 }
 

@@ -133,15 +133,8 @@ class MainContainerController extends ComponentController {
         ArticleApi.get({
             slug: slug
         }).then(data => {
-            let article = data.json.article;
-
-            console.log('getArticle', article);
-
-            this.articleComponent.bulkConfigUpdate({
-                body    : article.body,
-                title   : article.title,
-                userName: article.author.username
-            });
+            console.log('getArticle', data.json.article);
+            this.articleComponent.bulkConfigUpdate(data.json.article);
         });
     }
 
