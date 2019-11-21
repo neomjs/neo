@@ -37,6 +37,13 @@ class HomeComponent extends Component {
          */
         currentPage_: 1,
         /**
+         * @member {Object[]} feeds_
+         */
+        feeds_: [
+            {name: 'Your Feed',   disabled: true},
+            {name: 'Global Feed', active  : true}
+        ],
+        /**
          * @member {Number} pageSize_=10
          */
         pageSize_: 10,
@@ -77,25 +84,7 @@ class HomeComponent extends Component {
                                 tag : 'ul',
                                 cls : ['nav', 'nav-pills', 'outline-active'],
                                 flag: 'feed-header',
-                                cn: [{
-                                    tag: 'li',
-                                    cls: ['nav-item'],
-                                    cn : [{
-                                        tag: 'a',
-                                        cls: ['prevent-click', 'nav-link', 'disabled'],
-                                        href: '',
-                                        html: 'Your Feed'
-                                    }]
-                                }, {
-                                    tag: 'li',
-                                    cls: ['nav-item'],
-                                    cn : [{
-                                        tag: 'a',
-                                        cls: ['prevent-click', 'nav-link', 'active'],
-                                        href: '',
-                                        html: 'Global Feed'
-                                    }]
-                                }]
+                                cn  : []
                             }]
                         }, {
                             tag: 'nav',
@@ -283,6 +272,39 @@ class HomeComponent extends Component {
 
             Neo.main.DomAccess.windowScrollTo({});
         }
+    }
+
+    /**
+     * Triggered after the feeds config got changed
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
+     * @private
+     */
+    afterSetFeeds(value, oldValue) {
+        let me         = this,
+            vdom       = me.vdom,
+            feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
+            cls;
+
+        value.forEach(item => {
+            cls = ['prevent-click', 'nav-link'];
+
+            if (item.active)   {cls.push('active');}
+            if (item.disabled) {cls.push('disabled');}
+
+            feedHeader.cn.push({
+                tag: 'li',
+                cls: ['nav-item'],
+                cn : [{
+                    tag: 'a',
+                    cls: cls,
+                    href: '',
+                    html: item.name
+                }]
+            });
+        });
+
+        console.log('afterSetFeeds', value);
     }
 
     /**
