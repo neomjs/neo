@@ -1,4 +1,5 @@
 import {default as Component} from '../../../../src/component/Base.mjs';
+import NeoArray               from '../../../../src/util/Array.mjs';
 import {default as VDomUtil}  from '../../../../src/util/VDom.mjs';
 
 /**
@@ -163,6 +164,10 @@ class ProfileComponent extends Component {
         if (Neo.isBoolean(value)) {
             let vdom = this.vdom,
                 node = VDomUtil.getByFlag(vdom, 'following');
+
+            // tobiu: did not see this one in the specs, but the react & vue app do it
+            NeoArray.remove(node.cls, value ? 'btn-outline-secondary' : 'btn-secondary');
+            NeoArray.add(node.cls, value ? 'btn-secondary' : 'btn-outline-secondary');
 
             node.cn[0].cls  = [value ? 'ion-minus-round' : 'ion-plus-round'];
             node.cn[1].html = value ? ' Unfollow ' : ' Follow ';
