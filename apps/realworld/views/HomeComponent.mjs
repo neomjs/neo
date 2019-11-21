@@ -286,7 +286,9 @@ class HomeComponent extends Component {
             feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
             cls;
 
-        value.forEach(item => {
+        feedHeader.cn = [];
+
+        value.forEach((item, index) => {
             cls = ['prevent-click', 'nav-link'];
 
             if (item.active)   {cls.push('active');}
@@ -295,16 +297,16 @@ class HomeComponent extends Component {
             feedHeader.cn.push({
                 tag: 'li',
                 cls: ['nav-item'],
+                id : me.id + '__nav-item_' + index,
                 cn : [{
                     tag: 'a',
                     cls: cls,
                     href: '',
-                    html: item.name
+                    html: item.name,
+                    id  : me.id + '__nav-item-link_' + index,
                 }]
             });
         });
-
-        console.log('afterSetFeeds', value);
     }
 
     /**
@@ -408,30 +410,27 @@ class HomeComponent extends Component {
      * @param {String|null} opts.value
      */
     onTagChange(opts) {
-        let me         = this,
-            vdom       = me.vdom,
-            feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
-            html       = '# ' + opts.value;
+        let me    = this,
+            feeds = me.feeds,
+            name  = '# ' + opts.value;
 
-        feedHeader.cn[0].cn[0].cls = ['prevent-click', 'nav-link'];
-        feedHeader.cn[1].cn[0].cls = ['prevent-click', 'nav-link'];
+        feeds.forEach(item => {
+            item.active = false;
+        });
 
-        if (feedHeader.cn.length < 3) {
-            feedHeader.cn.push({
-                tag: 'li',
-                cls: ['nav-item'],
-                cn : [{
-                    tag: 'a',
-                    cls: ['prevent-click', 'nav-link', 'active'],
-                    href: '',
-                    html: html
-                }]
-            })
+        if (feeds.length < 3) {
+            feeds.push({
+                active: true,
+                name  : name
+            });
         } else {
-            feedHeader.cn[2].cn[0].html = html;
+            Object.assign(feeds[2], {
+                active: true,
+                name  : name
+            });
         }
 
-        me.vdom = vdom;
+        me.feeds = feeds;
 
         me.getController().getArticles({
             tag: opts.value
