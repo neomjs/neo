@@ -22,6 +22,10 @@ class Component extends BaseComponent {
          */
         cls: ['article-page'],
         /**
+         * @member {String|null} title_=null
+         */
+        title_: null,
+        /**
          * @member {Object} _vdom
          */
         _vdom: {
@@ -31,7 +35,7 @@ class Component extends BaseComponent {
                     cls: ['container'],
                     cn : [{
                         tag : 'h1',
-                        html: 'How to build webapps that scale',
+                        flag: 'title'
                     }, {
                         cls: ['article-meta'],
                         cn : [{
@@ -294,6 +298,19 @@ class Component extends BaseComponent {
             }]
         }
     }}
+
+    /**
+     * Triggered after the title config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetTitle(value, oldValue) {
+        let vdom = this.vdom;
+console.log('afterSetTitle', value);
+        VDomUtil.getByFlag(vdom, 'title').html = value;
+        this.vdom = vdom;
+    }
 }
 
 Neo.applyClassConfig(Component);

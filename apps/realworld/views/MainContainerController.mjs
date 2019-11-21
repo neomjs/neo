@@ -24,6 +24,11 @@ class MainContainerController extends ComponentController {
          */
         className: 'RealWorld.views.MainContainerController',
         /**
+         * @member {RealWorld.views.article.Component|null} articleComponent=null
+         * @private
+         */
+        articleComponent: null,
+        /**
          * @member {Number} articlesOffset_=0
          */
         articlesOffset_: 0,
@@ -128,7 +133,13 @@ class MainContainerController extends ComponentController {
         ArticleApi.get({
             slug: slug
         }).then(data => {
-            console.log('getArticle', data);
+            let article = data.json.article;
+
+            console.log('getArticle', article);
+
+            this.articleComponent.bulkConfigUpdate({
+                title: article.title
+            });
         });
     }
 
