@@ -15,7 +15,7 @@ $neoMap: map-merge($neoMap, (
     'button-margin'                   : 2px,
     'button-padding'                  : 5px 12px 5px 12px,
     'button-text-color'               : #1c60a0,
-    'button-text-font-family'         : Helvetica Neue,
+    'button-text-font-family'         : #{neo(neo-font-family)},
     'button-text-font-size'           : 11px,
     'button-text-font-weight'         : 600,
     'button-text-line-height'         : 11px,
