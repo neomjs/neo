@@ -146,7 +146,10 @@ class MainContainerController extends ComponentController {
         ProfileApi.get({
             slug: slug
         }).then(data => {
-            this.profileComponent.update(data.json.profile);
+            this.profileComponent.update({
+                ...data.json.profile,
+                myProfile: data.json.profile.username === this.currentUser.username
+            });
         });
     }
 

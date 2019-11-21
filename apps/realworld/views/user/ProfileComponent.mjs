@@ -34,6 +34,10 @@ class ProfileComponent extends Component {
          */
         image_: null,
         /**
+         * @member {Boolean} myProfile_=false
+         */
+        myProfile_: false,
+        /**
          * @member {String|null} username_=null
          */
         username_: null,
@@ -135,7 +139,7 @@ class ProfileComponent extends Component {
      * @private
      */
     afterSetFollowing(value, oldValue) {
-        if (Neo.isBoolean(value)) {console.log('following', value);
+        if (Neo.isBoolean(value)) {
             let vdom = this.vdom,
                 node = VDomUtil.getByFlag(vdom, 'following');
 
@@ -156,6 +160,21 @@ class ProfileComponent extends Component {
 
         VDomUtil.getByFlag(vdom, 'image').src = value;
         this.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the myProfile config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @private
+     */
+    afterSetMyProfile(value, oldValue) {
+        if (Neo.isBoolean(value)) {
+            let vdom = this.vdom;
+
+            VDomUtil.getByFlag(vdom, 'following').removeDom = value;
+            this.vdom = vdom;
+        }
     }
 
     /**
@@ -181,6 +200,7 @@ class ProfileComponent extends Component {
             bio      : configs.bio,
             following: configs.following,
             image    : configs.image,
+            myProfile: configs.myProfile,
             username : configs.username
         });
     }
