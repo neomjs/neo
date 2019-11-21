@@ -164,7 +164,7 @@
         border          : 1px solid v(textfield-border-color);
         border-radius   : v(textfield-border-radius);
         color           : v(textfield-input-color);
-        font            : 400 13px/17px 'Helvetica Neue';
+        font            : 400 13px/17px #{neo(neo-font-family)};
         min-height      : 27px;
         padding         : 3px 6px 2px;
         transition      : 250ms border-color cubic-bezier(0.4, 0, 0.2, 1);
