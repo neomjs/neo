@@ -113,11 +113,12 @@ class MainContainerController extends ComponentController {
     /**
      *
      */
-    getArticles() {
+    getArticles(opts={}) {
         ArticleApi.get({
             params: {
                 limit : 10,
-                offset: this.articlesOffset
+                offset: this.articlesOffset,
+                ...opts
             }
         }).then(data => {
             this.homeComponent.bulkConfigUpdate({

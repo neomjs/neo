@@ -366,7 +366,9 @@ class HomeComponent extends Component {
 
         me.vdom = vdom;
 
-        // todo: reload the feed with the new tag param
+        me.getController().getArticles({
+            tag: opts.value
+        });
     }
 }
 
