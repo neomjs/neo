@@ -82,7 +82,7 @@ class HomeComponent extends Component {
                                     cls: ['nav-item'],
                                     cn : [{
                                         tag: 'a',
-                                        cls: ['nav-link', 'disabled'],
+                                        cls: ['prevent-click', 'nav-link', 'disabled'],
                                         href: '',
                                         html: 'Your Feed'
                                     }]
@@ -91,7 +91,7 @@ class HomeComponent extends Component {
                                     cls: ['nav-item'],
                                     cn : [{
                                         tag: 'a',
-                                        cls: ['nav-link', 'active'],
+                                        cls: ['prevent-click', 'nav-link', 'active'],
                                         href: '',
                                         html: 'Global Feed'
                                     }]
@@ -117,6 +117,11 @@ class HomeComponent extends Component {
      */
     constructor(config) {
         super(config);
+
+        Neo.main.DomEvents.registerPreventDefaultTargets({
+            name: 'click',
+            cls : 'prevent-click'
+        });
 
         let me           = this,
             domListeners = me.domListeners;
@@ -346,8 +351,8 @@ class HomeComponent extends Component {
             feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
             html       = '# ' + opts.value;
 
-        feedHeader.cn[0].cn[0].cls = ['nav-link'];
-        feedHeader.cn[1].cn[0].cls = ['nav-link'];
+        feedHeader.cn[0].cn[0].cls = ['prevent-click', 'nav-link'];
+        feedHeader.cn[1].cn[0].cls = ['prevent-click', 'nav-link'];
 
         if (feedHeader.cn.length < 3) {
             feedHeader.cn.push({
@@ -355,7 +360,7 @@ class HomeComponent extends Component {
                 cls: ['nav-item'],
                 cn : [{
                     tag: 'a',
-                    cls: ['nav-link', 'active'],
+                    cls: ['prevent-click', 'nav-link', 'active'],
                     href: '',
                     html: html
                 }]
