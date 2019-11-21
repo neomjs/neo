@@ -120,7 +120,7 @@ class SignUpComponent extends Component {
         Object.entries(value || {}).forEach(([key, value]) => {
             list.cn.push({
                 tag : 'li',
-                html: key + ' ' + value[0] // max showing 1 error per field (use value.join(', ') otherwise
+                html: key + ' ' + value.join(' and ')
             });
         });
 
