@@ -122,6 +122,17 @@ class MainContainerController extends ComponentController {
     }
 
     /**
+     * Article details: get an article providing a user slug
+     */
+    getArticle(slug) {
+        ArticleApi.get({
+            slug: slug
+        }).then(data => {
+            console.log('getArticle', data);
+        });
+    }
+
+    /**
      *
      */
     getArticles(opts={}) {
@@ -274,6 +285,9 @@ class MainContainerController extends ComponentController {
             }
 
             switch (newView.reference) {
+                case 'article':
+                    me.getArticle(hashString.split('/').pop()); // pass the slug
+                    break;
                 case 'home':
                     me.getArticles();
                     me.getTags();
