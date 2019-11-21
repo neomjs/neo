@@ -117,8 +117,7 @@ class MainContainerController extends ComponentController {
      */
     followUser(slug, follow) {
         ProfileApi[follow ? 'follow' : 'unfollow'](slug).then(data => {
-            console.log('followUser cb', data);
-            // todo: update profile cmp => data.profile.following
+            this.profileComponent.following = data.json.profile.following;
         });
     }
 
