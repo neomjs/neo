@@ -112,6 +112,15 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @param {String} slug
+     * @param {Boolean} follow
+     */
+    followUser(slug, follow) {
+        UserApi[follow ? 'follow' : 'unfollow'](slug);
+    }
+
+    /**
+     *
      */
     getArticles(opts={}) {
         ArticleApi.get({

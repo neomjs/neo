@@ -16,6 +16,22 @@ class User extends Base {
          */
         resource: '/users'
     }}
+
+    /**
+     *
+     * @param {Object} opts
+     */
+    follow(opts) {
+        console.log('follow', opts);
+    }
+
+    /**
+     *
+     * @param {Object} opts
+     */
+    unfollow(opts) {
+        console.log('unfollow', opts);
+    }
 }
 
 Neo.applyClassConfig(User);

@@ -118,6 +118,27 @@ class ProfileComponent extends Component {
     }}
 
     /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push({
+            click: {
+                fn      : me.onFollowButtonClick,
+                delegate: '.action-btn',
+                scope   : me
+            }
+        });
+
+        me.domListeners = domListeners;
+    }
+
+    /**
      * Triggered after the bio config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -189,6 +210,16 @@ class ProfileComponent extends Component {
         VDomUtil.getByFlag(vdom, 'following').cn[2].html = value;
         VDomUtil.getByFlag(vdom, 'username').html = value;
         this.vdom = vdom;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onFollowButtonClick(data) {
+        let me = this;
+
+        me.getController().followUser(me.username, !me.following);
     }
 
     /**
