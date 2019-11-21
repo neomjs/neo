@@ -236,9 +236,9 @@ class HomeComponent extends Component {
                     cls: cls,
                     cn : [{
                         tag : 'a',
-                        cls : ['page-link'],
+                        cls : ['page-link', 'prevent-click'],
                         id  : me.getNavLinkVdomId(i),
-                        // href: '', // todo: the styling is based on an existing href attribute, we would need an e.preventDefault() call to add it
+                        href: '',
                         html: i
                     }]
                 });
