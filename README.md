@@ -4,33 +4,33 @@
 </p>
 
 ### Warning!
-This is a new a paradigm. If you want to enter a new era of making better Web Based User Interfaces,
+This is a new paradigm. If you want to enter a new era of making better Web Based User Interfaces,
 the following concepts will be addictive.
 
 ### What if ...
-1.  ... a framework & all the apps you build would run inside a separate thread (web worker)?<br/>
-→ **Extreme Performance**
+1.  ... a framework & all the apps you build are running inside a separate thread (web worker)?<br/>
+→ **You get extreme Performance**
 2.  ... the main thread would be mostly idle, only applying the real dom manipulations,
-so there were no background tasks slowing it down?<br/>
-→ **Extreme UI responsiveness**
-3.  ... a framework was fully build on top of ES8, but could run inside multiple workers without any Javascript builds?<br/>
-→ **Faster Development**
-4.  ... you would not even need source-maps to debug your code, since you do get the real code 1:1?<br/>
-→ **Smoother Debugging Experience**
-5.  ... you would never again have to use string based pseudo XML templates?<br/>
-→ **Simplicity, no more scoping nightmares**
-6.  ... you would never again have to use any sort of templates at all?<br/>
-→ **You are in control!**
-7.  ... you could use persistent JSON structures instead which can be changed the same and any way you like to
-throughout the component lifecycle?<br/>
-→ **Simplicity**
-8.  ... there was a custom virtual dom engine in place which is so fast that it can change your mind about 
-the performance of user interfaces?<br/>
+so there are no background tasks slowing it down?<br/>
+→ **You get extreme UI responsiveness**
+3.  ... a framework was fully build on top of ES8, but can run inside multiple workers without any Javascript builds?<br/>
+→ **Your development speed will increase**
+4.  ... you don’t need source-maps to debug your code, since you do get the real code 1:1?<br/>
+→ **You get a smoother Debugging Experience**
+5.  ... you don’t have to use string based pseudo XML templates ever again?<br/>
+→ **You get unreached simplicity, no more scoping nightmares**
+6.  ... you don’t have to use any sort of templates at all, ever again?<br/>
+→ **You gain full control!**
+7.  ... you can use persistent JSON structures instead.
+Those can be changed at any point and any way you want to - throughout the component lifecycle?<br/>
+→ **You gain more simplicity**
+8.  ... there is a custom virtual dom engine in place, which is so fast,
+that it will change your mind about the performance of web based user interfaces?<br/>
 → **Extreme performance**
-9.  ... the ES8 class system was enhanced with a custom config system, making it easier to extend and work with config
-driven design patterns?<br/>
+9.  ... the ES8 class system gets enhanced with a custom config system,
+making it easier to extend and work with config driven design patterns?<br/>
 → **Extensibility, a robust base for solid UI architectures**
-10.  ... your user interfaces could truly scale?<br/>
+10.  ... your user interfaces can truly scale?<br/>
 → **Extreme Performance**
 
 ### Impossible? Pick with caution!
