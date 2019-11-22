@@ -26,7 +26,7 @@ driven design patterns?
 <img alt="neo.mjs commit history" src="./.github/images/redorbluepill.png">
 
 # Welcome to neo.mjs! (Beta Version)
-The webworkers driven UI framework
+### The webworkers driven UI framework
 
 Prior to the public release, the project was already at <a href=".github/NEOMJS_HISTORY.md">3720 commits</a>.
 
