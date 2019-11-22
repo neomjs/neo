@@ -65,7 +65,8 @@ Example:
 ```
 const myButton = Neo.create(Button, {text: "Hello"});
 
-myButton.text = "World"; // this will already update the UI and yes, you can do this inside the console as well
+// this will already update the UI and yes, you can do this inside the console as well
+myButton.text = "World";
 ```
 
 # The neo.mjs vision
