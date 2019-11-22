@@ -412,9 +412,9 @@ class Component extends BaseComponent {
     onFollowButtonClick(data) {
         let me = this;
 
-        me.getController().followUser(me.author.username, !me.author.following, profile => {
-            me.author = profile;
-        }, me);
+        me.getController().followUser(me.author.username, !me.author.following).then(data => {
+            me.author = data.json.profile;
+        });
     }
 }
 
