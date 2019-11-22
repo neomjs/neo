@@ -380,7 +380,9 @@ class Component extends BaseComponent {
 
         // ignore the initial setter call
         if (Neo.isBoolean(oldValue)) {
-            me.getController().favoriteArticle(me.slug, value);
+            me.getController().favoriteArticle(me.slug, value).then(data => {
+                me.favoritesCount = data.json.article.favoritesCount;
+            });
         }
     }
 
