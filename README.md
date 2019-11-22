@@ -44,7 +44,8 @@ Prior to the public release, the project was already at <a href=".github/NEOMJS_
 Please take a look at the <a href=".github/GETTING_STARTED.md">Getting Started Guide</a>.
 
 Although neo.mjs is ready to craft beautiful & blazing fast UIs, the current state is just a fraction of a bigger
-picture. Take a look at the <a href=".github/VISION.md">Project Story & Vision</a>.
+picture.<br/>
+Take a look at the <a href=".github/VISION.md">Project Story & Vision</a>.
 
 ### Join our Slack Channel for questions & feedback:
 
