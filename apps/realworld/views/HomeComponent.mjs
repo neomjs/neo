@@ -311,6 +311,7 @@ class HomeComponent extends Component {
     }
 
     /**
+     * todo
      * Triggered after the pageSize config got changed
      * @param {Number} value
      * @param {Number} oldValue

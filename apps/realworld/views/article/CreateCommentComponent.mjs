@@ -25,6 +25,10 @@ class CreateCommentComponent extends Component {
          */
         userImage_: null,
         /**
+         * @member {String|null} userName_=null
+         */
+        userName_: null,
+        /**
          * @member {Object} _vdom
          */
         _vdom: {
@@ -42,7 +46,13 @@ class CreateCommentComponent extends Component {
                 cn : [{
                     tag: 'img',
                     cls: ['comment-author-img'],
-                    src: 'http://i.imgur.com/Qr71crq.jpg'
+                    src: 'https://static.productionready.io/images/smiley-cyrus.jpg' // https://github.com/gothinkster/realworld/issues/442
+                }, {
+                    vtype: 'text',
+                    html : '&nbsp;'
+                }, {
+                    tag : 'span',
+                    cls : ['comment-author']
                 }, {
                     tag : 'button',
                     cls : ['btn', 'btn-sm', 'btn-primary'],
@@ -99,6 +109,21 @@ class CreateCommentComponent extends Component {
     }
 
     /**
+     * Triggered after the userName config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetUserName(value, oldValue) {
+        if (value) {
+            let vdom = this.vdom;
+
+            vdom.cn[1].cn[2].html = value;
+            this.vdom = vdom;
+        }
+    }
+
+    /**
      *
      * @returns {String}
      */
@@ -113,9 +138,10 @@ class CreateCommentComponent extends Component {
     onCurrentUserChange(value) {
         console.log('onCurrentUserChange', value);
 
-        let me = this;
-
-        me.userImage = value.image;
+        this.bulkConfigUpdate({
+            userImage: value.image,
+            userName : value.username
+        });
     }
 
     /**
