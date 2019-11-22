@@ -11,26 +11,26 @@ the following concepts will be addictive.
 1.  ... a framework & all the apps you build would run inside a separate thread (web worker)?<br/>
 → **Performance**
 2.  ... the main thread would be mostly idle, only applying the real dom manipulations,
-so there were no background tasks slowing it down?
+so there were no background tasks slowing it down?<br/>
 ⇒ **Extreme UI responsiveness**
-3.  ... a framework was fully build on top of ES8, but could run inside multiple workers without any Javascript builds?
+3.  ... a framework was fully build on top of ES8, but could run inside multiple workers without any Javascript builds?<br/>
 ➠ **Faster Development**
-4.  ... you would not even need source-maps to debug your code, since you do get the real code 1:1?
+4.  ... you would not even need source-maps to debug your code, since you do get the real code 1:1?<br/>
 ➠ **Smoother Debugging Experience**
-5.  ... you would never again have to use string based pseudo XML templates?
+5.  ... you would never again have to use string based pseudo XML templates?<br/>
 ➠ **Simplicity, no more scoping nightmares**
-6.  ... you would never again have to use any sort of templates at all?
+6.  ... you would never again have to use any sort of templates at all?<br/>
 ➠ **You are in control**
 7.  ... you could use persistent JSON structures instead which can be changed the same and any way you like to
-throughout the component lifecycle?
+throughout the component lifecycle?<br/>
 ➠ **Simplicity**
 8.  ... there was a custom virtual dom engine in place which is so fast that it can change your mind about 
-the performance of user interfaces?
+the performance of user interfaces?<br/>
 ➠ **Extreme performance**
 9.  ... the ES8 class system was enhanced with a custom config system, making it easier to extend and work with config
-driven design patterns?
+driven design patterns?<br/>
 ➠ **Extensibility**
-10.  ... your user interfaces could truly scale?
+10.  ... your user interfaces could truly scale?<br/>
 ➠ **Extreme Performance**
 
 ### Impossible? Pick with caution!
