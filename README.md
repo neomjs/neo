@@ -8,15 +8,31 @@ This is a new paradigm. If you want to enter a new era of making better Web Base
 the following concepts will be addictive.
 
 ### What if ...
-1.  ... a framework & all the apps you build are running inside a separate thread (web worker)?<br/>
-→ **You get extreme Performance**
-2.  ... the main thread would be mostly idle, only applying the real dom manipulations,
-so there are no background tasks slowing it down?<br/>
-→ **You get extreme UI responsiveness**
-3.  ... a framework was fully build on top of ES8, but can run inside multiple workers without any Javascript builds?<br/>
-→ **Your development speed will increase**
-4.  ... you don’t need source-maps to debug your code, since you do get the real code 1:1?<br/>
-→ **You get a smoother Debugging Experience**
+
+<table>
+    <tr>
+        <td>1.</td>
+        <td>... a framework & all the apps you build are running inside a separate thread (web worker)?</td>
+        <td>→ **You get extreme Performance**</td>
+    </tr>
+    <tr>
+        <td>2.</td>
+        <td>... the main thread would be mostly idle, only applying the real dom manipulations,
+            so there are no background tasks slowing it down?</td>
+        <td>→ **You get extreme UI responsiveness**</td>
+    </tr>
+    <tr>
+        <td>3.</td>
+        <td>... a framework was fully build on top of ES8, but can run inside multiple workers without any Javascript builds?</td>
+        <td>→ **Your development speed will increase**</td>
+    </tr>
+    <tr>
+        <td>4.</td>
+        <td>... you don’t need source-maps to debug your code, since you do get the real code 1:1?</td>
+        <td>→ **You get a smoother Debugging Experience**</td>
+    </tr>
+</table>
+
 5.  ... you don’t have to use string based pseudo XML templates ever again?<br/>
 → **You get unreached simplicity, no more scoping nightmares**
 6.  ... you don’t have to use any sort of templates at all, ever again?<br/>
