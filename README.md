@@ -3,18 +3,18 @@
   <a href="https://www.npmjs.com/package/neo.mjs"><img src="https://img.shields.io/npm/l/neo.mjs.svg" alt="License"></a>
 </p>
 
-### Warning
+### Warning!
 In case you are familiar with the word "inception", the following concept can be highly addictive.
 
 ### What if ...
 1.  ... a framework & all the apps you build would run inside a separate thread (web worker)?
-2.  ... the main thread would be mostly idle, only applying the real dom manipulation,
+2.  ... the main thread would be mostly idle, only applying the real dom manipulations,
 so there were no background tasks slowing it down?
-3.  ... a framework was fully build on top of ES8, but could run inside multiple workers without any JS builds?
+3.  ... a framework was fully build on top of ES8, but could run inside multiple workers without any Javascript builds?
 4.  ... you would not even need source-maps to debug your code, since you do get the real code 1:1?
 5.  ... you would never again have to use string based pseudo XML templates?
 6.  ... you would never again have to use any sort of templates at all?
-7.  ... you could use persistent JSON structures instead which can be changed the same way
+7.  ... you could use persistent JSON structures instead which can be changed the same and any way you like to
 throughout the component lifecycle?
 8.  ... there was a custom virtual dom engine in place which is so fast that it can change your mind about 
 the performance of user interfaces?
@@ -22,7 +22,7 @@ the performance of user interfaces?
 driven design patterns?
 10.  ... your user interfaces could truly scale?
 
-### Impossible?
+### Impossible? Pick with caution!
 <img alt="neo.mjs commit history" src="./.github/images/redorbluepill.png">
 
 # Welcome to neo.mjs! (Beta Version)
