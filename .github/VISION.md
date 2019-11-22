@@ -15,7 +15,7 @@ runs at 100% or the memory usage gets too extreme).
 Looking back at the Wikipedia quote, Rich Waters & I came to the conclusion that the most expensive tasks are
 the framework & the apps itself.
 
-So we asked ourselves the question:
+So we asked ourselves the question:<br/>
 **"What if a framework & all the apps you build would run inside a separate thread?"**
 
 With this idea, the neo.mjs project was born.
@@ -34,7 +34,7 @@ The project got a new momentum, once the Chrome flag was released, which made it
 to use JS modules directly inside workers (imports). I created a second version of the framework at this point,
 which is now fully based on top of ES8.
 
-Obviously, there is a lot more to neo.mjs:
+**Obviously, there is a lot more to neo.mjs:**
 
 We do believe that string based templates need to go away
 1.  Converting strings containing variables and method calls into JSON structures is expensive
@@ -46,8 +46,9 @@ the real problem: it limits you to only create simple components with a few stat
 
 Our solution was to use JS based objects / arrays (JSON) for the virtual DOM structure.
 
-It is kind of obvious, that you can easily manipulate JS objects & arrays any way you want to using JS.
-No more scoping issues. You are in full control when, what and how to change your vdom.
+It is kind of obvious, that you can easily manipulate JS objects & arrays any way you want using JS.<br/>
+No more scoping issues.<br/>
+You are in full control when, what and how to change your vdom.
 
 The neo.mjs vdom structures are not "templates", which get consumed when rendering or mounting a component,
 but persist throughout the full component lifecycle. Meaning: you can easily change them the same way at
