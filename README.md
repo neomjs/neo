@@ -8,7 +8,7 @@ This is a new a paradigm. If you want to enter a new era of making better Web Ba
 the following concepts will be addictive.
 
 ### What if ...
-1.  ... a framework & all the apps you build would run inside a separate thread (web worker)?
+1.  ... a framework & all the apps you build would run inside a separate thread (web worker)?\n
 → **Performance**
 2.  ... the main thread would be mostly idle, only applying the real dom manipulations,
 so there were no background tasks slowing it down?
