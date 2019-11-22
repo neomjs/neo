@@ -10,6 +10,7 @@ the following concepts will be addictive.
 ### What if ...
 
 <table>
+    <caption>What if ...</caption>
     <tr>
         <th></th>
         <th>Question</th>
