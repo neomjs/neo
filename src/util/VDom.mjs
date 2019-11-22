@@ -117,35 +117,6 @@ class VDom extends Base {
     }
 
     /**
-     *
-     * @param {Object} vdom
-     * @param {String} flag
-     * @param {Array} [matchArray]
-     * @return {Array} an array of vdom nodes which match the flag
-     */
-    static getFlags(vdom, flag, matchArray) {
-        if (!matchArray) {
-            matchArray = [];
-
-            if (vdom.flag === flag) {
-                matchArray.push(vdom);
-            }
-        }
-
-        let childNodes = vdom && vdom.cn || [];
-
-        childNodes.forEach(childNode => {
-            if (childNode.flag === flag) {
-                matchArray.push(childNode);
-            }
-
-            matchArray = VDom.getFlags(childNode, flag, matchArray);
-        });
-
-        return matchArray;
-    }
-
-    /**
      * Get the ids of all child nodes of the given vdom tree
      * @param vdom
      * @param [childIds=[]]
@@ -181,6 +152,35 @@ class VDom extends Base {
 
     static getColumnNodesIds(vdom, index) {
         return VDom.getColumnNodes(vdom, index).map(e => e.id);
+    }
+
+    /**
+     *
+     * @param {Object} vdom
+     * @param {String} flag
+     * @param {Array} [matchArray]
+     * @return {Array} an array of vdom nodes which match the flag
+     */
+    static getFlags(vdom, flag, matchArray) {
+        if (!matchArray) {
+            matchArray = [];
+
+            if (vdom.flag === flag) {
+                matchArray.push(vdom);
+            }
+        }
+
+        const childNodes = vdom && vdom.cn || [];
+
+        childNodes.forEach(childNode => {
+            if (childNode.flag === flag) {
+                matchArray.push(childNode);
+            }
+
+            matchArray = VDom.getFlags(childNode, flag, matchArray);
+        });
+
+        return matchArray;
     }
 
     /**
