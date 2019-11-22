@@ -4,23 +4,34 @@
 </p>
 
 ### Warning!
-In case you are familiar with the word "inception", the following concept can be highly addictive.
+This is a new a paradigm. If you want to enter a new era of making better Web Based User Interfaces,
+the following concepts will be addictive.
 
 ### What if ...
 1.  ... a framework & all the apps you build would run inside a separate thread (web worker)?
+→ **Performance**
 2.  ... the main thread would be mostly idle, only applying the real dom manipulations,
 so there were no background tasks slowing it down?
+⇒ **Extreme UI responsiveness**
 3.  ... a framework was fully build on top of ES8, but could run inside multiple workers without any Javascript builds?
+➠ **Faster Development**
 4.  ... you would not even need source-maps to debug your code, since you do get the real code 1:1?
+➠ **Smoother Debugging Experience**
 5.  ... you would never again have to use string based pseudo XML templates?
+➠ **Simplicity, no more scoping nightmares**
 6.  ... you would never again have to use any sort of templates at all?
+➠ **You are in control**
 7.  ... you could use persistent JSON structures instead which can be changed the same and any way you like to
 throughout the component lifecycle?
+➠ **Simplicity**
 8.  ... there was a custom virtual dom engine in place which is so fast that it can change your mind about 
 the performance of user interfaces?
+➠ **Extreme performance**
 9.  ... the ES8 class system was enhanced with a custom config system, making it easier to extend and work with config
 driven design patterns?
+➠ **Extensibility**
 10.  ... your user interfaces could truly scale?
+➠ **Extreme Performance**
 
 ### Impossible? Pick with caution!
 <img alt="neo.mjs commit history" src="./.github/images/redorbluepill.png">
