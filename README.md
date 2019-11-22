@@ -10,11 +10,11 @@ the following concepts will be addictive.
 ### What if ...
 
 <table>
-    <th>
-        <td></td>
-        <td>Question</td>
-        <td>Benefit</td>
-    </th>
+    <tr>
+        <th></th>
+        <th>Question</th>
+        <th>Benefit</th>
+    </tr>
     <tr>
         <td>1.</td>
         <td>... a framework & all the apps you build are running inside a separate thread (web worker)?</td>
