@@ -237,12 +237,16 @@ class Helper extends Base {
             return null;
         }
 
+        if (typeof opts === 'string') {
+
+        }
+
         if (opts.vtype === 'text') {
             if (!opts.id) {
-                opts.id = Neo.getId('vtype-text'); // adding an id to be able to find vtype='text' items inside the vnode tree
+                opts.id = Neo.getId('vtext'); // adding an id to be able to find vtype='text' items inside the vnode tree
             }
 
-            opts.innerHTML = `<!-- ${opts.id} -->${opts.html || ''}<!-- /neo-vtype-text -->`;
+            opts.innerHTML = `<!-- ${opts.id} -->${opts.html || ''}<!-- /neo-vtext -->`;
             delete opts.html;
             return opts;
         }

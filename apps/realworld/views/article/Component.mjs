@@ -82,7 +82,7 @@ class Component extends BaseComponent {
                             }, {
                                 vtype: 'text',
                                 html : ' Follow '
-                            }, {
+                            }, 'testes', {
                                 vtype: 'text',
                                 flag : 'username'
                             }, {
@@ -137,8 +137,8 @@ class Component extends BaseComponent {
                             tag : 'a',
                             href: 'profile.html',
                             cn  : [{
-                                tag: 'img',
-                                src: 'http://i.imgur.com/Qr71crq.jpg'
+                                tag : 'img',
+                                flag: 'userimage'
                             }]
                         }, {
                             cls: ['info'],
@@ -379,11 +379,14 @@ class Component extends BaseComponent {
         if (value) {
             let vdom = this.vdom;
 
+            VDomUtil.getFlags(vdom, 'userimage').forEach(node => {
+                node.src = value.image;
+            });
+
             VDomUtil.getFlags(vdom, 'username').forEach(node => {
                 node.html = value.username;
             });
 
-            VDomUtil.getByFlag(vdom, 'userimage').src = value.image;
             this.vdom = vdom;
         }
     }
