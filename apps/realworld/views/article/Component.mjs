@@ -81,11 +81,10 @@ class Component extends BaseComponent {
                                 cls: ['ion-plus-round']
                             }, {
                                 vtype: 'text',
-                                html : '&nbsp;'
+                                html : ' Follow '
                             }, {
                                 vtype: 'text',
-                                flag : 'username',
-                                html : 'Follow Eric Simons'
+                                flag : 'username'
                             }, {
                                 vtype: 'text',
                                 html : '&nbsp;'
@@ -147,8 +146,7 @@ class Component extends BaseComponent {
                                 tag : 'a',
                                 cls : ['author'],
                                 flag: 'username',
-                                href: '',
-                                html: 'Eric Simons'
+                                href: ''
                             }, {
                                 tag : 'span',
                                 cls : ['date'],
@@ -162,11 +160,10 @@ class Component extends BaseComponent {
                                 cls: ['ion-plus-round']
                             }, {
                                 vtype: 'text',
-                                html : '&nbsp;'
+                                html : ' Follow '
                             }, {
                                 vtype: 'text',
-                                flag : 'username',
-                                html : 'Follow Eric Simons'
+                                flag: 'username'
                             }, {
                                 vtype: 'text',
                                 html : '&nbsp;'
@@ -382,10 +379,11 @@ class Component extends BaseComponent {
         if (value) {
             let vdom = this.vdom;
 
-            console.log(VDomUtil.getFlags(vdom, 'username'));
+            VDomUtil.getFlags(vdom, 'username').forEach(node => {
+                node.html = value.username;
+            });
 
             VDomUtil.getByFlag(vdom, 'userimage').src = value.image;
-            VDomUtil.getByFlag(vdom, 'username').html = value.username;
             this.vdom = vdom;
         }
     }

@@ -242,10 +242,8 @@ class Helper extends Base {
                 opts.id = Neo.getId('vtype-text'); // adding an id to be able to find vtype='text' items inside the vnode tree
             }
 
-            if (opts.html) {
-                opts.innerHTML = opts.html;
-                delete opts.html;
-            }
+            opts.innerHTML = `<!-- ${opts.id} -->${opts.html || ''}<!-- /neo-vtype-text -->`;
+            delete opts.html;
             return opts;
         }
 
@@ -561,12 +559,10 @@ class Helper extends Base {
 
             if (newVnode && oldVnode && newVnode.id === oldVnode.id) {
                 if (newVnode.vtype === 'text' && newVnode.innerHTML !== oldVnode.innerHTML) {
-                    let newVnodeDetails = VNodeUtil.findChildVnode(newVnodeRoot, newVnode.id);
-
                     deltas.push({
                         action  : 'updateVtext',
-                        id      : newVnodeDetails.parentNode.id,
-                        oldValue: oldVnode.innerHTML,
+                        id      : newVnode.id,
+                        parentId: VNodeUtil.findChildVnode(newVnodeRoot, newVnode.id).parentNode.id,
                         value   : newVnode.innerHTML
                     })
                 } else {
