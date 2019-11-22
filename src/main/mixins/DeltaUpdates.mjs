@@ -167,7 +167,7 @@ class DeltaUpdates extends Base {
             node      = me.getElement(delta.parentId),
             innerHTML = node.innerHTML,
             startTag  = `<!-- ${delta.id} -->`,
-            reg       = new RegExp(startTag + '[\s\S]*?<!-- \/neo-vtext -->');
+            reg       = new RegExp(startTag + '[\\s\\S]*?<!-- \/neo-vtext -->');
 
         node.innerHTML = innerHTML.replace(reg, delta.value);
     }

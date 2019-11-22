@@ -224,7 +224,9 @@ class ProfileComponent extends Component {
     onFollowButtonClick(data) {
         let me = this;
 
-        me.getController().followUser(me.username, !me.following);
+        me.getController().followUser(me.username, !me.following, profile => {
+            me.following = profile.following;
+        }, me);
     }
 
     /**

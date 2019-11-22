@@ -119,10 +119,14 @@ class MainContainerController extends ComponentController {
      *
      * @param {String} slug
      * @param {Boolean} follow
+     * @param {Function} [callback]
+     * @param {Object} [scope]
      */
-    followUser(slug, follow) {
-        ProfileApi[follow ? 'follow' : 'unfollow'](slug).then(data => {
-            this.profileComponent.following = data.json.profile.following;
+    followUser(slug, follow, callback, scope) {
+        return ProfileApi[follow ? 'follow' : 'unfollow'](slug).then(data => {
+            if (callback) {
+                callback.call(scope || this, data.json.profile);
+            }
         });
     }
 

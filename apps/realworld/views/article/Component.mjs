@@ -75,23 +75,16 @@ class Component extends BaseComponent {
                             }]
                         }, {
                             tag: 'button',
-                            cls: ['btn', 'btn-sm', 'btn-outline-secondary'],
+                            cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'follow-button'],
                             cn : [{
                                 tag: 'i',
                                 cls: ['ion-plus-round']
                             }, {
                                 vtype: 'text',
-                                html : ' Follow '
+                                flag : 'followAuthor'
                             }, {
                                 vtype: 'text',
                                 flag : 'username'
-                            }, {
-                                vtype: 'text',
-                                html : '&nbsp;'
-                            }, {
-                                tag : 'span',
-                                cls : ['counter'],
-                                html: '(10)'
                             }]
                         }, {
                             vtype: 'text',
@@ -154,23 +147,16 @@ class Component extends BaseComponent {
                             }]
                         }, {
                             tag: 'button',
-                            cls: ['btn', 'btn-sm', 'btn-outline-secondary'],
+                            cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'follow-button'],
                             cn : [{
                                 tag: 'i',
                                 cls: ['ion-plus-round']
                             }, {
                                 vtype: 'text',
-                                html : ' Follow '
+                                flag : 'followAuthor'
                             }, {
                                 vtype: 'text',
-                                flag: 'username'
-                            }, {
-                                vtype: 'text',
-                                html : '&nbsp;'
-                            }, {
-                                tag : 'span',
-                                cls : ['counter'],
-                                html: '(10)'
+                                flag : 'username'
                             }]
                         }, {
                             vtype: 'text',
@@ -308,6 +294,27 @@ class Component extends BaseComponent {
     }}
 
     /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push({
+            click: {
+                fn      : me.onFollowButtonClick,
+                delegate: '.follow-button',
+                scope   : me
+            }
+        });
+
+        me.domListeners = domListeners;
+    }
+
+    /**
      * Triggered after the body config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -382,6 +389,10 @@ class Component extends BaseComponent {
         if (value) {
             let vdom = this.vdom;
 
+            VDomUtil.getFlags(vdom, 'followAuthor').forEach(node => {console.log(node);
+                node.html = value.following ? ' Unfollow ' : ' Follow ';
+            });
+
             VDomUtil.getFlags(vdom, 'userimage').forEach(node => {
                 node.src = value.image;
             });
@@ -392,6 +403,18 @@ class Component extends BaseComponent {
 
             this.vdom = vdom;
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onFollowButtonClick(data) {
+        let me = this;
+
+        me.getController().followUser(me.author.username, !me.author.following, profile => {
+            me.author = profile;
+        }, me);
     }
 }
 
