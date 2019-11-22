@@ -8,9 +8,7 @@ This is a new paradigm. If you want to enter a new era of making better Web Base
 the following concepts will be addictive.
 
 ### What if ...
-
 <table>
-    <caption>What if ...</caption>
     <tr>
         <th></th>
         <th>Question</th>
@@ -37,23 +35,39 @@ the following concepts will be addictive.
         <td>... you don’t need source-maps to debug your code, since you do get the real code 1:1?</td>
         <td>You get a smoother Debugging Experience</td>
     </tr>
+    <tr>
+        <td>5.</td>
+        <td>... you don’t have to use string based pseudo XML templates ever again?</td>
+        <td>You get unreached simplicity, no more scoping nightmares</td>
+    </tr>
+    <tr>
+        <td>6.</td>
+        <td>... you don’t have to use any sort of templates at all, ever again?</td>
+        <td>You gain full control!</td>
+    </tr>
+    <tr>
+        <td>7.</td>
+        <td>... you can use persistent JSON structures instead.</td>
+        <td>You gain more simplicity</td>
+    </tr>
+    <tr>
+        <td>8.</td>
+        <td>... there is a custom virtual dom engine in place, which is so fast,
+            that it will change your mind about the performance of web based user interfaces?</td>
+        <td>Extreme performance</td>
+    </tr>
+    <tr>
+        <td>9.</td>
+        <td>... the ES8 class system gets enhanced with a custom config system,
+            making it easier to extend and work with config driven design patterns?</td>
+        <td>Extensibility, a robust base for solid UI architectures</td>
+    </tr>
+    <tr>
+        <td>10.</td>
+        <td>... your user interfaces can truly scale?</td>
+        <td>Extreme Performance</td>
+    </tr>
 </table>
-
-5.  ... you don’t have to use string based pseudo XML templates ever again?<br/>
-→ **You get unreached simplicity, no more scoping nightmares**
-6.  ... you don’t have to use any sort of templates at all, ever again?<br/>
-→ **You gain full control!**
-7.  ... you can use persistent JSON structures instead.
-Those can be changed at any point and any way you want to - throughout the component lifecycle?<br/>
-→ **You gain more simplicity**
-8.  ... there is a custom virtual dom engine in place, which is so fast,
-that it will change your mind about the performance of web based user interfaces?<br/>
-→ **Extreme performance**
-9.  ... the ES8 class system gets enhanced with a custom config system,
-making it easier to extend and work with config driven design patterns?<br/>
-→ **Extensibility, a robust base for solid UI architectures**
-10.  ... your user interfaces can truly scale?<br/>
-→ **Extreme Performance**
 
 ### Impossible? Pick with caution!
 <img alt="neo.mjs commit history" src="./.github/images/redorbluepill.png">
