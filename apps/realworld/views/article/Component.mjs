@@ -43,6 +43,10 @@ class Component extends BaseComponent {
          */
         favoritesCount_: null,
         /**
+         * @member {Array|null} tagList_=null
+         */
+        tagList_: null,
+        /**
          * @member {String|null} title_=null
          */
         title_: null,
@@ -123,7 +127,8 @@ class Component extends BaseComponent {
                     cls: ['row', 'article-content'],
                     cn : [{
                         cls : ['col-md-12'],
-                        flag: 'body'
+                        flag: 'body',
+                        cn  : []
                     }]
                 }, {
                     tag: 'hr'
@@ -326,6 +331,32 @@ class Component extends BaseComponent {
     }
 
     /**
+     * Triggered after the author config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetAuthor(value, oldValue) {
+        if (value) {
+            let vdom = this.vdom;
+
+            VDomUtil.getFlags(vdom, 'followAuthor').forEach(node => {
+                node.html = value.following ? ' Unfollow ' : ' Follow ';
+            });
+
+            VDomUtil.getFlags(vdom, 'userimage').forEach(node => {
+                node.src = value.image;
+            });
+
+            VDomUtil.getFlags(vdom, 'username').forEach(node => {
+                node.html = value.username;
+            });
+
+            this.vdom = vdom;
+        }
+    }
+
+    /**
      * Triggered after the body config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -335,7 +366,12 @@ class Component extends BaseComponent {
         let vdom = this.vdom;
 
         // todo: markdown parsing => #78
-        VDomUtil.getByFlag(vdom, 'body').html = value;
+        VDomUtil.getByFlag(vdom, 'body').cn[0] = {
+            cn: [{
+                tag : 'p',
+                html: value
+            }]
+        };
         this.vdom = vdom;
     }
 
@@ -405,6 +441,43 @@ class Component extends BaseComponent {
     }
 
     /**
+     * Triggered after the tagList config got changed
+     * @param {Array} value
+     * @param {Array} oldValue
+     * @private
+     */
+    afterSetTagList(value, oldValue) {
+        let me   = this,
+            vdom = me.vdom,
+            body = VDomUtil.getByFlag(vdom, 'body'),
+            tagList;
+
+        if (Array.isArray(value) && value.length > 0) {
+            tagList = {
+                tag: 'ul',
+                cls: ['tag-list'],
+                cn : []
+            };
+
+            value.forEach(item => {
+                tagList.cn.push({
+                    tag : 'li',
+                    cls : ['tag-default', 'tag-pill', 'tag-outline'],
+                    html: item
+                })
+            });
+
+            body.cn[1] = tagList;
+        } else {
+            if (body.cn[1]) {
+                body.cn[1].removeDom = true;
+            }
+        }
+
+        me.vdom = vdom;
+    }
+
+    /**
      * Triggered after the title config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -415,32 +488,6 @@ class Component extends BaseComponent {
 
         VDomUtil.getByFlag(vdom, 'title').html = value;
         this.vdom = vdom;
-    }
-
-    /**
-     * Triggered after the author config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @private
-     */
-    afterSetAuthor(value, oldValue) {
-        if (value) {
-            let vdom = this.vdom;
-
-            VDomUtil.getFlags(vdom, 'followAuthor').forEach(node => {
-                node.html = value.following ? ' Unfollow ' : ' Follow ';
-            });
-
-            VDomUtil.getFlags(vdom, 'userimage').forEach(node => {
-                node.src = value.image;
-            });
-
-            VDomUtil.getFlags(vdom, 'username').forEach(node => {
-                node.html = value.username;
-            });
-
-            this.vdom = vdom;
-        }
     }
 
     /**
