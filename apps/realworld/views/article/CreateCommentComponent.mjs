@@ -21,6 +21,10 @@ class CreateCommentComponent extends Component {
          */
         cls: ['card', 'comment-form'],
         /**
+         * @member {String|null} userImage_=null
+         */
+        userImage_: null,
+        /**
          * @member {Object} _vdom
          */
         _vdom: {
@@ -72,10 +76,46 @@ class CreateCommentComponent extends Component {
 
         vdom.cn[0].cn[0].id = me.getInputElId();
         me.vdom = vdom;
+
+        me.getController().on({
+            afterSetCurrentUser: me.onCurrentUserChange,
+            scope              : me
+        });
     }
 
+    /**
+     * Triggered after the userImage config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetUserImage(value, oldValue) {
+        if (value) {
+            let vdom = this.vdom;
+
+            vdom.cn[1].cn[0].src = value;
+            this.vdom = vdom;
+        }
+    }
+
+    /**
+     *
+     * @returns {String}
+     */
     getInputElId() {
         return this.id + '__input';
+    }
+
+    /**
+     *
+     * @param {Object} value
+     */
+    onCurrentUserChange(value) {
+        console.log('onCurrentUserChange', value);
+
+        let me = this;
+
+        me.userImage = value.image;
     }
 
     /**

@@ -316,12 +316,14 @@ class Component extends BaseComponent {
      *
      */
     onConstructed() {
-        let me   = this,
-            vdom = me.vdom;
+        let me          = this,
+            currentUser = me.getController().currentUser,
+            vdom        = me.vdom;
 
         me.createCommentComponent = Neo.create({
-            module  : CreateCommentComponent,
-            parentId: me
+            module   : CreateCommentComponent,
+            parentId : me.id,
+            userImage: currentUser && currentUser.image || null
         });
 
         VDomUtil.getByFlag(vdom, 'comments-section').cn.unshift(me.createCommentComponent.vdom);

@@ -99,6 +99,8 @@ class MainContainerController extends ComponentController {
      */
     afterSetCurrentUser(value, oldValue) {
         if (typeof oldValue === 'object') {
+            this.fire('afterSetCurrentUser', value);
+
             this.getReference('header').bulkConfigUpdate({
                 loggedIn: true,
                 userName: value.username
