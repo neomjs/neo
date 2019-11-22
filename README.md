@@ -9,7 +9,7 @@ the following concepts will be addictive.
 
 ### What if ...
 1.  ... a framework & all the apps you build would run inside a separate thread (web worker)?<br/>
-→ **Performance**
+→ **Extreme Performance**
 2.  ... the main thread would be mostly idle, only applying the real dom manipulations,
 so there were no background tasks slowing it down?<br/>
 ⇒ **Extreme UI responsiveness**
@@ -29,7 +29,7 @@ the performance of user interfaces?<br/>
 ➠ **Extreme performance**
 9.  ... the ES8 class system was enhanced with a custom config system, making it easier to extend and work with config
 driven design patterns?<br/>
-➠ **Extensibility**
+➠ **Extensibility, a robust base for solid UI architectures**
 10.  ... your user interfaces could truly scale?<br/>
 ➠ **Extreme Performance**
 
