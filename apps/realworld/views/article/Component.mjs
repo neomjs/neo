@@ -82,7 +82,7 @@ class Component extends BaseComponent {
                             }, {
                                 vtype: 'text',
                                 html : ' Follow '
-                            }, 'testes', {
+                            }, {
                                 vtype: 'text',
                                 flag : 'username'
                             }, {
