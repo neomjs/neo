@@ -86,8 +86,8 @@ class Component extends BaseComponent {
                             tag: 'button',
                             cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'follow-button'],
                             cn : [{
-                                tag: 'i',
-                                cls: ['ion-plus-round']
+                                tag : 'i',
+                                flag: 'followIcon'
                             }, {
                                 vtype: 'text',
                                 flag : 'followAuthor'
@@ -159,8 +159,8 @@ class Component extends BaseComponent {
                             tag: 'button',
                             cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'follow-button'],
                             cn : [{
-                                tag: 'i',
-                                cls: ['ion-plus-round']
+                                tag : 'i',
+                                flag: 'followIcon'
                             }, {
                                 vtype: 'text',
                                 flag : 'followAuthor'
@@ -342,6 +342,10 @@ class Component extends BaseComponent {
 
             VDomUtil.getFlags(vdom, 'followAuthor').forEach(node => {
                 node.html = value.following ? ' Unfollow ' : ' Follow ';
+            });
+
+            VDomUtil.getFlags(vdom, 'followIcon').forEach(node => {
+                node.cls = value.following ? ['ion-minus-round'] : ['ion-plus-round'];
             });
 
             VDomUtil.getFlags(vdom, 'userimage').forEach(node => {
