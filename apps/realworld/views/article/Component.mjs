@@ -193,7 +193,7 @@ class Component extends BaseComponent {
                             }, {
                                 tag : 'span',
                                 cls : ['counter'],
-                                html: '(29)'
+                                flag: 'favoritesCount'
                             }]
                         }]
                     }]
@@ -351,7 +351,10 @@ class Component extends BaseComponent {
         if (Neo.isNumber(value)) {
             let vdom = this.vdom;
 
-            VDomUtil.getByFlag(vdom, 'favoritesCount').html = `(${value})`;
+            VDomUtil.getFlags(vdom, 'favoritesCount').forEach(node => {
+                node.html = `(${value})`;
+            });
+
             this.vdom = vdom;
         }
     }
