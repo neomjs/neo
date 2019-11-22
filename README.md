@@ -46,14 +46,14 @@ the following concepts will be addictive.
     </tr>
     <tr>
         <td>7.</td>
-        <td>... you can use persistent JSON structures instead.</td>
+        <td>... you can use persistent JSON structures instead?</td>
         <td>You gain more simplicity</td>
     </tr>
     <tr>
         <td>8.</td>
         <td>... there is a custom virtual dom engine in place, which is so fast,
             that it will change your mind about the performance of web based user interfaces?</td>
-        <td>Extreme performance</td>
+        <td>You get extreme performance</td>
     </tr>
     <tr>
         <td>9.</td>
@@ -64,7 +64,7 @@ the following concepts will be addictive.
     <tr>
         <td>10.</td>
         <td>... your user interfaces can truly scale?</td>
-        <td>Extreme Performance</td>
+        <td>You get extreme Performance</td>
     </tr>
 </table>
 
