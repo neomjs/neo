@@ -50,9 +50,9 @@ It is kind of obvious, that you can easily manipulate JS objects & arrays any wa
 No more scoping issues.<br/>
 You are in full control when, what and how to change your vdom.
 
-The neo.mjs vdom structures are not "templates", which get consumed when rendering or mounting a component,
-but persist throughout the full component lifecycle. Meaning: you can easily change them the same way at
-any given point.
+The neo.mjs vdom structures are not "templates", which get consumed when rendering or mounting a component,<br/>
+but persist throughout the full component lifecycle.<br/>
+Meaning: you can easily change them the same way at any given point.
 
 Especially when creating big apps, many framework fail to provide you with a robust and solid base structure,
 on which you can build complex UI architectures. Extensibility is another huge issue.
@@ -68,6 +68,8 @@ const myButton = Neo.create(Button, {text: "Hello"});
 // this will already update the UI and yes, you can do this inside the console as well
 myButton.text = "World";
 ```
+
+For more input on what you can do using neo.mjs, please take a look at the guides inside the docs app.
 
 # The neo.mjs vision
 
