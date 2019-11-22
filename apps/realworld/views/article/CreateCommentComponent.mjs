@@ -18,9 +18,36 @@ class CreateCommentComponent extends Component {
              */
             ntype: 'realworld-article-createcommentcomponent',
             /**
+             * @member {String[]} cls=['card', 'comment-form']
+             */
+            cls: ['card', 'comment-form'],
+            /**
              * @member {Object} _vdom
              */
-            _vdom: {}
+            _vdom: {
+                tag: 'form',
+                cn : [{
+                    cls: ['card-block'],
+                    cn : [{
+                        tag        : 'textarea',
+                        cls        : ['form-control'],
+                        placeholder: 'Write a comment...',
+                        rows       : 3
+                    }]
+                }, {
+                    cls: ['card-footer'],
+                    cn : [{
+                        tag: 'img',
+                        cls: ['comment-author-img'],
+                        src: 'http://i.imgur.com/Qr71crq.jpg'
+                    }, {
+                        tag : 'button',
+                        cls : ['btn', 'btn-sm', 'btn-primary'],
+                        html: 'Post Comment',
+                        type: 'button' // override the default submit type
+                    }]
+                }]
+            }
         }
     }
 }

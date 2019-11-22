@@ -1,4 +1,5 @@
 import {default as BaseComponent} from '../../../../src/component/Base.mjs';
+import CreateCommentComponent     from './CreateCommentComponent.mjs';
 import NeoArray                   from '../../../../src/util/Array.mjs';
 import {default as VDomUtil}      from '../../../../src/util/VDom.mjs';
 
@@ -26,6 +27,10 @@ class Component extends BaseComponent {
          * @member {String|null} body_=null
          */
         body_: null,
+        /**
+         * @member {RealWorld.views.article.CreateCommentComponent|null} createCommentComponent=null
+         */
+        createCommentComponent: null,
         /**
          * @member {String|null} createdAt_=null
          */
@@ -196,32 +201,9 @@ class Component extends BaseComponent {
                 }, {
                     cls: 'row',
                     cn : [{
-                        cls: ['col-xs-12', 'col-md-8', 'offset-md-2'],
-                        cn : [{
-                            tag: 'form',
-                            cls: ['card', 'comment-form'],
-                            cn : [{
-                                cls: ['card-block'],
-                                cn : [{
-                                    tag        : 'textarea',
-                                    cls        : ['form-control'],
-                                    placeholder: 'Write a comment...',
-                                    rows       : 3
-                                }]
-                            }, {
-                                cls: ['card-footer'],
-                                cn : [{
-                                    tag: 'img',
-                                    cls: ['comment-author-img'],
-                                    src: 'http://i.imgur.com/Qr71crq.jpg'
-                                }, {
-                                    tag : 'button',
-                                    cls : ['btn', 'btn-sm', 'btn-primary'],
-                                    html: 'Post Comment',
-                                    type: 'button' // override the default submit type
-                                }]
-                            }]
-                        }, {
+                        cls : ['col-xs-12', 'col-md-8', 'offset-md-2'],
+                        flag: 'comments-section',
+                        cn  : [{
                             cls: 'card',
                             cn : [{
                                 cls: ['card-block'],
@@ -315,19 +297,38 @@ class Component extends BaseComponent {
 
         domListeners.push({
             click: {
-                fn      : me.onFollowButtonClick,
-                delegate: '.follow-button',
+                fn      : me.onFavoriteButtonClick,
+                delegate: '.favorite-button',
                 scope   : me
             }
         }, {
             click: {
-                fn      : me.onFavoriteButtonClick,
-                delegate: '.favorite-button',
+                fn      : me.onFollowButtonClick,
+                delegate: '.follow-button',
                 scope   : me
             }
         });
 
         me.domListeners = domListeners;
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        let me   = this,
+            vdom = me.vdom;
+
+        me.createCommentComponent = Neo.create({
+            module  : CreateCommentComponent,
+            parentId: me
+        });
+
+        VDomUtil.getByFlag(vdom, 'comments-section').cn.unshift(me.createCommentComponent.vdom);
+
+        me.vdom = vdom;
+
+        super.onConstructed();
     }
 
     /**
