@@ -7,11 +7,10 @@
 This is a new paradigm. If you want to enter a new era of making better Web Based User Interfaces,
 the following concepts will be addictive.
 
-### What if ...
 <table>
     <tr>
         <th></th>
-        <th>Question</th>
+        <th>What if ...</th>
         <th>Benefit</th>
     </tr>
     <tr>
