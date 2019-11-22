@@ -1,4 +1,5 @@
 import {default as BaseComponent} from '../../../../src/component/Base.mjs';
+import NeoArray                   from '../../../../src/util/Array.mjs';
 import {default as VDomUtil}      from '../../../../src/util/VDom.mjs';
 
 /**
@@ -33,6 +34,10 @@ class Component extends BaseComponent {
          * @member {String[]} cls=['article-page']
          */
         cls: ['article-page'],
+        /**
+         * @member {Boolean} favorited_=false
+         */
+        favorited_: false,
         /**
          * @member {Number|null} favoritesCount_=null
          */
@@ -90,20 +95,20 @@ class Component extends BaseComponent {
                             vtype: 'text',
                             html : '&nbsp;&nbsp;'
                         }, {
-                            tag: 'button',
-                            cls: ['btn', 'btn-sm', 'btn-outline-primary'],
-                            cn : [{
+                            tag : 'button',
+                            cls : ['btn', 'btn-sm', 'btn-outline-primary', 'favorite-button'],
+                            flag: 'favorited',
+                            cn  : [{
                                 tag: 'i',
                                 cls: ['ion-heart']
                             }, {
                                 vtype: 'text',
                                 html : '&nbsp;'
                             }, {
-                                vtype: 'text',
-                                html : 'Favorite Post'
+                                vtype: 'text'
                             }, {
                                 vtype: 'text',
-                                html : '&nbsp;'
+                                html : ' Post '
                             }, {
                                 tag : 'span',
                                 cls : ['counter'],
@@ -162,20 +167,20 @@ class Component extends BaseComponent {
                             vtype: 'text',
                             html : '&nbsp;&nbsp;'
                         }, {
-                            tag: 'button',
-                            cls: ['btn', 'btn-sm', 'btn-outline-primary'],
-                            cn : [{
+                            tag : 'button',
+                            cls : ['btn', 'btn-sm', 'btn-outline-primary', 'favorite-button'],
+                            flag: 'favorited',
+                            cn  : [{
                                 tag: 'i',
                                 cls: ['ion-heart']
                             }, {
                                 vtype: 'text',
                                 html : '&nbsp;'
                             }, {
-                                vtype: 'text',
-                                html : 'Favorite Post'
+                                vtype: 'text'
                             }, {
                                 vtype: 'text',
-                                html : '&nbsp;'
+                                html : ' Post '
                             }, {
                                 tag : 'span',
                                 cls : ['counter'],
@@ -309,6 +314,12 @@ class Component extends BaseComponent {
                 delegate: '.follow-button',
                 scope   : me
             }
+        }, {
+            click: {
+                fn      : me.onFavoriteButtonClick,
+                delegate: '.favorite-button',
+                scope   : me
+            }
         });
 
         me.domListeners = domListeners;
@@ -345,6 +356,31 @@ class Component extends BaseComponent {
             }).format(new Date(value));
 
             this.vdom = vdom;
+        }
+    }
+
+    /**
+     * Triggered after the favorited config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @private
+     */
+    afterSetFavorited(value, oldValue) {
+        let me   = this,
+            vdom = me.vdom;
+
+        VDomUtil.getFlags(vdom, 'favorited').forEach(node => {
+            node.cn[2].html = value ? 'Unfavorite' : 'Favorite';
+
+            NeoArray.add(node.cls, value ? 'btn-primary' : 'btn-outline-primary');
+            NeoArray.remove(node.cls, value ? 'btn-outline-primary' : 'btn-primary');
+        });
+
+        me.vdom = vdom;
+
+        // ignore the initial setter call
+        if (Neo.isBoolean(oldValue)) {
+            me.getController().favoriteArticle(me.slug, value);
         }
     }
 
@@ -389,7 +425,7 @@ class Component extends BaseComponent {
         if (value) {
             let vdom = this.vdom;
 
-            VDomUtil.getFlags(vdom, 'followAuthor').forEach(node => {console.log(node);
+            VDomUtil.getFlags(vdom, 'followAuthor').forEach(node => {
                 node.html = value.following ? ' Unfollow ' : ' Follow ';
             });
 
@@ -403,6 +439,14 @@ class Component extends BaseComponent {
 
             this.vdom = vdom;
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onFavoriteButtonClick(data) {
+        this.favorited = !this.favorited;
     }
 
     /**
