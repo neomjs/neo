@@ -10,26 +10,31 @@ the following concepts will be addictive.
 ### What if ...
 
 <table>
+    <th>
+        <td></td>
+        <td>Question</td>
+        <td>Benefit</td>
+    </th>
     <tr>
         <td>1.</td>
         <td>... a framework & all the apps you build are running inside a separate thread (web worker)?</td>
-        <td>→ **You get extreme Performance**</td>
+        <td>You get extreme Performance</td>
     </tr>
     <tr>
         <td>2.</td>
         <td>... the main thread would be mostly idle, only applying the real dom manipulations,
             so there are no background tasks slowing it down?</td>
-        <td>→ **You get extreme UI responsiveness**</td>
+        <td>You get extreme UI responsiveness</td>
     </tr>
     <tr>
         <td>3.</td>
         <td>... a framework was fully build on top of ES8, but can run inside multiple workers without any Javascript builds?</td>
-        <td>→ **Your development speed will increase**</td>
+        <td>Your development speed will increase</td>
     </tr>
     <tr>
         <td>4.</td>
         <td>... you don’t need source-maps to debug your code, since you do get the real code 1:1?</td>
-        <td>→ **You get a smoother Debugging Experience**</td>
+        <td>You get a smoother Debugging Experience</td>
     </tr>
 </table>
 
