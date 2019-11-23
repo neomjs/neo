@@ -82,6 +82,8 @@ Although neo.mjs is ready to craft beautiful & blazing fast UIs, the current sta
 picture.<br/>
 Take a look at the <a href=".github/VISION.md">Project Story & Vision</a>.
 
+In case you like the neo.mjs concepts, please take a look at <a href="./BACKERS.md">Sponsors & Backers</a>.
+
 ### Join our Slack Channel for questions & feedback:
 
 <a href="https://join.slack.com/t/neotericjs/shared_invite/enQtNDk2NjEwMTIxODQ2LWRjNGQ3ZTMzODRmZGM2NDM2NzZmZTMzZmE2YjEwNDM4NDhjZDllNWY2ZDkwOWQ5N2JmZWViYjYzZTg5YjdiMDc">Slack Channel Invite Link</a>
