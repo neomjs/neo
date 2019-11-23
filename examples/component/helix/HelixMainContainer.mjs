@@ -1,7 +1,6 @@
 import {default as Helix}       from '../../../src/component/Helix.mjs';
 import {default as NumberField} from '../../../src/form/field/Number.mjs';
 import {default as Panel}       from '../../../src/container/Panel.mjs';
-import Radio                    from '../../../src/form/field/Radio.mjs';
 import {default as RangeField}  from '../../../src/form/field/Range.mjs';
 import {default as Viewport}    from '../../../src/container/Viewport.mjs';
 
@@ -154,55 +153,6 @@ class HelixMainContainer extends Viewport {
                 name     : 'maxItems',
                 stepSize : 100,
                 value    : 300
-            }, {
-                module        : Radio,
-                hideValueLabel: false,
-                labelText     : 'Img Source',
-                name          : 'imageSource',
-                style         : {padding: '10px', paddingBottom: '5px'},
-                valueLabelText: 'AI images',
-                listeners     : {
-                    change: function(opts) {
-                        let helix        = Neo.get('neo-helix-1'),
-                            neoResConfig = Neo.config.resourcesPath,
-                            imageSource, url;
-
-                        if (opts.value === true) {
-                            imageSource = neoResConfig + 'examples/';
-                            url         = neoResConfig + 'examples/data/ai_contacts.json';
-                        } else {
-                            imageSource = neoResConfig + 'examples/images/';
-                            url         = neoResConfig + 'examples/data/contacts.json';
-                        }
-
-                        if (Neo.config.isExperimental) {
-                            url = '../' + url;
-                        }
-
-                        helix.imageSource = imageSource;
-                        helix.url         = url;
-                    }
-                },
-            }, {
-                module        : Radio,
-                checked       : true,
-                hideValueLabel: false,
-                labelText     : '',
-                listeners     : {change: function() {}}, // override the itemDefault
-                name          : 'imageSource',
-                style         : {padding: '10px', paddingTop: 0},
-                valueLabelText: 'tobiu FB'
-            }, {
-                ntype     : 'button',
-                text      : 'Flip Items',
-                listeners: {},
-                style    : {margin: '20px'},
-                domListeners: {
-                    click: data => {
-                        const helix = Neo.get('neo-helix-1');
-                        helix.flipped = !helix.flipped;
-                    }
-                }
             }, {
                 ntype     : 'button',
                 text      : 'Sort by Lastname',

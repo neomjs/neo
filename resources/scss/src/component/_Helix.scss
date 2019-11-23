@@ -2,7 +2,7 @@
     background-color: #000;
     border          : 1px solid #3c3f41;
     display         : flex;
-    font-family     : Helvetica, sans-serif;
+    font-family     : #{neo(neo-font-family)};
     margin          : 0;
     overflow        : hidden;
     padding         : 0;

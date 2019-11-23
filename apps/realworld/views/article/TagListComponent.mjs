@@ -5,6 +5,15 @@ import {default as Component} from '../../../../src/component/Base.mjs';
  * @extends Neo.component.Base
  */
 class TagListComponent extends Component {
+    static getStaticConfig() {return {
+        /**
+         * True automatically applies the core.Observable mixin
+         * @member {Boolean} observable=true
+         * @static
+         */
+        observable: true
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.views.article.TagListComponent'
@@ -16,6 +25,10 @@ class TagListComponent extends Component {
          * @private
          */
         ntype: 'realworld-article-taglistcomponent',
+        /**
+         * @member {String|null} activeTag_
+         */
+        activeTag_: null,
         /**
          * @member {String[]} cls=['col-md-3']
          */
@@ -41,6 +54,47 @@ class TagListComponent extends Component {
     }}
 
     /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        Neo.main.DomEvents.registerPreventDefaultTargets({
+            name: 'click',
+            cls : 'tag-pill'
+        });
+
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push({
+            click: {
+                fn      : me.onTagLinkClick,
+                delegate: '.tag-pill',
+                scope   : me
+            }
+        });
+
+        me.domListeners = domListeners;
+    }
+
+    /**
+     * Triggered after the activeTag config got changed
+     * @param {String[]|null} value
+     * @param {String[]|null} oldValue
+     * @private
+     */
+    afterSetActiveTag(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.fire('tagChange', {
+                oldValue: oldValue,
+                value   : value
+            });
+        }
+    }
+
+    /**
      * Triggered after the tags config got changed
      * @param {String[]|null} value
      * @param {String[]|null} oldValue
@@ -59,7 +113,7 @@ class TagListComponent extends Component {
                     cls : ['tag-pill', 'tag-default'],
                     href: '',
                     html: item,
-                    id  : me.getTagId(item)
+                    id  : me.getTagVdomId(item)
                 });
             });
 
@@ -69,11 +123,28 @@ class TagListComponent extends Component {
 
     /**
      *
+     * @param {String} nodeId
+     * @returns {String}
+     */
+    getTagId(nodeId) {
+        return nodeId.split('__')[1];
+    }
+
+    /**
+     *
      * @param {String} name
      * @returns {String}
      */
-    getTagId(name) {
+    getTagVdomId(name) {
         return this.id + '__' + name;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onTagLinkClick(data) {
+        this.activeTag = this.getTagId(data.path[0].id);
     }
 }
 

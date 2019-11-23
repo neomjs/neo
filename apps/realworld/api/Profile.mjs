@@ -12,15 +12,30 @@ class Profile extends Base {
          */
         className: 'RealWorld.api.Profile',
         /**
-         * @member {String} ntype='realworld-api-profile'
-         * @private
-         */
-        ntype: 'realworld-api-profile',
-        /**
          * @member {String} resource='/profiles'
          */
         resource: '/profiles'
     }}
+
+    /**
+     *
+     * @param {String} slug
+     */
+    follow(slug) {
+        return this.post({
+            url: `/profiles/${slug}/follow`
+        });
+    }
+
+    /**
+     *
+     * @param {String} slug
+     */
+    unfollow(slug) {
+        return this.delete({
+            url: `/profiles/${slug}/follow`
+        });
+    }
 }
 
 Neo.applyClassConfig(Profile);

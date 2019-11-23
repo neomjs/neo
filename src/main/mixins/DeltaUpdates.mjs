@@ -159,20 +159,17 @@ class DeltaUpdates extends Base {
      *
      * @param {Object} delta
      * @param {String} delta.id
-     * @param {String} delta.oldValue
+     * @param {String} delta.parentId
      * @param {String} delta.value
      */
     du_updateVtext(delta) {
-        let me   = this,
-            node = me.getElement(delta.id);
+        let me        = this,
+            node      = me.getElement(delta.parentId),
+            innerHTML = node.innerHTML,
+            startTag  = `<!-- ${delta.id} -->`,
+            reg       = new RegExp(startTag + '[\\s\\S]*?<!-- \/neo-vtext -->');
 
-        console.log('du_updateVtext', delta);
-        console.log(node.innerHTML);
-        console.log(node.childNodes);
-
-        if (!delta.oldValue) {
-            node.innerHTML += delta.value;
-        }
+        node.innerHTML = innerHTML.replace(reg, delta.value);
     }
 
     /**

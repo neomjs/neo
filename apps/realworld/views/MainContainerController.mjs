@@ -2,8 +2,9 @@ import {default as ArticleComponent}    from './article/Component.mjs';
 import {default as ArticleApi}          from '../api/Article.mjs';
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
 import CreateComponent                  from './article/CreateComponent.mjs';
+import {default as FavoriteApi}         from '../api/Favorite.mjs';
 import HomeComponent                    from './HomeComponent.mjs';
-import {LOCAL_STORAGE_KEY}             from '../api/config.mjs';
+import {LOCAL_STORAGE_KEY}              from '../api/config.mjs';
 import {default as ProfileApi}          from '../api/Profile.mjs';
 import ProfileComponent                 from './user/ProfileComponent.mjs';
 import SettingsComponent                from './user/SettingsComponent.mjs';
@@ -22,6 +23,15 @@ class MainContainerController extends ComponentController {
          * @private
          */
         className: 'RealWorld.views.MainContainerController',
+        /**
+         * @member {RealWorld.views.article.Component|null} articleComponent=null
+         * @private
+         */
+        articleComponent: null,
+        /**
+         * @member {Number} articlesOffset_=0
+         */
+        articlesOffset_: 0,
         /**
          * @member {RealWorld.views.article.CreateComponent|null} createComponent=null
          * @private
@@ -69,6 +79,19 @@ class MainContainerController extends ComponentController {
     }
 
     /**
+     * Triggered after the articlesOffset config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @private
+     */
+    afterSetArticlesOffset(value, oldValue) {
+        // ignore the initial config setter call
+        if (Neo.isNumber(oldValue)) {
+            this.getArticles();
+        }
+    }
+
+    /**
      * Triggered after the currentUser config got changed
      * @param {Object} value
      * @param {Object} oldValue
@@ -76,28 +99,60 @@ class MainContainerController extends ComponentController {
      */
     afterSetCurrentUser(value, oldValue) {
         if (typeof oldValue === 'object') {
-            let header = this.getReference('header'),
-                vdom   = header.vdom;
+            this.fire('afterSetCurrentUser', value);
 
-            // bulk update
-            header.silentVdomUpdate = true;
-
-            header.userName = value.username;
-            header.loggedIn = true;
-
-            header.silentVdomUpdate = false;
-            header.vdom = vdom;
+            this.getReference('header').bulkConfigUpdate({
+                loggedIn: true,
+                userName: value.username
+            });
         }
     }
 
     /**
      *
+     * @param {String} slug
+     * @param {Boolean} favorited
      */
-    getArticles() {
+    favoriteArticle(slug, favorited) {
+        return FavoriteApi[favorited ? 'add' : 'remove'](slug);
+    }
+
+    /**
+     *
+     * @param {String} slug
+     * @param {Boolean} follow
+     */
+    followUser(slug, follow) {
+        return ProfileApi[follow ? 'follow' : 'unfollow'](slug);
+    }
+
+    /**
+     * Article details: get an article providing a user slug
+     */
+    getArticle(slug) {
         ArticleApi.get({
-            params : {offset: 0, limit: 10}
+            slug: slug
         }).then(data => {
-            this.homeComponent.articlePreviews = data.json.articles;
+            console.log('getArticle', data.json.article);
+            this.articleComponent.bulkConfigUpdate(data.json.article);
+        });
+    }
+
+    /**
+     *
+     */
+    getArticles(opts={}) {
+        ArticleApi.get({
+            params: {
+                limit : 10,
+                offset: this.articlesOffset,
+                ...opts
+            }
+        }).then(data => {
+            this.homeComponent.bulkConfigUpdate({
+                articlePreviews: data.json.articles,
+                countArticles  : data.json.articlesCount
+            });
         });
     }
 
@@ -119,7 +174,10 @@ class MainContainerController extends ComponentController {
         ProfileApi.get({
             slug: slug
         }).then(data => {
-            this.profileComponent.update(data.json.profile);
+            this.profileComponent.update({
+                ...data.json.profile,
+                myProfile: data.json.profile.username === this.currentUser.username
+            });
         });
     }
 
@@ -233,6 +291,9 @@ class MainContainerController extends ComponentController {
             }
 
             switch (newView.reference) {
+                case 'article':
+                    me.getArticle(hashString.split('/').pop()); // pass the slug
+                    break;
                 case 'home':
                     me.getArticles();
                     me.getTags();

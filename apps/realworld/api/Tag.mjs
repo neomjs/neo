@@ -12,11 +12,6 @@ class Tag extends Base {
          */
         className: 'RealWorld.api.Tag',
         /**
-         * @member {String} ntype='realworld-api-tag'
-         * @private
-         */
-        ntype: 'realworld-api-tag',
-        /**
          * @member {String} resource='/tags'
          */
         resource: '/tags'

@@ -12,11 +12,6 @@ class Article extends Base {
          */
         className: 'RealWorld.api.Article',
         /**
-         * @member {String} ntype='realworld-api-article'
-         * @private
-         */
-        ntype: 'realworld-api-article',
-        /**
          * @member {String} resource='/articles'
          */
         resource: '/articles'

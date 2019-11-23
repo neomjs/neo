@@ -22,11 +22,6 @@ class Base extends CoreBase {
          */
         className: 'RealWorld.api.Base',
         /**
-         * @member {String} ntype='realworld-api-base'
-         * @private
-         */
-        ntype: 'realworld-api-base',
-        /**
          * @member {Object|null} defaultHeaders=null
          */
         defaultHeaders: null,
@@ -37,7 +32,7 @@ class Base extends CoreBase {
         /**
          * @member {String} resource=''
          */
-        resource: ''
+        resource: '/'
     }}
 
     onConstructed() {
@@ -75,16 +70,62 @@ class Base extends CoreBase {
      * @param {Object} [opts.params]
      * @param {String} [opts.resource]
      * @param {String} [opts.slug]
+     * @param {String} [opts.url]
+     * @returns {String} url
+     */
+    createUrl(opts) {
+        if (opts.url) {
+            return API_URL + opts.url;
+        }
+
+        return API_URL + (opts.resource || this.resource) + (opts.slug ? '/' + opts.slug : '');
+    }
+
+    /**
+     *
+     * @param {Object} [opts={}]
+     * @param {Object} [opts.data]
+     * @param {Object} [opts.params]
+     * @param {String} [opts.resource]
+     * @param {String} [opts.slug]
+     * @returns {Promise<any>}
+     */
+    delete(opts={}) {
+        console.log('delete', opts);
+
+        return Neo.Xhr.promiseJson({
+            data   : opts.data,
+            method : 'DELETE',
+            params : opts.params,
+            url    : this.createUrl(opts),
+
+            headers: {
+                ...this.defaultHeaders || {},
+                'Content-Type'    : 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        }).catch(error => {
+            console.log('RealWorld.api.Base:get()', error);
+        });
+    }
+
+    /**
+     *
+     * @param {Object} [opts={}]
+     * @param {Object} [opts.data]
+     * @param {Object} [opts.params]
+     * @param {String} [opts.resource]
+     * @param {String} [opts.slug]
      * @returns {Promise<any>}
      */
     get(opts={}) {
-        console.log(opts);
+        console.log('get', opts);
 
         return Neo.Xhr.promiseJson({
             data   : opts.data,
             method : 'GET',
             params : opts.params,
-            url    : API_URL + (opts.resource || this.resource) + (opts.slug ? '/' + opts.slug : ''),
+            url    : this.createUrl(opts),
 
             headers: {
                 ...this.defaultHeaders || {},
@@ -122,13 +163,13 @@ class Base extends CoreBase {
      * @returns {Promise<any>}
      */
     post(opts={}) {
-        console.log(opts);
+        console.log('post', opts);
 
         return Neo.Xhr.promiseJson({
             data   : opts.data,
             method : 'POST',
             params : opts.params,
-            url    : API_URL + (opts.resource || this.resource) + (opts.slug ? '/' + opts.slug : ''),
+            url    : this.createUrl(opts),
 
             headers: {
                 ...this.defaultHeaders || {},

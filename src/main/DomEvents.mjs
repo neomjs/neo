@@ -33,10 +33,8 @@ const lastWheelEvent = {
     target: null
 };
 
-const preventContextmenuTargets = [
-    'neo-circle',
-    'neo-circle-back'
-];
+const preventClickTargets       = [],
+      preventContextmenuTargets = [];
 
 /**
  * @class Neo.main.DomEvents
@@ -70,7 +68,10 @@ class DomEvents extends Base {
          * @private
          */
         remote: {
-            app: ['addDomListener']
+            app: [
+                'addDomListener',
+                'registerPreventDefaultTargets'
+            ]
         }
     }}
 
@@ -254,6 +255,7 @@ class DomEvents extends Base {
             clientTop        : node.clientTop,
             clientWidth      : node.clientWidth,
             cls              : node.classList ? [...node.classList] : [],
+            data             : {...node.dataset},
             draggable        : node.draggable,
             hidden           : node.hidden,
             id               : node.id,
@@ -292,7 +294,13 @@ class DomEvents extends Base {
      * @param {Object} event
      */
     onClick(event) {
-        this.sendMessageToApp(this.getMouseEventData(event));
+        let me = this;
+
+        me.sendMessageToApp(me.getMouseEventData(event));
+
+        if (me.testPathInclusion(event, preventClickTargets)) {
+            event.preventDefault();
+        }
     }
 
     /**
@@ -482,6 +490,35 @@ class DomEvents extends Base {
         }
 
         return value;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Array|String} data.cls
+     * @param {String} data.name
+     */
+    registerPreventDefaultTargets(data) {
+        let preventArray;
+
+        if (!Array.isArray(data.cls)) {
+            data.cls = [data.cls];
+        }
+
+        switch (data.name) {
+            case 'click':
+                preventArray = preventClickTargets;
+                break;
+            case 'contextmenu':
+                preventArray = preventContextmenuTargets;
+                break;
+        }
+
+        data.cls.forEach(cls => {
+            if (!preventArray.includes(cls)) {
+                preventArray.push(cls);
+            }
+        });
     }
 
     /**

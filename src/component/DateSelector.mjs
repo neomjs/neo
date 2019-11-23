@@ -391,7 +391,7 @@ class DateSelector extends Component {
                             }],
                             style: {
                                 height   : data[0].height + 'px',
-                                transform: 'translateX(' + x + 'px)',
+                                transform: `translateX(${x}px)`,
                                 width    : 2 * data[0].width + 'px'
                             }
                         }]
@@ -439,7 +439,7 @@ class DateSelector extends Component {
             x;
 
         x = slideDirection === 'right' ? -data.width : 0;
-        vdom.cn[1].cn[0].style.transform = 'translateX(' + x + 'px)';
+        vdom.cn[1].cn[0].style.transform = `translateX(${x}px)`;
         me._vdom = vdom; // silent update
     }
 
@@ -487,7 +487,7 @@ class DateSelector extends Component {
                             style: {
                                 flexDirection: 'column',
                                 height       : 2 * data.height + 'px',
-                                transform    : 'translateY(' + y + 'px)',
+                                transform    : `translateY(${y}px)`,
                                 width        : data.width + 'px'
                             }
                         }]
@@ -501,7 +501,7 @@ class DateSelector extends Component {
 
                     me.promiseVdomUpdate(vdom).then(() => {
                         y = increment < 0 ? -data.height : 0;
-                        vdom.cn[1].cn[0].style.transform = 'translateY(' + y + 'px)';
+                        vdom.cn[1].cn[0].style.transform = `translateY(${y}px)`;
                         me.vdom = vdom;
 
                         setTimeout(() => {
@@ -816,7 +816,7 @@ class DateSelector extends Component {
                     cn : [],
                     style: {
                         height   : 2 * monthElDomRect.height + 'px',
-                        transform: 'translateY(' + y + 'px)',
+                        transform: `translateY(${y}px)`,
                         width    : monthElDomRect.width + 'px'
                     }
                 }]
@@ -860,7 +860,7 @@ class DateSelector extends Component {
             y;
 
         y = slideDirection === 'top' ? -data.height : 0;
-        headerCenterEl.cn[0].cn[0].style.transform = 'translateY(' + y + 'px)';
+        headerCenterEl.cn[0].cn[0].style.transform = `translateY(${y}px)`;
         me._vdom = vdom; // silent update
     }
 

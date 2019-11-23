@@ -778,6 +778,24 @@ class Base extends CoreBase {
     }
 
     /**
+     * Convenience shortcut for bulk updates, just doing one vdom update call
+     * @param {Object} configs
+     * @param {Boolean} [silent=false]
+     */
+    bulkConfigUpdate(configs, silent=false) {
+        let me   = this,
+            vdom = me.vdom;
+
+        me.silentVdomUpdate = true;
+
+        Object.assign(me, configs);
+
+        me.silentVdomUpdate = false;
+
+        me[silent ? '_vdom' : 'vdom'] = vdom;
+    }
+
+    /**
      * Changes the value of a vdom object attribute or removes it in case it has no value
      * @param {String} key
      * @param {Array|Number|Object|String|null} value

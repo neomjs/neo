@@ -16,7 +16,7 @@
         cursor           : default;
         display          : flex;
         flex-direction   : column;
-        font-family      : "Lato", "Helvetica Neue";
+        font-family      : "Lato", #{neo(neo-font-family)};
         font-size        : 12px;
         font-weight      : 300;
         justify-content  : center;
