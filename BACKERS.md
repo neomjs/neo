@@ -19,7 +19,7 @@ Trust me, it is beautiful :)
 I can definitely say that I did use several other UI frameworks in the past and that neo.mjs boosted my productivity
 to an entire new level.
 
-This is something, I would love to share with you!
+This is something I would love to share with you!
 
 After finishing the Real World demo app, I am planning to create a 2nd version: this time using a custom neo.mjs design
 theme as well as the full band-width of neo.mjs components: tabContainers, lists, toolbars, buttons etc.
@@ -43,7 +43,7 @@ This will not cover my living costs (unless neo.mjs goes viral), but it does hav
 my motivation for sure.
 
 # For companies:
-Starting at the bronze tier, you will be able to place your company logo on main repository landing page (Readme.md).
+Starting at the bronze tier, you will be able to place your company logo on the main repository landing page (Readme.md).
 Especially in the early days, this will have an high impact on the neo.mjs community and make it easier for you
 to find neo.mjs developers in the future.
 
