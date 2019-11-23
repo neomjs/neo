@@ -51,6 +51,9 @@ Obviously, sponsoring open source projects in general will increase your company
 
 As soon as the neo.mjs community grows, it will also increase your company visibility in a good way.
 
+Please make sure to create a feature request ticket inside the neo.mjs <a href="../../issues">Issues Tracker</a>
+after signing a sponsors program to provide your company logo!
+
 ### Thanks a lot for your support of the neo.mjs project!<br/>
 <a href="https://github.com/sponsors/tobiu">Sponsor Tobias Uhlig</a>
 
