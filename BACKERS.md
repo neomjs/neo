@@ -38,7 +38,7 @@ With active sponsors I could invest more time into neo.mjs,
 which means that you will get new features, guides and bug-fixes a lot faster.
 
 # For developers:
-You could select a Backer tier ($10 / month), which would equal a cup of coffee for me every month.
+You could select a Backer tier ($10 / month), which would equal a cup of coffee for me every month (after taxes).
 This will not cover my living costs (unless neo.mjs goes viral), but it does have an impact on
 my motivation for sure.
 
