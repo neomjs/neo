@@ -38,12 +38,6 @@ class View extends Component {
         }
     }}
 
-    getCellId(record, dataField) {
-        let store = Neo.get(this.containerId).store;
-
-        return this.id + '__' + record[store.keyProperty] + '__' + dataField;
-    }
-
     /**
      * @param {Array} inputData
      */
@@ -51,7 +45,7 @@ class View extends Component {
         let me         = this,
             amountRows = inputData.length,
             container  = Neo.getComponent(me.parentId),
-            hasStore   = container.store instanceof Neo.data.Store, // todo: remove as soon as all tables use stores (exmaples table)
+            hasStore   = container.store.model, // todo: remove as soon as all tables use stores (examples table)
             columns    = container.items[0].items,
             colCount   = columns.length,
             data       = [],
@@ -91,7 +85,7 @@ class View extends Component {
                     };
                 }
 
-                // todo: remove the if part as soon as all tables use stores (exmaples table)
+                // todo: remove the if part as soon as all tables use stores (examples table)
                 if (hasStore) {
                     cellId = me.getCellId(inputData[i], column.dataField);
                 } else {
@@ -138,6 +132,18 @@ class View extends Component {
         container.dockRightMargin = dockRightMargin;
 
         me.vdom = vdom;
+    }
+
+    /**
+     *
+     * @param {Object} record
+     * @param {String} dataField
+     * @return {String}
+     */
+    getCellId(record, dataField) {
+        let store = Neo.get(this.containerId).store;
+
+        return this.id + '__' + record[store.keyProperty] + '__' + dataField;
     }
 
     /**

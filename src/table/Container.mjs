@@ -180,7 +180,7 @@ class Container extends BaseContainer {
      * @param {Boolean} oldValue
      * @private
      */
-    afterSetUseCustomScrollbars(value) {
+    afterSetUseCustomScrollbars(value, oldValue) {
         if (value === true) {
             this.vdom.cls = Neo.Array.union(this.vdom.cls, ['neo-use-custom-scrollbar']);
         }
@@ -213,7 +213,7 @@ class Container extends BaseContainer {
      * @param {Array} oldValue
      * @private
      */
-    beforeSetColumns(value) {
+    beforeSetColumns(value, oldValue) {
         if (this.configsApplied) {
             return this.createColumns(value);
         }
@@ -347,9 +347,8 @@ class Container extends BaseContainer {
 
         Neo.manager.Store.createRandomData([countColumns, countRows]).then(data => {
             me.createViewData(data);
-
         }).catch(err => {
-            console.log('Error attmpting to call createRandomViewData', err, me);
+            console.log('Error attempting to call createRandomViewData', err, me);
         });
     }
 
