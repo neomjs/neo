@@ -23,7 +23,7 @@
    npm run dev-theme-light
    ```
 
-   (See the <a href="./docs/tutorials/10_BuildScripts.md">Build Scripts Guide</a> for further details.)
+   (See the <a href="../docs/tutorials/10_BuildScripts.md">Build Scripts Guide</a> for further details.)
 
 5. Make sure to use a local WebServer!
    * Use a local webserver of your choice
