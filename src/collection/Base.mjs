@@ -183,7 +183,7 @@ class Base extends CoreBase {
      * @param {Array} oldValue
      * @private
      */
-    afterSetItems(value) {
+    afterSetItems(value, oldValue) {
         let me          = this,
             keyProperty = me.keyProperty,
             i           = 0,

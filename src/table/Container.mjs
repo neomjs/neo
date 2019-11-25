@@ -376,8 +376,11 @@ class Container extends BaseContainer {
      * @private
      */
     onSortColumn(opts) {
-        this.store.sort(opts);
-        this.removeSortingCss(opts.property);
+        let me = this;
+
+        me.store.sort(opts);
+        me.removeSortingCss(opts.property);
+        me.onStoreLoad(me.store.items);
     }
 
     /**
