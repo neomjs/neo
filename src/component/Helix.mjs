@@ -282,7 +282,13 @@ class Helix extends Component {
         me.loadData();
     }
 
-    afterSetFlipped(value) {
+    /**
+     * Triggered after the flipped config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @private
+     */
+    afterSetFlipped(value, oldValue) {
         this.applyItemTransitions(this.refresh, 1000);
     }
 
@@ -332,7 +338,13 @@ class Helix extends Component {
         }
     }
 
-    afterSetPerspective(value) {
+    /**
+     * Triggered after the perspective config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @private
+     */
+    afterSetPerspective(value, oldValue) {
         let me = this;
 
         if (me.mounted) {
@@ -350,6 +362,12 @@ class Helix extends Component {
         }
     }
 
+    /**
+     * Triggered after the selectionModel config got changed
+     * @param {Neo.selection.Model} value
+     * @param {Neo.selection.Model} oldValue
+     * @private
+     */
     afterSetSelectionModel(value, oldValue) {
         if (this.rendered) {
             value.register(this);
@@ -422,6 +440,10 @@ class Helix extends Component {
         }
     }
 
+    /**
+     *
+     * @returns {Object}
+     */
     beforeGetItemTpl() {
         return Neo.clone(this._itemTpl, true);
     }

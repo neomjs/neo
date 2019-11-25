@@ -244,6 +244,12 @@ class Gallery extends Component {
         });
     }
 
+    /**
+     * Triggered after the selectionModel config got changed
+     * @param {Neo.selection.Model} value
+     * @param {Neo.selection.Model} oldValue
+     * @private
+     */
     afterSetSelectionModel(value, oldValue) {
         if (this.rendered) {
             value.register(this);
@@ -255,16 +261,22 @@ class Gallery extends Component {
     }
 
     /**
-     *
+     * Triggered after the amountRows config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @private
      */
-    afterSetAmountRows() {
+    afterSetAmountRows(value, oldValue) {
         this.afterSetOrderByRow();
     }
 
     /**
-     *
+     * Triggered after the orderByRow config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @private
      */
-    afterSetOrderByRow() {
+    afterSetOrderByRow(value, oldValue) {
         let me   = this,
             vdom = me.vdom,
             view = me.vdom.cn[0].cn[0].cn[0].cn[0];
