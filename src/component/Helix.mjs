@@ -110,7 +110,7 @@ class Helix extends Component {
          */
         matrix: null,
         /**
-         * The max opacity for items inside the foreground
+         * The max amount of store items to show
          * @member {Number} maxItems_=300
          */
         maxItems_: 300,

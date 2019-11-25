@@ -68,6 +68,11 @@ class Gallery extends Component {
          */
         keys: {},
         /**
+         * The max amount of store items to show
+         * @member {Number} maxItems_=300
+         */
+        maxItems_: 300,
+        /**
          * The zooming factor which replaces the default wheelDelta.
          * @member {Number} mouseWheelDeltaX=10
          */
