@@ -330,8 +330,6 @@ class Component extends BaseComponent {
                 container = VDomUtil.getByFlag(vdom, 'comments-section'),
                 config;
 
-            console.log('afterSetComments', value);
-
             container.cn = [container.cn.shift()]; // keep the CreateCommentComponent
 
             value.forEach((item, index) => {

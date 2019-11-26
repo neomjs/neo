@@ -161,6 +161,11 @@ class CreateCommentComponent extends Component {
                         body: data.value
                     }
                 })
+            }).then(data => {
+                let vdom = me.vdom;
+
+                vdom.cn[0].cn[0].value = ''; // reset the textarea value
+                me.vdom = vdom;
             });
         });
     }

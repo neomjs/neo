@@ -334,7 +334,7 @@ class MainContainerController extends ComponentController {
         let me   = this,
             slug = me.hashString.split('/').pop();
 
-        ArticleApi.postComment(slug, opts).then(data => {
+        return ArticleApi.postComment(slug, opts).then(data => {
             me.getComments(slug);
         });
     }
