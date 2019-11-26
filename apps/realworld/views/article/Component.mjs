@@ -28,6 +28,10 @@ class Component extends BaseComponent {
          */
         body_: null,
         /**
+         * @member {Object[]|null} comments_=null
+         */
+        comments_: null,
+        /**
          * @member {RealWorld.views.article.CreateCommentComponent|null} createCommentComponent=null
          */
         createCommentComponent: null,
@@ -203,82 +207,7 @@ class Component extends BaseComponent {
                     cn : [{
                         cls : ['col-xs-12', 'col-md-8', 'offset-md-2'],
                         flag: 'comments-section',
-                        cn  : [{
-                            cls: 'card',
-                            cn : [{
-                                cls: ['card-block'],
-                                cn : [{
-                                    tag : 'p',
-                                    cls : ['card-text'],
-                                    html: 'With supporting text below as a natural lead-in to additional content.'
-                                }]
-                            }, {
-                                cls: ['card-footer'],
-                                cn : [{
-                                    tag : 'a',
-                                    cls : ['comment-author'],
-                                    href: '',
-                                    cn  : [{
-                                        tag: 'img',
-                                        cls: ['comment-author-img'],
-                                        src: 'http://i.imgur.com/Qr71crq.jpg'
-                                    }]
-                                }, {
-                                    vtype: 'text',
-                                    html : '&nbsp;'
-                                }, {
-                                    tag : 'a',
-                                    cls : ['comment-author'],
-                                    href: '',
-                                    html: 'Jacob Schmidt'
-                                }, {
-                                    tag : 'span',
-                                    cls : ['date-posted'],
-                                    html: 'Dec 29th'
-                                }]
-                            }]
-                        }, {
-                            cls: 'card',
-                            cn : [{
-                                cls: ['card-block'],
-                                cn : [{
-                                    tag : 'p',
-                                    cls : ['card-text'],
-                                    html: 'With supporting text below as a natural lead-in to additional content.'
-                                }]
-                            }, {
-                                cls: ['card-footer'],
-                                cn : [{
-                                    tag : 'a',
-                                    cls : ['comment-author'],
-                                    href: '',
-                                    cn  : [{
-                                        tag: 'img',
-                                        cls: ['comment-author-img'],
-                                        src: 'http://i.imgur.com/Qr71crq.jpg'
-                                    }]
-                                }, {
-                                    vtype: 'text',
-                                    html : '&nbsp;'
-                                }, {
-                                    tag : 'a',
-                                    cls : ['comment-author'],
-                                    href: '',
-                                    html: 'Jacob Schmidt'
-                                }, {
-                                    tag : 'span',
-                                    cls : ['date-posted'],
-                                    html: 'Dec 29th'
-                                }, {
-                                    tag: 'span',
-                                    cls: ['mod-options'],
-                                    cn : [
-                                        {tag: 'i', cls: ['ion-edit']},
-                                        {tag: 'i', cls: ['ion-trash-a']},
-                                    ]
-                                }]
-                            }]
-                        }]
+                        cn  : []
                     }]
                 }]
             }]
@@ -379,7 +308,20 @@ class Component extends BaseComponent {
                 html: value
             }]
         };
+
         this.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the comments config got changed
+     * @param {Object[]|null} value
+     * @param {Object[]|null} oldValue
+     * @private
+     */
+    afterSetComments(value, oldValue) {
+        if (value) {
+            console.log('afterSetComments', value);
+        }
     }
 
     /**

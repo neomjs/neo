@@ -162,7 +162,7 @@ class MainContainerController extends ComponentController {
      */
     getComments(slug) {
         ArticleApi.getComments(slug).then(data => {
-            console.log(data.json);
+            this.articleComponent.comments = data.json.comments;
         });
     }
 
