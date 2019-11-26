@@ -48,7 +48,7 @@ class HomeComponent extends Component {
          */
         pageSize_: 10,
         /**
-         * @member {RealWorld.views.article.PreviewComponent[]} previewComponents_=[]
+         * @member {RealWorld.views.article.PreviewComponent[]} previewComponents=[]
          */
         previewComponents: [],
         /**

@@ -17,11 +17,14 @@ class CommentComponent extends Component {
          */
         ntype: 'realworld-article-commentcomponent',
         /**
+         * @member {String[]} cls=['card']
+         */
+        cls: ['card'],
+        /**
          * @member {Object} _vdom
          */
         _vdom: {
-            cls: 'card',
-            cn : [{
+            cn: [{
                 cls: ['card-block'],
                 cn : [{
                     tag : 'p',

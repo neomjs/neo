@@ -1,4 +1,5 @@
 import {default as BaseComponent} from '../../../../src/component/Base.mjs';
+import CommentComponent           from './CommentComponent.mjs';
 import CreateCommentComponent     from './CreateCommentComponent.mjs';
 import NeoArray                   from '../../../../src/util/Array.mjs';
 import {default as VDomUtil}      from '../../../../src/util/VDom.mjs';
@@ -27,6 +28,10 @@ class Component extends BaseComponent {
          * @member {String|null} body_=null
          */
         body_: null,
+        /**
+         * @member {RealWorld.views.article.PreviewComponent[]} commentComponents=[]
+         */
+        commentComponents: [],
         /**
          * @member {Object[]|null} comments_=null
          */
@@ -319,8 +324,39 @@ class Component extends BaseComponent {
      * @private
      */
     afterSetComments(value, oldValue) {
-        if (value) {
+        if (Array.isArray(value)) {
+            let me        = this,
+                vdom      = me.vdom,
+                container = VDomUtil.getByFlag(vdom, 'comments-section'),
+                config;
+
             console.log('afterSetComments', value);
+
+            container.cn = [container.cn.shift()]; // keep the CreateCommentComponent
+
+            value.forEach((item, index) => {
+                config = {
+                    author   : item.author.username,
+                    body     : item.body,
+                    commentId: item.id,
+                    createdAt: item.createdAt,
+                    updatedAt: item.updatedAt
+                };
+
+                if (!me.commentComponents[index]) {
+                    me.commentComponents[index] = Neo.create({
+                        module  : CommentComponent,
+                        parentId: me.id,
+                        ...config
+                    });
+                } else {
+                    me.commentComponents[index].bulkConfigUpdate(config, true);
+                }
+
+                container.cn.push(me.commentComponents[index].vdom);
+            });
+
+            me.vdom = vdom;
         }
     }
 
