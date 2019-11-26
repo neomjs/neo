@@ -78,7 +78,8 @@ class CreateComponent extends Component {
                                         cls        : ['form-control'],
                                         name       : 'content',
                                         flag       : 'content',
-                                        placeholder: 'Write your article (in markdown)'
+                                        placeholder: 'Write your article (in markdown)',
+                                        rows       : 8
                                     }]
                                 }, {
                                     tag: 'fieldset',
