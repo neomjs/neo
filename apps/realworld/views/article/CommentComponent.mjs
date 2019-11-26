@@ -25,6 +25,10 @@ class CommentComponent extends Component {
          */
         cls: ['card'],
         /**
+         * @member {String|null} createdAt_=null
+         */
+        createdAt_: null,
+        /**
          * @member {Object} _vdom
          */
         _vdom: {
@@ -71,8 +75,8 @@ class CommentComponent extends Component {
 
     /**
      * Triggered after the body config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {String|null} value
+     * @param {String|null} oldValue
      * @private
      */
     afterSetBody(value, oldValue) {
@@ -80,6 +84,26 @@ class CommentComponent extends Component {
             let vdom = this.vdom;
 
             vdom.cn[0].cn[0].html = value;
+            this.vdom = vdom;
+        }
+    }
+
+    /**
+     * Triggered after the createdAt config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @private
+     */
+    afterSetCreatedAt(value, oldValue) {
+        if (value) {
+            let vdom = this.vdom;
+
+            vdom.cn[1].cn[3].html = new Intl.DateTimeFormat('en-US', {
+                day  : 'numeric',
+                month: 'long',
+                year : 'numeric'
+            }).format(new Date(value));
+
             this.vdom = vdom;
         }
     }
