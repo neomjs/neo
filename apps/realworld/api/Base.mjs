@@ -165,10 +165,13 @@ class Base extends CoreBase {
     post(opts={}) {
         console.log('post', opts);
 
+        const params = opts.params;
+        delete opts.params;
+
         return Neo.Xhr.promiseJson({
             data   : opts.data,
             method : 'POST',
-            params : opts.params,
+            params : params,
             url    : this.createUrl(opts),
 
             headers: {

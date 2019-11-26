@@ -44,6 +44,10 @@ class MainContainerController extends ComponentController {
          */
         currentUser_: null,
         /**
+         * @member {String|null} hashString=null
+         */
+        hashString: null,
+        /**
          * @member {RealWorld.views.HomeComponent|null} homeComponent=null
          * @private
          */
@@ -280,6 +284,8 @@ class MainContainerController extends ComponentController {
         } else {
             console.log('onHashChange', value, hashString);
 
+            me.hashString = hashString;
+
             // adjust the active header link
             view.items[0].activeItem = Object.keys(value)[0];
 
@@ -322,6 +328,15 @@ class MainContainerController extends ComponentController {
                     break;
             }
         }
+    }
+
+    postComment(opts={}) {
+        let me   = this,
+            slug = me.hashString.split('/').pop();
+
+        ArticleApi.postComment(slug, opts).then(data => {
+            me.getComments(slug);
+        });
     }
 }
 

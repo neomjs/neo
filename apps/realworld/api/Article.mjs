@@ -26,6 +26,18 @@ class Article extends Base {
             url: `/articles/${slug}/comments`
         });
     }
+
+    /**
+     *
+     * @param {String} slug
+     * @param {Object} opts
+     */
+    postComment(slug, opts) {
+        return this.post({
+            ...opts,
+            url: `/articles/${slug}/comments`
+        });
+    }
 }
 
 Neo.applyClassConfig(Article);

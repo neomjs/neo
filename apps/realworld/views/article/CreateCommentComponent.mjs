@@ -136,8 +136,6 @@ class CreateCommentComponent extends Component {
      * @param {Object} value
      */
     onCurrentUserChange(value) {
-        console.log('onCurrentUserChange', value);
-
         this.bulkConfigUpdate({
             userImage: value.image,
             userName : value.username
@@ -157,7 +155,13 @@ class CreateCommentComponent extends Component {
             id        : me.getInputElId(),
             attributes: 'value'
         }).then(data => {
-            console.log(data);
+            me.getController().postComment({
+                data: JSON.stringify({
+                    comment: {
+                        body: data.value
+                    }
+                })
+            });
         });
     }
 }
