@@ -132,6 +132,18 @@ class Component extends BaseComponent {
                                 cls : ['counter'],
                                 flag: 'favoritesCount'
                             }]
+                        }, {
+                            tag      : 'button',
+                            cls      : ['btn', 'btn-sm', 'btn-outline-danger', 'delete-button'],
+                            flag     : 'delete-button',
+                            removeDom: true,
+                            cn: [{
+                                tag: 'i',
+                                cls: ['ion-trash-a']
+                            }, {
+                                vtype: 'text',
+                                html : ' Delete Article'
+                            }]
                         }]
                     }]
                 }]
@@ -229,21 +241,18 @@ class Component extends BaseComponent {
         let me           = this,
             domListeners = me.domListeners;
 
-        domListeners.push({
-            click: {
-                fn      : me.onFavoriteButtonClick,
-                delegate: '.favorite-button',
-                scope   : me
-            }
-        }, {
-            click: {
-                fn      : me.onFollowButtonClick,
-                delegate: '.follow-button',
-                scope   : me
-            }
+        domListeners.push(
+            {click: {fn: me.onDeleteButtonClick,   delegate: '.delete-button',   scope: me}},
+            {click: {fn: me.onFavoriteButtonClick, delegate: '.favorite-button', scope: me}},
+            {click: {fn: me.onFollowButtonClick,   delegate: '.follow-button',   scope: me}
         });
 
         me.domListeners = domListeners;
+
+        me.getController().on({
+            afterSetCurrentUser: me.onCurrentUserChange,
+            scope              : me
+        });
     }
 
     /**
@@ -275,7 +284,8 @@ class Component extends BaseComponent {
      */
     afterSetAuthor(value, oldValue) {
         if (value) {
-            let vdom = this.vdom;
+            let me   = this,
+                vdom = me.vdom;
 
             VDomUtil.getFlags(vdom, 'followAuthor').forEach(node => {
                 node.html = value.following ? ' Unfollow ' : ' Follow ';
@@ -293,7 +303,9 @@ class Component extends BaseComponent {
                 node.html = value.username;
             });
 
-            this.vdom = vdom;
+            me.vdom = vdom;
+
+            me.onCurrentUserChange();
         }
     }
 
@@ -471,6 +483,33 @@ class Component extends BaseComponent {
 
         VDomUtil.getByFlag(vdom, 'title').html = value;
         this.vdom = vdom;
+    }
+
+    /**
+     *
+     */
+    onCurrentUserChange() {console.log('### onCurrentUserChange');
+        let me          = this,
+            currentUser = me.getController().currentUser,
+            vdom        = me.vdom,
+            isCurrentUser;
+
+        if (me.author && currentUser) {
+            isCurrentUser = me.author.username === currentUser.username;
+
+            vdom.cn[0].cn[0].cn[1].cn[4].removeDom = isCurrentUser; // favorite post button
+            VDomUtil.getByFlag(vdom, 'delete-button').removeDom = !isCurrentUser;
+
+            me.vdom = vdom;
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDeleteButtonClick(data) {
+        this.getController().deleteArticle(this.slug);
     }
 
     /**

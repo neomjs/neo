@@ -114,6 +114,18 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @param {String} slug
+     */
+    deleteArticle(slug) {
+        ArticleApi.delete({slug: slug}).then(data => {
+            Neo.Main.setRoute({
+                value: '/'
+            });
+        });
+    }
+
+    /**
+     *
      * @param {Number} id
      * @return {Promise<any>}
      */

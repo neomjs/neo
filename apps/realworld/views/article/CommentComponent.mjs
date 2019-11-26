@@ -172,6 +172,9 @@ class CommentComponent extends Component {
         }
     }
 
+    /**
+     *
+     */
     onCurrentUserChange() {
         let me          = this,
             currentUser = me.getController().currentUser,
