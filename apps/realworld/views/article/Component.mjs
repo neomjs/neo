@@ -336,7 +336,7 @@ class Component extends BaseComponent {
             VDomUtil.getByFlag(vdom, 'body').cn = [];
             me.vdom = vdom;
 
-            Neo.main.DomAccess.markdownToHtml(value).then(html => {console.log(VDomUtil.getByFlag(vdom, 'body'));
+            Neo.main.DomAccess.markdownToHtml(value).then(html => {
                 vdom = me.vdom;
 
                 VDomUtil.getByFlag(vdom, 'body').cn[0] = {
