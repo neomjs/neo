@@ -412,15 +412,21 @@ class Gallery extends Component {
 
     /**
      *
-     * @param {Number} [starIndex]
+     * @param {Number} [startIndex]
      * @param {Number} [amountItems]
      */
-    destroyItems(starIndex, amountItems) {
-        let me   = this,
-            vdom = me.vdom;
+    destroyItems(startIndex, amountItems) {
+        let me           = this,
+            vdom         = me.vdom,
+            countItems   = amountItems || me.store.getCount(),
+            selectedItem = me.selectionModel.items[0];
 
-        vdom.cn[0].cn[0].cn[0].cn[0].cn.splice(starIndex || 0, amountItems || me.store.getCount());
+        vdom.cn[0].cn[0].cn[0].cn[0].cn.splice(startIndex || 0, countItems);
         me.vdom = vdom;
+
+        if (me.selectionModel.hasSelection() && selectedItem > startIndex && selectedItem < startIndex + countItems) {
+            me.onMounted();
+        }
     }
 
     /**
@@ -557,7 +563,7 @@ class Gallery extends Component {
                 me.offsetHeight = data.attributes.offsetHeight;
                 me.offsetWidth  = data.attributes.offsetWidth;
 
-                let index = parseInt(me.store.getCount() / me.amountRows);
+                let index = parseInt(Math.min(me.maxItems, me.store.getCount()) / me.amountRows);
 
                 me.selectionModel.select(me.store.getKeyAt(index));
             });

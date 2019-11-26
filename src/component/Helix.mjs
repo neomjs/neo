@@ -620,14 +620,14 @@ class Helix extends Component {
 
     /**
      *
-     * @param {Number} [starIndex]
+     * @param {Number} [startIndex]
      * @param {Number} [amountItems]
      */
-    destroyItems(starIndex, amountItems) {
+    destroyItems(startIndex, amountItems) {
         let me   = this,
             vdom = me.vdom;
 
-        vdom.cn[0].cn[0].cn.splice(starIndex || 0, amountItems || me.store.getCount());
+        vdom.cn[0].cn[0].cn.splice(startIndex || 0, amountItems || me.store.getCount());
         me.vdom = vdom;
     }
 
