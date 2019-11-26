@@ -1,18 +1,29 @@
 # neo.mjs: Getting Started Guide
 
-1. Clone this repo to your system (e.g. git clone https://github.com/neomjs/neo.git) to get the files
+1. Clone this repo to your system to get the project files
+   ```sh
+   git clone https://github.com/neomjs/neo.git
+   ```
 
-2. Open the checked out top level folder inside your terminal / cmd
+2. Open the checked out top level folder inside your terminal
+   ```sh
+   cd neo
+   ```
 
-3. npm install (to get the node modules)
+3. Get the required node modules
+   ```sh
+   npm install
+   ```
 
 4. Run the following build scripts:
-   1. npm run generate-docs-json
-   2. npm run dev-css-structure
-   3. npm run dev-theme-dark
-   4. npm run dev-theme-light
-    
-       (See the <a href="./docs/tutorials/10_BuildScripts.md">Build Scripts Guide</a> for further details.)
+   ```sh
+   npm run generate-docs-json
+   npm run dev-css-structure
+   npm run dev-theme-dark
+   npm run dev-theme-light
+   ```
+
+   (See the <a href="../docs/tutorials/10_BuildScripts.md">Build Scripts Guide</a> for further details.)
 
 5. Make sure to use a local WebServer!
    * Use a local webserver of your choice

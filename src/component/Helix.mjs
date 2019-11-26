@@ -110,7 +110,7 @@ class Helix extends Component {
          */
         matrix: null,
         /**
-         * The max opacity for items inside the foreground
+         * The max amount of store items to show
          * @member {Number} maxItems_=300
          */
         maxItems_: 300,
@@ -282,7 +282,13 @@ class Helix extends Component {
         me.loadData();
     }
 
-    afterSetFlipped(value) {
+    /**
+     * Triggered after the flipped config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @private
+     */
+    afterSetFlipped(value, oldValue) {
         this.applyItemTransitions(this.refresh, 1000);
     }
 
@@ -332,7 +338,13 @@ class Helix extends Component {
         }
     }
 
-    afterSetPerspective(value) {
+    /**
+     * Triggered after the perspective config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @private
+     */
+    afterSetPerspective(value, oldValue) {
         let me = this;
 
         if (me.mounted) {
@@ -350,6 +362,12 @@ class Helix extends Component {
         }
     }
 
+    /**
+     * Triggered after the selectionModel config got changed
+     * @param {Neo.selection.Model} value
+     * @param {Neo.selection.Model} oldValue
+     * @private
+     */
     afterSetSelectionModel(value, oldValue) {
         if (this.rendered) {
             value.register(this);
@@ -422,6 +440,10 @@ class Helix extends Component {
         }
     }
 
+    /**
+     *
+     * @returns {Object}
+     */
     beforeGetItemTpl() {
         return Neo.clone(this._itemTpl, true);
     }
@@ -598,14 +620,14 @@ class Helix extends Component {
 
     /**
      *
-     * @param {Number} [starIndex]
+     * @param {Number} [startIndex]
      * @param {Number} [amountItems]
      */
-    destroyItems(starIndex, amountItems) {
+    destroyItems(startIndex, amountItems) {
         let me   = this,
             vdom = me.vdom;
 
-        vdom.cn[0].cn[0].cn.splice(starIndex || 0, amountItems || me.store.getCount());
+        vdom.cn[0].cn[0].cn.splice(startIndex || 0, amountItems || me.store.getCount());
         me.vdom = vdom;
     }
 
@@ -636,7 +658,7 @@ class Helix extends Component {
 
             itemVdom.cn.push({
                 cls      : ['contact-name'],
-                innerHTML: record.firstname + ' ' + record.lastname + ' ' + record.id
+                innerHTML: record.firstname + ' ' + record.lastname
             });
 
             Neo.vdom.Helper.create({

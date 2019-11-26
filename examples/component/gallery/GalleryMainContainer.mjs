@@ -1,4 +1,5 @@
 import Gallery                 from '../../../src/component/Gallery.mjs';
+import {default as NumberField} from '../../../src/form/field/Number.mjs';
 import {default as Panel}      from '../../../src/container/Panel.mjs';
 import {default as RangeField} from '../../../src/form/field/Range.mjs';
 import {default as Viewport}   from '../../../src/container/Viewport.mjs';
@@ -107,6 +108,15 @@ class GalleryMainContainer extends Viewport {
                 minValue : 0,
                 maxValue : 100,
                 value    : 80
+            }, {
+                module   : NumberField,
+                clearable: false,
+                labelText: 'Max Items',
+                maxValue : 600,
+                minValue : 100,
+                name     : 'maxItems',
+                stepSize : 100,
+                value    : 300
             }, {
                 ntype       : 'button',
                 text        : 'Order by Row',

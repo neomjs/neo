@@ -68,6 +68,11 @@ class Gallery extends Component {
          */
         keys: {},
         /**
+         * The max amount of store items to show
+         * @member {Number} maxItems_=300
+         */
+        maxItems_: 300,
+        /**
          * The zooming factor which replaces the default wheelDelta.
          * @member {Number} mouseWheelDeltaX=10
          */
@@ -239,6 +244,80 @@ class Gallery extends Component {
         });
     }
 
+    /**
+     * Triggered after the amountRows config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @private
+     */
+    afterSetAmountRows(value, oldValue) {
+        if (Neo.isNumber(oldValue)) {
+            let me = this;
+
+            me.afterSetOrderByRow(me.orderByRow, !me.orderByRow);
+        }
+    }
+
+    /**
+     * Triggered after the maxItem config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @private
+     */
+    afterSetMaxItems(value, oldValue) {
+        let me = this;
+
+        if (value && me.rendered) {
+            if (oldValue > value) {
+                me.destroyItems(value, oldValue - value);
+            } else {
+                me.createItems(oldValue);
+            }
+        }
+    }
+
+    /**
+     * Triggered after the orderByRow config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @private
+     */
+    afterSetOrderByRow(value, oldValue) {
+        if (Neo.isBoolean(oldValue)) {
+            let me   = this,
+                i    = 0,
+                len  = Math.min(me.maxItems, me.store.items.length),
+                vdom = me.vdom,
+                view = me.vdom.cn[0].cn[0].cn[0].cn[0];
+
+            if (me.rendered) {
+                me.refreshImageReflection();
+
+                setTimeout(() => {
+                    for (; i < len; i++) {
+                        view.cn[i].style.transform = me.getItemTransform(i);
+                    }
+
+                    me.vdom = vdom;
+
+                    setTimeout(() => {
+                        let sm = me.selectionModel;
+
+                        if (sm.hasSelection()) {
+                            me.onSelectionChange(sm.items);
+                        }
+                    }, 500);
+                }, 50);
+            }
+        }
+    }
+
+    /**
+     * Triggered after the selectionModel config got changed
+     * @param {Neo.selection.Model} value
+     * @param {Neo.selection.Model} oldValue
+     * @private
+     */
     afterSetSelectionModel(value, oldValue) {
         if (this.rendered) {
             value.register(this);
@@ -246,42 +325,6 @@ class Gallery extends Component {
             if (oldValue) {
                 oldValue.destroy();
             }
-        }
-    }
-
-    /**
-     *
-     */
-    afterSetAmountRows() {
-        this.afterSetOrderByRow();
-    }
-
-    /**
-     *
-     */
-    afterSetOrderByRow() {
-        let me   = this,
-            vdom = me.vdom,
-            view = me.vdom.cn[0].cn[0].cn[0].cn[0];
-
-        if (me.rendered) {
-            me.refreshImageReflection();
-
-            setTimeout(() => {
-                me.store.items.forEach((item, index) => {
-                    view.cn[index].style.transform = me.getItemTransform(index);
-                });
-
-                me.vdom = vdom;
-
-                setTimeout(() => {
-                    let sm = me.selectionModel;
-
-                    if (sm.hasSelection()) {
-                        me.onSelectionChange(sm.items);
-                    }
-                }, 500);
-            }, 50);
         }
     }
 
@@ -317,36 +360,41 @@ class Gallery extends Component {
     }
 
     /**
-     *
+     * @param {Number} [startIndex] the start index for creating items,
+     * e.g. increasing maxItems only needs to create the new ones
+     * @private
      */
-    createItems() {
+    createItems(startIndex) {
         let me               = this,
             amountRows       = me.amountRows,
             imageHeight      = me.imageHeight,
             imageWidth       = me.imageWidth,
             orderByRow       = me.orderByRow,
-            secondlastColumn = amountRows - 1,
+            secondLastColumn = amountRows - 1,
             vdom             = me.vdom,
             viewItems        = vdom.cn[0].cn[0].cn[0].cn[0].cn,
-            amountColumns, imageVdom, vdomItem;
+            i                = startIndex || 0,
+            len              = Math.min(me.maxItems, me.store.items.length),
+            amountColumns, imageVdom, item, vdomItem;
 
         if (orderByRow) {
             amountColumns = Math.ceil(me.store.getCount() / amountRows);
         }
 
-        me.store.items.forEach((item, index) => {
+        for (; i < len; i++) {
+            item      = me.store.items[i];
             vdomItem  = me.itemTpl; // get a fresh clone each time
             imageVdom = vdomItem.cn[0];
 
             vdomItem.id = me.getItemVnodeId(item.id);
-            vdomItem.style['transform'] = me.getItemTransform(index);
+            vdomItem.style['transform'] = me.getItemTransform(i);
 
             if (orderByRow) {
-                if (index >= secondlastColumn * amountColumns) {
+                if (i >= secondLastColumn * amountColumns) {
                     NeoArray.add(vdomItem.cls, 'neo-reflection');
                 }
             } else {
-                if (index % amountRows === secondlastColumn) {
+                if (i % amountRows === secondLastColumn) {
                     NeoArray.add(vdomItem.cls, 'neo-reflection');
                 }
             }
@@ -357,9 +405,28 @@ class Gallery extends Component {
             imageVdom.style.width  = imageWidth  + 'px';
 
             viewItems.push(vdomItem);
-        });
+        }
 
         me.vdom = vdom;
+    }
+
+    /**
+     *
+     * @param {Number} [startIndex]
+     * @param {Number} [amountItems]
+     */
+    destroyItems(startIndex, amountItems) {
+        let me           = this,
+            vdom         = me.vdom,
+            countItems   = amountItems || me.store.getCount(),
+            selectedItem = me.selectionModel.items[0];
+
+        vdom.cn[0].cn[0].cn[0].cn[0].cn.splice(startIndex || 0, countItems);
+        me.vdom = vdom;
+
+        if (me.selectionModel.hasSelection() && selectedItem > startIndex && selectedItem < startIndex + countItems) {
+            me.onMounted();
+        }
     }
 
     /**
@@ -496,7 +563,7 @@ class Gallery extends Component {
                 me.offsetHeight = data.attributes.offsetHeight;
                 me.offsetWidth  = data.attributes.offsetWidth;
 
-                let index = parseInt(me.store.getCount() / me.amountRows);
+                let index = parseInt(Math.min(me.maxItems, me.store.getCount()) / me.amountRows);
 
                 me.selectionModel.select(me.store.getKeyAt(index));
             });
@@ -626,7 +693,7 @@ class Gallery extends Component {
         let me               = this,
             amountRows       = me.amountRows,
             orderByRow       = me.orderByRow,
-            secondlastColumn = amountRows - 1,
+            secondLastColumn = amountRows - 1,
             vdom             = me.vdom,
             view             = vdom.cn[0].cn[0].cn[0].cn[0],
             amountColumns;
@@ -637,9 +704,9 @@ class Gallery extends Component {
 
         view.cn.forEach((item, index) => {
             if (orderByRow) {
-                NeoArray[index >= secondlastColumn * amountColumns ? 'add' : 'remove'](item.cls, 'neo-reflection');
+                NeoArray[index >= secondLastColumn * amountColumns ? 'add' : 'remove'](item.cls, 'neo-reflection');
             } else {
-                NeoArray[index % amountRows === secondlastColumn   ? 'add' : 'remove'](item.cls, 'neo-reflection');
+                NeoArray[index % amountRows === secondLastColumn   ? 'add' : 'remove'](item.cls, 'neo-reflection');
             }
         });
 

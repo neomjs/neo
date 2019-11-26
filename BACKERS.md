@@ -19,7 +19,7 @@ Trust me, it is beautiful :)
 I can definitely say that I did use several other UI frameworks in the past and that neo.mjs boosted my productivity
 to an entire new level.
 
-This is something, I would love to share with you!
+This is something I would love to share with you!
 
 After finishing the Real World demo app, I am planning to create a 2nd version: this time using a custom neo.mjs design
 theme as well as the full band-width of neo.mjs components: tabContainers, lists, toolbars, buttons etc.
@@ -38,18 +38,21 @@ With active sponsors I could invest more time into neo.mjs,
 which means that you will get new features, guides and bug-fixes a lot faster.
 
 # For developers:
-You could select a Backer tier ($10 / month), which would equal a cup of coffee for me every month.
+You could select a Backer tier ($10 / month), which would equal a cup of coffee for me every month (after taxes).
 This will not cover my living costs (unless neo.mjs goes viral), but it does have an impact on
 my motivation for sure.
 
 # For companies:
-Starting at the bronze tier, you will be able to place your company logo on main repository landing page (Readme.md).
+Starting at the bronze tier, you will be able to place your company logo on the main repository landing page (Readme.md).
 Especially in the early days, this will have an high impact on the neo.mjs community and make it easier for you
 to find neo.mjs developers in the future.
 
 Obviously, sponsoring open source projects in general will increase your company reputation.
 
 As soon as the neo.mjs community grows, it will also increase your company visibility in a good way.
+
+Please make sure to create a feature request ticket inside the neo.mjs <a href="../../issues">Issues Tracker</a>
+after signing a sponsors program to provide your company logo!
 
 ### Thanks a lot for your support of the neo.mjs project!<br/>
 <a href="https://github.com/sponsors/tobiu">Sponsor Tobias Uhlig</a>
