@@ -17,6 +17,10 @@ class CommentComponent extends Component {
          */
         ntype: 'realworld-article-commentcomponent',
         /**
+         * @member {String|null} body_=null
+         */
+        body_: null,
+        /**
          * @member {String[]} cls=['card']
          */
         cls: ['card'],
@@ -27,9 +31,8 @@ class CommentComponent extends Component {
             cn: [{
                 cls: ['card-block'],
                 cn : [{
-                    tag : 'p',
-                    cls : ['card-text'],
-                    html: 'With supporting text below as a natural lead-in to additional content.'
+                    tag: 'p',
+                    cls: ['card-text']
                 }]
             }, {
                 cls: ['card-footer'],
@@ -65,6 +68,21 @@ class CommentComponent extends Component {
             }]
         }
     }}
+
+    /**
+     * Triggered after the body config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetBody(value, oldValue) {
+        if (value) {
+            let vdom = this.vdom;
+
+            vdom.cn[0].cn[0].html = value;
+            this.vdom = vdom;
+        }
+    }
 }
 
 Neo.applyClassConfig(CommentComponent);
