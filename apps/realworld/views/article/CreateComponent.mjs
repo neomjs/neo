@@ -31,6 +31,10 @@ class CreateComponent extends Component {
          */
         articleTags_: [],
         /**
+         * @member {String} description_=''
+         */
+        description_: '',
+        /**
          * @member {String} title_=''
          */
         title_: '',
@@ -180,6 +184,19 @@ class CreateComponent extends Component {
     }
 
     /**
+     * Triggered after the description config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetDescription(value, oldValue) {
+        let vdom = this.vdom;
+
+        VDomUtil.getByFlag(vdom, 'description').value = value;
+        this.vdom = vdom;
+    }
+
+    /**
      * Triggered after the errors config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
@@ -290,7 +307,8 @@ class CreateComponent extends Component {
      */
     resetForm() {
         this.bulkConfigUpdate({
-            title: ''
+            description: '',
+            title      : ''
         });
     }
 }
