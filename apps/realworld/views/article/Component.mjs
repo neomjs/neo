@@ -316,17 +316,22 @@ class Component extends BaseComponent {
      * @private
      */
     afterSetBody(value, oldValue) {
-        let vdom = this.vdom;
+        const me = this;
+        let vdom = me.vdom;
 
-        // todo: markdown parsing => #78
-        VDomUtil.getByFlag(vdom, 'body').cn[0] = {
-            cn: [{
-                tag : 'p',
-                html: value
-            }]
-        };
+        if (value) {
+            Neo.main.DomAccess.markdownToHtml(value).then(html => {
+                VDomUtil.getByFlag(vdom, 'body').cn[0] = {
+                    cn: [{
+                        tag : 'p',
+                        html: html
+                    }]
+                };
 
-        this.vdom = vdom;
+                me.vdom = vdom;
+            });
+        }
+
     }
 
     /**

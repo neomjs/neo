@@ -225,9 +225,9 @@ class CreateComponent extends Component {
             description = VDomUtil.getByFlag(vdom, 'description'),
             title       = VDomUtil.getByFlag(vdom, 'title'),
             ids         = [
-                content.id,
+                title.id,
                 description.id,
-                title.id
+                content.id
             ];
 
         Neo.main.DomAccess.getAttributes({
