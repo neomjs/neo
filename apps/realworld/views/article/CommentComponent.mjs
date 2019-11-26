@@ -77,8 +77,8 @@ class CommentComponent extends Component {
                     cls : ['mod-options'],
                     flag: 'mod-options',
                     cn: [
-                        {tag: 'i', cls: ['ion-edit']},
-                        {tag: 'i', cls: ['ion-trash-a']},
+                        //{tag: 'i', cls: ['ion-edit']}, // not implemented in other apps => not sure what should happen
+                        {tag: 'i', cls: ['ion-trash-a']}
                     ]
                 }]
             }]
@@ -101,13 +101,13 @@ class CommentComponent extends Component {
                 delegate: '.ion-trash-a',
                 scope   : me
             }
-        }, {
+        }/*, {
             click: {
                 fn      : me.onEditButtonClick,
-                    delegate: '.ion-edit',
-                    scope   : me
+                delegate: '.ion-edit',
+                scope   : me
             }
-        });
+        }*/);
 
         me.domListeners = domListeners;
 
@@ -193,7 +193,7 @@ class CommentComponent extends Component {
     }
 
     /**
-     *
+     * Not supported yet
      * @param {Object} data
      */
     onEditButtonClick(data) {
