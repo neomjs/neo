@@ -189,7 +189,7 @@ class CommentComponent extends Component {
      * @param {Object} data
      */
     onDeleteButtonClick(data) {
-        console.log('onDeleteButtonClick');
+        this.getController().deleteComment(this.commentId);
     }
 
     /**

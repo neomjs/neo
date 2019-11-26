@@ -20,6 +20,17 @@ class Article extends Base {
     /**
      *
      * @param {String} slug
+     * @param {Number} id
+     */
+    deleteComment(slug, id) {
+        return this.delete({
+            url: `/articles/${slug}/comments/${id}`
+        });
+    }
+
+    /**
+     *
+     * @param {String} slug
      */
     getComments(slug) {
         return this.get({

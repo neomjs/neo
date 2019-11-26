@@ -114,6 +114,20 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @param {Number} id
+     * @return {Promise<any>}
+     */
+    deleteComment(id) {
+        let me   = this,
+            slug = me.hashString.split('/').pop();
+
+        return ArticleApi.deleteComment(slug, id).then(data => {
+            me.getComments(slug);
+        });
+    }
+
+    /**
+     *
      * @param {String} slug
      * @param {Boolean} favorited
      */
@@ -330,6 +344,11 @@ class MainContainerController extends ComponentController {
         }
     }
 
+    /**
+     *
+     * @param {Object} [opts)
+     * @return {Promise<any>}
+     */
     postComment(opts={}) {
         let me   = this,
             slug = me.hashString.split('/').pop();
