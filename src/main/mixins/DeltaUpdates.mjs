@@ -32,18 +32,44 @@ class DeltaUpdates extends Base {
      * @param {String} delta.parentId
      */
     du_insertNode(delta) {
-        let index       = delta.index,
-            parentNode  = this.getElement(delta.parentId),
-            countChilds = parentNode.children.length;
+        let index         = delta.index,
+            parentNode    = this.getElement(delta.parentId),
+            countChildren = parentNode.childNodes.length,
+            i             = 0,
+            realIndex     = index,
+            hasComments   = false,
+            node;
 
-        // console.log('insertNode', index, countChilds, delta.parentId);
+        // console.log('insertNode', index, countChildren, delta.parentId);
 
-        if (countChilds > 0 && countChilds > index) {
-            parentNode.children[index].insertAdjacentHTML('beforebegin', delta.outerHTML);
-        } else if (countChilds > 0) {
-            parentNode.children[countChilds - 1].insertAdjacentHTML('afterend', delta.outerHTML);
+        for (; i < countChildren; i++) {
+            if (parentNode.childNodes[i].nodeType === 8) { // ignore comments
+                if (i < realIndex) {
+                    realIndex++;
+                }
+
+                hasComments = true;
+            }
+        }
+
+        if (!hasComments) {
+            countChildren = parentNode.children.length;
+
+            if (countChildren > 0 && countChildren > index) {
+                parentNode.children[index].insertAdjacentHTML('beforebegin', delta.outerHTML);
+            } else if (countChildren > 0) {
+                parentNode.children[countChildren - 1].insertAdjacentHTML('afterend', delta.outerHTML);
+            } else {
+                parentNode.insertAdjacentHTML('beforeend', delta.outerHTML);
+            }
         } else {
-            parentNode.insertAdjacentHTML('beforeend', delta.outerHTML);
+            node = this.htmlStringToElement(delta.outerHTML);
+
+            if (countChildren > 0 && countChildren > realIndex) {
+                parentNode.insertBefore(node, parentNode.childNodes[realIndex]);
+            } else {
+                parentNode.appendChild(node);
+            }
         }
     }
 
@@ -170,6 +196,16 @@ class DeltaUpdates extends Base {
             reg       = new RegExp(startTag + '[\\s\\S]*?<!-- \/neo-vtext -->');
 
         node.innerHTML = innerHTML.replace(reg, delta.value);
+    }
+
+    /**
+     * @param {String} html representing a single element
+     * @return {ChildNode}
+     */
+    htmlStringToElement(html) {
+        const template = document.createElement('template');
+        template.innerHTML = html;
+        return template.content.firstChild;
     }
 
     /**
