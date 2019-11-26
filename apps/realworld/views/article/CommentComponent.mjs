@@ -29,9 +29,18 @@ class CommentComponent extends Component {
          */
         cls: ['card'],
         /**
+         * @member {Number|null} commentId=null
+         */
+        commentId: null,
+        /**
          * @member {String|null} createdAt_=null
          */
         createdAt_: null,
+        /**
+         * Not in use
+         * @member {String|null} updatedAt=null
+         */
+        updatedAt: null,
         /**
          * @member {Object} _vdom
          */
@@ -83,8 +92,6 @@ class CommentComponent extends Component {
     afterSetAuthor(value, oldValue) {
         if (value) {
             let vdom = this.vdom;
-
-            console.log(vdom.cn[1].cn[2]);
 
             vdom.cn[1].cn[0].cn[0].src = value.image;
             vdom.cn[1].cn[2].html      = value.username;
