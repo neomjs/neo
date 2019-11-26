@@ -1,4 +1,5 @@
 import {default as Component} from '../../../../src/component/Base.mjs';
+import {default as VDomUtil}  from '../../../../src/util/VDom.mjs';
 
 /**
  * @class RealWorld.views.article.CommentComponent
@@ -124,13 +125,15 @@ class CommentComponent extends Component {
      */
     afterSetAuthor(value, oldValue) {
         if (value) {
-            let vdom = this.vdom;
-
-            console.log(this.getController().currentUser);
+            let me   = this,
+                vdom = me.vdom;
 
             vdom.cn[1].cn[0].cn[0].src = value.image;
             vdom.cn[1].cn[2].html      = value.username;
-            this.vdom = vdom;
+
+            me.vdom = vdom;
+
+            me.onCurrentUserChange();
         }
     }
 
@@ -170,7 +173,15 @@ class CommentComponent extends Component {
     }
 
     onCurrentUserChange() {
-        console.log('onCurrentUserChange');
+        let me          = this,
+            currentUser = me.getController().currentUser,
+            vdom        = me.vdom;
+
+        if (currentUser) {
+            VDomUtil.getByFlag(vdom, 'mod-options').removeDom = me.author.username !== currentUser.username;
+
+            me.vdom = vdom;
+        }
     }
 
     /**
