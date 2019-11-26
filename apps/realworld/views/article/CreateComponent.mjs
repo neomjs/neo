@@ -19,6 +19,10 @@ class CreateComponent extends Component {
          */
         ntype: 'realworld-article-createcomponent',
         /**
+         * @member {String} body_=''
+         */
+        body_: '',
+        /**
          * @member {String[]} cls=['editor-page']
          */
         cls: ['editor-page'],
@@ -27,13 +31,13 @@ class CreateComponent extends Component {
          */
         errors_: [],
         /**
-         * @member {String[]} articleTags_=[]
-         */
-        articleTags_: [],
-        /**
          * @member {String} description_=''
          */
         description_: '',
+        /**
+         * @member {String[]} tagList_=[]
+         */
+        tagList_: [],
         /**
          * @member {String} title_=''
          */
@@ -84,8 +88,8 @@ class CreateComponent extends Component {
                                     cn : [{
                                         tag        : 'textarea',
                                         cls        : ['form-control'],
-                                        name       : 'content',
-                                        flag       : 'content',
+                                        name       : 'body',
+                                        flag       : 'body',
                                         placeholder: 'Write your article (in markdown)',
                                         rows       : 8
                                     }]
@@ -151,36 +155,16 @@ class CreateComponent extends Component {
     }
 
     /**
-     * Triggered after the articleTags config got changed
-     * Render tag list and reset tag field value
-     * @param {String[]} value
-     * @param {String[]} oldValue
+     * Triggered after the body config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
      */
-    afterSetArticleTags(value, oldValue) {
-        let me       = this,
-            vdom     = me.vdom,
-            list     = VDomUtil.getByFlag(vdom, 'tag-list'),
-            tagField = VDomUtil.getByFlag(vdom, 'tags');
+    afterSetBody(value, oldValue) {
+        let vdom = this.vdom;
 
-        list.cn        = [];
-        tagField.value = ''; // TODO Reset tag field value properly
-
-        Object.entries(value || {}).forEach(([key, value]) => {
-            list.cn.push({
-                tag: 'span',
-                cls: ['tag-default tag-pill'],
-                cn : [{
-                    tag         : 'i',
-                    cls         : ['ion-close-round'],
-                    'data-value': value,
-                }, {
-                    vtype: 'text',
-                    html : value
-                }]
-            });
-        });
-
-        me.vdom = vdom;
+        VDomUtil.getByFlag(vdom, 'body').value = value;
+        this.vdom = vdom;
     }
 
     /**
@@ -220,9 +204,42 @@ class CreateComponent extends Component {
     }
 
     /**
+     * Triggered after the tagList config got changed
+     * Render tag list and reset tag field value
+     * @param {String[]} value
+     * @param {String[]} oldValue
+     */
+    afterSetTagList(value, oldValue) {
+        let me       = this,
+            vdom     = me.vdom,
+            list     = VDomUtil.getByFlag(vdom, 'tag-list'),
+            tagField = VDomUtil.getByFlag(vdom, 'tags');
+
+        list.cn        = [];
+        tagField.value = ''; // TODO Reset tag field value properly
+
+        Object.entries(value || {}).forEach(([key, value]) => {
+            list.cn.push({
+                tag: 'span',
+                cls: ['tag-default tag-pill'],
+                cn : [{
+                    tag         : 'i',
+                    cls         : ['ion-close-round'],
+                    'data-value': value,
+                }, {
+                    vtype: 'text',
+                    html : value
+                }]
+            });
+        });
+
+        me.vdom = vdom;
+    }
+
+    /**
      * Triggered after the title config got changed
-     * @param {Object[]} value
-     * @param {Object[]} oldValue
+     * @param {String} value
+     * @param {String} oldValue
      * @private
      */
     afterSetTitle(value, oldValue) {
@@ -244,7 +261,7 @@ class CreateComponent extends Component {
                 id        : event.target.id,
                 attributes: 'value'
             }).then(data => {
-                me.articleTags = [...me.articleTags, data.value];
+                me.tagList = [...me.tagList, data.value];
             });
         }
     }
@@ -255,13 +272,13 @@ class CreateComponent extends Component {
     onSubmitButtonClick() {
         let me          = this,
             vdom        = me.vdom,
-            content     = VDomUtil.getByFlag(vdom, 'content'),
+            body        = VDomUtil.getByFlag(vdom, 'body'),
             description = VDomUtil.getByFlag(vdom, 'description'),
             title       = VDomUtil.getByFlag(vdom, 'title'),
             ids         = [
                 title.id,
                 description.id,
-                content.id
+                body.id
             ];
 
         Neo.main.DomAccess.getAttributes({
@@ -274,7 +291,7 @@ class CreateComponent extends Component {
                         "title"      : data[0].value,
                         "description": data[1].value,
                         "body"       : data[2].value,
-                        "tagList"    : me.articleTags
+                        "tagList"    : me.tagList
                     }
                 }),
                 slug: ''
@@ -297,9 +314,7 @@ class CreateComponent extends Component {
      * @param event
      */
     onTagClose(event) {
-        const me = this;
-
-        me.articleTags = me.articleTags.filter(e => e !== event.target.data.value);
+        this.tagList = this.tagList.filter(e => e !== event.target.data.value);
     }
 
     /**
@@ -307,7 +322,9 @@ class CreateComponent extends Component {
      */
     resetForm() {
         this.bulkConfigUpdate({
+            body       : '',
             description: '',
+            tagList    : [],
             title      : ''
         });
     }

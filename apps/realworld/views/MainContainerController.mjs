@@ -350,7 +350,9 @@ class MainContainerController extends ComponentController {
                             const article = data.json.article;
                             console.log(article);
                             me.createComponent.bulkConfigUpdate({
+                                body       : article.body,
                                 description: article.description,
+                                tagList    : article.tagList,
                                 title      : article.title
                             });
                         });
