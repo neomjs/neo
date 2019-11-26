@@ -317,8 +317,8 @@ class MainContainerController extends ComponentController {
 
                  if (hashString === '/')                   {newView = me.getView('homeComponent',     HomeComponent,     'home');}
             else if (hashString.includes('/article/'))     {newView = me.getView('articleComponent',  ArticleComponent,  'article');}
+            else if (hashString.includes('/editor'))       {newView = me.getView('createComponent',   CreateComponent,   'editor');}
             else if (hashString.includes('/profile/'))     {newView = me.getView('profileComponent',  ProfileComponent,  'profile');}
-            else if (value.hasOwnProperty('/editor'))      {newView = me.getView('createComponent',   CreateComponent,   'editor');}
             else if (value.hasOwnProperty('/login'))       {newView = me.getView('signUpComponent',   SignUpComponent,   'signup'); newView.mode = 'signin';}
             else if (value.hasOwnProperty('/register'))    {newView = me.getView('signUpComponent',   SignUpComponent,   'signup'); newView.mode = 'signup';}
             else if (value.hasOwnProperty('usersettings')) {newView = me.getView('settingsComponent', SettingsComponent, 'usersettings');}

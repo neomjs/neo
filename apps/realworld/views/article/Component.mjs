@@ -542,7 +542,9 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEditButtonClick(data) {
-        console.log('onEditButtonClick');
+        Neo.Main.setRoute({
+            value: '/editor/' + this.slug
+        });
     }
 
     /**
