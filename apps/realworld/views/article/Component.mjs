@@ -336,7 +336,7 @@ class Component extends BaseComponent {
 
             value.forEach((item, index) => {
                 config = {
-                    author   : item.author.username,
+                    author   : item.author,
                     body     : item.body,
                     commentId: item.id,
                     createdAt: item.createdAt,

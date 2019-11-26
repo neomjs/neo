@@ -17,6 +17,10 @@ class CommentComponent extends Component {
          */
         ntype: 'realworld-article-commentcomponent',
         /**
+         * @member {Object|null} author_=null
+         */
+        author_: null,
+        /**
          * @member {String|null} body_=null
          */
         body_: null,
@@ -46,8 +50,7 @@ class CommentComponent extends Component {
                     href: '',
                     cn  : [{
                         tag: 'img',
-                        cls: ['comment-author-img'],
-                        src: 'http://i.imgur.com/Qr71crq.jpg'
+                        cls: ['comment-author-img']
                     }]
                 }, {
                     vtype: 'text',
@@ -55,12 +58,10 @@ class CommentComponent extends Component {
                 }, {
                     tag : 'a',
                     cls : ['comment-author'],
-                    href: '',
-                    html: 'Jacob Schmidt'
+                    href: ''
                 }, {
                     tag : 'span',
-                    cls : ['date-posted'],
-                    html: 'Dec 29th'
+                    cls : ['date-posted']
                 }, {
                     tag: 'span',
                     cls: ['mod-options'],
@@ -72,6 +73,24 @@ class CommentComponent extends Component {
             }]
         }
     }}
+
+    /**
+     * Triggered after the author config got changed
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @private
+     */
+    afterSetAuthor(value, oldValue) {
+        if (value) {
+            let vdom = this.vdom;
+
+            console.log(vdom.cn[1].cn[2]);
+
+            vdom.cn[1].cn[0].cn[0].src = value.image;
+            vdom.cn[1].cn[2].html      = value.username;
+            this.vdom = vdom;
+        }
+    }
 
     /**
      * Triggered after the body config got changed
