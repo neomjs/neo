@@ -27,9 +27,13 @@ class CreateComponent extends Component {
          */
         errors_: [],
         /**
-         * @member {Object[]} articleTags_=[]
+         * @member {String[]} articleTags_=[]
          */
         articleTags_: [],
+        /**
+         * @member {String} title_=''
+         */
+        title_: '',
         /**
          * @member {Object} _vdom
          */
@@ -143,10 +147,10 @@ class CreateComponent extends Component {
     }
 
     /**
-     * after set article tags
-     * render tag list and reset tag field value
-     * @param value
-     * @param oldValue
+     * Triggered after the articleTags config got changed
+     * Render tag list and reset tag field value
+     * @param {String[]} value
+     * @param {String[]} oldValue
      */
     afterSetArticleTags(value, oldValue) {
         let me       = this,
@@ -196,6 +200,19 @@ class CreateComponent extends Component {
         });
 
         me.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the title config got changed
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
+     * @private
+     */
+    afterSetTitle(value, oldValue) {
+        let vdom = this.vdom;
+
+        VDomUtil.getByFlag(vdom, 'title').value = value;
+        this.vdom = vdom;
     }
 
     /**
@@ -266,6 +283,15 @@ class CreateComponent extends Component {
         const me = this;
 
         me.articleTags = me.articleTags.filter(e => e !== event.target.data.value);
+    }
+
+    /**
+     * Resets the value of all fields
+     */
+    resetForm() {
+        this.bulkConfigUpdate({
+            title: ''
+        });
     }
 }
 

@@ -161,10 +161,8 @@ class MainContainerController extends ComponentController {
      * @param {String} slug
      */
     getArticle(slug) {
-        ArticleApi.get({
+        return ArticleApi.get({
             slug: slug
-        }).then(data => {
-            this.articleComponent.bulkConfigUpdate(data.json.article);
         });
     }
 
@@ -339,8 +337,25 @@ class MainContainerController extends ComponentController {
             switch (newView.reference) {
                 case 'article':
                     slug = hashString.split('/').pop();
-                    me.getArticle(slug);
+                    me.getArticle(slug).then(data => {
+                        me.articleComponent.bulkConfigUpdate(data.json.article);
+                    });
+
                     me.getComments(slug);
+                    break;
+                case 'editor':
+                    slug = hashString.split('/').pop();
+                    if (slug !== 'editor') {
+                        me.getArticle(slug).then(data => {
+                            const article = data.json.article;
+                            console.log(article);
+                            me.createComponent.bulkConfigUpdate({
+                                title: article.title
+                            });
+                        });
+                    } else {
+                        me.createComponent.resetForm();
+                    }
                     break;
                 case 'home':
                     me.getArticles();
