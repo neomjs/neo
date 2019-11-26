@@ -1,5 +1,6 @@
-import {default as Component} from '../../../../src/component/Base.mjs';
-import {default as VDomUtil} from "../../../../src/util/VDom.mjs";
+import {default as Component}  from '../../../../src/component/Base.mjs';
+import {default as VDomUtil}   from '../../../../src/util/VDom.mjs';
+import {default as VNodeUtil}  from '../../../../src/util/VNode.mjs';
 import {default as ArticleApi} from '../../api/Article.mjs';
 
 /**
@@ -98,7 +99,7 @@ class CreateComponent extends Component {
                                     cls: ['form-group'],
                                     cn : [{
                                         tag        : 'input',
-                                        cls        : ['form-control field-tags'],
+                                        cls        : ['form-control', 'field-tags'],
                                         name       : 'tags',
                                         flag       : 'tags',
                                         placeholder: 'Enter tags',
@@ -216,7 +217,7 @@ class CreateComponent extends Component {
             tagField = VDomUtil.getByFlag(vdom, 'tags');
 
         list.cn        = [];
-        tagField.value = ''; // TODO Reset tag field value properly
+        tagField.value = null; // TODO Reset tag field value properly
 
         Object.entries(value || {}).forEach(([key, value]) => {
             list.cn.push({
@@ -261,7 +262,8 @@ class CreateComponent extends Component {
                 id        : event.target.id,
                 attributes: 'value'
             }).then(data => {
-                me.tagList = [...me.tagList, data.value];
+                VNodeUtil.findChildVnode(me.vnode, {className: 'field-tags'}).vnode.attributes.value = data.value;
+                me.tagList = [...me._tagList, data.value];
             });
         }
     }
