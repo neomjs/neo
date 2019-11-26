@@ -128,12 +128,12 @@ class MainContainerController extends ComponentController {
 
     /**
      * Article details: get an article providing a user slug
+     * @param {String} slug
      */
     getArticle(slug) {
         ArticleApi.get({
             slug: slug
         }).then(data => {
-            console.log('getArticle', data.json.article);
             this.articleComponent.bulkConfigUpdate(data.json.article);
         });
     }
@@ -156,6 +156,20 @@ class MainContainerController extends ComponentController {
         });
     }
 
+    /**
+     *
+     * @param {String} slug
+     */
+    getComments(slug) {
+        ArticleApi.getComments(slug).then(data => {
+            console.log(data.json);
+        });
+    }
+
+    /**
+     *
+     * @param {String} token
+     */
     getCurrentUser(token) {
         if (token) {
             ArticleApi.get({
@@ -257,7 +271,7 @@ class MainContainerController extends ComponentController {
     onHashChange(value, oldValue, hashString) {
         let me    = this,
             view = me.view,
-            newView;
+            newView, slug;
 
         if (!view.mounted) { // the initial hash change gets triggered before the vnode got back from the vdom worker (using autoMount)
             view.on('mounted', () => {
@@ -292,7 +306,9 @@ class MainContainerController extends ComponentController {
 
             switch (newView.reference) {
                 case 'article':
-                    me.getArticle(hashString.split('/').pop()); // pass the slug
+                    slug = hashString.split('/').pop();
+                    me.getArticle(slug);
+                    me.getComments(slug);
                     break;
                 case 'home':
                     me.getArticles();

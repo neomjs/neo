@@ -16,6 +16,16 @@ class Article extends Base {
          */
         resource: '/articles'
     }}
+
+    /**
+     *
+     * @param {String} slug
+     */
+    getComments(slug) {
+        return this.get({
+            url: `/articles/${slug}/comments`
+        });
+    }
 }
 
 Neo.applyClassConfig(Article);
