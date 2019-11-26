@@ -65,13 +65,13 @@ class HeaderComponent extends Component {
                         cn: [{
                             tag : 'a',
                             cls : ['nav-link'],
-                            href: '#newpost',
+                            href: '#/editor',
                             cn: [{
                                 tag: 'i',
                                 cls: 'ion-compose'
                             }, {
                                 vtype: 'text',
-                                html : '&nbsp;New Post'
+                                html : '&nbsp;New Article'
                             }]
                         }]
                     }, {
@@ -155,7 +155,7 @@ class HeaderComponent extends Component {
                 vdom = me.vdom,
                 list = vdom.cn[0].cn[1];
 
-            list.cn[1].removeDom = !value; // newpost
+            list.cn[1].removeDom = !value; // editor
             list.cn[2].removeDom = !value; // usersettings
             list.cn[3].removeDom = !value; // profile
             list.cn[4].removeDom = value;  // login
@@ -191,7 +191,7 @@ class HeaderComponent extends Component {
      */
     getActiveIndex(value) {
         switch (value) {
-            case 'newpost'     : return 1;
+            case '/editor'     : return 1;
             case 'usersettings': return 2;
             case '/profile'    : return 3;
             case '/login'      : return 4;
