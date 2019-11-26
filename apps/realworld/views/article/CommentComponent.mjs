@@ -72,9 +72,10 @@ class CommentComponent extends Component {
                     tag : 'span',
                     cls : ['date-posted']
                 }, {
-                    tag: 'span',
-                    cls: ['mod-options'],
-                    cn : [
+                    tag : 'span',
+                    cls : ['mod-options'],
+                    flag: 'mod-options',
+                    cn: [
                         {tag: 'i', cls: ['ion-edit']},
                         {tag: 'i', cls: ['ion-trash-a']},
                     ]
@@ -82,6 +83,38 @@ class CommentComponent extends Component {
             }]
         }
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push({
+            click: {
+                fn      : me.onDeleteButtonClick,
+                delegate: '.ion-trash-a',
+                scope   : me
+            }
+        }, {
+            click: {
+                fn      : me.onEditButtonClick,
+                    delegate: '.ion-edit',
+                    scope   : me
+            }
+        });
+
+        me.domListeners = domListeners;
+
+        me.getController().on({
+            afterSetCurrentUser: me.onCurrentUserChange,
+            scope              : me
+        });
+    }
 
     /**
      * Triggered after the author config got changed
@@ -92,6 +125,8 @@ class CommentComponent extends Component {
     afterSetAuthor(value, oldValue) {
         if (value) {
             let vdom = this.vdom;
+
+            console.log(this.getController().currentUser);
 
             vdom.cn[1].cn[0].cn[0].src = value.image;
             vdom.cn[1].cn[2].html      = value.username;
@@ -132,6 +167,26 @@ class CommentComponent extends Component {
 
             this.vdom = vdom;
         }
+    }
+
+    onCurrentUserChange() {
+        console.log('onCurrentUserChange');
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDeleteButtonClick(data) {
+        console.log('onDeleteButtonClick');
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onEditButtonClick(data) {
+        console.log('onEditButtonClick');
     }
 }
 
