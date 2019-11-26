@@ -333,7 +333,12 @@ class Component extends BaseComponent {
         let vdom = me.vdom;
 
         if (value) {
-            Neo.main.DomAccess.markdownToHtml(value).then(html => {
+            VDomUtil.getByFlag(vdom, 'body').cn = [];
+            me.vdom = vdom;
+
+            Neo.main.DomAccess.markdownToHtml(value).then(html => {console.log(VDomUtil.getByFlag(vdom, 'body'));
+                vdom = me.vdom;
+
                 VDomUtil.getByFlag(vdom, 'body').cn[0] = {
                     cn: [{
                         tag : 'p',
@@ -344,7 +349,6 @@ class Component extends BaseComponent {
                 me.vdom = vdom;
             });
         }
-
     }
 
     /**
