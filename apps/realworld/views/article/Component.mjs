@@ -110,6 +110,18 @@ class Component extends BaseComponent {
                                 flag : 'username'
                             }]
                         }, {
+                            tag      : 'button',
+                            cls      : ['btn', 'btn-sm', 'btn-outline-secondary', 'edit-button'],
+                            flag     : 'edit-button',
+                            removeDom: true,
+                            cn: [{
+                                tag: 'i',
+                                cls: ['ion-edit']
+                            }, {
+                                vtype: 'text',
+                                html : ' Edit Article'
+                            }]
+                        }, {
                             vtype: 'text',
                             html : '&nbsp;&nbsp;'
                         }, {
@@ -243,6 +255,7 @@ class Component extends BaseComponent {
 
         domListeners.push(
             {click: {fn: me.onDeleteButtonClick,   delegate: '.delete-button',   scope: me}},
+            {click: {fn: me.onEditButtonClick,     delegate: '.edit-button',     scope: me}},
             {click: {fn: me.onFavoriteButtonClick, delegate: '.favorite-button', scope: me}},
             {click: {fn: me.onFollowButtonClick,   delegate: '.follow-button',   scope: me}
         });
@@ -502,8 +515,11 @@ class Component extends BaseComponent {
         if (me.author && currentUser) {
             isCurrentUser = me.author.username === currentUser.username;
 
-            vdom.cn[0].cn[0].cn[1].cn[4].removeDom = isCurrentUser; // favorite post button
+            vdom.cn[0].cn[0].cn[1].cn[2].removeDom = isCurrentUser; // follow user button
+            vdom.cn[0].cn[0].cn[1].cn[5].removeDom = isCurrentUser; // favorite post button
+
             VDomUtil.getByFlag(vdom, 'delete-button').removeDom = !isCurrentUser;
+            VDomUtil.getByFlag(vdom, 'edit-button')  .removeDom = !isCurrentUser;
 
             me.vdom = vdom;
         }
@@ -515,6 +531,14 @@ class Component extends BaseComponent {
      */
     onDeleteButtonClick(data) {
         this.getController().deleteArticle(this.slug);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onEditButtonClick(data) {
+        console.log('onEditButtonClick');
     }
 
     /**
