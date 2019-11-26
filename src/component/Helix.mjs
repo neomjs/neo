@@ -658,7 +658,7 @@ class Helix extends Component {
 
             itemVdom.cn.push({
                 cls      : ['contact-name'],
-                innerHTML: record.firstname + ' ' + record.lastname + ' ' + record.id
+                innerHTML: record.firstname + ' ' + record.lastname
             });
 
             Neo.vdom.Helper.create({
