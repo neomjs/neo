@@ -200,7 +200,7 @@ class MainContainerController extends ComponentController {
      */
     getCurrentUser(token) {
         if (token) {
-            ArticleApi.get({
+            UserApi.get({
                 resource: '/user' // edge case, user instead of users
             }).then(data => {
                 this.currentUser = data.json.user;
@@ -213,12 +213,14 @@ class MainContainerController extends ComponentController {
      * @param {String} slug
      */
     getProfile(slug) {
+        const me = this;
+
         ProfileApi.get({
             slug: slug
         }).then(data => {
-            this.profileComponent.update({
+            me.profileComponent.update({
                 ...data.json.profile,
-                myProfile: data.json.profile.username === this.currentUser.username
+                myProfile: data.json.profile.username === (me.currentUser && me.currentUser.username)
             });
         });
     }
@@ -398,6 +400,12 @@ class MainContainerController extends ComponentController {
         return UserApi.put({
             ...opts,
             resource: '/user' // edge case, user instead of users
+        }).then(data => {
+            if (!data.json.errors) {
+                this.currentUser = data.json;
+            }
+
+            return data;
         });
     }
 }

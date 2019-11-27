@@ -299,16 +299,16 @@ class SettingsComponent extends Component {
                         username: data[4].value
                     }
                 })
-            }).then(data => {
+            }).then(data => {console.log(data);
                 const errors = data.json.errors;
 
                 if (errors) {
                     me.errors = errors;
                 } else {
                     me.errors = [];
-                    return;
+
                     Neo.Main.setRoute({
-                        value: '/article/' + data.json.article.slug
+                        value: '/profile/' + data.json.user.username
                     });
                 }
             })
