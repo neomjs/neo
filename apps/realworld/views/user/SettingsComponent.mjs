@@ -1,4 +1,5 @@
 import {default as Component} from '../../../../src/component/Base.mjs';
+import {default as VDomUtil}  from '../../../../src/util/VDom.mjs';
 
 /**
  * @class RealWorld.views.user.SettingsComponent
@@ -20,6 +21,10 @@ class SettingsComponent extends Component {
          * @member {String[]} cls=['settings-page']
          */
         cls: ['settings-page'],
+        /**
+         * @member {String} userName_=null
+         */
+        userName_: null,
         /**
          * @member {Object} _vdom
          */
@@ -53,6 +58,7 @@ class SettingsComponent extends Component {
                                     cn : [{
                                         tag        : 'input',
                                         cls        : ['form-control', 'form-control-lg'],
+                                        flag       : 'userName',
                                         placeholder: 'Your Name',
                                         type       : 'text'
                                     }]
@@ -127,6 +133,39 @@ class SettingsComponent extends Component {
         });
 
         me.domListeners = domListeners;
+
+        me.getController().on({
+            afterSetCurrentUser: me.onCurrentUserChange,
+            scope              : me
+        });
+    }
+
+    /**
+     * Triggered after the userName config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetUserName(value, oldValue) {
+        if (value) {
+            let vdom = this.vdom;
+
+            VDomUtil.getByFlag(vdom, 'userName').value = value;
+            this.vdom = vdom;
+        }
+    }
+
+    /**
+     *
+     * @param {Object} value
+     */
+    onCurrentUserChange(value) {
+        console.log('onCurrentUserChange', value);
+
+        this.bulkConfigUpdate({
+            userImage: value.image,
+            userName : value.username
+        });
     }
 
     /**
