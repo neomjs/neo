@@ -172,12 +172,10 @@ class SettingsComponent extends Component {
      * @private
      */
     afterSetBio(value, oldValue) {
-        if (value) {
-            let vdom = this.vdom;
+        let vdom = this.vdom;
 
-            VDomUtil.getByFlag(vdom, 'bio').value = value;
-            this.vdom = vdom;
-        }
+        VDomUtil.getByFlag(vdom, 'bio').value = value;
+        this.vdom = vdom;
     }
 
     /**
@@ -187,12 +185,10 @@ class SettingsComponent extends Component {
      * @private
      */
     afterSetEmail(value, oldValue) {
-        if (value) {
-            let vdom = this.vdom;
+        let vdom = this.vdom;
 
-            VDomUtil.getByFlag(vdom, 'email').value = value;
-            this.vdom = vdom;
-        }
+        VDomUtil.getByFlag(vdom, 'email').value = value;
+        this.vdom = vdom;
     }
 
     /**
@@ -226,12 +222,10 @@ class SettingsComponent extends Component {
      * @private
      */
     afterSetImage(value, oldValue) {
-        if (value) {
-            let vdom = this.vdom;
+        let vdom = this.vdom;
 
-            VDomUtil.getByFlag(vdom, 'image').value = value;
-            this.vdom = vdom;
-        }
+        VDomUtil.getByFlag(vdom, 'image').value = value;
+        this.vdom = vdom;
     }
 
     /**
@@ -241,12 +235,10 @@ class SettingsComponent extends Component {
      * @private
      */
     afterSetUserName(value, oldValue) {
-        if (value) {
-            let vdom = this.vdom;
+        let vdom = this.vdom;
 
-            VDomUtil.getByFlag(vdom, 'userName').value = value;
-            this.vdom = vdom;
-        }
+        VDomUtil.getByFlag(vdom, 'userName').value = value;
+        this.vdom = vdom;
     }
 
     /**

@@ -105,10 +105,13 @@ class MainContainerController extends ComponentController {
         if (typeof oldValue === 'object') {
             this.fire('afterSetCurrentUser', value);
 
-            this.getReference('header').bulkConfigUpdate({
-                loggedIn: true,
-                userName: value.username
-            });
+            setTimeout(() => {
+                this.getReference('header').bulkConfigUpdate({
+                    loggedIn : true,
+                    userImage: value.image,
+                    userName : value.username
+                });
+            }, 50);
         }
     }
 
@@ -409,7 +412,7 @@ class MainContainerController extends ComponentController {
             resource: '/user' // edge case, user instead of users
         }).then(data => {
             if (!data.json.errors) {
-                this.currentUser = data.json;
+                this.currentUser = data.json.user;
             }
 
             return data;

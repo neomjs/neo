@@ -30,7 +30,11 @@ class HeaderComponent extends Component {
          */
         loggedIn_: false,
         /**
-         * @member {String} userName_=null
+         * @member {String|null} userImage_=null
+         */
+        userImage_:null,
+        /**
+         * @member {String|null} userName_=null
          */
         userName_: null,
         /**
@@ -98,7 +102,13 @@ class HeaderComponent extends Component {
                             tag : 'a',
                             cls : ['nav-link'],
                             href: '#/profile',
-                            html: '&nbsp;Profile'
+                            cn  : [{
+                                tag: 'img',
+                                cls: ['user-pic']
+                            }, {
+                                vtype: 'text',
+                                html : '&nbsp;Profile'
+                            }]
                         }]
                     }, {
                         tag: 'li',
@@ -166,6 +176,23 @@ class HeaderComponent extends Component {
     }
 
     /**
+     * Triggered after the userImage config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetUserImage(value, oldValue) {
+        let me          = this,
+            vdom        = me.vdom,
+            profileLink = vdom.cn[0].cn[1].cn[3].cn[0];
+
+        profileLink.cn[0].removeDom = !value;
+        profileLink.cn[0].src       = value;
+
+        me.vdom = vdom;
+    }
+
+    /**
      * Triggered after the userName config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -178,7 +205,7 @@ class HeaderComponent extends Component {
                 profileLink = vdom.cn[0].cn[1].cn[3].cn[0];
 
             profileLink.href = '#/profile/' + value;
-            profileLink.html = '&nbsp;'     + value;
+            profileLink.cn[1].html = '&nbsp;' + value;
 
             me.vdom = vdom;
         }
