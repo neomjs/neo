@@ -352,6 +352,7 @@ class MainContainerController extends ComponentController {
                             me.createComponent.bulkConfigUpdate({
                                 body       : article.body,
                                 description: article.description,
+                                slug       : article.slug,
                                 tagList    : article.tagList,
                                 title      : article.title
                             });

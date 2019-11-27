@@ -36,6 +36,10 @@ class CreateComponent extends Component {
          */
         description_: '',
         /**
+         * @member {String|null} slug=null
+         */
+        slug: null,
+        /**
          * @member {String[]} tagList_=[]
          */
         tagList_: [],
@@ -296,7 +300,7 @@ class CreateComponent extends Component {
                         "tagList"    : me.tagList
                     }
                 }),
-                slug: ''
+                slug: me.slug
             }).then(data => {
                 const errors = data.json.errors;
 
@@ -326,6 +330,7 @@ class CreateComponent extends Component {
         this.bulkConfigUpdate({
             body       : '',
             description: '',
+            slug       : null,
             tagList    : [],
             title      : ''
         });
