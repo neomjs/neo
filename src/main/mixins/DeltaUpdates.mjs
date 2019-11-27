@@ -25,6 +25,13 @@ class DeltaUpdates extends Base {
     }
 
     /**
+     * node.children contains the "real" nodes (tags)
+     * node.childNodes contains texts & comments as nodes too
+     * since every vtype:'text' is wrapped inside a comment block (as an id),
+     * we need the amount of nodes which are not comments to get the "realIndex".
+     * insertAdjacentHTML() is faster than creating a node (template), but only available
+     * for children and not for childNodes.
+     * In case there are no comments (=> vtype: 'text' nodes), we stick to it for performance reasons.
      *
      * @param {Object} delta
      * @param {String} delta.index
