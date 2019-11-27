@@ -246,13 +246,15 @@ class SettingsComponent extends Component {
      * @param {Object} value
      */
     onCurrentUserChange(value) {
-        this.bulkConfigUpdate({
-            bio      : value.bio,
-            email    : value.email,
-            errors   : [],
-            image    : value.image,
-            userName : value.username
-        });
+        if (value) {
+            this.bulkConfigUpdate({
+                bio      : value.bio,
+                email    : value.email,
+                errors   : [],
+                image    : value.image,
+                userName : value.username
+            });
+        }
     }
 
     /**

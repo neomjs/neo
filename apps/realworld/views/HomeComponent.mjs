@@ -44,6 +44,10 @@ class HomeComponent extends Component {
             {name: 'Global Feed', active  : true}
         ],
         /**
+         * @member {Boolean} loggedIn_=false
+         */
+        loggedIn_: false,
+        /**
          * @member {Number} pageSize_=10
          */
         pageSize_: 10,
@@ -130,6 +134,11 @@ class HomeComponent extends Component {
         });
 
         me.domListeners = domListeners;
+
+        me.getController().on({
+            afterSetCurrentUser: me.onCurrentUserChange,
+            scope              : me
+        });
     }
 
     /**
@@ -311,6 +320,21 @@ class HomeComponent extends Component {
     }
 
     /**
+     * Triggered after the loggedIn config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @private
+     */
+    afterSetLoggedIn(value, oldValue) {
+        let me      = this,
+            vdom    = me.vdom,
+            navItem = VDomUtil.findVdomChild(vdom, me.id + '__nav-item-link_0').vdom;
+
+        NeoArray[value ? 'remove' : 'add'](navItem.cls, 'disabled');
+        me.vdom = vdom;
+    }
+
+    /**
      * todo
      * Triggered after the pageSize config got changed
      * @param {Number} value
@@ -397,6 +421,15 @@ class HomeComponent extends Component {
 
             me.getController().getArticles(opts);
         }
+    }
+
+    /**
+     *
+     * @param {Object} value
+     */
+    onCurrentUserChange(value) {
+        console.log('onCurrentUserChange', value);
+        this.loggedIn = !!value;
     }
 
     /**
