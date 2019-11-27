@@ -30,6 +30,10 @@ class SettingsComponent extends Component {
          */
         email_: null,
         /**
+         * @member {String} image_=null
+         */
+        image_: null,
+        /**
          * @member {String} userName_=null
          */
         userName_: null,
@@ -57,6 +61,7 @@ class SettingsComponent extends Component {
                                     cn : [{
                                         tag        : 'input',
                                         cls        : ['form-control'],
+                                        flag       : 'image',
                                         placeholder: 'URL of profile picture',
                                         type       : 'text'
                                     }]
@@ -96,6 +101,7 @@ class SettingsComponent extends Component {
                                     cn : [{
                                         tag        : 'input',
                                         cls        : ['form-control', 'form-control-lg'],
+                                        flag       : 'password',
                                         placeholder: 'Password',
                                         type       : 'password'
                                     }]
@@ -181,6 +187,21 @@ class SettingsComponent extends Component {
     }
 
     /**
+     * Triggered after the image config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetImage(value, oldValue) {
+        if (value) {
+            let vdom = this.vdom;
+
+            VDomUtil.getByFlag(vdom, 'image').value = value;
+            this.vdom = vdom;
+        }
+    }
+
+    /**
      * Triggered after the userName config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -205,7 +226,7 @@ class SettingsComponent extends Component {
         this.bulkConfigUpdate({
             bio      : value.bio,
             email    : value.email,
-            userImage: value.image,
+            image    : value.image,
             userName : value.username
         });
     }
@@ -223,7 +244,20 @@ class SettingsComponent extends Component {
      * @param {Object} data
      */
     onSubmitButtonClick(data) {
-        console.log('onSubmitButtonClick');
+        let me       = this,
+            vdom     = me.vdom,
+            bio      = VDomUtil.getByFlag(vdom, 'bio'),
+            email    = VDomUtil.getByFlag(vdom, 'email'),
+            image    = VDomUtil.getByFlag(vdom, 'image'),
+            password = VDomUtil.getByFlag(vdom, 'password'),
+            userName = VDomUtil.getByFlag(vdom, 'userName');
+
+        Neo.main.DomAccess.getAttributes({
+            id        : [bio.id, email.id, image.id, password.id, userName.id],
+            attributes: 'value'
+        }).then(data => {
+            console.log(data);
+        });
     }
 }
 
