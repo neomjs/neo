@@ -254,11 +254,10 @@ class SettingsComponent extends Component {
      * @param {Object} value
      */
     onCurrentUserChange(value) {
-        console.log('onCurrentUserChange', value);
-
         this.bulkConfigUpdate({
             bio      : value.bio,
             email    : value.email,
+            errors   : [],
             image    : value.image,
             userName : value.username
         });
@@ -299,14 +298,12 @@ class SettingsComponent extends Component {
                         username: data[4].value
                     }
                 })
-            }).then(data => {console.log(data);
+            }).then(data => {
                 const errors = data.json.errors;
 
                 if (errors) {
                     me.errors = errors;
                 } else {
-                    me.errors = [];
-
                     Neo.Main.setRoute({
                         value: '/profile/' + data.json.user.username
                     });

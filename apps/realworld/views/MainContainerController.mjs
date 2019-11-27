@@ -350,7 +350,7 @@ class MainContainerController extends ComponentController {
                     if (slug !== 'editor') {
                         me.getArticle(slug).then(data => {
                             const article = data.json.article;
-                            console.log(article);
+
                             me.createComponent.bulkConfigUpdate({
                                 body       : article.body,
                                 description: article.description,
@@ -369,6 +369,13 @@ class MainContainerController extends ComponentController {
                     break;
                 case 'profile':
                     me.getProfile(hashString.split('/').pop()); // pass the slug
+                    break;
+                case 'settings':
+                    if (me.currentUser) {
+                        setTimeout(() => { // added a short delay to not interfere with the mainContainer update
+                            me.settingsComponent.onCurrentUserChange(me.currentUser);
+                        }, 50);
+                    }
                     break;
                 case 'signup':
                     newView.errors = [];
