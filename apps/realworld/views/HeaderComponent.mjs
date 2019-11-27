@@ -219,13 +219,16 @@ class HeaderComponent extends Component {
     getActiveIndex(value) {
         switch (value) {
             case '/settings': return 2;
-            case '/profile' : return 3;
             case '/login'   : return 4;
             case '/register': return 5;
         }
 
         if (value.includes('/editor')) {
             return 1;
+        }
+
+        if (value.includes('/profile')) {
+            return 3;
         }
 
         // default to home
