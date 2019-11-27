@@ -291,7 +291,7 @@ class CreateComponent extends Component {
             id        : ids,
             attributes: 'value'
         }).then(data => {
-            ArticleApi.post({
+            ArticleApi[me.slug ? 'put' : 'post']({
                 data: JSON.stringify({
                     "article": {
                         "title"      : data[0].value,
