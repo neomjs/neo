@@ -374,27 +374,29 @@ class HomeComponent extends Component {
             feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
             opts;
 
-        switch(el.vdom.html) {
-            case 'Global Feed':
-                opts = {};
-                break;
-            case 'Your Feed':
-                opts = {}; // todo
-                break;
-            default: // tag
-                opts = {
-                    tag: el.vdom.html.substring(2) // remove the '# '
-                };
-                break;
+        if (!el.vdom.cls.includes('disabled')) {
+            switch(el.vdom.html) {
+                case 'Global Feed':
+                    opts = {};
+                    break;
+                case 'Your Feed':
+                    opts = {}; // todo
+                    break;
+                default: // tag
+                    opts = {
+                        tag: el.vdom.html.substring(2) // remove the '# '
+                    };
+                    break;
+            }
+
+            feedHeader.cn.forEach(item => {
+                NeoArray[item.id === el.parentNode.id ? 'add' : 'remove'](item.cn[0].cls, 'active');
+            });
+
+            me.vdom = vdom;
+
+            me.getController().getArticles(opts);
         }
-
-        feedHeader.cn.forEach(item => {
-            NeoArray[item.id === el.parentNode.id ? 'add' : 'remove'](item.cn[0].cls, 'active');
-        });
-
-        me.vdom = vdom;
-
-        me.getController().getArticles(opts);
     }
 
     /**
