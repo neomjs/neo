@@ -81,7 +81,7 @@ class HeaderComponent extends Component {
                         cn : [{
                             tag : 'a',
                             cls : ['nav-link'],
-                            href: '#usersettings',
+                            href: '#/settings',
                             cn: [{
                                 tag: 'i',
                                 cls: 'ion-gear-a'
@@ -156,7 +156,7 @@ class HeaderComponent extends Component {
                 list = vdom.cn[0].cn[1];
 
             list.cn[1].removeDom = !value; // editor
-            list.cn[2].removeDom = !value; // usersettings
+            list.cn[2].removeDom = !value; // settings
             list.cn[3].removeDom = !value; // profile
             list.cn[4].removeDom = value;  // login
             list.cn[5].removeDom = value;  // register
@@ -191,10 +191,10 @@ class HeaderComponent extends Component {
      */
     getActiveIndex(value) {
         switch (value) {
-            case 'usersettings': return 2;
-            case '/profile'    : return 3;
-            case '/login'      : return 4;
-            case '/register'   : return 5;
+            case '/settings': return 2;
+            case '/profile' : return 3;
+            case '/login'   : return 4;
+            case '/register': return 5;
         }
 
         if (value.includes('/editor')) {
