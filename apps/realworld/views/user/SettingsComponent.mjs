@@ -118,6 +118,12 @@ class SettingsComponent extends Component {
                 delegate: '.btn-outline-danger',
                 scope   : me
             }
+        }, {
+            click: {
+                fn      : me.onSubmitButtonClick,
+                delegate: '.btn-primary',
+                scope   : me
+            }
         });
 
         me.domListeners = domListeners;
@@ -125,9 +131,18 @@ class SettingsComponent extends Component {
 
     /**
      *
+     * @param {Object} data
      */
-    onLogoutButtonClick() {
+    onLogoutButtonClick(data) {
         this.getController().logout();
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onSubmitButtonClick(data) {
+        console.log('onSubmitButtonClick');
     }
 }
 
