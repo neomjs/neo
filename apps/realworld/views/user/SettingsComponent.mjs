@@ -30,6 +30,10 @@ class SettingsComponent extends Component {
          */
         email_: null,
         /**
+         * @member {Object[]} errors_=[]
+         */
+        errors_: [],
+        /**
          * @member {String} image_=null
          */
         image_: null,
@@ -51,6 +55,11 @@ class SettingsComponent extends Component {
                             tag : 'h1',
                             cls : ['text-xs-center'],
                             html: 'Your Settings'
+                        }, {
+                            tag      : 'ul',
+                            cls      : ['error-messages'],
+                            flag     : 'errors',
+                            removeDom: true
                         }, {
                             tag: 'form',
                             cn : [{
@@ -187,6 +196,30 @@ class SettingsComponent extends Component {
     }
 
     /**
+     * Triggered after the errors config got changed
+     * @param {Object[]} value=[]
+     * @param {Object[]} oldValue
+     * @private
+     */
+    afterSetErrors(value=[], oldValue) {
+        let me   = this,
+            vdom = me.vdom,
+            list = VDomUtil.getByFlag(vdom, 'errors');
+
+        list.cn        = [];
+        list.removeDom = value.length === 0;
+
+        Object.entries(value).forEach(([key, value]) => {
+            list.cn.push({
+                tag : 'li',
+                html: key + ' ' + value.join(' and ')
+            });
+        });
+
+        me.vdom = vdom;
+    }
+
+    /**
      * Triggered after the image config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -272,7 +305,7 @@ class SettingsComponent extends Component {
                 if (errors) {
                     me.errors = errors;
                 } else {
-                    console.log('then setRoute', data);
+                    me.errors = [];
                     return;
                     Neo.Main.setRoute({
                         value: '/article/' + data.json.article.slug
