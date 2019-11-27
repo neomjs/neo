@@ -18,9 +18,17 @@ class SettingsComponent extends Component {
          */
         ntype: 'realworld-user-settingscomponent',
         /**
+         * @member {String} bio_=null
+         */
+        bio_: null,
+        /**
          * @member {String[]} cls=['settings-page']
          */
         cls: ['settings-page'],
+        /**
+         * @member {String} email_=null
+         */
+        email_: null,
         /**
          * @member {String} userName_=null
          */
@@ -68,6 +76,7 @@ class SettingsComponent extends Component {
                                     cn : [{
                                         tag        : 'textarea',
                                         cls        : ['form-control', 'form-control-lg'],
+                                        flag       : 'bio',
                                         placeholder: 'Short bio about you',
                                         rows       : 8
                                     }]
@@ -77,6 +86,7 @@ class SettingsComponent extends Component {
                                     cn : [{
                                         tag        : 'input',
                                         cls        : ['form-control', 'form-control-lg'],
+                                        flag       : 'email',
                                         placeholder: 'Email',
                                         type       : 'text'
                                     }]
@@ -141,6 +151,36 @@ class SettingsComponent extends Component {
     }
 
     /**
+     * Triggered after the bio config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetBio(value, oldValue) {
+        if (value) {
+            let vdom = this.vdom;
+
+            VDomUtil.getByFlag(vdom, 'bio').value = value;
+            this.vdom = vdom;
+        }
+    }
+
+    /**
+     * Triggered after the email config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetEmail(value, oldValue) {
+        if (value) {
+            let vdom = this.vdom;
+
+            VDomUtil.getByFlag(vdom, 'email').value = value;
+            this.vdom = vdom;
+        }
+    }
+
+    /**
      * Triggered after the userName config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -163,6 +203,8 @@ class SettingsComponent extends Component {
         console.log('onCurrentUserChange', value);
 
         this.bulkConfigUpdate({
+            bio      : value.bio,
+            email    : value.email,
             userImage: value.image,
             userName : value.username
         });
