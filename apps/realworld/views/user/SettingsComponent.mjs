@@ -256,7 +256,29 @@ class SettingsComponent extends Component {
             id        : [bio.id, email.id, image.id, password.id, userName.id],
             attributes: 'value'
         }).then(data => {
-            console.log(data);
+            me.getController().updateSettings({
+                data: JSON.stringify({
+                    user: {
+                        bio     : data[0].value,
+                        email   : data[1].value,
+                        image   : data[2].value,
+                        password: data[3].value,
+                        username: data[4].value
+                    }
+                })
+            }).then(data => {
+                const errors = data.json.errors;
+
+                if (errors) {
+                    me.errors = errors;
+                } else {
+                    console.log('then setRoute', data);
+                    return;
+                    Neo.Main.setRoute({
+                        value: '/article/' + data.json.article.slug
+                    });
+                }
+            })
         });
     }
 }

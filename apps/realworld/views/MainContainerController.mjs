@@ -378,7 +378,7 @@ class MainContainerController extends ComponentController {
     /**
      *
      * @param {Object} [opts)
-     * @return {Promise<any>}
+     * @returns {Promise<any>}
      */
     postComment(opts={}) {
         let me   = this,
@@ -386,6 +386,18 @@ class MainContainerController extends ComponentController {
 
         return ArticleApi.postComment(slug, opts).then(data => {
             me.getComments(slug);
+        });
+    }
+
+    /**
+     *
+     * @param {Object} [opts)
+     * @returns {Promise<any>}
+     */
+    updateSettings(opts={}) {
+        return UserApi.put({
+            ...opts,
+            resource: '/user' // edge case, user instead of users
         });
     }
 }
