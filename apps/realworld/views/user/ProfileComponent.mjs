@@ -309,16 +309,22 @@ class ProfileComponent extends Component {
             vdom       = me.vdom,
             el         = VDomUtil.findVdomChild(vdom, data.path[0].id),
             feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
-            opts       = {},
             params     = {};
 
         if (!el.vdom.cls.includes('disabled')) {
             switch(el.vdom.html) {
                 case 'Favorited Articles':
+                    params = {
+                        favorited: me.username,
+                        limit    : me.countArticles,
+                        offset   : 0
+                    };
                     break;
                 case 'My Articles':
-                    opts = {
-                        slug: 'feed'
+                    params = {
+                        favorited: me.username,
+                        limit    : me.countArticles,
+                        offset   : 0
                     };
                     break;
             }
@@ -329,8 +335,9 @@ class ProfileComponent extends Component {
 
             me.vdom = vdom;
 
-            //me.getController()._articlesOffset = 0; // silent update
-            //me.getArticles(params, opts);
+            me.getController().getArticles(params).then(data => {
+                me.articlePreviews = data.json.articles;
+            });
         }
     }
 
