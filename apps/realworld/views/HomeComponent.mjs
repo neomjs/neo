@@ -452,9 +452,10 @@ class HomeComponent extends Component {
      * @param {String|null} opts.value
      */
     onTagChange(opts) {
-        let me    = this,
-            feeds = me.feeds,
-            name  = '# ' + opts.value;
+        let me         = this,
+            controller = me.getController(),
+            feeds      = me.feeds,
+            name       = '# ' + opts.value;
 
         feeds.forEach(item => {
             item.active = false;
@@ -472,9 +473,12 @@ class HomeComponent extends Component {
             });
         }
 
-        me.feeds = feeds;
+        me._currentPage = 1; // silent update
+        me.feeds        = feeds;
 
-        me.getController().getArticles({
+        controller._articlesOffset = 0; // silent update
+
+        controller.getArticles({
             tag: opts.value
         });
     }
