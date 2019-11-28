@@ -103,14 +103,15 @@ class ProfileComponent extends Component {
                         cn  : [{
                             cls: ['articles-toggle'],
                             cn : [{
-                                tag: 'ul',
-                                cls: ['nav', 'nav-pills', 'outline-active'],
-                                cn : [{
+                                tag : 'ul',
+                                cls : ['nav', 'nav-pills', 'outline-active'],
+                                flag: 'feed-header',
+                                cn  : [{
                                     tag: 'li',
                                     cls: ['nav-item'],
                                     cn : [{
                                         tag: 'a',
-                                        cls: ['nav-link', 'active'],
+                                        cls: ['nav-link', 'prevent-click', 'active'],
                                         href: '',
                                         html: 'My Articles'
                                     }]
@@ -119,7 +120,7 @@ class ProfileComponent extends Component {
                                     cls: ['nav-item'],
                                     cn : [{
                                         tag: 'a',
-                                        cls: ['nav-link'],
+                                        cls: ['nav-link', 'prevent-click'],
                                         href: '',
                                         html: 'Favorited Articles'
                                     }]
@@ -139,6 +140,11 @@ class ProfileComponent extends Component {
     constructor(config) {
         super(config);
 
+        Neo.main.DomEvents.registerPreventDefaultTargets({
+            name: 'click',
+            cls : 'prevent-click'
+        });
+
         let me           = this,
             domListeners = me.domListeners;
 
@@ -146,6 +152,12 @@ class ProfileComponent extends Component {
             click: {
                 fn      : me.onFollowButtonClick,
                 delegate: '.action-btn',
+                scope   : me
+            }
+        }, {
+            click: {
+                fn      : me.onNavLinkClick,
+                delegate: '.nav-link',
                 scope   : me
             }
         });
@@ -286,6 +298,40 @@ class ProfileComponent extends Component {
         me.getController().followUser(me.username, !me.following).then(data => {
             me.following = data.json.profile.following;
         });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onNavLinkClick(data) {
+        let me         = this,
+            vdom       = me.vdom,
+            el         = VDomUtil.findVdomChild(vdom, data.path[0].id),
+            feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
+            opts       = {},
+            params     = {};
+
+        if (!el.vdom.cls.includes('disabled')) {
+            switch(el.vdom.html) {
+                case 'Favorited Articles':
+                    break;
+                case 'My Articles':
+                    opts = {
+                        slug: 'feed'
+                    };
+                    break;
+            }
+
+            feedHeader.cn.forEach(item => {
+                NeoArray[item.id === el.parentNode.id ? 'add' : 'remove'](item.cn[0].cls, 'active');
+            });
+
+            me.vdom = vdom;
+
+            //me.getController()._articlesOffset = 0; // silent update
+            //me.getArticles(params, opts);
+        }
     }
 
     /**
