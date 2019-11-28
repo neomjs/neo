@@ -1,5 +1,6 @@
 import {default as Component} from '../../../../src/component/Base.mjs';
 import NeoArray               from '../../../../src/util/Array.mjs';
+import PreviewComponent       from '../article/PreviewComponent.mjs';
 import {default as VDomUtil}  from '../../../../src/util/VDom.mjs';
 
 /**
@@ -27,6 +28,10 @@ class ProfileComponent extends Component {
          */
         cls: ['profile-page'],
         /**
+         * @member {Number} countArticles_=5
+         */
+        countArticles_: 5,
+        /**
          * @member {Boolean|null} following_=null
          */
         following_: null,
@@ -38,6 +43,10 @@ class ProfileComponent extends Component {
          * @member {Boolean} myProfile_=false
          */
         myProfile_: false,
+        /**
+         * @member {RealWorld.views.article.PreviewComponent[]} previewComponents=[]
+         */
+        previewComponents: [],
         /**
          * @member {String|null} username_=null
          */
@@ -234,19 +243,22 @@ class ProfileComponent extends Component {
      * @param {Object} configs
      */
     update(configs) {
-        let username = configs.username;
+        let me       = this,
+            username = configs.username;
 
-        this.bulkConfigUpdate({
+        me.bulkConfigUpdate({
             bio      : configs.bio,
             following: configs.following,
             image    : configs.image,
             myProfile: configs.myProfile,
             username : username
         }).then(() => {
-            this.getController().getArticles({
+            me.getController().getArticles({
                 author: username,
-                limit : 5,
+                limit : me.countArticles,
                 offset: 0
+            }).then(() => {
+                console.log('articles loaded');
             });
         });
     }

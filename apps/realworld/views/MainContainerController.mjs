@@ -171,20 +171,16 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} [params={}]
      * @param {Object} [opts={}]
+     * @returns {Promise<any>}
      */
     getArticles(params={}, opts={}) {
-        ArticleApi.get({
+        return ArticleApi.get({
             params: {
                 limit : 10,
                 offset: this.articlesOffset,
                 ...params
             },
             ...opts
-        }).then(data => {
-            this.homeComponent.bulkConfigUpdate({
-                articlePreviews: data.json.articles,
-                countArticles  : data.json.articlesCount
-            });
         });
     }
 
@@ -369,7 +365,7 @@ class MainContainerController extends ComponentController {
                     break;
                 case 'home':
                     me.homeComponent.loggedIn = !!me.currentUser;
-                    me.getArticles();
+                    me.homeComponent.getArticles();
                     me.getTags();
                     break;
                 case 'profile':

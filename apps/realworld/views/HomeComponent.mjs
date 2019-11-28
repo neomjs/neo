@@ -362,6 +362,20 @@ class HomeComponent extends Component {
 
     /**
      *
+     * @param {Object} [params={}]
+     * @param {Object} [opts={}]
+     */
+    getArticles(params={}, opts={}) {
+        this.getController().getArticles(params, opts).then(data => {
+            this.bulkConfigUpdate({
+                articlePreviews: data.json.articles,
+                countArticles  : data.json.articlesCount
+            });
+        });
+    }
+
+    /**
+     *
      * @return {Object} vdom
      */
     getContainer() {
@@ -393,7 +407,6 @@ class HomeComponent extends Component {
      */
     onNavLinkClick(data) {
         let me         = this,
-            controller = me.getController(),
             vdom       = me.vdom,
             el         = VDomUtil.findVdomChild(vdom, data.path[0].id),
             feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
@@ -424,8 +437,8 @@ class HomeComponent extends Component {
             me._currentPage = 1; // silent update
             me.vdom = vdom;
 
-            controller._articlesOffset = 0; // silent update
-            controller.getArticles(params, opts);
+            me.getController()._articlesOffset = 0; // silent update
+            me.getArticles(params, opts);
         }
     }
 
@@ -452,10 +465,9 @@ class HomeComponent extends Component {
      * @param {String|null} opts.value
      */
     onTagChange(opts) {
-        let me         = this,
-            controller = me.getController(),
-            feeds      = me.feeds,
-            name       = '# ' + opts.value;
+        let me    = this,
+            feeds = me.feeds,
+            name  = '# ' + opts.value;
 
         feeds.forEach(item => {
             item.active = false;
@@ -476,9 +488,9 @@ class HomeComponent extends Component {
         me._currentPage = 1; // silent update
         me.feeds        = feeds;
 
-        controller._articlesOffset = 0; // silent update
+        me.getController()._articlesOffset = 0; // silent update
 
-        controller.getArticles({
+        me.getArticles({
             tag: opts.value
         });
     }
