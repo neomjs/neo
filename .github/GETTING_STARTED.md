@@ -27,7 +27,7 @@
 
 5. Make sure to use a local WebServer!
    * Use a local webserver of your choice
-   * OR npm run webpack-dev-server => open
+   * OR `npm run 'webpack-dev-server => open'`
 
    (JS module imports can not work on the local file system (security).)
    

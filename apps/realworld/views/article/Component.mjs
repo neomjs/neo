@@ -1,4 +1,5 @@
 import {default as BaseComponent} from '../../../../src/component/Base.mjs';
+import CommentComponent           from './CommentComponent.mjs';
 import CreateCommentComponent     from './CreateCommentComponent.mjs';
 import NeoArray                   from '../../../../src/util/Array.mjs';
 import {default as VDomUtil}      from '../../../../src/util/VDom.mjs';
@@ -27,6 +28,14 @@ class Component extends BaseComponent {
          * @member {String|null} body_=null
          */
         body_: null,
+        /**
+         * @member {RealWorld.views.article.PreviewComponent[]} commentComponents=[]
+         */
+        commentComponents: [],
+        /**
+         * @member {Object[]|null} comments_=null
+         */
+        comments_: null,
         /**
          * @member {RealWorld.views.article.CreateCommentComponent|null} createCommentComponent=null
          */
@@ -101,6 +110,18 @@ class Component extends BaseComponent {
                                 flag : 'username'
                             }]
                         }, {
+                            tag      : 'button',
+                            cls      : ['btn', 'btn-sm', 'btn-outline-secondary', 'edit-button'],
+                            flag     : 'edit-button',
+                            removeDom: true,
+                            cn: [{
+                                tag: 'i',
+                                cls: ['ion-edit']
+                            }, {
+                                vtype: 'text',
+                                html : ' Edit Article'
+                            }]
+                        }, {
                             vtype: 'text',
                             html : '&nbsp;&nbsp;'
                         }, {
@@ -123,6 +144,18 @@ class Component extends BaseComponent {
                                 cls : ['counter'],
                                 flag: 'favoritesCount'
                             }]
+                        }, {
+                            tag      : 'button',
+                            cls      : ['btn', 'btn-sm', 'btn-outline-danger', 'delete-button'],
+                            flag     : 'delete-button',
+                            removeDom: true,
+                            cn: [{
+                                tag: 'i',
+                                cls: ['ion-trash-a']
+                            }, {
+                                vtype: 'text',
+                                html : ' Delete Article'
+                            }]
                         }]
                     }]
                 }]
@@ -138,8 +171,9 @@ class Component extends BaseComponent {
                 }, {
                     tag: 'hr'
                 }, {
-                    cls: ['article-actions'],
-                    cn : [{
+                    cls : ['article-actions'],
+                    flag: 'article-actions',
+                    cn  : [{
                         cls: ['article-meta'],
                         cn : [{
                             tag : 'a',
@@ -203,82 +237,7 @@ class Component extends BaseComponent {
                     cn : [{
                         cls : ['col-xs-12', 'col-md-8', 'offset-md-2'],
                         flag: 'comments-section',
-                        cn  : [{
-                            cls: 'card',
-                            cn : [{
-                                cls: ['card-block'],
-                                cn : [{
-                                    tag : 'p',
-                                    cls : ['card-text'],
-                                    html: 'With supporting text below as a natural lead-in to additional content.'
-                                }]
-                            }, {
-                                cls: ['card-footer'],
-                                cn : [{
-                                    tag : 'a',
-                                    cls : ['comment-author'],
-                                    href: '',
-                                    cn  : [{
-                                        tag: 'img',
-                                        cls: ['comment-author-img'],
-                                        src: 'http://i.imgur.com/Qr71crq.jpg'
-                                    }]
-                                }, {
-                                    vtype: 'text',
-                                    html : '&nbsp;'
-                                }, {
-                                    tag : 'a',
-                                    cls : ['comment-author'],
-                                    href: '',
-                                    html: 'Jacob Schmidt'
-                                }, {
-                                    tag : 'span',
-                                    cls : ['date-posted'],
-                                    html: 'Dec 29th'
-                                }]
-                            }]
-                        }, {
-                            cls: 'card',
-                            cn : [{
-                                cls: ['card-block'],
-                                cn : [{
-                                    tag : 'p',
-                                    cls : ['card-text'],
-                                    html: 'With supporting text below as a natural lead-in to additional content.'
-                                }]
-                            }, {
-                                cls: ['card-footer'],
-                                cn : [{
-                                    tag : 'a',
-                                    cls : ['comment-author'],
-                                    href: '',
-                                    cn  : [{
-                                        tag: 'img',
-                                        cls: ['comment-author-img'],
-                                        src: 'http://i.imgur.com/Qr71crq.jpg'
-                                    }]
-                                }, {
-                                    vtype: 'text',
-                                    html : '&nbsp;'
-                                }, {
-                                    tag : 'a',
-                                    cls : ['comment-author'],
-                                    href: '',
-                                    html: 'Jacob Schmidt'
-                                }, {
-                                    tag : 'span',
-                                    cls : ['date-posted'],
-                                    html: 'Dec 29th'
-                                }, {
-                                    tag: 'span',
-                                    cls: ['mod-options'],
-                                    cn : [
-                                        {tag: 'i', cls: ['ion-edit']},
-                                        {tag: 'i', cls: ['ion-trash-a']},
-                                    ]
-                                }]
-                            }]
-                        }]
+                        cn  : []
                     }]
                 }]
             }]
@@ -295,21 +254,19 @@ class Component extends BaseComponent {
         let me           = this,
             domListeners = me.domListeners;
 
-        domListeners.push({
-            click: {
-                fn      : me.onFavoriteButtonClick,
-                delegate: '.favorite-button',
-                scope   : me
-            }
-        }, {
-            click: {
-                fn      : me.onFollowButtonClick,
-                delegate: '.follow-button',
-                scope   : me
-            }
+        domListeners.push(
+            {click: {fn: me.onDeleteButtonClick,   delegate: '.delete-button',   scope: me}},
+            {click: {fn: me.onEditButtonClick,     delegate: '.edit-button',     scope: me}},
+            {click: {fn: me.onFavoriteButtonClick, delegate: '.favorite-button', scope: me}},
+            {click: {fn: me.onFollowButtonClick,   delegate: '.follow-button',   scope: me}
         });
 
         me.domListeners = domListeners;
+
+        me.getController().on({
+            afterSetCurrentUser: me.onCurrentUserChange,
+            scope              : me
+        });
     }
 
     /**
@@ -341,7 +298,8 @@ class Component extends BaseComponent {
      */
     afterSetAuthor(value, oldValue) {
         if (value) {
-            let vdom = this.vdom;
+            let me   = this,
+                vdom = me.vdom;
 
             VDomUtil.getFlags(vdom, 'followAuthor').forEach(node => {
                 node.html = value.following ? ' Unfollow ' : ' Follow ';
@@ -359,7 +317,9 @@ class Component extends BaseComponent {
                 node.html = value.username;
             });
 
-            this.vdom = vdom;
+            me.vdom = vdom;
+
+            me.onCurrentUserChange();
         }
     }
 
@@ -370,16 +330,62 @@ class Component extends BaseComponent {
      * @private
      */
     afterSetBody(value, oldValue) {
-        let vdom = this.vdom;
+        const me = this;
+        let vdom = me.vdom;
 
-        // todo: markdown parsing => #78
-        VDomUtil.getByFlag(vdom, 'body').cn[0] = {
-            cn: [{
-                tag : 'p',
-                html: value
-            }]
-        };
-        this.vdom = vdom;
+        if (value) {
+            Neo.main.DomAccess.markdownToHtml(value).then(html => {
+                VDomUtil.getByFlag(vdom, 'body').cn[0] = {
+                    cn: [{
+                        tag : 'p',
+                        html: html
+                    }]
+                };
+
+                me.vdom = vdom;
+            });
+        }
+    }
+
+    /**
+     * Triggered after the comments config got changed
+     * @param {Object[]|null} value
+     * @param {Object[]|null} oldValue
+     * @private
+     */
+    afterSetComments(value, oldValue) {
+        if (Array.isArray(value)) {
+            let me        = this,
+                vdom      = me.vdom,
+                container = VDomUtil.getByFlag(vdom, 'comments-section'),
+                config;
+
+            container.cn = [container.cn.shift()]; // keep the CreateCommentComponent
+
+            value.forEach((item, index) => {
+                config = {
+                    author   : item.author,
+                    body     : item.body,
+                    commentId: item.id,
+                    createdAt: item.createdAt,
+                    updatedAt: item.updatedAt
+                };
+
+                if (!me.commentComponents[index]) {
+                    me.commentComponents[index] = Neo.create({
+                        module  : CommentComponent,
+                        parentId: me.id,
+                        ...config
+                    });
+                } else {
+                    me.commentComponents[index].bulkConfigUpdate(config, true);
+                }
+
+                container.cn.push(me.commentComponents[index].vdom);
+            });
+
+            me.vdom = vdom;
+        }
     }
 
     /**
@@ -495,6 +501,47 @@ class Component extends BaseComponent {
 
         VDomUtil.getByFlag(vdom, 'title').html = value;
         this.vdom = vdom;
+    }
+
+    /**
+     *
+     */
+    onCurrentUserChange() {console.log('### onCurrentUserChange');
+        let me          = this,
+            currentUser = me.getController().currentUser,
+            vdom        = me.vdom,
+            isCurrentUser;
+
+        if (me.author && currentUser) {
+            isCurrentUser = me.author.username === currentUser.username;
+
+            vdom.cn[0].cn[0].cn[1].cn[2].removeDom = isCurrentUser; // follow user button
+            vdom.cn[0].cn[0].cn[1].cn[5].removeDom = isCurrentUser; // favorite post button
+
+            VDomUtil.getByFlag(vdom, 'article-actions').removeDom = isCurrentUser;
+            VDomUtil.getByFlag(vdom, 'delete-button')  .removeDom = !isCurrentUser;
+            VDomUtil.getByFlag(vdom, 'edit-button')    .removeDom = !isCurrentUser;
+
+            me.vdom = vdom;
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDeleteButtonClick(data) {
+        this.getController().deleteArticle(this.slug);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onEditButtonClick(data) {
+        Neo.Main.setRoute({
+            value: '/editor/' + this.slug
+        });
     }
 
     /**

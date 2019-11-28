@@ -226,6 +226,11 @@ class PreviewComponent extends Component {
             vdom = me.vdom,
             tagList;
 
+        // remove old tags if exists
+        if (vdom.cn[1].cn[3]) {
+            vdom.cn[1].cn.pop();
+        }
+
         if (Array.isArray(value) && value.length > 0) {
             tagList = {
                 tag: 'ul',

@@ -1,5 +1,6 @@
 import {default as Component} from '../../../../src/component/Base.mjs';
 import NeoArray               from '../../../../src/util/Array.mjs';
+import PreviewComponent       from '../article/PreviewComponent.mjs';
 import {default as VDomUtil}  from '../../../../src/util/VDom.mjs';
 
 /**
@@ -19,6 +20,10 @@ class ProfileComponent extends Component {
          */
         ntype: 'realworld-user-profilecomponent',
         /**
+         * @member {Object[]|null} articlePreviews_=null
+         */
+        articlePreviews_: null,
+        /**
          * @member {String|null} bio_=null
          */
         bio_: null,
@@ -26,6 +31,10 @@ class ProfileComponent extends Component {
          * @member {String[]} cls=['profile-page']
          */
         cls: ['profile-page'],
+        /**
+         * @member {Number} countArticles_=5
+         */
+        countArticles_: 5,
         /**
          * @member {Boolean|null} following_=null
          */
@@ -38,6 +47,10 @@ class ProfileComponent extends Component {
          * @member {Boolean} myProfile_=false
          */
         myProfile_: false,
+        /**
+         * @member {RealWorld.views.article.PreviewComponent[]} previewComponents=[]
+         */
+        previewComponents: [],
         /**
          * @member {String|null} username_=null
          */
@@ -66,7 +79,7 @@ class ProfileComponent extends Component {
                                 flag: 'bio'
                             }, {
                                 tag : 'button',
-                                cls : ['btn', 'btn-sm', 'btn-outline-secondary', 'action-btn'],
+                                cls : ['btn', 'btn-sm', 'btn-outline-secondary', 'action-btn', 'follow-button'],
                                 flag: 'following',
                                 cn  : [{
                                     tag: 'i',
@@ -75,6 +88,19 @@ class ProfileComponent extends Component {
                                     vtype: 'text'
                                 }, {
                                     vtype: 'text'
+                                }]
+                            }, {
+                                tag      : 'a',
+                                cls      : ['btn', 'btn-sm', 'btn-outline-secondary', 'action-btn'],
+                                flag     : 'edit-profile',
+                                href     : '#/settings',
+                                removeDom: true,
+                                cn: [{
+                                    tag: 'i',
+                                    cls: ['ion-gear-a']
+                                }, {
+                                    vtype: 'text',
+                                    html : ' Edit Profile Settings'
                                 }]
                             }]
                         }]
@@ -85,18 +111,20 @@ class ProfileComponent extends Component {
                 cn : [{
                     cls: ['row'],
                     cn : [{
-                        cls: ['col-xs-12', 'col-md-10', 'offset-md-1'],
-                        cn : [{
+                        cls  : ['col-xs-12', 'col-md-10', 'offset-md-1'],
+                        flag: 'feed-container',
+                        cn  : [{
                             cls: ['articles-toggle'],
                             cn : [{
-                                tag: 'ul',
-                                cls: ['nav', 'nav-pills', 'outline-active'],
-                                cn : [{
+                                tag : 'ul',
+                                cls : ['nav', 'nav-pills', 'outline-active'],
+                                flag: 'feed-header',
+                                cn  : [{
                                     tag: 'li',
                                     cls: ['nav-item'],
                                     cn : [{
                                         tag: 'a',
-                                        cls: ['nav-link', 'active'],
+                                        cls: ['nav-link', 'prevent-click', 'active'],
                                         href: '',
                                         html: 'My Articles'
                                     }]
@@ -105,7 +133,7 @@ class ProfileComponent extends Component {
                                     cls: ['nav-item'],
                                     cn : [{
                                         tag: 'a',
-                                        cls: ['nav-link'],
+                                        cls: ['nav-link', 'prevent-click'],
                                         href: '',
                                         html: 'Favorited Articles'
                                     }]
@@ -125,18 +153,79 @@ class ProfileComponent extends Component {
     constructor(config) {
         super(config);
 
+        Neo.main.DomEvents.registerPreventDefaultTargets({
+            name: 'click',
+            cls : 'prevent-click'
+        });
+
         let me           = this,
             domListeners = me.domListeners;
 
         domListeners.push({
             click: {
                 fn      : me.onFollowButtonClick,
-                delegate: '.action-btn',
+                delegate: '.follow-button',
+                scope   : me
+            }
+        }, {
+            click: {
+                fn      : me.onNavLinkClick,
+                delegate: '.nav-link',
                 scope   : me
             }
         });
 
         me.domListeners = domListeners;
+
+        me.getController().on({
+            afterSetCurrentUser: me.onCurrentUserChange,
+            scope              : me
+        });
+    }
+
+    /**
+     * Triggered after the articlePreviews config got changed
+     * @param {Object[]|null} value
+     * @param {Object[]|null} oldValue
+     * @private
+     */
+    afterSetArticlePreviews(value, oldValue) {
+        let me        = this,
+            vdom      = me.vdom,
+            container = VDomUtil.getByFlag(vdom, 'feed-container'),
+            config;
+
+        container.cn = [container.cn.shift()];
+
+        if (Array.isArray(value)) {
+            value.forEach((item, index) => {
+                config = {
+                    author        : item.author.username,
+                    createdAt     : item.createdAt,
+                    description   : item.description,
+                    favorited     : item.favorited,
+                    favoritesCount: item.favoritesCount,
+                    slug          : item.slug,
+                    tagList       : item.tagList,
+                    title         : item.title,
+                    userImage     : item.author.image
+                };
+
+                if (!me.previewComponents[index]) {
+                    me.previewComponents[index] = Neo.create({
+                        module  : PreviewComponent,
+                        parentId: me.id,
+                        ...config
+                    });
+                } else {
+                    me.previewComponents[index].bulkConfigUpdate(config, true);
+                }
+
+                container.cn.push(me.previewComponents[index].vdom);
+            });
+        }
+
+        me.vdom = vdom;
     }
 
     /**
@@ -194,11 +283,12 @@ class ProfileComponent extends Component {
      * @param {Boolean} oldValue
      * @private
      */
-    afterSetMyProfile(value, oldValue) {
-        if (Neo.isBoolean(value)) {
+    afterSetMyProfile(value, oldValue) {console.log('afterSetMyProfile', value);
+        if (Neo.isBoolean(oldValue)) {
             let vdom = this.vdom;
 
-            VDomUtil.getByFlag(vdom, 'following').removeDom = value;
+            VDomUtil.getByFlag(vdom, 'edit-profile').removeDom = !value;
+            VDomUtil.getByFlag(vdom, 'following')   .removeDom = value;
             this.vdom = vdom;
         }
     }
@@ -219,6 +309,24 @@ class ProfileComponent extends Component {
 
     /**
      *
+     * @param {Object} params
+     */
+    getArticles(params) {
+        this.getController().getArticles(params).then(data => {
+            this.articlePreviews = data.json.articles;
+        });
+    }
+
+    /**
+     *
+     * @param {Object} value
+     */
+    onCurrentUserChange(value) {console.log('onCurrentUserChange', value);
+        this.myProfile = this.username === value && value.username;
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onFollowButtonClick(data) {
@@ -231,15 +339,63 @@ class ProfileComponent extends Component {
 
     /**
      *
+     * @param {Object} data
+     */
+    onNavLinkClick(data) {
+        let me         = this,
+            vdom       = me.vdom,
+            el         = VDomUtil.findVdomChild(vdom, data.path[0].id),
+            feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
+            params     = {};
+
+        if (!el.vdom.cls.includes('disabled')) {
+            switch(el.vdom.html) {
+                case 'Favorited Articles':
+                    params = {
+                        favorited: me.username
+                    };
+                    break;
+                case 'My Articles':
+                    params = {
+                        author: me.username
+                    };
+                    break;
+            }
+
+            feedHeader.cn.forEach(item => {
+                NeoArray[item.id === el.parentNode.id ? 'add' : 'remove'](item.cn[0].cls, 'active');
+            });
+
+            me.vdom = vdom;
+
+            me.getArticles({
+                ...params,
+                limit : me.countArticles,
+                offset: 0
+            });
+        }
+    }
+
+    /**
+     *
      * @param {Object} configs
      */
     update(configs) {
-        this.bulkConfigUpdate({
+        let me       = this,
+            username = configs.username;
+
+        me.bulkConfigUpdate({
             bio      : configs.bio,
             following: configs.following,
             image    : configs.image,
             myProfile: configs.myProfile,
-            username : configs.username
+            username : username
+        }).then(() => {
+            me.getArticles({
+                author: username,
+                limit : me.countArticles,
+                offset: 0
+            });
         });
     }
 }

@@ -44,6 +44,10 @@ class MainContainerController extends ComponentController {
          */
         currentUser_: null,
         /**
+         * @member {String|null} hashString=null
+         */
+        hashString: null,
+        /**
          * @member {RealWorld.views.HomeComponent|null} homeComponent=null
          * @private
          */
@@ -99,13 +103,40 @@ class MainContainerController extends ComponentController {
      */
     afterSetCurrentUser(value, oldValue) {
         if (typeof oldValue === 'object') {
-            this.fire('afterSetCurrentUser', value);
-
             this.getReference('header').bulkConfigUpdate({
-                loggedIn: true,
-                userName: value.username
+                loggedIn : !!value,
+                userImage: value ? value.image    : null,
+                userName : value ? value.username : null
+            }).then(() => {
+                this.fire('afterSetCurrentUser', value);
             });
         }
+    }
+
+    /**
+     *
+     * @param {String} slug
+     */
+    deleteArticle(slug) {
+        ArticleApi.delete({slug: slug}).then(data => {
+            Neo.Main.setRoute({
+                value: '/'
+            });
+        });
+    }
+
+    /**
+     *
+     * @param {Number} id
+     * @return {Promise<any>}
+     */
+    deleteComment(id) {
+        let me   = this,
+            slug = me.hashString.split('/').pop();
+
+        return ArticleApi.deleteComment(slug, id).then(data => {
+            me.getComments(slug);
+        });
     }
 
     /**
@@ -128,37 +159,48 @@ class MainContainerController extends ComponentController {
 
     /**
      * Article details: get an article providing a user slug
+     * @param {String} slug
      */
     getArticle(slug) {
-        ArticleApi.get({
+        return ArticleApi.get({
             slug: slug
-        }).then(data => {
-            console.log('getArticle', data.json.article);
-            this.articleComponent.bulkConfigUpdate(data.json.article);
         });
     }
 
     /**
      *
+     * @param {Object} [params={}]
+     * @param {Object} [opts={}]
+     * @returns {Promise<any>}
      */
-    getArticles(opts={}) {
-        ArticleApi.get({
+    getArticles(params={}, opts={}) {
+        return ArticleApi.get({
             params: {
                 limit : 10,
                 offset: this.articlesOffset,
-                ...opts
-            }
-        }).then(data => {
-            this.homeComponent.bulkConfigUpdate({
-                articlePreviews: data.json.articles,
-                countArticles  : data.json.articlesCount
-            });
+                ...params
+            },
+            ...opts
         });
     }
 
+    /**
+     *
+     * @param {String} slug
+     */
+    getComments(slug) {
+        ArticleApi.getComments(slug).then(data => {
+            this.articleComponent.comments = data.json.comments;
+        });
+    }
+
+    /**
+     *
+     * @param {String} token
+     */
     getCurrentUser(token) {
         if (token) {
-            ArticleApi.get({
+            UserApi.get({
                 resource: '/user' // edge case, user instead of users
             }).then(data => {
                 this.currentUser = data.json.user;
@@ -171,12 +213,14 @@ class MainContainerController extends ComponentController {
      * @param {String} slug
      */
     getProfile(slug) {
+        const me = this;
+
         ProfileApi.get({
             slug: slug
         }).then(data => {
-            this.profileComponent.update({
+            me.profileComponent.update({
                 ...data.json.profile,
-                myProfile: data.json.profile.username === this.currentUser.username
+                myProfile: data.json.profile.username === (me.currentUser && me.currentUser.username)
             });
         });
     }
@@ -215,7 +259,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} userData
      */
     login(userData) {
-        this.getReference('header').loggedIn = true;
+        this.currentUser = userData;
 
         Neo.Main.createLocalStorageItem({
             key  : LOCAL_STORAGE_KEY,
@@ -234,7 +278,7 @@ class MainContainerController extends ComponentController {
      *
      */
     logout() {
-        this.getReference('header').loggedIn = false;
+        this.currentUser = null;
 
         Neo.Main.destroyLocalStorageItem({
             key: LOCAL_STORAGE_KEY
@@ -257,7 +301,7 @@ class MainContainerController extends ComponentController {
     onHashChange(value, oldValue, hashString) {
         let me    = this,
             view = me.view,
-            newView;
+            newView, slug;
 
         if (!view.mounted) { // the initial hash change gets triggered before the vnode got back from the vdom worker (using autoMount)
             view.on('mounted', () => {
@@ -266,16 +310,18 @@ class MainContainerController extends ComponentController {
         } else {
             console.log('onHashChange', value, hashString);
 
+            me.hashString = hashString;
+
             // adjust the active header link
             view.items[0].activeItem = Object.keys(value)[0];
 
-                 if (hashString === '/')                   {newView = me.getView('homeComponent',     HomeComponent,     'home');}
-            else if (hashString.includes('/article/'))     {newView = me.getView('articleComponent',  ArticleComponent,  'article');}
-            else if (hashString.includes('/profile/'))     {newView = me.getView('profileComponent',  ProfileComponent,  'profile');}
-            else if (value.hasOwnProperty('newpost'))      {newView = me.getView('createComponent',   CreateComponent,   'newpost');}
-            else if (value.hasOwnProperty('/login'))       {newView = me.getView('signUpComponent',   SignUpComponent,   'signup'); newView.mode = 'signin';}
-            else if (value.hasOwnProperty('/register'))    {newView = me.getView('signUpComponent',   SignUpComponent,   'signup'); newView.mode = 'signup';}
-            else if (value.hasOwnProperty('usersettings')) {newView = me.getView('settingsComponent', SettingsComponent, 'usersettings');}
+                 if (hashString === '/')                {newView = me.getView('homeComponent',     HomeComponent,     'home');}
+            else if (hashString.includes('/article/'))  {newView = me.getView('articleComponent',  ArticleComponent,  'article');}
+            else if (hashString.includes('/editor'))    {newView = me.getView('createComponent',   CreateComponent,   'editor');}
+            else if (hashString.includes('/profile/'))  {newView = me.getView('profileComponent',  ProfileComponent,  'profile');}
+            else if (value.hasOwnProperty('/login'))    {newView = me.getView('signUpComponent',   SignUpComponent,   'signup'); newView.mode = 'signin';}
+            else if (value.hasOwnProperty('/register')) {newView = me.getView('signUpComponent',   SignUpComponent,   'signup'); newView.mode = 'signup';}
+            else if (value.hasOwnProperty('/settings')) {newView = me.getView('settingsComponent', SettingsComponent, 'settings');}
 
             if (!(oldValue && (
                 oldValue.hasOwnProperty('/login')    && value.hasOwnProperty('/register') ||
@@ -292,20 +338,100 @@ class MainContainerController extends ComponentController {
 
             switch (newView.reference) {
                 case 'article':
-                    me.getArticle(hashString.split('/').pop()); // pass the slug
+                    slug = hashString.split('/').pop();
+
+                    me.getArticle(slug).then(data => {
+                        let article = data.json.article,
+                            body    = article.body;
+
+                        delete article.body;
+
+                        me.articleComponent.bulkConfigUpdate(article).then(() => {
+                            me.articleComponent.body = body;
+                        });
+                    });
+
+                    me.getComments(slug);
+                    break;
+                case 'editor':
+                    slug = hashString.split('/').pop();
+                    if (slug !== 'editor') {
+                        me.getArticle(slug).then(data => {
+                            const article = data.json.article;
+
+                            me.createComponent.bulkConfigUpdate({
+                                body       : article.body,
+                                description: article.description,
+                                slug       : article.slug,
+                                tagList    : article.tagList,
+                                title      : article.title
+                            });
+                        });
+                    } else {
+                        me.createComponent.resetForm();
+                    }
                     break;
                 case 'home':
-                    me.getArticles();
+                    me.homeComponent.loggedIn = !!me.currentUser;
+                    me.homeComponent.getArticles();
                     me.getTags();
                     break;
                 case 'profile':
                     me.getProfile(hashString.split('/').pop()); // pass the slug
+                    break;
+                case 'settings':
+                    if (me.currentUser) {
+                        setTimeout(() => { // added a short delay to not interfere with the mainContainer update
+                            me.settingsComponent.onCurrentUserChange(me.currentUser);
+                        }, 50);
+                    }
                     break;
                 case 'signup':
                     newView.errors = [];
                     break;
             }
         }
+    }
+
+    /**
+     *
+     * @param {Object} [opts)
+     * @returns {Promise<any>}
+     */
+    postComment(opts={}) {
+        let me   = this,
+            slug = me.hashString.split('/').pop();
+
+        return ArticleApi.postComment(slug, opts).then(data => {
+            me.getComments(slug);
+        });
+    }
+
+    /**
+     *
+     * @param {Object} opts
+     * @returns {Promise<any>}
+     */
+    saveUser(opts) {
+        return UserApi.post(opts);
+    }
+
+    /**
+     *
+     * @param {Object} [opts)
+     * @returns {Promise<any>}
+     */
+    updateSettings(opts={}) {
+        return UserApi.put({
+            ...opts,
+            resource: '/user' // edge case, user instead of users
+        }).then(data => {
+            if (!data.json.errors) {
+                this.currentUser = data.json.user;
+            }
+
+            return data;
+        });
     }
 }
 

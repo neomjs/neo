@@ -155,6 +155,7 @@ class HelixMainContainer extends Viewport {
                 value    : 300
             }, {
                 ntype     : 'button',
+                disabled  : true, // component.Helix: buffered sorting #105
                 text      : 'Sort by Lastname',
                 listeners: {},
                 domListeners: {
@@ -174,6 +175,7 @@ class HelixMainContainer extends Viewport {
                 }
             }, {
                 ntype     : 'button',
+                disabled  : true, // component.Helix: buffered sorting #105
                 text      : 'Sort by Firstname',
                 listeners: {},
                 domListeners: {

@@ -1,7 +1,5 @@
-import {default as Component}  from '../../../../src/component/Base.mjs';
-import {LOCAL_STORAGE_KEY}     from '../../api/config.mjs';
-import {default as UserApi}    from '../../api/User.mjs';
-import {default as VDomUtil}   from '../../../../src/util/VDom.mjs';
+import {default as Component} from '../../../../src/component/Base.mjs';
+import {default as VDomUtil}  from '../../../../src/util/VDom.mjs';
 
 /**
  * @class RealWorld.views.user.SignUpComponent
@@ -212,9 +210,10 @@ class SignUpComponent extends Component {
      *
      */
     onSubmitButtonClick() {
-        let me       = this,
-            isSignup = me.mode === 'signup',
-            ids      = [me.getInputId('email'), me.getInputId('password')],
+        let me         = this,
+            controller = me.getController(),
+            isSignup   = me.mode === 'signup',
+            ids        = [me.getInputId('email'), me.getInputId('password')],
             userData;
 
         if (isSignup) {
@@ -238,7 +237,7 @@ class SignUpComponent extends Component {
                 userData.user.username = data[2].value;
             }
 
-            UserApi.post({
+            controller.saveUser({
                 data: JSON.stringify(userData),
                 slug: isSignup ? '' : '/login'
             }).then(data => {
@@ -247,7 +246,7 @@ class SignUpComponent extends Component {
                 if (errors) {
                     me.errors = errors;
                 } else {
-                    me.getController().login(data.json.user);
+                    controller.login(data.json.user);
                 }
             });
         });

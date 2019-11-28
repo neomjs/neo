@@ -1,4 +1,5 @@
 import {default as Component} from '../../../../src/component/Base.mjs';
+import {default as VDomUtil}  from '../../../../src/util/VDom.mjs';
 
 /**
  * @class RealWorld.views.user.SettingsComponent
@@ -17,9 +18,29 @@ class SettingsComponent extends Component {
          */
         ntype: 'realworld-user-settingscomponent',
         /**
+         * @member {String} bio_=null
+         */
+        bio_: null,
+        /**
          * @member {String[]} cls=['settings-page']
          */
         cls: ['settings-page'],
+        /**
+         * @member {String} email_=null
+         */
+        email_: null,
+        /**
+         * @member {Object[]} errors_=[]
+         */
+        errors_: [],
+        /**
+         * @member {String} image_=null
+         */
+        image_: null,
+        /**
+         * @member {String} userName_=null
+         */
+        userName_: null,
         /**
          * @member {Object} _vdom
          */
@@ -35,6 +56,11 @@ class SettingsComponent extends Component {
                             cls : ['text-xs-center'],
                             html: 'Your Settings'
                         }, {
+                            tag      : 'ul',
+                            cls      : ['error-messages'],
+                            flag     : 'errors',
+                            removeDom: true
+                        }, {
                             tag: 'form',
                             cn : [{
                                 tag: 'fieldset',
@@ -44,6 +70,7 @@ class SettingsComponent extends Component {
                                     cn : [{
                                         tag        : 'input',
                                         cls        : ['form-control'],
+                                        flag       : 'image',
                                         placeholder: 'URL of profile picture',
                                         type       : 'text'
                                     }]
@@ -53,6 +80,7 @@ class SettingsComponent extends Component {
                                     cn : [{
                                         tag        : 'input',
                                         cls        : ['form-control', 'form-control-lg'],
+                                        flag       : 'userName',
                                         placeholder: 'Your Name',
                                         type       : 'text'
                                     }]
@@ -62,6 +90,7 @@ class SettingsComponent extends Component {
                                     cn : [{
                                         tag        : 'textarea',
                                         cls        : ['form-control', 'form-control-lg'],
+                                        flag       : 'bio',
                                         placeholder: 'Short bio about you',
                                         rows       : 8
                                     }]
@@ -71,6 +100,7 @@ class SettingsComponent extends Component {
                                     cn : [{
                                         tag        : 'input',
                                         cls        : ['form-control', 'form-control-lg'],
+                                        flag       : 'email',
                                         placeholder: 'Email',
                                         type       : 'text'
                                     }]
@@ -80,6 +110,7 @@ class SettingsComponent extends Component {
                                     cn : [{
                                         tag        : 'input',
                                         cls        : ['form-control', 'form-control-lg'],
+                                        flag       : 'password',
                                         placeholder: 'Password',
                                         type       : 'password'
                                     }]
@@ -118,16 +149,161 @@ class SettingsComponent extends Component {
                 delegate: '.btn-outline-danger',
                 scope   : me
             }
+        }, {
+            click: {
+                fn      : me.onSubmitButtonClick,
+                delegate: '.btn-primary',
+                scope   : me
+            }
         });
 
         me.domListeners = domListeners;
+
+        me.getController().on({
+            afterSetCurrentUser: me.onCurrentUserChange,
+            scope              : me
+        });
+    }
+
+    /**
+     * Triggered after the bio config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetBio(value, oldValue) {
+        let vdom = this.vdom;
+
+        VDomUtil.getByFlag(vdom, 'bio').value = value;
+        this.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the email config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetEmail(value, oldValue) {
+        let vdom = this.vdom;
+
+        VDomUtil.getByFlag(vdom, 'email').value = value;
+        this.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the errors config got changed
+     * @param {Object[]} value=[]
+     * @param {Object[]} oldValue
+     * @private
+     */
+    afterSetErrors(value=[], oldValue) {
+        let me   = this,
+            vdom = me.vdom,
+            list = VDomUtil.getByFlag(vdom, 'errors');
+
+        list.cn        = [];
+        list.removeDom = value.length === 0;
+
+        Object.entries(value).forEach(([key, value]) => {
+            list.cn.push({
+                tag : 'li',
+                html: key + ' ' + value.join(' and ')
+            });
+        });
+
+        me.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the image config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetImage(value, oldValue) {
+        let vdom = this.vdom;
+
+        VDomUtil.getByFlag(vdom, 'image').value = value;
+        this.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the userName config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetUserName(value, oldValue) {
+        let vdom = this.vdom;
+
+        VDomUtil.getByFlag(vdom, 'userName').value = value;
+        this.vdom = vdom;
     }
 
     /**
      *
+     * @param {Object} value
      */
-    onLogoutButtonClick() {
+    onCurrentUserChange(value) {
+        if (value) {
+            this.bulkConfigUpdate({
+                bio      : value.bio,
+                email    : value.email,
+                errors   : [],
+                image    : value.image,
+                userName : value.username
+            });
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onLogoutButtonClick(data) {
         this.getController().logout();
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onSubmitButtonClick(data) {
+        let me       = this,
+            vdom     = me.vdom,
+            bio      = VDomUtil.getByFlag(vdom, 'bio'),
+            email    = VDomUtil.getByFlag(vdom, 'email'),
+            image    = VDomUtil.getByFlag(vdom, 'image'),
+            password = VDomUtil.getByFlag(vdom, 'password'),
+            userName = VDomUtil.getByFlag(vdom, 'userName');
+
+        Neo.main.DomAccess.getAttributes({
+            id        : [bio.id, email.id, image.id, password.id, userName.id],
+            attributes: 'value'
+        }).then(data => {
+            me.getController().updateSettings({
+                data: JSON.stringify({
+                    user: {
+                        bio     : data[0].value,
+                        email   : data[1].value,
+                        image   : data[2].value,
+                        password: data[3].value,
+                        username: data[4].value
+                    }
+                })
+            }).then(data => {
+                const errors = data.json.errors;
+
+                if (errors) {
+                    me.errors = errors;
+                } else {
+                    Neo.Main.setRoute({
+                        value: '/profile/' + data.json.user.username
+                    });
+                }
+            })
+        });
     }
 }
 

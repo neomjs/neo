@@ -16,6 +16,39 @@ class Article extends Base {
          */
         resource: '/articles'
     }}
+
+    /**
+     *
+     * @param {String} slug
+     * @param {Number} id
+     */
+    deleteComment(slug, id) {
+        return this.delete({
+            url: `/articles/${slug}/comments/${id}`
+        });
+    }
+
+    /**
+     *
+     * @param {String} slug
+     */
+    getComments(slug) {
+        return this.get({
+            url: `/articles/${slug}/comments`
+        });
+    }
+
+    /**
+     *
+     * @param {String} slug
+     * @param {Object} opts
+     */
+    postComment(slug, opts) {
+        return this.post({
+            ...opts,
+            url: `/articles/${slug}/comments`
+        });
+    }
 }
 
 Neo.applyClassConfig(Article);

@@ -18,11 +18,11 @@ class VNode extends Base {
      * @returns {Object}
      *     {Number} index
      *     {String} parentId
-     *     {Object} vdom
+     *     {Object} vnode
      */
     static findChildVnode(vnode, opts, index, parentNode) {
         index = index || 0;
-        opts  = typeof opts !== 'string' ? opts : {id:opts};
+        opts  = typeof opts !== 'string' ? opts : {id: opts};
 
         let child      = null,
             attrMatch  = true,

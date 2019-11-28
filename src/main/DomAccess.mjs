@@ -1,5 +1,6 @@
 import Base         from '../core/Base.mjs';
 import DeltaUpdates from './mixins/DeltaUpdates.mjs';
+import Markdown     from './mixins/Markdown.mjs';
 import Hljs         from './mixins/Hljs.mjs';
 import Observable   from '../core/Observable.mjs';
 import Siesta       from './mixins/Siesta.mjs';
@@ -32,6 +33,7 @@ class DomAccess extends Base {
         mixins: [
             DeltaUpdates,
             Hljs,
+            Markdown,
             Observable,
             Siesta,
             Stylesheet
@@ -48,6 +50,7 @@ class DomAccess extends Base {
                 'focus',
                 'getAttributes',
                 'getBoundingClientRect',
+                'markdownToHtml',
                 'scrollIntoView',
                 'selectNode',
                 'swapStyleSheet',

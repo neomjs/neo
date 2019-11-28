@@ -30,7 +30,11 @@ class HeaderComponent extends Component {
          */
         loggedIn_: false,
         /**
-         * @member {String} userName_=null
+         * @member {String|null} userImage_=null
+         */
+        userImage_:null,
+        /**
+         * @member {String|null} userName_=null
          */
         userName_: null,
         /**
@@ -65,13 +69,13 @@ class HeaderComponent extends Component {
                         cn: [{
                             tag : 'a',
                             cls : ['nav-link'],
-                            href: '#newpost',
+                            href: '#/editor',
                             cn: [{
                                 tag: 'i',
                                 cls: 'ion-compose'
                             }, {
                                 vtype: 'text',
-                                html : '&nbsp;New Post'
+                                html : '&nbsp;New Article'
                             }]
                         }]
                     }, {
@@ -81,7 +85,7 @@ class HeaderComponent extends Component {
                         cn : [{
                             tag : 'a',
                             cls : ['nav-link'],
-                            href: '#usersettings',
+                            href: '#/settings',
                             cn: [{
                                 tag: 'i',
                                 cls: 'ion-gear-a'
@@ -98,7 +102,13 @@ class HeaderComponent extends Component {
                             tag : 'a',
                             cls : ['nav-link'],
                             href: '#/profile',
-                            html: '&nbsp;Profile'
+                            cn  : [{
+                                tag: 'img',
+                                cls: ['user-pic']
+                            }, {
+                                vtype: 'text',
+                                html : '&nbsp;Profile'
+                            }]
                         }]
                     }, {
                         tag: 'li',
@@ -155,14 +165,31 @@ class HeaderComponent extends Component {
                 vdom = me.vdom,
                 list = vdom.cn[0].cn[1];
 
-            list.cn[1].removeDom = !value; // newpost
-            list.cn[2].removeDom = !value; // usersettings
+            list.cn[1].removeDom = !value; // editor
+            list.cn[2].removeDom = !value; // settings
             list.cn[3].removeDom = !value; // profile
             list.cn[4].removeDom = value;  // login
             list.cn[5].removeDom = value;  // register
 
             me.vdom = vdom;
         }
+    }
+
+    /**
+     * Triggered after the userImage config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetUserImage(value, oldValue) {
+        let me          = this,
+            vdom        = me.vdom,
+            profileLink = vdom.cn[0].cn[1].cn[3].cn[0];
+
+        profileLink.cn[0].removeDom = !value;
+        profileLink.cn[0].src       = value;
+
+        me.vdom = vdom;
     }
 
     /**
@@ -178,7 +205,7 @@ class HeaderComponent extends Component {
                 profileLink = vdom.cn[0].cn[1].cn[3].cn[0];
 
             profileLink.href = '#/profile/' + value;
-            profileLink.html = '&nbsp;'     + value;
+            profileLink.cn[1].html = '&nbsp;' + value;
 
             me.vdom = vdom;
         }
@@ -191,11 +218,17 @@ class HeaderComponent extends Component {
      */
     getActiveIndex(value) {
         switch (value) {
-            case 'newpost'     : return 1;
-            case 'usersettings': return 2;
-            case '/profile'    : return 3;
-            case '/login'      : return 4;
-            case '/register'   : return 5;
+            case '/settings': return 2;
+            case '/login'   : return 4;
+            case '/register': return 5;
+        }
+
+        if (value.includes('/editor')) {
+            return 1;
+        }
+
+        if (value.includes('/profile')) {
+            return 3;
         }
 
         // default to home

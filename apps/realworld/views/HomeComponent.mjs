@@ -21,6 +21,10 @@ class HomeComponent extends Component {
          */
         ntype: 'realworld-homecomponent',
         /**
+         * @member {String|null} activeTag=null
+         */
+        activeTag: null,
+        /**
          * @member {Object[]|null} articlePreviews_=null
          */
         articlePreviews_: null,
@@ -44,11 +48,15 @@ class HomeComponent extends Component {
             {name: 'Global Feed', active  : true}
         ],
         /**
+         * @member {Boolean} loggedIn_=false
+         */
+        loggedIn_: false,
+        /**
          * @member {Number} pageSize_=10
          */
         pageSize_: 10,
         /**
-         * @member {RealWorld.views.article.PreviewComponent[]} previewComponents_=[]
+         * @member {RealWorld.views.article.PreviewComponent[]} previewComponents=[]
          */
         previewComponents: [],
         /**
@@ -130,6 +138,11 @@ class HomeComponent extends Component {
         });
 
         me.domListeners = domListeners;
+
+        me.getController().on({
+            afterSetCurrentUser: me.onCurrentUserChange,
+            scope              : me
+        });
     }
 
     /**
@@ -269,7 +282,8 @@ class HomeComponent extends Component {
 
             me.vdom = vdom;
 
-            me.getController().articlesOffset = (value - 1) * me.pageSize;
+            me.getController()._articlesOffset = (value - 1) * me.pageSize; // silent update
+            me.getArticles();
 
             Neo.main.DomAccess.windowScrollTo({});
         }
@@ -311,6 +325,21 @@ class HomeComponent extends Component {
     }
 
     /**
+     * Triggered after the loggedIn config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @private
+     */
+    afterSetLoggedIn(value, oldValue) {
+        let me      = this,
+            vdom    = me.vdom,
+            navItem = VDomUtil.findVdomChild(vdom, me.id + '__nav-item-link_0').vdom;
+
+        NeoArray[value ? 'remove' : 'add'](navItem.cls, 'disabled');
+        me.vdom = vdom;
+    }
+
+    /**
      * todo
      * Triggered after the pageSize config got changed
      * @param {Number} value
@@ -334,6 +363,29 @@ class HomeComponent extends Component {
      */
     getArticleId(id) {
         return this.id + '__' + id;
+    }
+
+    /**
+     *
+     * @param {Object} [params={}]
+     * @param {Object} [opts={}]
+     */
+    getArticles(params={}, opts={}) {
+        let me = this;
+
+        if (me.activeTag) {
+            params = {
+                tag: me.activeTag,
+                ...params
+            };
+        }
+
+        me.getController().getArticles(params, opts).then(data => {
+            me.bulkConfigUpdate({
+                articlePreviews: data.json.articles,
+                countArticles  : data.json.articlesCount
+            });
+        });
     }
 
     /**
@@ -372,29 +424,43 @@ class HomeComponent extends Component {
             vdom       = me.vdom,
             el         = VDomUtil.findVdomChild(vdom, data.path[0].id),
             feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
-            opts;
+            opts       = {};
 
-        switch(el.vdom.html) {
-            case 'Global Feed':
-                opts = {};
-                break;
-            case 'Your Feed':
-                opts = {}; // todo
-                break;
-            default: // tag
-                opts = {
-                    tag: el.vdom.html.substring(2) // remove the '# '
-                };
-                break;
+        if (!el.vdom.cls.includes('disabled')) {
+            switch(el.vdom.html) {
+                case 'Global Feed':
+                    me.activeTag = null;
+                    break;
+                case 'Your Feed':
+                    me.activeTag = null;
+                    opts = {
+                        slug: 'feed'
+                    };
+                    break;
+                default: // tag
+                    me.activeTag = el.vdom.html.substring(2); // remove the '# '
+                    break;
+            }
+
+            feedHeader.cn.forEach(item => {
+                NeoArray[item.id === el.parentNode.id ? 'add' : 'remove'](item.cn[0].cls, 'active');
+            });
+
+
+            me._currentPage = 1; // silent update
+            me.vdom = vdom;
+
+            me.getController()._articlesOffset = 0; // silent update
+            me.getArticles({}, opts);
         }
+    }
 
-        feedHeader.cn.forEach(item => {
-            NeoArray[item.id === el.parentNode.id ? 'add' : 'remove'](item.cn[0].cls, 'active');
-        });
-
-        me.vdom = vdom;
-
-        me.getController().getArticles(opts);
+    /**
+     *
+     * @param {Object} value
+     */
+    onCurrentUserChange(value) {
+        this.loggedIn = !!value;
     }
 
     /**
@@ -432,9 +498,13 @@ class HomeComponent extends Component {
             });
         }
 
-        me.feeds = feeds;
+        me.activeTag    = opts.value;
+        me._currentPage = 1; // silent update
+        me.feeds        = feeds;
 
-        me.getController().getArticles({
+        me.getController()._articlesOffset = 0; // silent update
+
+        me.getArticles({
             tag: opts.value
         });
     }

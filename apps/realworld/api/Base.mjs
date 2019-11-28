@@ -165,10 +165,13 @@ class Base extends CoreBase {
     post(opts={}) {
         console.log('post', opts);
 
+        const params = opts.params;
+        delete opts.params;
+
         return Neo.Xhr.promiseJson({
             data   : opts.data,
             method : 'POST',
-            params : opts.params,
+            params : params,
             url    : this.createUrl(opts),
 
             headers: {
@@ -178,6 +181,37 @@ class Base extends CoreBase {
             }
         }).catch(error => {
             console.log('RealWorld.api.Base:post()', error);
+        });
+    }
+
+    /**
+     *
+     * @param {Object} [opts={}]
+     * @param {Object} [opts.data]
+     * @param {Object} [opts.params]
+     * @param {String} [opts.resource]
+     * @param {String} [opts.slug]
+     * @returns {Promise<any>}
+     */
+    put(opts={}) {
+        console.log('put', opts);
+
+        const params = opts.params;
+        delete opts.params;
+
+        return Neo.Xhr.promiseJson({
+            data   : opts.data,
+            method : 'PUT',
+            params : params,
+            url    : this.createUrl(opts),
+
+            headers: {
+                ...this.defaultHeaders || {},
+                'Content-Type'    : 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        }).catch(error => {
+            console.log('RealWorld.api.Base:put()', error);
         });
     }
 }
