@@ -339,8 +339,16 @@ class MainContainerController extends ComponentController {
             switch (newView.reference) {
                 case 'article':
                     slug = hashString.split('/').pop();
+
                     me.getArticle(slug).then(data => {
-                        me.articleComponent.bulkConfigUpdate(data.json.article);
+                        let article = data.json.article,
+                            body    = article.body;
+
+                        delete article.body;
+
+                        me.articleComponent.bulkConfigUpdate(article).then(() => {
+                            me.articleComponent.body = body;
+                        });
                     });
 
                     me.getComments(slug);
