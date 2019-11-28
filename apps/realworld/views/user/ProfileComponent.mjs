@@ -290,6 +290,16 @@ class ProfileComponent extends Component {
 
     /**
      *
+     * @param {Object} params
+     */
+    getArticles(params) {
+        this.getController().getArticles(params).then(data => {
+            this.articlePreviews = data.json.articles;
+        });
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onFollowButtonClick(data) {
@@ -315,16 +325,12 @@ class ProfileComponent extends Component {
             switch(el.vdom.html) {
                 case 'Favorited Articles':
                     params = {
-                        favorited: me.username,
-                        limit    : me.countArticles,
-                        offset   : 0
+                        favorited: me.username
                     };
                     break;
                 case 'My Articles':
                     params = {
-                        favorited: me.username,
-                        limit    : me.countArticles,
-                        offset   : 0
+                        author: me.username
                     };
                     break;
             }
@@ -335,8 +341,10 @@ class ProfileComponent extends Component {
 
             me.vdom = vdom;
 
-            me.getController().getArticles(params).then(data => {
-                me.articlePreviews = data.json.articles;
+            me.getArticles({
+                ...params,
+                limit : me.countArticles,
+                offset: 0
             });
         }
     }
@@ -356,12 +364,10 @@ class ProfileComponent extends Component {
             myProfile: configs.myProfile,
             username : username
         }).then(() => {
-            me.getController().getArticles({
+            me.getArticles({
                 author: username,
                 limit : me.countArticles,
                 offset: 0
-            }).then(data => {
-                me.articlePreviews = data.json.articles;
             });
         });
     }
