@@ -397,12 +397,12 @@ class HomeComponent extends Component {
             vdom       = me.vdom,
             el         = VDomUtil.findVdomChild(vdom, data.path[0].id),
             feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
-            opts;
+            opts       = {},
+            params     = {};
 
         if (!el.vdom.cls.includes('disabled')) {
             switch(el.vdom.html) {
                 case 'Global Feed':
-                    opts = {};
                     break;
                 case 'Your Feed':
                     opts = {
@@ -410,7 +410,7 @@ class HomeComponent extends Component {
                     };
                     break;
                 default: // tag
-                    opts = {
+                    params = {
                         tag: el.vdom.html.substring(2) // remove the '# '
                     };
                     break;
@@ -423,7 +423,7 @@ class HomeComponent extends Component {
             me.vdom = vdom;
 
             controller._articlesOffset = 0; // silent update
-            controller.getArticles(opts);
+            controller.getArticles(params, opts);
         }
     }
 

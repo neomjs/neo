@@ -169,12 +169,15 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @param {Object} [params={}]
+     * @param {Object} [opts={}]
      */
-    getArticles(opts={}) {
+    getArticles(params={}, opts={}) {
         ArticleApi.get({
             params: {
                 limit : 10,
                 offset: this.articlesOffset,
+                ...params
             },
             ...opts
         }).then(data => {
