@@ -409,6 +409,15 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @param {Object} opts
+     * @returns {Promise<any>}
+     */
+    saveUser(opts) {
+        return UserApi.post(opts);
+    }
+
+    /**
+     *
      * @param {Object} [opts)
      * @returns {Promise<any>}
      */
