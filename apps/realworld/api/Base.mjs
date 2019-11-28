@@ -43,18 +43,20 @@ class Base extends CoreBase {
         if (!Base.initialTokenRequestSent) {
             Base.initialTokenRequestSent = true;
 
-            Neo.Main.readLocalStorageItem({
-                key: LOCAL_STORAGE_KEY
-            }).then(data => {
-                const token = data.value;
+            setTimeout(() => {
+                Neo.Main.readLocalStorageItem({
+                    key: LOCAL_STORAGE_KEY
+                }).then(data => {
+                    const token = data.value;
 
-                if (token) {
-                    Base.token = token;
-                }
+                    if (token) {
+                        Base.token = token;
+                    }
 
-                me.onReady(token);
-                Base.fire('ready', token);
-            });
+                    me.onReady(token);
+                    Base.fire('ready', token);
+                });
+            }, Neo.config.isExperimental ? 0 : 50);
         } else {
             Base.on({
                 ready: me.onReady,

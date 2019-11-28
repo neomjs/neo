@@ -114,7 +114,13 @@ class App extends Worker {
             me.vdomRemotesRegistered === me.countVdomRemotes
         ) {
             if (!Neo.config.isExperimental) {
-                Neo.onStart();
+                setTimeout(() => {
+                    Neo.onStart();
+
+                    if (Neo.config.hash) {
+                        HashHistory.push(Neo.config.hash, Neo.config.hashString);
+                    }
+                }, 100);
             } else {
                 // todo: FF breaks here, even if the code is not reachable
 
