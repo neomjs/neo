@@ -21,6 +21,10 @@ class HomeComponent extends Component {
          */
         ntype: 'realworld-homecomponent',
         /**
+         * @member {String|null} activeTag=null
+         */
+        activeTag: null,
+        /**
          * @member {Object[]|null} articlePreviews_=null
          */
         articlePreviews_: null,
@@ -367,8 +371,17 @@ class HomeComponent extends Component {
      * @param {Object} [opts={}]
      */
     getArticles(params={}, opts={}) {
-        this.getController().getArticles(params, opts).then(data => {
-            this.bulkConfigUpdate({
+        let me = this;
+
+        if (me.activeTag) {
+            params = {
+                tag: me.activeTag,
+                ...params
+            };
+        }
+
+        me.getController().getArticles(params, opts).then(data => {
+            me.bulkConfigUpdate({
                 articlePreviews: data.json.articles,
                 countArticles  : data.json.articlesCount
             });
@@ -411,22 +424,21 @@ class HomeComponent extends Component {
             vdom       = me.vdom,
             el         = VDomUtil.findVdomChild(vdom, data.path[0].id),
             feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
-            opts       = {},
-            params     = {};
+            opts       = {};
 
         if (!el.vdom.cls.includes('disabled')) {
             switch(el.vdom.html) {
                 case 'Global Feed':
+                    me.activeTag = null;
                     break;
                 case 'Your Feed':
+                    me.activeTag = null;
                     opts = {
                         slug: 'feed'
                     };
                     break;
                 default: // tag
-                    params = {
-                        tag: el.vdom.html.substring(2) // remove the '# '
-                    };
+                    me.activeTag = el.vdom.html.substring(2); // remove the '# '
                     break;
             }
 
@@ -439,7 +451,7 @@ class HomeComponent extends Component {
             me.vdom = vdom;
 
             me.getController()._articlesOffset = 0; // silent update
-            me.getArticles(params, opts);
+            me.getArticles({}, opts);
         }
     }
 
@@ -486,6 +498,7 @@ class HomeComponent extends Component {
             });
         }
 
+        me.activeTag    = opts.value;
         me._currentPage = 1; // silent update
         me.feeds        = feeds;
 
