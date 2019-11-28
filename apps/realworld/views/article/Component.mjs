@@ -171,8 +171,9 @@ class Component extends BaseComponent {
                 }, {
                     tag: 'hr'
                 }, {
-                    cls: ['article-actions'],
-                    cn : [{
+                    cls : ['article-actions'],
+                    flag: 'article-actions',
+                    cn  : [{
                         cls: ['article-meta'],
                         cn : [{
                             tag : 'a',
@@ -522,8 +523,9 @@ class Component extends BaseComponent {
             vdom.cn[0].cn[0].cn[1].cn[2].removeDom = isCurrentUser; // follow user button
             vdom.cn[0].cn[0].cn[1].cn[5].removeDom = isCurrentUser; // favorite post button
 
-            VDomUtil.getByFlag(vdom, 'delete-button').removeDom = !isCurrentUser;
-            VDomUtil.getByFlag(vdom, 'edit-button')  .removeDom = !isCurrentUser;
+            VDomUtil.getByFlag(vdom, 'article-actions').removeDom = isCurrentUser;
+            VDomUtil.getByFlag(vdom, 'delete-button')  .removeDom = !isCurrentUser;
+            VDomUtil.getByFlag(vdom, 'edit-button')    .removeDom = !isCurrentUser;
 
             me.vdom = vdom;
         }

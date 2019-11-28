@@ -89,15 +89,17 @@ class VDom extends Base {
 
         if (vdom.cn) {
             for (; i < len; i++) {
-                subChild = VDom.findVdomChild(vdom.cn[i], opts, i, vdom);
+                if (vdom.cn[i]) {
+                    subChild = VDom.findVdomChild(vdom.cn[i], opts, i, vdom);
 
-                if (subChild) {
-                    child = {
-                        index     : subChild.index,
-                        parentNode: subChild.parentNode,
-                        vdom      : subChild.vdom
-                    };
-                    break;
+                    if (subChild) {
+                        child = {
+                            index     : subChild.index,
+                            parentNode: subChild.parentNode,
+                            vdom      : subChild.vdom
+                        };
+                        break;
+                    }
                 }
             }
         }
