@@ -79,7 +79,7 @@ class ProfileComponent extends Component {
                                 flag: 'bio'
                             }, {
                                 tag : 'button',
-                                cls : ['btn', 'btn-sm', 'btn-outline-secondary', 'action-btn'],
+                                cls : ['btn', 'btn-sm', 'btn-outline-secondary', 'action-btn', 'follow-button'],
                                 flag: 'following',
                                 cn  : [{
                                     tag: 'i',
@@ -88,6 +88,19 @@ class ProfileComponent extends Component {
                                     vtype: 'text'
                                 }, {
                                     vtype: 'text'
+                                }]
+                            }, {
+                                tag      : 'a',
+                                cls      : ['btn', 'btn-sm', 'btn-outline-secondary', 'action-btn'],
+                                flag     : 'edit-profile',
+                                href     : '#/settings',
+                                removeDom: true,
+                                cn: [{
+                                    tag: 'i',
+                                    cls: ['ion-gear-a']
+                                }, {
+                                    vtype: 'text',
+                                    html : ' Edit Profile Settings'
                                 }]
                             }]
                         }]
@@ -151,7 +164,7 @@ class ProfileComponent extends Component {
         domListeners.push({
             click: {
                 fn      : me.onFollowButtonClick,
-                delegate: '.action-btn',
+                delegate: '.follow-button',
                 scope   : me
             }
         }, {
@@ -163,6 +176,11 @@ class ProfileComponent extends Component {
         });
 
         me.domListeners = domListeners;
+
+        me.getController().on({
+            afterSetCurrentUser: me.onCurrentUserChange,
+            scope              : me
+        });
     }
 
     /**
@@ -265,11 +283,12 @@ class ProfileComponent extends Component {
      * @param {Boolean} oldValue
      * @private
      */
-    afterSetMyProfile(value, oldValue) {
-        if (Neo.isBoolean(value)) {
+    afterSetMyProfile(value, oldValue) {console.log('afterSetMyProfile', value);
+        if (Neo.isBoolean(oldValue)) {
             let vdom = this.vdom;
 
-            VDomUtil.getByFlag(vdom, 'following').removeDom = value;
+            VDomUtil.getByFlag(vdom, 'edit-profile').removeDom = !value;
+            VDomUtil.getByFlag(vdom, 'following')   .removeDom = value;
             this.vdom = vdom;
         }
     }
@@ -296,6 +315,14 @@ class ProfileComponent extends Component {
         this.getController().getArticles(params).then(data => {
             this.articlePreviews = data.json.articles;
         });
+    }
+
+    /**
+     *
+     * @param {Object} value
+     */
+    onCurrentUserChange(value) {console.log('onCurrentUserChange', value);
+        this.myProfile = this.username === value && value.username;
     }
 
     /**
