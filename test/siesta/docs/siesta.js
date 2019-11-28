@@ -15,8 +15,6 @@ project.plan(
     {
         url    : 'tests/Main.mjs',
         preload: [
-            '../../../docs/app/resources/highlightjs-custom-dark-theme.css',
-            '../../../docs/app/resources/highlight/highlight.pack.js',
             '../../../node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js',
             {
                 text: [
