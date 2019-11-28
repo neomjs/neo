@@ -234,12 +234,20 @@ class ProfileComponent extends Component {
      * @param {Object} configs
      */
     update(configs) {
+        let username = configs.username;
+
         this.bulkConfigUpdate({
             bio      : configs.bio,
             following: configs.following,
             image    : configs.image,
             myProfile: configs.myProfile,
-            username : configs.username
+            username : username
+        }).then(() => {
+            this.getController().getArticles({
+                author: username,
+                limit : 5,
+                offset: 0
+            });
         });
     }
 }
