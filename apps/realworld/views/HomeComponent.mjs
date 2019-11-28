@@ -265,7 +265,23 @@ class HomeComponent extends Component {
      * @private
      */
     afterSetCurrentPage(value, oldValue) {
-        this.updateCurrentPage(value, oldValue);
+        let me   = this,
+            vdom = me.vdom,
+            node, oldNode;
+
+        if (me.mounted) {
+            node    = VDomUtil.findVdomChild(vdom, me.getNavLinkVdomId(value)).parentNode;
+            oldNode = VDomUtil.findVdomChild(vdom, me.getNavLinkVdomId(oldValue)).parentNode;
+
+            NeoArray.add(node.cls, 'active');
+            NeoArray.remove(oldNode.cls, 'active');
+
+            me.vdom = vdom;
+
+            me.getController().articlesOffset = (value - 1) * me.pageSize;
+
+            Neo.main.DomAccess.windowScrollTo({});
+        }
     }
 
     /**
@@ -377,6 +393,7 @@ class HomeComponent extends Component {
      */
     onNavLinkClick(data) {
         let me         = this,
+            controller = me.getController(),
             vdom       = me.vdom,
             el         = VDomUtil.findVdomChild(vdom, data.path[0].id),
             feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
@@ -404,15 +421,11 @@ class HomeComponent extends Component {
             });
 
 
-            if (me.currentPage !== 1) {
-                me._currentPage = 1;
-                me.updateCurrentPage(1, me.currentPage, true).then(() => {
-                    me.getController().getArticles(params, opts);
-                });
-            } else {
-                me.vdom = vdom;
-                me.getController().getArticles(params, opts);
-            }
+            me._currentPage = 1; // silent update
+            me.vdom = vdom;
+
+            controller._articlesOffset = 0; // silent update
+            controller.getArticles(params, opts);
         }
     }
 
@@ -464,33 +477,6 @@ class HomeComponent extends Component {
         me.getController().getArticles({
             tag: opts.value
         });
-    }
-
-    /**
-     * Triggered after the currentPage config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
-     * @param {Boolean} [silent=false]
-     * @returns {Promise<any>}
-     */
-    updateCurrentPage(value, oldValue, silent=false) {
-        let me   = this,
-            vdom = me.vdom,
-            node, oldNode;
-console.log(me.mounted);
-        if (me.mounted) {
-            node    = VDomUtil.findVdomChild(vdom, me.getNavLinkVdomId(value)).parentNode;
-            oldNode = VDomUtil.findVdomChild(vdom, me.getNavLinkVdomId(oldValue)).parentNode;
-
-            NeoArray.add(node.cls, 'active');
-            NeoArray.remove(oldNode.cls, 'active');
-
-            me.getController()[silent ? '_articlesOffset' : 'articlesOffset'] = (value - 1) * me.pageSize;
-
-            Neo.main.DomAccess.windowScrollTo({});
-
-            return me.promiseVdomUpdate();
-        }
     }
 }
 
