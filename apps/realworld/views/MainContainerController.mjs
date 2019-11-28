@@ -103,17 +103,13 @@ class MainContainerController extends ComponentController {
      */
     afterSetCurrentUser(value, oldValue) {
         if (typeof oldValue === 'object') {
-            this.fire('afterSetCurrentUser', value);
-
-            if (value) {
-                setTimeout(() => {
-                    this.getReference('header').bulkConfigUpdate({
-                        loggedIn : true,
-                        userImage: value.image,
-                        userName : value.username
-                    });
-                }, 50);
-            }
+            this.getReference('header').bulkConfigUpdate({
+                loggedIn : !!value,
+                userImage: value ? value.image    : null,
+                userName : value ? value.username : null
+            }).then(() => {
+                this.fire('afterSetCurrentUser', value);
+            });
         }
     }
 
@@ -264,7 +260,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} userData
      */
     login(userData) {
-        this.getReference('header').loggedIn = true;
+        this.currentUser = userData;
 
         Neo.Main.createLocalStorageItem({
             key  : LOCAL_STORAGE_KEY,
@@ -283,7 +279,6 @@ class MainContainerController extends ComponentController {
      *
      */
     logout() {
-        this.getReference('header').loggedIn = false;
         this.currentUser = null;
 
         Neo.Main.destroyLocalStorageItem({
