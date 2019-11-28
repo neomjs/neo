@@ -20,6 +20,10 @@ class ProfileComponent extends Component {
          */
         ntype: 'realworld-user-profilecomponent',
         /**
+         * @member {Object[]|null} articlePreviews_=null
+         */
+        articlePreviews_: null,
+        /**
          * @member {String|null} bio_=null
          */
         bio_: null,
@@ -94,8 +98,9 @@ class ProfileComponent extends Component {
                 cn : [{
                     cls: ['row'],
                     cn : [{
-                        cls: ['col-xs-12', 'col-md-10', 'offset-md-1'],
-                        cn : [{
+                        cls  : ['col-xs-12', 'col-md-10', 'offset-md-1'],
+                        flag: 'feed-container',
+                        cn  : [{
                             cls: ['articles-toggle'],
                             cn : [{
                                 tag: 'ul',
@@ -146,6 +151,51 @@ class ProfileComponent extends Component {
         });
 
         me.domListeners = domListeners;
+    }
+
+    /**
+     * Triggered after the articlePreviews config got changed
+     * @param {Object[]|null} value
+     * @param {Object[]|null} oldValue
+     * @private
+     */
+    afterSetArticlePreviews(value, oldValue) {
+        let me        = this,
+            vdom      = me.vdom,
+            container = VDomUtil.getByFlag(vdom, 'feed-container'),
+            config;
+
+        container.cn = [container.cn.shift()];
+
+        if (Array.isArray(value)) {
+            value.forEach((item, index) => {
+                config = {
+                    author        : item.author.username,
+                    createdAt     : item.createdAt,
+                    description   : item.description,
+                    favorited     : item.favorited,
+                    favoritesCount: item.favoritesCount,
+                    slug          : item.slug,
+                    tagList       : item.tagList,
+                    title         : item.title,
+                    userImage     : item.author.image
+                };
+
+                if (!me.previewComponents[index]) {
+                    me.previewComponents[index] = Neo.create({
+                        module  : PreviewComponent,
+                        parentId: me.id,
+                        ...config
+                    });
+                } else {
+                    me.previewComponents[index].bulkConfigUpdate(config, true);
+                }
+
+                container.cn.push(me.previewComponents[index].vdom);
+            });
+        }
+
+        me.vdom = vdom;
     }
 
     /**
@@ -257,8 +307,8 @@ class ProfileComponent extends Component {
                 author: username,
                 limit : me.countArticles,
                 offset: 0
-            }).then(() => {
-                console.log('articles loaded');
+            }).then(data => {
+                me.articlePreviews = data.json.articles;
             });
         });
     }
