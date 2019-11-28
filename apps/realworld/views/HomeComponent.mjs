@@ -393,6 +393,7 @@ class HomeComponent extends Component {
      */
     onNavLinkClick(data) {
         let me         = this,
+            controller = me.getController(),
             vdom       = me.vdom,
             el         = VDomUtil.findVdomChild(vdom, data.path[0].id),
             feedHeader = VDomUtil.getByFlag(vdom, 'feed-header'),
@@ -404,7 +405,9 @@ class HomeComponent extends Component {
                     opts = {};
                     break;
                 case 'Your Feed':
-                    opts = {}; // todo
+                    opts = {
+                        slug: 'feed'
+                    };
                     break;
                 default: // tag
                     opts = {
@@ -419,7 +422,8 @@ class HomeComponent extends Component {
 
             me.vdom = vdom;
 
-            me.getController().getArticles(opts);
+            controller._articlesOffset = 0; // silent update
+            controller.getArticles(opts);
         }
     }
 

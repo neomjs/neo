@@ -175,8 +175,8 @@ class MainContainerController extends ComponentController {
             params: {
                 limit : 10,
                 offset: this.articlesOffset,
-                ...opts
-            }
+            },
+            ...opts
         }).then(data => {
             this.homeComponent.bulkConfigUpdate({
                 articlePreviews: data.json.articles,
