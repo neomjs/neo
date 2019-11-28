@@ -278,7 +278,8 @@ class HomeComponent extends Component {
 
             me.vdom = vdom;
 
-            me.getController().articlesOffset = (value - 1) * me.pageSize;
+            me.getController()._articlesOffset = (value - 1) * me.pageSize; // silent update
+            me.getArticles();
 
             Neo.main.DomAccess.windowScrollTo({});
         }
