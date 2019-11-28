@@ -781,6 +781,7 @@ class Base extends CoreBase {
      * Convenience shortcut for bulk updates, just doing one vdom update call
      * @param {Object} configs
      * @param {Boolean} [silent=false]
+     * @returns {Promise<any>}
      */
     bulkConfigUpdate(configs, silent=false) {
         let me   = this,
@@ -792,7 +793,11 @@ class Base extends CoreBase {
 
         me.silentVdomUpdate = false;
 
-        me[silent ? '_vdom' : 'vdom'] = vdom;
+        if (silent) {
+            me._vdom = vdom;
+        } else {
+            return me.promiseVdomUpdate();
+        }
     }
 
     /**
