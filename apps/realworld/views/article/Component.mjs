@@ -79,6 +79,7 @@ class Component extends BaseComponent {
                         cls: ['article-meta'],
                         cn : [{
                             tag : 'a',
+                            cls : ['prevent-click'],
                             href: '',
                             cn  : [{
                                 tag : 'img',
@@ -88,7 +89,7 @@ class Component extends BaseComponent {
                             cls: ['info'],
                             cn : [{
                                 tag : 'a',
-                                cls : ['author'],
+                                cls : ['author', 'prevent-click'],
                                 flag: 'username',
                                 href: ''
                             }, {
@@ -177,6 +178,7 @@ class Component extends BaseComponent {
                         cls: ['article-meta'],
                         cn : [{
                             tag : 'a',
+                            cls : ['prevent-click'],
                             href: 'profile.html',
                             cn  : [{
                                 tag : 'img',
@@ -186,7 +188,7 @@ class Component extends BaseComponent {
                             cls: ['info'],
                             cn : [{
                                 tag : 'a',
-                                cls : ['author'],
+                                cls : ['author', 'prevent-click'],
                                 flag: 'username',
                                 href: ''
                             }, {
@@ -250,6 +252,11 @@ class Component extends BaseComponent {
      */
     constructor(config) {
         super(config);
+
+        Neo.main.DomEvents.registerPreventDefaultTargets({
+            name: 'click',
+            cls : 'prevent-click'
+        });
 
         let me           = this,
             domListeners = me.domListeners;
