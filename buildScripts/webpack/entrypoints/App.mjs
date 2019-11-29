@@ -94,7 +94,7 @@ class App extends Worker {
      * @param {Object} data parsed key-value pairs for each hash value
      */
     onHashChange(data) {
-        HashHistory.push(data.hash);
+        HashHistory.push(data.hash, data.hashString);
     }
 
     /**
