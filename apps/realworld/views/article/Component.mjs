@@ -79,19 +79,14 @@ class Component extends BaseComponent {
                         cls: ['article-meta'],
                         cn : [{
                             tag : 'a',
-                            cls : ['prevent-click'],
-                            href: '',
-                            cn  : [{
-                                tag : 'img',
-                                flag: 'userimage'
-                            }]
+                            flag: 'userimage',
+                            cn  : [{tag: 'img'}]
                         }, {
                             cls: ['info'],
                             cn : [{
                                 tag : 'a',
-                                cls : ['author', 'prevent-click'],
-                                flag: 'username',
-                                href: ''
+                                cls : ['author'],
+                                flag: 'username'
                             }, {
                                 tag : 'span',
                                 cls : ['date'],
@@ -178,19 +173,14 @@ class Component extends BaseComponent {
                         cls: ['article-meta'],
                         cn : [{
                             tag : 'a',
-                            cls : ['prevent-click'],
-                            href: 'profile.html',
-                            cn  : [{
-                                tag : 'img',
-                                flag: 'userimage'
-                            }]
+                            flag: 'userimage',
+                            cn  : [{tag: 'img'}]
                         }, {
                             cls: ['info'],
                             cn : [{
                                 tag : 'a',
-                                cls : ['author', 'prevent-click'],
-                                flag: 'username',
-                                href: ''
+                                cls : ['author'],
+                                flag: 'username'
                             }, {
                                 tag : 'span',
                                 cls : ['date'],
@@ -253,11 +243,6 @@ class Component extends BaseComponent {
     constructor(config) {
         super(config);
 
-        Neo.main.DomEvents.registerPreventDefaultTargets({
-            name: 'click',
-            cls : 'prevent-click'
-        });
-
         let me           = this,
             domListeners = me.domListeners;
 
@@ -317,10 +302,12 @@ class Component extends BaseComponent {
             });
 
             VDomUtil.getFlags(vdom, 'userimage').forEach(node => {
-                node.src = value.image;
+                node.href = '#/profile/' + value.username;
+                node.cn[0].src = value.image;
             });
 
             VDomUtil.getFlags(vdom, 'username').forEach(node => {
+                node.href = '#/profile/' + value.username;
                 node.html = value.username;
             });
 
