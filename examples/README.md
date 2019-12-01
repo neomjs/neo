@@ -26,7 +26,7 @@ You can start Chrome using a flag (--allow-file-access-from-files), but this wil
 file on your hard drive. To avoid this, a local web-server (like XAMPP) is the way to go.
 
 **Webpack Dev Server**  
-npm run server-start`
+`npm run server-start`
 
 **All Servers**  
 Ensure your server has a mime-type configured for Javascript Modules (.mjs) files. This should be set to the same as normal javascript (.js) files, normally 'application/-javascript'.
