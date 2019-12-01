@@ -33,7 +33,7 @@
     "bugs": {
         "url": "https://github.com/neomjs/neo/issues"
     },
-    "homepage": "https://github.com/neomjs/neo",
+    "homepage": "https://neomjs.github.io/pages/",
     "devDependencies": {
         "@fortawesome/fontawesome-free": "^5.11.2",
         "autoprefixer": "^9.7.2",
