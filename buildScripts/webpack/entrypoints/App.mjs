@@ -94,7 +94,7 @@ class App extends Worker {
      * @param {Object} data parsed key-value pairs for each hash value
      */
     onHashChange(data) {
-        HashHistory.push(data.hash);
+        HashHistory.push(data.hash, data.hashString);
     }
 
     /**
@@ -114,7 +114,13 @@ class App extends Worker {
             me.vdomRemotesRegistered === me.countVdomRemotes
         ) {
             if (!Neo.config.isExperimental) {
-                Neo.onStart();
+                setTimeout(() => {
+                    Neo.onStart();
+
+                    if (Neo.config.hash) {
+                        HashHistory.push(Neo.config.hash, Neo.config.hashString);
+                    }
+                }, 100);
             } else {
                 // todo: FF breaks here, even if the code is not reachable
 

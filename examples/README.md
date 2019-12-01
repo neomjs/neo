@@ -8,14 +8,14 @@ you will have to manually configure Chrome to enable it.
 - Open new tab and enter url chrome://flags/#enable-experimental-web-platform-features
 - Switch the feature from disabled to enabled
 - Relaunch Chrome
-- Open the examples directly, like: localhost/neo/examples/helix/
+- Open the examples directly, like: localhost/neo/examples/component/helix/
 
 More details on JS Modules (and their use within workers) here:
 https://v8.dev/features/modules
 
 Without the Chrome flag (or for other browsers like Firefox or Safari), you can run the examples using the webpack build
 version (which converts JS modules into plain JS files)
-- localhost/neo/dist/development/examples/helix/
+- localhost/neo/dist/development/examples/component/helix/
 
 # Local Web-Server Requirements
 

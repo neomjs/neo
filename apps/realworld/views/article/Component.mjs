@@ -79,18 +79,14 @@ class Component extends BaseComponent {
                         cls: ['article-meta'],
                         cn : [{
                             tag : 'a',
-                            href: '',
-                            cn  : [{
-                                tag : 'img',
-                                flag: 'userimage'
-                            }]
+                            flag: 'userimage',
+                            cn  : [{tag: 'img'}]
                         }, {
                             cls: ['info'],
                             cn : [{
                                 tag : 'a',
                                 cls : ['author'],
-                                flag: 'username',
-                                href: ''
+                                flag: 'username'
                             }, {
                                 tag : 'span',
                                 cls : ['date'],
@@ -177,18 +173,14 @@ class Component extends BaseComponent {
                         cls: ['article-meta'],
                         cn : [{
                             tag : 'a',
-                            href: 'profile.html',
-                            cn  : [{
-                                tag : 'img',
-                                flag: 'userimage'
-                            }]
+                            flag: 'userimage',
+                            cn  : [{tag: 'img'}]
                         }, {
                             cls: ['info'],
                             cn : [{
                                 tag : 'a',
                                 cls : ['author'],
-                                flag: 'username',
-                                href: ''
+                                flag: 'username'
                             }, {
                                 tag : 'span',
                                 cls : ['date'],
@@ -310,10 +302,12 @@ class Component extends BaseComponent {
             });
 
             VDomUtil.getFlags(vdom, 'userimage').forEach(node => {
-                node.src = value.image;
+                node.href = '#/profile/' + value.username;
+                node.cn[0].src = value.image;
             });
 
             VDomUtil.getFlags(vdom, 'username').forEach(node => {
+                node.href = '#/profile/' + value.username;
                 node.html = value.username;
             });
 
