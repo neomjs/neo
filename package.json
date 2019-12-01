@@ -57,5 +57,9 @@
         "webpack-cli": "^3.3.10",
         "webpack-dev-server": "^3.9.0",
         "webpack-node-externals": "^1.7.2"
+    },
+    "funding": {
+        "type": "GitHub Sponsors",
+        "url": "https://github.com/sponsors/tobiu"
     }
 }
