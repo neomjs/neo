@@ -7,7 +7,7 @@
         "url": "https://github.com/neomjs/neo.git"
     },
     "scripts": {
-        "webpack-dev-server => open": "webpack-dev-server --open",
+        "server-start": "webpack-dev-server --open",
         "create-app": "node ./buildScripts/createApp.js",
         "dev-build-my-apps": "webpack --config ./buildScripts/webpack/development/webpack.config.myapps.js",
         "prod-build-my-apps": "webpack --config ./buildScripts/webpack/production/webpack.config.myapps.js",
