@@ -11,7 +11,7 @@ as well as the used theme(s).
 Starts the server and opens a new browser window inside your default browser.
 Optional, feel free to use a local web-server of your choice.
 
-### generatre-docs-json
+### generate-docs-json
 Parses the Neo framework source to generate the data for the Neo docs app content.
 Recommended to run whenever files inside the Neo src folder get changed.
 

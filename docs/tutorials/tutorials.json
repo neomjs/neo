@@ -2,7 +2,7 @@
     {
         "id"       : 1,
         "isLeaf"   : false,
-        "name"     : "neoteric",
+        "name"     : "neo.mjs",
         "parentId" : null,
         "singleton": false
     },
@@ -15,12 +15,12 @@
         "type"    : "json"
     },
     {
-        "fileName": "10_BuildScripts.md",
+        "fileName": "10_BuildScripts.html",
         "id"      : 3,
         "isLeaf"  : true,
         "name"    : "Build Scripts",
         "parentId": 1,
-        "type"    : "md"
+        "type"    : "html"
     },
     {
         "fileName": "02_ClassSystem.html",
