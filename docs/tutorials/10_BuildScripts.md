@@ -7,11 +7,11 @@ All scripts are defined inside the <a href="../../package.json">package.json</a>
 Automatically creates an Neo App for you. You can choose the name of your app (defaults to MyApp),
 as well as the used theme(s).
 
-### webpack-dev-server => open
-Starts the server and opens a new browser window inside your default browser. Optional,
-feel free to use a local web-server of your choice.
+### server-start
+Starts the server and opens a new browser window inside your default browser.
+Optional, feel free to use a local web-server of your choice.
 
-### generatre-docs-json
+### generate-docs-json
 Parses the Neo framework source to generate the data for the Neo docs app content.
 Recommended to run whenever files inside the Neo src folder get changed.
 

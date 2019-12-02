@@ -27,7 +27,7 @@
 
 5. Make sure to use a local WebServer!
    * Use a local webserver of your choice
-   * OR `npm run 'webpack-dev-server => open'`
+   * OR `npm run server-start`
 
    (JS module imports can not work on the local file system (security).)
    
@@ -43,8 +43,8 @@ chrome://flags/#enable-experimental-web-platform-features (Copy the link into a 
 See: <a href="../examples/README.md">examples/README.md</a> for more details!
 
 After using the development and / or production build,
-1. npm run build-development
-2. npm run build-production
+1. `npm run build-development`
+2. `npm run build-production`
 
 you can run the examples like this:
 
