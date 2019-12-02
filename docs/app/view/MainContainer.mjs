@@ -111,7 +111,7 @@ class MainContainer extends Viewport {
             });
         }
 
-        // Disable the examples Tab for build versions until the webpack builds can handle this (see: #140)
+        // Disable the examples Tab for dist versions until the webpack builds can handle this (see: #140)
         me.items[1].items[0].items[2].tabButtonConfig.disabled = !Neo.config.isExperimental;
     }
 
