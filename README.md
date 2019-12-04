@@ -77,7 +77,7 @@ the following concepts will be addictive.
 
 ### The webworkers driven UI framework
 
-Prior to the public release, the project was already at <a href=".github/NEOMJS_HISTORY.md">3720 commits</a>.
+Prior to the public release on November 23, 2019, the project was already at <a href=".github/NEOMJS_HISTORY.md">3720 commits</a>.
 
 Please take a look at the <a href=".github/GETTING_STARTED.md">Getting Started Guide</a>.
 
