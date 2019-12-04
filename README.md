@@ -8,6 +8,8 @@
 <a target="_blank" href="https://neomjs.github.io/pages/">Online Examples</a>&nbsp;&nbsp;
 <a target="_blank" href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html">Online Docs</a>
 
+[Link](https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html "Online Docs" target="_blank")
+
 This is a new paradigm. If you want to enter a new era of making better Web Based User Interfaces,
 the following concepts will be addictive.
 
