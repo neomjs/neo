@@ -3,7 +3,11 @@
   <a href="https://www.npmjs.com/package/neo.mjs"><img src="https://img.shields.io/npm/l/neo.mjs.svg" alt="License"></a>
 </p>
 
-### Warning!
+# Welcome to neo.mjs! (Beta Version)
+
+<a href="https://neomjs.github.io/pages/">Online Examples</a>&nbsp;&nbsp;
+<a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html">Online Docs</a>
+
 This is a new paradigm. If you want to enter a new era of making better Web Based User Interfaces,
 the following concepts will be addictive.
 
@@ -71,10 +75,7 @@ the following concepts will be addictive.
 ### Impossible? Pick with caution!
 <img alt="neo.mjs commit history" src="./.github/images/redorbluepill.png">
 
-# Welcome to neo.mjs! (Beta Version)
 ### The webworkers driven UI framework
-
-<a href="https://neomjs.github.io/pages/">Online Examples</a>
 
 Prior to the public release, the project was already at <a href=".github/NEOMJS_HISTORY.md">3720 commits</a>.
 
