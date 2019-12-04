@@ -332,13 +332,7 @@ Neo = self.Neo = Object.assign({
                     return null;
                 }
 
-                if (config.className) {
-                    className = config.className;
-                    delete config.className;
-                } else {
-                    className = config.module.prototype.className;
-                    delete config.module;
-                }
+                className = config.className ? config.className : config.module.prototype.className;
             }
 
             if (!exists(className)) {

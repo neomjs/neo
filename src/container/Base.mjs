@@ -192,8 +192,7 @@ class Base extends Component {
                 }
 
                 if (item.module) {
-                    item.ntype = item.module.prototype.ntype;
-                    delete item.module;
+                    item.className = item.module.prototype.className;
                 }
 
                 Object.assign(item, {
@@ -202,7 +201,7 @@ class Base extends Component {
                     style   : item.style || {}
                 });
 
-                item = Neo.ntype(item);
+                item = Neo[item.className ? 'create' : 'ntype'](item);
             }
 
             items[index] = item;
