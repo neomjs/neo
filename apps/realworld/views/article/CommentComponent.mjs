@@ -13,11 +13,6 @@ class CommentComponent extends Component {
          */
         className: 'RealWorld.views.article.CommentComponent',
         /**
-         * @member {String} ntype='realworld-article-commentcomponent'
-         * @private
-         */
-        ntype: 'realworld-article-commentcomponent',
-        /**
          * @member {Object|null} author_=null
          */
         author_: null,

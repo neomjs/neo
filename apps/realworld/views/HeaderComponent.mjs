@@ -13,11 +13,6 @@ class HeaderComponent extends Component {
          */
         className: 'RealWorld.views.HeaderComponent',
         /**
-         * @member {String} ntype='realworld-headercomponent'
-         * @private
-         */
-        ntype: 'realworld-headercomponent',
-        /**
          * @member {String} activeItem_='home'
          */
         activeItem_: 'home',

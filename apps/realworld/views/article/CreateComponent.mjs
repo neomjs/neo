@@ -15,11 +15,6 @@ class CreateComponent extends Component {
          */
         className: 'RealWorld.views.article.CreateComponent',
         /**
-         * @member {String} ntype='realworld-article-createcomponent'
-         * @private
-         */
-        ntype: 'realworld-article-createcomponent',
-        /**
          * @member {String} body_=''
          */
         body_: '',

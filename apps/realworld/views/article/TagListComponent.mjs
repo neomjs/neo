@@ -21,11 +21,6 @@ class TagListComponent extends Component {
          */
         className: 'RealWorld.views.article.TagListComponent',
         /**
-         * @member {String} ntype='realworld-article-taglistcomponent'
-         * @private
-         */
-        ntype: 'realworld-article-taglistcomponent',
-        /**
          * @member {String|null} activeTag_
          */
         activeTag_: null,

@@ -13,11 +13,6 @@ class SignUpComponent extends Component {
          */
         className: 'RealWorld.views.user.SignUpComponent',
         /**
-         * @member {String} ntype='realworld-user-signupcomponent'
-         * @private
-         */
-        ntype: 'realworld-user-signupcomponent',
-        /**
          * @member {String[]} cls=['auth-page']
          */
         cls: ['auth-page'],

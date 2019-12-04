@@ -15,11 +15,6 @@ class ProfileComponent extends Component {
          */
         className: 'RealWorld.views.user.ProfileComponent',
         /**
-         * @member {String} ntype='realworld-user-profilecomponent'
-         * @private
-         */
-        ntype: 'realworld-user-profilecomponent',
-        /**
          * @member {Object[]|null} articlePreviews_=null
          */
         articlePreviews_: null,

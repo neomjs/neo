@@ -12,11 +12,6 @@ class FooterComponent extends Component {
          */
         className: 'RealWorld.views.FooterComponent',
         /**
-         * @member {String} ntype='realworld-headercomponent'
-         * @private
-         */
-        ntype: 'realworld-footercomponent',
-        /**
          * @member {Object} _vdom
          */
         _vdom: {
