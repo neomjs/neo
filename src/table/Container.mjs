@@ -1,6 +1,7 @@
 import {default as BaseContainer}   from '../container/Base.mjs';
 import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
 import Css                          from '../util/Css.mjs';
+import NeoArray                     from '../util/Array.mjs';
 import RowModel                     from '../selection/table/RowModel.mjs';
 import Store                        from '../data/Store.mjs';
 import View                         from './View.mjs';
@@ -182,7 +183,7 @@ class Container extends BaseContainer {
      */
     afterSetUseCustomScrollbars(value, oldValue) {
         if (value === true) {
-            this.vdom.cls = Neo.Array.union(this.vdom.cls, ['neo-use-custom-scrollbar']);
+            this.vdom.cls = NeoArray.union(this.vdom.cls, ['neo-use-custom-scrollbar']);
         }
     }
 

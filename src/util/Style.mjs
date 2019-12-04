@@ -6,8 +6,7 @@ import Base from '../core/Base.mjs';
  */
 class Style extends Base {
     static getConfig() {return {
-        className         : 'Neo.util.Style',
-        alternateClassName: 'Neo.Style'
+        className: 'Neo.util.Style'
     }}
 
     /**

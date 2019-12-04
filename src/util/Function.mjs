@@ -6,8 +6,7 @@ import Base from '../core/Base.mjs';
  */
 class NeoFunction extends Base {
     static getConfig() {return {
-        className         : 'Neo.util.Function',
-        alternateClassName: 'Neo.Function'
+        className: 'Neo.util.Function'
     }}
 
     static createSequence(target, methodName, fn, scope) {

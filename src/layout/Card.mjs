@@ -70,8 +70,8 @@ class Card extends Base {
                 cls           = item.cls;
                 isActiveIndex = index === value;
 
-                Neo.Array.remove(cls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
-                Neo.Array.add(   cls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
+                NeoArray.remove(cls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
+                NeoArray.add(   cls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
 
                 item.cls = cls;
             });
@@ -88,8 +88,8 @@ class Card extends Base {
             sCfg     = me.getStaticConfig(),
             childCls = child.cls;
 
-        Neo.Array.add(childCls, sCfg.itemCls);
-        Neo.Array.add(childCls, me.activeIndex === index ? sCfg.activeItemCls : sCfg.inactiveItemCls);
+        NeoArray.add(childCls, sCfg.itemCls);
+        NeoArray.add(childCls, me.activeIndex === index ? sCfg.activeItemCls : sCfg.inactiveItemCls);
 
         child.cls = childCls;
     }

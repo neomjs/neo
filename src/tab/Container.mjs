@@ -104,7 +104,7 @@ class Container extends BaseContainer {
     /**
      * Adds one or multiple tabs at the end of the header
      * @param {Object|Array} item
-     * @returns {Neo.Component|Neo.Component[]}
+     * @returns {Neo.component.Base|Neo.component.Base[]}
      */
     add(item) {
         return this.insert(this.getTabBar().items.length, item);
@@ -217,7 +217,7 @@ class Container extends BaseContainer {
             tabButtons.push(me.getTabButtonConfig(item.tabButtonConfig, index));
             delete item.tabButtonConfig;
 
-            if (item instanceof Neo.Component !== true) {
+            if (item instanceof Neo.component.Base !== true) {
                 item = {...me.itemDefaults, flex: 1, ...item};
             }
 
@@ -362,7 +362,7 @@ class Container extends BaseContainer {
      * Inserts an item or array of items at a specific index
      * @param {Number} index
      * @param {Object|Object[]} item
-     * @returns {Neo.Component|Neo.Component[]}
+     * @returns {Neo.component.Base|Neo.component.Base[]}
      */
     insert(index, item) {
         let me            = this,
@@ -394,7 +394,7 @@ class Container extends BaseContainer {
                 }
             }
 
-            if (!hasItem && item instanceof Neo.Component !== true) {
+            if (!hasItem && item instanceof Neo.component.Base !== true) {
                 tabButtonConfig = item.tabButtonConfig;
 
                 if (me.activateInsertedTabs) {

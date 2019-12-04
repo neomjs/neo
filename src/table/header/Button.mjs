@@ -1,5 +1,5 @@
 import {default as BaseButton} from '../../component/Button.mjs';
-import NeoArray from '../../util/Array.mjs';
+import NeoArray                from '../../util/Array.mjs';
 
 /**
  * @class Neo.table.header.Button
@@ -137,19 +137,19 @@ class Button extends BaseButton {
         switch(me.isSorted) {
             case null:
                 direction = 'ASC';
-                Neo.Array.remove(cls, 'neo-sort-desc');
-                Neo.Array.remove(cls, 'neo-sort-hidden');
-                Neo.Array.add(cls, 'neo-sort-asc');
+                NeoArray.remove(cls, 'neo-sort-desc');
+                NeoArray.remove(cls, 'neo-sort-hidden');
+                NeoArray.add(cls, 'neo-sort-asc');
                 break;
             case 'ASC':
                 direction = 'DESC';
-                Neo.Array.remove(cls, 'neo-sort-asc');
-                Neo.Array.remove(cls, 'neo-sort-hidden');
-                Neo.Array.add(cls, 'neo-sort-desc');
+                NeoArray.remove(cls, 'neo-sort-asc');
+                NeoArray.remove(cls, 'neo-sort-hidden');
+                NeoArray.add(cls, 'neo-sort-desc');
                 break;
             case 'DESC':
                 direction = null;
-                Neo.Array.add(cls, 'neo-sort-hidden');
+                NeoArray.add(cls, 'neo-sort-hidden');
                 break;
         }
 
@@ -236,7 +236,7 @@ class Button extends BaseButton {
         let me  = this,
             cls = me.cls;
 
-        Neo.Array.add(cls, 'neo-sort-hidden');
+        NeoArray.add(cls, 'neo-sort-hidden');
 
         me.cls      = cls;
         me.isSorted = null;
