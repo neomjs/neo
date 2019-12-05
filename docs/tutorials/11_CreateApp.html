@@ -1,5 +1,5 @@
 <div class="neo-header-text-container">
-    <span class="neo-header-text">Guide: create-app script</span>
+    <span class="neo-header-text">Guide: create-app script in detail</span>
 </div>
 <article>
     <p>Inside the package.json you will find the script "create-app", which is a very good starting point for creating
@@ -13,7 +13,7 @@
         <li>Create an app manually</li>
         <li>Remove an app you no longer need</li>
     </ol>
-    <p><b>1)</b> After running the script, you will get asked to enter the name of your app (defaults to MyApp)</p>
+    <h3><b style="color:red;">1)</b> After running the script, you will get asked to enter the name of your app (defaults to MyApp)</h3>
     <img src="./resources/images/tutorials/create-app-choose-name.png">
     <p>Afterwards you will get asked if you want to use the neo-theme-dark, neo-theme-light or both:</p>
     <img src="./resources/images/tutorials/create-app-choose-theme.png">
@@ -50,4 +50,20 @@
         }
     }
 }</code></pre>
+    <p>At this point, the RealWorld demo app is already included here to give you an example of how to create an neo.mjs app.
+    The docs app is a neo.mjs app as well (and probably the better starting point.</p>
+    <p>The .../json/myApps.json files as well as the content inside the neo/apps folder is added to the .gitignore.</p>
+    <p>To generate the index.html file for your app, neo/buildScripts/webpack/index.ejs will get consumed.
+    We have an open ticket to enhance this file: <a href="https://github.com/neomjs/neo/issues/134">#134</a>,
+    please let us know in case this is important for you!</p>
+    <h3><b style="color:red;">1)</b> Change the name of your app</h3>
+    <ol>
+        <li>Change the keys inside the .../json/myApps.json files (inside the apps object)</li>
+        <li>Rename the app folder to the lowercase version of your new app name</li>
+        <li>Open the app.mjs file inside your app folder and adjust the appPath & name</li>
+        <li>Open the index.html file inside your app folder and adjust the appPath</li>
+        <li>Open the MainContainer.mjs file inside your app folder and adjust the className</li>
+        <li>Although this process feels like an edge-case, it could get automated with a new script.
+        Feel free to open a feature request ticket in case this feels important for you!</li>
+    </ol>
 </article>
