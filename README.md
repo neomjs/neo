@@ -73,7 +73,7 @@ the following concepts will be addictive.
 </table>
 
 ### Impossible? Pick with caution!
-<img alt="neo.mjs commit history" src="./.github/images/redorbluepill.png">
+<a href="https://en.wikipedia.org/wiki/Red_pill_and_blue_pill"><img alt="blue or red pill" src="./.github/images/redorbluepill.png"></a>
 
 ### The webworkers driven UI framework
 
