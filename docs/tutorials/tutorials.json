@@ -15,6 +15,14 @@
         "type"    : "json"
     },
     {
+        "fileName": "11_CreateApp.html",
+        "id"      : 2,
+        "isLeaf"  : true,
+        "name"    : "create-app script",
+        "parentId": 1,
+        "type"    : "html"
+    },
+    {
         "fileName": "10_BuildScripts.html",
         "id"      : 3,
         "isLeaf"  : true,
