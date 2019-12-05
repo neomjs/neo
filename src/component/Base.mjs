@@ -36,11 +36,6 @@ class Base extends CoreBase {
          */
         ntype: 'component',
         /**
-         * @member {String} alternateClassName='Neo.Component'
-         * @private
-         */
-        alternateClassName: 'Neo.Component',
-        /**
          * True automatically mounts a component after being rendered.
          * Use this for the top level component of your app.
          * @member {Boolean} autoMount=false

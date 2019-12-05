@@ -3,7 +3,11 @@
   <a href="https://www.npmjs.com/package/neo.mjs"><img src="https://img.shields.io/npm/l/neo.mjs.svg" alt="License"></a>
 </p>
 
-### Warning!
+# Welcome to neo.mjs! (Beta Version)
+
+<a href="https://neomjs.github.io/pages/">Online Examples</a>&nbsp;&nbsp;
+<a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html">Online Docs</a>
+
 This is a new paradigm. If you want to enter a new era of making better Web Based User Interfaces,
 the following concepts will be addictive.
 
@@ -69,14 +73,11 @@ the following concepts will be addictive.
 </table>
 
 ### Impossible? Pick with caution!
-<img alt="neo.mjs commit history" src="./.github/images/redorbluepill.png">
+<a href="https://en.wikipedia.org/wiki/Red_pill_and_blue_pill"><img alt="blue or red pill" src="./.github/images/redorbluepill.png"></a>
 
-# Welcome to neo.mjs! (Beta Version)
 ### The webworkers driven UI framework
 
-<a href="https://neomjs.github.io/pages/">Online Examples</a>
-
-Prior to the public release, the project was already at <a href=".github/NEOMJS_HISTORY.md">3720 commits</a>.
+Prior to the public release on November 23, 2019, the project was already at <a href=".github/NEOMJS_HISTORY.md">3720 commits</a>.
 
 Please take a look at the <a href=".github/GETTING_STARTED.md">Getting Started Guide</a>.
 
@@ -89,5 +90,7 @@ In case you like the neo.mjs concepts, please take a look at <a href="./BACKERS.
 ### Join our Slack Channel for questions & feedback:
 
 <a href="https://join.slack.com/t/neotericjs/shared_invite/enQtNDk2NjEwMTIxODQ2LWRjNGQ3ZTMzODRmZGM2NDM2NzZmZTMzZmE2YjEwNDM4NDhjZDllNWY2ZDkwOWQ5N2JmZWViYjYzZTg5YjdiMDc">Slack Channel Invite Link</a>
+
+Build with :heart: in Germany.
 
 Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters

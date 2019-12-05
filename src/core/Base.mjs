@@ -37,11 +37,6 @@ class Base {
          */
         className: 'Neo.core.Base',
         /**
-         * @member {String} alternateClassName='Neo.Base'
-         * @private
-         */
-        alternateClassName: 'Neo.Base',
-        /**
          * The class shortcut-name to use for e.g. creating child components inside a JSON-format
          * @member {String} ntype='base'
          * @private

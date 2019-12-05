@@ -1,10 +1,11 @@
-import Base         from '../core/Base.mjs';
-import DeltaUpdates from './mixins/DeltaUpdates.mjs';
-import Markdown     from './mixins/Markdown.mjs';
-import Hljs         from './mixins/Hljs.mjs';
-import Observable   from '../core/Observable.mjs';
-import Siesta       from './mixins/Siesta.mjs';
-import Stylesheet   from './mixins/Stylesheet.mjs';
+import Base            from '../core/Base.mjs';
+import DeltaUpdates    from './mixins/DeltaUpdates.mjs';
+import Markdown        from './mixins/Markdown.mjs';
+import GoogleAnalytics from './mixins/GoogleAnalytics.mjs';
+import Hljs            from './mixins/Hljs.mjs';
+import Observable      from '../core/Observable.mjs';
+import Siesta          from './mixins/Siesta.mjs';
+import Stylesheet      from './mixins/Stylesheet.mjs';
 
 /**
  * @class Neo.main.DomAccess
@@ -32,6 +33,7 @@ class DomAccess extends Base {
          */
         mixins: [
             DeltaUpdates,
+            GoogleAnalytics,
             Hljs,
             Markdown,
             Observable,

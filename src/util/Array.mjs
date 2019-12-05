@@ -6,8 +6,7 @@ import Base from '../core/Base.mjs';
  */
 class NeoArray extends Base {
     static getConfig() {return {
-        className         : 'Neo.util.Array',
-        alternateClassName: 'Neo.Array'
+        className: 'Neo.util.Array'
     }}
 
     /**

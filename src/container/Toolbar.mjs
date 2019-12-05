@@ -2,6 +2,7 @@ import Button                 from '../component/Button.mjs';
 import {default as Component} from '../component/Base.mjs';
 import {default as Container} from './Base.mjs';
 import Label                  from '../component/Label.mjs';
+import NeoArray               from '../util/Array.mjs';
 
 /**
  * @class Neo.container.Toolbar
@@ -95,13 +96,13 @@ class Toolbar extends Container {
      * @param {String} oldValue
      * @private
      */
-    afterSetDock(value) {
+    afterSetDock(value, oldValue) {
         let me            = this,
             cls           = me.cls,
             dockPositions = me.getStaticConfig('dockPositions');
 
         dockPositions.forEach(key => {
-            Neo.Array[key === value ? 'add' : 'remove'](cls, 'neo-dock-' + key);
+            NeoArray[key === value ? 'add' : 'remove'](cls, 'neo-dock-' + key);
         });
 
         me.cls    = cls;

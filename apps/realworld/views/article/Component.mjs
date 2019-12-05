@@ -16,11 +16,6 @@ class Component extends BaseComponent {
          */
         className: 'RealWorld.views.article.Component',
         /**
-         * @member {String} ntype='realworld-article-component'
-         * @private
-         */
-        ntype: 'realworld-article-component',
-        /**
          * @member {Object|null} author_=null
          */
         author_: null,

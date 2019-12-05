@@ -13,11 +13,6 @@ class SettingsComponent extends Component {
          */
         className: 'RealWorld.views.user.SettingsComponent',
         /**
-         * @member {String} ntype='realworld-user-settingscomponent'
-         * @private
-         */
-        ntype: 'realworld-user-settingscomponent',
-        /**
          * @member {String} bio_=null
          */
         bio_: null,

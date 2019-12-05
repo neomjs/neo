@@ -16,11 +16,6 @@ class HomeComponent extends Component {
          */
         className: 'RealWorld.views.HomeComponent',
         /**
-         * @member {String} ntype='realworld-homecomponent'
-         * @private
-         */
-        ntype: 'realworld-homecomponent',
-        /**
          * @member {String|null} activeTag=null
          */
         activeTag: null,

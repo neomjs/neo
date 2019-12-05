@@ -120,7 +120,7 @@ class Base extends Component {
     /**
      * Inserts an item or array of items at the last index
      * @param {Object|Array} item
-     * @returns {Neo.Component|Neo.Component[]}
+     * @returns {Neo.component.Base|Neo.component.Base[]}
      */
     add(item) {
         let me = this;
@@ -192,8 +192,7 @@ class Base extends Component {
                 }
 
                 if (item.module) {
-                    item.ntype = item.module.prototype.ntype;
-                    delete item.module;
+                    item.className = item.module.prototype.className;
                 }
 
                 Object.assign(item, {
@@ -202,7 +201,7 @@ class Base extends Component {
                     style   : item.style || {}
                 });
 
-                item = Neo.ntype(item);
+                item = Neo[item.className ? 'create' : 'ntype'](item);
             }
 
             items[index] = item;
@@ -269,7 +268,7 @@ class Base extends Component {
      * Inserts an item or array of items at a specific index
      * @param {Number} index
      * @param {Object|Array} item
-     * @returns {Neo.Component|Neo.Component[]}
+     * @returns {Neo.component.Base|Neo.component.Base[]}
      */
     insert(index, item) {
         let me    = this,
@@ -288,7 +287,7 @@ class Base extends Component {
                 item[i] = me.insert(item[len - 1], index);
             }
         } else if (typeof item === 'object') {
-            if (item instanceof Neo.Component !== true) {
+            if (item instanceof Neo.component.Base !== true) {
                 if (item.module) {
                     item.ntype = item.module.prototype.ntype;
                     delete item.module;
@@ -328,7 +327,7 @@ class Base extends Component {
      * Moves an existing item to a new index
      * @param {String} itemId
      * @param {Number} index
-     * @returns {Neo.Component|Neo.Component[]}
+     * @returns {Neo.component.Base|Neo.component.Base[]}
      */
     moveTo(itemId, index) {
         let me           = this,

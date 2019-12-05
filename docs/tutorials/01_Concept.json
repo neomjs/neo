@@ -22,23 +22,23 @@
                 "cn" : [
                     {
                         "tag"      : "li",
-                        "innerHTML": "NeoJS is web workers driven"
+                        "innerHTML": "neo.mjs is web workers driven"
                     },
                     {
                         "tag"      : "li",
-                        "innerHTML": "NeoJS does not need any cryptic XML markups"
+                        "innerHTML": "neo.mjs does not need any cryptic XML markups"
                     },
                     {
                         "tag"      : "li",
-                        "innerHTML": "NeoJS uses a custom blazing fast virtual dom engine"
+                        "innerHTML": "neo.mjs uses a custom blazing fast virtual dom engine"
                     },
                     {
                         "tag"      : "li",
-                        "innerHTML": "NeoJS is based on EcmaScript 8 (ES8)"
+                        "innerHTML": "neo.mjs is based on EcmaScript 8 (ES8)"
                     },
                     {
                         "tag"      : "li",
-                        "innerHTML": "NeoJS uses HTML5 and CSS3 to the fullest"
+                        "innerHTML": "neo.mjs uses HTML5 and CSS3 to the fullest"
                     },
                     {
                         "tag"      : "li",
@@ -55,7 +55,7 @@
             },
             {
                 "tag"      : "p",
-                "innerHTML": "(1) NeoJS uses 3 web workers:"
+                "innerHTML": "(1) neo.mjs uses 3 web workers:"
             },
             {
                 "tag": "ul",
@@ -80,7 +80,7 @@
             },
             {
                 "tag"      : "p",
-                "innerHTML": "In short: Most parts of NeoJS as well as all apps you will create are inside the App worker."
+                "innerHTML": "In short: Most parts of neo.mjs as well as all apps you will create are inside the App worker."
             },
             {
                 "tag"      : "p",
@@ -100,23 +100,23 @@
             },
             {
                 "tag"      : "p",
-                "innerHTML": "(3) Since NeoJS does not need to parse XML templates back into JSON and then create virtual DOM nodes, the custom Vdom engine is blazing fast. The algorithms to create deltas are highly efficient and recognise moved DOM subtrees immediately."
+                "innerHTML": "(3) Since neo.mjs does not need to parse XML templates back into JSON and then create virtual DOM nodes, the custom Vdom engine is blazing fast. The algorithms to create deltas are highly efficient and recognise moved DOM subtrees immediately."
             },
             {
                 "tag"      : "p",
-                "innerHTML": "(4) NeoJS is most likely the first UI framework out there which does not only allow devs to create ES8 classes on top of ES5 prototypes, but is itself fully written in ES8."
+                "innerHTML": "(4) neo.mjs is most likely the first UI framework out there which does not only allow devs to create ES8 classes on top of ES5 prototypes, but is itself fully written in ES8."
             },
             {
                 "tag"      : "p",
-                "innerHTML": "(5) NeoJS uses the latest web APIs and CSS features to the fullest and give you an easy and intuitive access to them."
+                "innerHTML": "(5) neo.mjs uses the latest web APIs and CSS features to the fullest and give you an easy and intuitive access to them."
             },
             {
                 "tag"      : "p",
-                "innerHTML": "(6) The first and most important design goal of NeoJS is simplicity. This does not only mean to keep the code base as clean and simple as possible, but also to keep the created DOM as lightweight and minimal as possible."
+                "innerHTML": "(6) The first and most important design goal of neo.mjs is simplicity. This does not only mean to keep the code base as clean and simple as possible, but also to keep the created DOM as lightweight and minimal as possible."
             },
             {
                 "tag"      : "p",
-                "innerHTML": "(7) NeoJS does not use Babel or any other tool to transpile code (which does not mean you can't use it for your own apps)."
+                "innerHTML": "(7) neo.mjs does not use Babel or any other tool to transpile code (which does not mean you can't use it for your own apps)."
             }
         ]
     }

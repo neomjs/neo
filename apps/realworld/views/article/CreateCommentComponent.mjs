@@ -12,11 +12,6 @@ class CreateCommentComponent extends Component {
          */
         className: 'RealWorld.views.article.CreateCommentComponent',
         /**
-         * @member {String} ntype='realworld-article-createcommentcomponent'
-         * @private
-         */
-        ntype: 'realworld-article-createcommentcomponent',
-        /**
          * @member {String[]} cls=['card', 'comment-form']
          */
         cls: ['card', 'comment-form'],

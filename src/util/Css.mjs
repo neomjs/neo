@@ -6,8 +6,7 @@ import Base from '../core/Base.mjs';
  */
 class Css extends Base {
     static getConfig() {return {
-        className         : 'Neo.util.Css',
-        alternateClassName: 'Neo.Css'
+        className: 'Neo.util.Css'
     }}
 
     static insertRules(rules) {

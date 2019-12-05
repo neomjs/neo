@@ -55,7 +55,6 @@ Neo = self.Neo = Object.assign({
             if (ctor.hasOwnProperty('classConfigApplied')) {
                 baseCfg       = Neo.clone(ctor.config, true);
                 baseStaticCfg = Neo.clone(ctor.staticConfig, true);
-                delete baseCfg.alternateClassName;
                 break;
             }
 
@@ -113,7 +112,6 @@ Neo = self.Neo = Object.assign({
                 applyMixins(ctor, mixins);
             }
 
-            delete cfg.alternateClassName;
             delete cfg.mixins;
             delete config.mixins;
 
@@ -141,40 +139,18 @@ Neo = self.Neo = Object.assign({
      * Can get called for classes and singleton instances
      * @memberOf module:Neo
      * @param {Neo.core.Base} cls
-     * @param {String|String[]} [altName] An alternative namespace to use as well
      */
-    applyToGlobalNs: function(cls, altName) {
+    applyToGlobalNs: function(cls) {
         let proto = typeof cls === 'function' ? cls.prototype: cls,
-            altNames, className, nsArray, key, ns;
+            className, nsArray, key, ns;
 
         if (proto.constructor.registerToGlobalNs === true) {
-            if (!altName) {
-                className = proto.isClass ? proto.config.className : proto.className;
-            } else {
-                className = altName;
-            }
+            className = proto.isClass ? proto.config.className : proto.className;
 
             nsArray = className.split('.');
             key     = nsArray.pop();
             ns      = Neo.ns(nsArray, true);
             ns[key] = cls;
-        }
-
-        if (!altName) {
-            if (proto.isClass) {
-                altNames = proto.config.alternateClassName;
-            } else {
-                altNames = proto.hasOwnProperty('alternateClassName') && proto.alternateClassName;
-            }
-
-            if (altNames) {
-                if (!Array.isArray(altNames)) {
-                    altNames = altNames.split(',');
-                }
-                altNames.forEach(name => {
-                    this.applyToGlobalNs(cls, name);
-                });
-            }
         }
     },
 
@@ -332,13 +308,7 @@ Neo = self.Neo = Object.assign({
                     return null;
                 }
 
-                if (config.className) {
-                    className = config.className;
-                    delete config.className;
-                } else {
-                    className = config.module.prototype.className;
-                    delete config.module;
-                }
+                className = config.className ? config.className : config.module.prototype.className;
             }
 
             if (!exists(className)) {
@@ -740,6 +710,14 @@ Neo.assignDefaults(Neo.config, {
      * @type Boolean
      */
     useFontAwesome: true,
+    /**
+     * Required for the online examples
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.useGoogleAnalytics
+     * @type Boolean
+     */
+    useGoogleAnalytics: false,
     /**
      * The default base URL for web worker entry points (App, Data, Vdom)
      * @default Neo.config.basePath + 'src/worker/'

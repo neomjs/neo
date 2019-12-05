@@ -141,6 +141,10 @@ class Main extends core.Base {
             DomAccess.adjustSiestaEnvironment();
         }
 
+        if (Neo.config.useGoogleAnalytics) {
+            DomAccess.insertGoogleAnalyticsScript();
+        }
+
         if (Neo.config.appPath) {
             WorkerManager.loadApplication(Neo.config.appPath);
         }

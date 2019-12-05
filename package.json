@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "description": "The webworkers driven UI framework",
     "repository": {
         "type": "git",
@@ -24,7 +24,6 @@
         "dev-theme-light-no-css4": "webpack --config ./buildScripts/webpack/development/webpack.scss.config.js --env.json_file=theme.light.noCss4.json",
         "prod-theme-dark-no-css4": "webpack --config ./buildScripts/webpack/production/webpack.scss.config.js --env.json_file=theme.dark.noCss4.json",
         "prod-theme-light-no-css4": "webpack --config ./buildScripts/webpack/production/webpack.scss.config.js --env.json_file=theme.light.noCss4.json",
-        "markdown-to-html": "node ./buildScripts/markdownToHtml.js",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "keywords": [],

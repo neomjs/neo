@@ -14,11 +14,6 @@ class PreviewComponent extends Component {
          */
         className: 'RealWorld.views.article.PreviewComponent',
         /**
-         * @member {String} ntype='realworld-article-previewcomponent'
-         * @private
-         */
-        ntype: 'realworld-article-previewcomponent',
-        /**
          * @member {String|null} author_=null
          */
         author_: null,

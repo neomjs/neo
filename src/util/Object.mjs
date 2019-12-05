@@ -6,8 +6,7 @@ import Base from '../core/Base.mjs';
  */
 class NeoObject extends Base {
     static getConfig() {return {
-        className         : 'Neo.util.Object',
-        alternateClassName: 'Neo.Object'
+        className: 'Neo.util.Object'
     }}
 
     /**
