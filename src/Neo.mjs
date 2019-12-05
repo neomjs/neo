@@ -711,6 +711,14 @@ Neo.assignDefaults(Neo.config, {
      */
     useFontAwesome: true,
     /**
+     * Required for the online examples
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.useGoogleAnalytics
+     * @type Boolean
+     */
+    useGoogleAnalytics: false,
+    /**
      * The default base URL for web worker entry points (App, Data, Vdom)
      * @default Neo.config.basePath + 'src/worker/'
      * @memberOf! module:Neo
