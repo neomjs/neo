@@ -1,5 +1,5 @@
 <div class="neo-header-text-container">
-    <span class="neo-header-text">Guide: create-app script in detail</span>
+    <span class="neo-header-text">Guide: the create-app script in detail</span>
 </div>
 <article>
     <p>Inside the package.json you will find the script "create-app", which is a very good starting point for creating
@@ -56,14 +56,35 @@
     <p>To generate the index.html file for your app, neo/buildScripts/webpack/index.ejs will get consumed.
     We have an open ticket to enhance this file: <a href="https://github.com/neomjs/neo/issues/134">#134</a>,
     please let us know in case this is important for you!</p>
-    <h3><b style="color:red;">1)</b> Change the name of your app</h3>
+    <h3><b style="color:red;">2)</b> Change the name of your app</h3>
     <ol>
         <li>Change the keys inside the .../json/myApps.json files (inside the apps object)</li>
         <li>Rename the app folder to the lowercase version of your new app name</li>
         <li>Open the app.mjs file inside your app folder and adjust the appPath & name</li>
         <li>Open the index.html file inside your app folder and adjust the appPath</li>
         <li>Open the MainContainer.mjs file inside your app folder and adjust the className</li>
-        <li>Although this process feels like an edge-case, it could get automated with a new script.
+        <li>Although this process feels like an edge-case, it could get automated with a new script.<br/>
         Feel free to open a feature request ticket in case this feels important for you!</li>
+    </ol>
+    <h3><b style="color:red;">3)</b> Change the theme(s) of your app</h3>
+    <p>Open the index.html file inside your app folder and adjust the Neo.config => themes</p>
+    <ol>
+        <li>The default value is themes: ['neo-theme-light', 'neo-theme-dark'], so not using the config includes both themes</li>
+        <li>themes: ['neo-theme-dark'] => include only the dark theme</li>
+        <li>themes: ['neo-theme-light'] => include only the light theme</li>
+        <li>themes: ['neo-theme-dark', 'neo-theme-light'] => include both themes and use the dark theme as the default one.</li>
+    </ol>
+    <h3><b style="color:red;">4)</b> Create an app manually</h3>
+    <p>This process is similar to changing the app name.</p>
+    <ol>
+        <li>Copy an existing app folder into neo/apps and use the new lowercase app name as the folder name</li>
+        <li>Follow the steps in 3)</li>
+        <li>Add your new app into the .../json/myApps.json files</li>
+    </ol>
+    <h3><b style="color:red;">5)</b> Remove an app you no longer need</h3>
+    <ol>
+        <li>Delete your app folder inside neo/apps</li>
+        <li>Remove the entries inside the .../json/myApps.json files.<br/>
+        In case this was your only app, you can delete the the .../json/myApps.json files instead.</li>
     </ol>
 </article>
