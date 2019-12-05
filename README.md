@@ -91,4 +91,6 @@ In case you like the neo.mjs concepts, please take a look at <a href="./BACKERS.
 
 <a href="https://join.slack.com/t/neotericjs/shared_invite/enQtNDk2NjEwMTIxODQ2LWRjNGQ3ZTMzODRmZGM2NDM2NzZmZTMzZmE2YjEwNDM4NDhjZDllNWY2ZDkwOWQ5N2JmZWViYjYzZTg5YjdiMDc">Slack Channel Invite Link</a>
 
+Build with :heart: in Germany.
+
 Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
