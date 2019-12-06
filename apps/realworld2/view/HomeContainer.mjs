@@ -12,6 +12,10 @@ class HomeContainer extends Container {
          */
         className: 'RealWorld2.view.HomeContainer',
         /**
+         * @member {String[]} cls=['rw2-home-container']
+         */
+        cls: ['rw2-home-container'],
+        /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
          */
         layout: {
@@ -23,10 +27,10 @@ class HomeContainer extends Container {
          */
         items: [{
             ntype : 'component',
+            cls   : ['banner'],
             height: 170,
             vdom  : {
-                cls: ['banner'],
-                cn : [{
+                cn: [{
                     cls: ['container'],
                     cn : [{
                         tag : 'h1',
