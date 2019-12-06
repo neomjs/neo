@@ -1,4 +1,5 @@
 import {default as Component}    from '../../../src/component/Base.mjs';
+import HeaderContainer           from './HeaderContainer.mjs';
 import MainContainerController   from './MainContainerController.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
 import Viewport                  from '../../../src/container/Viewport.mjs';
@@ -16,13 +17,20 @@ class MainContainer extends Viewport {
          * @member {Neo.controller.Component} controller=MainContainerController
          */
         controller: MainContainerController,
-        layout   : {ntype: 'fit'},
+
+        layout: {
+            ntype: 'vbox',
+            align: 'stretch'
+        },
 
         items: [{
+            module: HeaderContainer,
+            style: { // testing
+                backgroundColor: 'red'
+            }
+        }, {
             module: TabContainer,
-            height: 300,
-            width : 500,
-            style : {flex: 'none', margin: '20px'},
+            flex  : 1,
 
             itemDefaults: {
                 module: Component,
