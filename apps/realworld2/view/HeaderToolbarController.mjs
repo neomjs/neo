@@ -16,6 +16,18 @@ class HeaderToolbarController extends ComponentController {
     onHomeButtonClick() {
         console.log('onHomeButtonClick');
     }
+
+    onNewArticleButtonClick() {
+        console.log('onNewArticleButtonClick');
+    }
+
+    onProfileButtonClick() {
+        console.log('onProfileButtonClick');
+    }
+
+    onSettingsButtonClick() {
+        console.log('onSettingsButtonClick');
+    }
 }
 
 Neo.applyClassConfig(HeaderToolbarController);

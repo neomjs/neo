@@ -22,16 +22,20 @@ class HeaderToolbar extends Toolbar {
         height: 56,
 
         items: [{
-            text: 'conduit'
+            text   : 'conduit',
+            handler: 'onHomeButtonClick'
         }, '->', {
-            text: 'Home',
+            text   : 'Home',
             handler: 'onHomeButtonClick'
         }, {
-            text: 'New Article'
+            text   : 'New Article',
+            handler: 'onNewArticleButtonClick'
         }, {
-            text: 'Settings'
+            text   : 'Settings',
+            handler: 'onSettingsButtonClick'
         }, {
-            text: 'Profile'
+            text   : 'Profile',
+            handler: 'onProfileButtonClick'
         }]
     }}
 }
