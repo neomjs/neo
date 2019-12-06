@@ -25,12 +25,15 @@ class HeaderToolbar extends Toolbar {
             text   : 'conduit',
             handler: 'onHomeButtonClick'
         }, '->', {
+            iconCls: 'fa fa-home',
             text   : 'Home',
             handler: 'onHomeButtonClick'
         }, {
+            iconCls: 'fa fa-edit',
             text   : 'New Article',
             handler: 'onNewArticleButtonClick'
         }, {
+            iconCls: 'fa fa-user-cog',
             text   : 'Settings',
             handler: 'onSettingsButtonClick'
         }, {
