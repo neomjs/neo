@@ -1,9 +1,8 @@
-import {default as Component}    from '../../../src/component/Base.mjs';
-import FooterComponent           from './FooterComponent.mjs';
-import HeaderToolbar             from './HeaderToolbar.mjs';
-import MainContainerController   from './MainContainerController.mjs';
-import {default as TabContainer} from '../../../src/tab/Container.mjs';
-import Viewport                  from '../../../src/container/Viewport.mjs';
+import FooterComponent         from './FooterComponent.mjs';
+import HeaderToolbar           from './HeaderToolbar.mjs';
+import HomeContainer           from './HomeContainer.mjs';
+import MainContainerController from './MainContainerController.mjs';
+import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
  * @class RealWorld2.view.MainContainer
@@ -11,44 +10,35 @@ import Viewport                  from '../../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
+        /**
+         * @member {String} className='RealWorld2.view.MainContainer'
+         * @private
+         */
         className: 'RealWorld2.view.MainContainer',
-
+        /**
+         * @member {Boolean} autoMount=true
+         * @private
+         */
         autoMount: true,
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
          */
         controller: MainContainerController,
-
+        /**
+         * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         */
         layout: {
             ntype: 'vbox',
             align: 'stretch'
         },
-
+        /**
+         * @member {Array} items
+         */
         items: [{
             module: HeaderToolbar
         }, {
-            module: TabContainer,
-            flex  : 1,
-
-            itemDefaults: {
-                module: Component,
-                cls   : ['neo-examples-tab-component'],
-                style : {padding: '20px'},
-            },
-
-            items: [{
-                tabButtonConfig: {
-                    iconCls: 'fa fa-home',
-                    text   : 'Tab 1'
-                },
-                vdom: {innerHTML: 'Welcome to your new Neo App.'}
-            }, {
-                tabButtonConfig: {
-                    iconCls: 'fa fa-play-circle',
-                    text   : 'Tab 2'
-                },
-                vdom: {innerHTML: 'Have fun creating something awesome!'}
-            }]
+            module: HomeContainer,
+            flex  : 1
         }, {
             module: FooterComponent
         }]
