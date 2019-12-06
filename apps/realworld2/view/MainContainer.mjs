@@ -1,14 +1,14 @@
-import {default as Component}    from '../../src/component/Base.mjs';
-import {default as TabContainer} from '../../src/tab/Container.mjs';
-import Viewport                  from '../../src/container/Viewport.mjs';
+import {default as Component}    from '../../../src/component/Base.mjs';
+import {default as TabContainer} from '../../../src/tab/Container.mjs';
+import Viewport                  from '../../../src/container/Viewport.mjs';
 
 /**
- * @class RealWorld2.MainContainer
+ * @class RealWorld2.view.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className: 'RealWorld2.MainContainer',
+        className: 'RealWorld2.view.MainContainer',
         ntype    : 'main-container',
 
         autoMount: true,
