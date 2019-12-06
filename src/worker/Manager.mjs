@@ -47,13 +47,13 @@ class Manager extends Base {
         sharedWorkersEnabled: false,
         /**
          * Internal flag to stop the worker communication in case their creation fails
-         * @member {Boolean} sharedWorkersEnabled=false
+         * @member {Boolean} stopCommunication=false
          * @private
          */
         stopCommunication: false,
         /**
          * True in case the current browser supports window.Worker.
-         * The Neoteric framework is not able to run without web workers.
+         * The neo.mjs framework is not able to run without web workers.
          * @member {Boolean} sharedWorkersEnabled=false
          * @private
          */
