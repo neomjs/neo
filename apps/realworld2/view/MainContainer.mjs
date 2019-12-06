@@ -1,4 +1,5 @@
 import {default as Component}    from '../../../src/component/Base.mjs';
+import FooterComponent           from './FooterComponent.mjs';
 import HeaderContainer           from './HeaderContainer.mjs';
 import MainContainerController   from './MainContainerController.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
@@ -51,6 +52,8 @@ class MainContainer extends Viewport {
                 },
                 vdom: {innerHTML: 'Have fun creating something awesome!'}
             }]
+        }, {
+            module: FooterComponent
         }]
     }}
 }
