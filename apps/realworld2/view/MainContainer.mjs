@@ -1,6 +1,6 @@
 import {default as Component}    from '../../../src/component/Base.mjs';
 import FooterComponent           from './FooterComponent.mjs';
-import HeaderContainer           from './HeaderContainer.mjs';
+import HeaderToolbar             from './HeaderToolbar.mjs';
 import MainContainerController   from './MainContainerController.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
 import Viewport                  from '../../../src/container/Viewport.mjs';
@@ -25,10 +25,7 @@ class MainContainer extends Viewport {
         },
 
         items: [{
-            module: HeaderContainer,
-            style: { // testing
-                backgroundColor: 'red'
-            }
+            module: HeaderToolbar
         }, {
             module: TabContainer,
             flex  : 1,
