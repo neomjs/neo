@@ -1,4 +1,5 @@
-import Toolbar from '../../../src/container/Toolbar.mjs';
+import HeaderToolbarController from './HeaderToolbarController.mjs';
+import Toolbar                 from '../../../src/container/Toolbar.mjs';
 
 /**
  * @class RealWorld2.view.HeaderToolbar
@@ -12,6 +13,10 @@ class HeaderToolbar extends Toolbar {
          */
         className: 'RealWorld2.view.HeaderToolbar',
         /**
+         * @member {Neo.controller.Component} controller=HeaderToolbarController
+         */
+        controller: HeaderToolbarController,
+        /**
          * @member {Number} height=56
          */
         height: 56,
@@ -19,7 +24,8 @@ class HeaderToolbar extends Toolbar {
         items: [{
             text: 'conduit'
         }, '->', {
-            text: 'Home'
+            text: 'Home',
+            handler: 'onHomeButtonClick'
         }, {
             text: 'New Article'
         }, {
