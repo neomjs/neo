@@ -3,16 +3,16 @@ import NeoArray               from '../../../../src/util/Array.mjs';
 import {default as VDomUtil}  from '../../../../src/util/VDom.mjs';
 
 /**
- * @class RealWorld.views.article.PreviewComponent
+ * @class RealWorld.view.article.PreviewComponent
  * @extends Neo.component.Base
  */
 class PreviewComponent extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='RealWorld.views.article.PreviewComponent'
+         * @member {String} className='RealWorld.view.article.PreviewComponent'
          * @private
          */
-        className: 'RealWorld.views.article.PreviewComponent',
+        className: 'RealWorld.view.article.PreviewComponent',
         /**
          * @member {String|null} author_=null
          */

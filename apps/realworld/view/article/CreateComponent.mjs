@@ -4,16 +4,16 @@ import {default as VNodeUtil}  from '../../../../src/util/VNode.mjs';
 import {default as ArticleApi} from '../../api/Article.mjs';
 
 /**
- * @class RealWorld.views.article.CreateComponent
+ * @class RealWorld.view.article.CreateComponent
  * @extends Neo.component.Base
  */
 class CreateComponent extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='RealWorld.views.article.CreateComponent'
+         * @member {String} className='RealWorld.view.article.CreateComponent'
          * @private
          */
-        className: 'RealWorld.views.article.CreateComponent',
+        className: 'RealWorld.view.article.CreateComponent',
         /**
          * @member {String} body_=''
          */

@@ -1,16 +1,16 @@
 import {default as Component} from '../../../../src/component/Base.mjs';
 
 /**
- * @class RealWorld.views.article.CreateCommentComponent
+ * @class RealWorld.view.article.CreateCommentComponent
  * @extends Neo.component.Base
  */
 class CreateCommentComponent extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='RealWorld.views.article.CreateCommentComponent'
+         * @member {String} className='RealWorld.view.article.CreateCommentComponent'
          * @private
          */
-        className: 'RealWorld.views.article.CreateCommentComponent',
+        className: 'RealWorld.view.article.CreateCommentComponent',
         /**
          * @member {String[]} cls=['card', 'comment-form']
          */

@@ -2,16 +2,16 @@ import {default as Component} from '../../../../src/component/Base.mjs';
 import {default as VDomUtil}  from '../../../../src/util/VDom.mjs';
 
 /**
- * @class RealWorld.views.user.SignUpComponent
+ * @class RealWorld.view.user.SignUpComponent
  * @extends Neo.component.Base
  */
 class SignUpComponent extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='RealWorld.views.user.SignUpComponent'
+         * @member {String} className='RealWorld.view.user.SignUpComponent'
          * @private
          */
-        className: 'RealWorld.views.user.SignUpComponent',
+        className: 'RealWorld.view.user.SignUpComponent',
         /**
          * @member {String[]} cls=['auth-page']
          */

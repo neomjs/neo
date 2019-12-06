@@ -1,4 +1,4 @@
-import MainContainer from './views/MainContainer.mjs';
+import MainContainer from './view/MainContainer.mjs';
 
 Neo.onStart = function() {
     Neo.app({

@@ -2,16 +2,16 @@ import {default as Component} from '../../../src/component/Base.mjs';
 import NeoArray               from '../../../src/util/Array.mjs';
 
 /**
- * @class RealWorld.views.HeaderComponent
+ * @class RealWorld.view.HeaderComponent
  * @extends Neo.component.Base
  */
 class HeaderComponent extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='RealWorld.views.HeaderComponent'
+         * @member {String} className='RealWorld.view.HeaderComponent'
          * @private
          */
-        className: 'RealWorld.views.HeaderComponent',
+        className: 'RealWorld.view.HeaderComponent',
         /**
          * @member {String} activeItem_='home'
          */

@@ -1,16 +1,16 @@
 import {default as Component} from '../../../src/component/Base.mjs';
 
 /**
- * @class RealWorld.views.FooterComponent
+ * @class RealWorld.view.FooterComponent
  * @extends Neo.component.Base
  */
 class FooterComponent extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='RealWorld.views.FooterComponent'
+         * @member {String} className='RealWorld.view.FooterComponent'
          * @private
          */
-        className: 'RealWorld.views.FooterComponent',
+        className: 'RealWorld.view.FooterComponent',
         /**
          * @member {Object} _vdom
          */

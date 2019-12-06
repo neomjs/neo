@@ -13,18 +13,18 @@ import {default as TagApi}              from '../api/Tag.mjs';
 import {default as UserApi}             from '../api/User.mjs';
 
 /**
- * @class RealWorld.views.MainContainerController
+ * @class RealWorld.view.MainContainerController
  * @extends Neo.controller.Component
  */
 class MainContainerController extends ComponentController {
     static getConfig() {return {
         /**
-         * @member {String} className='RealWorld.views.MainContainerController'
+         * @member {String} className='RealWorld.view.MainContainerController'
          * @private
          */
-        className: 'RealWorld.views.MainContainerController',
+        className: 'RealWorld.view.MainContainerController',
         /**
-         * @member {RealWorld.views.article.Component|null} articleComponent=null
+         * @member {RealWorld.view.article.Component|null} articleComponent=null
          * @private
          */
         articleComponent: null,
@@ -33,7 +33,7 @@ class MainContainerController extends ComponentController {
          */
         articlesOffset_: 0,
         /**
-         * @member {RealWorld.views.article.CreateComponent|null} createComponent=null
+         * @member {RealWorld.view.article.CreateComponent|null} createComponent=null
          * @private
          */
         createComponent: null,
@@ -48,22 +48,22 @@ class MainContainerController extends ComponentController {
          */
         hashString: null,
         /**
-         * @member {RealWorld.views.HomeComponent|null} homeComponent=null
+         * @member {RealWorld.view.HomeComponent|null} homeComponent=null
          * @private
          */
         homeComponent: null,
         /**
-         * @member {RealWorld.views.user.ProfileComponent|null} profileComponent=null
+         * @member {RealWorld.view.user.ProfileComponent|null} profileComponent=null
          * @private
          */
         profileComponent: null,
         /**
-         * @member {RealWorld.views.user.SettingsComponent|null} settingsComponent=null
+         * @member {RealWorld.view.user.SettingsComponent|null} settingsComponent=null
          * @private
          */
         settingsComponent: null,
         /**
-         * @member {RealWorld.views.user.SignUpComponent|null} signUpComponent=null
+         * @member {RealWorld.view.user.SignUpComponent|null} signUpComponent=null
          * @private
          */
         signUpComponent: null

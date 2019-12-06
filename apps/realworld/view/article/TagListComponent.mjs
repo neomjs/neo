@@ -1,7 +1,7 @@
 import {default as Component} from '../../../../src/component/Base.mjs';
 
 /**
- * @class RealWorld.views.article.TagListComponent
+ * @class RealWorld.view.article.TagListComponent
  * @extends Neo.component.Base
  */
 class TagListComponent extends Component {
@@ -16,10 +16,10 @@ class TagListComponent extends Component {
 
     static getConfig() {return {
         /**
-         * @member {String} className='RealWorld.views.article.TagListComponent'
+         * @member {String} className='RealWorld.view.article.TagListComponent'
          * @private
          */
-        className: 'RealWorld.views.article.TagListComponent',
+        className: 'RealWorld.view.article.TagListComponent',
         /**
          * @member {String|null} activeTag_
          */

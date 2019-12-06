@@ -4,16 +4,16 @@ import PreviewComponent       from '../article/PreviewComponent.mjs';
 import {default as VDomUtil}  from '../../../../src/util/VDom.mjs';
 
 /**
- * @class RealWorld.views.user.ProfileComponent
+ * @class RealWorld.view.user.ProfileComponent
  * @extends Neo.component.Base
  */
 class ProfileComponent extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='RealWorld.views.user.ProfileComponent'
+         * @member {String} className='RealWorld.view.user.ProfileComponent'
          * @private
          */
-        className: 'RealWorld.views.user.ProfileComponent',
+        className: 'RealWorld.view.user.ProfileComponent',
         /**
          * @member {Object[]|null} articlePreviews_=null
          */
@@ -43,7 +43,7 @@ class ProfileComponent extends Component {
          */
         myProfile_: false,
         /**
-         * @member {RealWorld.views.article.PreviewComponent[]} previewComponents=[]
+         * @member {RealWorld.view.article.PreviewComponent[]} previewComponents=[]
          */
         previewComponents: [],
         /**
