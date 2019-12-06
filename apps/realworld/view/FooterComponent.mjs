@@ -21,7 +21,7 @@ class FooterComponent extends Component {
                 cn : [{
                     tag : 'a',
                     cls : ['logo-font'],
-                    href: '/',
+                    href: '#/',
                     html: 'conduit'
                 }, {
                     tag : 'span',
