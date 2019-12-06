@@ -1,0 +1,38 @@
+.rw2-footer-component {
+    background : #f3f3f3;
+    bottom     : 0;
+    font-size  : 1rem;
+    line-height: 1.5;
+    //margin-top : 3rem;
+    padding    : 1rem 0;
+
+    @media (min-width: 544px)  { .container {max-width: 576px; } }
+    @media (min-width: 768px)  { .container {max-width: 720px; } }
+    @media (min-width: 992px)  { .container {max-width: 940px; } }
+    @media (min-width: 1200px) { .container {max-width: 1140px;} }
+
+    a {
+        color          : #5CB85C;
+        text-decoration: none;
+    }
+
+    .attribution {
+        color         : #666;
+        font-size     : 0.8rem;
+        font-weight   : 300;
+        margin-left   : 10px;
+        vertical-align: middle;
+    }
+
+    .container {
+        margin-left  : auto;
+        margin-right : auto;
+        padding-left : 15px;
+        padding-right: 15px;
+    }
+
+    .logo-font {
+        font-family   : "Titillium Web", sans-serif;
+        vertical-align: middle;
+    }
+}
