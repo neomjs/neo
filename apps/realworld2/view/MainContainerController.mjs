@@ -354,7 +354,9 @@ class MainContainerController extends ComponentController {
     }
 
     onProfileButtonClick() {
-        console.log('onProfileButtonClick');
+        Neo.Main.setRoute({
+            value: '/profile/' + this.currentUser.username
+        });
     }
 
     /**
