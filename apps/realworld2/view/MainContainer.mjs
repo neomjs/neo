@@ -21,6 +21,10 @@ class MainContainer extends Viewport {
          */
         autoMount: true,
         /**
+         * @member {String[]} cls=['rw2-home-container']
+         */
+        cls: ['rw2-main-container', 'neo-viewport'],
+        /**
          * @member {Neo.controller.Component} controller=MainContainerController
          */
         controller: MainContainerController,
