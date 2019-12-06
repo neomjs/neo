@@ -1,4 +1,5 @@
 import {default as Component}    from '../../../src/component/Base.mjs';
+import MainContainerController   from './MainContainerController.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
 import Viewport                  from '../../../src/container/Viewport.mjs';
 
@@ -9,9 +10,12 @@ import Viewport                  from '../../../src/container/Viewport.mjs';
 class MainContainer extends Viewport {
     static getConfig() {return {
         className: 'RealWorld2.view.MainContainer',
-        ntype    : 'main-container',
 
         autoMount: true,
+        /**
+         * @member {Neo.controller.Component} controller=MainContainerController
+         */
+        controller: MainContainerController,
         layout   : {ntype: 'fit'},
 
         items: [{
