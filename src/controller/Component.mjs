@@ -1,7 +1,8 @@
-import Base            from './Base.mjs';
-import DomEventManager from '../manager/DomEvent.mjs';
-import Logger          from '../core/Logger.mjs';
-import NeoFunction     from '../util/Function.mjs';
+import Base             from './Base.mjs';
+import ComponentManager from '../manager/Component.mjs';
+import DomEventManager  from '../manager/DomEvent.mjs';
+import Logger           from '../core/Logger.mjs';
+import NeoFunction      from '../util/Function.mjs';
 
 /**
  * @class Neo.controller.Component
@@ -47,7 +48,7 @@ class Component extends Base {
      * @param {Boolean} oldValue
      * @private
      */
-    beforeGetView(value) {
+    beforeGetView(value, oldValue) {
         return Neo.get(value);
     }
 
@@ -57,8 +58,32 @@ class Component extends Base {
      * @param {Boolean} oldValue
      * @private
      */
-    beforeSetView(value) {
+    beforeSetView(value, oldValue) {
         return value.id;
+    }
+
+    /**
+     *
+     * @param {String} handlerName
+     * @returns {Neo.controller.Component|null}
+     */
+    getParentHandlerScope(handlerName) {
+        let me      = this,
+            view    = me.view,
+            parents = ComponentManager.getParents(view),
+            i       = 0,
+            len     = parents.length,
+            controller;
+
+        for (; i < len; i++) {
+            controller = parents[i].controller;
+
+            if (controller && controller[handlerName]) {
+                return controller;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -92,11 +117,15 @@ class Component extends Base {
         }
     }
 
+    /**
+     *
+     * @param {Neo.component.Base} view
+     */
     onViewConstructed(view) {
-        view = view || this.view;
-
         let me = this,
-            domListeners, eventHandler, fn;
+            domListeners, eventHandler, fn, parentController;
+
+        view = view || me.view;
 
         view.domListeners = Neo.clone(view.domListeners, true, true); // ensure there is no interference on prototype level
         domListeners = view.domListeners;
@@ -119,7 +148,22 @@ class Component extends Base {
 
                         if (eventHandler) {
                             if (!me[eventHandler]) {
-                                Logger.logError('Unknown domEvent handler for', view, eventHandler);
+                                parentController = me.getParentHandlerScope(eventHandler);
+
+                                if (!parentController) {
+                                    Logger.logError('Unknown domEvent handler for', view, eventHandler);
+                                } else {
+                                    fn               = parentController[eventHandler].bind(parentController);
+                                    domListener[key] = fn;
+
+                                    DomEventManager.updateListenerPlaceholder({
+                                        componentId       : view.id,
+                                        eventHandlerMethod: fn,
+                                        eventHandlerName  : eventHandler,
+                                        eventName         : key,
+                                        scope             : parentController
+                                    });
+                                }
                             } else {
                                 fn               = me[eventHandler].bind(me);
                                 domListener[key] = fn;
@@ -167,6 +211,10 @@ class Component extends Base {
         }
     }
 
+    /**
+     *
+     * @param {Object} config
+     */
     parseConfig(config) {
         let me           = this,
             view         = config || me.view,

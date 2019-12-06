@@ -353,6 +353,10 @@ class MainContainerController extends ComponentController {
         }
     }
 
+    onProfileButtonClick() {
+        console.log('onProfileButtonClick');
+    }
+
     /**
      *
      * @param {Object} [opts)

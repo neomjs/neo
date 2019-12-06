@@ -21,10 +21,6 @@ class HeaderToolbarController extends ComponentController {
         this.setRoute('/editor');
     }
 
-    onProfileButtonClick() {
-        console.log('onProfileButtonClick');
-    }
-
     onSettingsButtonClick() {
         this.setRoute('/settings');
     }
