@@ -14,11 +14,11 @@ class HeaderToolbarController extends ComponentController {
     }}
 
     onHomeButtonClick() {
-        console.log('onHomeButtonClick');
+        this.setRoute('/');
     }
 
     onNewArticleButtonClick() {
-        console.log('onNewArticleButtonClick');
+        this.setRoute('/editor');
     }
 
     onProfileButtonClick() {
@@ -26,7 +26,17 @@ class HeaderToolbarController extends ComponentController {
     }
 
     onSettingsButtonClick() {
-        console.log('onSettingsButtonClick');
+        this.setRoute('/settings');
+    }
+
+    /**
+     *
+     * @param {String} hash
+     */
+    setRoute(hash) {
+        Neo.Main.setRoute({
+            value: hash
+        });
     }
 }
 
