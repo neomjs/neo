@@ -1,7 +1,6 @@
 import {default as ArticleApi}          from '../api/Article.mjs';
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
 import {default as FavoriteApi}         from '../api/Favorite.mjs';
-import HomeContainer                    from './HomeContainer.mjs'
 import {LOCAL_STORAGE_KEY}              from '../api/config.mjs';
 import {default as ProfileApi}          from '../api/Profile.mjs';
 import {default as TagApi}              from '../api/Tag.mjs';
@@ -255,7 +254,7 @@ class MainContainerController extends ComponentController {
     onHashChange(value, oldValue, hashString) {
         let me    = this,
             view = me.view,
-            newView, slug;
+            activeIndex, newView, slug;
 
         if (!view.mounted) { // the initial hash change gets triggered before the vnode got back from the vdom worker (using autoMount)
             view.on('mounted', () => {
@@ -269,8 +268,8 @@ class MainContainerController extends ComponentController {
             // adjust the active header link
             // view.items[0].activeItem = Object.keys(value)[0];
 
-                 if (hashString === '/')                {newView = me.getReference('home');}
-            else if (hashString === '/helix')           {newView = me.getReference('helix');}
+                 if (hashString === '/')                {activeIndex = 0; newView = me.getReference('home');}
+            else if (hashString === '/helix')           {activeIndex = 1; newView = me.getReference('helix');}
           /*else if (hashString.includes('/article/'))  {newView = me.getView('articleComponent',  ArticleComponent,  'article');}
             else if (hashString.includes('/editor'))    {newView = me.getView('createComponent',   CreateComponent,   'editor');}
             else if (hashString.includes('/profile/'))  {newView = me.getView('profileComponent',  ProfileComponent,  'profile');}
@@ -290,6 +289,8 @@ class MainContainerController extends ComponentController {
                     view.insert(1, newView);
                 }
             }*/
+
+            me.getReference('cards').layout.activeIndex = activeIndex;
 
             switch (newView.reference) {
                 case 'helix':

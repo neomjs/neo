@@ -42,10 +42,12 @@ class MainContainer extends Viewport {
         items: [{
             module: HeaderToolbar
         }, {
-            ntype : 'container',
-            flex  : 1,
-            layout: 'card',
-            items : [{
+            ntype    : 'container',
+            flex     : 1,
+            layout   : {ntype: 'card'},
+            reference: 'cards',
+
+            items: [{
                 module   : HomeContainer,
                 reference: 'home'
             }, {
