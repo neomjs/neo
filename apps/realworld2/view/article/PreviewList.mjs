@@ -1,5 +1,6 @@
 import ArticlePreviews   from '../../store/ArticlePreviews.mjs'
 import {default as List} from '../../../../src/list/Base.mjs';
+import PreviewComponent  from './PreviewComponent.mjs';
 
 /**
  * @class RealWorld2.view.article.PreviewList
@@ -21,6 +22,34 @@ class PreviewList extends List {
          */
         store: ArticlePreviews
     }}
+
+    /**
+     * @param {Boolean} [silent=false]
+     */
+    createItems(silent=false) {
+        let me   = this,
+            vdom = me.vdom,
+            listItem;
+
+        vdom.cn = [];
+
+        me.store.items.forEach(item => {
+            listItem = Neo.create({
+                module  : PreviewComponent,
+                ...item
+            });
+
+            vdom.cn.push(listItem.vdom);
+        });
+
+        if (silent) {
+            me._vdom = vdom;
+        } else {
+            me.promiseVdomUpdate().then(() => {
+                me.fire('createItems');
+            });
+        }
+    }
 }
 
 Neo.applyClassConfig(PreviewList);

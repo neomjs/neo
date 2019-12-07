@@ -24,6 +24,10 @@ class HeaderToolbar extends Toolbar {
          * @member {Number} height=56
          */
         height: 56,
+        /**
+         * @member {Number} minHeight=56
+         */
+        minHeight: 56,
 
         items: [{
             text   : 'conduit',
