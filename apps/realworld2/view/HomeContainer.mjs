@@ -1,6 +1,7 @@
 import {default as Container}    from '../../../src/container/Base.mjs';
 import PreviewList               from './article/PreviewList.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
+import TagListComponent          from './article/TagListComponent.mjs';
 
 /**
  * @class RealWorld2.view.HomeContainer
@@ -73,8 +74,8 @@ class HomeContainer extends Container {
                     }
                 }]
             }, {
-                ntype: 'component',
-                width: 200
+                module: TagListComponent,
+                width : 200
             }]
         }]
     }}
