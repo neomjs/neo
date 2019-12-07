@@ -53,7 +53,7 @@ class HomeContainer extends Container {
                 ntype : 'component',
                 cls   : ['neo-examples-tab-component'],
                 style : {padding: '20px'},
-                vdom  : {innerHTML: 'Welcome to your new Neo App.'},
+                vdom  : {innerHTML: 'todo'},
 
                 tabButtonConfig: {
                     iconCls: 'fa fa-user-ninja',
@@ -87,6 +87,9 @@ class HomeContainer extends Container {
 
         me.getController().getArticles(params, opts).then(data => {
             console.log(data.json);
+
+            // todo: create an easier way to access the store
+            me.items[1].getCardContainer().items[1].store.data = data.json.articles;
         });
     }
 }
