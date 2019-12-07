@@ -294,7 +294,7 @@ class MainContainerController extends ComponentController {
 
             switch (newView.reference) {
                 case 'helix':
-                    console.log('helix');
+                    newView.getArticles();
                     break;
                 case 'home':
                     //me.homeComponent.loggedIn = !!me.currentUser;

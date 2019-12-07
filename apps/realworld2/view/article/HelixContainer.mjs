@@ -12,6 +12,26 @@ class HelixContainer extends HelixMainContainer {
          */
         className: 'RealWorld2.view.article.HelixContainer'
     }}
+
+    /**
+     *
+     * @param {Object} [params={}]
+     * @param {Object} [opts={}]
+     */
+    getArticles(params={}, opts={}) {
+        let me = this;
+
+        if (me.activeTag) {
+            params = {
+                tag: me.activeTag,
+                ...params
+            };
+        }
+
+        me.getController().getArticles(params, opts).then(data => {
+            console.log(data.json);
+        });
+    }
 }
 
 Neo.applyClassConfig(HelixContainer);
