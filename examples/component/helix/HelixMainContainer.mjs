@@ -14,16 +14,17 @@ class HelixMainContainer extends Viewport {
         ntype    : 'main-container',
 
         autoMount: true,
+        /**
+         * @member {Object|null} helixConfig=null
+         */
+        helixConfig: null,
         layout   : {ntype: 'hbox', align: 'stretch'},
 
         items: [{
             ntype : 'container',
             flex  : 1,
             layout: 'fit',
-            items : [{
-                module: Helix,
-                id    : 'neo-helix-1'
-            }]
+            items : []
         }, {
             ntype : 'panel',
             layout: {ntype: 'vbox',align: 'stretch'},
@@ -236,6 +237,20 @@ class HelixMainContainer extends Viewport {
             }]
         }]
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        this.items[0].items.push({
+            module: Helix,
+            id    : 'neo-helix-1',
+            ...this.helixConfig || {}
+        });
+    }
 }
 
 Neo.applyClassConfig(HelixMainContainer);
