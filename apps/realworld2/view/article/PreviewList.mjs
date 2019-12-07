@@ -35,8 +35,10 @@ class PreviewList extends List {
 
         me.store.items.forEach(item => {
             listItem = Neo.create({
-                module  : PreviewComponent,
-                ...item
+                module: PreviewComponent,
+                ...item,
+                author   : item.author.username, // todo: PreviewComponent should use an author object
+                userImage: item.author.image
             });
 
             vdom.cn.push(listItem.vdom);
