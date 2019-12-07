@@ -137,7 +137,7 @@ class MainContainerController extends ComponentController {
     getArticles(params={}, opts={}) {
         return ArticleApi.get({
             params: {
-                limit : 10,
+                limit : 20,
                 ...params
             },
             ...opts

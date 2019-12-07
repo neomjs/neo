@@ -16,9 +16,9 @@ class FooterComponent extends Component {
          */
         cls: ['rw2-footer-component'],
         /**
-         * @member {Number} height=60
+         * @member {Number} height=40
          */
-        height: 60,
+        height: 40,
         /**
          * @member {Object} _vdom
          */

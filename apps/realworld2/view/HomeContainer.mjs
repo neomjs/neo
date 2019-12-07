@@ -45,27 +45,36 @@ class HomeContainer extends Container {
                 }]
             }
         }, {
-            module     : TabContainer,
-            activeIndex: 1,
-            flex       : 1,
-
+            module: Container,
+            cls   : ['neo-container', 'center', 'container'],
+            flex  : 1,
+            layout: {ntype: 'hbox', align: 'stretch'},
             items: [{
-                ntype : 'component',
-                cls   : ['neo-examples-tab-component'],
-                style : {padding: '20px'},
-                vdom  : {innerHTML: 'todo'},
+                module     : TabContainer,
+                activeIndex: 1,
+                flex       : 1,
 
-                tabButtonConfig: {
-                    iconCls: 'fa fa-user-ninja',
-                    text   : 'Your Feed'
-                }
+                items: [{
+                    ntype : 'component',
+                    cls   : ['neo-examples-tab-component'],
+                    style : {padding: '20px'},
+                    vdom  : {innerHTML: 'todo'},
+
+                    tabButtonConfig: {
+                        iconCls: 'fa fa-user-ninja',
+                        text   : 'Your Feed'
+                    }
+                }, {
+                    module: PreviewList,
+
+                    tabButtonConfig: {
+                        iconCls: 'fa fa-globe-europe',
+                        text   : 'Global Feed'
+                    }
+                }]
             }, {
-                module: PreviewList,
-
-                tabButtonConfig: {
-                    iconCls: 'fa fa-globe-europe',
-                    text   : 'Global Feed'
-                }
+                ntype: 'component',
+                width: 200
             }]
         }]
     }}
@@ -89,7 +98,7 @@ class HomeContainer extends Container {
             console.log(data.json);
 
             // todo: create an easier way to access the store
-            me.items[1].getCardContainer().items[1].store.data = data.json.articles;
+            me.items[1].items[0].getCardContainer().items[1].store.data = data.json.articles;
         });
     }
 }
