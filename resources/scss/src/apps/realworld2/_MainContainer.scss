@@ -33,6 +33,20 @@
         margin-top   : 0;
     }
 
+    .article-meta {
+        display    : block;
+        font-weight: 300;
+        position   : relative;
+
+        img {
+            border-radius : 30px;
+            display       : inline-block;
+            height        : 32px;
+            vertical-align: middle;
+            width         : 32px;
+        }
+    }
+
     .banner {
         background   : #333;
         color        : #fff;
