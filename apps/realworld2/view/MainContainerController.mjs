@@ -191,7 +191,7 @@ class MainContainerController extends ComponentController {
      */
     getTags() {
         TagApi.get().then(data => {
-            this.getReference('homeContainer').getTagList().tags = data.json.tags;
+            this.getReference('home').getTagList().tags = data.json.tags;
         });
     }
 
@@ -206,7 +206,7 @@ class MainContainerController extends ComponentController {
         const me = this;
 
         // for testing
-        return me.getReference('homeContainer');
+        return me.getReference('home');
     }
 
     /**
@@ -269,7 +269,8 @@ class MainContainerController extends ComponentController {
             // adjust the active header link
             // view.items[0].activeItem = Object.keys(value)[0];
 
-                 if (hashString === '/')                {newView = me.getView('homeContainer',     HomeContainer,     'homeContainer');}
+                 if (hashString === '/')                {newView = me.getReference('home');}
+            else if (hashString === '/helix')           {newView = me.getReference('helix');}
           /*else if (hashString.includes('/article/'))  {newView = me.getView('articleComponent',  ArticleComponent,  'article');}
             else if (hashString.includes('/editor'))    {newView = me.getView('createComponent',   CreateComponent,   'editor');}
             else if (hashString.includes('/profile/'))  {newView = me.getView('profileComponent',  ProfileComponent,  'profile');}
@@ -291,7 +292,10 @@ class MainContainerController extends ComponentController {
             }*/
 
             switch (newView.reference) {
-                case 'homeContainer':
+                case 'helix':
+                    console.log('helix');
+                    break;
+                case 'home':
                     //me.homeComponent.loggedIn = !!me.currentUser;
                     newView.getArticles();
                     me.getTags();

@@ -5,12 +5,12 @@ import {default as RangeField}  from '../../../src/form/field/Range.mjs';
 import {default as Viewport}    from '../../../src/container/Viewport.mjs';
 
 /**
- * @class TestApp.MainContainer
+ * @class TestApp.HelixMainContainer
  * @extends Neo.container.Viewport
  */
 class HelixMainContainer extends Viewport {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
+        className: 'TestApp.HelixMainContainer',
         ntype    : 'main-container',
 
         autoMount: true,
@@ -21,8 +21,8 @@ class HelixMainContainer extends Viewport {
             flex  : 1,
             layout: 'fit',
             items : [{
-                ntype: 'helix',
-                id   : 'neo-helix-1'
+                module: Helix,
+                id    : 'neo-helix-1'
             }]
         }, {
             ntype : 'panel',

@@ -56,22 +56,14 @@ class HomeContainer extends Container {
                 flex       : 3,
 
                 items: [{
-                    ntype : 'component',
-                    cls   : ['neo-examples-tab-component'],
-                    style : {padding: '20px'},
-                    vdom  : {innerHTML: 'todo'},
-
-                    tabButtonConfig: {
-                        iconCls: 'fa fa-user-ninja',
-                        text   : 'Your Feed'
-                    }
+                    ntype          : 'component',
+                    cls            : ['neo-examples-tab-component'],
+                    style          : {padding: '20px'},
+                    tabButtonConfig: {iconCls: 'fa fa-user-ninja', text: 'Your Feed'},
+                    vdom           : {innerHTML: 'todo'}
                 }, {
-                    module: PreviewList,
-
-                    tabButtonConfig: {
-                        iconCls: 'fa fa-globe-europe',
-                        text   : 'Global Feed'
-                    }
+                    module         : PreviewList,
+                    tabButtonConfig: {iconCls: 'fa fa-globe-europe', text: 'Global Feed'}
                 }]
             }, {
                 module: TagListComponent,

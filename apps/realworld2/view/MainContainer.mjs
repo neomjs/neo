@@ -1,5 +1,6 @@
 import FooterComponent         from './FooterComponent.mjs';
 import HeaderToolbar           from './HeaderToolbar.mjs';
+import HelixContainer          from './article/HelixContainer.mjs';
 import HomeContainer           from './HomeContainer.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
@@ -41,9 +42,16 @@ class MainContainer extends Viewport {
         items: [{
             module: HeaderToolbar
         }, {
-            module   : HomeContainer,
-            flex     : 1,
-            reference: 'homeContainer'
+            ntype : 'container',
+            flex  : 1,
+            layout: 'card',
+            items : [{
+                module   : HomeContainer,
+                reference: 'home'
+            }, {
+                module   : HelixContainer,
+                reference: 'helix'
+            }]
         }, {
             module: FooterComponent
         }]
