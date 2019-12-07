@@ -10,6 +10,11 @@
     @media (min-width: 992px)  { .container {max-width: 940px; } }
     @media (min-width: 1200px) { .container {max-width: 1140px;} }
 
+    a {
+        color          : #5cb85c;
+        text-decoration: none;
+    }
+
     h1 {
         font-size: 2em;
         margin   : .67em 0;
@@ -51,6 +56,17 @@
             line-height   : 1rem;
             margin        : 0 1.5rem 0 .3rem;
             vertical-align: middle;
+
+            .author {
+                display    : block;
+                font-weight: 500!important;
+            }
+
+            .date {
+                color    : #888;
+                display  : block;
+                font-size: .8rem;
+            }
         }
     }
 
