@@ -1,4 +1,5 @@
 import {default as Container}    from '../../../src/container/Base.mjs';
+import PreviewList               from './article/PreviewList.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
 
 /**
@@ -44,27 +45,27 @@ class HomeContainer extends Container {
                 }]
             }
         }, {
-            module: TabContainer,
-            flex  : 1,
+            module     : TabContainer,
+            activeIndex: 1,
+            flex       : 1,
 
-            itemDefaults: {
+            items: [{
                 ntype : 'component',
                 cls   : ['neo-examples-tab-component'],
                 style : {padding: '20px'},
-            },
+                vdom  : {innerHTML: 'Welcome to your new Neo App.'},
 
-            items: [{
                 tabButtonConfig: {
                     iconCls: 'fa fa-home',
                     text   : 'Your Feed'
-                },
-                vdom: {innerHTML: 'Welcome to your new Neo App.'}
+                }
             }, {
+                module: PreviewList,
+
                 tabButtonConfig: {
                     iconCls: 'fa fa-play-circle',
                     text   : 'Global Feed'
-                },
-                vdom: {innerHTML: 'Have fun creating something awesome!'}
+                }
             }]
         }]
     }}
