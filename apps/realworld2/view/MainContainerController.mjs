@@ -1,6 +1,7 @@
 import {default as ArticleApi}          from '../api/Article.mjs';
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
 import {default as FavoriteApi}         from '../api/Favorite.mjs';
+import HomeContainer                    from './HomeContainer.mjs'
 import {LOCAL_STORAGE_KEY}              from '../api/config.mjs';
 import {default as ProfileApi}          from '../api/Profile.mjs';
 import {default as TagApi}              from '../api/Tag.mjs';
@@ -204,15 +205,8 @@ class MainContainerController extends ComponentController {
     getView(key, module, reference) {
         const me = this;
 
-        if (!me[key]) {
-            me[key] = Neo.create({
-                module   : module,
-                parentId : me.view.id,
-                reference: reference
-            });
-        }
-
-        return me[key];
+        // for testing
+        return me.getReference('homeContainer');
     }
 
     /**
@@ -273,10 +267,10 @@ class MainContainerController extends ComponentController {
             me.hashString = hashString;
 
             // adjust the active header link
-            /*view.items[0].activeItem = Object.keys(value)[0];
+            // view.items[0].activeItem = Object.keys(value)[0];
 
-                 if (hashString === '/')                {newView = me.getView('homeComponent',     HomeComponent,     'home');}
-            else if (hashString.includes('/article/'))  {newView = me.getView('articleComponent',  ArticleComponent,  'article');}
+                 if (hashString === '/')                {newView = me.getView('homeContainer',     HomeContainer,     'homeContainer');}
+          /*else if (hashString.includes('/article/'))  {newView = me.getView('articleComponent',  ArticleComponent,  'article');}
             else if (hashString.includes('/editor'))    {newView = me.getView('createComponent',   CreateComponent,   'editor');}
             else if (hashString.includes('/profile/'))  {newView = me.getView('profileComponent',  ProfileComponent,  'profile');}
             else if (value.hasOwnProperty('/login'))    {newView = me.getView('signUpComponent',   SignUpComponent,   'signup'); newView.mode = 'signin';}
@@ -294,62 +288,15 @@ class MainContainerController extends ComponentController {
                 if (newView) {
                     view.insert(1, newView);
                 }
-            }
+            }*/
 
             switch (newView.reference) {
-                case 'article':
-                    slug = hashString.split('/').pop();
-
-                    me.getArticle(slug).then(data => {
-                        let article = data.json.article,
-                            body    = article.body;
-
-                        delete article.body;
-
-                        me.articleComponent.bulkConfigUpdate(article).then(() => {
-                            me.articleComponent.body = body;
-                        });
-                    });
-
-                    me.getComments(slug);
+                case 'homeContainer':
+                    //me.homeComponent.loggedIn = !!me.currentUser;
+                    newView.getArticles();
+                    //me.getTags();
                     break;
-                case 'editor':
-                    slug = hashString.split('/').pop();
-                    if (slug !== 'editor') {
-                        me.getArticle(slug).then(data => {
-                            const article = data.json.article;
-
-                            me.createComponent.bulkConfigUpdate({
-                                body       : article.body,
-                                description: article.description,
-                                slug       : article.slug,
-                                tagList    : article.tagList,
-                                title      : article.title
-                            });
-                        });
-                    } else {
-                        me.createComponent.resetForm();
-                    }
-                    break;
-                case 'home':
-                    me.homeComponent.loggedIn = !!me.currentUser;
-                    me.homeComponent.getArticles();
-                    me.getTags();
-                    break;
-                case 'profile':
-                    me.getProfile(hashString.split('/').pop()); // pass the slug
-                    break;
-                case 'settings':
-                    if (me.currentUser) {
-                        setTimeout(() => { // added a short delay to not interfere with the mainContainer update
-                            me.settingsComponent.onCurrentUserChange(me.currentUser);
-                        }, 50);
-                    }
-                    break;
-                case 'signup':
-                    newView.errors = [];
-                    break;
-            }*/
+            }
         }
     }
 

@@ -41,8 +41,9 @@ class MainContainer extends Viewport {
         items: [{
             module: HeaderToolbar
         }, {
-            module: HomeContainer,
-            flex  : 1
+            module   : HomeContainer,
+            flex     : 1,
+            reference: 'homeContainer'
         }, {
             module: FooterComponent
         }]

@@ -69,6 +69,26 @@ class HomeContainer extends Container {
             }]
         }]
     }}
+
+    /**
+     *
+     * @param {Object} [params={}]
+     * @param {Object} [opts={}]
+     */
+    getArticles(params={}, opts={}) {
+        let me = this;
+
+        if (me.activeTag) {
+            params = {
+                tag: me.activeTag,
+                ...params
+            };
+        }
+
+        me.getController().getArticles(params, opts).then(data => {
+            console.log(data.json);
+        });
+    }
 }
 
 Neo.applyClassConfig(HomeContainer);
