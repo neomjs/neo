@@ -148,14 +148,15 @@
     }
 
     .tag-default {
-        color         : #fff!important;
-        display       : inline-block;
-        font-size     : .8rem;
-        margin-bottom : .2rem;
-        margin-right  : 3px;
-        padding-bottom: .1rem;
-        padding-top   : .1rem;
-        white-space   : nowrap;
+        background-color: #818a91;
+        color           : #fff!important;
+        display         : inline-block;
+        font-size       : .8rem;
+        margin-bottom   : .2rem;
+        margin-right    : 3px;
+        padding-bottom  : .1rem;
+        padding-top     : .1rem;
+        white-space     : nowrap;
 
         &.tag-outline {
             background: 0 0!important;

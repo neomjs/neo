@@ -53,7 +53,7 @@ class HomeContainer extends Container {
             items: [{
                 module     : TabContainer,
                 activeIndex: 1,
-                flex       : 1,
+                flex       : 3,
 
                 items: [{
                     ntype : 'component',
@@ -75,7 +75,7 @@ class HomeContainer extends Container {
                 }]
             }, {
                 module: TagListComponent,
-                width : 200
+                flex  : 1
             }]
         }]
     }}
