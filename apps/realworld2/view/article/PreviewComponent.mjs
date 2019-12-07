@@ -74,7 +74,7 @@ class PreviewComponent extends Component {
                     tag: 'button',
                     cls: ['btn', 'btn-sm', 'pull-xs-right'],
                     cn : [
-                        {tag  : 'i',    cls : ['ion-heart']},
+                        {tag  : 'i',    cls : ['fa fa-heart']},
                         {vtype: 'text', flag: 'favoritesCount'}
                     ]
                 }]

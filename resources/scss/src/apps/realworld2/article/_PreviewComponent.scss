@@ -5,4 +5,40 @@
     .article-meta {
         margin: 0 0 1rem;
     }
+
+    .preview-link h1 {
+        color        : #000;
+        font-size    : 1.5rem!important;
+        font-weight  : 600!important;
+        margin-bottom: 3px;
+    }
+
+    .preview-link p {
+        color        : #666;
+        font-size    : 1rem;
+        font-weight  : 300;
+        line-height  : 1.3rem;
+        margin-bottom: 15px;
+    }
+
+    .preview-link span {
+        color         : #888;
+        font-size     : .8rem;
+        font-weight   : 300;
+        max-width     : 30%;
+        vertical-align: middle;
+    }
+
+    .preview-link ul {
+        float         : right;
+        max-width     : 50%;
+        vertical-align: top;
+
+        li {
+            font-size     : .8rem!important;
+            font-weight   : 300;
+            padding-bottom: 0!important;
+            padding-top   : 0!important;
+        }
+    }
 }
