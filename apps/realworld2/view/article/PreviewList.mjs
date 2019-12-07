@@ -18,7 +18,6 @@ class PreviewList extends List {
         displayField: 'title',
         /**
          * @member {Neo.data.Store} store=ArticlePreviews
-         * @private
          */
         store: ArticlePreviews
     }}
