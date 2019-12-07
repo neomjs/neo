@@ -14,9 +14,9 @@ class HomeContainer extends Container {
          */
         className: 'RealWorld2.view.HomeContainer',
         /**
-         * @member {String[]} cls=['rw2-home-container']
+         * @member {String[]} cls=['rw2-home-container', 'neo-container']
          */
-        cls: ['rw2-home-container'],
+        cls: ['rw2-home-container', 'neo-container'],
         /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
          */
