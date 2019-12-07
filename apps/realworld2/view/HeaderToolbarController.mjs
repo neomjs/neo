@@ -13,6 +13,10 @@ class HeaderToolbarController extends ComponentController {
         className: 'RealWorld2.view.HeaderToolbarController'
     }}
 
+    onHelixButtonClick() {
+        this.setRoute('/helix');
+    }
+
     onHomeButtonClick() {
         this.setRoute('/');
     }

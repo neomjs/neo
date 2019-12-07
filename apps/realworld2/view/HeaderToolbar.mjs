@@ -37,6 +37,10 @@ class HeaderToolbar extends Toolbar {
             text   : 'Home',
             handler: 'onHomeButtonClick'
         }, {
+            iconCls: 'fa fa-dna',
+            text   : 'Helix',
+            handler: 'onHelixButtonClick'
+        }, {
             iconCls: 'fa fa-edit',
             text   : 'New Article',
             handler: 'onNewArticleButtonClick'
