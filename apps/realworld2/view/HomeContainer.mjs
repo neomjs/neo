@@ -56,14 +56,14 @@ class HomeContainer extends Container {
                 vdom  : {innerHTML: 'Welcome to your new Neo App.'},
 
                 tabButtonConfig: {
-                    iconCls: 'fa fa-home',
+                    iconCls: 'fa fa-user-ninja',
                     text   : 'Your Feed'
                 }
             }, {
                 module: PreviewList,
 
                 tabButtonConfig: {
-                    iconCls: 'fa fa-play-circle',
+                    iconCls: 'fa fa-globe-europe',
                     text   : 'Global Feed'
                 }
             }]
