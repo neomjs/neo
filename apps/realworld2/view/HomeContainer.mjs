@@ -102,6 +102,10 @@ class HomeContainer extends Container {
             me.items[1].items[0].getCardContainer().items[1].store.data = data.json.articles;
         });
     }
+
+    getTagList() {
+        return this.down({module: TagListComponent});
+    }
 }
 
 Neo.applyClassConfig(HomeContainer);

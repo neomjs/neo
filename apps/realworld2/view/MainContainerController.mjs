@@ -191,7 +191,7 @@ class MainContainerController extends ComponentController {
      */
     getTags() {
         TagApi.get().then(data => {
-            //this.homeComponent.tagList.tags = data.json.tags;
+            this.getReference('homeContainer').getTagList().tags = data.json.tags;
         });
     }
 
@@ -294,7 +294,7 @@ class MainContainerController extends ComponentController {
                 case 'homeContainer':
                     //me.homeComponent.loggedIn = !!me.currentUser;
                     newView.getArticles();
-                    //me.getTags();
+                    me.getTags();
                     break;
             }
         }
