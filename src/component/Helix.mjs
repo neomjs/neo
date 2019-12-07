@@ -188,7 +188,7 @@ class Helix extends Component {
          * The store instance or class containing the data for the gallery items
          * @member {Neo.data.Store|null} store_=null
          */
-        store_: null, // todo: use a store once collecitons are integrated
+        store_: null, // todo: use a store once collections are integrated
         /**
          * The setTimeout() ids for calls which can get cancelled
          * @member {Array} transitionTimeouts=[]
