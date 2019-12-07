@@ -1,4 +1,5 @@
-import {default as Container} from '../../../src/container/Base.mjs';
+import {default as Container}    from '../../../src/container/Base.mjs';
+import {default as TabContainer} from '../../../src/tab/Container.mjs';
 
 /**
  * @class RealWorld2.view.HomeContainer
@@ -35,7 +36,7 @@ class HomeContainer extends Container {
                     cn : [{
                         tag : 'h1',
                         cls : ['logo-font'],
-                        html: 'conduit'
+                        html: 'conduit v2'
                     }, {
                         tag : 'p',
                         html: 'A place to share your knowledge.'
@@ -43,11 +44,28 @@ class HomeContainer extends Container {
                 }]
             }
         }, {
-            module: Container,
+            module: TabContainer,
             flex  : 1,
-            style: {
-                backgroundColor: '#ddd'
-            }
+
+            itemDefaults: {
+                ntype : 'component',
+                cls   : ['neo-examples-tab-component'],
+                style : {padding: '20px'},
+            },
+
+            items: [{
+                tabButtonConfig: {
+                    iconCls: 'fa fa-home',
+                    text   : 'Your Feed'
+                },
+                vdom: {innerHTML: 'Welcome to your new Neo App.'}
+            }, {
+                tabButtonConfig: {
+                    iconCls: 'fa fa-play-circle',
+                    text   : 'Global Feed'
+                },
+                vdom: {innerHTML: 'Have fun creating something awesome!'}
+            }]
         }]
     }}
 }
