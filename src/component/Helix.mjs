@@ -258,13 +258,15 @@ class Helix extends Component {
 
         me.domListeners = domListeners;
 
-        me.store = Neo.create(Collection, {
-            keyProperty: 'id',
-            listeners  : {
-                sort : me.onSort,
-                scope: me
-            }
-        });
+        if (!me.store) {
+            me._store = Neo.create(Collection, {
+                keyProperty: 'id',
+                listeners  : {
+                    sort : me.onSort,
+                    scope: me
+                }
+            });
+        }
     }
 
     /**
@@ -463,6 +465,25 @@ class Helix extends Component {
             listeners: {
                 selectionChange: this.onSelectionChange,
                 scope          : this
+            }
+        });
+    }
+
+    /**
+     * Triggered before the store config gets changed.
+     * @param {Neo.data.Store|null} value
+     * @param {Neo.data.Store|null} oldValue
+     * @private
+     */
+    beforeSetStore(value, oldValue) {
+        if (oldValue) {
+            oldValue.destroy();
+        }
+
+        return ClassSystemUtil.beforeSetInstance(value, null, {
+            listeners  : {
+                sort : this.onSort,
+                scope: this
             }
         });
     }

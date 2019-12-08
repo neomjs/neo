@@ -1,3 +1,4 @@
+import ArticlePreviews    from '../../store/ArticlePreviews.mjs'
 import HelixMainContainer from '../../../../examples/component/helix/HelixMainContainer.mjs';
 
 /**
@@ -10,7 +11,13 @@ class HelixContainer extends HelixMainContainer {
          * @member {String} className='RealWorld2.view.article.HelixContainer'
          * @private
          */
-        className: 'RealWorld2.view.article.HelixContainer'
+        className: 'RealWorld2.view.article.HelixContainer',
+        /**
+         * @member {Object} helixConfig
+         */
+        helixConfig: {
+            store: ArticlePreviews
+        }
     }}
 
     /**
