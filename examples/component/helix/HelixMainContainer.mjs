@@ -251,6 +251,14 @@ class HelixMainContainer extends Viewport {
             ...this.helixConfig || {}
         });
     }
+
+    /**
+     *
+     * @returns {Neo.data.Store}
+     */
+    getStore() {
+        return this.items[0].items[0].store;
+    }
 }
 
 Neo.applyClassConfig(HelixMainContainer);

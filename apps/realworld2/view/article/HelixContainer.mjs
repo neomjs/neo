@@ -37,6 +37,7 @@ class HelixContainer extends HelixMainContainer {
 
         me.getController().getArticles(params, opts).then(data => {
             console.log(data.json);
+            me.getStore().data = data.json.articles;
         });
     }
 }

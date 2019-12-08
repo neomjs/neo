@@ -4,6 +4,7 @@ import {default as Component}       from './Base.mjs';
 import HelixModel                   from '../selection/HelixModel.mjs';
 import Matrix                       from '../util/Matrix.mjs';
 import NeoArray                     from '../util/Array.mjs';
+import Store                        from '../data/Store.mjs';
 
 /**
  * @class Neo.component.Helix
@@ -281,7 +282,10 @@ class Helix extends Component {
             me.selectionModel.register(me);
         }
 
-        me.loadData();
+        // load data for the example collection
+        if (me.store instanceof Store !== true) {
+            me.loadData();
+        }
     }
 
     /**
@@ -480,7 +484,7 @@ class Helix extends Component {
             oldValue.destroy();
         }
 
-        return ClassSystemUtil.beforeSetInstance(value, null, {
+        return ClassSystemUtil.beforeSetInstance(value, Store, {
             listeners  : {
                 sort : this.onSort,
                 scope: this
