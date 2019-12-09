@@ -24,14 +24,15 @@ class Helix extends BaseHelix {
     createItem(vdomItem, record, index) {
         let me = this;
 
-        console.log('createItem');
+        vdomItem = Neo.create({
+            module: PreviewComponent,
+            id    : me.getItemVnodeId(record[me.keyProperty]),
+            ...record,
+            author   : record.author.username, // todo: PreviewComponent should use an author object
+            userImage: record.author.image
+        });
 
-        vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
-
-        vdomItem.cn[0].id  = me.getItemVnodeId(record[me.keyProperty]) + '_img';
-        vdomItem.cn[0].src = me.imageSource + Neo.ns(me.imageField, false, record);
-
-        return vdomItem;
+        return vdomItem.vdom;
     }
 }
 

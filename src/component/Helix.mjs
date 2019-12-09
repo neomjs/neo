@@ -614,10 +614,10 @@ class Helix extends Component {
 
             transformStyle = matrix.getTransformStyle();
 
+            vdomItem = me.createItem(me.itemTpl, item, i);
+
             item.rotationAngle  = angle;
             item.transformStyle = transformStyle;
-
-            vdomItem = me.createItem(me.itemTpl, item, i);
 
             vdomItem.style.opacity   = me.calculateOpacity(item);
             vdomItem.style.transform = transformStyle;
