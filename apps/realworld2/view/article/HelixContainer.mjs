@@ -16,7 +16,9 @@ class HelixContainer extends HelixMainContainer {
          * @member {Object} helixConfig
          */
         helixConfig: {
-            store: ArticlePreviews
+            imageField : 'author.image',
+            imageSource: '',
+            store      : ArticlePreviews
         }
     }}
 

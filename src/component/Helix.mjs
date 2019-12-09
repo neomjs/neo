@@ -74,6 +74,12 @@ class Helix extends Component {
          */
         followSelection_: false,
         /**
+         * The record field containing the image data.
+         * Nested fields are supported (e.g. author.image)
+         * @member {String} imageField='image'
+         */
+        imageField: 'image',
+        /**
          * The path to the images folder
          * Will get set inside the ctor to avoid issues inside the webpack builds
          * @member {String|null} imageSource=Neo.config.resourcesPath + 'examples/'
@@ -247,7 +253,7 @@ class Helix extends Component {
         let me           = this,
             domListeners = Neo.clone(me.domListeners, true);
 
-        if (!me.imageSource) {
+        if (me.imageSource === null) {
             me.imageSource = Neo.config.resourcesPath + 'examples/';
         }
 
@@ -596,7 +602,7 @@ class Helix extends Component {
             vdomItem.style.transform = transformStyle;
 
             vdomItem.cn[0].id  = me.getItemVnodeId(item.id) + '_img';
-            vdomItem.cn[0].src = me.imageSource + item.image;
+            vdomItem.cn[0].src = me.imageSource + Neo.ns(me.imageField, false, item);
 
             vdom.cn[0].cn[0].cn.push(vdomItem);
         }
