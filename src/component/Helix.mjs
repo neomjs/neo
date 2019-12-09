@@ -549,9 +549,10 @@ class Helix extends Component {
      * Override this method to get different item-markups
      * @param {Object} vdomItem
      * @param {Object} record
+     * @param {Number} index
      * @returns {Object} vdomItem
      */
-    createItem(vdomItem, record) {
+    createItem(vdomItem, record, index) {
         let me = this;
 
         vdomItem.cn[0].id  = me.getItemVnodeId(record[me.keyProperty]) + '_img';
@@ -621,7 +622,7 @@ class Helix extends Component {
             vdomItem.style.opacity   = me.calculateOpacity(item);
             vdomItem.style.transform = transformStyle;
 
-            vdom.cn[0].cn[0].cn.push(me.createItem(vdomItem, item));
+            vdom.cn[0].cn[0].cn.push(me.createItem(vdomItem, item, i));
         }
 
         me.vdom = vdom;
