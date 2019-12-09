@@ -619,6 +619,8 @@ class Helix extends Component {
             item.rotationAngle  = angle;
             item.transformStyle = transformStyle;
 
+            vdomItem. style = vdomItem.style || {};
+
             vdomItem.style.opacity   = me.calculateOpacity(item);
             vdomItem.style.transform = transformStyle;
 

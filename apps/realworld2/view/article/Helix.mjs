@@ -26,13 +26,16 @@ class Helix extends BaseHelix {
 
         vdomItem = Neo.create({
             module: PreviewComponent,
-            id    : me.getItemVnodeId(record[me.keyProperty]),
             ...record,
             author   : record.author.username, // todo: PreviewComponent should use an author object
             userImage: record.author.image
         });
 
-        return vdomItem.vdom;
+        return {
+            cls: ['surface', 'neo-helix-item'],
+            id : me.getItemVnodeId(record[me.keyProperty]),
+            cn : [vdomItem.vdom]
+        };
     }
 }
 
