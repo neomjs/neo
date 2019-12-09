@@ -11,7 +11,16 @@ class Helix extends BaseHelix {
          * @member {String} className='RealWorld2.view.article.Helix'
          * @private
          */
-        className: 'RealWorld2.view.article.Helix'
+        className: 'RealWorld2.view.article.Helix',
+        /**
+         * @member {String[]} cls=['rw2-article-helix', 'neo-helix']
+         */
+        cls: ['rw2-article-helix', 'neo-helix'],
+        /**
+         * The radius of the Helix in px
+         * @member {Number} radius=2500
+         */
+        radius: 2500
     }}
 
     /**
