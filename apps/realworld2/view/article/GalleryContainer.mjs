@@ -1,22 +1,22 @@
 import ArticlePreviews    from '../../store/ArticlePreviews.mjs'
 import Helix              from './Helix.mjs'
-import HelixMainContainer from '../../../../examples/component/helix/HelixMainContainer.mjs';
+import GalleryMainContainer from '../../../../examples/component/gallery/GalleryMainContainer.mjs';
 
 /**
- * @class RealWorld2.view.article.HelixContainer
- * @extends Neo.examples.component.helix.HelixMainContainer
+ * @class RealWorld2.view.article.GalleryContainer
+ * @extends Neo.examples.component.gallery.GalleryMainContainer
  */
-class HelixContainer extends HelixMainContainer {
+class GalleryContainer extends GalleryMainContainer {
     static getConfig() {return {
         /**
-         * @member {String} className='RealWorld2.view.article.HelixContainer'
+         * @member {String} className='RealWorld2.view.article.GalleryContainer'
          * @private
          */
-        className: 'RealWorld2.view.article.HelixContainer',
+        className: 'RealWorld2.view.article.GalleryContainer',
         /**
-         * @member {Object} helixConfig
+         * @member {Object} galleryConfig
          */
-        helixConfig: {
+        galleryConfig: {
             module     : Helix,
             imageField : 'author.image',
             imageSource: '',
@@ -52,6 +52,6 @@ class HelixContainer extends HelixMainContainer {
     }
 }
 
-Neo.applyClassConfig(HelixContainer);
+Neo.applyClassConfig(GalleryContainer);
 
-export {HelixContainer as default};
+export {GalleryContainer as default};

@@ -270,6 +270,7 @@ class MainContainerController extends ComponentController {
 
                  if (hashString === '/')                {activeIndex = 0; newView = me.getReference('home');}
             else if (hashString === '/helix')           {activeIndex = 1; newView = me.getReference('helix');}
+            else if (hashString === '/gallery')         {activeIndex = 2; newView = me.getReference('gallery');}
           /*else if (hashString.includes('/article/'))  {newView = me.getView('articleComponent',  ArticleComponent,  'article');}
             else if (hashString.includes('/editor'))    {newView = me.getView('createComponent',   CreateComponent,   'editor');}
             else if (hashString.includes('/profile/'))  {newView = me.getView('profileComponent',  ProfileComponent,  'profile');}
@@ -293,6 +294,9 @@ class MainContainerController extends ComponentController {
             me.getReference('cards').layout.activeIndex = activeIndex;
 
             switch (newView.reference) {
+                case 'gallery':
+                    newView.getArticles();
+                    break;
                 case 'helix':
                     newView.getArticles();
                     break;
