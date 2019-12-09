@@ -555,6 +555,8 @@ class Helix extends Component {
     createItem(vdomItem, record, index) {
         let me = this;
 
+        vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
+
         vdomItem.cn[0].id  = me.getItemVnodeId(record[me.keyProperty]) + '_img';
         vdomItem.cn[0].src = me.imageSource + Neo.ns(me.imageField, false, record);
 
@@ -586,8 +588,6 @@ class Helix extends Component {
         for (; i < len; i++) {
             item = me.store.items[i];
 
-            vdomItem = me.itemTpl; // get a fresh clone each time
-
             angle = -rotationAngle + i * itemAngle;
 
             s = Math.sin(angle * Math.PI / 180);
@@ -617,12 +617,12 @@ class Helix extends Component {
             item.rotationAngle  = angle;
             item.transformStyle = transformStyle;
 
-            vdomItem.id = me.getItemVnodeId(item[me.keyProperty]);
+            vdomItem = me.createItem(me.itemTpl, item, i);
 
             vdomItem.style.opacity   = me.calculateOpacity(item);
             vdomItem.style.transform = transformStyle;
 
-            vdom.cn[0].cn[0].cn.push(me.createItem(vdomItem, item, i));
+            vdom.cn[0].cn[0].cn.push(vdomItem);
         }
 
         me.vdom = vdom;

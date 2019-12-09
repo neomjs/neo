@@ -1,4 +1,5 @@
 import {default as BaseHelix} from '../../../../src/component/Helix.mjs';
+import PreviewComponent       from './PreviewComponent.mjs';
 
 /**
  * @class RealWorld2.view.article.Helix
@@ -24,6 +25,8 @@ class Helix extends BaseHelix {
         let me = this;
 
         console.log('createItem');
+
+        vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
 
         vdomItem.cn[0].id  = me.getItemVnodeId(record[me.keyProperty]) + '_img';
         vdomItem.cn[0].src = me.imageSource + Neo.ns(me.imageField, false, record);
