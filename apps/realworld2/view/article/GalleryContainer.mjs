@@ -1,5 +1,5 @@
-import ArticlePreviews    from '../../store/ArticlePreviews.mjs'
-import Helix              from './Helix.mjs'
+import ArticlePreviews      from '../../store/ArticlePreviews.mjs'
+import Gallery              from './Gallery.mjs'
 import GalleryMainContainer from '../../../../examples/component/gallery/GalleryMainContainer.mjs';
 
 /**
@@ -17,7 +17,7 @@ class GalleryContainer extends GalleryMainContainer {
          * @member {Object} galleryConfig
          */
         galleryConfig: {
-            module     : Helix,
+            module     : Gallery,
             imageField : 'author.image',
             imageSource: '',
             keyProperty: 'slug',
