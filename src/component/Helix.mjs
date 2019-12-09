@@ -546,6 +546,21 @@ class Helix extends Component {
     }
 
     /**
+     * Override this method to get different item-markups
+     * @param {Object} vdomItem
+     * @param {Object} record
+     * @returns {Object} vdomItem
+     */
+    createItem(vdomItem, record) {
+        let me = this;
+
+        vdomItem.cn[0].id  = me.getItemVnodeId(record[me.keyProperty]) + '_img';
+        vdomItem.cn[0].src = me.imageSource + Neo.ns(me.imageField, false, record);
+
+        return vdomItem;
+    }
+
+    /**
      * @param {Number} [startIndex] the start index for creating items,
      * e.g. increasing maxItems only needs to create the new ones
      * @private
@@ -606,10 +621,7 @@ class Helix extends Component {
             vdomItem.style.opacity   = me.calculateOpacity(item);
             vdomItem.style.transform = transformStyle;
 
-            vdomItem.cn[0].id  = me.getItemVnodeId(item[me.keyProperty]) + '_img';
-            vdomItem.cn[0].src = me.imageSource + Neo.ns(me.imageField, false, item);
-
-            vdom.cn[0].cn[0].cn.push(vdomItem);
+            vdom.cn[0].cn[0].cn.push(me.createItem(vdomItem, item));
         }
 
         me.vdom = vdom;
