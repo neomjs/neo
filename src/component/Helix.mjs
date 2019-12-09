@@ -103,6 +103,11 @@ class Helix extends Component {
             }]
         },
         /**
+         * The unique record field containing the id.
+         * @member {String} keyProperty='id'
+         */
+        keyProperty: 'id',
+        /**
          * Additional used keys for the selection model
          * @member {Object} keys
          */
@@ -596,12 +601,12 @@ class Helix extends Component {
             item.rotationAngle  = angle;
             item.transformStyle = transformStyle;
 
-            vdomItem.id = me.getItemVnodeId(item.id);
+            vdomItem.id = me.getItemVnodeId(item[me.keyProperty]);
 
             vdomItem.style.opacity   = me.calculateOpacity(item);
             vdomItem.style.transform = transformStyle;
 
-            vdomItem.cn[0].id  = me.getItemVnodeId(item.id) + '_img';
+            vdomItem.cn[0].id  = me.getItemVnodeId(item[me.keyProperty]) + '_img';
             vdomItem.cn[0].src = me.imageSource + Neo.ns(me.imageField, false, item);
 
             vdom.cn[0].cn[0].cn.push(vdomItem);
@@ -871,7 +876,7 @@ class Helix extends Component {
             flipped        = me.flipped,
             index          = 0,
             itemAngle      = me.itemAngle,
-            len            = Math.min(me.maxItems, me.store.items.length),
+            len            = Math.min(me.maxItems, me.store.getCount()),
             matrix         = me.matrix,
             radius         = me.radius,
             rotationAngle  = me.rotationAngle,
@@ -929,7 +934,7 @@ class Helix extends Component {
             });
 
             deltas.push({
-                id   : me.getItemVnodeId(item.id),
+                id   : me.getItemVnodeId(item[me.keyProperty]),
                 style: {
                     opacity  : opacity,
                     transform: transformStyle
@@ -965,7 +970,7 @@ class Helix extends Component {
         for (; i < len; i++) {
             deltas.push({
                 action  : 'moveNode',
-                id      : me.getItemVnodeId(me.store.items[i].id),
+                id      : me.getItemVnodeId(me.store.items[i][me.keyProperty]),
                 index   : i,
                 parentId: parentId
             });

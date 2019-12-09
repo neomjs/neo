@@ -18,6 +18,7 @@ class HelixContainer extends HelixMainContainer {
         helixConfig: {
             imageField : 'author.image',
             imageSource: '',
+            keyProperty: 'slug',
             store      : ArticlePreviews
         }
     }}

@@ -46,7 +46,8 @@ class Model extends Base {
      * @param {Array} oldValue
      */
     afterSetFields(value, oldValue) {
-        console.log('afterSetFields', value, oldValue);
+        // todo
+        // console.log('afterSetFields', value, oldValue);
     }
 
     /**
