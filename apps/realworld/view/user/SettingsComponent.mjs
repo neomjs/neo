@@ -2,16 +2,16 @@ import {default as Component} from '../../../../src/component/Base.mjs';
 import {default as VDomUtil}  from '../../../../src/util/VDom.mjs';
 
 /**
- * @class RealWorld.views.user.SettingsComponent
+ * @class RealWorld.view.user.SettingsComponent
  * @extends Neo.component.Base
  */
 class SettingsComponent extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='RealWorld.views.user.SettingsComponent'
+         * @member {String} className='RealWorld.view.user.SettingsComponent'
          * @private
          */
-        className: 'RealWorld.views.user.SettingsComponent',
+        className: 'RealWorld.view.user.SettingsComponent',
         /**
          * @member {String} bio_=null
          */

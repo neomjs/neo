@@ -1,16 +1,24 @@
 import {default as Component} from '../../../src/component/Base.mjs';
 
 /**
- * @class RealWorld.views.FooterComponent
+ * @class RealWorld2.view.FooterComponent
  * @extends Neo.component.Base
  */
 class FooterComponent extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='RealWorld.views.FooterComponent'
+         * @member {String} className='RealWorld2.view.FooterComponent'
          * @private
          */
-        className: 'RealWorld.views.FooterComponent',
+        className: 'RealWorld2.view.FooterComponent',
+        /**
+         * @member {String[]} cls=['rw2-footer-component']
+         */
+        cls: ['rw2-footer-component'],
+        /**
+         * @member {Number} height=40
+         */
+        height: 40,
         /**
          * @member {Object} _vdom
          */
@@ -21,7 +29,7 @@ class FooterComponent extends Component {
                 cn : [{
                     tag : 'a',
                     cls : ['logo-font'],
-                    href: '/',
+                    href: '#/',
                     html: 'conduit'
                 }, {
                     tag : 'span',

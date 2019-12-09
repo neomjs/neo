@@ -5,16 +5,16 @@ import MainContainerController from './MainContainerController.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
- * @class RealWorld.views.MainContainer
+ * @class RealWorld.view.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
         /**
-         * @member {String} className='RealWorld.views.MainContainer'
+         * @member {String} className='RealWorld.view.MainContainer'
          * @private
          */
-        className: 'RealWorld.views.MainContainer',
+        className: 'RealWorld.view.MainContainer',
         /**
          * @member {Boolean} autoMount=true
          */

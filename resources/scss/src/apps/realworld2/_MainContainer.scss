@@ -1,0 +1,173 @@
+.rw2-main-container {
+    background-color: #fff;
+    color           : #373a3c;
+    font-family     : source sans pro,sans-serif;
+    font-size       : 1rem;
+    line-height     : 1.5;
+
+    @media (min-width: 544px)  { .container {max-width: 576px; } }
+    @media (min-width: 768px)  { .container {max-width: 720px; } }
+    @media (min-width: 992px)  { .container {max-width: 940px; } }
+    @media (min-width: 1200px) { .container {max-width: 1140px;} }
+
+    a {
+        color          : #5cb85c;
+        text-decoration: none;
+    }
+
+    h1 {
+        font-size: 2em;
+        margin   : .67em 0;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        margin-bottom: .5rem;
+        margin-top   : 0;
+    }
+
+    h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+        color        : inherit;
+        font-family  : inherit;
+        font-weight  : 500;
+        line-height  : 1.1;
+        margin-bottom: .5rem;
+    }
+
+    ol, ul, dl {
+        margin-bottom: 1rem;
+        margin-top   : 0;
+    }
+
+    p {
+        margin-bottom: 1rem;
+        margin-top   : 0;
+    }
+
+    ul.tag-list {
+        display     : inline-block;
+        list-style  : none!important;
+        padding-left: 0!important;
+
+        li {
+            display: inline-block!important;
+        }
+    }
+
+    .article-meta {
+        display    : block;
+        font-weight: 300;
+        position   : relative;
+
+        img {
+            border-radius : 30px;
+            display       : inline-block;
+            height        : 32px;
+            vertical-align: middle;
+            width         : 32px;
+        }
+
+        .info {
+            display       : inline-block;
+            line-height   : 1rem;
+            margin        : 0 1.5rem 0 .3rem;
+            vertical-align: middle;
+
+            .author {
+                display    : block;
+                font-weight: 500!important;
+            }
+
+            .date {
+                color    : #888;
+                display  : block;
+                font-size: .8rem;
+            }
+        }
+    }
+
+    .banner {
+        background   : #333;
+        color        : #fff;
+        margin-bottom: 2rem;
+        padding      : 2rem;
+    }
+
+    .banner h1 {
+        text-shadow  : 0 1px 3px rgba(0,0,0,.3);
+        margin-bottom: 0;
+    }
+
+    .btn {
+        border        : 1px solid transparent;
+        border-radius : .25rem;
+        cursor        : pointer;
+        display       : inline-block;
+        font-size     : 1rem;
+        font-weight   : 400;
+        line-height   : 1.25;
+        padding       : .5rem 1rem;
+        text-align    : center;
+        user-select   : none;
+        vertical-align: middle;
+        white-space   : nowrap;
+    }
+
+    .btn-outline-primary {
+        background-color: transparent;
+        background-image: none;
+        border-color    : #5cb85c;
+        color           : #5cb85c;
+
+        &:hover {
+            background-color: #5cb85c;
+            border-color    : #5cb85c;
+            color           : #fff;
+        }
+    }
+
+    .pull-xs-right {
+        float: right!important;
+    }
+
+    .btn-sm, .btn-group-sm>.btn {
+        border-radius: .2rem;
+        font-size    : .875rem;
+        padding      : .25rem .5rem;
+    }
+
+    .container {
+        margin-left  : auto;
+        margin-right : auto;
+        padding-left : 15px;
+        padding-right: 15px;
+    }
+
+    .logo-font {
+        font-family   : "Titillium Web", sans-serif;
+        vertical-align: middle;
+    }
+
+    .tag-default {
+        background-color: #818a91;
+        color           : #fff!important;
+        display         : inline-block;
+        font-size       : .8rem;
+        margin-bottom   : .2rem;
+        margin-right    : 3px;
+        padding-bottom  : .1rem;
+        padding-top     : .1rem;
+        white-space     : nowrap;
+
+        &.tag-outline {
+            background: 0 0!important;
+            border    : 1px solid #ddd;
+            color     : #aaa!important;
+        }
+     }
+
+    .tag-pill {
+        border-radius: 10rem;
+        padding-left : .6em;
+        padding-right: .6em;
+    }
+}

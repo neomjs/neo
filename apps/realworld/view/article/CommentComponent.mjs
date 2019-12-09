@@ -2,16 +2,16 @@ import {default as Component} from '../../../../src/component/Base.mjs';
 import {default as VDomUtil}  from '../../../../src/util/VDom.mjs';
 
 /**
- * @class RealWorld.views.article.CommentComponent
+ * @class RealWorld.view.article.CommentComponent
  * @extends Neo.component.Base
  */
 class CommentComponent extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='RealWorld.views.article.CommentComponent'
+         * @member {String} className='RealWorld.view.article.CommentComponent'
          * @private
          */
-        className: 'RealWorld.views.article.CommentComponent',
+        className: 'RealWorld.view.article.CommentComponent',
         /**
          * @member {Object|null} author_=null
          */

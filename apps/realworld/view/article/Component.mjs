@@ -5,16 +5,16 @@ import NeoArray                   from '../../../../src/util/Array.mjs';
 import {default as VDomUtil}      from '../../../../src/util/VDom.mjs';
 
 /**
- * @class RealWorld.views.article.Component
+ * @class RealWorld.view.article.Component
  * @extends Neo.component.Base
  */
 class Component extends BaseComponent {
     static getConfig() {return {
         /**
-         * @member {String} className='RealWorld.views.article.Component'
+         * @member {String} className='RealWorld.view.article.Component'
          * @private
          */
-        className: 'RealWorld.views.article.Component',
+        className: 'RealWorld.view.article.Component',
         /**
          * @member {Object|null} author_=null
          */
@@ -24,7 +24,7 @@ class Component extends BaseComponent {
          */
         body_: null,
         /**
-         * @member {RealWorld.views.article.PreviewComponent[]} commentComponents=[]
+         * @member {RealWorld.view.article.PreviewComponent[]} commentComponents=[]
          */
         commentComponents: [],
         /**
@@ -32,7 +32,7 @@ class Component extends BaseComponent {
          */
         comments_: null,
         /**
-         * @member {RealWorld.views.article.CreateCommentComponent|null} createCommentComponent=null
+         * @member {RealWorld.view.article.CreateCommentComponent|null} createCommentComponent=null
          */
         createCommentComponent: null,
         /**

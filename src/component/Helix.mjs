@@ -4,6 +4,7 @@ import {default as Component}       from './Base.mjs';
 import HelixModel                   from '../selection/HelixModel.mjs';
 import Matrix                       from '../util/Matrix.mjs';
 import NeoArray                     from '../util/Array.mjs';
+import Store                        from '../data/Store.mjs';
 
 /**
  * @class Neo.component.Helix
@@ -73,6 +74,12 @@ class Helix extends Component {
          */
         followSelection_: false,
         /**
+         * The record field containing the image data.
+         * Nested fields are supported (e.g. author.image)
+         * @member {String} imageField='image'
+         */
+        imageField: 'image',
+        /**
          * The path to the images folder
          * Will get set inside the ctor to avoid issues inside the webpack builds
          * @member {String|null} imageSource=Neo.config.resourcesPath + 'examples/'
@@ -95,6 +102,11 @@ class Helix extends Component {
                 cls: ['contact-item']
             }]
         },
+        /**
+         * The unique record field containing the id.
+         * @member {String} keyProperty='id'
+         */
+        keyProperty: 'id',
         /**
          * Additional used keys for the selection model
          * @member {Object} keys
@@ -188,7 +200,7 @@ class Helix extends Component {
          * The store instance or class containing the data for the gallery items
          * @member {Neo.data.Store|null} store_=null
          */
-        store_: null, // todo: use a store once collecitons are integrated
+        store_: null, // todo: use a store once collections are integrated
         /**
          * The setTimeout() ids for calls which can get cancelled
          * @member {Array} transitionTimeouts=[]
@@ -246,7 +258,7 @@ class Helix extends Component {
         let me           = this,
             domListeners = Neo.clone(me.domListeners, true);
 
-        if (!me.imageSource) {
+        if (me.imageSource === null) {
             me.imageSource = Neo.config.resourcesPath + 'examples/';
         }
 
@@ -258,13 +270,15 @@ class Helix extends Component {
 
         me.domListeners = domListeners;
 
-        me.store = Neo.create(Collection, {
-            keyProperty: 'id',
-            listeners  : {
-                sort : me.onSort,
-                scope: me
-            }
-        });
+        if (!me.store) {
+            me._store = Neo.create(Collection, {
+                keyProperty: 'id',
+                listeners  : {
+                    sort : me.onSort,
+                    scope: me
+                }
+            });
+        }
     }
 
     /**
@@ -279,7 +293,10 @@ class Helix extends Component {
             me.selectionModel.register(me);
         }
 
-        me.loadData();
+        // load data for the example collection
+        if (me.store instanceof Store !== true) {
+            me.loadData();
+        }
     }
 
     /**
@@ -468,6 +485,33 @@ class Helix extends Component {
     }
 
     /**
+     * Triggered before the store config gets changed.
+     * @param {Neo.data.Store|null} value
+     * @param {Neo.data.Store|null} oldValue
+     * @private
+     */
+    beforeSetStore(value, oldValue) {
+        let me = this;
+
+        if (oldValue) {
+            oldValue.destroy();
+        }
+
+        // todo: remove the if check once all demos use stores (instead of collections)
+        if (value) {
+            return ClassSystemUtil.beforeSetInstance(value, Store, {
+                listeners  : {
+                    load : me.onStoreLoad,
+                    sort : me.onSort,
+                    scope: me
+                }
+            });
+        }
+
+        return value;
+    }
+
+    /**
      * Calculate an opacity gradient based on the item rotation angle
      * @param {Object} item
      * @returns {Number}
@@ -502,6 +546,24 @@ class Helix extends Component {
     }
 
     /**
+     * Override this method to get different item-markups
+     * @param {Object} vdomItem
+     * @param {Object} record
+     * @param {Number} index
+     * @returns {Object} vdomItem
+     */
+    createItem(vdomItem, record, index) {
+        let me = this;
+
+        vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
+
+        vdomItem.cn[0].id  = me.getItemVnodeId(record[me.keyProperty]) + '_img';
+        vdomItem.cn[0].src = me.imageSource + Neo.ns(me.imageField, false, record);
+
+        return vdomItem;
+    }
+
+    /**
      * @param {Number} [startIndex] the start index for creating items,
      * e.g. increasing maxItems only needs to create the new ones
      * @private
@@ -525,8 +587,6 @@ class Helix extends Component {
 
         for (; i < len; i++) {
             item = me.store.items[i];
-
-            vdomItem = me.itemTpl; // get a fresh clone each time
 
             angle = -rotationAngle + i * itemAngle;
 
@@ -554,16 +614,15 @@ class Helix extends Component {
 
             transformStyle = matrix.getTransformStyle();
 
+            vdomItem = me.createItem(me.itemTpl, item, i);
+
             item.rotationAngle  = angle;
             item.transformStyle = transformStyle;
 
-            vdomItem.id = me.getItemVnodeId(item.id);
+            vdomItem. style = vdomItem.style || {};
 
             vdomItem.style.opacity   = me.calculateOpacity(item);
             vdomItem.style.transform = transformStyle;
-
-            vdomItem.cn[0].id  = me.getItemVnodeId(item.id) + '_img';
-            vdomItem.cn[0].src = me.imageSource + item.image;
 
             vdom.cn[0].cn[0].cn.push(vdomItem);
         }
@@ -747,7 +806,7 @@ class Helix extends Component {
      *
      * @param {Object} data
      */
-    onClick(data) {
+    onClick(data) {console.log('onClick');
         this.fire(data.id === this.id ? 'containerClick' : 'itemClick', data);
     }
 
@@ -815,6 +874,14 @@ class Helix extends Component {
     }
 
     /**
+     *
+     * @param {Array} items
+     */
+    onStoreLoad(items) {
+        this.createItems();
+    }
+
+    /**
      * @private
      */
     refresh() {
@@ -824,7 +891,7 @@ class Helix extends Component {
             flipped        = me.flipped,
             index          = 0,
             itemAngle      = me.itemAngle,
-            len            = Math.min(me.maxItems, me.store.items.length),
+            len            = Math.min(me.maxItems, me.store.getCount()),
             matrix         = me.matrix,
             radius         = me.radius,
             rotationAngle  = me.rotationAngle,
@@ -882,7 +949,7 @@ class Helix extends Component {
             });
 
             deltas.push({
-                id   : me.getItemVnodeId(item.id),
+                id   : me.getItemVnodeId(item[me.keyProperty]),
                 style: {
                     opacity  : opacity,
                     transform: transformStyle
@@ -918,7 +985,7 @@ class Helix extends Component {
         for (; i < len; i++) {
             deltas.push({
                 action  : 'moveNode',
-                id      : me.getItemVnodeId(me.store.items[i].id),
+                id      : me.getItemVnodeId(me.store.items[i][me.keyProperty]),
                 index   : i,
                 parentId: parentId
             });

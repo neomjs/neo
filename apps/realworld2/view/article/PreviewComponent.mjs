@@ -3,24 +3,24 @@ import NeoArray               from '../../../../src/util/Array.mjs';
 import {default as VDomUtil}  from '../../../../src/util/VDom.mjs';
 
 /**
- * @class RealWorld.views.article.PreviewComponent
+ * @class RealWorld2.view.article.PreviewComponent
  * @extends Neo.component.Base
  */
 class PreviewComponent extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='RealWorld.views.article.PreviewComponent'
+         * @member {String} className='RealWorld2.view.article.PreviewComponent'
          * @private
          */
-        className: 'RealWorld.views.article.PreviewComponent',
+        className: 'RealWorld2.view.article.PreviewComponent',
         /**
          * @member {String|null} author_=null
          */
         author_: null,
         /**
-         * @member {String[]} cls=['article-preview']
+         * @member {String[]} cls=['rw2-preview-component']
          */
-        cls: ['article-preview'],
+        cls: ['rw2-preview-component'],
         /**
          * ISO 8601 timestamp
          * @member {String|null} createdAt_=null
@@ -74,7 +74,7 @@ class PreviewComponent extends Component {
                     tag: 'button',
                     cls: ['btn', 'btn-sm', 'pull-xs-right'],
                     cn : [
-                        {tag  : 'i',    cls : ['ion-heart']},
+                        {tag  : 'i',    cls : ['fa fa-heart']},
                         {vtype: 'text', flag: 'favoritesCount'}
                     ]
                 }]

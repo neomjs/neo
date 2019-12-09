@@ -46,8 +46,14 @@ class Manager extends Base {
          */
         sharedWorkersEnabled: false,
         /**
+         * Internal flag to stop the worker communication in case their creation fails
+         * @member {Boolean} stopCommunication=false
+         * @private
+         */
+        stopCommunication: false,
+        /**
          * True in case the current browser supports window.Worker.
-         * The Neoteric framework is not able to run without web workers.
+         * The neo.mjs framework is not able to run without web workers.
          * @member {Boolean} sharedWorkersEnabled=false
          * @private
          */
@@ -129,29 +135,6 @@ class Manager extends Base {
     }
 
     /**
-     * Calls createWorker for each worker inside the this.workers config.
-     */
-    createWorkers() {
-        let me   = this,
-            hash = location.hash;
-
-        // pass the initial hash value as Neo.configs
-        if (hash) {
-            Neo.config.hash       = DomEvents.parseHash(hash.substr(1));
-            Neo.config.hashString = hash.substr(1);
-        }
-
-        Object.entries(me.workers).forEach(([key, value]) => {
-            value.worker = me.createWorker(value);
-
-            me.sendMessage(key, {
-                action: 'registerNeoConfig',
-                data  : Neo.config
-            });
-        });
-    }
-
-    /**
      * Creates a web worker using the passed options as well as adding error & message event listeners.
      * @param {Object} opts
      * @returns {Worker}
@@ -160,13 +143,44 @@ class Manager extends Base {
         const me       = this,
               filePath = (opts.basePath || me.basePath) + opts.fileName,
               worker   = !Neo.config.isExperimental ? // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
-                new Worker(filePath) :
-                new Worker(filePath, {type: 'module'});
+                  new Worker(filePath) :
+                  new Worker(filePath, {type: 'module'});
 
         worker.addEventListener('message', me.onWorkerMessage.bind(me));
-        worker.addEventListener('error',   me.onWorkerError  .bind(me));
+        worker.addEventListener('error', me.onWorkerError.bind(me));
 
         return worker;
+    }
+
+    /**
+     * Calls createWorker for each worker inside the this.workers config.
+     */
+    createWorkers() {
+        let me      = this,
+            hash    = location.hash,
+            workers = Object.entries(me.workers),
+            key, value;
+
+        // pass the initial hash value as Neo.configs
+        if (hash) {
+            Neo.config.hash       = DomEvents.parseHash(hash.substr(1));
+            Neo.config.hashString = hash.substr(1);
+        }
+
+        for ([key, value] of workers) {
+            try {
+                value.worker = me.createWorker(value);
+            } catch (e) {
+                document.body.innerHTML = e;
+                me.stopCommunication = true;
+                break;
+            }
+
+            me.sendMessage(key, {
+                action: 'registerNeoConfig',
+                data  : Neo.config
+            });
+        }
     }
 
     /**
@@ -294,19 +308,21 @@ class Manager extends Base {
      * @private
      */
     sendMessage(dest, opts, transfer) {
-        const worker = this.getWorker(dest);
+        if (!this.stopCommunication) {
+            const worker = this.getWorker(dest);
 
-        if (!worker) {
-            throw new Error('Called sendMessage for a worker that does not exist' + dest);
+            if (!worker) {
+                throw new Error('Called sendMessage for a worker that does not exist: ' + dest);
+            }
+
+            opts.destination = dest;
+
+            const message = new Message(opts);
+            // console.log('Main: Sending Worker message: ', message);
+
+            worker.postMessage(message, transfer);
+            return message;
         }
-
-        opts.destination = dest;
-
-        const message = new Message(opts);
-        // console.log('Main: Sending Worker message: ', message);
-
-        worker.postMessage(message, transfer);
-        return message;
     }
 
     /**

@@ -4,6 +4,8 @@
 /apps/**/*.mjs
 !/apps/realworld/index.html
 !/apps/realworld/**/*.mjs
+!/apps/realworld2/index.html
+!/apps/realworld2/**/*.mjs
 
 /buildScripts/webpack/entrypoints/myApps/**/*.mjs
 !/buildScripts/webpack/entrypoints/myApps/RealWorld.mjs

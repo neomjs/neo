@@ -5,16 +5,16 @@ import TagListComponent       from './article/TagListComponent.mjs';
 import {default as VDomUtil}  from '../../../src/util/VDom.mjs';
 
 /**
- * @class RealWorld.views.HomeComponent
+ * @class RealWorld.view.HomeComponent
  * @extends Neo.component.Base
  */
 class HomeComponent extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='RealWorld.views.HomeComponent'
+         * @member {String} className='RealWorld.view.HomeComponent'
          * @private
          */
-        className: 'RealWorld.views.HomeComponent',
+        className: 'RealWorld.view.HomeComponent',
         /**
          * @member {String|null} activeTag=null
          */
@@ -51,11 +51,11 @@ class HomeComponent extends Component {
          */
         pageSize_: 10,
         /**
-         * @member {RealWorld.views.article.PreviewComponent[]} previewComponents=[]
+         * @member {RealWorld.view.article.PreviewComponent[]} previewComponents=[]
          */
         previewComponents: [],
         /**
-         * @member {RealWorld.views.article.TagListComponent|null} tagList_=null
+         * @member {RealWorld.view.article.TagListComponent|null} tagList_=null
          */
         tagList_: null,
         /**
