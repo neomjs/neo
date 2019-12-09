@@ -480,16 +480,24 @@ class Helix extends Component {
      * @private
      */
     beforeSetStore(value, oldValue) {
+        let me = this;
+
         if (oldValue) {
             oldValue.destroy();
         }
 
-        return ClassSystemUtil.beforeSetInstance(value, Store, {
-            listeners  : {
-                sort : this.onSort,
-                scope: this
-            }
-        });
+        // todo: remove the if check once all demos use stores (instead of collections)
+        if (value) {
+            return ClassSystemUtil.beforeSetInstance(value, Store, {
+                listeners  : {
+                    load : me.onStoreLoad,
+                    sort : me.onSort,
+                    scope: me
+                }
+            });
+        }
+
+        return value;
     }
 
     /**
@@ -837,6 +845,14 @@ class Helix extends Component {
      */
     onSort() {
         this.applyItemTransitions(this.sortItems, 1000);
+    }
+
+    /**
+     *
+     * @param {Array} items
+     */
+    onStoreLoad(items) {
+        this.createItems();
     }
 
     /**

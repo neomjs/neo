@@ -28,6 +28,11 @@ class HelixContainer extends HelixMainContainer {
     getArticles(params={}, opts={}) {
         let me = this;
 
+        params = {
+            limit: 100,
+            ...params
+        };
+
         if (me.activeTag) {
             params = {
                 tag: me.activeTag,
