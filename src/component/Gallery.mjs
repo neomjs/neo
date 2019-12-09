@@ -63,6 +63,11 @@ class Gallery extends Component {
             }]
         },
         /**
+         * The unique record field containing the id.
+         * @member {String} keyProperty='id'
+         */
+        keyProperty: 'id',
+        /**
          * Additional used keys for the selection model
          * @member {Object} keys
          */
@@ -116,6 +121,11 @@ class Gallery extends Component {
          * @member {Neo.selection.GalleryModel|null} selectionModel_=null
          */
         selectionModel_: null,
+        /**
+         * True to select the item inside the middle of the store items on mount
+         * @member {Boolean} selectOnMount=true
+         */
+        selectOnMount: true,
         /**
          * The store instance or class containing the data for the gallery items
          * @member {Neo.data.Store|null} store_=null
@@ -398,7 +408,7 @@ class Gallery extends Component {
         let me        = this,
             imageVdom = vdomItem.cn[0];
 
-        vdomItem.id = me.getItemVnodeId(record.id);
+        vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
 
         imageVdom.src = Neo.config.resourcesPath + 'examples/' + record.image;
 
@@ -605,9 +615,11 @@ class Gallery extends Component {
                 me.offsetHeight = data.attributes.offsetHeight;
                 me.offsetWidth  = data.attributes.offsetWidth;
 
-                let index = parseInt(Math.min(me.maxItems, me.store.getCount()) / me.amountRows);
+                if (me.selectOnMount) {
+                    let index = parseInt(Math.min(me.maxItems, me.store.getCount()) / me.amountRows);
 
-                me.selectionModel.select(me.store.getKeyAt(index));
+                    me.selectionModel.select(me.store.getKeyAt(index));
+                }
             });
         }, Neo.config.environment === 'development' ? 200 : 500);
     }
@@ -708,7 +720,7 @@ class Gallery extends Component {
             fromIndex, vdomId;
 
         me.store.items.forEach((item, index) => {
-            vdomId    = me.getItemVnodeId(item.id);
+            vdomId    = me.getItemVnodeId(item[me.keyProperty]);
             fromIndex = vdomMap.indexOf(vdomId);
 
             newCn.push(view.cn[fromIndex]);

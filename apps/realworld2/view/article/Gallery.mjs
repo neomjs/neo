@@ -25,7 +25,12 @@ class Gallery extends BaseGallery {
          * The image width of the gallery
          * @member {Number} imageWidth=320
          */
-        imageWidth: 320
+        imageWidth: 320,
+        /**
+         * True to select the item inside the middle of the store items on mount
+         * @member {Boolean} selectOnMount=false
+         */
+        selectOnMount: false
     }}
 
     /**
