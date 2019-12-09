@@ -15,7 +15,17 @@ class Gallery extends BaseGallery {
         /**
          * @member {String[]} cls=['rw2-article-gallery', 'neo-gallery', 'page', 'view']
          */
-        cls: ['rw2-article-gallery', 'neo-gallery', 'page', 'view']
+        cls: ['rw2-article-gallery', 'neo-gallery', 'page', 'view'],
+        /**
+         * The image height of the gallery
+         * @member {Number} imageHeight=240
+         */
+        imageHeight: 240,
+        /**
+         * The image width of the gallery
+         * @member {Number} imageWidth=320
+         */
+        imageWidth: 320
     }}
 
     /**
@@ -40,7 +50,11 @@ class Gallery extends BaseGallery {
             cls     : ['neo-gallery-item', 'image-wrap', 'view', 'neo-transition-1000'],
             cn      : [vdomItem.vdom],
             id      : me.getItemVnodeId(record[me.keyProperty]),
-            tabIndex: '-1'
+            tabIndex: '-1',
+            style: {
+                height: me.imageHeight + 'px',
+                width : me.imageWidth  + 'px'
+            }
         };
     }
 
