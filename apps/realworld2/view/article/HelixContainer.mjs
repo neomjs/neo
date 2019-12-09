@@ -1,4 +1,5 @@
 import ArticlePreviews    from '../../store/ArticlePreviews.mjs'
+import Helix              from './Helix.mjs'
 import HelixMainContainer from '../../../../examples/component/helix/HelixMainContainer.mjs';
 
 /**
@@ -16,6 +17,7 @@ class HelixContainer extends HelixMainContainer {
          * @member {Object} helixConfig
          */
         helixConfig: {
+            module     : Helix,
             imageField : 'author.image',
             imageSource: '',
             keyProperty: 'slug',
