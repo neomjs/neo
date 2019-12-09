@@ -37,9 +37,10 @@ class Gallery extends BaseGallery {
         });
 
         return {
-            cls: ['surface', 'neo-helix-item'],
-            id : me.getItemVnodeId(record[me.keyProperty]),
-            cn : [vdomItem.vdom]
+            cls     : ['neo-gallery-item', 'image-wrap', 'view', 'neo-transition-1000'],
+            cn      : [vdomItem.vdom],
+            id      : me.getItemVnodeId(record[me.keyProperty]),
+            tabIndex: '-1'
         };
     }
 

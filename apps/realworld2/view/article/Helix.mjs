@@ -42,9 +42,10 @@ class Helix extends BaseHelix {
         });
 
         return {
-            cls: ['surface', 'neo-helix-item'],
-            id : me.getItemVnodeId(record[me.keyProperty]),
-            cn : [vdomItem.vdom]
+            cls     : ['surface', 'neo-helix-item'],
+            cn      : [vdomItem.vdom],
+            id      : me.getItemVnodeId(record[me.keyProperty]),
+            tabIndex: '-1'
         };
     }
 

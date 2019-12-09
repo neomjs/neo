@@ -3,6 +3,7 @@ import {default as Collection}      from '../collection/Base.mjs'
 import {default as Component}       from './Base.mjs';
 import GalleryModel                 from '../selection/GalleryModel.mjs';
 import NeoArray                     from '../util/Array.mjs';
+import Store                        from '../data/Store.mjs';
 
 /**
  * @class Neo.component.Gallery
@@ -54,7 +55,6 @@ class Gallery extends Component {
          */
         itemTpl_: {
             cls     : ['neo-gallery-item', 'image-wrap', 'view', 'neo-transition-1000'],
-            style   : {},
             tabIndex: '-1',
             cn: [{
                 tag  : 'img',
@@ -204,14 +204,6 @@ class Gallery extends Component {
 
         me.domListeners = domListeners;
 
-        me.store = Neo.create(Collection, {
-            keyProperty: 'id',
-            listeners  : {
-                sort : me.onSort,
-                scope: me
-            }
-        });
-
         me.on({
             mounted: me.onMounted,
             scope  : me
@@ -230,18 +222,21 @@ class Gallery extends Component {
             me.selectionModel.register(me);
         }
 
-        Neo.Xhr.promiseJson({
-            url: Neo.config.isExperimental ?
-                '../../resources/examples/data/ai_contacts.json' :
-                '../../resources/examples/data/ai_contacts.json'
-        }).then(data => {
-            me.store.items = data.json.data;
-            setTimeout(() => { // todo: rendering check
-                me.createItems();
-            }, 100);
-        }).catch(err => {
-            console.log('Error for Neo.Xhr.request', err, me.id);
-        });
+        // load data for the example collection
+        if (me.store instanceof Store !== true) {
+            Neo.Xhr.promiseJson({
+                url: Neo.config.isExperimental ?
+                    '../../resources/examples/data/ai_contacts.json' :
+                    '../../resources/examples/data/ai_contacts.json'
+            }).then(data => {
+                me.store.items = data.json.data;
+                setTimeout(() => { // todo: rendering check
+                    me.createItems();
+                }, 100);
+            }).catch(err => {
+                console.log('Error for Neo.Xhr.request', err, me.id);
+            });
+        }
     }
 
     /**
@@ -328,6 +323,39 @@ class Gallery extends Component {
         }
     }
 
+    /**
+     * Triggered before the store config gets changed.
+     * @param {Neo.data.Store|null} value
+     * @param {Neo.data.Store|null} oldValue
+     * @private
+     */
+    beforeSetStore(value, oldValue) {
+        let me = this;
+
+        if (oldValue) {
+            oldValue.destroy();
+        }
+
+        // todo: remove the if check once all demos use stores (instead of collections)
+        if (value) {
+            return ClassSystemUtil.beforeSetInstance(value, Store, {
+                listeners  : {
+                    load : me.onStoreLoad,
+                    sort : me.onSort,
+                    scope: me
+                }
+            });
+        }
+
+        return Neo.create(Collection, {
+            keyProperty: 'id',
+            listeners  : {
+                sort : me.onSort,
+                scope: me
+            }
+        });
+    }
+
     afterSetTranslateX() {this.moveOrigin();}
     afterSetTranslateY() {this.moveOrigin();}
     afterSetTranslateZ() {this.moveOrigin();}
@@ -360,6 +388,27 @@ class Gallery extends Component {
     }
 
     /**
+     * Override this method to get different item-markups
+     * @param {Object} vdomItem
+     * @param {Object} record
+     * @param {Number} index
+     * @returns {Object} vdomItem
+     */
+    createItem(vdomItem, record, index) {
+        let me        = this,
+            imageVdom = vdomItem.cn[0];
+
+        vdomItem.id = me.getItemVnodeId(record.id);
+
+        imageVdom.src = Neo.config.resourcesPath + 'examples/' + record.image;
+
+        imageVdom.style.height = me.imageHeight + 'px';
+        imageVdom.style.width  = me.imageWidth  + 'px';
+
+        return vdomItem;
+    }
+
+    /**
      * @param {Number} [startIndex] the start index for creating items,
      * e.g. increasing maxItems only needs to create the new ones
      * @private
@@ -367,15 +416,13 @@ class Gallery extends Component {
     createItems(startIndex) {
         let me               = this,
             amountRows       = me.amountRows,
-            imageHeight      = me.imageHeight,
-            imageWidth       = me.imageWidth,
             orderByRow       = me.orderByRow,
             secondLastColumn = amountRows - 1,
             vdom             = me.vdom,
             viewItems        = vdom.cn[0].cn[0].cn[0].cn[0].cn,
             i                = startIndex || 0,
             len              = Math.min(me.maxItems, me.store.items.length),
-            amountColumns, imageVdom, item, vdomItem;
+            amountColumns, item, vdomItem;
 
         if (orderByRow) {
             amountColumns = Math.ceil(me.store.getCount() / amountRows);
@@ -383,10 +430,10 @@ class Gallery extends Component {
 
         for (; i < len; i++) {
             item      = me.store.items[i];
-            vdomItem  = me.itemTpl; // get a fresh clone each time
-            imageVdom = vdomItem.cn[0];
+            vdomItem  = me.createItem(me.itemTpl, item, i);
 
-            vdomItem.id = me.getItemVnodeId(item.id);
+            vdomItem. style = vdomItem.style || {};
+
             vdomItem.style['transform'] = me.getItemTransform(i);
 
             if (orderByRow) {
@@ -398,11 +445,6 @@ class Gallery extends Component {
                     NeoArray.add(vdomItem.cls, 'neo-reflection');
                 }
             }
-
-            imageVdom.src = Neo.config.resourcesPath + 'examples/' + item.image;
-
-            imageVdom.style.height = imageHeight + 'px';
-            imageVdom.style.width  = imageWidth  + 'px';
 
             viewItems.push(vdomItem);
         }
@@ -684,6 +726,14 @@ class Gallery extends Component {
                 me.afterSetOrderByRow();
             }, 50);
         }
+    }
+
+    /**
+     *
+     * @param {Array} items
+     */
+    onStoreLoad(items) {
+        this.createItems();
     }
 
     /**

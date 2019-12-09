@@ -269,16 +269,6 @@ class Helix extends Component {
         });
 
         me.domListeners = domListeners;
-
-        if (!me.store) {
-            me._store = Neo.create(Collection, {
-                keyProperty: 'id',
-                listeners  : {
-                    sort : me.onSort,
-                    scope: me
-                }
-            });
-        }
     }
 
     /**
@@ -508,7 +498,13 @@ class Helix extends Component {
             });
         }
 
-        return value;
+        return Neo.create(Collection, {
+            keyProperty: 'id',
+            listeners  : {
+                sort : me.onSort,
+                scope: me
+            }
+        });
     }
 
     /**
