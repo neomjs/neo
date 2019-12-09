@@ -41,6 +41,10 @@ class HeaderToolbar extends Toolbar {
             text   : 'Helix',
             handler: 'onHelixButtonClick'
         }, {
+            iconCls: 'fa fa-images',
+            text   : 'Gallery',
+            handler: 'onGalleryButtonClick'
+        }, {
             iconCls: 'fa fa-edit',
             text   : 'New Article',
             handler: 'onNewArticleButtonClick'
