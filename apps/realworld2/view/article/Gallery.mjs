@@ -71,6 +71,19 @@ class Gallery extends BaseGallery {
     getItemId(vnodeId) {
         return vnodeId.split('__')[1];
     }
+
+    /**
+     *
+     * @param {Array} items
+     */
+    onStoreLoad(items) {
+        super.onStoreLoad(items);
+
+        setTimeout(() => {
+            this.selectOnMount = true;
+            this.onMounted();
+        }, 200);
+    }
 }
 
 Neo.applyClassConfig(Gallery);
