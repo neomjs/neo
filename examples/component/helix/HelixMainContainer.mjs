@@ -156,6 +156,17 @@ class HelixMainContainer extends Viewport {
                 value    : 300
             }, {
                 ntype     : 'button',
+                text      : 'Flip Items',
+                listeners: {},
+                style    : {margin: '20px'},
+                domListeners: {
+                    click: data => {
+                        const helix = Neo.get('neo-helix-1');
+                        helix.flipped = !helix.flipped;
+                    }
+                }
+            }, {
+                ntype     : 'button',
                 disabled  : true, // component.Helix: buffered sorting #105
                 text      : 'Sort by Lastname',
                 listeners: {},
