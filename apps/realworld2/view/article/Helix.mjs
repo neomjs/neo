@@ -47,6 +47,15 @@ class Helix extends BaseHelix {
             cn : [vdomItem.vdom]
         };
     }
+
+    /**
+     *
+     * @param {String} vnodeId
+     * @returns {String}
+     */
+    getItemId(vnodeId) {
+        return vnodeId.split('__')[1];
+    }
 }
 
 Neo.applyClassConfig(Helix);

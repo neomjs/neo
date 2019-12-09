@@ -65,6 +65,7 @@ class HelixModel extends Model {
      * @param {Object} data
      */
     onItemClick(data) {
+        console.log('onItemClick', data);
         this.select(this.view.getItemId(data.target.id));
     }
 
