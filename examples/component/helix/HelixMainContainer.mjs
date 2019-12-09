@@ -18,7 +18,7 @@ class HelixMainContainer extends Viewport {
          * @member {Object|null} helixConfig=null
          */
         helixConfig: null,
-        layout   : {ntype: 'hbox', align: 'stretch'},
+        layout     : {ntype: 'hbox', align: 'stretch'},
 
         items: [{
             ntype : 'container',
@@ -232,9 +232,9 @@ class HelixMainContainer extends Viewport {
                 ntype: 'label',
                 text : [
                     '<b>Navigation Concept</b>',
-                    '<p>Click on an item to select it. Afterwards you can use the Arrow Keys to walk through the contacts.</p>',
-                    '<p>Hit the Space Key to rotate the currently selected contact to the front.</p>',
-                    '<p>Hit the Enter Key to expand the currently selected contact.</p>'
+                    '<p>Click on an item to select it. Afterwards you can use the Arrow Keys to walk through the items.</p>',
+                    '<p>Hit the Space Key to rotate the currently selected item to the front.</p>',
+                    '<p>Hit the Enter Key to expand the currently selected item.</p>'
                 ].join(''),
 
                 style: {
