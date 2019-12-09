@@ -25,7 +25,8 @@ class Helix extends BaseHelix {
         let me = this;
 
         vdomItem = Neo.create({
-            module: PreviewComponent,
+            module  : PreviewComponent,
+            parentId: me.id,
             ...record,
             author   : record.author.username, // todo: PreviewComponent should use an author object
             userImage: record.author.image
