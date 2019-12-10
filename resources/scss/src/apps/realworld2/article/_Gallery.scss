@@ -3,5 +3,11 @@
 
     .neo-gallery-item {
         background-color: rgba(73, 160, 154, 0.35);
+        border-radius   : 10px;
+
+        .rw2-preview-component {
+            border-top-left-radius : 10px;
+            border-top-right-radius: 10px;
+        }
     }
 }
