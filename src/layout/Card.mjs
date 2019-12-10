@@ -112,6 +112,26 @@ class Card extends Base {
     }
 
     /**
+     *
+     * @param {Neo.component.Base} card
+     * @return {Number} -1 in case no match was found
+     */
+    indexOf(card) {
+        let me        = this,
+            container = Neo.getComponent(me.containerId),
+            i         = 0,
+            len       = container.items && container.items.length || 0;
+
+        for (; i < len; i++) {
+            if (container.items[i] === card) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
      * Removes all CSS rules from the container this layout is bound to.
      * Gets called when switching to a different layout.
      */
