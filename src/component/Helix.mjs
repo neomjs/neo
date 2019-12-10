@@ -638,7 +638,7 @@ class Helix extends Component {
 
         if (me.clonedItems.length > 0) {
             me.clonedItems.forEach(item => {
-                id     = parseInt(item.id.split('__')[1]);
+                id     = me.getItemId(item.id);
                 record = store.get(id);
 
                 record.expanded = false;
