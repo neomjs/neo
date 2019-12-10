@@ -295,8 +295,7 @@ class Base extends Component {
         } else if (typeof item === 'object') {
             if (item instanceof Neo.component.Base !== true) {
                 if (item.module) {
-                    item.ntype = item.module.prototype.ntype;
-                    delete item.module;
+                    item.className = item.module.prototype.className;
                 }
 
                 item = {
@@ -310,7 +309,7 @@ class Base extends Component {
                     ...item
                 };
 
-                item = Neo.ntype(item);
+                item = Neo[item.className ? 'create' : 'ntype'](item);
             }
 
             me.layout.applyChildAttributes(item, index);
