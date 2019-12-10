@@ -20,7 +20,12 @@ class Helix extends BaseHelix {
          * The radius of the Helix in px
          * @member {Number} radius=2500
          */
-        radius: 2500
+        radius: 2500,
+        /**
+         * True displays the first & last name record fields below an expanded item
+         * @member {Boolean} showCloneInfo=false
+         */
+        showCloneInfo: false
     }}
 
     /**

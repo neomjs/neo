@@ -187,6 +187,11 @@ class Helix extends Component {
          */
         rotationMatrix: null,
         /**
+         * True displays the first & last name record fields below an expanded item
+         * @member {Boolean} showCloneInfo=true
+         */
+        showCloneInfo: true,
+        /**
          * The name of the CSS rule for selected items
          * @member {String} selectedItemCls='neo-selected'
          */
@@ -711,10 +716,12 @@ class Helix extends Component {
 
             itemVdom.cn[0].id = itemVdom.cn[0].id + '__clone';
 
-            itemVdom.cn.push({
-                cls      : ['contact-name'],
-                innerHTML: record.firstname + ' ' + record.lastname
-            });
+            if (me.showCloneInfo) {
+                itemVdom.cn.push({
+                    cls      : ['contact-name'],
+                    innerHTML: record.firstname + ' ' + record.lastname
+                });
+            }
 
             Neo.vdom.Helper.create({
                 autoMount  : true,
