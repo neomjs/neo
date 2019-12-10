@@ -45,19 +45,9 @@ class MainContainer extends Viewport {
         }, {
             ntype    : 'container',
             flex     : 1,
+            items    : [],
             layout   : {ntype: 'card'},
-            reference: 'cards',
-
-            items: [{
-                module   : HomeContainer,
-                reference: 'home'
-            }, {
-                module   : HelixContainer,
-                reference: 'helix'
-            }, {
-                module   : GalleryContainer,
-                reference: 'gallery'
-            }]
+            reference: 'cards'
         }, {
             module: FooterComponent
         }]
