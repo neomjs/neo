@@ -753,6 +753,7 @@ class Gallery extends Component {
      * @param {Array} items
      */
     onStoreLoad(items) {
+        this.getItemsRoot().cn = []; // silent update
         this.createItems();
     }
 
