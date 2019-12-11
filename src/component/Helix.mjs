@@ -881,6 +881,7 @@ class Helix extends Component {
      * @param {Array} items
      */
     onStoreLoad(items) {
+        this.vdom.cn[0].cn[0].cn = []; // silent update
         this.createItems();
     }
 
