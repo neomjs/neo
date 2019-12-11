@@ -3,9 +3,12 @@
 
     .neo-gallery-item {
         .item-wrapper {
-            background-color: rgba(73, 160, 154, 0.35);
-            border-radius   : 10px;
-            height          : 100%;
+            background-color   : rgba(73, 160, 154, 0.35);
+            border-radius      : 10px;
+            height             : 100%;
+            overflow           : hidden;
+            transition-duration: 550ms;
+            transition-property: transform;
         }
 
         .rw2-preview-component {
@@ -23,5 +26,16 @@
                 -webkit-box-reflect: inherit;
             }
         }
+
+        &.neo-selected {
+            .item-wrapper {
+                transform          : translate3d(0, 0, 180px) scale(1.5);
+                -webkit-box-reflect: unset !important;
+            }
+        }
+    }
+
+    .image-wrap.neo-selected img {
+        transform: inherit;
     }
 }
