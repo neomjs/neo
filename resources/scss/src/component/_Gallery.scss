@@ -45,9 +45,8 @@
 
     .image-wrap {
         &.neo-reflection img {
-            // neoteric/issues/47 => it can not get applied on the wrapper el for now
             -webkit-box-reflect: below 2px -webkit-gradient(linear, left top, left bottom, from(transparent), color-stop(0.5, transparent), to(rgba(0, 0, 0, 0.3)));
-            transform-style: flat;
+            transform-style    : flat;
         }
     }
 

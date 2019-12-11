@@ -2,12 +2,26 @@
     text-align: left;
 
     .neo-gallery-item {
-        background-color: rgba(73, 160, 154, 0.35);
-        border-radius   : 10px;
+        .item-wrapper {
+            background-color: rgba(73, 160, 154, 0.35);
+            border-radius   : 10px;
+            height          : 100%;
+        }
 
         .rw2-preview-component {
             border-top-left-radius : 10px;
             border-top-right-radius: 10px;
+        }
+
+        &.neo-reflection {
+            .item-wrapper {
+                -webkit-box-reflect: below 6px -webkit-gradient(linear, left top, left bottom, from(transparent), color-stop(0.1, transparent), to(rgba(0, 0, 0, 0.5)));
+                transform-style    : flat;
+            }
+
+            img {
+                -webkit-box-reflect: inherit;
+            }
         }
     }
 }

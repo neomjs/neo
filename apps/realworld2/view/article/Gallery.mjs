@@ -53,13 +53,16 @@ class Gallery extends BaseGallery {
 
         return {
             cls     : ['neo-gallery-item', 'image-wrap', 'view', 'neo-transition-1000'],
-            cn      : [vdomItem.vdom],
             id      : me.getItemVnodeId(record[me.keyProperty]),
             tabIndex: '-1',
             style: {
                 height: me.imageHeight + 'px',
                 width : me.imageWidth  + 'px'
-            }
+            },
+            cn: [{
+                cls: ['item-wrapper'],
+                cn : [vdomItem.vdom]
+            }],
         };
     }
 
