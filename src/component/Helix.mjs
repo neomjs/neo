@@ -572,6 +572,7 @@ class Helix extends Component {
     createItems(startIndex) {
         let me            = this,
             deltaY        = me.deltaY,
+            group         = me.getItemsRoot(),
             itemAngle     = me.itemAngle,
             matrix        = me.matrix,
             radius        = me.radius,
@@ -625,7 +626,7 @@ class Helix extends Component {
             vdomItem.style.opacity   = me.calculateOpacity(item);
             vdomItem.style.transform = transformStyle;
 
-            vdom.cn[0].cn[0].cn.push(vdomItem);
+            group.cn.push(vdomItem);
         }
 
         me.vdom = vdom;
@@ -687,7 +688,7 @@ class Helix extends Component {
         let me   = this,
             vdom = me.vdom;
 
-        vdom.cn[0].cn[0].cn.splice(startIndex || 0, amountItems || me.store.getCount());
+        me.getItemsRoot().cn.splice(startIndex || 0, amountItems || me.store.getCount());
         me.vdom = vdom;
     }
 
@@ -701,7 +702,7 @@ class Helix extends Component {
             record     = store.get(itemId),
             index      = store.indexOf(itemId),
             isExpanded = !!record.expanded,
-            group      = me.vdom.cn[0].cn[0],
+            group      = me.getItemsRoot(),
             itemVdom   = Neo.clone(group.cn[index], true);
 
         me.destroyClones();
@@ -767,6 +768,14 @@ class Helix extends Component {
      */
     getItemId(vnodeId) {
         return parseInt(vnodeId.split('__')[1]);
+    }
+
+    /**
+     * Returns the vdom node containing the helix items
+     * @returns {Object} vdom
+     */
+    getItemsRoot() {
+        return this.vdom.cn[0].cn[0];
     }
 
     /**
@@ -881,7 +890,7 @@ class Helix extends Component {
      * @param {Array} items
      */
     onStoreLoad(items) {
-        this.vdom.cn[0].cn[0].cn = []; // silent update
+        this.getItemsRoot().cn = []; // silent update
         this.createItems();
     }
 
