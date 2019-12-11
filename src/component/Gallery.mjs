@@ -293,7 +293,7 @@ class Gallery extends Component {
                 i    = 0,
                 len  = Math.min(me.maxItems, me.store.items.length),
                 vdom = me.vdom,
-                view = vdom.cn[0].cn[0].cn[0].cn[0];
+                view = me.getItemsRoot();
 
             if (me.rendered) {
                 me.refreshImageReflection();
@@ -519,7 +519,7 @@ class Gallery extends Component {
     }
 
     /**
-     * Returns the vdom node containing the helix items
+     * Returns the vdom node containing the gallery items
      * @returns {Object} vdom
      */
     getItemsRoot() {
@@ -723,7 +723,7 @@ class Gallery extends Component {
             hasChange = false,
             newCn     = [],
             vdom      = me.vdom,
-            view      = vdom.cn[0].cn[0].cn[0].cn[0],
+            view      = me.getItemsRoot(),
             vdomMap   = view.cn.map(e => e.id),
             fromIndex, vdomId;
 
@@ -765,7 +765,7 @@ class Gallery extends Component {
             orderByRow       = me.orderByRow,
             secondLastColumn = amountRows - 1,
             vdom             = me.vdom,
-            view             = vdom.cn[0].cn[0].cn[0].cn[0],
+            view             = me.getItemsRoot(),
             amountColumns;
 
         if (orderByRow) {
