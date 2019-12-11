@@ -293,7 +293,7 @@ class Gallery extends Component {
                 i    = 0,
                 len  = Math.min(me.maxItems, me.store.items.length),
                 vdom = me.vdom,
-                view = me.vdom.cn[0].cn[0].cn[0].cn[0];
+                view = vdom.cn[0].cn[0].cn[0].cn[0];
 
             if (me.rendered) {
                 me.refreshImageReflection();
@@ -429,7 +429,7 @@ class Gallery extends Component {
             orderByRow       = me.orderByRow,
             secondLastColumn = amountRows - 1,
             vdom             = me.vdom,
-            viewItems        = vdom.cn[0].cn[0].cn[0].cn[0].cn,
+            itemsRoot        = me.getItemsRoot(),
             i                = startIndex || 0,
             len              = Math.min(me.maxItems, me.store.items.length),
             amountColumns, item, vdomItem;
@@ -456,7 +456,7 @@ class Gallery extends Component {
                 }
             }
 
-            viewItems.push(vdomItem);
+            itemsRoot.cn.push(vdomItem);
         }
 
         me.vdom = vdom;
@@ -473,7 +473,7 @@ class Gallery extends Component {
             countItems   = amountItems || me.store.getCount(),
             selectedItem = me.selectionModel.items[0];
 
-        vdom.cn[0].cn[0].cn[0].cn[0].cn.splice(startIndex || 0, countItems);
+        me.getItemsRoot().cn.splice(startIndex || 0, countItems);
         me.vdom = vdom;
 
         if (me.selectionModel.hasSelection() && selectedItem > startIndex && selectedItem < startIndex + countItems) {
@@ -516,6 +516,14 @@ class Gallery extends Component {
      */
     getItemId(vnodeId) {
         return parseInt(vnodeId.split('__')[1]);
+    }
+
+    /**
+     * Returns the vdom node containing the helix items
+     * @returns {Object} vdom
+     */
+    getItemsRoot() {
+        return this.vdom.cn[0].cn[0].cn[0].cn[0];
     }
 
     /**
