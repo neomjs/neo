@@ -65,7 +65,15 @@ class GalleryModel extends Model {
      * @param {Object} data
      */
     onItemClick(data) {
-        this.select(this.view.getItemId(data.target.id));
+        let i   = 0,
+            len = data.path.length;
+
+        for (; i < len; i++) {
+            if (data.path[i].cls.includes('neo-gallery-item')) {
+                this.select(this.view.getItemId(data.path[i].id));
+                break;
+            }
+        }
     }
 
     /**
