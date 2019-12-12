@@ -89,51 +89,51 @@ class DomEvent extends Base {
             listeners = me.items[id] && me.items[id][eventName];
 
             if (listeners) {
-                break;
-            }
-        }
+                /*if (eventName === 'contextmenu') {
+                    console.log('fire', eventName, data, listeners, path);
+                }*/
 
-        /*if (eventName === 'contextmenu') {
-            console.log('fire', eventName, data, listeners, path);
-        }*/
+                if (!isDisabled && Array.isArray(listeners)) {
+                    listeners.forEach(listener => {
+                        if (listener && listener.fn) {
+                            delegationTargetId = me.verifyDelegationPath(listener, data.path);
 
-        if (!isDisabled && Array.isArray(listeners)) {
-            listeners.forEach(listener => {
-                if (listener && listener.fn) {
-                    delegationTargetId = me.verifyDelegationPath(listener, data.path);
+                            if (delegationTargetId !== false) {
+                                preventFire = false;
 
-                    if (delegationTargetId !== false) {
-                        preventFire = false;
+                                // we only want mouseenter & leave to fire on their top level nodes, not for children
+                                if (eventName === 'mouseenter' || eventName === 'mouseleave') {
+                                    targetId = eventName === 'mouseenter' ? data.fromElementId : data.toElementId;
+                                    // console.log(targetId, delegationTargetId);
 
-                        // we only want mouseenter & leave to fire on their top level nodes, not for children
-                        if (eventName === 'mouseenter' || eventName === 'mouseleave') {
-                            targetId = eventName === 'mouseenter' ? data.fromElementId : data.toElementId;
-                            // console.log(targetId, delegationTargetId);
+                                    if (targetId && targetId !== delegationTargetId) {
+                                        delegationVdom = VDomUtil.findVdomChild(component.vdom, delegationTargetId);
 
-                            if (targetId && targetId !== delegationTargetId) {
-                                delegationVdom = VDomUtil.findVdomChild(component.vdom, delegationTargetId);
+                                        if (delegationVdom.vdom && VDomUtil.findVdomChild(delegationVdom.vdom, targetId)) {
+                                            preventFire = true;
+                                        }
+                                    }
+                                }
 
-                                if (delegationVdom.vdom && VDomUtil.findVdomChild(delegationVdom.vdom, targetId)) {
-                                    preventFire = true;
+                                if (!preventFire) {
+                                    // console.log(Neo.get(id));
+                                    listener.fn.apply(listener.scope || self, [data]);
                                 }
                             }
                         }
-
-                        if (!preventFire) {
-                            // console.log(Neo.get(id));
-                            listener.fn.apply(listener.scope || self, [data]);
-                        }
-                    }
+                    });
                 }
-            });
-        }
 
-        // we do want to trigger the FocusManager after normal domListeners on these events got executed
-        if (eventName === 'focusin' || eventName === 'focusout') {
-            FocusManager['on' + Neo.capitalize(eventName)]({
-                componentPath: path,
-                data         : data
-            });
+                // we do want to trigger the FocusManager after normal domListeners on these events got executed
+                if (eventName === 'focusin' || eventName === 'focusout') {
+                    FocusManager['on' + Neo.capitalize(eventName)]({
+                        componentPath: path,
+                        data         : data
+                    });
+
+                    break;
+                }
+            }
         }
     }
 
