@@ -951,9 +951,16 @@ class Helix extends Component {
                 matrix = rotationMatrix.x(matrix);
             }
 
-            opacity        = me.calculateOpacity(item);
             transformStyle = matrix.getTransformStyle();
             matrix.destroy();
+
+            Object.assign(item, {
+                rotationAngle : angle,
+                transformStyle: transformStyle
+            });
+
+            opacity = me.calculateOpacity(item);
+            item.opacity = opacity;
 
             Object.assign(item, {
                 opacity       : opacity,
