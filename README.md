@@ -15,8 +15,8 @@
   <tbody>
     <tr>
       <td align="center" valign="middle">
-        <a href="http://www.stream4.tech/" target="_blank">
-          <img width="200px" src="https://raw.githubusercontent.com/neomjs/pages/master/sponsors/bronze/stream4tech.png">
+        <a href="http://www.stream4.tech/">
+          <img width="150px" src="https://raw.githubusercontent.com/neomjs/pages/master/sponsors/bronze/stream4tech.png">
         </a>
       </td>
     </tr>
