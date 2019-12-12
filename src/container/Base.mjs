@@ -249,19 +249,25 @@ class Base extends Component {
 
     /**
      * Finds the index of a direct child component inside this.items.
-     * @param {String} itemId
-     * @returns {Number} -1 in case no match is found
+     * @param {Neo.component.Base|String} itemId Either the item reference or the item id
+     * @return {Number} -1 in case no match was found
      */
     indexOf(itemId) {
-        let itemIndex = -1;
+        let me  = this,
+            i   = 0,
+            len = me.items && me.items.length || 0;
 
-        this.items.forEach((item, index) => {
-            if (item.id === itemId) {
-                itemIndex = index;
+        if (!Neo.isString(itemId)) {
+            itemId = itemId.id;
+        }
+
+        for (; i < len; i++) {
+            if (me.items[i].id === itemId) {
+                return i;
             }
-        });
+        }
 
-        return itemIndex;
+        return -1;
     }
 
     /**
@@ -289,8 +295,7 @@ class Base extends Component {
         } else if (typeof item === 'object') {
             if (item instanceof Neo.component.Base !== true) {
                 if (item.module) {
-                    item.ntype = item.module.prototype.ntype;
-                    delete item.module;
+                    item.className = item.module.prototype.className;
                 }
 
                 item = {
@@ -304,7 +309,7 @@ class Base extends Component {
                     ...item
                 };
 
-                item = Neo.ntype(item);
+                item = Neo[item.className ? 'create' : 'ntype'](item);
             }
 
             me.layout.applyChildAttributes(item, index);

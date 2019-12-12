@@ -123,10 +123,11 @@ class PreviewComponent extends Component {
             node = VDomUtil.getByFlag(vdom, 'author'),
             href = '#/profile/' + value;
 
-        node.href = href;
+        // todo: disabled until the new profile view is ready
+        //node.href = href;
         node.html = value;
 
-        VDomUtil.getByFlag(vdom, 'userImageLink').href = href;
+        //VDomUtil.getByFlag(vdom, 'userImageLink').href = href;
 
         this.vdom = vdom;
     }
@@ -206,7 +207,8 @@ class PreviewComponent extends Component {
     afterSetSlug(value, oldValue) {
         let vdom = this.vdom;
 
-        VDomUtil.getByFlag(vdom, 'preview-link').href = '#/article/' + value;
+        // todo: re-add once the new details view is in place
+        //VDomUtil.getByFlag(vdom, 'preview-link').href = '#/article/' + value;
         this.vdom = vdom;
     }
 

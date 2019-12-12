@@ -125,6 +125,18 @@
         }
     }
 
+    .btn-primary {
+        background-color: #5cb85c;
+        border-color    : #5cb85c;
+        color           : #fff;
+
+        &:hover {
+            background-color: #449d44;
+            border-color    : #419641;
+            color           : #fff;
+        }
+    }
+
     .pull-xs-right {
         float: right!important;
     }

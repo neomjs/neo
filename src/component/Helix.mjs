@@ -187,6 +187,11 @@ class Helix extends Component {
          */
         rotationMatrix: null,
         /**
+         * True displays the first & last name record fields below an expanded item
+         * @member {Boolean} showCloneInfo=true
+         */
+        showCloneInfo: true,
+        /**
          * The name of the CSS rule for selected items
          * @member {String} selectedItemCls='neo-selected'
          */
@@ -269,16 +274,6 @@ class Helix extends Component {
         });
 
         me.domListeners = domListeners;
-
-        if (!me.store) {
-            me._store = Neo.create(Collection, {
-                keyProperty: 'id',
-                listeners  : {
-                    sort : me.onSort,
-                    scope: me
-                }
-            });
-        }
     }
 
     /**
@@ -508,7 +503,13 @@ class Helix extends Component {
             });
         }
 
-        return value;
+        return Neo.create(Collection, {
+            keyProperty: 'id',
+            listeners  : {
+                sort : me.onSort,
+                scope: me
+            }
+        });
     }
 
     /**
@@ -571,6 +572,7 @@ class Helix extends Component {
     createItems(startIndex) {
         let me            = this,
             deltaY        = me.deltaY,
+            group         = me.getItemsRoot(),
             itemAngle     = me.itemAngle,
             matrix        = me.matrix,
             radius        = me.radius,
@@ -624,7 +626,7 @@ class Helix extends Component {
             vdomItem.style.opacity   = me.calculateOpacity(item);
             vdomItem.style.transform = transformStyle;
 
-            vdom.cn[0].cn[0].cn.push(vdomItem);
+            group.cn.push(vdomItem);
         }
 
         me.vdom = vdom;
@@ -642,7 +644,7 @@ class Helix extends Component {
 
         if (me.clonedItems.length > 0) {
             me.clonedItems.forEach(item => {
-                id     = parseInt(item.id.split('__')[1]);
+                id     = me.getItemId(item.id);
                 record = store.get(id);
 
                 record.expanded = false;
@@ -686,7 +688,7 @@ class Helix extends Component {
         let me   = this,
             vdom = me.vdom;
 
-        vdom.cn[0].cn[0].cn.splice(startIndex || 0, amountItems || me.store.getCount());
+        me.getItemsRoot().cn.splice(startIndex || 0, amountItems || me.store.getCount());
         me.vdom = vdom;
     }
 
@@ -700,7 +702,7 @@ class Helix extends Component {
             record     = store.get(itemId),
             index      = store.indexOf(itemId),
             isExpanded = !!record.expanded,
-            group      = me.vdom.cn[0].cn[0],
+            group      = me.getItemsRoot(),
             itemVdom   = Neo.clone(group.cn[index], true);
 
         me.destroyClones();
@@ -715,10 +717,12 @@ class Helix extends Component {
 
             itemVdom.cn[0].id = itemVdom.cn[0].id + '__clone';
 
-            itemVdom.cn.push({
-                cls      : ['contact-name'],
-                innerHTML: record.firstname + ' ' + record.lastname
-            });
+            if (me.showCloneInfo) {
+                itemVdom.cn.push({
+                    cls      : ['contact-name'],
+                    innerHTML: record.firstname + ' ' + record.lastname
+                });
+            }
 
             Neo.vdom.Helper.create({
                 autoMount  : true,
@@ -764,6 +768,14 @@ class Helix extends Component {
      */
     getItemId(vnodeId) {
         return parseInt(vnodeId.split('__')[1]);
+    }
+
+    /**
+     * Returns the vdom node containing the helix items
+     * @returns {Object} vdom
+     */
+    getItemsRoot() {
+        return this.vdom.cn[0].cn[0];
     }
 
     /**
@@ -878,6 +890,7 @@ class Helix extends Component {
      * @param {Array} items
      */
     onStoreLoad(items) {
+        this.getItemsRoot().cn = []; // silent update
         this.createItems();
     }
 
@@ -938,9 +951,16 @@ class Helix extends Component {
                 matrix = rotationMatrix.x(matrix);
             }
 
-            opacity        = me.calculateOpacity(item);
             transformStyle = matrix.getTransformStyle();
             matrix.destroy();
+
+            Object.assign(item, {
+                rotationAngle : angle,
+                transformStyle: transformStyle
+            });
+
+            opacity = me.calculateOpacity(item);
+            item.opacity = opacity;
 
             Object.assign(item, {
                 opacity       : opacity,

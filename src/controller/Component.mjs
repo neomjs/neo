@@ -109,12 +109,7 @@ class Component extends Base {
             }
         }
 
-        if (!component) {
-            Logger.logError('No reference found for:', name, me);
-            return null;
-        } else {
-            return component;
-        }
+        return component || null;
     }
 
     /**

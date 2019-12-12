@@ -20,7 +20,12 @@ class Helix extends BaseHelix {
          * The radius of the Helix in px
          * @member {Number} radius=2500
          */
-        radius: 2500
+        radius: 2500,
+        /**
+         * True displays the first & last name record fields below an expanded item
+         * @member {Boolean} showCloneInfo=false
+         */
+        showCloneInfo: false
     }}
 
     /**
@@ -42,9 +47,10 @@ class Helix extends BaseHelix {
         });
 
         return {
-            cls: ['surface', 'neo-helix-item'],
-            id : me.getItemVnodeId(record[me.keyProperty]),
-            cn : [vdomItem.vdom]
+            cls     : ['surface', 'neo-helix-item'],
+            cn      : [vdomItem.vdom],
+            id      : me.getItemVnodeId(record[me.keyProperty]),
+            tabIndex: '-1'
         };
     }
 

@@ -14,16 +14,17 @@ class GalleryMainContainer extends Viewport {
         ntype    : 'main-container',
 
         autoMount: true,
-        layout   : {ntype: 'hbox', align: 'stretch'},
+        /**
+         * @member {Object|null} galleryConfig=null
+         */
+        galleryConfig: null,
+        layout       : {ntype: 'hbox', align: 'stretch'},
 
         items: [{
             ntype : 'container',
             flex  : 1,
             layout: 'fit',
-            items : [{
-                ntype: 'gallery',
-                id   : 'neo-gallery-1'
-            }]
+            items : []
         }, {
             ntype : 'panel',
             layout: {ntype: 'vbox', align: 'stretch'},
@@ -184,6 +185,28 @@ class GalleryMainContainer extends Viewport {
             }]
         }]
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        this.items[0].items.push({
+            module: Gallery,
+            id    : 'neo-gallery-1',
+            ...this.galleryConfig || {}
+        });
+    }
+
+    /**
+     *
+     * @returns {Neo.data.Store}
+     */
+    getStore() {
+        return this.items[0].items[0].store;
+    }
 }
 
 Neo.applyClassConfig(GalleryMainContainer);

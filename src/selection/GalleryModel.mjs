@@ -65,7 +65,15 @@ class GalleryModel extends Model {
      * @param {Object} data
      */
     onItemClick(data) {
-        this.select(this.view.getItemId(data.target.id));
+        let i   = 0,
+            len = data.path.length;
+
+        for (; i < len; i++) {
+            if (data.path[i].cls.includes('neo-gallery-item')) {
+                this.select(this.view.getItemId(data.path[i].id));
+                break;
+            }
+        }
     }
 
     /**
@@ -215,7 +223,7 @@ class GalleryModel extends Model {
 
         if (me.singleSelect) {
             me.items.forEach(item => {
-                if (item.id !== itemId) {
+                if (item[view.keyProperty] !== itemId) {
                     deltas.push({
                         id : view.getItemVnodeId(item),
                         cls: {

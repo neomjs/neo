@@ -1,6 +1,9 @@
 import {default as ArticleApi}          from '../api/Article.mjs';
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
 import {default as FavoriteApi}         from '../api/Favorite.mjs';
+import GalleryContainer                 from './article/GalleryContainer.mjs';
+import HelixContainer                   from './article/HelixContainer.mjs';
+import HomeContainer                    from './HomeContainer.mjs';
 import {LOCAL_STORAGE_KEY}              from '../api/config.mjs';
 import {default as ProfileApi}          from '../api/Profile.mjs';
 import {default as TagApi}              from '../api/Tag.mjs';
@@ -196,16 +199,22 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @param {String} key
-     * @param {Neo.component.Base} module
      * @param {String} reference
+     * @param {Neo.component.Base} module
      * @returns {Neo.component.Base} The matching view instance
      */
-    getView(key, module, reference) {
-        const me = this;
+    getView(reference, module) {
+        let me   = this,
+            card = me.getReference(reference);
 
-        // for testing
-        return me.getReference('home');
+        if (!card) {
+            card = me.getReference('cards').add({
+                module   : module,
+                reference: reference
+            });
+        }
+
+        return card;
     }
 
     /**
@@ -252,9 +261,9 @@ class MainContainerController extends ComponentController {
      * @param {String} hashString
      */
     onHashChange(value, oldValue, hashString) {
-        let me    = this,
+        let me   = this,
             view = me.view,
-            activeIndex, newView, slug;
+            cards, newView, slug;
 
         if (!view.mounted) { // the initial hash change gets triggered before the vnode got back from the vdom worker (using autoMount)
             view.on('mounted', () => {
@@ -263,13 +272,16 @@ class MainContainerController extends ComponentController {
         } else {
             console.log('onHashChange', value, hashString);
 
+            cards = me.getReference('cards');
+
             me.hashString = hashString;
 
             // adjust the active header link
             // view.items[0].activeItem = Object.keys(value)[0];
 
-                 if (hashString === '/')                {activeIndex = 0; newView = me.getReference('home');}
-            else if (hashString === '/helix')           {activeIndex = 1; newView = me.getReference('helix');}
+                 if (hashString === '/')                {newView = me.getView('home',    HomeContainer);}
+            else if (hashString === '/helix')           {newView = me.getView('helix',   HelixContainer);}
+            else if (hashString === '/gallery')         {newView = me.getView('gallery', GalleryContainer);}
           /*else if (hashString.includes('/article/'))  {newView = me.getView('articleComponent',  ArticleComponent,  'article');}
             else if (hashString.includes('/editor'))    {newView = me.getView('createComponent',   CreateComponent,   'editor');}
             else if (hashString.includes('/profile/'))  {newView = me.getView('profileComponent',  ProfileComponent,  'profile');}
@@ -290,9 +302,15 @@ class MainContainerController extends ComponentController {
                 }
             }*/
 
-            me.getReference('cards').layout.activeIndex = activeIndex;
+            // short delay to ensure the new card already got added
+            setTimeout(() => {
+                cards.layout.activeIndex = cards.indexOf(newView);
+            }, 100);
 
             switch (newView.reference) {
+                case 'gallery':
+                    newView.getArticles();
+                    break;
                 case 'helix':
                     newView.getArticles();
                     break;

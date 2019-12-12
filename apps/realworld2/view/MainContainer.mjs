@@ -1,4 +1,5 @@
 import FooterComponent         from './FooterComponent.mjs';
+import GalleryContainer        from './article/GalleryContainer.mjs';
 import HeaderToolbar           from './HeaderToolbar.mjs';
 import HelixContainer          from './article/HelixContainer.mjs';
 import HomeContainer           from './HomeContainer.mjs';
@@ -44,16 +45,9 @@ class MainContainer extends Viewport {
         }, {
             ntype    : 'container',
             flex     : 1,
+            items    : [],
             layout   : {ntype: 'card'},
-            reference: 'cards',
-
-            items: [{
-                module   : HomeContainer,
-                reference: 'home'
-            }, {
-                module   : HelixContainer,
-                reference: 'helix'
-            }]
+            reference: 'cards'
         }, {
             module: FooterComponent
         }]
