@@ -312,7 +312,7 @@ class DateSelector extends Component {
      */
     afterSetWeekStartDay(value, oldValue) {
         if (this.rendered) {
-            this.recreateDayViewContent();
+            this.recreateDayViewContent(false, false);
         }
     }
 
@@ -752,14 +752,18 @@ class DateSelector extends Component {
     /**
      * Recreates the current centerEl
      * @param {Boolean} [silent=false]
+     * @param {Boolean} [syncIds=true]
      * @private
      */
-    recreateDayViewContent(silent=false) {
+    recreateDayViewContent(silent=false, syncIds=true) {
         let me = this;
 
         me.getCenterContentEl().cn = [];
         me.createDayViewContent(true);
-        me.syncVdomIds();
+
+        if (syncIds) {
+            me.syncVdomIds();
+        }
 
         me.triggerVdomUpdate(silent);
     }
