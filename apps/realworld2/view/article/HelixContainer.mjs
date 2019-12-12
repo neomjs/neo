@@ -27,6 +27,45 @@ class HelixContainer extends HelixMainContainer {
 
     /**
      *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me = this;
+
+        // disable maxItems for now
+        me.items[1].items[10].disabled = true;
+
+        me.items[1].items[12] = {
+            ntype       : 'button',
+            text        : 'Sort by date',
+            listeners   : {},
+            style       : {margin: '20px', marginBottom: '10px'},
+            domListeners: {
+                click: data => {
+                    me.getStore().sort({property: 'createdAt', direction: 'DESC'});
+                    console.log(me.getStore().items[0]);
+                }
+            }
+        };
+
+        me.items[1].items[13] = {
+            ntype       : 'button',
+            text        : 'Sort by title',
+            listeners   : {},
+            style       : {margin: '20px', marginTop: 0},
+            domListeners: {
+                click: data => {
+                    me.getStore().sort({property: 'title', direction: 'ASC'});
+                    console.log(me.getStore().items[0]);
+                }
+            }
+        };
+    }
+
+    /**
+     *
      * @param {Object} [params={}]
      * @param {Object} [opts={}]
      */
