@@ -9,7 +9,6 @@
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html">Online Docs</a>
 
 <h3 align="center">Bronze Sponsors</h3>
-
 <!--bronze start-->
 <table>
   <tbody>
