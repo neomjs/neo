@@ -21,6 +21,11 @@
             "input": "myApps/RealWorld.mjs",
             "output": "/apps/realworld/",
             "title": "RealWorld"
+        },
+        "RealWorld2": {
+            "input": "myApps/RealWorld2.mjs",
+            "output": "/apps/realworld2/",
+            "title": "RealWorld2"
         }
     }
 }
