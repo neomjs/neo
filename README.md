@@ -9,6 +9,9 @@
 <a href="https://neomjs.github.io/pages/">Online Examples</a>&nbsp;&nbsp;
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html">Online Docs</a>
 
+This is a new paradigm. If you want to enter a new era of making better Web Based User Interfaces,
+the following concepts will be addictive.
+
 <h3 align="center">Bronze Sponsors</h3>
 <!--bronze start-->
 <table>
@@ -23,9 +26,6 @@
   </tbody>
 </table>
 <!--bronze end-->
-
-This is a new paradigm. If you want to enter a new era of making better Web Based User Interfaces,
-the following concepts will be addictive.
 
 <table>
     <tr>
