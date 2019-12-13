@@ -29,6 +29,21 @@ Afterwards I would like to polish the docs app further, as well as writing more 
 Right now there is a massive amount of hidden gems inside the neo.mjs code base, but I do get the point
 that not everyone of us is a treasure-hunter and loves to explore the code base on his own.
 
+<h3 align="center">Bronze Sponsors</h3>
+<!--bronze start-->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="middle">
+        <a href="http://www.stream4.tech/">
+          <img width="150px" src="https://raw.githubusercontent.com/neomjs/pages/master/sponsors/bronze/stream4tech.png">
+        </a>
+      </td>
+    </tr>
+  </tbody>
+</table>
+<!--bronze end-->
+
 # Why should I sponsor neo.mjs?
 I am in need to make up for the invested time, which means that going forward,
 I have to spend a lot of my time on billable projects.

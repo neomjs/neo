@@ -1,4 +1,5 @@
 <p align="center">
+  <a href="https://npmcharts.com/compare/neo.mjs?minimal=true"><img src="https://img.shields.io/npm/dm/neo.mjs.svg" alt="Downloads"></a>
   <a href="https://www.npmjs.com/package/neo.mjs"><img src="https://img.shields.io/npm/v/neo.mjs.svg" alt="Version"></a>
   <a href="https://www.npmjs.com/package/neo.mjs"><img src="https://img.shields.io/npm/l/neo.mjs.svg" alt="License"></a>
 </p>
@@ -10,6 +11,21 @@
 
 This is a new paradigm. If you want to enter a new era of making better Web Based User Interfaces,
 the following concepts will be addictive.
+
+<h3 align="center">Bronze Sponsors</h3>
+<!--bronze start-->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="middle">
+        <a href="http://www.stream4.tech/">
+          <img width="150px" src="https://raw.githubusercontent.com/neomjs/pages/master/sponsors/bronze/stream4tech.png">
+        </a>
+      </td>
+    </tr>
+  </tbody>
+</table>
+<!--bronze end-->
 
 <table>
     <tr>

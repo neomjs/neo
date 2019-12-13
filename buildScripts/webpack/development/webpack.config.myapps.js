@@ -1,4 +1,5 @@
-const inquirer         = require('inquirer'),
+const fs               = require('fs'),
+     inquirer          = require('inquirer'),
      path              = require('path'),
      HtmlWebpackPlugin = require('html-webpack-plugin'),
      NodeExternals     = require('webpack-node-externals'),
@@ -6,7 +7,7 @@ const inquirer         = require('inquirer'),
      entry             = {main: config.mainInput},
      plugins           = [];
 
-let basePath, i, treeLevel, workerBasePath;
+let basePath, i, indexPath, treeLevel, workerBasePath;
 
 if (config.workers) {
     Object.entries(config.workers).forEach(([key, value]) => {
@@ -57,19 +58,23 @@ if (config.apps) {
             }
 
             if (key !== 'docs') {
-                plugins.push(new HtmlWebpackPlugin({
-                    chunks  : ['main'],
-                    filename: path.resolve(__dirname, config.buildFolder) + value.output + 'index.html',
-                    template: 'buildScripts/webpack/index.ejs',
-                    templateParameters: {
-                        appPath       : value.output + 'app.js',
-                        bodyTag       : value.bodyTag || config.bodyTag,
-                        basePath      : basePath,
-                        environment   : config.environment,
-                        title         : value.title,
-                        workerBasePath: workerBasePath
-                    }
-                }));
+                indexPath = path.resolve(__dirname, config.buildFolder) + value.output + 'index.html';
+
+                if (!fs.existsSync(indexPath)) {
+                    plugins.push(new HtmlWebpackPlugin({
+                        chunks  : ['main'],
+                        filename: indexPath,
+                        template: 'buildScripts/webpack/index.ejs',
+                        templateParameters: {
+                            appPath       : value.output + 'app.js',
+                            bodyTag       : value.bodyTag || config.bodyTag,
+                            basePath      : basePath,
+                            environment   : config.environment,
+                            title         : value.title,
+                            workerBasePath: workerBasePath
+                        }
+                    }));
+                }
             }
         }
     });
