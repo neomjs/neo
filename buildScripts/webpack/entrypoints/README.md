@@ -5,7 +5,7 @@ There no longer is a separate build for the App Worker & each example,
 only combinations of the App Worker AND the code of each example.
 
 
-Webpack was creating different chunks otherwise, resulting in redundand code for each example & the App Worker.
+Webpack was creating different chunks otherwise, resulting in redundant code for each example & the App Worker.
 Even worse, there were colliding classes (e.g. Neo itself, the IdGenerator etc.) and it felt kind of random
 which target module Webpack was using.
 
