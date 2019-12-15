@@ -99,7 +99,7 @@ Thanks for your support!
     live inside the app thread.
     2. Once DD is in place, we can create a real slider component (see <a href="https://github.com/neomjs/neo/issues/18">#18</a>)
     3. We can create Dialogs (Windows), which can get moved and resized (see <a href="https://github.com/neomjs/neo/issues/15">#15</a>)
-    4. We can create sortable tabs (<a href="https://github.com/neomjs/neo/issues/23">#23</a>)
+    4. We can create sortable tabs (see <a href="https://github.com/neomjs/neo/issues/23">#23</a>)
 * Docs App version 2
     1. I am not planning to re-create the existing app, but enhance it with more features:
     2. Support for showing mixins inside the class views (<a href="https://github.com/neomjs/neo/issues/99">#99</a>)
@@ -113,5 +113,12 @@ Thanks for your support!
         3. The configuration container should be collapsible (using a sliding animation)
     7. class member inheritance: when overriding a config or assigning a value to a parent one, the parent config
     should get listed (including its initial value)
-    
+* Build Scripts
+    1. The current scripts work fine inside the neo repository. Since neo.mjs can now get used as a node module,
+    enhancements feel necessary.
+        1. An npx create-app script (see <a href="https://github.com/neomjs/neo/issues/90">#90</a>)
+        2. The build-my-apps scripts should work as well, when used outside of the repo (manually hacked this into the
+        Real World app version 1)
+        
+        
 Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
