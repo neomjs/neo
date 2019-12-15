@@ -77,5 +77,9 @@ Thanks for your support!
 * Finish the implementation for Tooltips; Rectangle utility class (see <a href="https://github.com/neomjs/neo/issues/51">#51</a>)
 * Finish the implementation for form.field.Chip (see <a href="https://github.com/neomjs/neo/issues/31">#31</a>)
 * Create a coding style guide (see <a href="https://github.com/neomjs/neo/issues/93">#93</a>)
+* Virtual Dom Engine enhancements
+    1. Add a 2nd mode where ids do get ignored (e.g. for comparing content on fixed positions like grid rows)
+    2. Add an option to specify the the tree depth to compare (e.g. only the first level for containers)
+    3. Refactor vdom.Helper: createDeltas 
         
 Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
