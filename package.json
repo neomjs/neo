@@ -26,7 +26,7 @@
         "prod-theme-light-no-css4": "webpack --config ./buildScripts/webpack/production/webpack.scss.config.js --env.json_file=theme.light.noCss4.json",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
-    "keywords": [],
+    "keywords": ["javascript","frontend","framework","webworker","ecmascript","css","json"],
     "author": "Tobias Uhlig, Rich Waters",
     "license": "MIT",
     "bugs": {
