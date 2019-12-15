@@ -63,6 +63,16 @@ Thanks for your support!
     should happen inside the app thread (like a data reader)
     4. Remote stores with local sorting: this sorting could happen inside the data worker as well
 * Data Package version 2
-    1. 
+    1. The collection class is already very powerful (needs some polishing though). For the first version of the data
+    package, stores were extending collection.Base. Afterwards records were introduced (not instances of data.Model,
+    but a super lightweight extension of a JS Object). At this point, stores should no longer extend a collection,
+    but use one instance instead (e.g. a collection config).
+    2. More polishing of Sorters & Filters & add the ability for stores to sort & filter per remote (adding params to
+    each request).
+    3. Enhance the API for stores: when using a collection, several methods need to get bound to the collection, but
+    ensuring that data objects get transformed into records.
+    4. use data fields: each store should exactly use one instance of data.Model. Inside a model, you can define fields.
+    Fields should either be a singleton or a class with static methods. We need to provide parsing methods, e.g. toString()
+    for a field type "String".
         
 Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters

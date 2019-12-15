@@ -38,7 +38,7 @@ This is something I would love to share with you!
 
 # What will I sponsor?
 Obviously the continuing of the development for the neo.mjs framework.
-To get the idea of what this means in detail, please take a look at the: <a href=".github/VISION.md">Project Vision</a>
+To get the idea of what this means in detail, please take a look at the: <a href=".github/VISION.md">Project Vision</a>.
 
 # Why should I sponsor neo.mjs?
 I am in need to make up for the invested time, which means that going forward,
