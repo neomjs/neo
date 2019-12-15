@@ -99,7 +99,7 @@ Please take a look at the <a href=".github/GETTING_STARTED.md">Getting Started G
 
 Although neo.mjs is ready to craft beautiful & blazing fast UIs, the current state is just a fraction of a bigger
 picture.<br/>
-Take a look at the <a href=".github/VISION.md">Project Story & Vision</a>.
+Take a look at the <a href=".github/STORY.md">Project Story</a> and <a href=".github/VISION.md">Vision</a>.
 
 In case you like the neo.mjs concepts, please take a look at <a href="./BACKERS.md">Sponsors & Backers</a>.
 
