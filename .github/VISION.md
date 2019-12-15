@@ -102,5 +102,28 @@ Thanks for your support!
 * Write more tests (Epic!)
 * main.mixins.FeatureDetection
     1. Add meaningful checks for relevant features
+* Create a Website for the neo.mjs project
+    1. Right now, only Online Examples are in place
+    2. The examples need to support mobile
+    3. Intro Texts are needed (see <a href="https://github.com/neomjs/neo/issues/7">#7</a>)
+    4. A Logo for neo.mjs is needed 
+* Create a MarketPlace for User Extensions / Custom Components
+    1. for UX which don't fit into the framework repo
+    2. for custom themes
+    3. add the ability for developers / companies to sell their extensions vs a fee (similar to the apple app store)
+* Create a Chrome extension to make the debugging / working with neo.mjs more easy
+    1. see all created stores & their data
+    2. Access to the component manager
+    3. Ability to click on the screen and receive the closest neo.mjs component
+    4. Ability to see the full component tree of your app
+* Use SharedWorker(s)
+    1. Optional
+    2. Once Chrome supports using JS modules inside shared workers
+    3. This will allow us to create ***multi screen apps***
+    4. Imagine dragging a dialog outside of your browser tab and it appears in another one
+    
+***TL-BR***: This list is most likely not even complete.
+You don't need to be a genius in math to figure out that this is a massive amount of work.
+
         
 Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
