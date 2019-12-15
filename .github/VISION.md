@@ -80,7 +80,7 @@ To speed up the current development there are two options:
 1. Help promoting neo.mjs or jump in as a contributor (see <a href="../CONTRIBUTING.md">Contributing</a>)
 2. Jump in as a sponsor to ensure I can spend more time on the neo.mjs coding side (see <a href="../BACKERS.md">Sponsors & Backers</a>)
 
-The following items are **not** ordered by priority. In case certain topics are important to you, please use the issues
+The following items are ***not*** ordered by priority. In case certain topics are important to you, please use the issues
 tracker to create an awareness (like / comment on current tickets or create new ones as needed).
 
 Thanks for your support!
@@ -100,5 +100,18 @@ Thanks for your support!
     2. Once DD is in place, we can create a real slider component (see <a href="https://github.com/neomjs/neo/issues/18">#18</a>)
     3. We can create Dialogs (Windows), which can get moved and resized (see <a href="https://github.com/neomjs/neo/issues/15">#15</a>)
     4. We can create sortable tabs (<a href="https://github.com/neomjs/neo/issues/23">#23</a>)
-
+* Docs App version 2
+    1. I am not planning to re-create the existing app, but enhance it with more features:
+    2. Support for showing mixins inside the class views (<a href="https://github.com/neomjs/neo/issues/99">#99</a>)
+    3. Add tooltips (especially for the Configs, Methods & Events buttons => navigation shortcut)
+    4. Expandable class member items (add the ability to expand or collapse items to make the list shorter)
+    5. Writing more guides
+    6. Enhance the example views:
+        1. The example components should get shown inside a tabContainer: first tab containing the component,
+        second tab a source code view of the example
+        2. It should be possible to export the current configs (e.g. 3rd tab, configs as JSON)
+        3. The configuration container should be collapsible (using a sliding animation)
+    7. class member inheritance: when overriding a config or assigning a value to a parent one, the parent config
+    should get listed (including its initial value)
+    
 Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
