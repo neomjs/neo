@@ -74,5 +74,8 @@ Thanks for your support!
     4. use data fields: each store should exactly use one instance of data.Model. Inside a model, you can define fields.
     Fields should either be a singleton or a class with static methods. We need to provide parsing methods, e.g. toString()
     for a field type "String".
+* Finish the implementation for Tooltips; Rectangle utility class (see <a href="https://github.com/neomjs/neo/issues/51">#51</a>)
+* Finish the implementation for form.field.Chip (see <a href="https://github.com/neomjs/neo/issues/31">#31</a>)
+* Create a coding style guide (see <a href="https://github.com/neomjs/neo/issues/93">#93</a>)
         
 Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
