@@ -125,5 +125,14 @@ Thanks for your support!
     2. Split the current events into desktop & mobile and add a Neo.config to choose which ones to use
     3. Use the events based on the browser feature detection
     4. Create new components and adjust current ones to better work on mobile
+* Mobile Docs App
+    1. Create a new UI or make the current one responsive
+* Make the Data worker more meaningful
+    1. Right now, the data worker only executes the XHR requests
+    2. Rich originally planned to let stores live inside this thread, but this would create a lot more async logic inside
+    the app thread, plus it does not make sense for stores with little data
+    3. What should be possible: for remote stores which need to parse the data getting back from an API, these transformations
+    should happen inside the app thread (like a data reader)
+    4. Remote stores with local sorting: this sorting could happen inside the data worker as well
         
 Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
