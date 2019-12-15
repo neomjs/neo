@@ -68,4 +68,5 @@ after signing a sponsors program to provide your company logo!
 ### Thanks a lot for your support of the neo.mjs project!<br/>
 <a href="https://github.com/sponsors/tobiu">Sponsor Tobias Uhlig</a>
 
-Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
+Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
+& <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>

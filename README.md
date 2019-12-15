@@ -109,4 +109,5 @@ In case you like the neo.mjs concepts, please take a look at <a href="./BACKERS.
 
 Build with :heart: in Germany.
 
-Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
+Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
+& <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>

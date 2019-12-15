@@ -137,4 +137,5 @@ To speed up the current development there are two options:
 
 Best regards, Tobias
         
-Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
+Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
+& <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>

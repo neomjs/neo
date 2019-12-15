@@ -54,4 +54,5 @@ localhost/neo/dist/production/examples/component/helix/
 
 The build (dist) versions also work in Firefox & Safari and do not require the Chrome flag.
 
-Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
+Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
+& <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>

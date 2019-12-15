@@ -31,4 +31,5 @@ No worries, you don't need to be a guru, ninja or rockstar to support the projec
 4.  In case you created a nice app or component using neo.mjs, please let us know about it.
     1.  We are always interested to feature client projects in blog posts or on social media.
     
-Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
+Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
+& <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>

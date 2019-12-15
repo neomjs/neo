@@ -71,4 +71,5 @@ myButton.text = "World";
 
 For more input on what you can do using neo.mjs, please take a look at the guides inside the docs app.
 
-Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
+Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
+& <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>
