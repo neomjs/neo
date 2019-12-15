@@ -83,11 +83,22 @@ To speed up the current development there are two options:
 The following items are **not** ordered by priority. In case certain topics are important to you, please use the issues
 tracker to create an awareness (like / comment on current tickets or create new ones as needed).
 
-Thank you for your support!
+Thanks for your support!
 
 * Real World app version 2
-    * Version 1 is definitely worth a look to see how to craft custom components and connect to an API,
+    1. Version 1 is definitely worth a look to see how to craft custom components and connect to an API,
     but it is not the best starting point to see how to craft an neo.mjs app. Since the requirement was to use a given
     Bootstrap theme, only component.Base is in use (since more advanced components require a neo.mjs CSS theme).
+    At this point I recommend to take a look at the Docs app to learn how to craft an neo.mjs app.
+    2. Version 2 is intended to fill this gap and will not use the Bootstrap based theme.
+    3. This allows us to use the full range of neo.mjs components (Toolbar, Button, List, TabContainer, Helix, etc.)
+    4. Once this app is finished, it will be the perfect starting point to learn how to use neo.mjs,
+    so right now this item has the highest priority for me.
+* Drag & Drop (see <a href="https://github.com/neomjs/neo/issues/16">#16</a>)
+    1. This ticket is definitely an epic, since DD operations happen inside the main thread, while the handlers will
+    live inside the app thread.
+    2. Once DD is in place, we can create a real slider component (see <a href="https://github.com/neomjs/neo/issues/18">#18</a>)
+    3. We can create Dialogs (Windows), which can get moved and resized (see <a href="https://github.com/neomjs/neo/issues/15">#15</a>)
+    4. We can create sortable tabs (<a href="https://github.com/neomjs/neo/issues/23">#23</a>)
 
 Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
