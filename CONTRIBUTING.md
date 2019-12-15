@@ -9,7 +9,8 @@ No worries, you don't need to be a guru, ninja or rockstar to support the projec
     1.  Add a star to this repository. Ok, this one was easy. Thank you!
     2.  Tell your friends about neo.mjs.
     3.  Write blog posts or post on social media (Facebook, LinkedIn, Twitter, etc.)
-    4.  Interested to see a neo.mjs session at a developer conference? Definitely possible. Just reach out!
+    4. Please stick to our <a href=".github/CODE_OF_CONDUCT.md">Code of Conduct</a>
+    5.  Interested to see a neo.mjs session at a developer conference? Definitely possible. Just reach out!
 2.  Use the issues tracker
     1. In case you got an idea for a new feature
     2. In case you find a bug
@@ -31,4 +32,5 @@ No worries, you don't need to be a guru, ninja or rockstar to support the projec
 4.  In case you created a nice app or component using neo.mjs, please let us know about it.
     1.  We are always interested to feature client projects in blog posts or on social media.
     
-Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
+Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
+& <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>

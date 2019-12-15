@@ -171,7 +171,7 @@ class GalleryMainContainer extends Viewport {
                 ntype: 'label',
                 text : [
                     '<b>Navigation Concept</b>',
-                    '<p>Click on an item to select it. Afterwards you can use the Arrow Keys to walk through the contacts.</p>'
+                    '<p>Click on an item to select it. Afterwards you can use the Arrow Keys to walk through the items.</p>'
                 ].join(''),
 
                 style: {

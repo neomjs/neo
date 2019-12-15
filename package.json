@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "1.0.11",
+    "version": "1.0.12",
     "description": "The webworkers driven UI framework",
     "repository": {
         "type": "git",
@@ -26,7 +26,7 @@
         "prod-theme-light-no-css4": "webpack --config ./buildScripts/webpack/production/webpack.scss.config.js --env.json_file=theme.light.noCss4.json",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
-    "keywords": [],
+    "keywords": ["javascript","frontend","framework","webworker","ecmascript","css","json"],
     "author": "Tobias Uhlig, Rich Waters",
     "license": "MIT",
     "bugs": {
@@ -34,7 +34,7 @@
     },
     "homepage": "https://neomjs.github.io/pages/",
     "devDependencies": {
-        "@fortawesome/fontawesome-free": "^5.11.2",
+        "@fortawesome/fontawesome-free": "^5.12.0",
         "autoprefixer": "^9.7.2",
         "clean-webpack-plugin": "^3.0.0",
         "css-loader": "^3.2.0",

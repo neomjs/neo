@@ -99,7 +99,7 @@ Please take a look at the <a href=".github/GETTING_STARTED.md">Getting Started G
 
 Although neo.mjs is ready to craft beautiful & blazing fast UIs, the current state is just a fraction of a bigger
 picture.<br/>
-Take a look at the <a href=".github/VISION.md">Project Story & Vision</a>.
+Take a look at the <a href=".github/STORY.md">Project Story</a> and <a href=".github/VISION.md">Vision</a>.
 
 In case you like the neo.mjs concepts, please take a look at <a href="./BACKERS.md">Sponsors & Backers</a>.
 
@@ -109,4 +109,5 @@ In case you like the neo.mjs concepts, please take a look at <a href="./BACKERS.
 
 Build with :heart: in Germany.
 
-Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
+Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
+& <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>
