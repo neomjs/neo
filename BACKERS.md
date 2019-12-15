@@ -21,14 +21,6 @@ to an entire new level.
 
 This is something I would love to share with you!
 
-After finishing the Real World demo app, I am planning to create a 2nd version: this time using a custom neo.mjs design
-theme as well as the full band-width of neo.mjs components: tabContainers, lists, toolbars, buttons etc.
-This should be the perfect starting point for new developers who would like to get up to speed.
-
-Afterwards I would like to polish the docs app further, as well as writing more tutorials & guides.
-Right now there is a massive amount of hidden gems inside the neo.mjs code base, but I do get the point
-that not everyone of us is a treasure-hunter and loves to explore the code base on his own.
-
 <h3 align="center">Bronze Sponsors</h3>
 <!--bronze start-->
 <table>
@@ -43,6 +35,10 @@ that not everyone of us is a treasure-hunter and loves to explore the code base 
   </tbody>
 </table>
 <!--bronze end-->
+
+# What will I sponsor?
+Obviously the continuing of the development for the neo.mjs framework.
+To get the idea of what this means in detail, please take a look at the: <a href=".github/VISION.md">Project Vision</a>
 
 # Why should I sponsor neo.mjs?
 I am in need to make up for the invested time, which means that going forward,
