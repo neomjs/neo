@@ -73,6 +73,21 @@ For more input on what you can do using neo.mjs, please take a look at the guide
 
 # The neo.mjs vision
 
-content coming soon!
+At this point I can not commit to adding dates to the planned items.
+After investing 1.5 years of my full and unpaid working time I am in need to make up on the financial side of things.
+
+To speed up the current development there are two options:
+1. Help promoting neo.mjs or jump in as a contributor (see <a href="../CONTRIBUTING.md">Contributing</a>)
+2. Jump in as a sponsor to ensure I can spend more time on the neo.mjs coding side (see <a href="../BACKERS.md">Sponsors & Backers</a>)
+
+The following items are **not** ordered by priority. In case certain topics are important to you, please use the issues
+tracker to create an awareness (like / comment on current tickets or create new ones as needed).
+
+Thank you for your support!
+
+* Real World app version 2
+    * Version 1 is definitely worth a look to see how to craft custom components and connect to an API,
+    but it is not the best starting point to see how to craft an neo.mjs app. Since the requirement was to use a given
+    Bootstrap theme, only component.Base is in use (since more advanced components require a neo.mjs CSS theme).
 
 Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
