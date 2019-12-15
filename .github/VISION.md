@@ -22,6 +22,8 @@ Thanks for your support!
     3. This allows us to use the full range of neo.mjs components (Toolbar, Button, List, TabContainer, Gallery, Helix, etc.)
     4. Once this app is finished, it will be the perfect starting point to learn how to use neo.mjs,
     so right now this item has the highest priority for me.
+    5. The RW2 app requires a 3rd neo.mjs theme => based on the conduit styles
+    6. Add the ability to switch themes inside the app
 * Drag & Drop (see <a href="https://github.com/neomjs/neo/issues/16">#16</a>)
     1. This ticket is definitely an epic, since DD operations happen inside the main thread, while the handlers will
     live inside the app thread.
@@ -91,5 +93,14 @@ Thanks for your support!
     5. add column reordering via DD (relies on the DD implementation)
     6. add cell-editing
     7. add action columns
+    8. add buffering for horizontal scrolling as well
+* Create a Router
+* Enable neo.mjs to run in node
+    1. There are some uses of "self", which work fine inside the main thread & inside the worker scope, but not in node
+* neo.mjs based middle-ware (see <a href="https://github.com/neomjs/neo/issues/19">#19</a>)
+* Enhance the Siesta tests to run inside a node env
+* Write more tests (Epic!)
+* main.mixins.FeatureDetection
+    1. Add meaningful checks for relevant features
         
 Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
