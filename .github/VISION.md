@@ -111,6 +111,7 @@ Thanks for your support!
         second tab a source code view of the example
         2. It should be possible to export the current configs (e.g. 3rd tab, configs as JSON)
         3. The configuration container should be collapsible (using a sliding animation)
+        4. Add a second tab to the config area to show theme css4 vars and make them changeable
     7. class member inheritance: when overriding a config or assigning a value to a parent one, the parent config
     should get listed (including its initial value)
 * Build Scripts
@@ -119,6 +120,10 @@ Thanks for your support!
         1. An npx create-app script (see <a href="https://github.com/neomjs/neo/issues/90">#90</a>)
         2. The build-my-apps scripts should work as well, when used outside of the repo (manually hacked this into the
         Real World app version 1)
-        
+* Mobile Support
+    1. Add touch based events (swipe, long-tap, etc.) to the global domListeners
+    2. Split the current events into desktop & mobile and add a Neo.config to choose which ones to use
+    3. Use the events based on the browser feature detection
+    4. Create new components and adjust current ones to better work on mobile
         
 Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
