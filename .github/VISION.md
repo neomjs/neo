@@ -73,8 +73,9 @@ For more input on what you can do using neo.mjs, please take a look at the guide
 
 # The neo.mjs vision
 
-At this point I can not commit to adding dates to the planned items.
+At this point I (Tobias) can not commit to adding dates to the planned items.
 After investing 1.5 years of my full and unpaid working time I am in need to make up on the financial side of things.
+So as long as the project is not properly funded, I can only afford to continue working on it in my spare time.
 
 To speed up the current development there are two options:
 1. Help promoting neo.mjs or jump in as a contributor (see <a href="../CONTRIBUTING.md">Contributing</a>)
