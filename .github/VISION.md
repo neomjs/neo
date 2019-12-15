@@ -19,7 +19,7 @@ Thanks for your support!
     Bootstrap theme, only component.Base is in use (since more advanced components require a neo.mjs CSS theme).
     At this point I recommend to take a look at the Docs app to learn how to craft an neo.mjs app.
     2. Version 2 is intended to fill this gap and will not use the Bootstrap based theme.
-    3. This allows us to use the full range of neo.mjs components (Toolbar, Button, List, TabContainer, Helix, etc.)
+    3. This allows us to use the full range of neo.mjs components (Toolbar, Button, List, TabContainer, Gallery, Helix, etc.)
     4. Once this app is finished, it will be the perfect starting point to learn how to use neo.mjs,
     so right now this item has the highest priority for me.
 * Drag & Drop (see <a href="https://github.com/neomjs/neo/issues/16">#16</a>)
@@ -80,6 +80,16 @@ Thanks for your support!
 * Virtual Dom Engine enhancements
     1. Add a 2nd mode where ids do get ignored (e.g. for comparing content on fixed positions like grid rows)
     2. Add an option to specify the the tree depth to compare (e.g. only the first level for containers)
-    3. Refactor vdom.Helper: createDeltas 
+    3. Refactor vdom.Helper: createDeltas
+* Create a buffered Grid
+    1. So far I mostly focused on table.Container. Since tables are not good for buffering (too many layout reflows),
+    it is time to pick up the grid.Container implementation again.
+    2. The grid.Container will use divs only. grids need a rowHeight config, since it has to be fixed for buffering.
+    3. Add 1-2 more rows as the visible area can show and adjust the content when scrolling (move the top row div to
+    the bottom or vice versa)
+    4. when clicking on the scrollbar, adjust the full grid cell content
+    5. add column reordering via DD (relies on the DD implementation)
+    6. add cell-editing
+    7. add action columns
         
 Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
