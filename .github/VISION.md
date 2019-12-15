@@ -124,6 +124,17 @@ Thanks for your support!
     
 ***TL-BR***: This list is most likely not even complete.
 You don't need to be a genius in math to figure out that this is a massive amount of work.
+If I would create neo.mjs just for myself, there would be no Docs app, no Real World 1 or 2 app.
+I already put in a massive amount of time to enable you to use neo.mjs as well and I don't expect anyone to say thank
+you for doing this (although it is nice to hear :)).
 
+I would even be willing to continue this project on my own, but I would run bankrupt rather sooner than later without
+funding. So, assuming you know how the romantic idea of Open Source works, let me repeat the first part again:
+
+To speed up the current development there are two options:
+1. Help promoting neo.mjs or jump in as a contributor (see <a href="../CONTRIBUTING.md">Contributing</a>)
+2. Jump in as a sponsor to ensure I can spend more time on the neo.mjs coding side (see <a href="../BACKERS.md">Sponsors & Backers</a>)
+
+Best regards, Tobias
         
 Copyright (c) 2015 - today, Tobias Uhlig & Rich Waters
