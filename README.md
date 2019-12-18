@@ -103,7 +103,7 @@ Although neo.mjs is ready to craft beautiful & blazing fast UIs, the current sta
 picture.<br/>
 Take a look at the <a href=".github/STORY.md">Project Story</a> and <a href=".github/VISION.md">Vision</a>.
 
-In case you like the neo.mjs concepts, please take a look at <a href="./BACKERS.md">Sponsors & Backers</a>.
+In case you like the neo.mjs concepts, please support it: <a href="./BACKERS.md">Sponsors & Backers</a>.
 
 ### Join our Slack Channel for questions & feedback:
 
