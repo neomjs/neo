@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "1.0.12",
+    "version": "1.0.13",
     "description": "The webworkers driven UI framework",
     "repository": {
         "type": "git",
@@ -41,7 +41,7 @@
         "url": "https://github.com/neomjs/neo/issues"
     },
     "homepage": "https://neomjs.github.io/pages/",
-    "devDependencies": {
+    "dependencies": {
         "@fortawesome/fontawesome-free": "^5.12.0",
         "autoprefixer": "^9.7.2",
         "clean-webpack-plugin": "^3.0.0",
@@ -58,12 +58,14 @@
         "node-sass": "^4.13.0",
         "postcss-loader": "^3.0.0",
         "sass-loader": "^8.0.0",
-        "siesta-lite": "^5.3.0",
         "style-loader": "^1.0.1",
         "webpack": "^4.41.2",
         "webpack-cli": "^3.3.10",
         "webpack-dev-server": "^3.9.0",
         "webpack-node-externals": "^1.7.2"
+    },
+    "devDependencies": {
+        "siesta-lite": "^5.3.0"
     },
     "funding": {
         "type": "GitHub Sponsors",
