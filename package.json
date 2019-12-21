@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "1.0.12",
+    "version": "1.0.16",
     "description": "The webworkers driven UI framework",
     "repository": {
         "type": "git",
@@ -26,14 +26,22 @@
         "prod-theme-light-no-css4": "webpack --config ./buildScripts/webpack/production/webpack.scss.config.js --env.json_file=theme.light.noCss4.json",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
-    "keywords": ["javascript","frontend","framework","webworker","ecmascript","css","json"],
+    "keywords": [
+        "javascript",
+        "frontend",
+        "framework",
+        "webworker",
+        "ecmascript",
+        "css",
+        "json"
+    ],
     "author": "Tobias Uhlig, Rich Waters",
     "license": "MIT",
     "bugs": {
         "url": "https://github.com/neomjs/neo/issues"
     },
     "homepage": "https://neomjs.github.io/pages/",
-    "devDependencies": {
+    "dependencies": {
         "@fortawesome/fontawesome-free": "^5.12.0",
         "autoprefixer": "^9.7.2",
         "clean-webpack-plugin": "^3.0.0",
@@ -41,6 +49,7 @@
         "cssnano": "^4.1.10",
         "deasync": "^0.1.15",
         "fs": "^0.0.1-security",
+        "fsevents": "1.2.9",
         "highlightjs-line-numbers.js": "^2.7.0",
         "html-webpack-plugin": "^3.2.0",
         "inquirer": "^7.0.0",
@@ -50,12 +59,14 @@
         "node-sass": "^4.13.0",
         "postcss-loader": "^3.0.0",
         "sass-loader": "^8.0.0",
-        "siesta-lite": "^5.3.0",
         "style-loader": "^1.0.1",
         "webpack": "^4.41.2",
         "webpack-cli": "^3.3.10",
         "webpack-dev-server": "^3.9.0",
         "webpack-node-externals": "^1.7.2"
+    },
+    "devDependencies": {
+        "siesta-lite": "^5.3.0"
     },
     "funding": {
         "type": "GitHub Sponsors",

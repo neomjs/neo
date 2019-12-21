@@ -1,21 +1,24 @@
 const fs                   = require('fs'),
       path                 = require('path'),
-      MiniCssExtractPlugin = require("mini-css-extract-plugin");
+      MiniCssExtractPlugin = require('mini-css-extract-plugin'),
+      processRoot          = process.cwd(),
+      packageJson          = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
+      neoPath              = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/';
 
 module.exports = env => {
-    const config = JSON.parse(fs.readFileSync('./buildScripts/webpack/development/json/' + env.json_file));
+    const config = JSON.parse(fs.readFileSync(path.resolve(neoPath, 'buildScripts/webpack/development/json/', env.json_file)), 'utf8');
 
     return {
         mode   : 'development',
         devtool: 'inline-source-map',
-        entry  : config.entry,
+        entry  : path.resolve(neoPath, config.entry),
 
         plugins: [
             new MiniCssExtractPlugin({filename: config.output}) // remove this one to directly insert the result into a style tag
         ],
 
         output: {
-            path    : path.resolve(__dirname, config.buildFolder),
+            path    : path.resolve(processRoot, config.buildFolder),
             filename: 'tmpWebpackCss.js'
         },
 
@@ -36,7 +39,7 @@ module.exports = env => {
                         loader : 'postcss-loader',
                         options: {
                             config   : {
-                                path: './buildScripts/webpack/development/'
+                                path: path.resolve(neoPath, 'buildScripts/webpack/development/')
                             },
                             sourceMap: true
                         }

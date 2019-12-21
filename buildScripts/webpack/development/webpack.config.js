@@ -3,7 +3,10 @@ const fs                     = require('fs'),
       { CleanWebpackPlugin } = require('clean-webpack-plugin'),
       HtmlWebpackPlugin      = require('html-webpack-plugin'),
       NodeExternals          = require('webpack-node-externals'),
-      config                 = JSON.parse(fs.readFileSync('./buildScripts/webpack/development/build.json')),
+      processRoot            = process.cwd(),
+      packageJson            = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
+      neoPath                = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      config                 = JSON.parse(fs.readFileSync(path.resolve(neoPath, 'buildScripts/webpack/development/build.json')), 'utf8'),
       entry                  = {main: config.mainInput},
       plugins                = [];
 
@@ -17,7 +20,7 @@ if (config.workers) {
 
 if (config.apps) {
     Object.entries(config.apps).forEach(([key, value]) => {
-        entry[key] = './buildScripts/webpack/entrypoints/' + value.input;
+        entry[key] = path.resolve(neoPath, 'buildScripts/webpack/entrypoints/' + value.input);
 
         basePath       = '';
         workerBasePath = '';
@@ -34,8 +37,8 @@ if (config.apps) {
         if (key !== 'docs') {
             plugins.push(new HtmlWebpackPlugin({
                 chunks  : ['main'],
-                filename: path.resolve(__dirname, config.buildFolder) + value.output + 'index.html',
-                template: 'buildScripts/webpack/index.ejs',
+                filename: path.resolve(processRoot, config.buildFolder) + value.output + 'index.html',
+                template: path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
                 templateParameters: {
                     appPath       : value.output + 'app.js',
                     bodyTag       : value.bodyTag || config.bodyTag,
@@ -63,7 +66,7 @@ module.exports = {
     plugins: [
         new CleanWebpackPlugin({
             cleanOnceBeforeBuildPatterns: ['**/*.js', '**/*.mjs', '!apps/**/*.js', '!**/*highlight.pack.js'],
-            root                        : path.resolve(__dirname, config.buildFolder),
+            root                        : path.resolve(processRoot, config.buildFolder),
             verbose                     : true
         }),
         ...plugins
@@ -81,7 +84,7 @@ module.exports = {
                 return config.apps[name].output + 'app.js';
             }
         },
-        path: path.resolve(__dirname, config.buildFolder)
+        path: path.resolve(processRoot, config.buildFolder)
     }/*,
 
     optimization: {

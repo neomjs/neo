@@ -1,5 +1,5 @@
 {
-    "buildFolder": "../../../dist/production",
+    "buildFolder": "dist/production",
     "entry"      : "./buildScripts/webpack/entrypoints/scss/scss_structure.scss.mjs",
     "output"     : "neo-structure.css"
 }
