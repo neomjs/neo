@@ -10,7 +10,7 @@ module.exports = env => {
 
     return {
         mode : 'production',
-        entry: config.entry,
+        entry  : path.resolve(neoPath, config.entry),
 
         plugins: [
             new MiniCssExtractPlugin({filename: config.output}) // remove this one to directly insert the result into a style tag
