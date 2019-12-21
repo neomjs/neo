@@ -7,14 +7,14 @@ const fs                     = require('fs'),
       packageJson            = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
       neoPath                = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
       config                 = JSON.parse(fs.readFileSync(path.resolve(neoPath, 'buildScripts/webpack/production/build.json')), 'utf8'),
-      entry                  = {main: config.mainInput},
+      entry                  = {main: path.resolve(neoPath, config.mainInput)},
       plugins                = [];
 
 let basePath, i, treeLevel, workerBasePath;
 
 if (config.workers) {
     Object.entries(config.workers).forEach(([key, value]) => {
-        entry[key] = value.input;
+        entry[key] = path.resolve(neoPath, value.input);
     });
 }
 
