@@ -57,24 +57,22 @@ if (config.apps) {
                 }
             }
 
-            if (key !== 'docs') {
-                indexPath = path.resolve(__dirname, config.buildFolder) + value.output + 'index.html';
+            indexPath = path.resolve(__dirname, config.buildFolder) + value.output + 'index.html';
 
-                if (!fs.existsSync(indexPath)) {
-                    plugins.push(new HtmlWebpackPlugin({
-                        chunks  : ['main'],
-                        filename: indexPath,
-                        template: 'buildScripts/webpack/index.ejs',
-                        templateParameters: {
-                            appPath       : value.output + 'app.js',
-                            bodyTag       : value.bodyTag || config.bodyTag,
-                            basePath      : basePath,
-                            environment   : config.environment,
-                            title         : value.title,
-                            workerBasePath: workerBasePath
-                        }
-                    }));
-                }
+            if (!fs.existsSync(indexPath)) {
+                plugins.push(new HtmlWebpackPlugin({
+                    chunks  : ['main'],
+                    filename: indexPath,
+                    template: 'buildScripts/webpack/index.ejs',
+                    templateParameters: {
+                        appPath       : value.output + 'app.js',
+                        bodyTag       : value.bodyTag || config.bodyTag,
+                        basePath      : basePath,
+                        environment   : config.environment,
+                        title         : value.title,
+                        workerBasePath: workerBasePath
+                    }
+                }));
             }
         }
     });
