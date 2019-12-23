@@ -1,6 +1,6 @@
 {
     "bodyTag": "<body>",
-    "buildFolder": "../../../dist/development",
+    "buildFolder": "dist/development",
     "environment": "development",
     "mainInput": "./src/Main.mjs",
     "mainOutput": "main.js",

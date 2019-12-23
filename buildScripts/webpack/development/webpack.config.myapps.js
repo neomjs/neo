@@ -1,17 +1,20 @@
-const fs               = require('fs'),
-     inquirer          = require('inquirer'),
-     path              = require('path'),
-     HtmlWebpackPlugin = require('html-webpack-plugin'),
-     NodeExternals     = require('webpack-node-externals'),
-     config            = require(path.resolve(__dirname, '../../webpack/development/json/myApps.json')),
-     entry             = {main: config.mainInput},
-     plugins           = [];
+const fs                = require('fs'),
+      inquirer          = require('inquirer'),
+      path              = require('path'),
+      HtmlWebpackPlugin = require('html-webpack-plugin'),
+      NodeExternals     = require('webpack-node-externals'),
+      processRoot       = process.cwd(),
+      packageJson       = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
+      neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      config            = require(path.resolve(neoPath, 'buildScripts/webpack/development/json/myApps.json')),
+      entry             = {main: path.resolve(neoPath, config.mainInput)},
+      plugins           = [];
 
 let basePath, i, indexPath, treeLevel, workerBasePath;
 
 if (config.workers) {
     Object.entries(config.workers).forEach(([key, value]) => {
-        entry[key] = value.input;
+        entry[key] = path.resolve(neoPath, value.input);
     });
 }
 
@@ -43,7 +46,7 @@ if (config.apps) {
 
     Object.entries(config.apps).forEach(([key, value]) => {
         if (choices.length < 2 || inquirerAnswers.apps.includes(key)) {
-            entry[key] = './buildScripts/webpack/entrypoints/' + value.input;
+            entry[key] = path.resolve(neoPath, 'buildScripts/webpack/entrypoints/' + value.input);
 
             basePath       = '';
             workerBasePath = '';
@@ -57,13 +60,13 @@ if (config.apps) {
                 }
             }
 
-            indexPath = path.resolve(__dirname, config.buildFolder) + value.output + 'index.html';
+            indexPath = path.resolve(processRoot, config.buildFolder) + value.output + 'index.html';
 
             if (!fs.existsSync(indexPath)) {
                 plugins.push(new HtmlWebpackPlugin({
                     chunks  : ['main'],
                     filename: indexPath,
-                    template: 'buildScripts/webpack/index.ejs',
+                    template: path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
                     templateParameters: {
                         appPath       : value.output + 'app.js',
                         bodyTag       : value.bodyTag || config.bodyTag,
@@ -104,6 +107,6 @@ module.exports = {
                 }
             }
         },
-        path: path.resolve(__dirname, config.buildFolder)
+        path: path.resolve(processRoot, config.buildFolder)
     }
 };
