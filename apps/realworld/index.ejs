@@ -1,20 +1,28 @@
 <!DOCTYPE HTML>
 <html>
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta charset="UTF-8">
-    <title><%= title %></title>
-</head>
-<%= bodyTag %>
-<script>
-    Neo = self.Neo || {}; Neo.config = Neo.config || {};
+    <head>
+        <meta charset="UTF-8">
+        <!-- Import Ionicon icons & Google Fonts our Bootstrap theme relies on -->
+        <link href="//code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css" rel="stylesheet" type="text/css">
+        <link href="//fonts.googleapis.com/css?family=Titillium+Web:700|Source+Serif+Pro:400,700|Merriweather+Sans:400,700|Source+Sans+Pro:400,300,600,700,300italic,400italic,600italic,700italic" rel="stylesheet" type="text/css">
+        <!-- Import the custom Bootstrap 4 theme from our hosted CDN -->
+        <link rel="stylesheet" href="//demo.productionready.io/main.css">
+        <title><%= title %></title>
+    </head>
+    <%= bodyTag %>
+        <script>
+            Neo = self.Neo || {}; Neo.config = Neo.config || {};
 
-    Object.assign(Neo.config, {
-        appPath       : '<%= appPath %>',
-        basePath      : '<%= basePath %>',
-        environment   : '<%= environment %>',
-        workerBasePath: '<%= workerBasePath %>'
-    });
-</script>
-</body>
+            Object.assign(Neo.config, {
+                appPath       : '<%= appPath %>',
+                basePath      : '<%= basePath %>',
+                environment   : '<%= environment %>',
+                themes        : [],
+                useFontAwesome: false,
+                workerBasePath: '<%= workerBasePath %>'
+            });
+        </script>
+
+        <script src="https://cdn.jsdelivr.net/npm/showdown@1.9.1/dist/showdown.min.js"></script>
+    </body>
 </html>

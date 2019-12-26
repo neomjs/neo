@@ -66,7 +66,7 @@ if (config.apps) {
                 plugins.push(new HtmlWebpackPlugin({
                     chunks  : ['main'],
                     filename: indexPath,
-                    template: path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
+                    template: path.resolve(neoPath, value.indexPath || 'buildScripts/webpack/index.ejs'),
                     templateParameters: {
                         appPath       : value.output + 'app.js',
                         bodyTag       : value.bodyTag || config.bodyTag,
