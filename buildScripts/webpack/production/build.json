@@ -54,6 +54,7 @@
             "title" : "Neo DateSelector"
         },
         "docs": {
+            "indexPath": "docs/index.ejs",
             "input": "docs/app.mjs",
             "output": "/docs/",
             "title" : "Neo Docs"

@@ -34,21 +34,19 @@ if (config.apps) {
             }
         }
 
-        if (key !== 'docs') {
-            plugins.push(new HtmlWebpackPlugin({
-                chunks  : ['main'],
-                filename: path.resolve(processRoot, config.buildFolder) + value.output + 'index.html',
-                template: path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
-                templateParameters: {
-                    appPath       : value.output + 'app.js',
-                    bodyTag       : value.bodyTag || config.bodyTag,
-                    basePath      : basePath,
-                    environment   : config.environment,
-                    title         : value.title,
-                    workerBasePath: workerBasePath
-                }
-            }));
-        }
+        plugins.push(new HtmlWebpackPlugin({
+            chunks  : ['main'],
+            filename: path.resolve(processRoot, config.buildFolder) + value.output + 'index.html',
+            template: path.resolve(neoPath, value.indexPath || 'buildScripts/webpack/index.ejs'),
+            templateParameters: {
+                appPath       : value.output + 'app.js',
+                bodyTag       : value.bodyTag || config.bodyTag,
+                basePath      : basePath,
+                environment   : config.environment,
+                title         : value.title,
+                workerBasePath: workerBasePath
+            }
+        }));
     });
 }
 
