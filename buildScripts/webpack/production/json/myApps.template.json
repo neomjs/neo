@@ -18,6 +18,7 @@
 
     "apps": {
         "RealWorld": {
+            "indexPath": "apps/realworld/index.ejs",
             "input": "myApps/RealWorld.mjs",
             "output": "/apps/realworld/",
             "title": "RealWorld"
