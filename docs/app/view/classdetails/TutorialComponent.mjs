@@ -45,11 +45,7 @@ class TutorialComponent extends Component {
 
         let me     = this,
             isJson = me.fileType === 'json',
-            url    = '../docs/tutorials/' + me.fileName;
-
-        if (!Neo.isExperimental) {
-            url = '../' + url;
-        }
+            url    = '../../docs/tutorials/' + me.fileName;
 
         Neo.Xhr[isJson ? 'promiseJson' : 'promiseRequest']({
             url: url

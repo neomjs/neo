@@ -4,21 +4,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="UTF-8">
     <link rel="stylesheet" href="./resources/highlightjs-custom-github-theme.css" id="hljs-theme">
-    <title>Neo Docs</title>
+    <title><%= title %></title>
 </head>
-<body>
+<%= bodyTag %>
     <script>
         Neo = self.Neo || {}; Neo.config = Neo.config || {};
 
         Object.assign(Neo.config, {
-            appPath       : '/docs/app.js',
-            basePath      : '../../../',
-            environment   : 'production',
-            workerBasePath: '../'
+            appPath       : '<%= appPath %>',
+            basePath      : '<%= basePath %>',
+            environment   : '<%= environment %>',
+            workerBasePath: '<%= workerBasePath %>'
         });
     </script>
 
     <script src="./resources/highlight/highlight.pack.js"></script>
-    <script src="../../../node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js"></script>
-<script type="text/javascript" src="../main.js"></script></body>
+    <script src="<%= basePath %>node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js"></script>
+</body>
 </html>
