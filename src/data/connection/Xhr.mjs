@@ -43,13 +43,19 @@ class Xhr extends Base {
     request(opts) {
         let me      = this,
             headers = opts.headers || {},
-            id      = Neo.getId('xhr-reqest'),
+            id      = Neo.getId('xhr-request'),
             method  = opts.method || 'GET',
             xhr     = new XMLHttpRequest();
 
         if (!opts.url) {
             console.error('Neo.Xhr.request without a given url' + JSON.stringify(opts));
         } else {
+            if (location.href.includes('/node_modules/neo.mjs/')) {
+                if (opts.url.startsWith('./') || opts.url.startsWith('../')) {
+                    opts.url = '../../' + opts.url;
+                }
+            }
+
             if (opts.params) {
                 opts.url += ('?' + new URLSearchParams(opts.params).toString());
             }
