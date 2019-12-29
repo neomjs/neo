@@ -27,7 +27,7 @@ class ApiTreeList extends TreeList {
         let me = this;
 
         Neo.Xhr.promiseJson({
-            url: Neo.isExperimental ?
+            url: Neo.config.isExperimental ?
                 '../docs/output/structure.json' :
                 '../../docs/output/structure.json'
         }).then(data => {

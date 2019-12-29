@@ -36,7 +36,7 @@ class TutorialsTreeList extends TreeList {
         let me = this;
 
         Neo.Xhr.promiseJson({
-            url: Neo.isExperimental ?
+            url: Neo.config.isExperimental ?
                 '../docs/tutorials/tutorials.json' :
                 '../../docs/tutorials/tutorials.json'
         }).then(data => {
