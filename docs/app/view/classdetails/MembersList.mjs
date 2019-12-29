@@ -266,7 +266,12 @@ class MembersList extends Base {
             }
 
             path = item.meta.path;
-            path = item.meta.path.substr(path.indexOf('neoteric/') + 9);
+
+            if (path.includes('/neomjs/')) {
+                path = path.substr(path.indexOf('/neomjs/') + 8);
+            } else if (path.includes('/neomjs/')) {
+                path = path.substr(path.indexOf('/neo/')    + 5);
+            }
 
             itemConfig = {
                 cls: ['neo-list-item'],
