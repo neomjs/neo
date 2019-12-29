@@ -64,11 +64,7 @@ class SourceViewComponent extends Component {
         super(config);
 
         let me   = this,
-            url  = '../' + me.structureData.srcPath;
-
-        if (!Neo.config.isExperimental) {
-            url = '../' + url;
-        }
+            url  = '../../' + me.structureData.srcPath;
 
         Neo.Xhr.promiseRequest({
             url: url

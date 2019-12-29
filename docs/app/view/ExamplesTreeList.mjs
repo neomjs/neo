@@ -36,9 +36,7 @@ class ExamplesTreeList extends TreeList {
         let me = this;
 
         Neo.Xhr.promiseJson({
-            url: Neo.config.isExperimental ?
-                '../docs/examples.json' :
-                '../../docs/examples.json'
+            url: '../../docs/examples.json'
         }).then(data => {
             let vdom     = me.vdom,
                 itemRoot = me.getListItemsRoot();
