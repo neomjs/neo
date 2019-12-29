@@ -47,7 +47,7 @@ class TutorialComponent extends Component {
             isJson = me.fileType === 'json',
             url    = '../docs/tutorials/' + me.fileName;
 
-        if (!Neo.isExperimental) {
+        if (!Neo.config.isExperimental) {
             url = '../' + url;
         }
 

@@ -66,7 +66,7 @@ class SourceViewComponent extends Component {
         let me   = this,
             url  = '../' + me.structureData.srcPath;
 
-        if (!Neo.isExperimental) {
+        if (!Neo.config.isExperimental) {
             url = '../' + url;
         }
 
