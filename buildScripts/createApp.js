@@ -145,7 +145,7 @@ inquirer.prompt(questions).then(answers => {
             title : appName
         };
 
-        fs.writeFileSync(appDevJsonPath, JSON.stringify(appDevJson));
+        fs.writeFileSync(appDevJsonPath, JSON.stringify(appDevJson, null, 4));
 
         let appJsonProdPath = path.resolve(__dirname, '../buildScripts/webpack/production/json/myApps.json'),
             appProdJson;
@@ -162,7 +162,7 @@ inquirer.prompt(questions).then(answers => {
             title : appName
         };
 
-        fs.writeFileSync(appJsonProdPath, JSON.stringify(appProdJson));
+        fs.writeFileSync(appJsonProdPath, JSON.stringify(appProdJson, null, 4));
 
         const entryPoint = [
             "import '../App.mjs';",
