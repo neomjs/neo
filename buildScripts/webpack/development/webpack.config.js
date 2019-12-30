@@ -1,4 +1,4 @@
-const fs                     = require('fs'),
+const fs                     = require('fs-extra'),
       path                   = require('path'),
       { CleanWebpackPlugin } = require('clean-webpack-plugin'),
       HtmlWebpackPlugin      = require('html-webpack-plugin'),
@@ -51,10 +51,6 @@ if (config.examples) {
     });
 }
 
-plugins.push(new WebpackShellPlugin({
-    onBuildExit: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.js')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(processRoot, config.buildFolder, 'docs/resources')]
-}));
-
 module.exports = {
     mode: 'development',
 
@@ -71,6 +67,9 @@ module.exports = {
             cleanOnceBeforeBuildPatterns: ['**/*.js', '**/*.mjs', '!apps/**/*.js', '!**/*highlight.pack.js'],
             root                        : path.resolve(processRoot, config.buildFolder),
             verbose                     : true
+        }),
+        new WebpackShellPlugin({
+            onBuildExit: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.js')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(processRoot, config.buildFolder, 'docs/resources')]
         }),
         ...plugins
     ],

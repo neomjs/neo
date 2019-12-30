@@ -1,8 +1,9 @@
-const fs                     = require('fs'),
+const fs                     = require('fs-extra'),
       path                   = require('path'),
       { CleanWebpackPlugin } = require('clean-webpack-plugin'),
       HtmlWebpackPlugin      = require('html-webpack-plugin'),
       NodeExternals          = require('webpack-node-externals'),
+      WebpackShellPlugin     = require('webpack-shell-plugin'),
       processRoot            = process.cwd(),
       packageJson            = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
       neoPath                = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
@@ -61,6 +62,9 @@ module.exports = {
             cleanOnceBeforeBuildPatterns: ['**/*.js', '**/*.mjs', '!apps/**/*.js', '!**/*highlight.pack.js'],
             root                        : path.resolve(processRoot, config.buildFolder),
             verbose                     : true
+        }),
+        new WebpackShellPlugin({
+            onBuildExit: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.js')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(processRoot, config.buildFolder, 'docs/resources')]
         }),
         ...plugins
     ],
