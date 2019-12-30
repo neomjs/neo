@@ -18,8 +18,8 @@ if (config.workers) {
     });
 }
 
-if (config.apps) {
-    Object.entries(config.apps).forEach(([key, value]) => {
+if (config.examples) {
+    Object.entries(config.examples).forEach(([key, value]) => {
         entry[key] = path.resolve(neoPath, 'buildScripts/webpack/entrypoints/' + value.input);
 
         basePath       = '';
@@ -78,8 +78,8 @@ module.exports = {
                 return config.mainOutput;
             } else if (config.workers.hasOwnProperty(name)) {
                 return config.workers[name].output;
-            } else if (config.apps.hasOwnProperty(name)) {
-                return config.apps[name].output + 'app.js';
+            } else if (config.examples.hasOwnProperty(name)) {
+                return config.examples[name].output + 'app.js';
             }
         },
         path: path.resolve(processRoot, config.buildFolder)

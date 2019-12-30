@@ -16,7 +16,7 @@
         }
     },
 
-    "apps": {
+    "examples": {
         "button": {
             "input": "examples/component/Button.mjs",
             "output": "/examples/component/button/",
