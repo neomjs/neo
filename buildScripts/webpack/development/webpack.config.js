@@ -3,6 +3,7 @@ const fs                     = require('fs'),
       { CleanWebpackPlugin } = require('clean-webpack-plugin'),
       HtmlWebpackPlugin      = require('html-webpack-plugin'),
       NodeExternals          = require('webpack-node-externals'),
+      WebpackShellPlugin     = require('webpack-shell-plugin'),
       processRoot            = process.cwd(),
       packageJson            = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
       neoPath                = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
@@ -49,6 +50,10 @@ if (config.examples) {
         }));
     });
 }
+
+plugins.push(new WebpackShellPlugin({
+    onBuildExit: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.js')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(processRoot, config.buildFolder, 'docs/resources')]
+}));
 
 module.exports = {
     mode: 'development',
