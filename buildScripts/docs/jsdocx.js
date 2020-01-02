@@ -15,15 +15,25 @@ const fs          = require('fs-extra'),
           undocumented  : false
       };
 
-let appDevJsonPath = path.resolve(__dirname, '../webpack/development/json/myApps.json'),
+let appDevJsonPath = path.resolve(processRoot, 'buildScripts/myApps.json'),
     appDevJson;
 
 if (fs.existsSync(appDevJsonPath)) {
     appDevJson = require(appDevJsonPath);
+} else {
+    appDevJsonPath = path.resolve(__dirname, '../webpack/development/json/myApps.json');
 
+    if (fs.existsSync(appDevJsonPath)) {
+        appDevJson = require(appDevJsonPath);
+    }
+}
+
+if (appDevJson) {
     Object.entries(appDevJson.apps).forEach(([key, value]) => {
-        appNames.push(key);
-        options.files.push('.' + value.output + '**/*.mjs')
+        if (key !== 'Docs') { // the docs app is automatically included
+            appNames.push(key);
+            options.files.push('.' + value.output + '**/*.mjs');
+        }
     });
 }
 
