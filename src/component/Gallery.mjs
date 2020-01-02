@@ -235,9 +235,8 @@ class Gallery extends Component {
         // load data for the example collection
         if (me.store instanceof Store !== true) {
             Neo.Xhr.promiseJson({
-                url: Neo.config.isExperimental ?
-                    '../../resources/examples/data/ai_contacts.json' :
-                    '../../resources/examples/data/ai_contacts.json'
+                insideNeo: true,
+                url      : '../../resources/examples/data/ai_contacts.json'
             }).then(data => {
                 me.store.items = data.json.data;
                 setTimeout(() => { // todo: rendering check

@@ -601,7 +601,8 @@ class Circle extends Component {
 
         // todo: use a real store, not defined here for the examples
         Neo.Xhr.promiseJson({
-            url: Neo.config.isExperimental ? me.url : me.url
+            insideNeo: true,
+            url      : Neo.config.isExperimental ? me.url : me.url
         }).then(data => {
             me.store.items = data.json.data;
 

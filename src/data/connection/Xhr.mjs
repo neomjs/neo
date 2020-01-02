@@ -37,6 +37,15 @@ class Xhr extends Base {
     /**
      *
      * @param {Object} opts
+     * @param {Function} opts.callback
+     * @param {Object} opts.data
+     * @param {Object} opts.headers
+     * @param {Boolean} opts.insideNeo true for calls with relative URLs inside the framework scope
+     * @param {String} opts.method DELETE, GET, POST, PUT
+     * @param {Object} opts.params
+     * @param {String} opts.responseType
+     * @param {Object} opts.scope
+     * @param {String} opts.url
      * @returns {XMLHttpRequest}
      * @private
      */
@@ -50,7 +59,7 @@ class Xhr extends Base {
         if (!opts.url) {
             console.error('Neo.Xhr.request without a given url' + JSON.stringify(opts));
         } else {
-            if (location.href.includes('/node_modules/neo.mjs/')) {
+            if (!opts.insideNeo && location.href.includes('/node_modules/neo.mjs/')) {
                 if (opts.url.startsWith('./') || opts.url.startsWith('../')) {
                     opts.url = '../../' + opts.url;
                 }
