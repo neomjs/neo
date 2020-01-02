@@ -7,16 +7,17 @@ const fs                = require('fs'),
       configPath        = path.resolve(processRoot, 'myApps.json'),
       packageJson       = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
       neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      entry             = {main: path.resolve(neoPath, config.mainInput)},
       plugins           = [];
 
-let basePath, config, i, indexPath, treeLevel, workerBasePath;
+let basePath, config, entry, i, indexPath, treeLevel, workerBasePath;
 
 if (fs.existsSync(configPath)) {
     config = require(configPath);
 } else {
     config = require(path.resolve(neoPath, 'buildScripts/webpack/development/json/myApps.json'));
 }
+
+entry = {main: path.resolve(neoPath, config.mainInput)};
 
 if (config.workers) {
     Object.entries(config.workers).forEach(([key, value]) => {
