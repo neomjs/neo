@@ -29,96 +29,99 @@ if (config.workers) {
     });
 }
 
-let choices = [],
-    inquirerAnswers;
+module.exports = env => {
+    let buildAll = env && env.build_all,
+        choices  = [],
+        inquirerAnswers;
 
-if (config.apps) {
-    Object.entries(config.apps).forEach(([key, value]) => {
-        choices.push(key);
-    });
-
-    if (choices.length > 1) {
-        let questions = [{
-            type   : 'checkbox',
-            name   : 'apps',
-            message: 'Please choose which apps you want to build:',
-            choices: choices
-        }];
-
-        let done = false;
-
-        inquirer.prompt(questions).then(answers => {
-            inquirerAnswers = answers;
-            done            = true;
+    if (config.apps) {
+        Object.entries(config.apps).forEach(([key, value]) => {
+            choices.push(key);
         });
 
-        require('deasync').loopWhile(function(){return !done;});
+        if (!buildAll && choices.length > 1) {
+            let questions = [{
+                type   : 'checkbox',
+                name   : 'apps',
+                message: 'Please choose which apps you want to build:',
+                choices: choices
+            }];
+
+            let done = false;
+
+            inquirer.prompt(questions).then(answers => {
+                inquirerAnswers = answers;
+                done            = true;
+            });
+
+            require('deasync').loopWhile(function(){return !done;});
+        }
+
+        Object.entries(config.apps).forEach(([key, value]) => {
+            if (buildAll || choices.length < 2 || inquirerAnswers.apps.includes(key)) {
+                entryPath = path.resolve(processRoot, value.input);
+
+                if (fs.existsSync(entryPath)) {
+                    entry[key] = entryPath;
+                } else {
+                    entry[key] = path.resolve(neoPath, 'buildScripts/webpack/entrypoints/' + value.input);
+                }
+
+                basePath       = '';
+                workerBasePath = '';
+                treeLevel      = value.output.split('/').length;
+
+                for (i=0; i < treeLevel; i++)  {
+                    basePath += '../';
+
+                    if (i > 1) {
+                        workerBasePath += '../';
+                    }
+                }
+
+                indexPath = path.resolve(processRoot, config.buildFolder) + value.output + 'index.html';
+
+                if (!fs.existsSync(indexPath)) {
+                    plugins.push(new HtmlWebpackPlugin({
+                        chunks  : ['main'],
+                        filename: indexPath,
+                        template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
+                        templateParameters: {
+                            appPath       : value.output + 'app.js',
+                            bodyTag       : value.bodyTag || config.bodyTag,
+                            basePath      : basePath,
+                            environment   : 'production',
+                            title         : value.title,
+                            workerBasePath: workerBasePath
+                        }
+                    }));
+                }
+            }
+        });
     }
 
-    Object.entries(config.apps).forEach(([key, value]) => {
-        if (choices.length < 2 || inquirerAnswers.apps.includes(key)) {
-            entryPath = path.resolve(processRoot, value.input);
+    return {
+        mode     : 'production',
+        entry    : entry,
+        externals: [NodeExternals()], // in order to ignore all modules in node_modules folder
+        plugins  : plugins,
+        target   : 'node',            // in order to ignore built-in modules like path, fs, etc.
 
-            if (fs.existsSync(entryPath)) {
-                entry[key] = entryPath;
-            } else {
-                entry[key] = path.resolve(neoPath, 'buildScripts/webpack/entrypoints/' + value.input);
-            }
+        output: {
+            filename: (chunkData) => {
+                let name = chunkData.chunk.name;
 
-            basePath       = '';
-            workerBasePath = '';
-            treeLevel      = value.output.split('/').length;
-
-            for (i=0; i < treeLevel; i++)  {
-                basePath += '../';
-
-                if (i > 1) {
-                    workerBasePath += '../';
-                }
-            }
-
-            indexPath = path.resolve(processRoot, config.buildFolder) + value.output + 'index.html';
-
-            if (!fs.existsSync(indexPath)) {
-                plugins.push(new HtmlWebpackPlugin({
-                    chunks  : ['main'],
-                    filename: indexPath,
-                    template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
-                    templateParameters: {
-                        appPath       : value.output + 'app.js',
-                        bodyTag       : value.bodyTag || config.bodyTag,
-                        basePath      : basePath,
-                        environment   : 'production',
-                        title         : value.title,
-                        workerBasePath: workerBasePath
+                if (name === 'main') {
+                    return config.mainOutput;
+                } else if (config.workers.hasOwnProperty(name)) {
+                    return config.workers[name].output;
+                } else if (config.apps.hasOwnProperty(name)) {
+                    if (buildAll || choices.length < 2 || inquirerAnswers.apps.includes(name)) {
+                        return config.apps[name].output + 'app.js';
                     }
-                }));
-            }
-        }
-    });
-}
-
-module.exports = {
-    mode     : 'production',
-    entry    : entry,
-    externals: [NodeExternals()], // in order to ignore all modules in node_modules folder
-    plugins  : plugins,
-    target   : 'node',            // in order to ignore built-in modules like path, fs, etc.
-
-    output: {
-        filename: (chunkData) => {
-            let name = chunkData.chunk.name;
-
-            if (name === 'main') {
-                return config.mainOutput;
-            } else if (config.workers.hasOwnProperty(name)) {
-                return config.workers[name].output;
-            } else if (config.apps.hasOwnProperty(name)) {
-                if (choices.length < 2 || inquirerAnswers.apps.includes(name)) {
-                    return config.apps[name].output + 'app.js';
                 }
-            }
-        },
-        path: path.resolve(processRoot, config.buildFolder)
+            },
+            path: path.resolve(processRoot, config.buildFolder)
+        }
     }
 };

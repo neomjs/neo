@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "1.0.28",
+    "version": "1.0.30",
     "description": "The webworkers driven UI framework",
     "repository": {
         "type": "git",
@@ -50,7 +50,6 @@
         "cssnano": "^4.1.10",
         "deasync": "^0.1.15",
         "fs-extra": "^8.1.0",
-        "fsevents": "1.2.9",
         "highlightjs-line-numbers.js": "^2.7.0",
         "html-webpack-plugin": "^3.2.0",
         "inquirer": "^7.0.0",
