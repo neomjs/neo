@@ -794,7 +794,8 @@ class Helix extends Component {
         let me = this;
 
         Neo.Xhr.promiseJson({
-            url: Neo.config.isExperimental ? me.url : me.url
+            insideNeo: true,
+            url      : Neo.config.isExperimental ? me.url : me.url
         }).then(data => {
             me.store.items = data.json.data;
             setTimeout(() => { // todo: rendering check

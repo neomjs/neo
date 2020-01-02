@@ -1,11 +1,14 @@
-const fs       = require('fs'),
-      jsdocx   = require('jsdoc-x'),
-      helper   = require('../../node_modules/jsdoc-x/src/lib/helper.js'),
-      path     = require('path'),
-      appNames = [],
-      options  = {
+const fs          = require('fs-extra'),
+      jsdocx      = require('jsdoc-x'),
+      path        = require('path'),
+      processRoot = process.cwd(),
+      helper      = require(path.join(processRoot, 'node_modules/jsdoc-x/src/lib/helper.js')),
+      packageJson = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
+      neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      appNames    = [],
+      options = {
           access        : 'all',
-          files         : ['./src/**/*.mjs', './docs/app/view/**/*.mjs'],
+          files         : [path.join(neoPath, 'src/**/*.mjs'), './docs/app/view/**/*.mjs'],
           includePattern: ".+\\.(m)js(doc)?$",
           excludePattern: "(^|\\/|\\\\)_",
           recurse       : true,
@@ -134,8 +137,9 @@ function generateStructure(target, parentId, docs) {
         // console.log(className);
 
         // adjusted paths when running the script inside the neo.mjs node module
-        if (srcPath && srcPath.includes('/neo.mjs/')) {
-            srcPath = srcPath.substr(srcPath.indexOf('/neo.mjs/') + 9);
+        const index = srcPath && srcPath.indexOf('node_modules/neo.mjs/') || -1;
+        if (index > -1) {
+            srcPath = srcPath.substr(index);
         }
 
         neoStructure.push({

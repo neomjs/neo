@@ -13,19 +13,7 @@
 /buildScripts/webpack/development/json/myApps.json
 /buildScripts/webpack/production/json/myApps.json
 
-/dist/development/**/*.css
-/dist/development/**/*.js
-/dist/development/**/*.html
-!/dist/development/docs/resources/**/*.css
-!/dist/development/docs/resources/**/*.js
-!/dist/development/docs/index.html
-/dist/production/**/*.css
-/dist/production/**/*.js
-/dist/production/**/*.html
-!/dist/production/docs/resources/**/*.css
-!/dist/production/docs/resources/**/*.js
-!/dist/production/docs/index.html
-
+/dist
 /docs/output
 
 package-lock.json
