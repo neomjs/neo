@@ -9,7 +9,7 @@ const fs                = require('fs'),
       neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
       plugins           = [];
 
-let basePath, config, entry, i, indexPath, treeLevel, workerBasePath;
+let basePath, config, entry, entryPath, i, indexPath, treeLevel, workerBasePath;
 
 if (fs.existsSync(configPath)) {
     config = require(configPath);
@@ -57,7 +57,13 @@ if (config.apps) {
 
     Object.entries(config.apps).forEach(([key, value]) => {
         if (choices.length < 2 || inquirerAnswers.apps.includes(key)) {
-            entry[key] = path.resolve(neoPath, 'buildScripts/webpack/entrypoints/' + value.input);
+            entryPath = path.resolve(processRoot, value.input);
+
+            if (fs.existsSync(entryPath)) {
+                entry[key] = entryPath;
+            } else {
+                entry[key] = path.resolve(neoPath, 'buildScripts/webpack/entrypoints/' + value.input);
+            }
 
             basePath       = '';
             workerBasePath = '';
