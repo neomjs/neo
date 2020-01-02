@@ -4,13 +4,20 @@ const fs                = require('fs'),
       HtmlWebpackPlugin = require('html-webpack-plugin'),
       NodeExternals     = require('webpack-node-externals'),
       processRoot       = process.cwd(),
+      configPath        = path.resolve(processRoot, 'myApps.json'),
       packageJson       = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
       neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      config            = require(path.resolve(neoPath, 'buildScripts/webpack/production/json/myApps.json')),
-      entry             = {main: path.resolve(neoPath, config.mainInput)},
       plugins           = [];
 
-let basePath, i, indexPath, treeLevel, workerBasePath;
+let basePath, config, entry, i, indexPath, treeLevel, workerBasePath;
+
+if (fs.existsSync(configPath)) {
+    config = require(configPath);
+} else {
+    config = require(path.resolve(neoPath, 'buildScripts/webpack/production/json/myApps.json'));
+}
+
+entry = {main: path.resolve(neoPath, config.mainInput)};
 
 if (config.workers) {
     Object.entries(config.workers).forEach(([key, value]) => {
