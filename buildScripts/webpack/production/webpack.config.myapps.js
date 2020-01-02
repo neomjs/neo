@@ -4,7 +4,7 @@ const fs                = require('fs'),
       HtmlWebpackPlugin = require('html-webpack-plugin'),
       NodeExternals     = require('webpack-node-externals'),
       processRoot       = process.cwd(),
-      configPath        = path.resolve(processRoot, 'myApps.json'),
+      configPath        = path.resolve(processRoot, 'buildScripts/myApps.json'),
       packageJson       = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
       neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
       plugins           = [];
