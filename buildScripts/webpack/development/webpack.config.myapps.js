@@ -82,7 +82,7 @@ if (config.apps) {
                         appPath       : value.output + 'app.js',
                         bodyTag       : value.bodyTag || config.bodyTag,
                         basePath      : basePath,
-                        environment   : config.environment,
+                        environment   : 'development',
                         title         : value.title,
                         workerBasePath: workerBasePath
                     }
