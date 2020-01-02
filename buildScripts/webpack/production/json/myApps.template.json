@@ -1,7 +1,6 @@
 {
     "bodyTag": "<body>",
     "buildFolder": "dist/production",
-    "environment": "production",
     "mainInput": "./src/Main.mjs",
     "mainOutput": "main.js",
 

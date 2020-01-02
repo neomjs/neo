@@ -4,12 +4,12 @@ const fs                = require('fs'),
       HtmlWebpackPlugin = require('html-webpack-plugin'),
       NodeExternals     = require('webpack-node-externals'),
       processRoot       = process.cwd(),
-      configPath        = path.resolve(processRoot, 'myApps.json'),
+      configPath        = path.resolve(processRoot, 'buildScripts/myApps.json'),
       packageJson       = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
       neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
       plugins           = [];
 
-let basePath, config, entry, i, indexPath, treeLevel, workerBasePath;
+let basePath, config, entry, entryPath, i, indexPath, treeLevel, workerBasePath;
 
 if (fs.existsSync(configPath)) {
     config = require(configPath);
@@ -57,7 +57,13 @@ if (config.apps) {
 
     Object.entries(config.apps).forEach(([key, value]) => {
         if (choices.length < 2 || inquirerAnswers.apps.includes(key)) {
-            entry[key] = path.resolve(neoPath, 'buildScripts/webpack/entrypoints/' + value.input);
+            entryPath = path.resolve(processRoot, value.input);
+
+            if (fs.existsSync(entryPath)) {
+                entry[key] = entryPath;
+            } else {
+                entry[key] = path.resolve(neoPath, 'buildScripts/webpack/entrypoints/' + value.input);
+            }
 
             basePath       = '';
             workerBasePath = '';
@@ -82,7 +88,7 @@ if (config.apps) {
                         appPath       : value.output + 'app.js',
                         bodyTag       : value.bodyTag || config.bodyTag,
                         basePath      : basePath,
-                        environment   : config.environment,
+                        environment   : 'production',
                         title         : value.title,
                         workerBasePath: workerBasePath
                     }
