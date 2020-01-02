@@ -17,6 +17,10 @@ if (fs.existsSync(configPath)) {
     config = require(path.resolve(neoPath, 'buildScripts/webpack/production/json/myApps.json'));
 }
 
+if (!config.buildFolder) {
+    config.buildFolder = 'dist/production';
+}
+
 entry = {main: path.resolve(neoPath, config.mainInput)};
 
 if (config.workers) {
