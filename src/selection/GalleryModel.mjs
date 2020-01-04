@@ -27,7 +27,7 @@ class GalleryModel extends Model {
     }}
 
     /**
-     *
+     * Override to not apply a domListener
      */
     addDomListener() {}
 
@@ -110,11 +110,9 @@ class GalleryModel extends Model {
 
     /**
      *
-     * @param {Number} step
+     * @param {Number} step=1
      */
-    onNavKeyColumn(step) {
-        step = step || 1;
-
+    onNavKeyColumn(step=1) {
         let me           = this,
             view         = me.view,
             store        = view.store,
@@ -139,9 +137,9 @@ class GalleryModel extends Model {
 
     /**
      *
-     * @param {Number} step
+     * @param {Number} step=1
      */
-    onNavKeyRow(step) {
+    onNavKeyRow(step=1) {
         let me           = this,
             view         = me.view,
             store        = view.store,
@@ -155,7 +153,7 @@ class GalleryModel extends Model {
             amountRows = Math.ceil(view.store.getCount() / amountRows);
         }
 
-        step = (step || 1) * amountRows;
+        step *= amountRows;
 
         if (selected) {
             index = store.indexOf(selected) + step;
