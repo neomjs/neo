@@ -27,7 +27,7 @@ class HelixModel extends Model {
     }}
 
     /**
-     *
+     * Override to not apply a domListener
      */
     addDomListener() {}
 
