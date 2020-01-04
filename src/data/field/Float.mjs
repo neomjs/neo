@@ -7,7 +7,7 @@ import Field from './Field.mjs';
 class FloatField extends Field {
     static getConfig() {return {
         className : 'Neo.data.field.Float',
-        ntype     : 'field-float',
+        ntype     : 'data-field-float',
         emptyValue: 0
     }}
 

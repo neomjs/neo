@@ -7,7 +7,7 @@ import Field from './Field.mjs';
 class IntegerField extends Field {
     static getConfig() {return {
         className : 'Neo.data.field.Integer',
-        ntype     : 'field-integer',
+        ntype     : 'data-field-integer',
         emptyValue: 0
     }}
 

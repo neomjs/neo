@@ -7,7 +7,7 @@ import Field from './Field.mjs';
 class StringField extends Field {
     static getConfig() {return {
         className : 'Neo.data.field.String',
-        ntype     : 'field-string',
+        ntype     : 'data-field-string',
         emptyValue: ''
     }}
 

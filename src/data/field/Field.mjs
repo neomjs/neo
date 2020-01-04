@@ -7,7 +7,7 @@ import Base from '../../core/Base.mjs';
 class Field extends Base {
     static getConfig() {return {
         className    : 'Neo.data.field.Field',
-        ntype        : 'model',
+        ntype        : 'data-field',
         emptyValue   : null,
         nullableValue: true,
         value_       : null
