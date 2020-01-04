@@ -151,11 +151,9 @@ class HelixModel extends Model {
 
     /**
      *
-     * @param {Number} step
+     * @param {Number} step=1
      */
-    onNavKeyRow(step) {
-        step = step || 1;
-
+    onNavKeyRow(step=1) {
         let me           = this,
             view         = me.view,
             store        = view.store,
