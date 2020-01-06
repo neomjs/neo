@@ -34,7 +34,7 @@ class Base extends CoreBase {
 
     /**
      *
-     * @param config
+     * @param {Object} config
      */
     constructor(config) {
         config = config || {};
