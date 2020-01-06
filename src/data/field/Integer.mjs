@@ -24,9 +24,9 @@ class IntegerField extends Field {
 
     /**
      * Triggered before the value config gets changed.
-     * @param {Array|String|null} value
-     * @param {Array|String|null} oldValue
-     * @returns {Array}
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @returns {Number}
      * @private
      */
     beforeSetValue(value, oldValue) {

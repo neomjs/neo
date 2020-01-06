@@ -6,14 +6,34 @@ import Field from './Field.mjs';
  */
 class StringField extends Field {
     static getConfig() {return {
+        /**
+         * @member {String} className='Neo.data.field.String'
+         * @private
+         */
         className : 'Neo.data.field.String',
-        ntype     : 'data-field-string',
-        emptyValue: ''
+        /**
+         * @member {String} ntype='data-field-string'
+         * @private
+         */
+        ntype: 'data-field-string',
+        /**
+         * @member {String|null} defaultValue=''
+         */
+        defaultValue: ''
     }}
 
+    /**
+     * Triggered before the value config gets changed.
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @returns {String}
+     * @private
+     */
     beforeSetValue(value, oldValue) {
-        let emptyValue = this.nullableValue ? null : this.emptyValue;
-        return (value === null || value === undefined) ? emptyValue : String(value);
+        let me           = this,
+            defaultValue = me.defaultValue ? me.defaultValue : me.nullableValue ? null : undefined;
+
+        return (value === null || value === undefined) ? defaultValue : String(value);
     }
 }
 
