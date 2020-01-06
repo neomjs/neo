@@ -32,6 +32,12 @@ class Field extends Base {
         value_: null
     }}
 
+    /**
+     * Triggered after the value config got changed
+     * @param {*|null} value
+     * @param {*|null} oldValue
+     * @private
+     */
     afterSetValue(value, oldValue) {
         console.log('afterSetValue', value, oldValue);
     }
