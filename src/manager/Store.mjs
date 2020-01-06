@@ -68,7 +68,7 @@ class Store extends Base {
      * @param fieldName
      * @param value
      */
-    filter (storeId, fieldName, value) {
+    filter(storeId, fieldName, value) {
 
     }
 
@@ -77,7 +77,7 @@ class Store extends Base {
      * @param storeId
      * @param params
      */
-    load (storeId, params) {
+    load(storeId, params) {
 
     }
 
@@ -87,7 +87,7 @@ class Store extends Base {
      * @param fieldName
      * @param value
      */
-    sort (storeId, fieldName, value) {
+    sort(storeId, fieldName, value) {
 
     }
 }
