@@ -1,5 +1,12 @@
 # neo.mjs: Getting Started Guide
+The following guide is intended to get this repository running locally.<br>
+In case you want to create a neo.mjs App, you have 3 different options:
 
+1. Use <a href="https://github.com/neomjs/create-app">npx neo-app</a>
+2. Fork the <a href="https://github.com/neomjs/workspace">neo.mjs workspace</a>
+3. Follow this guide (Step 6 creates a new App inside neo/apps)
+
+## Get this repository running locally
 1. Clone this repo to your system to get the project files
    ```sh
    git clone https://github.com/neomjs/neo.git
