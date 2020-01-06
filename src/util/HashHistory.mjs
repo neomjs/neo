@@ -38,14 +38,27 @@ class HashHistory extends Base {
         stack: []
     }}
 
+    /**
+     *
+     * @returns {Object}
+     */
     first() {
         return this.stack[0];
     }
 
+    /**
+     *
+     * @returns {Number}
+     */
     getCount() {
         return this.stack.length;
     }
 
+    /**
+     *
+     * @param {Object} hash
+     * @param {String} hashString
+     */
     push(hash, hashString) {
         let me = this;
 

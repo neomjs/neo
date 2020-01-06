@@ -6,6 +6,10 @@ import Base from '../core/Base.mjs';
  */
 class VNode extends Base {
     static getConfig() {return {
+        /**
+         * @member {String} className='Neo.util.VNode'
+         * @private
+         */
         className: 'Neo.util.VNode'
     }}
 

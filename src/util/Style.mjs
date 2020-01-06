@@ -6,6 +6,10 @@ import Base from '../core/Base.mjs';
  */
 class Style extends Base {
     static getConfig() {return {
+        /**
+         * @member {String} className='Neo.util.Style'
+         * @private
+         */
         className: 'Neo.util.Style'
     }}
 
