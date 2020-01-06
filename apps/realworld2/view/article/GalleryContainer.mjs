@@ -39,10 +39,7 @@ class GalleryContainer extends GalleryMainContainer {
         };
 
         if (me.activeTag) {
-            params = {
-                tag: me.activeTag,
-                ...params
-            };
+            params.tag = me.activeTag;
         }
 
         me.getController().getArticles(params, opts).then(data => {
