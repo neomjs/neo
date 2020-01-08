@@ -89,9 +89,7 @@ class DomEvent extends Base {
             listeners = me.items[id] && me.items[id][eventName];
 
             if (listeners) {
-                /*if (eventName === 'contextmenu') {
-                    console.log('fire', eventName, data, listeners, path);
-                }*/
+                // console.log('fire', eventName, data, listeners, path);
 
                 if (!isDisabled && Array.isArray(listeners)) {
                     listeners.forEach(listener => {
@@ -123,16 +121,16 @@ class DomEvent extends Base {
                         }
                     });
                 }
+            }
 
-                // we do want to trigger the FocusManager after normal domListeners on these events got executed
-                if (eventName === 'focusin' || eventName === 'focusout') {
-                    FocusManager['on' + Neo.capitalize(eventName)]({
-                        componentPath: path,
-                        data         : data
-                    });
+            // we do want to trigger the FocusManager after normal domListeners on these events got executed
+            if (eventName === 'focusin' || eventName === 'focusout') {console.log(eventName);
+                FocusManager['on' + Neo.capitalize(eventName)]({
+                    componentPath: path,
+                    data         : data
+                });
 
-                    break;
-                }
+                break;
             }
         }
     }
