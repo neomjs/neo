@@ -27,6 +27,11 @@ class Gallery extends BaseGallery {
          */
         imageWidth: 320,
         /**
+         * Array containing the PreviewComponent references
+         * @member {Array} items=[]
+         */
+        items: [],
+        /**
          * True to select the item inside the middle of the store items on mount
          * @member {Boolean} selectOnMount=false
          */
