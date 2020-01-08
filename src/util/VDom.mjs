@@ -6,6 +6,10 @@ import Base from '../core/Base.mjs';
  */
 class VDom extends Base {
     static getConfig() {return {
+        /**
+         * @member {String} className='Neo.util.VDom'
+         * @private
+         */
         className: 'Neo.util.VDom'
     }}
 
@@ -138,6 +142,12 @@ class VDom extends Base {
         return childIds;
     }
 
+    /**
+     *
+     * @param {Object} vdom
+     * @param {Number} index
+     * @returns {Array}
+     */
     static getColumnNodes(vdom, index) {
         let columnNodes = [];
 
@@ -152,6 +162,12 @@ class VDom extends Base {
         return columnNodes;
     }
 
+    /**
+     *
+     * @param {Object} vdom
+     * @param {Number} index
+     * @returns {Array}
+     */
     static getColumnNodesIds(vdom, index) {
         return VDom.getColumnNodes(vdom, index).map(e => e.id);
     }

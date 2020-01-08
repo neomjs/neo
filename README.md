@@ -111,5 +111,6 @@ In case you like the neo.mjs concepts, please support it: <a href="./BACKERS.md"
 
 Build with :heart: in Germany.
 
+<br><br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
 & <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>

@@ -28,7 +28,9 @@ class HeaderToolbar extends Toolbar {
          * @member {Number} minHeight=56
          */
         minHeight: 56,
-
+        /**
+         * @member {Array} items
+         */
         items: [{
             text   : 'conduit',
             handler: 'onHomeButtonClick'
@@ -36,6 +38,10 @@ class HeaderToolbar extends Toolbar {
             iconCls: 'fa fa-home',
             text   : 'Home',
             handler: 'onHomeButtonClick'
+        }, {
+            iconCls: 'fa fa-sign-in-alt',
+            text   : 'Login',
+            handler: 'onLoginButtonClick'
         }, {
             iconCls: 'fa fa-dna',
             text   : 'Helix',

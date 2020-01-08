@@ -3,7 +3,7 @@ import PreviewComponent       from './PreviewComponent.mjs';
 
 /**
  * @class RealWorld2.view.article.Helix
- * @extends Neo.list.Base
+ * @extends Neo.component.Helix
  */
 class Helix extends BaseHelix {
     static getConfig() {return {
@@ -17,6 +17,11 @@ class Helix extends BaseHelix {
          */
         cls: ['rw2-article-helix', 'neo-helix'],
         /**
+         * Array containing the PreviewComponent references
+         * @member {Array} items=[]
+         */
+        items: [],
+        /**
          * The radius of the Helix in px
          * @member {Number} radius=2500
          */
@@ -29,7 +34,7 @@ class Helix extends BaseHelix {
     }}
 
     /**
-     * Override this method to get different item-markups
+     *
      * @param {Object} vdomItem
      * @param {Object} record
      * @param {Number} index
@@ -38,13 +43,21 @@ class Helix extends BaseHelix {
     createItem(vdomItem, record, index) {
         let me = this;
 
-        vdomItem = Neo.create({
-            module  : PreviewComponent,
-            parentId: me.id,
-            ...record,
-            author   : record.author.username, // todo: PreviewComponent should use an author object
-            userImage: record.author.image
-        });
+        if (!me.items[index]) {
+            me.items[index] = vdomItem = Neo.create({
+                module  : PreviewComponent,
+                parentId: me.id,
+                ...record,
+                author   : record.author.username, // todo: PreviewComponent should use an author object
+                userImage: record.author.image
+            });
+        } else {
+            vdomItem.bulkConfigUpdate({
+                ...record,
+                author   : record.author.username,
+                userImage: record.author.image
+            }, true); // silent update
+        }
 
         return {
             cls     : ['surface', 'neo-helix-item'],

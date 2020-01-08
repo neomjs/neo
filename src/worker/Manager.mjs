@@ -284,6 +284,10 @@ class Manager extends Base {
         });
     }
 
+    /**
+     *
+     * @param {String} replyId
+     */
     resolveDomOperationPromise(replyId) {
         if (replyId) {
             let promise = this.promises[replyId];

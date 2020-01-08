@@ -136,6 +136,7 @@ To speed up the current development there are two options:
 2. Jump in as a sponsor to ensure I can spend more time on the neo.mjs coding side (see <a href="../BACKERS.md">Sponsors & Backers</a>)
 
 Best regards, Tobias
-        
+
+<br><br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
 & <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>

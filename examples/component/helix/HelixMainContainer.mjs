@@ -15,10 +15,14 @@ class HelixMainContainer extends Viewport {
 
         autoMount: true,
         /**
+         * @member {Neo.component.Helix|null} helix=null
+         */
+        helix: null,
+        /**
          * @member {Object|null} helixConfig=null
          */
         helixConfig: null,
-        layout     : {ntype: 'hbox', align: 'stretch'},
+        layout: {ntype: 'hbox', align: 'stretch'},
 
         items: [{
             ntype : 'container',
@@ -256,11 +260,15 @@ class HelixMainContainer extends Viewport {
     constructor(config) {
         super(config);
 
-        this.items[0].items.push({
+        let me = this;
+
+        me.helix = Neo.create({
             module: Helix,
             id    : 'neo-helix-1',
-            ...this.helixConfig || {}
+            ...me.helixConfig || {}
         });
+
+        me.items[0].items.push(me.helix);
     }
 
     /**

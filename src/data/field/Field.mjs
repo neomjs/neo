@@ -6,13 +6,38 @@ import Base from '../../core/Base.mjs';
  */
 class Field extends Base {
     static getConfig() {return {
-        className    : 'Neo.data.field.Field',
-        ntype        : 'model',
-        emptyValue   : null,
+        /**
+         * @member {String} className='Neo.data.field.Field'
+         * @private
+         */
+        className: 'Neo.data.field.Field',
+        /**
+         * @member {String} ntype='data-field'
+         * @private
+         */
+        ntype: 'data-field',
+        /**
+         * @member {*|null} defaultValue=null
+         */
+        defaultValue: null,
+        /**
+         * @member {*|null} nullableValue=true
+         * @private
+         */
         nullableValue: true,
-        value_       : null
+        /**
+         * @member {*|null} value_=null
+         * @private
+         */
+        value_: null
     }}
 
+    /**
+     * Triggered after the value config got changed
+     * @param {*|null} value
+     * @param {*|null} oldValue
+     * @private
+     */
     afterSetValue(value, oldValue) {
         console.log('afterSetValue', value, oldValue);
     }

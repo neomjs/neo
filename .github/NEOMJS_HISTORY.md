@@ -24,5 +24,6 @@ I would also like to add a ***big thank you*** to everyone who provided feedback
 Best regards
 Tobi
 
+<br><br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
 & <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>

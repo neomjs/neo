@@ -73,15 +73,12 @@ class HelixContainer extends HelixMainContainer {
         let me = this;
 
         params = {
-            limit: 100,
+            limit: me.helix.maxItems,
             ...params
         };
 
         if (me.activeTag) {
-            params = {
-                tag: me.activeTag,
-                ...params
-            };
+            params.tag = me.activeTag;
         }
 
         me.getController().getArticles(params, opts).then(data => {

@@ -5,25 +5,23 @@ import Base from '../../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class RemoteMethodAccess extends Base {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.worker.mixins.RemoteMethodAccess'
-             * @private
-             */
-            className: 'Neo.worker.mixins.RemoteMethodAccess',
-            /**
-             * @member {String} ntype='mixin-remote-method-access'
-             * @private
-             */
-            ntype: 'mixin-remote-method-access',
-            /**
-             * @member {Boolean} mixin=true
-             * @private
-             */
-            mixin: true
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.worker.mixins.RemoteMethodAccess'
+         * @private
+         */
+        className: 'Neo.worker.mixins.RemoteMethodAccess',
+        /**
+         * @member {String} ntype='mixin-remote-method-access'
+         * @private
+         */
+        ntype: 'mixin-remote-method-access',
+        /**
+         * @member {Boolean} mixin=true
+         * @private
+         */
+        mixin: true
+    }}
 
     /**
      *
@@ -49,7 +47,7 @@ class RemoteMethodAccess extends Base {
 
     /**
      *
-     * @param remote
+     * @param {Object} remote
      */
     onRegisterRemote(remote) {
         if (remote.destination === Neo.workerId) {

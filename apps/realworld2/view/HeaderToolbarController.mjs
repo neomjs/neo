@@ -25,6 +25,10 @@ class HeaderToolbarController extends ComponentController {
         this.setRoute('/');
     }
 
+    onLoginButtonClick() {
+        this.setRoute('/login');
+    }
+
     onNewArticleButtonClick() {
         this.setRoute('/editor');
     }

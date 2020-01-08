@@ -6,14 +6,34 @@ import Field from './Field.mjs';
  */
 class FloatField extends Field {
     static getConfig() {return {
-        className : 'Neo.data.field.Float',
-        ntype     : 'field-float',
-        emptyValue: 0
+        /**
+         * @member {String} className='Neo.data.field.Field'
+         * @private
+         */
+        className: 'Neo.data.field.Float',
+        /**
+         * @member {String} ntype='data-field-float'
+         * @private
+         */
+        ntype: 'data-field-float',
+        /**
+         * @member {Number|null} defaultValue=0
+         */
+        defaultValue: 0
     }}
 
+    /**
+     * Triggered before the value config gets changed.
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
+     * @returns {Number}
+     * @private
+     */
     beforeSetValue(value, oldValue) {
-        let emptyValue = this.nullableValue ? null : this.emptyValue;
-        return (value === null || value === undefined) ? emptyValue : parseFloat(value);
+        let me           = this,
+            defaultValue = me.defaultValue ? me.defaultValue : me.nullableValue ? null : undefined;
+
+        return (value === null || value === undefined) ? defaultValue : parseFloat(value);
     }
 }
 

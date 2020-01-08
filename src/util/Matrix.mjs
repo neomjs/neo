@@ -7,8 +7,16 @@ import Base from '../core/Base.mjs';
  */
 class Matrix extends Base {
     static getConfig() {return {
+        /**
+         * @member {String} className='Neo.util.Matrix'
+         * @private
+         */
         className: 'Neo.util.Matrix',
-        items_   : null
+        /**
+         * @member {Array|null} items_=null
+         * @private
+         */
+        items_: null
     }}
 
     /**

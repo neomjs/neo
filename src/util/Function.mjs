@@ -6,9 +6,21 @@ import Base from '../core/Base.mjs';
  */
 class NeoFunction extends Base {
     static getConfig() {return {
+        /**
+         * @member {String} className='Neo.util.Function'
+         * @private
+         */
         className: 'Neo.util.Function'
     }}
 
+    /**
+     *
+     * @param {Neo.core.Base} target
+     * @param {String} methodName
+     * @param {Function} fn
+     * @param {Object} scope
+     * @returns {Function}
+     */
     static createSequence(target, methodName, fn, scope) {
         let method = target[methodName] || Neo.emptyFn;
 
@@ -18,6 +30,14 @@ class NeoFunction extends Base {
         });
     }
 
+    /**
+     *
+     * @param {Neo.core.Base} target
+     * @param {String} methodName
+     * @param {Function} fn
+     * @param {Object} scope
+     * @returns {Function}
+     */
     static intercept(target, methodName, fn, scope) {
         let method = target[methodName] || Neo.emptyFn;
 

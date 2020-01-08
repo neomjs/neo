@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "1.0.30",
+    "version": "1.0.31",
     "description": "The webworkers driven UI framework",
     "repository": {
         "type": "git",
@@ -8,6 +8,7 @@
     },
     "scripts": {
         "server-start": "webpack-dev-server --open",
+        "build-all": "node ./buildScripts/buildAll.js",
         "create-app": "node ./buildScripts/createApp.js",
         "dev-build-my-apps": "webpack --config ./buildScripts/webpack/development/webpack.config.myapps.js",
         "prod-build-my-apps": "webpack --config ./buildScripts/webpack/production/webpack.config.myapps.js",
@@ -24,6 +25,8 @@
         "dev-theme-light-no-css4": "webpack --config ./buildScripts/webpack/development/webpack.scss.config.js --env.json_file=theme.light.noCss4.json",
         "prod-theme-dark-no-css4": "webpack --config ./buildScripts/webpack/production/webpack.scss.config.js --env.json_file=theme.dark.noCss4.json",
         "prod-theme-light-no-css4": "webpack --config ./buildScripts/webpack/production/webpack.scss.config.js --env.json_file=theme.light.noCss4.json",
+        "dev-build-all-my-apps": "webpack --config ./buildScripts/webpack/development/webpack.config.myapps.js --env.build_all=true",
+        "prod-build-all-my-apps": "webpack --config ./buildScripts/webpack/production/webpack.config.myapps.js --env.build_all=true",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "keywords": [

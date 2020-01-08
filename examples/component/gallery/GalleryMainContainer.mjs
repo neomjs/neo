@@ -11,14 +11,18 @@ import {default as Viewport}   from '../../../src/container/Viewport.mjs';
 class GalleryMainContainer extends Viewport {
     static getConfig() {return {
         className: 'TestApp.MainContainer',
-        ntype    : 'main-container',
+        ntype: 'main-container',
 
         autoMount: true,
+        /**
+         * @member {Neo.component.Gallery|null} gallery=null
+         */
+        gallery: null,
         /**
          * @member {Object|null} galleryConfig=null
          */
         galleryConfig: null,
-        layout       : {ntype: 'hbox', align: 'stretch'},
+        layout: {ntype: 'hbox', align: 'stretch'},
 
         items: [{
             ntype : 'container',
@@ -193,11 +197,15 @@ class GalleryMainContainer extends Viewport {
     constructor(config) {
         super(config);
 
-        this.items[0].items.push({
+        let me = this;
+
+        me.gallery = Neo.create({
             module: Gallery,
             id    : 'neo-gallery-1',
-            ...this.galleryConfig || {}
+            ...me.galleryConfig || {}
         });
+
+        this.items[0].items.push(me.gallery);
     }
 
     /**

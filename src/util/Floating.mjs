@@ -7,11 +7,28 @@ import Base from '../core/Base.mjs';
  */
 class Floating extends Base {
     static getConfig() {return {
-        className      : 'Neo.util.Floating',
-        ntype          : 'mixin-floating',
-        mixin          : true,
+        /**
+         * @member {String} className='Neo.util.Floating'
+         * @private
+         */
+        className: 'Neo.util.Floating',
+        /**
+         * @member {String} ntype='mixin-floating'
+         * @private
+         */
+        ntype: 'mixin-floating',
+        /**
+         * @member {Boolean} mixin=true
+         */
+        mixin: true,
+        /**
+         * @member {String|null} animateTargetId=null
+         */
         animateTargetId: null,
-        modal_         : false
+        /**
+         * @member {Boolean} modal_=false
+         */
+        modal_: false
     }}
 }
 
