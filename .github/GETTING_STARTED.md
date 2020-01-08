@@ -51,5 +51,6 @@ These versions also work in Firefox & Safari and do not require the Chrome flag
 >
 > localhost/neo/dist/production/examples/component/helix/
 
+<br><br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
 & <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>
