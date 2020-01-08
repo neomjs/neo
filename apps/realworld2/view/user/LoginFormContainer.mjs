@@ -38,7 +38,11 @@ class LoginFormContainer extends Container {
             module: Toolbar,
             items : ['->', {
                 text: 'Submit'
-            }]
+            }],
+            style: {
+                maxWidth: '500px',
+                padding : 0
+            }
         }],
         /**
          * @member {Object} layout

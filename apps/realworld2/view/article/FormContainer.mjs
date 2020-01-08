@@ -50,7 +50,11 @@ class FormContainer extends Container {
             module: Toolbar,
             items : ['->', {
                 text: 'Publish Article'
-            }]
+            }],
+            style: {
+                maxWidth: '500px',
+                padding : 0
+            }
         }],
         /**
          * @member {Object} layout
