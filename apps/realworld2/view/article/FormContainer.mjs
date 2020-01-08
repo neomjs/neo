@@ -1,4 +1,5 @@
-import Container from '../../../../src/form/Container.mjs';
+import Container              from '../../../../src/form/Container.mjs';
+import {default as TextField} from '../../../../src/form/field/Text.mjs';
 
 /**
  * @class RealWorld2.view.article.FormContainer
@@ -10,7 +11,19 @@ class FormContainer extends Container {
          * @member {String} className='RealWorld2.view.article.FormContainer'
          * @private
          */
-        className: 'RealWorld2.view.article.FormContainer'
+        className: 'RealWorld2.view.article.FormContainer',
+        /**
+         * @member {Array} items
+         */
+        items: [{
+            module       : TextField,
+            labelPosition: 'inline',
+            labelText    : 'Article Title'
+        }],
+        /**
+         * @member {Object} layout
+         */
+        layout: {ntype: 'base'}
     }}
 }
 
