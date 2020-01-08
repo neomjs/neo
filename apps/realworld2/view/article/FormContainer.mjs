@@ -1,4 +1,5 @@
 import Container              from '../../../../src/form/Container.mjs';
+import TextArea               from '../../../../src/form/field/TextArea.mjs';
 import {default as TextField} from '../../../../src/form/field/Text.mjs';
 
 /**
@@ -23,8 +24,13 @@ class FormContainer extends Container {
         }, {
             module       : TextField,
             labelPosition: 'inline',
-            labelText    : 'What\'s this article about?' ,
+            labelText    : 'What\'s this article about?',
             name         : 'description'
+        }, {
+            module       : TextArea,
+            labelPosition: 'inline',
+            labelText    : 'Write your article (in markdown)',
+            name         : 'body'
         }],
         /**
          * @member {Object} layout
