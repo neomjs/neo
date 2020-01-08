@@ -1,6 +1,7 @@
 import {default as ChipField} from '../../../../src/form/field/Chip.mjs';
 import Container              from '../../../../src/form/Container.mjs';
 import TextArea               from '../../../../src/form/field/TextArea.mjs';
+import Toolbar                from '../../../../src/container/Toolbar.mjs';
 import {default as TextField} from '../../../../src/form/field/Text.mjs';
 
 /**
@@ -37,6 +38,11 @@ class FormContainer extends Container {
             labelPosition: 'inline',
             labelText    : 'Enter Tags',
             name         : 'tags'
+        }, {
+            module: Toolbar,
+            items : ['->', {
+                text: 'Publish Article'
+            }]
         }],
         /**
          * @member {Object} layout
