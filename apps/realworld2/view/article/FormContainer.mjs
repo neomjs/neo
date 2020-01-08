@@ -16,6 +16,14 @@ class FormContainer extends Container {
          */
         className: 'RealWorld2.view.article.FormContainer',
         /**
+         * @member {Object} itemDefaults
+         */
+        itemDefaults: {
+            style: {
+                maxWidth: '500px'
+            }
+        },
+        /**
          * @member {Array} items
          */
         items: [{
