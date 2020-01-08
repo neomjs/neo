@@ -12,7 +12,7 @@ class LoginFormContainer extends Container {
          * @member {String} className='RealWorld2.view.user.LoginFormContainer'
          * @private
          */
-        className: 'RealWorld2.view.article.FormContainer',
+        className: 'RealWorld2.view.user.LoginFormContainer',
         /**
          * @member {Array} items
          */
