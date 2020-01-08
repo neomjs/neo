@@ -28,7 +28,9 @@ class HeaderToolbar extends Toolbar {
          * @member {Number} minHeight=56
          */
         minHeight: 56,
-
+        /**
+         * @member {Array} items
+         */
         items: [{
             text   : 'conduit',
             handler: 'onHomeButtonClick'
