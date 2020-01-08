@@ -14,6 +14,14 @@ class LoginFormContainer extends Container {
          */
         className: 'RealWorld2.view.user.LoginFormContainer',
         /**
+         * @member {Object} itemDefaults
+         */
+        itemDefaults: {
+            style: {
+                maxWidth: '500px'
+            }
+        },
+        /**
          * @member {Array} items
          */
         items: [{
