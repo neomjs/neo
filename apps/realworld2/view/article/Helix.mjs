@@ -34,7 +34,7 @@ class Helix extends BaseHelix {
     }}
 
     /**
-     * Override this method to get different item-markups
+     *
      * @param {Object} vdomItem
      * @param {Object} record
      * @param {Number} index
@@ -44,7 +44,7 @@ class Helix extends BaseHelix {
         let me = this;
 
         if (!me.items[index]) {
-            vdomItem = Neo.create({
+            me.items[index] = vdomItem = Neo.create({
                 module  : PreviewComponent,
                 parentId: me.id,
                 ...record,
@@ -56,7 +56,7 @@ class Helix extends BaseHelix {
                 ...record,
                 author   : record.author.username,
                 userImage: record.author.image
-            }, true);
+            }, true); // silent update
         }
 
         return {
