@@ -17,35 +17,29 @@ In case you want to create a neo.mjs App, you have 3 different options:
    cd neo
    ```
 
-3. Get the required node modules
+3. Install the required node modules & run all relevant build scripts at once
    ```sh
-   npm install
-   ```
-
-4. Run the following build scripts:
-   ```sh
-   npm run generate-docs-json
-   npm run dev-css-structure
-   npm run dev-theme-dark
-   npm run dev-theme-light
+   npm run build-all
    ```
 
    (See the <a href="../docs/tutorials/10_BuildScripts.md">Build Scripts Guide</a> for further details.)
 
-5. Make sure to use a local WebServer!
+4. Make sure to use a local WebServer!
    * Use a local webserver of your choice
    * OR `npm run server-start`
 
    (JS module imports can not work on the local file system (security).)
    
-6. npm run create-app
+5. Optional: `npm run create-app`
 
 #### You can run the examples & docs app **without** any JS build directly:  
 localhost/neo/docs/  
 localhost/neo/examples/component/helix/
 
 #### This does require setting a Chrome flag for now (strongly recommended for development!).
-chrome://flags/#enable-experimental-web-platform-features (Copy the link into a new browser Tab)
+> chrome://flags/#enable-experimental-web-platform-features
+
+(Copy the link into a new browser Tab)
 
 See: <a href="../examples/README.md">examples/README.md</a> for more details!
 
