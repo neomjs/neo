@@ -25,6 +25,8 @@ if (fs.existsSync(appDevJsonPath)) {
 
     if (fs.existsSync(appDevJsonPath)) {
         appDevJson = require(appDevJsonPath);
+    } else {
+        appDevJson = require(path.resolve(__dirname, '../webpack/development/json/myApps.template.json'));
     }
 }
 
