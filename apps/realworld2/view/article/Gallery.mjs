@@ -48,13 +48,21 @@ class Gallery extends BaseGallery {
     createItem(vdomItem, record, index) {
         let me = this;
 
-        vdomItem = Neo.create({
-            module  : PreviewComponent,
-            parentId: me.id,
-            ...record,
-            author   : record.author.username, // todo: PreviewComponent should use an author object
-            userImage: record.author.image
-        });
+        if (!me.items[index]) {
+            me.items[index] = vdomItem = Neo.create({
+                module   : PreviewComponent,
+                parentId : me.id,
+                ...record,
+                author   : record.author.username, // todo: PreviewComponent should use an author object
+                userImage: record.author.image
+            });
+        } else {
+            vdomItem.bulkConfigUpdate({
+                ...record,
+                author   : record.author.username,
+                userImage: record.author.image
+            }, true); // silent update
+        }
 
         return {
             cls     : ['neo-gallery-item', 'image-wrap', 'view', 'neo-transition-1000'],
