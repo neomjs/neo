@@ -1,3 +1,4 @@
+import {default as ChipField} from '../../../../src/form/field/Chip.mjs';
 import Container              from '../../../../src/form/Container.mjs';
 import TextArea               from '../../../../src/form/field/TextArea.mjs';
 import {default as TextField} from '../../../../src/form/field/Text.mjs';
@@ -31,6 +32,11 @@ class FormContainer extends Container {
             labelPosition: 'inline',
             labelText    : 'Write your article (in markdown)',
             name         : 'body'
+        }, {
+            module       : TextField, // todo: ChipField
+            labelPosition: 'inline',
+            labelText    : 'Enter Tags',
+            name         : 'tags'
         }],
         /**
          * @member {Object} layout
