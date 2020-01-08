@@ -73,7 +73,7 @@ class HelixContainer extends HelixMainContainer {
         let me = this;
 
         params = {
-            limit: 100,
+            limit: me.helix.maxItems,
             ...params
         };
 
