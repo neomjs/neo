@@ -17,6 +17,11 @@ class Helix extends BaseHelix {
          */
         cls: ['rw2-article-helix', 'neo-helix'],
         /**
+         * Array containing the PreviewComponent references
+         * @member {Array} items=[]
+         */
+        items: [],
+        /**
          * The radius of the Helix in px
          * @member {Number} radius=2500
          */
