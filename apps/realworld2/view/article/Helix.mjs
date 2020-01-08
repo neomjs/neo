@@ -3,7 +3,7 @@ import PreviewComponent       from './PreviewComponent.mjs';
 
 /**
  * @class RealWorld2.view.article.Helix
- * @extends Neo.list.Base
+ * @extends Neo.component.Helix
  */
 class Helix extends BaseHelix {
     static getConfig() {return {
