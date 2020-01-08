@@ -18,7 +18,13 @@ class FormContainer extends Container {
         items: [{
             module       : TextField,
             labelPosition: 'inline',
-            labelText    : 'Article Title'
+            labelText    : 'Article Title',
+            name         : 'title'
+        }, {
+            module       : TextField,
+            labelPosition: 'inline',
+            labelText    : 'What\'s this article about?' ,
+            name         : 'description'
         }],
         /**
          * @member {Object} layout
