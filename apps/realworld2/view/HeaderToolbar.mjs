@@ -37,6 +37,10 @@ class HeaderToolbar extends Toolbar {
             text   : 'Home',
             handler: 'onHomeButtonClick'
         }, {
+            iconCls: 'fa fa-sign-in-alt',
+            text   : 'Login',
+            handler: 'onLoginButtonClick'
+        }, {
             iconCls: 'fa fa-dna',
             text   : 'Helix',
             handler: 'onHelixButtonClick'
