@@ -14,7 +14,13 @@ let basePath, config, entry, entryPath, i, indexPath, treeLevel, workerBasePath;
 if (fs.existsSync(configPath)) {
     config = require(configPath);
 } else {
-    config = require(path.resolve(neoPath, 'buildScripts/webpack/development/json/myApps.json'));
+    const myAppsPath = path.resolve(neoPath, 'buildScripts/webpack/development/json/myApps.json');
+
+    if (fs.existsSync(myAppsPath)) {
+        config = require(myAppsPath);
+    } else {
+        config = require(path.resolve(neoPath, 'buildScripts/webpack/development/json/myApps.template.json'));
+    }
 }
 
 if (!config.buildFolder) {
