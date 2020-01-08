@@ -5,6 +5,7 @@ import FormContainer                    from './article/FormContainer.mjs';
 import GalleryContainer                 from './article/GalleryContainer.mjs';
 import HelixContainer                   from './article/HelixContainer.mjs';
 import HomeContainer                    from './HomeContainer.mjs';
+import LoginFormContainer               from './user/LoginFormContainer.mjs';
 import {LOCAL_STORAGE_KEY}              from '../api/config.mjs';
 import {default as ProfileApi}          from '../api/Profile.mjs';
 import {default as TagApi}              from '../api/Tag.mjs';
@@ -284,9 +285,9 @@ class MainContainerController extends ComponentController {
             else if (hashString === '/editor')  {newView = me.getView('editor',  FormContainer);}
             else if (hashString === '/helix')   {newView = me.getView('helix',   HelixContainer);}
             else if (hashString === '/gallery') {newView = me.getView('gallery', GalleryContainer);}
+            else if (hashString === '/login')   {newView = me.getView('login',   LoginFormContainer); newView.mode = 'login';}
           /*else if (hashString.includes('/article/'))  {newView = me.getView('articleComponent',  ArticleComponent,  'article');}
             else if (hashString.includes('/profile/'))  {newView = me.getView('profileComponent',  ProfileComponent,  'profile');}
-            else if (value.hasOwnProperty('/login'))    {newView = me.getView('signUpComponent',   SignUpComponent,   'signup'); newView.mode = 'signin';}
             else if (value.hasOwnProperty('/register')) {newView = me.getView('signUpComponent',   SignUpComponent,   'signup'); newView.mode = 'signup';}
             else if (value.hasOwnProperty('/settings')) {newView = me.getView('settingsComponent', SettingsComponent, 'settings');}
 
