@@ -34,7 +34,7 @@ class GalleryContainer extends GalleryMainContainer {
         let me = this;
 
         params = {
-            limit: 100,
+            limit: me.gallery.maxItems,
             ...params
         };
 
