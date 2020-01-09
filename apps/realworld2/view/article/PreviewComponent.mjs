@@ -67,8 +67,8 @@ class PreviewComponent extends Component {
                 }, {
                     cls: ['info'],
                     cn : [
-                        {tag : 'a',    cls : ['author'], flag: 'author'},
-                        {tag : 'span', cls : ['date'],   flag: 'createdAt'}
+                        {tag: 'a',    cls: ['author'], flag: 'author'},
+                        {tag: 'span', cls: ['date'],   flag: 'createdAt'}
                     ]
                 }, {
                     tag: 'button',
@@ -83,9 +83,9 @@ class PreviewComponent extends Component {
                 cls : ['preview-link'],
                 flag: 'preview-link',
                 cn  : [
-                    {tag : 'h1',   flag: 'title'},
-                    {tag : 'p',    flag: 'description'},
-                    {tag : 'span', html: 'Read more...'}
+                    {tag: 'h1',   flag: 'title'},
+                    {tag: 'p',    flag: 'description'},
+                    {tag: 'span', html: 'Read more...'}
                 ]
             }]
         }
