@@ -16,9 +16,7 @@ class ProfileContainer extends Container {
          */
         items: [{
             ntype: 'component',
-            vdom: {
-                html: 'ProfileContainer'
-            }
+            html : 'ProfileContainer'
         }],
         /**
          * @member {Object} style

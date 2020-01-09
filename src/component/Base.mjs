@@ -238,7 +238,7 @@ class Base extends CoreBase {
             // however there will be already added attributes (e.g. id), so a merge seems to be the best strategy.
             vdom = {...me._vdom || {}, ...config.vdom || {}};
 
-        // avoid any inferference on prototype level
+        // avoid any interference on prototype level
         // does not clone existing Neo instances
         me._vdom        = Neo.clone(vdom, true, true);
         me.cls          = config.cls;
@@ -484,7 +484,7 @@ class Base extends CoreBase {
     }
 
     /**
-     * Registers the domListers inside the Neo.manager.DomEvent
+     * Registers the domListeners inside the Neo.manager.DomEvent
      * @param {Array} value
      * @param {Array} oldValue
      * @private

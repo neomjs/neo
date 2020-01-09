@@ -39,7 +39,7 @@ class Label extends Component {
      * @param {String} oldValue
      * @private
      */
-    afterSetText(value) {
+    afterSetText(value, oldValue) {
         let vdom = this.vdom;
         vdom.html = value;
         this.vdom = vdom;
