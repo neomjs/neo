@@ -1,17 +1,18 @@
-import {default as ArticleApi}          from '../api/Article.mjs';
-import {default as ComponentController} from '../../../src/controller/Component.mjs';
-import {default as FavoriteApi}         from '../api/Favorite.mjs';
-import FormContainer                    from './article/FormContainer.mjs';
-import GalleryContainer                 from './article/GalleryContainer.mjs';
-import HelixContainer                   from './article/HelixContainer.mjs';
-import HomeContainer                    from './HomeContainer.mjs';
-import LoginFormContainer               from './user/LoginFormContainer.mjs';
-import {LOCAL_STORAGE_KEY}              from '../api/config.mjs';
-import {default as ProfileApi}          from '../api/Profile.mjs';
-import ProfileContainer                 from './user/ProfileContainer.mjs';
-import SettingsFormContainer            from './user/SettingsFormContainer.mjs';
-import {default as TagApi}              from '../api/Tag.mjs';
-import {default as UserApi}             from '../api/User.mjs';
+import {default as ArticleApi}              from '../api/Article.mjs';
+import {default as ArticleDetailsContainer} from './article/DetailsContainer.mjs';
+import {default as ComponentController}     from '../../../src/controller/Component.mjs';
+import {default as FavoriteApi}             from '../api/Favorite.mjs';
+import FormContainer                        from './article/FormContainer.mjs';
+import GalleryContainer                     from './article/GalleryContainer.mjs';
+import HelixContainer                       from './article/HelixContainer.mjs';
+import HomeContainer                        from './HomeContainer.mjs';
+import LoginFormContainer                   from './user/LoginFormContainer.mjs';
+import {LOCAL_STORAGE_KEY}                  from '../api/config.mjs';
+import {default as ProfileApi}              from '../api/Profile.mjs';
+import ProfileContainer                     from './user/ProfileContainer.mjs';
+import SettingsFormContainer                from './user/SettingsFormContainer.mjs';
+import {default as TagApi}                  from '../api/Tag.mjs';
+import {default as UserApi}                 from '../api/User.mjs';
 
 /**
  * @class RealWorld2.view.MainContainerController
@@ -284,14 +285,14 @@ class MainContainerController extends ComponentController {
             // view.items[0].activeItem = Object.keys(value)[0];
 
                  if (hashString === '/')               {newView = me.getView('home',     HomeContainer);}
+            else if (hashString.includes('/article/')) {newView = me.getView('article',  ArticleDetailsContainer);}
             else if (hashString === '/editor')         {newView = me.getView('editor',   FormContainer);}
             else if (hashString === '/helix')          {newView = me.getView('helix',    HelixContainer);}
             else if (hashString === '/gallery')        {newView = me.getView('gallery',  GalleryContainer);}
             else if (hashString === '/login')          {newView = me.getView('login',    LoginFormContainer); newView.mode = 'login';}
             else if (hashString.includes('/profile/')) {newView = me.getView('profile',  ProfileContainer);}
             else if (hashString === '/settings')       {newView = me.getView('settings', SettingsFormContainer);}
-          /*else if (hashString.includes('/article/'))  {newView = me.getView('articleComponent',  ArticleComponent,  'article');}
-            else if (value.hasOwnProperty('/register')) {newView = me.getView('signUpComponent',   SignUpComponent,   'signup'); newView.mode = 'signup';}
+          /*else if (value.hasOwnProperty('/register')) {newView = me.getView('signUpComponent',   SignUpComponent,   'signup'); newView.mode = 'signup';}
 
             if (!(oldValue && (
                 oldValue.hasOwnProperty('/login')    && value.hasOwnProperty('/register') ||
