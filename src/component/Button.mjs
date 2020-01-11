@@ -52,7 +52,7 @@ class Button extends Component {
          * The color to use for an icon, e.g. '#ff0000' [optional]
          * @member {String|null} iconColor_=null
          */
-        iconColor_: '',
+        iconColor_: null,
         /**
          * The position of the icon in case iconCls has a value.
          * Valid values are: 'top', 'right', 'bottom', 'left'
