@@ -148,8 +148,17 @@ class Util extends Base {
     }
 
     /**
+     * Returns true if the passed value is a function
+     * @param {Function} value The value to test
+     * @returns {Boolean}
+     */
+    static isFunction(value) {
+        return typeof value === 'function';
+    }
+
+    /**
      * Returns true if the passed value is a number. Returns false for non-finite numbers
-     * @param {Object} value The value to test
+     * @param {Number} value The value to test
      * @returns {Boolean}
      */
     static isNumber(value){
@@ -167,7 +176,7 @@ class Util extends Base {
 
     /**
      * Returns true if the passed value is a string
-     * @param {Object} value The value to test
+     * @param {String} value The value to test
      * @returns {Boolean}
      */
     static isString(value) {
@@ -208,6 +217,7 @@ Neo.applyFromNs(Neo, Util, {
     isBoolean        : 'isBoolean',
     isDefined        : 'isDefined',
     isEmpty          : 'isEmpty',
+    isFunction       : 'isFunction',
     isNumber         : 'isNumber',
     isObject         : 'isObject',
     isString         : 'isString',
