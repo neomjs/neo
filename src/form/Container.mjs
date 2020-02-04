@@ -38,7 +38,7 @@ class Container extends BaseContainer {
      */
     getFields() {
         let children = ComponentManager.getChildren(this),
-            fields   = []; // todo
+            fields   = [];
 
         children.forEach(item => {
             if (item instanceof BaseField) {
@@ -47,6 +47,21 @@ class Container extends BaseContainer {
         });
 
         return fields;
+    }
+
+    /**
+     *
+     * @return {Object} values
+     */
+    getValues() {
+        let fields = this.getFields(),
+            values = {};
+
+        fields.forEach(item => {
+            values[item.name || item.id] = item.value;
+        });
+
+        return values;
     }
 }
 
