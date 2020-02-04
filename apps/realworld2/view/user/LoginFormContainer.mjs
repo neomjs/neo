@@ -68,7 +68,6 @@ class LoginFormContainer extends Container {
      *
      */
     onLoginButtonClick() {
-        console.log('onLoginButtonClick');
         let fields = this.getFields();
 
         console.log(fields);

@@ -1,4 +1,6 @@
-import {default as BaseContainer} from '../container/Base.mjs';
+import {default as BaseContainer}    from '../container/Base.mjs';
+import {default as BaseField}        from '../form/field/Base.mjs';
+import {default as ComponentManager} from '../manager/Component.mjs';
 
 /**
  * @class Neo.form.Container
@@ -35,7 +37,14 @@ class Container extends BaseContainer {
      * @return {Array} fields
      */
     getFields() {
-        let fields = []; // todo
+        let children = ComponentManager.getChildren(this),
+            fields   = []; // todo
+
+        children.forEach(item => {
+            if (item instanceof BaseField) {
+                fields.push(item);
+            }
+        });
 
         return fields;
     }
