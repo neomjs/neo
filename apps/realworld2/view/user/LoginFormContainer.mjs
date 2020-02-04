@@ -71,6 +71,7 @@ class LoginFormContainer extends Container {
         let values = this.getValues();
 
         console.log(values);
+        console.log(this.isValid());
     }
 }
 

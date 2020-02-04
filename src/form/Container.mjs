@@ -63,6 +63,24 @@ class Container extends BaseContainer {
 
         return values;
     }
+
+    /**
+     * Returns true in case no form field isValid() call returns false
+     * @return {Boolean}
+     */
+    isValid() {
+        let fields = this.getFields(),
+            i      = 0,
+            len    = fields.length;
+
+        for (; i < len; i++) {
+            if (!fields[i].isValid()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
 
 Neo.applyClassConfig(Container);
