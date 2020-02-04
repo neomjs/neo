@@ -22,9 +22,19 @@ class LoginFormContainer extends Container {
             }
         },
         /**
-         * @member {Array} items
+         * @member {Array|null} items
          */
-        items: [{
+        items: null,
+        /**
+         * @member {Object} layout
+         */
+        layout: {ntype: 'base'}
+    }}
+
+    constructor(config) {
+        super(config);
+
+        this.items = [{
             module       : TextField,
             labelPosition: 'inline',
             labelText    : 'Email',
@@ -37,19 +47,19 @@ class LoginFormContainer extends Container {
         }, {
             module: Toolbar,
             items : ['->', {
-                handler: 'onLoginButtonClick',
+                handler: this.onLoginButtonClick,
                 text   : 'Submit'
             }],
             style: {
                 maxWidth: '500px',
                 padding : 0
             }
-        }],
-        /**
-         * @member {Object} layout
-         */
-        layout: {ntype: 'base'}
-    }}
+        }];
+    }
+
+    onLoginButtonClick() {
+        console.log('onLoginButtonClick');
+    }
 }
 
 Neo.applyClassConfig(LoginFormContainer);
