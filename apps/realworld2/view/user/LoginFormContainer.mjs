@@ -37,7 +37,8 @@ class LoginFormContainer extends Container {
         }, {
             module: Toolbar,
             items : ['->', {
-                text: 'Submit'
+                handler: 'onLoginButtonClick',
+                text   : 'Submit'
             }],
             style: {
                 maxWidth: '500px',
