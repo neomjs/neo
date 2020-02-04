@@ -45,12 +45,14 @@ class LoginFormContainer extends Container {
             module       : TextField,
             labelPosition: 'inline',
             labelText    : 'Email',
-            name         : 'email'
+            name         : 'email',
+            required     : true
         }, {
             module       : PasswordField,
             labelPosition: 'inline',
             labelText    : 'Password',
-            name         : 'password'
+            name         : 'password',
+            required     : true
         }, {
             module: Toolbar,
             items : ['->', {
