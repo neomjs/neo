@@ -1,6 +1,7 @@
-import Container              from '../../../../src/form/Container.mjs';
-import Toolbar                from '../../../../src/container/Toolbar.mjs';
-import {default as TextField} from '../../../../src/form/field/Text.mjs';
+import Container                  from '../../../../src/form/Container.mjs';
+import Toolbar                    from '../../../../src/container/Toolbar.mjs';
+import {default as PasswordField} from '../../../../src/form/field/Password.mjs';
+import {default as TextField}     from '../../../../src/form/field/Text.mjs';
 
 /**
  * @class RealWorld2.view.user.LoginFormContainer
@@ -46,7 +47,7 @@ class LoginFormContainer extends Container {
             labelText    : 'Email',
             name         : 'email'
         }, {
-            module       : TextField,
+            module       : PasswordField,
             labelPosition: 'inline',
             labelText    : 'Password',
             name         : 'password'
