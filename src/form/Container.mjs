@@ -34,7 +34,7 @@ class Container extends BaseContainer {
 
     /**
      *
-     * @return {Array} fields
+     * @returns {Array} fields
      */
     getFields() {
         let children = ComponentManager.getChildren(this),
@@ -51,7 +51,7 @@ class Container extends BaseContainer {
 
     /**
      *
-     * @return {Object} values
+     * @returns {Object} values
      */
     getValues() {
         let fields = this.getFields(),
@@ -66,7 +66,7 @@ class Container extends BaseContainer {
 
     /**
      * Returns true in case no form field isValid() call returns false
-     * @return {Boolean}
+     * @returns {Boolean}
      */
     isValid() {
         let fields = this.getFields(),

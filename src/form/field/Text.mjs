@@ -661,7 +661,7 @@ class Text extends Base {
 
     /**
      *
-     * @return {Boolean}
+     * @returns {Boolean}
      */
     isValid() {
         let me = this;

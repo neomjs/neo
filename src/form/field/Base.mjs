@@ -47,7 +47,7 @@ class Base extends Component {
 
     /**
      *
-     * @return {Boolean}
+     * @returns {Boolean}
      */
     isValid() {
         return true;
