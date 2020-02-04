@@ -29,6 +29,16 @@ class Container extends BaseContainer {
             cn : []
         }
     }}
+
+    /**
+     *
+     * @return {Array} fields
+     */
+    getFields() {
+        let fields = []; // todo
+
+        return fields;
+    }
 }
 
 Neo.applyClassConfig(Container);

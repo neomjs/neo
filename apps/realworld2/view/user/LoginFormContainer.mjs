@@ -31,10 +31,16 @@ class LoginFormContainer extends Container {
         layout: {ntype: 'base'}
     }}
 
+    /**
+     *
+     * @param {Object} config
+     */
     constructor(config) {
         super(config);
 
-        this.items = [{
+        let me = this;
+
+        me.items = [{
             module       : TextField,
             labelPosition: 'inline',
             labelText    : 'Email',
@@ -47,8 +53,9 @@ class LoginFormContainer extends Container {
         }, {
             module: Toolbar,
             items : ['->', {
-                handler: this.onLoginButtonClick,
-                text   : 'Submit'
+                handler     : me.onLoginButtonClick,
+                handlerScope: me,
+                text        : 'Submit'
             }],
             style: {
                 maxWidth: '500px',
@@ -57,8 +64,14 @@ class LoginFormContainer extends Container {
         }];
     }
 
+    /**
+     *
+     */
     onLoginButtonClick() {
         console.log('onLoginButtonClick');
+        let fields = this.getFields();
+
+        console.log(fields);
     }
 }
 
