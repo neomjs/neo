@@ -14,7 +14,7 @@ class ClassSystem extends Base {
     }}
 
     /**
-     * can get used inside beforeSet methods in case you want to create instances like stores,
+     * can get used inside beforeSet methods in case you want to create instances like stores
      * @param {Object|Neo.core.Base|null} config
      * @param {Neo.core.Base} [DefaultClass=null]
      * @param {Object} [defaultValues={}]
@@ -32,12 +32,13 @@ class ClassSystem extends Base {
                     ...config
                 });
             } else {
+                config = {
+                    ...defaultValues,
+                    ...config
+                };
+
                 if (DefaultClass) {
-                    config = {
-                        module: DefaultClass,
-                        ...defaultValues,
-                        ...config
-                    };
+                    config.module = DefaultClass;
                 }
 
                 config = Neo.create(config);

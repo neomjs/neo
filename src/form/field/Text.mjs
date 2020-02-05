@@ -661,6 +661,20 @@ class Text extends Base {
 
     /**
      *
+     * @returns {Boolean}
+     */
+    isValid() {
+        let me = this;
+
+        if (me.required && (!me.value || me.value && me.value.length < 1)) {
+            return false;
+        }
+
+        return super.isValid();
+    }
+
+    /**
+     *
      * @param {Array} path
      * @private
      */

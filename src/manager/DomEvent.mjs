@@ -124,7 +124,7 @@ class DomEvent extends Base {
             }
 
             // we do want to trigger the FocusManager after normal domListeners on these events got executed
-            if (eventName === 'focusin' || eventName === 'focusout') {console.log(eventName);
+            if (eventName === 'focusin' || eventName === 'focusout') {
                 FocusManager['on' + Neo.capitalize(eventName)]({
                     componentPath: path,
                     data         : data

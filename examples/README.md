@@ -1,14 +1,10 @@
 # Client Requirements
 
 Running the examples locally **without** a webpack build requires browsers to be able to start webworkers from
-Javascript Modules (.mjs files). As this feature is still experimental in Chrome (not supported in other browsers yet),
-you will have to manually configure Chrome to enable it.
+Javascript Modules (.mjs files). This feature got released in Google Chrome v80 (February 4th, 2020),
+other browsers are not there yet (see sticky <a href="https://github.com/neomjs/neo/issues">issues</a>)
 
-**Chrome:**
-- Open new tab and enter url `chrome://flags/#enable-experimental-web-platform-features`
-- Switch the feature from disabled to enabled
-- Relaunch Chrome
-- Open the examples directly, like: localhost/neo/examples/component/helix/
+- localhost/neo/examples/component/helix/
 
 More details on JS Modules (and their use within workers) here:
 https://v8.dev/features/modules
