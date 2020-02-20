@@ -69,7 +69,8 @@ class Base {
             },
             [isConfigUpdating]: {
                 enumerable: false,
-                value     : false
+                value     : false,
+                writable  : true
             },
             [isInstance]: {
                 enumerable: false,

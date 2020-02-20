@@ -47,12 +47,17 @@ StartTest(t => {
         valueA = 2;
         instance.a = valueA;
 
-        valueA = 3;
+        t.diag('b=3');
         valueB = 3;
+        instance.b = valueB;
 
-        /*Object.assign(instance, { // this test will break => needs instance.set()
+        t.diag('a=3, b=4');
+        valueA = 3;
+        valueB = 4;
+
+        instance.set({ // this test will break until instance.set() is finished
             a: valueA,
             b: valueB
-        });*/
+        });
     });
 });
