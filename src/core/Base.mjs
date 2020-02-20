@@ -272,12 +272,12 @@ class Base {
     processAfterSetQueue() {
         let me = this;
 
-        if (me[afterSetQueue] && me.configsApplied) {
+        if (me[afterSetQueue].length > 0 && me.configsApplied) {
             me[afterSetQueue].forEach(item => {
                 me[item.fn](me[item.key], item.oldValue);
             });
 
-            delete me[afterSetQueue];
+            me[afterSetQueue] = [];
         }
     }
 
