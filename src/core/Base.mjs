@@ -1,8 +1,7 @@
 import IdGenerator from './IdGenerator.mjs'
 
-const afterSetQueue    = Symbol('afterSetQueue'),
-      isConfigUpdating = Symbol('isConfigUpdating'),
-      isInstance       = Symbol('isInstance');
+const afterSetQueue = Symbol('afterSetQueue'),
+      isInstance    = Symbol('isInstance');
 
 /**
  * The base class for all classes inside the Neo namespace
@@ -47,7 +46,13 @@ class Base {
          * Add mixins as an array of classNames, imported modules or a mixed version
          * @member {String[]|Neo.core.Base[]|null} mixins=null
          */
-        mixins: null
+        mixins: null,
+        /**
+         * Internal flag for using instance.set()
+         * @member {Boolean} isConfigUpdating=false
+         * @private
+         */
+        isConfigUpdating: false
     }}
 
     /**
@@ -66,11 +71,6 @@ class Base {
                 enumerable  : false,
                 value       : [],
                 writable    : true
-            },
-            [isConfigUpdating]: {
-                enumerable: false,
-                value     : false,
-                writable  : true
             },
             [isInstance]: {
                 enumerable: false,
@@ -288,9 +288,9 @@ class Base {
     set(values={}) {
         let me = this;
 
-        me[isConfigUpdating] = true;
+        me.isConfigUpdating = true;
         Object.assign(me, values);
-        me[isConfigUpdating] = false;
+        me.isConfigUpdating = false;
     }
 
     /**
