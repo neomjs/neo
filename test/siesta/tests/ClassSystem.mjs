@@ -55,7 +55,7 @@ StartTest(t => {
         valueA = 3;
         valueB = 4;
 
-        instance.set({ // this test will break until instance.set() is finished
+        instance.set({
             a: valueA,
             b: valueB
         });
