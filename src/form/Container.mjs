@@ -81,6 +81,28 @@ class Container extends BaseContainer {
 
         return true;
     }
+
+    /**
+     * Set field values by field name or field id
+     * @param {Object} values={}
+     */
+    setValues(values={}) {
+        let fields = this.getFields(),
+            keys   = Object.keys(values),
+            index;
+
+        fields.forEach(item => {
+            index = keys.indexOf(item.name);
+
+            if (index < 0) {
+                index = keys.indexOf(item.id);
+            }
+
+            if (index > -1) {
+                item.value = values[keys[index]];
+            }
+        });
+    }
 }
 
 Neo.applyClassConfig(Container);

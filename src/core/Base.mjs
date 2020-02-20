@@ -46,7 +46,13 @@ class Base {
          * Add mixins as an array of classNames, imported modules or a mixed version
          * @member {String[]|Neo.core.Base[]|null} mixins=null
          */
-        mixins: null
+        mixins: null,
+        /**
+         * Internal flag for using instance.set()
+         * @member {Boolean} isConfigUpdating=false
+         * @private
+         */
+        isConfigUpdating: false
     }}
 
     /**
@@ -123,7 +129,7 @@ class Base {
     addToAfterSetQueue(fn, key, oldValue) {
         let me = this;
 
-        if (!me.configsApplied && me[afterSetQueue]) {
+        if (!me.configsApplied || me.isConfigUpdating) {
             me[afterSetQueue].push({
                 fn      : fn,
                 key     : key,
@@ -266,20 +272,34 @@ class Base {
     processAfterSetQueue() {
         let me = this;
 
-        if (me[afterSetQueue] && me.configsApplied) {
+        if (me[afterSetQueue].length > 0 && me.configsApplied) {
             me[afterSetQueue].forEach(item => {
                 me[item.fn](me[item.key], item.oldValue);
             });
 
-            delete me[afterSetQueue];
+            me[afterSetQueue] = [];
         }
+    }
+
+    /**
+     * Change multiple configs at once, ensuring that all afterSet methods get all new assigned values
+     * @param {Object} values={}
+     */
+    set(values={}) {
+        let me = this;
+
+        me.isConfigUpdating = true;
+        Object.assign(me, values);
+        me.isConfigUpdating = false;
+
+        me.processAfterSetQueue();
     }
 
     /**
      * Sets the value of a static config by a given key
      * @param {String} key The key of a staticConfig defined inside static getStaticConfig
      * @param {*} value
-     * @returns {Boolean} true in case the confic exists and got changed
+     * @returns {Boolean} true in case the config exists and got changed
      */
     setStaticConfig(key, value) {
         let staticConfig = this.constructor.staticConfig;
@@ -313,6 +333,7 @@ class Base {
         if (!instance) {
             return false;
         }
+
         return instance[isInstance] === true ? super[Symbol.hasInstance](instance) : false;
     }
 }
