@@ -592,7 +592,7 @@ function autoGenerateGetSet(proto, key) {
 }
 
 /**
- * Config object for the Neo framework which will get passed to all workers
+ * Config object for the neo.mjs framework which will get passed to all workers
  * You can change the configs, e.g. inside the index.html of your app
  * @memberOf module:Neo
  * @name config
@@ -618,7 +618,7 @@ Neo.assignDefaults(Neo.config, {
      */
     appPath: null,
     /**
-     * Path to the neoteric directory
+     * Path to the neo.mjs directory
      * @default './'
      * @memberOf! module:Neo
      * @name config.basePath
@@ -626,7 +626,7 @@ Neo.assignDefaults(Neo.config, {
      */
     basePath: './',
     /**
-     * Path to the neoteric theme css files
+     * Path to the neo.mjs theme css files
      * See main.mixins.Stylesheet => createStyleSheet()
      * @default Neo.config.basePath + 'build/' + Neo.config.environment
      * @memberOf! module:Neo
@@ -670,7 +670,7 @@ Neo.assignDefaults(Neo.config, {
      */
     locale: 'default',
     /**
-     * Path to the top level Neo resources folder
+     * Path to the top level neo.mjs resources folder
      * @default Neo.config.basePath + 'resources/'
      * @memberOf! module:Neo
      * @name config.resourcesPath
