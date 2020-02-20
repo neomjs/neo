@@ -11,34 +11,33 @@ StartTest(t => {
         t.ok(core.Base, 'core.Base is imported as a JS module');
     });
 
-    t.it('Create instance', t => {
-        class TestClass extends core.Base {
-            static getConfig() {return {
-                /**
-                 * @member {String} className='Neo.TestClass'
-                 * @private
-                 */
-                className: 'Neo.TestClass',
-                a_: valueA,
-                b_: valueB
-            }}
+    class TestClass extends core.Base {
+        static getConfig() {return {
+            /**
+             * @member {String} className='Neo.TestClass'
+             * @private
+             */
+            className: 'Neo.TestClass',
+            a_: valueA,
+            b_: valueB
+        }}
 
-            afterSetA(value, oldValue) {
-                t.isStrict(this.a, valueA, 'a value matches: ' + valueA);
-                t.isStrict(this.b, valueB, 'b value matches: ' + valueB);
-            }
-
-            afterSetB(value, oldValue) {
-                t.isStrict(this.a, valueA, 'a value matches: ' + valueA);
-                t.isStrict(this.b, valueB, 'b value matches: ' + valueB);
-            }
+        afterSetA(value, oldValue) {
+            t.isStrict(this.a, valueA, 'afterSetA: a equals ' + valueA);
+            t.isStrict(this.b, valueB, 'afterSetA: b equals ' + valueB);
         }
 
-        Neo.applyClassConfig(TestClass);
+        afterSetB(value, oldValue) {
+            t.isStrict(this.a, valueA, 'afterSetB: a equals ' + valueA);
+            t.isStrict(this.b, valueB, 'afterSetB: b equals ' + valueB);
+        }
+    }
 
+    Neo.applyClassConfig(TestClass);
+
+    t.it('Create instance', t => {
         instance = Neo.create(TestClass, {
-            a: valueA,
-            b: valueB
+
         });
 
         valueA = 2;
