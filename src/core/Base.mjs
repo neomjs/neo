@@ -1,7 +1,8 @@
 import IdGenerator from './IdGenerator.mjs'
 
-const afterSetQueue = Symbol('afterSetQueue'),
-      isInstance    = Symbol('isInstance');
+const afterSetQueue    = Symbol('afterSetQueue'),
+      isConfigUpdating = Symbol('isConfigUpdating'),
+      isInstance       = Symbol('isInstance');
 
 /**
  * The base class for all classes inside the Neo namespace
@@ -65,6 +66,10 @@ class Base {
                 enumerable  : false,
                 value       : [],
                 writable    : true
+            },
+            [isConfigUpdating]: {
+                enumerable: false,
+                value     : false
             },
             [isInstance]: {
                 enumerable: false,
@@ -276,10 +281,22 @@ class Base {
     }
 
     /**
+     * Change multiple configs at once, ensuring that all afterSet methods get all new assigned values
+     * @param {Object} values={}
+     */
+    set(values={}) {
+        let me = this;
+
+        me[isConfigUpdating] = true;
+        Object.assign(me, values);
+        me[isConfigUpdating] = false;
+    }
+
+    /**
      * Sets the value of a static config by a given key
      * @param {String} key The key of a staticConfig defined inside static getStaticConfig
      * @param {*} value
-     * @returns {Boolean} true in case the confic exists and got changed
+     * @returns {Boolean} true in case the config exists and got changed
      */
     setStaticConfig(key, value) {
         let staticConfig = this.constructor.staticConfig;
