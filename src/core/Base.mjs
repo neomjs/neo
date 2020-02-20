@@ -129,7 +129,7 @@ class Base {
     addToAfterSetQueue(fn, key, oldValue) {
         let me = this;
 
-        if (!me.configsApplied && me[afterSetQueue]) {
+        if (!me.configsApplied || me.isConfigUpdating) {
             me[afterSetQueue].push({
                 fn      : fn,
                 key     : key,
@@ -291,6 +291,8 @@ class Base {
         me.isConfigUpdating = true;
         Object.assign(me, values);
         me.isConfigUpdating = false;
+
+        me.processAfterSetQueue();
     }
 
     /**
@@ -331,6 +333,7 @@ class Base {
         if (!instance) {
             return false;
         }
+
         return instance[isInstance] === true ? super[Symbol.hasInstance](instance) : false;
     }
 }
