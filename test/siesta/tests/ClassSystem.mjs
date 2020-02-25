@@ -16,14 +16,9 @@ StartTest(t => {
 
         class TestClass extends core.Base {
             static getConfig() {return {
-                /**
-                 * @member {String} className='Neo.TestClass'
-                 * @private
-                 */
                 className: 'Neo.TestClass',
-
-                a_: valueA,
-                b_: valueB
+                a_       : valueA,
+                b_       : valueB
             }}
 
             afterSetA(value, oldValue) {

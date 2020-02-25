@@ -1,3 +1,7 @@
+import DefaultConfig from './DefaultConfig.mjs';
+
+const getSetCache = Symbol('getSetCache');
+
 /**
  * The base module to enhance classes, create instances and the Neo namespace
  * @module Neo
@@ -542,190 +546,68 @@ function autoGenerateGetSet(proto, key) {
         throw('Config ' + key + '_ (' + proto.className + ') already has a set method, use beforeGet, beforeSet & afterSet instead');
     }
 
-    Object.defineProperty(proto, key, {
-        get: function() {
-            let me        = this,
-                beforeGet = 'beforeGet' + Neo.capitalize(key),
-                value     = me['_' + key];
+    if (!Neo[getSetCache]) {
+        Neo[getSetCache] = {};
+    }
 
-            if (Array.isArray(value)) {
-                 if (key !== 'items') {
-                     value = [...value];
-                 }
-            } else if (value instanceof Date) {
-                value = new Date(value.valueOf());
-            }
+    if (!Neo[getSetCache][key]) {
+        Neo[getSetCache][key] = {
+            get: function() {
+                let me        = this,
+                    beforeGet = 'beforeGet' + Neo.capitalize(key),
+                    value     = me['_' + key];
 
-            if (me[beforeGet] && typeof me[beforeGet] === 'function') {
-                value = me[beforeGet](value);
-            }
+                if (Array.isArray(value)) {
+                    if (key !== 'items') {
+                        value = [...value];
+                    }
+                } else if (value instanceof Date) {
+                    value = new Date(value.valueOf());
+                }
 
-            return value;
-        },
+                if (me[beforeGet] && typeof me[beforeGet] === 'function') {
+                    value = me[beforeGet](value);
+                }
 
-        set: function(value) {
-            let me        = this,
-                _key      = '_' + key,
-                uKey      = Neo.capitalize(key),
-                beforeSet = 'beforeSet' + uKey,
-                afterSet  = 'afterSet'  + uKey,
-                oldValue  = me[_key];
+                return value;
+            },
 
-            if (me[beforeSet] && typeof me[beforeSet] === 'function') {
-                value = me[beforeSet](value, oldValue);
-            }
+            set: function(value) {
+                let me        = this,
+                    _key      = '_' + key,
+                    uKey      = Neo.capitalize(key),
+                    beforeSet = 'beforeSet' + uKey,
+                    afterSet  = 'afterSet'  + uKey,
+                    oldValue  = me[_key];
 
-            me[_key] = value;
+                if (me[beforeSet] && typeof me[beforeSet] === 'function') {
+                    value = me[beforeSet](value, oldValue);
 
-            // todo: we could compare objects & arrays for equality
-            if (Neo.isObject(value) || Array.isArray(value) || value !== oldValue) {
-                if (me[afterSet] && typeof me[afterSet] === 'function') {
-                    if (me.configsApplied && !me.isConfigUpdating) {
-                        me[afterSet](value, oldValue);
-                    } else {
-                        me.addToAfterSetQueue(afterSet, _key, oldValue);
+                    // If they don't return a value, that means no change
+                    if (value === undefined) {
+                        return;
+                    }
+                }
+
+                me[_key] = value;
+
+                // todo: we could compare objects & arrays for equality
+                if (Neo.isObject(value) || Array.isArray(value) || value !== oldValue) {
+                    if (me[afterSet] && typeof me[afterSet] === 'function') {
+                        if (me.configsApplied && !me.isConfigUpdating) {
+                            me[afterSet](value, oldValue);
+                        } else {
+                            me.addToAfterSetQueue(afterSet, _key, oldValue);
+                        }
                     }
                 }
             }
-        }
-    });
+        };
+    }
+
+    Object.defineProperty(proto, key, Neo[getSetCache][key]);
 }
 
-/**
- * Config object for the neo.mjs framework which will get passed to all workers
- * You can change the configs, e.g. inside the index.html of your app
- * @memberOf module:Neo
- * @name config
- * @type Object
- */
-Neo.config = Neo.config || {};
-
-Neo.assignDefaults(Neo.config, {
-    /**
-     * true will apply 'neo-body' to the document.body classList
-     * @default true
-     * @memberOf! module:Neo
-     * @name config.applyBodyCls
-     * @type Boolean
-     */
-    applyBodyCls: true,
-    /**
-     * Path to your app.mjs file. You can create multiple apps there if needed.
-     * @default null
-     * @memberOf! module:Neo
-     * @name config.appPath
-     * @type String|null
-     */
-    appPath: null,
-    /**
-     * Path to the neo.mjs directory
-     * @default './'
-     * @memberOf! module:Neo
-     * @name config.basePath
-     * @type String
-     */
-    basePath: './',
-    /**
-     * Path to the neo.mjs theme css files
-     * See main.mixins.Stylesheet => createStyleSheet()
-     * @default Neo.config.basePath + 'build/' + Neo.config.environment
-     * @memberOf! module:Neo
-     * @name [config.cssPath]
-     * @optional
-     * @type String|null
-     */
-    cssPath: null,
-    /**
-     * The current build => dist environment. Valid values: 'development', 'production'
-     * Used for automatically including the matching theme files
-     * @default 'production'
-     * @memberOf! module:Neo
-     * @name config.environment
-     * @type String
-     */
-    environment: 'production',
-    /**
-     * Flag if Neo is running without any JS builds
-     * @default false
-     * @memberOf! module:Neo
-     * @name config.isExperimental
-     * @type Boolean
-     */
-    isExperimental: false,
-    /**
-     * Flag for running the Neo main thread inside an iframe (Siesta Browser Harness)
-     * @default false
-     * @memberOf! module:Neo
-     * @name config.isInsideSiesta
-     * @type Boolean
-     */
-    isInsideSiesta: false,
-    /**
-     * Used by Intl.DateTimeFormat, for details take a look at:
-     * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DateTimeFormat
-     * @default 'default'
-     * @memberOf! module:Neo
-     * @name config.locale
-     * @type String
-     */
-    locale: 'default',
-    /**
-     * Path to the top level neo.mjs resources folder
-     * @default Neo.config.basePath + 'resources/'
-     * @memberOf! module:Neo
-     * @name config.resourcesPath
-     * @type String
-     */
-    resourcesPath: Neo.config.basePath + 'resources/',
-    /**
-     * Add themes you want to use here. The first theme will get applied.
-     * If config.useCss4 === true, other theme variables will get included as well
-     * @default ['neo-theme-light', 'neo-theme-dark']
-     * @memberOf! module:Neo
-     * @name config.themes
-     * @type String[]
-     */
-    themes: ['neo-theme-light', 'neo-theme-dark'],
-    /**
-     * Flag for standalone Siesta module tests => prevent registerRemote worker messages
-     * @default false
-     * @memberOf! module:Neo
-     * @name config.unitTestMode
-     * @type Boolean
-     */
-    unitTestMode: false,
-    /**
-     * Flag if CSS4 stylesheets are in use (important for switching themes)
-     * @default false
-     * @memberOf! module:Neo
-     * @name config.useCss4
-     * @type Boolean
-     */
-    useCss4: true,
-    /**
-     * True will automatically include the stylesheet
-     * @default true
-     * @memberOf! module:Neo
-     * @name config.useFontAwesome
-     * @type Boolean
-     */
-    useFontAwesome: true,
-    /**
-     * Required for the online examples
-     * @default false
-     * @memberOf! module:Neo
-     * @name config.useGoogleAnalytics
-     * @type Boolean
-     */
-    useGoogleAnalytics: false,
-    /**
-     * The default base URL for web worker entry points (App, Data, Vdom)
-     * @default Neo.config.basePath + 'src/worker/'
-     * @memberOf! module:Neo
-     * @name config.workerBasePath
-     * @type String
-     */
-    workerBasePath: Neo.config.basePath + 'src/worker/'
-});
+Neo.assignDefaults(Neo.config, DefaultConfig);
 
 export {Neo as default};
