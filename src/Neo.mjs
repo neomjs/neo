@@ -573,6 +573,11 @@ function autoGenerateGetSet(proto, key) {
 
             if (me[beforeSet] && typeof me[beforeSet] === 'function') {
                 value = me[beforeSet](value, oldValue);
+
+                // If they don't return a value, that means no change
+                if (value === undefined) {
+                    return;
+                }
             }
 
             me[_key] = value;
