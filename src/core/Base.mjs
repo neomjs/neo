@@ -100,8 +100,6 @@ class Base {
             value     : true
         });
 
-        me.processAfterSetQueue();
-
         if (me.remote) {
             setTimeout(me.initRemote.bind(me), 1);
         }
@@ -119,24 +117,6 @@ class Base {
      * @tutorial 02_ClassSystem
      */
     init() {}
-
-    /**
-     *
-     * @param {Function} fn
-     * @param {String} key
-     * @param {*} oldValue
-     */
-    addToAfterSetQueue(fn, key, oldValue) {
-        let me = this;
-
-        if (!me.configsApplied || me.isConfigUpdating) {
-            me[afterSetQueue].push({
-                fn      : fn,
-                key     : key,
-                oldValue: oldValue
-            })
-        }
-    }
 
     /**
      * Convenience method for beforeSet functions which test if a given value is inside a static array
@@ -270,22 +250,6 @@ class Base {
         }
 
         return {...ctor.config, ...config};
-    }
-
-    /**
-     * Processes all afterSet methods which would have been triggered before all configs got applied to resolve cross dependencies
-     * @private
-     */
-    processAfterSetQueue() {
-        let me = this;
-
-        if (me[afterSetQueue].length > 0 && me.configsApplied) {
-            me[afterSetQueue].forEach(item => {
-                me[item.fn](me[item.key], item.oldValue);
-            });
-
-            me[afterSetQueue] = [];
-        }
     }
 
     /**
