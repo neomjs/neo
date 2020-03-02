@@ -216,6 +216,13 @@ class Base {
     }
 
     /**
+     *
+     */
+    initGetters() {
+        // todo
+    }
+
+    /**
      * Does get triggered with a delay to ensure that Neo.workerId & Neo.worker.Manager are defined
      * Remote method access via promises
      */
