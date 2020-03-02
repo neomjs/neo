@@ -1,6 +1,7 @@
 import DefaultConfig from './DefaultConfig.mjs';
 
-const getSetCache = Symbol('getSetCache');
+const configSymbol = Symbol.for('configSymbol'),
+      getSetCache  = Symbol('getSetCache');
 
 /**
  * The base module to enhance classes, create instances and the Neo namespace
@@ -556,6 +557,10 @@ function autoGenerateGetSet(proto, key) {
                 let me        = this,
                     beforeGet = 'beforeGet' + Neo.capitalize(key),
                     value     = me['_' + key];
+
+                if (me.configsApplied) {
+                    console.log(me[configSymbol]);
+                }
 
                 if (Array.isArray(value)) {
                     if (key !== 'items') {

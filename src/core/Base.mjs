@@ -1,6 +1,6 @@
 import IdGenerator from './IdGenerator.mjs'
 
-const configSymbol = Symbol('configSymbol'),
+const configSymbol = Symbol.for('configSymbol'),
       isInstance   = Symbol('isInstance');
 
 /**
@@ -82,6 +82,8 @@ class Base {
         if (me.getStaticConfig('observable') || me.mixins && Neo.ns('Neo.core.Observable', me.mixins)) {
             me.initObservable(config);
         }
+
+        me[configSymbol] = 'foo'; // todo: remove, just for testing
 
         me.initConfig(config);
 
