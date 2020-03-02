@@ -1,7 +1,7 @@
 import IdGenerator from './IdGenerator.mjs'
 
-const afterSetQueue = Symbol('afterSetQueue'),
-      isInstance    = Symbol('isInstance');
+const configSymbol = Symbol('configSymbol'),
+      isInstance   = Symbol('isInstance');
 
 /**
  * The base class for all classes inside the Neo namespace
@@ -66,12 +66,6 @@ class Base {
         let me = this;
 
         Object.defineProperties(me, {
-            [afterSetQueue]: {
-                configurable: true,
-                enumerable  : false,
-                value       : [],
-                writable    : true
-            },
             [isInstance]: {
                 enumerable: false,
                 value     : true
@@ -262,8 +256,6 @@ class Base {
         me.isConfigUpdating = true;
         Object.assign(me, values);
         me.isConfigUpdating = false;
-
-        me.processAfterSetQueue();
     }
 
     /**
