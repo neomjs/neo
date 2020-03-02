@@ -594,11 +594,7 @@ function autoGenerateGetSet(proto, key) {
                 // todo: we could compare objects & arrays for equality
                 if (Neo.isObject(value) || Array.isArray(value) || value !== oldValue) {
                     if (me[afterSet] && typeof me[afterSet] === 'function') {
-                        if (me.configsApplied && !me.isConfigUpdating) {
-                            me[afterSet](value, oldValue);
-                        } else {
-                            me.addToAfterSetQueue(afterSet, _key, oldValue);
-                        }
+                        me[afterSet](value, oldValue);
                     }
                 }
             }
