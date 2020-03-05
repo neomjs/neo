@@ -22,13 +22,27 @@ StartTest(t => {
             }}
 
             afterSetA(value, oldValue) {
-                t.isStrict(this.a, valueA, 'afterSetA: a equals ' + valueA);
+                t.isStrict(value,  valueA, 'afterSetA: a equals ' + valueA);
                 t.isStrict(this.b, valueB, 'afterSetA: b equals ' + valueB);
             }
 
             afterSetB(value, oldValue) {
                 t.isStrict(this.a, valueA, 'afterSetB: a equals ' + valueA);
-                t.isStrict(this.b, valueB, 'afterSetB: b equals ' + valueB);
+                t.isStrict(value,  valueB, 'afterSetB: b equals ' + valueB);
+            }
+
+            beforeSetA(value, oldValue) {
+                t.isStrict(value,  valueA, 'beforeSetA: a equals ' + valueA);
+                t.isStrict(this.b, valueB, 'beforeSetA: b equals ' + valueB);
+
+                return value;
+            }
+
+            beforeSetB(value, oldValue) {
+                t.isStrict(this.a, valueA, 'beforeSetB: a equals ' + valueA);
+                t.isStrict(value,  valueB, 'beforeSetB: b equals ' + valueB);
+
+                return value;
             }
         }
 

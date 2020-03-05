@@ -588,19 +588,24 @@ function autoGenerateGetSet(proto, key) {
                     afterSet  = 'afterSet'  + uKey,
                     oldValue  = me[_key];
 
+                // every set call has to delete the matching symbol
+                delete me[configSymbol][key];
+
+                // we do want to store the value before the beforeSet modification as well,
+                // since it could get pulled by other beforeSet methods of different configs
+                me[_key] = value;
+
                 if (me[beforeSet] && typeof me[beforeSet] === 'function') {
                     value = me[beforeSet](value, oldValue);
 
                     // If they don't return a value, that means no change
                     if (value === undefined) {
+                        me[_key] = oldValue;
                         return;
                     }
+
+                    me[_key] = value;
                 }
-
-                me[_key] = value;
-
-                // every set call has to delete the matching symbol
-                delete me[configSymbol][key];
 
                 // todo: we could compare objects & arrays for equality
                 if (Neo.isObject(value) || Array.isArray(value) || value !== oldValue) {
