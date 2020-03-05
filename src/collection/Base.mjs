@@ -240,7 +240,7 @@ class Base extends CoreBase {
         me.sortDirections = [];
         me.sortProperties = [];
 
-        me.sorters.forEach(sorter => {
+        me.sorters.forEach(sorter => {//console.log('forEach', sorter);
             me.sortDirections.push(sorter.directionMultiplier);
             me.sortProperties.push(sorter.property);
         });

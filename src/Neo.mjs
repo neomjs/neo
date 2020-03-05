@@ -569,10 +569,6 @@ function autoGenerateGetSet(proto, key) {
                 }
 
                 if (hasNewKey) {
-                    // the delete call needs to happen before triggering the setter
-                    // (risk for infinite loops, e.g. collection.Base => afterSetSorters())
-                    delete me[configSymbol][key];
-
                     me[key] = value; // we do want to trigger the setter => beforeSet, afterSet
                     value = me['_' + key]; // return the value parsed by the setter
                 }
@@ -602,6 +598,9 @@ function autoGenerateGetSet(proto, key) {
                 }
 
                 me[_key] = value;
+
+                // every set call has to delete the matching symbol
+                delete me[configSymbol][key];
 
                 // todo: we could compare objects & arrays for equality
                 if (Neo.isObject(value) || Array.isArray(value) || value !== oldValue) {
