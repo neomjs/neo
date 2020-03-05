@@ -183,10 +183,10 @@ class Base {
      * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
      */
     initConfig(config, preventOriginalConfig) {
-        Object.assign(
-            this,
-            this.mergeConfig(config, preventOriginalConfig)
-        );
+        let me = this;
+
+        Object.assign(me[configSymbol], me.mergeConfig(config, preventOriginalConfig));
+        me.initGetters();
     }
 
     /**
@@ -200,6 +200,11 @@ class Base {
         if (keys.length > 0) {
             // console.log(keys, me[configSymbol]);
             me[keys[0]] = me[configSymbol][keys[0]];
+
+            // there is a delete call inside the config getter as well (Neo.mjs => autoGenerateGetSet())
+            // we need to keep this one for configs, which do not use getters (no trailing underscore)
+            delete me[configSymbol][keys[0]];
+
             me.initGetters();
         }
     }
@@ -259,8 +264,15 @@ class Base {
      * @param {Object} values={}
      */
     set(values={}) {
-        this[configSymbol] = values;
-        this.initGetters();
+        let me = this;
+
+        Object.keys(me[configSymbol]).forEach(key => {
+            delete me[configSymbol][key];
+        });
+
+        Object.assign(me[configSymbol], values);
+
+        me.initGetters();
     }
 
     /**
