@@ -569,9 +569,12 @@ function autoGenerateGetSet(proto, key) {
                 }
 
                 if (hasNewKey) {
+                    // the delete call needs to happen before triggering the setter
+                    // (risk for infinite loops, e.g. collection.Base => afterSetSorters())
+                    delete me[configSymbol][key];
+
                     me[key] = value; // we do want to trigger the setter => beforeSet, afterSet
                     value = me['_' + key]; // return the value parsed by the setter
-                    delete me[configSymbol][key];
                 }
 
                 if (me[beforeGet] && typeof me[beforeGet] === 'function') {
