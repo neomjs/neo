@@ -48,9 +48,7 @@ StartTest(t => {
 
         Neo.applyClassConfig(TestClass);
 
-        instance = Neo.create(TestClass, {
-
-        });
+        instance = Neo.create(TestClass);
 
         t.diag('a=2');
         valueA = 2;
