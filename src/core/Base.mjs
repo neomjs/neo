@@ -186,13 +186,13 @@ class Base {
         let me = this;
 
         Object.assign(me[configSymbol], me.mergeConfig(config, preventOriginalConfig));
-        me.initGetters();
+        me.processConfigs();
     }
 
     /**
      *
      */
-    initGetters() {
+    processConfigs() {
         let me   = this,
             keys = Object.keys(me[configSymbol]);
 
@@ -205,7 +205,7 @@ class Base {
             // we need to keep this one for configs, which do not use getters (no trailing underscore)
             delete me[configSymbol][keys[0]];
 
-            me.initGetters();
+            me.processConfigs();
         }
     }
 
@@ -272,7 +272,7 @@ class Base {
 
         Object.assign(me[configSymbol], values);
 
-        me.initGetters();
+        me.processConfigs();
     }
 
     /**
