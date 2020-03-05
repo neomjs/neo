@@ -153,6 +153,7 @@ class Base extends Component {
      * Triggered before the selectionModel config gets changed.
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
+     * @returns {Neo.selection.Model}
      * @private
      */
     beforeSetSelectionModel(value, oldValue) {
@@ -175,9 +176,7 @@ class Base extends Component {
             oldValue.destroy();
         }
 
-        value = ClassSystemUtil.beforeSetInstance(value);
-
-        return value;
+        return ClassSystemUtil.beforeSetInstance(value);
     }
 
     /**

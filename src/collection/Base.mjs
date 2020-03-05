@@ -63,9 +63,9 @@ class Base extends CoreBase {
         filters_: [],
         /**
          * The unique(!) key property of each collection item
-         * @member {Array} items_=null
+         * @member {Array} items_=[]
          */
-        items_: null,
+        items_: [],
         /**
          * The unique(!) key property of each collection item
          * @member {string} keyProperty='id'
@@ -73,9 +73,9 @@ class Base extends CoreBase {
         keyProperty: 'id',
         /**
          * A map containing the key & reference of each collection item for faster access
-         * @member {Map} map=null
+         * @member {Map} map_=null
          */
-        map: null,
+        map_: null,
         /**
          * An internal Array of the sort directions for faster access
          * @member {Array} sortDirections=null
@@ -99,27 +99,6 @@ class Base extends CoreBase {
          */
         sourceId_: null
     }}
-
-    /**
-     *
-     * @param {Object} config
-     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
-     * @returns {Object} config
-     */
-    mergeConfig(...args) {
-        let me     = this,
-            config = super.mergeConfig(...args);
-
-        me.keyProperty = config.keyProperty || me.keyProperty;
-        me.map         = new Map();
-        me.items       = config.items ? [...config.items] : [];
-
-        delete config.keyProperty;
-        delete config.items;
-        delete config.map;
-
-        return config;
-    }
 
     /**
      *
@@ -259,10 +238,20 @@ class Base extends CoreBase {
         me.sortDirections = [];
         me.sortProperties = [];
 
-        me.sorters.forEach(sorter => {
+        me.sorters.forEach(sorter => {//console.log('forEach', sorter);
             me.sortDirections.push(sorter.directionMultiplier);
             me.sortProperties.push(sorter.property);
         });
+    }
+
+    /**
+     *
+     * @param {Map|null} value
+     * @param {Map|null} oldValue
+     * @private
+     */
+    beforeSetMap(value, oldValue) {
+        return !value ? new Map() : value;
     }
 
     /**
