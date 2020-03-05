@@ -266,6 +266,10 @@ class Base {
     set(values={}) {
         let me = this;
 
+        // instead of using:
+        // me[configSymbol] = values;
+        // we keep the Object instance (defined via Object.defineProperties() => non enumerable)
+
         Object.keys(me[configSymbol]).forEach(key => {
             delete me[configSymbol][key];
         });
