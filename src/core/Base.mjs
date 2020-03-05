@@ -198,8 +198,8 @@ class Base {
 
         // We do not want to iterate over the keys, since 1 config can remove more than 1 key (beforeSetX, afterSetX)
         if (keys.length > 0) {
+            // console.log(keys, me[configSymbol]);
             me[keys[0]] = me[configSymbol][keys[0]];
-            delete me[configSymbol][keys[0]];
             me.initGetters();
         }
     }

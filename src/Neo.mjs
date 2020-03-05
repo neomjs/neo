@@ -556,11 +556,9 @@ function autoGenerateGetSet(proto, key) {
             get: function() {
                 let me        = this,
                     beforeGet = 'beforeGet' + Neo.capitalize(key),
-                    value     = me['_' + key];
-
-                if (Object.keys(me[configSymbol]).length > 0) {
-                    console.log(me[configSymbol]);
-                }
+                    hasNewKey = me[configSymbol].hasOwnProperty(key),
+                    newKey    = me[configSymbol][key],
+                    value     = hasNewKey ? newKey : me['_' + key];
 
                 if (Array.isArray(value)) {
                     if (key !== 'items') {
@@ -572,6 +570,11 @@ function autoGenerateGetSet(proto, key) {
 
                 if (me[beforeGet] && typeof me[beforeGet] === 'function') {
                     value = me[beforeGet](value);
+                }
+
+                if (hasNewKey) {
+                    me['_' + key] = value;
+                    delete me[configSymbol][key];
                 }
 
                 return value;
