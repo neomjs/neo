@@ -558,7 +558,7 @@ function autoGenerateGetSet(proto, key) {
                     beforeGet = 'beforeGet' + Neo.capitalize(key),
                     value     = me['_' + key];
 
-                if (me.configsApplied) {
+                if (Object.keys(me[configSymbol]).length > 0) {
                     console.log(me[configSymbol]);
                 }
 
