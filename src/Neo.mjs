@@ -568,13 +568,14 @@ function autoGenerateGetSet(proto, key) {
                     value = new Date(value.valueOf());
                 }
 
-                if (me[beforeGet] && typeof me[beforeGet] === 'function') {
-                    value = me[beforeGet](value);
+                if (hasNewKey) {
+                    me[key] = value; // we do want to trigger the setter => beforeSet, afterSet
+                    value = me['_' + key]; // return the value parsed by the setter
+                    delete me[configSymbol][key];
                 }
 
-                if (hasNewKey) {
-                    me['_' + key] = value;
-                    delete me[configSymbol][key];
+                if (me[beforeGet] && typeof me[beforeGet] === 'function') {
+                    value = me[beforeGet](value);
                 }
 
                 return value;
