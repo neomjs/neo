@@ -46,13 +46,7 @@ class Base {
          * Add mixins as an array of classNames, imported modules or a mixed version
          * @member {String[]|Neo.core.Base[]|null} mixins=null
          */
-        mixins: null,
-        /**
-         * Internal flag for using instance.set()
-         * @member {Boolean} isConfigUpdating=false
-         * @private
-         */
-        isConfigUpdating: false
+        mixins: null
     }}
 
     /**
@@ -257,11 +251,8 @@ class Base {
      * @param {Object} values={}
      */
     set(values={}) {
-        let me = this;
-
-        me.isConfigUpdating = true;
-        Object.assign(me, values);
-        me.isConfigUpdating = false;
+        this[configSymbol] = values;
+        this.initGetters();
     }
 
     /**
