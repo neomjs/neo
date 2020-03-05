@@ -73,9 +73,9 @@ class Base extends CoreBase {
         keyProperty: 'id',
         /**
          * A map containing the key & reference of each collection item for faster access
-         * @member {Map} map=null
+         * @member {Map} map_=null
          */
-        map: null,
+        map_: null,
         /**
          * An internal Array of the sort directions for faster access
          * @member {Array} sortDirections=null
@@ -109,8 +109,6 @@ class Base extends CoreBase {
 
         let me           = this,
             symbolConfig = {enumerable: false, writable: true};
-
-        me.map = new Map();
 
         Object.defineProperties(me, {
             [countMutations]  : {...symbolConfig, value: false},
@@ -244,6 +242,16 @@ class Base extends CoreBase {
             me.sortDirections.push(sorter.directionMultiplier);
             me.sortProperties.push(sorter.property);
         });
+    }
+
+    /**
+     *
+     * @param {Map|null} value
+     * @param {Map|null} oldValue
+     * @private
+     */
+    beforeSetMap(value, oldValue) {
+        return !value ? new Map() : value;
     }
 
     /**
