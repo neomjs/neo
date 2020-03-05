@@ -63,9 +63,9 @@ class Base extends CoreBase {
         filters_: [],
         /**
          * The unique(!) key property of each collection item
-         * @member {Array} items_=null
+         * @member {Array} items_=[]
          */
-        items_: null,
+        items_: [],
         /**
          * The unique(!) key property of each collection item
          * @member {string} keyProperty='id'
@@ -102,27 +102,6 @@ class Base extends CoreBase {
 
     /**
      *
-     * @param {Object} config
-     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
-     * @returns {Object} config
-     */
-    mergeConfig(...args) {
-        let me     = this,
-            config = super.mergeConfig(...args);
-
-        me.keyProperty = config.keyProperty || me.keyProperty;
-        me.map         = new Map();
-        me.items       = config.items ? [...config.items] : [];
-
-        delete config.keyProperty;
-        delete config.items;
-        delete config.map;
-
-        return config;
-    }
-
-    /**
-     *
      * @param config
      */
     constructor(config) {
@@ -130,6 +109,8 @@ class Base extends CoreBase {
 
         let me           = this,
             symbolConfig = {enumerable: false, writable: true};
+
+        me.map = new Map();
 
         Object.defineProperties(me, {
             [countMutations]  : {...symbolConfig, value: false},
