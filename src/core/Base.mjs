@@ -66,6 +66,12 @@ class Base {
         let me = this;
 
         Object.defineProperties(me, {
+            [configSymbol]: {
+                configurable: true,
+                enumerable  : false,
+                value       : {},
+                writable    : true
+            },
             [isInstance]: {
                 enumerable: false,
                 value     : true
@@ -82,8 +88,6 @@ class Base {
         if (me.getStaticConfig('observable') || me.mixins && Neo.ns('Neo.core.Observable', me.mixins)) {
             me.initObservable(config);
         }
-
-        me[configSymbol] = 'foo'; // todo: remove, just for testing
 
         me.initConfig(config);
 
