@@ -76,23 +76,6 @@ class Store extends Base {
         url: null
     }}
 
-    /**
-     * Override this method to change the order configs are applied to this instance.
-     * @param {Object} config
-     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
-     * @returns {Object} config
-     */
-    mergeConfig(...args) {
-        let me     = this,
-            config = super.mergeConfig(...args);
-
-        me.model = config.model;
-
-        delete config.model;
-
-        return config;
-    }
-
     constructor(config) {
         super(config);
 

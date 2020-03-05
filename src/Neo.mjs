@@ -1,6 +1,7 @@
 import DefaultConfig from './DefaultConfig.mjs';
 
-const getSetCache = Symbol('getSetCache');
+const configSymbol = Symbol.for('configSymbol'),
+      getSetCache  = Symbol('getSetCache');
 
 /**
  * The base module to enhance classes, create instances and the Neo namespace
@@ -555,7 +556,9 @@ function autoGenerateGetSet(proto, key) {
             get: function() {
                 let me        = this,
                     beforeGet = 'beforeGet' + Neo.capitalize(key),
-                    value     = me['_' + key];
+                    hasNewKey = me[configSymbol].hasOwnProperty(key),
+                    newKey    = me[configSymbol][key],
+                    value     = hasNewKey ? newKey : me['_' + key];
 
                 if (Array.isArray(value)) {
                     if (key !== 'items') {
@@ -563,6 +566,11 @@ function autoGenerateGetSet(proto, key) {
                     }
                 } else if (value instanceof Date) {
                     value = new Date(value.valueOf());
+                }
+
+                if (hasNewKey) {
+                    me[key] = value; // we do want to trigger the setter => beforeSet, afterSet
+                    value = me['_' + key]; // return the value parsed by the setter
                 }
 
                 if (me[beforeGet] && typeof me[beforeGet] === 'function') {
@@ -591,14 +599,13 @@ function autoGenerateGetSet(proto, key) {
 
                 me[_key] = value;
 
+                // every set call has to delete the matching symbol
+                delete me[configSymbol][key];
+
                 // todo: we could compare objects & arrays for equality
                 if (Neo.isObject(value) || Array.isArray(value) || value !== oldValue) {
                     if (me[afterSet] && typeof me[afterSet] === 'function') {
-                        if (me.configsApplied && !me.isConfigUpdating) {
-                            me[afterSet](value, oldValue);
-                        } else {
-                            me.addToAfterSetQueue(afterSet, _key, oldValue);
-                        }
+                        me[afterSet](value, oldValue);
                     }
                 }
             }

@@ -1,7 +1,7 @@
 import IdGenerator from './IdGenerator.mjs'
 
-const afterSetQueue = Symbol('afterSetQueue'),
-      isInstance    = Symbol('isInstance');
+const configSymbol = Symbol.for('configSymbol'),
+      isInstance   = Symbol('isInstance');
 
 /**
  * The base class for all classes inside the Neo namespace
@@ -46,13 +46,7 @@ class Base {
          * Add mixins as an array of classNames, imported modules or a mixed version
          * @member {String[]|Neo.core.Base[]|null} mixins=null
          */
-        mixins: null,
-        /**
-         * Internal flag for using instance.set()
-         * @member {Boolean} isConfigUpdating=false
-         * @private
-         */
-        isConfigUpdating: false
+        mixins: null
     }}
 
     /**
@@ -66,10 +60,10 @@ class Base {
         let me = this;
 
         Object.defineProperties(me, {
-            [afterSetQueue]: {
+            [configSymbol]: {
                 configurable: true,
                 enumerable  : false,
-                value       : [],
+                value       : {},
                 writable    : true
             },
             [isInstance]: {
@@ -100,8 +94,6 @@ class Base {
             value     : true
         });
 
-        me.processAfterSetQueue();
-
         if (me.remote) {
             setTimeout(me.initRemote.bind(me), 1);
         }
@@ -119,24 +111,6 @@ class Base {
      * @tutorial 02_ClassSystem
      */
     init() {}
-
-    /**
-     *
-     * @param {Function} fn
-     * @param {String} key
-     * @param {*} oldValue
-     */
-    addToAfterSetQueue(fn, key, oldValue) {
-        let me = this;
-
-        if (!me.configsApplied || me.isConfigUpdating) {
-            me[afterSetQueue].push({
-                fn      : fn,
-                key     : key,
-                oldValue: oldValue
-            })
-        }
-    }
 
     /**
      * Convenience method for beforeSet functions which test if a given value is inside a static array
@@ -209,10 +183,30 @@ class Base {
      * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
      */
     initConfig(config, preventOriginalConfig) {
-        Object.assign(
-            this,
-            this.mergeConfig(config, preventOriginalConfig)
-        );
+        let me = this;
+
+        Object.assign(me[configSymbol], me.mergeConfig(config, preventOriginalConfig));
+        me.processConfigs();
+    }
+
+    /**
+     *
+     */
+    processConfigs() {
+        let me   = this,
+            keys = Object.keys(me[configSymbol]);
+
+        // We do not want to iterate over the keys, since 1 config can remove more than 1 key (beforeSetX, afterSetX)
+        if (keys.length > 0) {
+            // console.log(keys, me[configSymbol]);
+            me[keys[0]] = me[configSymbol][keys[0]];
+
+            // there is a delete call inside the config getter as well (Neo.mjs => autoGenerateGetSet())
+            // we need to keep this one for configs, which do not use getters (no trailing underscore)
+            delete me[configSymbol][keys[0]];
+
+            me.processConfigs();
+        }
     }
 
     /**
@@ -266,33 +260,23 @@ class Base {
     }
 
     /**
-     * Processes all afterSet methods which would have been triggered before all configs got applied to resolve cross dependencies
-     * @private
-     */
-    processAfterSetQueue() {
-        let me = this;
-
-        if (me[afterSetQueue].length > 0 && me.configsApplied) {
-            me[afterSetQueue].forEach(item => {
-                me[item.fn](me[item.key], item.oldValue);
-            });
-
-            me[afterSetQueue] = [];
-        }
-    }
-
-    /**
      * Change multiple configs at once, ensuring that all afterSet methods get all new assigned values
      * @param {Object} values={}
      */
     set(values={}) {
         let me = this;
 
-        me.isConfigUpdating = true;
-        Object.assign(me, values);
-        me.isConfigUpdating = false;
+        // instead of using:
+        // me[configSymbol] = values;
+        // we keep the Object instance (defined via Object.defineProperties() => non enumerable)
 
-        me.processAfterSetQueue();
+        Object.keys(me[configSymbol]).forEach(key => {
+            delete me[configSymbol][key];
+        });
+
+        Object.assign(me[configSymbol], values);
+
+        me.processConfigs();
     }
 
     /**
