@@ -620,6 +620,8 @@ function autoGenerateGetSet(proto, key) {
     Object.defineProperty(proto, key, Neo[getSetCache][key]);
 }
 
+Neo.config = Neo.config || {};
+
 Neo.assignDefaults(Neo.config, DefaultConfig);
 
 export {Neo as default};
