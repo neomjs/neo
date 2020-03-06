@@ -23,13 +23,13 @@ No worries, you don't need to be a guru, ninja or rockstar to support the projec
 1. Please ***always*** create a new issue inside our <a href="../../issues">Issues Tracker</a> first and wait for approval.
    This ensures that your idea fits the scope of the project and makes it less likely to get a rejected PR.
    We will do our best to reply to new tickets within 7d max. In case we don't, feel free to bump the ticket.
-2. In case you want to work on an existing ticket, please add a comment there are get the ticket assigned to you.
+2. In case you want to work on an existing ticket, please add a comment there and get the ticket assigned to you.
    Otherwise multiple contributors could work on the same item in parallel.
 3. Please make sure that pull requests are always related to an issue inside our <a href="../../issues">Issues Tracker</a>.
 4. Please create PRs for the dev branch and not for master.
-5. Please do not copy code from other frameworks. So far, the entire neo.mjs code base is written from scratch.
+5. Please do not copy code from other frameworks / libraries. So far, the entire neo.mjs code base is written from scratch.
     1. It is simply impossible to verify if contributed code is self-written.
-    2. Adding new devDependencies is fine, in case there are no licensing conflicts.
+    2. Adding new npm packages => dependencies / devDependencies is fine, in case there are no licensing conflicts.
 
 ### 4.  In case you created a nice app or component using neo.mjs, please let us know about it.
 1.  We are always interested to feature client projects in blog posts or on social media.
