@@ -3,8 +3,6 @@ This Concepts / Introduction guide is intended for new users who have read the "
 <a href="../README.md">Main Readme File</a> and would like to learn more before following the
 <a href="./GETTING_STARTED.md">Getting Started Guide</a>.
 
-This file is a work in progress, I will close #258 once done.
-
 ## Content
 1. <a href="#worker-setup">Worker Setup</a>
 2. <a href="#no-javascript-builds-(development-mode)">No Javascript Builds (Development Mode)</a>
@@ -12,6 +10,7 @@ This file is a work in progress, I will close #258 once done.
 4. <a href="#json-based-virtual-dom">JSON based virtual DOM</a>
 5. <a href="#json-based-component-trees">JSON based Component Trees</a>
 6. <a href="#combining-component-and-vdom-trees">Combining Component and VDOM Trees</a>
+7. <a href="#what-to-do-next?">What to do next?</a>
 
 ## Worker Setup
 The framework is using 4 threads by default:
@@ -452,6 +451,13 @@ items: [{
     }]
 }]
 ```
+
+## What to do next?
+1. In case you like the neo.mjs concepts and would like to see more in the future,
+adding a github star to this repository is highly appreciated.
+2. Take a look at the <a href="https://neomjs.github.io/pages/">Online Examples (Desktop)</a>.
+3. Follow the <a href="./GETTING_STARTED.md">Getting Started Guide</a> to get the framework & examples running locally.
+4. Open Source projects rely on your help, take a look at the  <a href="../CONTRIBUTING.md">Contributing Guide</a>
 
 <br><br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
