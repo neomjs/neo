@@ -5,7 +5,7 @@ This Concepts / Introduction guide is intended for new users who have read the "
 
 ## Content
 1. <a href="#worker-setup">Worker Setup</a>
-2. <a href="#no-javascript-builds-(development-mode)">No Javascript Builds (Development Mode)</a>
+2. <a href="#no-javascript-builds-development-mode">No Javascript Builds (Development Mode)</a>
 3. <a href="#no-string-based-pseudo-xml-templates">No string based pseudo XML templates</a>
 4. <a href="#json-based-virtual-dom">JSON based virtual DOM</a>
 5. <a href="#json-based-component-trees">JSON based Component Trees</a>
