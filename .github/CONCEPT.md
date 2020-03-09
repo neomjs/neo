@@ -73,7 +73,7 @@ No build process(es), no hot module replacements or whatever.
 
 ***Design Goal:*** No transpiled Javascript Code, at least for the Development Mode.
 
-As an example, let's take a quick look at the Gallery inside the Real World App version 2 (early stage, in progress).
+As an example, let's take a quick look at the Gallery inside the Real World App version 2 (early stage, in progress).</br>
 This is (the start of) the Gallery source code:
 ```Javascript
 import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
@@ -157,3 +157,26 @@ class Gallery extends Component {
         maxItems_: 300,
 ```
 <a href="https://github.com/neomjs/neo/blob/dev/src/component/Gallery.mjs">Full component.Gallery Source Code</a>
+
+Now let us take a look at the source code inside the browser:
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/concept/gallery_workers.png">
+
+Expand the image and take a close look at the Chrome Dev Tools:
+1. The source code is 1:1 the same
+2. If you look at the left console tab (Page), you will see the 4 threads again.
+The Gallery code is inside the App thread.
+
+***Summary:*** The design goal to not transpile Javascript code (at least inside the development mode for now),
+has several pros & cons. neo.mjs is the first UI framework to use JS modules inside workers,
+which just got enabled in Google Chrome v80+.
+
+Pros:
+1. You get an unmatched debugging experience, since you can debug the real code
+(no source-maps needed, no webpack interferences etc.)
+2. Browsers can cache JS modules and native packaging is in development
+3. Your code base is modular
+
+Cons:
+1. neo.mjs is not using TypeScript (you could do it for your own app code, in case you want to use a build process)
+2. Firefox & Safari do not support JS modules inside workers yet, so the development mode only runs in Chrome v80+.
+Of course the dist (dev&prod) versions do run fine in FF & Safari as well.
