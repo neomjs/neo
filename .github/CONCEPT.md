@@ -285,61 +285,61 @@ _vdom: {
 
 Afterwards, you can manipulate or enhance it as you like to:
 ```Javascript
-    changeYear(increment) {
-        let me = this,
-            vdom, y;
+changeYear(increment) {
+    let me = this,
+        vdom, y;
 
-        if (!me.useAnimations) {
-            me.recreateContent(0, increment);
-        } else {
-            if (!me.isUpdating) {
-                me.isUpdating = true;
+    if (!me.useAnimations) {
+        me.recreateContent(0, increment);
+    } else {
+        if (!me.isUpdating) {
+            me.isUpdating = true;
 
-                Neo.main.DomAccess.getBoundingClientRect({
-                    id: me.getCenterContentEl().id
-                }).then(data => {
-                    vdom = me.vdom;
-                    y    = increment < 0 ? 0 : -data.height;
+            Neo.main.DomAccess.getBoundingClientRect({
+                id: me.getCenterContentEl().id
+            }).then(data => {
+                vdom = me.vdom;
+                y    = increment < 0 ? 0 : -data.height;
 
-                    vdom.cn.push({
-                        cls: ['neo-relative'],
+                vdom.cn.push({
+                    cls: ['neo-relative'],
+                    cn : [{
+                        cls: ['neo-animation-wrapper'],
                         cn : [{
-                            cls: ['neo-animation-wrapper'],
-                            cn : [{
-                                cls: ['neo-dateselector-content'],
-                                cn : []
-                            }],
-                            style: {
-                                flexDirection: 'column',
-                                height       : 2 * data.height + 'px',
-                                transform    : `translateY(${y}px)`,
-                                width        : data.width + 'px'
-                            }
-                        }]
-                    });
-
-                    me.updateHeaderYear(increment, true);
-
-                    me.createDayViewContent(true, vdom.cn[2].cn[0].cn[0]);
-                    vdom.cn[2].cn[0].cn[increment < 0 ? 'unshift' : 'push'](vdom.cn[1]);
-                    vdom.cn.splice(1, 1);
-
-                    me.promiseVdomUpdate(vdom).then(() => {
-                        y = increment < 0 ? -data.height : 0;
-                        vdom.cn[1].cn[0].style.transform = `translateY(${y}px)`;
-                        me.vdom = vdom;
-
-                        setTimeout(() => {
-                            vdom.cn[1] = vdom.cn[1].cn[0].cn[increment < 0 ? 1 : 0];
-                            me.triggerVdomUpdate();
-                        }, 300);
-                    });
+                            cls: ['neo-dateselector-content'],
+                            cn : []
+                        }],
+                        style: {
+                            flexDirection: 'column',
+                            height       : 2 * data.height + 'px',
+                            transform    : `translateY(${y}px)`,
+                            width        : data.width + 'px'
+                        }
+                    }]
                 });
-            } else {
-                me.cacheUpdate();
-            }
+
+                me.updateHeaderYear(increment, true);
+
+                me.createDayViewContent(true, vdom.cn[2].cn[0].cn[0]);
+                vdom.cn[2].cn[0].cn[increment < 0 ? 'unshift' : 'push'](vdom.cn[1]);
+                vdom.cn.splice(1, 1);
+
+                me.promiseVdomUpdate(vdom).then(() => {
+                    y = increment < 0 ? -data.height : 0;
+                    vdom.cn[1].cn[0].style.transform = `translateY(${y}px)`;
+                    me.vdom = vdom;
+
+                    setTimeout(() => {
+                        vdom.cn[1] = vdom.cn[1].cn[0].cn[increment < 0 ? 1 : 0];
+                        me.triggerVdomUpdate();
+                    }, 300);
+                });
+            });
+        } else {
+            me.cacheUpdate();
         }
     }
+}
 ```
 
 Take a look at the "Virtual DOM & Virtual Nodes" Tutorial inside the
@@ -405,7 +405,7 @@ Taking a look at the API section inside the
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html">neo.mjs Docs App</a> will help you.
 
 ## Combining Component and VDOM Trees
-Since both trees are defined as JSON, you can easily mix them.
+Since both trees are defined as JSON, you can easily mix them.</br>
 Example: <a href="https://github.com/neomjs/neo/blob/dev/apps/realworld2/view/HomeContainer.mjs">RealWorld2 App HomeContainer</a>
 
 ```Javascript
