@@ -8,6 +8,7 @@ This file is a work in progress, I will close #258 once done.
 ## Content
 1. <a href="#worker-setup">Worker Setup</a>
 2. <a href="#no-javascript-builds-(development-mode)">No Javascript Builds (Development Mode)</a>
+3. <a href="#no-string-based-pseudo-xml-templates">No string based pseudo XML templates</a>
 
 ## Worker Setup
 The framework is using 4 threads by default:
@@ -171,7 +172,7 @@ has several pros & cons. neo.mjs is the first UI framework to use JS modules ins
 which just got enabled in Google Chrome v80+.
 
 Pros:
-1. You get an unmatched debugging experience, since you can debug the real code
+1. You get an unmatched debugging experience, since you can debug the real code</br>
 (no source-maps needed, no webpack interferences etc.)
 2. Browsers can cache JS modules and native packaging is in development
 3. Your code base is modular
@@ -180,3 +181,32 @@ Cons:
 1. neo.mjs is not using TypeScript (you could do it for your own app code, in case you want to use a build process)
 2. Firefox & Safari do not support JS modules inside workers yet, so the development mode only runs in Chrome v80+.
 Of course the dist (dev&prod) versions do run fine in FF & Safari as well.
+3. Several npm dependencies can not easily get used, since they do not use a correct ES6 import syntax (e.g. missing file names)
+
+## No string based pseudo XML templates
+One example from the <a href="https://reactjs.org/">React Website</a>:
+```jsx
+  render() {
+    return (
+      <div>
+        <h3>TODO</h3>
+        <TodoList items={this.state.items} />
+        <form onSubmit={this.handleSubmit}>
+          <label htmlFor="new-todo">
+            What needs to be done?
+          </label>
+          <input
+            id="new-todo"
+            onChange={this.handleChange}
+            value={this.state.text}
+          />
+          <button>
+            Add #{this.state.items.length + 1}
+          </button>
+        </form>
+      </div>
+    );
+  }
+```
+
+Everyone has seen template based code like this and... it has to go away!
