@@ -10,12 +10,6 @@ This file is a work in progress, I will close #258 once done.
 
 ## Worker Setup
 The framework is using 4 threads by default:
-1. top (Main)
-2. App
-3. Data
-4. Vdom
-
-We already had a proof of concept running in October 2015, which was using 4 threads:
 1. top (Main): Creating the workers, manipulating the real DOM, forwarding UI events to App
 2. App: Most parts of the framework & your apps live here
 3. Data: Responsible for the BE connections
