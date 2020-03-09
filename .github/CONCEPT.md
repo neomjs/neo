@@ -6,7 +6,8 @@ This Concepts / Introduction guide is intended for new users who have read the "
 This file is a work in progress, I will close #258 once done.
 
 ## Content
-1.  <a href="#worker-setup">Worker Setup</a>
+1. <a href="#worker-setup">Worker Setup</a>
+2. <a href="#no-javascript-builds-(development-mode)">No Javascript Builds (Development Mode)</a>
 
 ## Worker Setup
 The framework is using 4 threads by default:
@@ -63,3 +64,96 @@ the framework & the apps itself.
 ***Summary:*** Since the Main thread is as idle as possible, it is close to impossible that your UI will get laggy
 or even freezes. In case a lot is going on on the Javascript side of things, the worst that could happen is that
 the App thread runs at 100% which will not affect the Main thread.
+
+## No Javascript Builds (Development Mode)
+This probably sounds really old school (pre ES6+ times) at first:
+
+You edit a JS source file, refresh the page and you get your changes right away.
+No build process(es), no hot module replacements or whatever.
+
+***Design Goal:*** No transpiled Javascript Code, at least for the Development Mode.
+
+As an example, let's take a quick look at the Gallery inside the Real World App version 2 (early stage, in progress).
+This is (the start of) the Gallery source code:
+```
+import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
+import {default as Collection}      from '../collection/Base.mjs'
+import {default as Component}       from './Base.mjs';
+import GalleryModel                 from '../selection/GalleryModel.mjs';
+import NeoArray                     from '../util/Array.mjs';
+import Store                        from '../data/Store.mjs';
+
+/**
+ * @class Neo.component.Gallery
+ * @extends Neo.component.Base
+ */
+class Gallery extends Component {
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.component.Gallery'
+         * @private
+         */
+        className: 'Neo.component.Gallery',
+        /**
+         * @member {String} ntype='gallery'
+         * @private
+         */
+        ntype: 'gallery',
+        /**
+         * The amount of visible rows inside the gallery
+         * @member {Number} amountRows_=3
+         */
+        amountRows_: 3,
+        /**
+         * The background color of the gallery container
+         * @member {String} backgroundColor_='#000000'
+         */
+        backgroundColor_: '#000000',
+        /**
+         * @member {String[]} cls=['neo-gallery', 'page', 'view']
+         */
+        cls: ['neo-gallery', 'page', 'view'],
+        /**
+         * True disables selection of  gallery items
+         * @member {Boolean} disableSelection=false
+         */
+        disableSelection: false,
+        /**
+         * The image height of the gallery
+         * @member {Number} imageHeight=160
+         */
+        imageHeight: 160,
+        /**
+         * The image width of the gallery
+         * @member {Number} imageWidth=120
+         */
+        imageWidth: 120,
+        /**
+         * @member {Object} itemTpl_
+         */
+        itemTpl_: {
+            cls     : ['neo-gallery-item', 'image-wrap', 'view', 'neo-transition-1000'],
+            tabIndex: '-1',
+            cn: [{
+                tag  : 'img',
+                cls  : [],
+                style: {}
+            }]
+        },
+        /**
+         * The unique record field containing the id.
+         * @member {String} keyProperty='id'
+         */
+        keyProperty: 'id',
+        /**
+         * Additional used keys for the selection model
+         * @member {Object} keys
+         */
+        keys: {},
+        /**
+         * The max amount of store items to show
+         * @member {Number} maxItems_=300
+         */
+        maxItems_: 300,
+```
+<a href="https://github.com/neomjs/neo/blob/dev/src/component/Gallery.mjs">Full component.Gallery Source Code</a>
