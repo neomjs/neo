@@ -340,6 +340,9 @@ Afterwards, you can manipulate or enhance it as you like to:
     }
 ```
 
+Take a look at the "Virtual DOM & Virtual Nodes" Tutorial inside the
+<a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html">neo.mjs Docs App</a> for more infos.
+
 <br><br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
 & <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>
