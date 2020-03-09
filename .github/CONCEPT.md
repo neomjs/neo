@@ -75,6 +75,7 @@ No build process(es), no hot module replacements or whatever.
 
 As an example, let's take a quick look at the Gallery inside the Real World App version 2 (early stage, in progress).
 This is (the start of) the Gallery source code:
+<div style="height:150px;">
 ```Javascript
 import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
 import {default as Collection}      from '../collection/Base.mjs'
@@ -156,4 +157,5 @@ class Gallery extends Component {
          */
         maxItems_: 300,
 ```
+</div>
 <a href="https://github.com/neomjs/neo/blob/dev/src/component/Gallery.mjs">Full component.Gallery Source Code</a>
