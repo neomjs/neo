@@ -11,6 +11,7 @@ This file is a work in progress, I will close #258 once done.
 3. <a href="#no-string-based-pseudo-xml-templates">No string based pseudo XML templates</a>
 4. <a href="#json-based-virtual-dom">JSON based virtual DOM</a>
 5. <a href="#json-based-component-trees">JSON based Component Trees</a>
+6. <a href="#combining-component-and-vdom-trees">Combining Component and VDOM Trees</a>
 
 ## Worker Setup
 The framework is using 4 threads by default:
@@ -403,6 +404,54 @@ Containers also provide you with some convenience methods like add(), insert(), 
 Taking a look at the API section inside the
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html">neo.mjs Docs App</a> will help you.
 
+## Combining Component and VDOM Trees
+Since both trees are defined as JSON, you can easily mix them.
+Example: <a href="https://github.com/neomjs/neo/blob/dev/apps/realworld2/view/HomeContainer.mjs">RealWorld2 App HomeContainer</a>
+
+```Javascript
+items: [{
+    ntype : 'component',
+    cls   : ['banner'],
+    height: 170,
+    vdom  : {
+        cn: [{
+            cls: ['container'],
+            cn : [{
+                tag : 'h1',
+                cls : ['logo-font'],
+                html: 'conduit v2'
+            }, {
+                tag : 'p',
+                html: 'A place to share your knowledge.'
+            }]
+        }]
+    }
+}, {
+    module: Container,
+    cls   : ['neo-container', 'center', 'container'],
+    flex  : 1,
+    layout: {ntype: 'hbox', align: 'stretch'},
+    items: [{
+        module     : TabContainer,
+        activeIndex: 1,
+        flex       : 3,
+
+        items: [{
+            ntype          : 'component',
+            cls            : ['neo-examples-tab-component'],
+            style          : {padding: '20px'},
+            tabButtonConfig: {iconCls: 'fa fa-user-ninja', text: 'Your Feed'},
+            vdom           : {innerHTML: 'todo'}
+        }, {
+            module         : PreviewList,
+            tabButtonConfig: {iconCls: 'fa fa-globe-europe', text: 'Global Feed'}
+        }]
+    }, {
+        module: TagListComponent,
+        flex  : 1
+    }]
+}]
+```
 
 <br><br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
