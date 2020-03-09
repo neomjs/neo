@@ -208,5 +208,29 @@ One example from the <a href="https://reactjs.org/">React Website</a>:
     );
   }
 ```
-
 Everyone has seen template based code like this and... it has to go away!
+
+Sadly, all other frameworks I am aware of are still using string based templates.
+The advantage is, that the code looks like real HTML and is compact.
+
+I think of it like comparing XML with JSON based APIs.
+By now JSON has almost replaced all XML based APIs and for good reason.
+
+***So, what is the problem with string based templates?***
+
+I could probably write a small book on this one, but to keep it short:
+1. You should not mix markup with variables or even JS methods
+2. You can get scoping issues with methods defined inside templates
+3. The whole concept of defining web components which then get used as string based markup
+which controls the instantiation of the matching JS instances is terrible (e.g. for re-using them)
+4. You need to parse these templates, e.g. when a variable changes or in case you want to compare 2 component states
+to get the delta updates. This is slow!
+    1. To be fair: for trivial components, this can be done at build time (e.g. Svelte). However, the more complex components
+    get, the less sense it makes (too many variations, imagine the neo.mjs Helix as a template)
+    2. You can not dynamically change template structures, except using Composition patterns
+    
+So, what is the alternative?
+
+<br><br>
+Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
+& <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>
