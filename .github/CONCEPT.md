@@ -10,6 +10,7 @@ This file is a work in progress, I will close #258 once done.
 2. <a href="#no-javascript-builds-(development-mode)">No Javascript Builds (Development Mode)</a>
 3. <a href="#no-string-based-pseudo-xml-templates">No string based pseudo XML templates</a>
 4. <a href="#json-based-virtual-dom">JSON based virtual DOM</a>
+5. <a href="#json-based-component-trees">JSON based Component Trees</a>
 
 ## Worker Setup
 The framework is using 4 threads by default:
@@ -342,6 +343,66 @@ Afterwards, you can manipulate or enhance it as you like to:
 
 Take a look at the "Virtual DOM & Virtual Nodes" Tutorial inside the
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html">neo.mjs Docs App</a> for more infos.
+
+## JSON based Component Trees
+Exactly like the virtual DOM, the component trees are JSON based as well.
+
+For an example, let's take a look at the
+<a href="https://github.com/neomjs/neo/blob/dev/docs/app/view/MainContainer.mjs">Docs App MainContainer</a>
+
+```Javascript
+items: [HeaderContainer, {
+    ntype : 'container',
+    flex  : 1,
+    layout: {ntype: 'hbox', align: 'stretch'},
+
+    items: [{
+        ntype   : 'tab-container',
+        cls     : ['neo-docs-navigation-tab-container', 'neo-tab-container'],
+        minWidth: 290,
+        width   : 290,
+
+        items: [{
+            module   : ApiTreeList,
+            listeners: {leafItemClick: 'onApiListLeafClick'},
+            reference: 'api-treelist',
+
+            tabButtonConfig: {
+                iconCls: 'fa fa-code',
+                text   : 'API'
+            }
+        }, {
+            module   : TutorialsTreeList,
+            listeners: {leafItemClick: 'onTutorialListLeafClick'},
+            reference: 'tutorials-treelist',
+
+            tabButtonConfig: {
+                iconCls: 'fa fa-hands-helping',
+                text   : 'Tutorials'
+            }
+        }, {
+            module   : ExamplesTreeList,
+            listeners: {leafItemClick: 'onExamplesListLeafClick'},
+            reference: 'examples-treelist',
+
+            tabButtonConfig: {
+                iconCls: 'fa fa-desktop',
+                text   : 'Examples'
+            }
+        }]
+    }, {
+        module   : ContentTabContainer,
+        flex     : 1,
+        reference: 'content-tabcontainer'
+    }]
+}]
+```
+
+Dynamically generating or changing these component trees using JS is easy.
+Containers also provide you with some convenience methods like add(), insert(), remove() etc.
+Taking a look at the API section inside the
+<a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html">neo.mjs Docs App</a> will help you.
+
 
 <br><br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
