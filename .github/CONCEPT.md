@@ -9,6 +9,7 @@ This file is a work in progress, I will close #258 once done.
 1. <a href="#worker-setup">Worker Setup</a>
 2. <a href="#no-javascript-builds-(development-mode)">No Javascript Builds (Development Mode)</a>
 3. <a href="#no-string-based-pseudo-xml-templates">No string based pseudo XML templates</a>
+4. <a href="#json-based-virtual-dom">JSON based virtual DOM</a>
 
 ## Worker Setup
 The framework is using 4 threads by default:
@@ -227,9 +228,117 @@ which controls the instantiation of the matching JS instances is terrible (e.g. 
 to get the delta updates. This is slow!
     1. To be fair: for trivial components, this can be done at build time (e.g. Svelte). However, the more complex components
     get, the less sense it makes (too many variations, imagine the neo.mjs Helix as a template)
-    2. You can not dynamically change template structures, except using Composition patterns
+    2. You can not dynamically change template structures, except with using Factory / Composition patterns
     
 So, what is the alternative?
+
+## JSON based virtual DOM
+Let's take a look at <a href="https://github.com/neomjs/neo/blob/dev/src/component/Button.mjs">component.Button</a>:
+```Javascript
+_vdom: {
+    tag: 'button',
+    cn : [
+        {tag: 'span', cls: ['neo-button-glyph']},
+        {tag: 'span', cls: ['neo-button-text']}
+    ]
+}
+```
+
+Defining the HTML markup via JSON (nested JS objects & arrays to be precise) might look a little bit less compact,
+but the advantages are obvious: manipulating JS objects with JS is as easy as possible.
+
+You don't need something like:</br>
+`<tpl for="listItems"><subitem></subitem></tpl>`, but you can use a real JS for loop.
+
+You don't need to insert variables using curly brackets.
+
+You don't need to mix the markup code with JS methods.
+
+To better get the idea, let us take a look at a more complex example:</br>
+<a href="https://github.com/neomjs/neo/blob/dev/src/component/DateSelector.mjs">component.DateSelector</a>
+
+When creating a new component, you will define a "vdom skeleton" first to cover the static parts.
+```Javascript
+_vdom: {
+    tabIndex: -1,
+    cn: [{
+        cls: ['neo-dateselector-header'],
+        cn : [{
+            cls: ['neo-nav-button', 'neo-prev-button']
+        }, {
+            cls: ['neo-center-region'],
+            cn : [
+                {cls: ['neo-month-text']},
+                {cls: ['neo-year-text']}
+            ]
+        }, {
+            cls: ['neo-nav-button', 'neo-next-button']
+        }]
+    }, {
+        cls: ['neo-dateselector-content'],
+        cn : []
+    }]
+}
+```
+
+Afterwards, you can manipulate or enhance it as you like to:
+```Javascript
+    changeYear(increment) {
+        let me = this,
+            vdom, y;
+
+        if (!me.useAnimations) {
+            me.recreateContent(0, increment);
+        } else {
+            if (!me.isUpdating) {
+                me.isUpdating = true;
+
+                Neo.main.DomAccess.getBoundingClientRect({
+                    id: me.getCenterContentEl().id
+                }).then(data => {
+                    vdom = me.vdom;
+                    y    = increment < 0 ? 0 : -data.height;
+
+                    vdom.cn.push({
+                        cls: ['neo-relative'],
+                        cn : [{
+                            cls: ['neo-animation-wrapper'],
+                            cn : [{
+                                cls: ['neo-dateselector-content'],
+                                cn : []
+                            }],
+                            style: {
+                                flexDirection: 'column',
+                                height       : 2 * data.height + 'px',
+                                transform    : `translateY(${y}px)`,
+                                width        : data.width + 'px'
+                            }
+                        }]
+                    });
+
+                    me.updateHeaderYear(increment, true);
+
+                    me.createDayViewContent(true, vdom.cn[2].cn[0].cn[0]);
+                    vdom.cn[2].cn[0].cn[increment < 0 ? 'unshift' : 'push'](vdom.cn[1]);
+                    vdom.cn.splice(1, 1);
+
+                    me.promiseVdomUpdate(vdom).then(() => {
+                        y = increment < 0 ? -data.height : 0;
+                        vdom.cn[1].cn[0].style.transform = `translateY(${y}px)`;
+                        me.vdom = vdom;
+
+                        setTimeout(() => {
+                            vdom.cn[1] = vdom.cn[1].cn[0].cn[increment < 0 ? 1 : 0];
+                            me.triggerVdomUpdate();
+                        }, 300);
+                    });
+                });
+            } else {
+                me.cacheUpdate();
+            }
+        }
+    }
+```
 
 <br><br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
