@@ -75,7 +75,7 @@ No build process(es), no hot module replacements or whatever.
 
 As an example, let's take a quick look at the Gallery inside the Real World App version 2 (early stage, in progress).
 This is (the start of) the Gallery source code:
-```
+```Javascript
 import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
 import {default as Collection}      from '../collection/Base.mjs'
 import {default as Component}       from './Base.mjs';
