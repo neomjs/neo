@@ -60,3 +60,6 @@ the framework & the apps itself.
 >
 >With this idea, the neo.mjs project was born.
 
+***Summary:*** Since the Main thread is as idle as possible, it is close to impossible that your UI will get laggy
+or even freezes. In case a lot is going on on the Javascript side of things, the worst that could happen is that
+the App thread runs at 100% which will not affect the Main thread.
