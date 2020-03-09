@@ -21,10 +21,10 @@ So we asked ourselves the question:<br/>
 With this idea, the neo.mjs project was born.
 
 We already had a proof of concept running in October 2015, which was using 4 threads:
-1.  Main (Creating the workers, manipulating the real DOM, forwarding UI events to App)
-2.  App (Most parts of the framework & your apps live here)
-3.  Data (Responsible for the BE connections)
-4.  Vdom (Converting the virtual DOM into HTML, as well as calculating delta updates)
+1. Main (Creating the workers, manipulating the real DOM, forwarding UI events to App)
+2. App (Most parts of the framework & your apps live here)
+3. Data (Responsible for the BE connections)
+4. Vdom (Converting the virtual DOM into HTML, as well as calculating delta updates)
 
 It was a rough time for workers, since there were no console logs possible.
 Catching errors without any info which file or line number caused it was painful,

@@ -15,6 +15,12 @@ The framework is using 4 threads by default:
 3. Data
 4. Vdom
 
+We already had a proof of concept running in October 2015, which was using 4 threads:
+1. top (Main): Creating the workers, manipulating the real DOM, forwarding UI events to App
+2. App: Most parts of the framework & your apps live here
+3. Data: Responsible for the BE connections
+4. Vdom: Converting the virtual DOM into HTML, as well as calculating delta updates
+
 The best way to get a feeling for workers is using the Google Chrome Dev Tools (Console).
 
 In case you open the <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html">neo.mjs Docs App</a>
@@ -30,3 +36,33 @@ Most parts of the neo.mjs framework as well as the apps which you create will ru
 thread. Neo.component won't exist here. Now use the dropdown and switch into the App thread. Type Neo and hit return again.
 Now you will see a completely different version of the Neo namespace object. Neo.component will exist here and you can
 use methods like Neo.getComponent('myId') directly.
+
+### What is the reason to use multiple threads?
+As you know, (almost) all computers and mobile devices have several cores / CPUs.
+By default, browsers will only use one of them.
+This means that in case a lot is going on inside your App UI one CPU could go up to 100%, your animations get laggy or
+your UI might even freeze, while the other CPUs are idle.
+To ensure this does not happen you want to keep the Main thread as idle as possible.
+
+To quote the <a href="./STORY.md">neo.mjs Story</a>:
+
+> In case you take a look at the <a href="https://en.wikipedia.org/wiki/Web_worker">web workers page on Wikipedia</a>,
+you will find the following quote:
+>
+> **"The simplest use of workers is for performing a computationally expensive
+task without interrupting the user interface."**
+>
+>At this point, all other web-based UI frameworks are still struggling with performance,
+especially in case you are building big apps. There are many hidden background tasks running
+which can slow down your beautiful animations or even worse: single threaded applications can have memory
+leaks resulting in browser-freezes after using them for a while (either the one and only core which is used
+runs at 100% or the memory usage gets too extreme).
+>
+>Looking back at the Wikipedia quote, Rich Waters & I came to the conclusion that the most expensive tasks are
+the framework & the apps itself.
+>
+>So we asked ourselves the question:<br/>
+**"What if a framework & all the apps you build would run inside a separate thread?"**
+>
+>With this idea, the neo.mjs project was born.
+
