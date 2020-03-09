@@ -10,7 +10,7 @@ This Concepts / Introduction guide is intended for new users who have read the "
 4. <a href="#json-based-virtual-dom">JSON based virtual DOM</a>
 5. <a href="#json-based-component-trees">JSON based Component Trees</a>
 6. <a href="#combining-component-and-vdom-trees">Combining Component and VDOM Trees</a>
-7. <a href="#what-to-do-next?">What to do next?</a>
+7. <a href="#what-to-do-next">What to do next?</a>
 
 ## Worker Setup
 The framework is using 4 threads by default:
