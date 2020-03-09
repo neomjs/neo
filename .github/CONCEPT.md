@@ -457,7 +457,8 @@ items: [{
 adding a github star to this repository is highly appreciated.
 2. Take a look at the <a href="https://neomjs.github.io/pages/">Online Examples (Desktop)</a>.
 3. Follow the <a href="./GETTING_STARTED.md">Getting Started Guide</a> to get the framework & examples running locally.
-4. Open Source projects rely on your help, take a look at the  <a href="../CONTRIBUTING.md">Contributing Guide</a>
+4. Open Source projects rely on your help, take a look at the <a href="../CONTRIBUTING.md">Contributing Guide</a>
+5. neo.mjs is still in need of Sponsors to speed up the development: <a href="../BACKERS.md">Sponsors Page</a>
 
 <br><br>
 Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
