@@ -1153,6 +1153,28 @@ class Base extends CoreBase {
     }
 
     /**
+     * Change multiple configs at once, ensuring that all afterSet methods get all new assigned values
+     * @param {Object} values={}
+     * @param {Boolean} [silent=false]
+     */
+    set(values={}, silent=false) {
+        let me   = this,
+            vdom = me.vdom;
+
+        me.silentVdomUpdate = true;
+
+        super.set(values);
+
+        me.silentVdomUpdate = false;
+
+        if (silent) {
+            me._vdom = vdom;
+        } else {
+            return me.promiseVdomUpdate();
+        }
+    }
+
+    /**
      * Placeholder method for util.VDom.syncVdomIds to allow overriding (disabling) it
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
      * @param {Object} [vdom=this.vdom]
