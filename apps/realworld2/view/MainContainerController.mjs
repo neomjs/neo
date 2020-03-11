@@ -71,7 +71,7 @@ class MainContainerController extends ComponentController {
      */
     afterSetCurrentUser(value, oldValue) {
         if (typeof oldValue === 'object') {
-            /*this.getReference('header').bulkConfigUpdate({
+            /*this.getReference('header').set({
                 loggedIn : !!value,
                 userImage: value ? value.image    : null,
                 userName : value ? value.username : null

@@ -131,7 +131,7 @@ class CreateCommentComponent extends Component {
      * @param {Object} value
      */
     onCurrentUserChange(value) {
-        this.bulkConfigUpdate({
+        this.set({
             userImage: value.image,
             userName : value.username
         });

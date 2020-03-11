@@ -367,7 +367,7 @@ class Component extends BaseComponent {
                         ...config
                     });
                 } else {
-                    me.commentComponents[index].bulkConfigUpdate(config, true);
+                    me.commentComponents[index].set(config, true);
                 }
 
                 container.cn.push(me.commentComponents[index].vdom);

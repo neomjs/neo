@@ -200,7 +200,7 @@ class HomeComponent extends Component {
                         ...config
                     });
                 } else {
-                    me.previewComponents[index].bulkConfigUpdate(config, true); // hint: try this call with false and compare the delta updates
+                    me.previewComponents[index].set(config, true); // hint: try this call with false and compare the delta updates
                 }
 
                 container.cn.push(me.previewComponents[index].vdom);
@@ -376,7 +376,7 @@ class HomeComponent extends Component {
         }
 
         me.getController().getArticles(params, opts).then(data => {
-            me.bulkConfigUpdate({
+            me.set({
                 articlePreviews: data.json.articles,
                 countArticles  : data.json.articlesCount
             });

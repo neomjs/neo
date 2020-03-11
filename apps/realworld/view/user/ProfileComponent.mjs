@@ -213,7 +213,7 @@ class ProfileComponent extends Component {
                         ...config
                     });
                 } else {
-                    me.previewComponents[index].bulkConfigUpdate(config, true);
+                    me.previewComponents[index].set(config, true);
                 }
 
                 container.cn.push(me.previewComponents[index].vdom);
@@ -379,7 +379,7 @@ class ProfileComponent extends Component {
         let me       = this,
             username = configs.username;
 
-        me.bulkConfigUpdate({
+        me.set({
             bio      : configs.bio,
             following: configs.following,
             image    : configs.image,

@@ -322,7 +322,7 @@ class CreateComponent extends Component {
      * Resets the value of all fields
      */
     resetForm() {
-        this.bulkConfigUpdate({
+        this.set({
             body       : '',
             description: '',
             slug       : null,
