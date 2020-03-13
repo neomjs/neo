@@ -43,6 +43,12 @@
             "output": "/examples/container/",
             "title" : "Neo Containers"
         },
+        "coronaGallery": {
+            "input": "examples/component/CoronaGallery.mjs",
+            "output": "/examples/component/coronaGallery/",
+            "themes": "'neo-theme-dark'",
+            "title" : "COVID19 Gallery"
+        },
         "datefield": {
             "input": "examples/form/field/Date.mjs",
             "output": "/examples/form/field/date/",
