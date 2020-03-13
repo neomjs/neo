@@ -27,6 +27,11 @@ class CountryGallery extends Gallery {
          */
         imageWidth: 320,
         /**
+         * The unique record field containing the id.
+         * @member {String} keyProperty='id'
+         */
+        keyProperty: 'country',
+        /**
          * True to select the item inside the middle of the store items on mount
          * @member {Boolean} selectOnMount=false
          */
@@ -36,6 +41,29 @@ class CountryGallery extends Gallery {
          */
         store: CountryStore
     }}
+
+    /**
+     * Override this method to get different item-markups
+     * @param {Object} vdomItem
+     * @param {Object} record
+     * @param {Number} index
+     * @returns {Object} vdomItem
+     */
+    createItem(vdomItem, record, index) {
+        let me         = this,
+            firstChild = vdomItem.cn[0];
+
+        vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
+
+        firstChild.cls  = ['neo-country-gallery-item'];
+        firstChild.html = record.country;
+        firstChild.tag  = 'div';
+
+        firstChild.style.height = me.imageHeight + 'px';
+        firstChild.style.width  = me.imageWidth  + 'px';
+
+        return vdomItem;
+    }
 }
 
 Neo.applyClassConfig(CountryGallery);
