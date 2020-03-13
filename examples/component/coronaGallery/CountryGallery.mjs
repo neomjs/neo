@@ -54,19 +54,19 @@ class CountryGallery extends Gallery {
                             tag: 'tr',
                             cn : [
                                 {tag: 'td', html: 'Cases'},
-                                {tag: 'td'}
+                                {tag: 'td', cls: ['neo-align-right']}
                             ]
                         }, {
                             tag: 'tr',
                             cn : [
                                 {tag: 'td', html: 'Deaths'},
-                                {tag: 'td'}
+                                {tag: 'td', cls: ['neo-align-right']}
                             ]
                         }, {
                             tag: 'tr',
                             cn : [
                                 {tag: 'td', html: 'Recovered'},
-                                {tag: 'td'}
+                                {tag: 'td', cls: ['neo-align-right']}
                             ]
                         }]
                     }]
