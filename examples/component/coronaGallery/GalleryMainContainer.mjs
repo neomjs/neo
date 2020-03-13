@@ -197,12 +197,16 @@ class GalleryMainContainer extends Viewport {
             .then(response => response.json())
             .then(data => me.addStoreItems(data))
             .catch(err => console.log('Can’t access ' + url, err));
-
-        console.log(me.getStore());
     }
 
     addStoreItems(data) {
         this.getStore().data = data;
+
+        setTimeout(() => {
+            Neo.main.DomAccess.focus({
+                id: this.gallery.id
+            });
+        }, 200);
     }
 
     /**
