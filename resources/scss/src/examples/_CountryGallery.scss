@@ -36,6 +36,19 @@
         }
     }
 
+    .neo-gallery-item {
+        &.neo-reflection {
+            .neo-item-wrapper {
+                -webkit-box-reflect: below 6px -webkit-gradient(linear, left top, left bottom, from(transparent), color-stop(0.1, transparent), to(rgba(0, 0, 0, 0.5)));
+                transform-style    : flat;
+            }
+
+            img {
+                -webkit-box-reflect: inherit;
+            }
+        }
+    }
+
     .image-wrap.neo-selected img {
         transform: inherit;
     }
