@@ -744,7 +744,7 @@ class Gallery extends Component {
                 me.vdom = vdom;
 
                 setTimeout(() => {
-                    me.afterSetOrderByRow();
+                    me.afterSetOrderByRow(me.orderByRow, !me.orderByRow);
                 }, 50);
             }
         }
