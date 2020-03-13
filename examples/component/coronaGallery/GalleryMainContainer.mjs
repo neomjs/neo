@@ -129,34 +129,28 @@ class GalleryMainContainer extends Viewport {
                 }
             }, {
                 ntype    : 'button',
-                text     : 'Sort by Lastname',
+                text     : 'Sort by Cases',
                 listeners: {},
                 style    : {margin: '20px', marginBottom: '10px'},
 
                 domListeners: {
                     click: function() {
                         Neo.get('neo-gallery-1').store.sorters = [{
-                            property : 'lastname',
-                            direction: 'ASC'
-                        }, {
-                            property : 'firstname',
-                            direction: 'ASC'
+                            property : 'cases',
+                            direction: 'DESC'
                         }];
                     }
                 }
             }, {
                 ntype    : 'button',
-                text     : 'Sort by Firstname',
+                text     : 'Sort by Country',
                 listeners: {},
                 style    : {margin: '20px', marginTop: 0},
 
                 domListeners: {
                     click: function() {
                         Neo.get('neo-gallery-1').store.sorters = [{
-                            property : 'firstname',
-                            direction: 'ASC'
-                        }, {
-                            property : 'lastname',
+                            property : 'country',
                             direction: 'ASC'
                         }];
                     }
