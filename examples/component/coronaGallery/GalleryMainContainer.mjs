@@ -197,7 +197,11 @@ class GalleryMainContainer extends Viewport {
     constructor(config) {
         super(config);
 
-        let me = this;
+
+
+        const me       = this,
+              proxyUrl = "https://cors-anywhere.herokuapp.com/",
+              url      = 'https://corona.lmao.ninja/countries';
 
         me.gallery = Neo.create({
             module: CountryGallery,
@@ -207,14 +211,10 @@ class GalleryMainContainer extends Viewport {
 
         this.items[0].items.push(me.gallery);
 
-        Neo.Xhr.promiseJson({
-            method : 'GET',
-            url    : 'https://covid19info.live/processeddata.json'
-        }).then(data => {
-            console.log(data);
-        }).catch(error => {
-            console.log('Failed fetching country data', error);
-        });
+        fetch(proxyUrl + url)
+            .then(response => response.json())
+            .then(data => console.log(data))
+            .catch(err => console.log('Can’t access ' + url, err))
     }
 
     /**
