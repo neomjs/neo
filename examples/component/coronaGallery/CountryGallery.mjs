@@ -20,12 +20,12 @@ class CountryGallery extends Gallery {
          * The image height of the gallery
          * @member {Number} imageHeight=240
          */
-        imageHeight: 260,
+        imageHeight: 280,
         /**
          * The image width of the gallery
          * @member {Number} imageWidth=320
          */
-        imageWidth: 320,
+        imageWidth: 340,
         /**
          * @member {Object} itemTpl_
          */
@@ -105,7 +105,7 @@ class CountryGallery extends Gallery {
 
         vdomItem.cn[0].style.height = me.imageHeight + 'px';
 
-        firstChild.style.height = (me.imageHeight - 50) + 'px';
+        firstChild.style.height = (me.imageHeight - 70) + 'px';
         firstChild.style.width  = me.imageWidth  + 'px';
 
         firstChild.cn[0].cn[0].src  = me.getCountryFlagUrl(record.country);
