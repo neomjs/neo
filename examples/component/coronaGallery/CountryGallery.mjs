@@ -38,7 +38,7 @@ class CountryGallery extends Gallery {
                 style: {},
 
                 cn: [{
-                    tag: 'div'
+                    cls: ['neo-item-header']
                 }, {
                     tag: 'table',
                     cn : [{
