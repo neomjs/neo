@@ -126,47 +126,105 @@ class GalleryMainContainer extends Viewport {
                     }
                 }
             }, {
-                ntype    : 'button',
-                text     : 'Sort by Cases',
-                listeners: {},
-                style    : {margin: '20px', marginBottom: '10px'},
-
-                domListeners: {
-                    click: function() {
-                        Neo.get('neo-gallery-1').store.sorters = [{
-                            property : 'cases',
-                            direction: 'DESC'
-                        }];
-                    }
-                }
+                ntype: 'label',
+                text : 'Sort By:'
             }, {
-                ntype    : 'button',
-                text     : 'Sort by Deaths',
-                listeners: {},
-                style    : {margin: '20px', marginBottom: '10px', marginTop: 0},
+                ntype : 'container',
+                layout: {ntype: 'hbox', align: 'stretch'},
+                style : {padding: '0'},
+                items : [{
+                    ntype : 'container',
+                    layout: {ntype: 'vbox', align: 'stretch'},
+                    items : [{
+                        ntype    : 'button',
+                        text     : 'Cases',
+                        listeners: {},
+                        style    : {margin: '10px', marginTop: '0'},
 
-                domListeners: {
-                    click: function() {
-                        Neo.get('neo-gallery-1').store.sorters = [{
-                            property : 'deaths',
-                            direction: 'DESC'
-                        }];
-                    }
-                }
-            }, {
-                ntype    : 'button',
-                text     : 'Sort by Country',
-                listeners: {},
-                style    : {margin: '20px', marginTop: 0},
+                        domListeners: {
+                            click: function() {
+                                Neo.get('neo-gallery-1').store.sorters = [{
+                                    property : 'cases',
+                                    direction: 'DESC'
+                                }];
+                            }
+                        }
+                    }, {
+                        ntype    : 'button',
+                        text     : 'Deaths',
+                        listeners: {},
+                        style    : {margin: '10px', marginBottom: '10px', marginTop: 0},
 
-                domListeners: {
-                    click: function() {
-                        Neo.get('neo-gallery-1').store.sorters = [{
-                            property : 'country',
-                            direction: 'ASC'
-                        }];
-                    }
-                }
+                        domListeners: {
+                            click: function() {
+                                Neo.get('neo-gallery-1').store.sorters = [{
+                                    property : 'deaths',
+                                    direction: 'DESC'
+                                }];
+                            }
+                        }
+                    }, {
+                        ntype    : 'button',
+                        text     : 'Country',
+                        listeners: {},
+                        style    : {margin: '10px', marginTop: 0},
+
+                        domListeners: {
+                            click: function() {
+                                Neo.get('neo-gallery-1').store.sorters = [{
+                                    property : 'country',
+                                    direction: 'ASC'
+                                }];
+                            }
+                        }
+                    }]
+                }, {
+                    ntype : 'container',
+                    layout: {ntype: 'vbox', align: 'stretch'},
+                    items : [{
+                        ntype    : 'button',
+                        text     : 'Cases today',
+                        listeners: {},
+                        style    : {margin: '10px', marginTop: '0'},
+
+                        domListeners: {
+                            click: function() {
+                                Neo.get('neo-gallery-1').store.sorters = [{
+                                    property : 'todayCases',
+                                    direction: 'DESC'
+                                }];
+                            }
+                        }
+                    }, {
+                        ntype    : 'button',
+                        text     : 'Deaths today',
+                        listeners: {},
+                        style    : {margin: '10px', marginBottom: '10px', marginTop: 0},
+
+                        domListeners: {
+                            click: function() {
+                                Neo.get('neo-gallery-1').store.sorters = [{
+                                    property : 'todayDeaths',
+                                    direction: 'DESC'
+                                }];
+                            }
+                        }
+                    }, {
+                        ntype    : 'button',
+                        text     : 'Critical',
+                        listeners: {},
+                        style    : {margin: '10px', marginTop: 0},
+
+                        domListeners: {
+                            click: function() {
+                                Neo.get('neo-gallery-1').store.sorters = [{
+                                    property : 'critical',
+                                    direction: 'DESC'
+                                }];
+                            }
+                        }
+                    }]
+                }]
             }, {
                 ntype: 'label',
                 text : [
