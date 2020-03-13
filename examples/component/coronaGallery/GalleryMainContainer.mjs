@@ -141,6 +141,20 @@ class GalleryMainContainer extends Viewport {
                 }
             }, {
                 ntype    : 'button',
+                text     : 'Sort by Deaths',
+                listeners: {},
+                style    : {margin: '20px', marginBottom: '10px', marginTop: 0},
+
+                domListeners: {
+                    click: function() {
+                        Neo.get('neo-gallery-1').store.sorters = [{
+                            property : 'deaths',
+                            direction: 'DESC'
+                        }];
+                    }
+                }
+            }, {
+                ntype    : 'button',
                 text     : 'Sort by Country',
                 listeners: {},
                 style    : {margin: '20px', marginTop: 0},
