@@ -1,8 +1,8 @@
-import Gallery                 from '../../../src/component/Gallery.mjs';
+import CountryGallery           from './CountryGallery.mjs';
 import {default as NumberField} from '../../../src/form/field/Number.mjs';
-import {default as Panel}      from '../../../src/container/Panel.mjs';
-import {default as RangeField} from '../../../src/form/field/Range.mjs';
-import {default as Viewport}   from '../../../src/container/Viewport.mjs';
+import {default as Panel}       from '../../../src/container/Panel.mjs';
+import {default as RangeField}  from '../../../src/form/field/Range.mjs';
+import {default as Viewport}    from '../../../src/container/Viewport.mjs';
 
 /**
  * @class TestApp.GalleryMainContainer
@@ -200,7 +200,7 @@ class GalleryMainContainer extends Viewport {
         let me = this;
 
         me.gallery = Neo.create({
-            module: Gallery,
+            module: CountryGallery,
             id    : 'neo-gallery-1',
             ...me.galleryConfig || {}
         });
