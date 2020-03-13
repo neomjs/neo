@@ -10,9 +10,13 @@ import {default as Viewport}   from '../../../src/container/Viewport.mjs';
 class GalleryMainContainer extends Viewport {
     static getConfig() {return {
         className: 'TestApp.MainContainer',
-        ntype: 'main-container',
+        ntype: 'gallery-maincontainer',
 
         autoMount: true,
+        /**
+         * @member {String[]} cls=['neo-gallery-maincontainer', 'neo-viewport']
+         */
+        cls: ['neo-gallery-maincontainer', 'neo-viewport'],
         /**
          * @member {Neo.component.Gallery|null} gallery=null
          */
@@ -159,7 +163,23 @@ class GalleryMainContainer extends Viewport {
                 ntype: 'label',
                 text : [
                     '<b>Navigation Concept</b>',
-                    '<p>Click on an item to select it. Afterwards you can use the Arrow Keys to walk through the items.</p>'
+                    '<p>You can use the Arrow Keys to walk through the items.</p>'
+                ].join(''),
+
+                style: {
+                    backgroundColor: '#323232',
+                    color          : '#ddd',
+                    fontSize       : '13px',
+                    margin         : '10px',
+                    padding        : '10px',
+                    whiteSpace     : 'normal'
+                }
+            }, {
+                ntype: 'label',
+                cls  : ['neo-link-color'],
+                text : [
+                    '<b>Attribution</b>',
+                    '<p>Icons made by <a href="https://www.flaticon.com/authors/freepik" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>.</p>'
                 ].join(''),
 
                 style: {
