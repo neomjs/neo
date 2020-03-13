@@ -97,6 +97,7 @@ module.exports = env => {
                             bodyTag       : value.bodyTag || config.bodyTag,
                             basePath      : basePath,
                             environment   : 'production',
+                            themes        : value.themes || "'neo-theme-light', 'neo-theme-dark'", // arrays are not supported as templateParameters
                             title         : value.title,
                             workerBasePath: workerBasePath
                         }

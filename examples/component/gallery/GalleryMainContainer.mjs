@@ -1,8 +1,8 @@
-import Gallery                 from '../../../src/component/Gallery.mjs';
+import Gallery                  from '../../../src/component/Gallery.mjs';
 import {default as NumberField} from '../../../src/form/field/Number.mjs';
-import {default as Panel}      from '../../../src/container/Panel.mjs';
-import {default as RangeField} from '../../../src/form/field/Range.mjs';
-import {default as Viewport}   from '../../../src/container/Viewport.mjs';
+import {default as Panel}       from '../../../src/container/Panel.mjs';
+import {default as RangeField}  from '../../../src/form/field/Range.mjs';
+import {default as Viewport}    from '../../../src/container/Viewport.mjs';
 
 /**
  * @class TestApp.GalleryMainContainer
@@ -108,12 +108,6 @@ class GalleryMainContainer extends Viewport {
                 name     : 'amountRows',
                 value    : 3
             }, {
-                labelText: 'Opacity',
-                name     : 'maxOpacity',
-                minValue : 0,
-                maxValue : 100,
-                value    : 80
-            }, {
                 module   : NumberField,
                 clearable: false,
                 labelText: 'Max Items',
@@ -205,7 +199,7 @@ class GalleryMainContainer extends Viewport {
             ...me.galleryConfig || {}
         });
 
-        this.items[0].items.push(me.gallery);
+        me.items[0].items.push(me.gallery);
     }
 
     /**

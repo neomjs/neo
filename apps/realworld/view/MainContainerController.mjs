@@ -103,7 +103,7 @@ class MainContainerController extends ComponentController {
      */
     afterSetCurrentUser(value, oldValue) {
         if (typeof oldValue === 'object') {
-            this.getReference('header').bulkConfigUpdate({
+            this.getReference('header').set({
                 loggedIn : !!value,
                 userImage: value ? value.image    : null,
                 userName : value ? value.username : null
@@ -346,7 +346,7 @@ class MainContainerController extends ComponentController {
 
                         delete article.body;
 
-                        me.articleComponent.bulkConfigUpdate(article).then(() => {
+                        me.articleComponent.set(article).then(() => {
                             me.articleComponent.body = body;
                         });
                     });
@@ -359,7 +359,7 @@ class MainContainerController extends ComponentController {
                         me.getArticle(slug).then(data => {
                             const article = data.json.article;
 
-                            me.createComponent.bulkConfigUpdate({
+                            me.createComponent.set({
                                 body       : article.body,
                                 description: article.description,
                                 slug       : article.slug,

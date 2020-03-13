@@ -8,8 +8,7 @@
 
 # Welcome to neo.mjs! (Beta Version)
 
-<a href="https://neomjs.github.io/pages/">Online Examples</a>&nbsp;&nbsp;
-<a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html">Online Docs</a>
+<a href="https://neomjs.github.io/pages/">Online Examples (Desktop)</a>
 
 This is a new paradigm. If you want to enter a new era of making better Web Based User Interfaces,
 the following concepts will be addictive.
@@ -90,8 +89,12 @@ the following concepts will be addictive.
     </tr>
 </table>
 
+### Want to learn more?
+<a href=".github/CONCEPT.md">neo.mjs Concepts</a>
+
 ### Impossible? Pick with caution!
 <a href="https://en.wikipedia.org/wiki/Red_pill_and_blue_pill"><img alt="blue or red pill" src="./.github/images/redorbluepill.png"></a>
+
 
 ### The webworkers driven UI framework
 

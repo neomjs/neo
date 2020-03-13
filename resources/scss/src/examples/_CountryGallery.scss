@@ -1,0 +1,85 @@
+.neo-gallery-maincontainer {
+    .neo-link-color {
+        a {
+            color: #ddd;
+        }
+    }
+}
+
+.neo-country-gallery {
+    color     : #000;
+    text-align: left;
+
+    .neo-align-right {
+        text-align: right;
+    }
+
+    .neo-content-critical {
+        color: orange;
+    }
+
+    .neo-content-deaths {
+        color: red;
+    }
+
+    .neo-content-recovered {
+        color: green;
+    }
+
+    .neo-content-table {
+        white-space: nowrap;
+    }
+
+    .neo-flag {
+        height      : 40px;
+        margin-right: 10px;
+        width       : 40px;
+    }
+
+    .neo-selected {
+        .neo-item-wrapper {
+            transform          : translateZ(180px) scale(1.5);
+            -webkit-box-reflect: unset!important;
+        }
+    }
+
+    .neo-item-wrapper {
+        background-color   : rgba(73,160,154,.35);
+        border-radius      : 10px;
+        pointer-events     : none;
+        transition-duration: .55s;
+        transition-property: transform;
+    }
+
+    .neo-country-gallery-item {
+        background-color       : #fff;
+        border-top             : 1px solid rgba(0,0,0,.1);
+        border-top-left-radius : 10px;
+        border-top-right-radius: 10px;
+        padding                : 20px;
+
+        .neo-item-header {
+            align-items  : center;
+            display      : flex;
+            font-size    : 40px;
+            margin-bottom: 20px;
+        }
+    }
+
+    .neo-gallery-item {
+        &.neo-reflection {
+            .neo-item-wrapper {
+                -webkit-box-reflect: below 6px -webkit-gradient(linear, left top, left bottom, from(transparent), color-stop(0.1, transparent), to(rgba(0, 0, 0, 0.5)));
+                transform-style    : flat;
+            }
+
+            img {
+                -webkit-box-reflect: inherit;
+            }
+        }
+    }
+
+    .image-wrap.neo-selected img {
+        transform: inherit;
+    }
+}

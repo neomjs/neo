@@ -165,7 +165,7 @@ inquirer.prompt(questions).then(answers => {
         fs.writeFileSync(appJsonProdPath, JSON.stringify(appProdJson, null, 4));
 
         const entryPoint = [
-            "import '../App.mjs';",
+            "import '../../../../src/worker/App.mjs';",
             "import '../../../../" + appPath + "app.mjs';"
         ].join('\n');
 

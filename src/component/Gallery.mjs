@@ -720,30 +720,33 @@ class Gallery extends Component {
     onSort() {
         let me        = this,
             hasChange = false,
+            items     = me.store.items,
             newCn     = [],
             vdom      = me.vdom,
             view      = me.getItemsRoot(),
             vdomMap   = view.cn.map(e => e.id),
             fromIndex, vdomId;
 
-        me.store.items.forEach((item, index) => {
-            vdomId    = me.getItemVnodeId(item[me.keyProperty]);
-            fromIndex = vdomMap.indexOf(vdomId);
+        if (items) {
+            items.forEach((item, index) => {
+                vdomId    = me.getItemVnodeId(item[me.keyProperty]);
+                fromIndex = vdomMap.indexOf(vdomId);
 
-            newCn.push(view.cn[fromIndex]);
+                newCn.push(view.cn[fromIndex]);
 
-            if (index !== fromIndex) {
-                hasChange = true;
+                if (index !== fromIndex) {
+                    hasChange = true;
+                }
+            });
+
+            if (hasChange) {
+                view.cn = newCn;
+                me.vdom = vdom;
+
+                setTimeout(() => {
+                    me.afterSetOrderByRow(me.orderByRow, !me.orderByRow);
+                }, 50);
             }
-        });
-
-        if (hasChange) {
-            view.cn = newCn;
-            me.vdom = vdom;
-
-            setTimeout(() => {
-                me.afterSetOrderByRow();
-            }, 50);
         }
     }
 

@@ -57,7 +57,7 @@ class Gallery extends BaseGallery {
                 userImage: record.author.image
             });
         } else {
-            vdomItem.bulkConfigUpdate({
+            vdomItem.set({
                 ...record,
                 author   : record.author.username,
                 userImage: record.author.image

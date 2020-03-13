@@ -283,7 +283,7 @@ class PreviewComponent extends Component {
         let me        = this,
             favorited = !me.favorited;
 
-        me.bulkConfigUpdate({
+        me.set({
             favorited     : favorited,
             favoritesCount: favorited ? (me.favoritesCount + 1) : (me.favoritesCount - 1)
         });

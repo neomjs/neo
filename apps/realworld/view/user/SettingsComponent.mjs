@@ -242,7 +242,7 @@ class SettingsComponent extends Component {
      */
     onCurrentUserChange(value) {
         if (value) {
-            this.bulkConfigUpdate({
+            this.set({
                 bio      : value.bio,
                 email    : value.email,
                 errors   : [],
