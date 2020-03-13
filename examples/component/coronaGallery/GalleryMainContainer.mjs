@@ -206,6 +206,15 @@ class GalleryMainContainer extends Viewport {
         });
 
         this.items[0].items.push(me.gallery);
+
+        Neo.Xhr.promiseJson({
+            method : 'GET',
+            url    : 'https://covid19info.live/processeddata.json'
+        }).then(data => {
+            console.log(data);
+        }).catch(error => {
+            console.log('Failed fetching country data', error);
+        });
     }
 
     /**
