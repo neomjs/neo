@@ -132,17 +132,35 @@ class CountryGallery extends Gallery {
             case 'czechia':
                 imageName = 'czech-republic';
                 break;
+            case 'drc':
+                imageName = 'democratic-republic-of-congo';
+                break;
+            case 'faeroe-islands':
+                imageName = 'faroe-islands';
+                break;
+            case 'french-guiana':
+                imageName = 'france'; // ?
+                break;
+            case 'guadeloupe':
+                imageName = 'france'; // ?
+                break;
             case 's.-korea':
                 imageName = 'south-korea';
                 break;
             case 'st.-barth':
                 imageName = 'st-barts';
                 break;
+            case 'saint-martin':
+                imageName = 'sint-maarten';
+                break;
             case 'st.-vincent-grenadines':
                 imageName = 'st-vincent-and-the-grenadines';
                 break;
             case 'uae':
                 imageName = 'united-arab-emirates';
+                break;
+            case 'uk':
+                imageName = 'united-kingdom';
                 break;
             case 'usa':
                 imageName = 'united-states-of-america';
