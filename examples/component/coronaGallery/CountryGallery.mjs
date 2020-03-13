@@ -20,7 +20,7 @@ class CountryGallery extends Gallery {
          * The image height of the gallery
          * @member {Number} imageHeight=240
          */
-        imageHeight: 240,
+        imageHeight: 260,
         /**
          * The image width of the gallery
          * @member {Number} imageWidth=320
@@ -156,7 +156,7 @@ class CountryGallery extends Gallery {
             case 'poland':
                 imageName = 'republic-of-poland';
                 break;
-            case 'r%C3%A9union':
+            case 'réunion':
                 imageName = 'france';
                 break;
             case 's.-korea':
