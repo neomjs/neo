@@ -129,8 +129,14 @@ class CountryGallery extends Gallery {
         imageName = imageName.replace(/ /gi, '-');
 
         switch(imageName) {
+            case 'channel-islands':
+                imageName = 'jersey';
+                break;
             case 'czechia':
                 imageName = 'czech-republic';
+                break;
+            case 'diamond-princess':
+                imageName = 'japan'; // cruise ship?
                 break;
             case 'drc':
                 imageName = 'democratic-republic-of-congo';
@@ -143,6 +149,15 @@ class CountryGallery extends Gallery {
                 break;
             case 'guadeloupe':
                 imageName = 'france'; // ?
+                break;
+            case 'north-macedonia':
+                imageName = 'republic-of-macedonia';
+                break;
+            case 'poland':
+                imageName = 'republic-of-poland';
+                break;
+            case 'r%C3%A9union':
+                imageName = 'france';
                 break;
             case 's.-korea':
                 imageName = 'south-korea';
@@ -166,8 +181,6 @@ class CountryGallery extends Gallery {
                 imageName = 'united-states-of-america';
                 break;
         }
-
-        console.log(imageName);
 
         return 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/flaticon/country_flags/png/' + imageName + '.png'
     }
