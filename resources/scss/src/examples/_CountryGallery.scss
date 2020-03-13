@@ -1,9 +1,20 @@
-.neo-country-gallery-item {
-    background-color: #fff;
-    padding         : 20px;
+.neo-country-gallery {
+    text-align: left;
 
-    .neo-item-header {
-        font-size    : 40px;
-        margin-bottom: 20px;
+    .neo-item-wrapper {
+        background-color: rgba(73,160,154,.35);
+        border-radius   : 10px;
+    }
+
+    .neo-country-gallery-item {
+        background-color       : #fff;
+        border-top-left-radius : 10px;
+        border-top-right-radius: 10px;
+        padding                : 20px;
+
+        .neo-item-header {
+            font-size    : 40px;
+            margin-bottom: 20px;
+        }
     }
 }

@@ -15,7 +15,7 @@ class CountryGallery extends Gallery {
         /**
          * @member {String[]} cls=['rw2-article-gallery', 'neo-gallery', 'page', 'view']
          */
-        cls: ['rw2-article-gallery', 'neo-gallery', 'page', 'view'],
+        cls: ['neo-country-gallery', 'neo-gallery', 'page', 'view'],
         /**
          * The image height of the gallery
          * @member {Number} imageHeight=240
@@ -33,32 +33,36 @@ class CountryGallery extends Gallery {
             cls     : ['neo-gallery-item', 'image-wrap', 'view', 'neo-transition-1000'],
             tabIndex: '-1',
             cn: [{
-                tag  : 'div',
-                cls  : ['neo-country-gallery-item'],
+                cls  : ['neo-item-wrapper'],
                 style: {},
-
                 cn: [{
-                    cls: ['neo-item-header']
-                }, {
-                    tag: 'table',
-                    cn : [{
-                        tag: 'tr',
-                        cn : [
-                            {tag: 'td', html: 'Cases'},
-                            {tag: 'td'}
-                        ]
+                    tag  : 'div',
+                    cls  : ['neo-country-gallery-item'],
+                    style: {},
+
+                    cn: [{
+                        cls: ['neo-item-header']
                     }, {
-                        tag: 'tr',
-                        cn : [
-                            {tag: 'td', html: 'Deaths'},
-                            {tag: 'td'}
-                        ]
-                    }, {
-                        tag: 'tr',
-                        cn : [
-                            {tag: 'td', html: 'Recovered'},
-                            {tag: 'td'}
-                        ]
+                        tag: 'table',
+                        cn : [{
+                            tag: 'tr',
+                            cn : [
+                                {tag: 'td', html: 'Cases'},
+                                {tag: 'td'}
+                            ]
+                        }, {
+                            tag: 'tr',
+                            cn : [
+                                {tag: 'td', html: 'Deaths'},
+                                {tag: 'td'}
+                            ]
+                        }, {
+                            tag: 'tr',
+                            cn : [
+                                {tag: 'td', html: 'Recovered'},
+                                {tag: 'td'}
+                            ]
+                        }]
                     }]
                 }]
             }]
@@ -88,11 +92,13 @@ class CountryGallery extends Gallery {
      */
     createItem(vdomItem, record, index) {
         let me         = this,
-            firstChild = vdomItem.cn[0];
+            firstChild = vdomItem.cn[0].cn[0];
 
         vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
 
-        firstChild.style.height = me.imageHeight + 'px';
+        vdomItem.cn[0].style.height = me.imageHeight + 'px';
+
+        firstChild.style.height = (me.imageHeight - 50) + 'px';
         firstChild.style.width  = me.imageWidth  + 'px';
 
         firstChild.cn[0].html = record.country;
