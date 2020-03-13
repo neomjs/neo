@@ -1,10 +1,19 @@
 .neo-country-gallery {
     text-align: left;
 
+    .neo-selected {
+        .neo-item-wrapper {
+            transform          : translateZ(180px) scale(1.5);
+            -webkit-box-reflect: unset!important;
+        }
+    }
+
     .neo-item-wrapper {
-        background-color: rgba(73,160,154,.35);
-        border-radius   : 10px;
-        pointer-events  : none;
+        background-color   : rgba(73,160,154,.35);
+        border-radius      : 10px;
+        pointer-events     : none;
+        transition-duration: .55s;
+        transition-property: transform;
     }
 
     .neo-country-gallery-item {
