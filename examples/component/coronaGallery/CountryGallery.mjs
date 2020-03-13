@@ -60,13 +60,13 @@ class CountryGallery extends Gallery {
                             tag: 'tr',
                             cn : [
                                 {tag: 'td', html: 'Deaths'},
-                                {tag: 'td', cls: ['neo-align-right']}
+                                {tag: 'td', cls: ['neo-align-right', 'neo-content-deaths']}
                             ]
                         }, {
                             tag: 'tr',
                             cn : [
                                 {tag: 'td', html: 'Recovered'},
-                                {tag: 'td', cls: ['neo-align-right']}
+                                {tag: 'td', cls: ['neo-align-right', 'neo-content-recovered']}
                             ]
                         }]
                     }]
