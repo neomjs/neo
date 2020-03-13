@@ -53,6 +53,12 @@ class CountryGallery extends Gallery {
                             {tag: 'td', html: 'Deaths'},
                             {tag: 'td'}
                         ]
+                    }, {
+                        tag: 'tr',
+                        cn : [
+                            {tag: 'td', html: 'Recovered'},
+                            {tag: 'td'}
+                        ]
                     }]
                 }]
             }]
@@ -86,10 +92,14 @@ class CountryGallery extends Gallery {
 
         vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
 
-        firstChild.cn[0].html = record.country;
-
         firstChild.style.height = me.imageHeight + 'px';
         firstChild.style.width  = me.imageWidth  + 'px';
+
+        firstChild.cn[0].html = record.country;
+
+        firstChild.cn[1].cn[0].cn[1].html = record.cases;
+        firstChild.cn[1].cn[1].cn[1].html = record.deaths;
+        firstChild.cn[1].cn[2].cn[1].html = record.recovered;
 
         return vdomItem;
     }
