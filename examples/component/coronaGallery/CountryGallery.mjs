@@ -27,6 +27,37 @@ class CountryGallery extends Gallery {
          */
         imageWidth: 320,
         /**
+         * @member {Object} itemTpl_
+         */
+        itemTpl: {
+            cls     : ['neo-gallery-item', 'image-wrap', 'view', 'neo-transition-1000'],
+            tabIndex: '-1',
+            cn: [{
+                tag  : 'div',
+                cls  : ['neo-country-gallery-item'],
+                style: {},
+
+                cn: [{
+                    tag: 'div'
+                }, {
+                    tag: 'table',
+                    cn : [{
+                        tag: 'tr',
+                        cn : [
+                            {tag: 'td', html: 'Cases'},
+                            {tag: 'td'}
+                        ]
+                    }, {
+                        tag: 'tr',
+                        cn : [
+                            {tag: 'td', html: 'Deaths'},
+                            {tag: 'td'}
+                        ]
+                    }]
+                }]
+            }]
+        },
+        /**
          * The unique record field containing the id.
          * @member {String} keyProperty='id'
          */
@@ -55,9 +86,7 @@ class CountryGallery extends Gallery {
 
         vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
 
-        firstChild.cls  = ['neo-country-gallery-item'];
-        firstChild.html = record.country;
-        firstChild.tag  = 'div';
+        firstChild.cn[0].html = record.country;
 
         firstChild.style.height = me.imageHeight + 'px';
         firstChild.style.width  = me.imageWidth  + 'px';
