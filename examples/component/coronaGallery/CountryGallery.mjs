@@ -44,8 +44,7 @@ class CountryGallery extends Gallery {
                         cls: ['neo-item-header'],
                         cn: [{
                             tag: 'img',
-                            cls: ['neo-flag'],
-                            src: 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/flaticon/country_flags/png/germany.png'
+                            cls: ['neo-flag']
                         }, {
 
                         }]
@@ -109,6 +108,7 @@ class CountryGallery extends Gallery {
         firstChild.style.height = (me.imageHeight - 50) + 'px';
         firstChild.style.width  = me.imageWidth  + 'px';
 
+        firstChild.cn[0].cn[0].src  = me.getCountryFlagUrl(record.country);
         firstChild.cn[0].cn[1].html = record.country;
 
         table.cn[0].cn[1].html = record.cases;
@@ -116,6 +116,42 @@ class CountryGallery extends Gallery {
         table.cn[2].cn[1].html = record.recovered;
 
         return vdomItem;
+    }
+
+    /**
+     *
+     * @param {String} name
+     * @return {String} url
+     */
+    getCountryFlagUrl(name) {
+        let imageName = name.toLowerCase();
+
+        imageName = imageName.replace(/ /gi, '-');
+
+        switch(imageName) {
+            case 'czechia':
+                imageName = 'czech-republic';
+                break;
+            case 's.-korea':
+                imageName = 'south-korea';
+                break;
+            case 'st.-barth':
+                imageName = 'st-barts';
+                break;
+            case 'st.-vincent-grenadines':
+                imageName = 'st-vincent-and-the-grenadines';
+                break;
+            case 'uae':
+                imageName = 'united-arab-emirates';
+                break;
+            case 'usa':
+                imageName = 'united-states-of-america';
+                break;
+        }
+
+        console.log(imageName);
+
+        return 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/flaticon/country_flags/png/' + imageName + '.png'
     }
 
     /**
