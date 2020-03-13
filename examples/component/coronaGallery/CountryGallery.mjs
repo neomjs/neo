@@ -1,4 +1,5 @@
-import Gallery from '../../../src/component/Gallery.mjs';
+import CountryStore from './CountryStore.mjs';
+import Gallery      from '../../../src/component/Gallery.mjs';
 
 /**
  * @class Neo.examples.component.coronaGallery.CountryGallery
@@ -24,7 +25,11 @@ class CountryGallery extends Gallery {
          * The image width of the gallery
          * @member {Number} imageWidth=320
          */
-        imageWidth: 320
+        imageWidth: 320,
+        /**
+         * @member {Neo.data.Store} store=CountryStore
+         */
+        store: CountryStore
     }}
 }
 

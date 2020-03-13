@@ -205,7 +205,7 @@ class GalleryMainContainer extends Viewport {
             ...me.galleryConfig || {}
         });
 
-        this.items[0].items.push(me.gallery);
+        me.items[0].items.push(me.gallery);
     }
 
     /**

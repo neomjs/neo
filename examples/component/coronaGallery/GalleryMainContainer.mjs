@@ -197,8 +197,6 @@ class GalleryMainContainer extends Viewport {
     constructor(config) {
         super(config);
 
-
-
         const me       = this,
               proxyUrl = "https://cors-anywhere.herokuapp.com/",
               url      = 'https://corona.lmao.ninja/countries';
@@ -209,12 +207,18 @@ class GalleryMainContainer extends Viewport {
             ...me.galleryConfig || {}
         });
 
-        this.items[0].items.push(me.gallery);
+        me.items[0].items.push(me.gallery);
 
         fetch(proxyUrl + url)
             .then(response => response.json())
-            .then(data => console.log(data))
-            .catch(err => console.log('Can’t access ' + url, err))
+            .then(data => me.addStoreItems(data))
+            .catch(err => console.log('Can’t access ' + url, err));
+
+        console.log(me.getStore());
+    }
+
+    addStoreItems(data) {
+        this.getStore().data = data;
     }
 
     /**
