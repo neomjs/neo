@@ -27,6 +27,11 @@ class CountryGallery extends Gallery {
          */
         imageWidth: 320,
         /**
+         * True to select the item inside the middle of the store items on mount
+         * @member {Boolean} selectOnMount=false
+         */
+        selectOnMount: false,
+        /**
          * @member {Neo.data.Store} store=CountryStore
          */
         store: CountryStore
