@@ -179,6 +179,8 @@ class GalleryMainContainer extends Viewport {
                 cls  : ['neo-link-color'],
                 text : [
                     '<b>Attribution</b>',
+                    '<p>App created with <a href="https://github.com/neomjs/neo">neo.mjs</a>.</p>',
+                    '<p>Data provided by <a href="https://github.com/NovelCOVID/API">NovelCOVID/API</a>.</p>',
                     '<p>Icons made by <a href="https://www.flaticon.com/authors/freepik" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>.</p>'
                 ].join(''),
 
