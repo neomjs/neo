@@ -108,12 +108,6 @@ class GalleryMainContainer extends Viewport {
                 name     : 'amountRows',
                 value    : 3
             }, {
-                labelText: 'Opacity',
-                name     : 'maxOpacity',
-                minValue : 0,
-                maxValue : 100,
-                value    : 80
-            }, {
                 module   : NumberField,
                 clearable: false,
                 labelText: 'Max Items',
