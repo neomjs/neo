@@ -109,6 +109,15 @@ class CountryGallery extends Gallery {
 
         return vdomItem;
     }
+
+    /**
+     *
+     * @param {String} vnodeId
+     * @returns {String} itemId
+     */
+    getItemId(vnodeId) {
+        return vnodeId.split('__')[1];
+    }
 }
 
 Neo.applyClassConfig(CountryGallery);
