@@ -41,7 +41,14 @@ class CountryGallery extends Gallery {
                     style: {},
 
                     cn: [{
-                        cls: ['neo-item-header']
+                        cls: ['neo-item-header'],
+                        cn: [{
+                            tag: 'img',
+                            cls: ['neo-flag'],
+                            src: 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/flaticon/country_flags/png/germany.png'
+                        }, {
+
+                        }]
                     }, {
                         tag: 'table',
                         cn : [{
@@ -92,7 +99,8 @@ class CountryGallery extends Gallery {
      */
     createItem(vdomItem, record, index) {
         let me         = this,
-            firstChild = vdomItem.cn[0].cn[0];
+            firstChild = vdomItem.cn[0].cn[0],
+            table      = firstChild.cn[1];
 
         vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
 
@@ -101,11 +109,11 @@ class CountryGallery extends Gallery {
         firstChild.style.height = (me.imageHeight - 50) + 'px';
         firstChild.style.width  = me.imageWidth  + 'px';
 
-        firstChild.cn[0].html = record.country;
+        firstChild.cn[0].cn[1].html = record.country;
 
-        firstChild.cn[1].cn[0].cn[1].html = record.cases;
-        firstChild.cn[1].cn[1].cn[1].html = record.deaths;
-        firstChild.cn[1].cn[2].cn[1].html = record.recovered;
+        table.cn[0].cn[1].html = record.cases;
+        table.cn[1].cn[1].html = record.deaths;
+        table.cn[2].cn[1].html = record.recovered;
 
         return vdomItem;
     }

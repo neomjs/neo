@@ -1,6 +1,12 @@
 .neo-country-gallery {
     text-align: left;
 
+    .neo-flag {
+        height      : 40px;
+        margin-right: 10px;
+        width       : 40px;
+    }
+
     .neo-selected {
         .neo-item-wrapper {
             transform          : translateZ(180px) scale(1.5);
@@ -23,6 +29,8 @@
         padding                : 20px;
 
         .neo-item-header {
+            align-items  : center;
+            display      : flex;
             font-size    : 40px;
             margin-bottom: 20px;
         }
