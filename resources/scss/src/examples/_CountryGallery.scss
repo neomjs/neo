@@ -5,12 +5,20 @@
         text-align: right;
     }
 
+    .neo-content-critical {
+        color: orange;
+    }
+
     .neo-content-deaths {
         color: red;
     }
 
     .neo-content-recovered {
         color: green;
+    }
+
+    .neo-content-table {
+        white-space: nowrap;
     }
 
     .neo-flag {

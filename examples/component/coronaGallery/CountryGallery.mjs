@@ -50,23 +50,33 @@ class CountryGallery extends Gallery {
                         }]
                     }, {
                         tag: 'table',
+                        cls: ['neo-content-table'],
                         cn : [{
                             tag: 'tr',
                             cn : [
                                 {tag: 'td', html: 'Cases'},
+                                {tag: 'td', cls: ['neo-align-right']},
+                                {tag: 'td', style: {width: '100%'}},
+                                {tag: 'td', html: 'Cases today'},
                                 {tag: 'td', cls: ['neo-align-right']}
                             ]
                         }, {
                             tag: 'tr',
                             cn : [
                                 {tag: 'td', html: 'Deaths'},
+                                {tag: 'td', cls: ['neo-align-right', 'neo-content-deaths']},
+                                {tag: 'td', style: {width: '100%'}},
+                                {tag: 'td', html: 'Deaths today'},
                                 {tag: 'td', cls: ['neo-align-right', 'neo-content-deaths']}
                             ]
                         }, {
                             tag: 'tr',
                             cn : [
                                 {tag: 'td', html: 'Recovered'},
-                                {tag: 'td', cls: ['neo-align-right', 'neo-content-recovered']}
+                                {tag: 'td', cls: ['neo-align-right', 'neo-content-recovered']},
+                                {tag: 'td', style: {width: '100%'}},
+                                {tag: 'td', html: 'Critical'},
+                                {tag: 'td', cls: ['neo-align-right', 'neo-content-critical']}
                             ]
                         }]
                     }]
@@ -114,6 +124,10 @@ class CountryGallery extends Gallery {
         table.cn[0].cn[1].html = record.cases;
         table.cn[1].cn[1].html = record.deaths;
         table.cn[2].cn[1].html = record.recovered;
+
+        table.cn[0].cn[4].html = record.todayCases;
+        table.cn[1].cn[4].html = record.todayDeaths;
+        table.cn[2].cn[4].html = record.critical;
 
         return vdomItem;
     }
