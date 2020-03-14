@@ -6,6 +6,16 @@ import Gallery      from '../../../src/component/Gallery.mjs';
  * @extends Neo.component.Gallery
  */
 class CountryGallery extends Gallery {
+    static getStaticConfig() {return {
+        /**
+         * A regex to replace blank chars
+         * @member {RegExp} flagRegEx=/ /gi
+         * @private
+         * @static
+         */
+        flagRegEx: / /gi
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.examples.component.coronaGallery.CountryGallery'
@@ -140,7 +150,7 @@ class CountryGallery extends Gallery {
     getCountryFlagUrl(name) {
         let imageName = name.toLowerCase();
 
-        imageName = imageName.replace(/ /gi, '-');
+        imageName = imageName.replace(CountryGallery.flagRegEx, '-');
 
         switch(imageName) {
             case 'channel-islands':
