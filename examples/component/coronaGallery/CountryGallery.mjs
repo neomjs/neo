@@ -168,6 +168,9 @@ class CountryGallery extends Gallery {
             case 'drc':
                 imageName = 'democratic-republic-of-congo';
                 break;
+            case 'eswatini':
+                imageName = 'swaziland';
+                break;
             case 'faeroe-islands':
                 imageName = 'faroe-islands';
                 break;
@@ -200,6 +203,9 @@ class CountryGallery extends Gallery {
                 break;
             case 'st.-vincent-grenadines':
                 imageName = 'st-vincent-and-the-grenadines';
+                break;
+            case 'u.s.-virgin-islands':
+                imageName = 'virgin-islands';
                 break;
             case 'uae':
                 imageName = 'united-arab-emirates';

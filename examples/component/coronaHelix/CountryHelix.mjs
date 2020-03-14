@@ -159,6 +159,9 @@ class CountryHelix extends Helix {
             case 'drc':
                 imageName = 'democratic-republic-of-congo';
                 break;
+            case 'eswatini':
+                imageName = 'swaziland';
+                break;
             case 'faeroe-islands':
                 imageName = 'faroe-islands';
                 break;
@@ -191,6 +194,9 @@ class CountryHelix extends Helix {
                 break;
             case 'st.-vincent-grenadines':
                 imageName = 'st-vincent-and-the-grenadines';
+                break;
+            case 'u.s.-virgin-islands':
+                imageName = 'virgin-islands';
                 break;
             case 'uae':
                 imageName = 'united-arab-emirates';
