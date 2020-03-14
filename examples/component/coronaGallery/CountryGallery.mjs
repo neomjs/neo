@@ -6,6 +6,16 @@ import Gallery      from '../../../src/component/Gallery.mjs';
  * @extends Neo.component.Gallery
  */
 class CountryGallery extends Gallery {
+    static getStaticConfig() {return {
+        /**
+         * A regex to replace blank chars
+         * @member {RegExp} flagRegEx=/ /gi
+         * @private
+         * @static
+         */
+        flagRegEx: / /gi
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.examples.component.coronaGallery.CountryGallery'
@@ -13,7 +23,7 @@ class CountryGallery extends Gallery {
          */
         className: 'Neo.examples.component.coronaGallery.CountryGallery',
         /**
-         * @member {String[]} cls=['rw2-article-gallery', 'neo-gallery', 'page', 'view']
+         * @member {String[]} cls=['neo-country-gallery', 'neo-gallery', 'page', 'view']
          */
         cls: ['neo-country-gallery', 'neo-gallery', 'page', 'view'],
         /**
@@ -140,11 +150,14 @@ class CountryGallery extends Gallery {
     getCountryFlagUrl(name) {
         let imageName = name.toLowerCase();
 
-        imageName = imageName.replace(/ /gi, '-');
+        imageName = imageName.replace(CountryGallery.flagRegEx, '-');
 
         switch(imageName) {
             case 'channel-islands':
                 imageName = 'jersey';
+                break;
+            case 'curaçao':
+                imageName = 'curacao';
                 break;
             case 'czechia':
                 imageName = 'czech-republic';
@@ -172,6 +185,9 @@ class CountryGallery extends Gallery {
                 break;
             case 'réunion':
                 imageName = 'france';
+                break;
+            case 'saint-lucia':
+                imageName = 'st-lucia';
                 break;
             case 's.-korea':
                 imageName = 'south-korea';
