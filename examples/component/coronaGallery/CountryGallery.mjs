@@ -146,6 +146,9 @@ class CountryGallery extends Gallery {
             case 'channel-islands':
                 imageName = 'jersey';
                 break;
+            case 'curaçao':
+                imageName = 'curacao;
+                break;
             case 'czechia':
                 imageName = 'czech-republic';
                 break;
@@ -172,6 +175,9 @@ class CountryGallery extends Gallery {
                 break;
             case 'réunion':
                 imageName = 'france';
+                break;
+            case 'saint-lucia':
+                imageName = 'st-lucia';
                 break;
             case 's.-korea':
                 imageName = 'south-korea';
