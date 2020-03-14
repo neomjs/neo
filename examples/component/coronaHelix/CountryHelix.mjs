@@ -1,11 +1,11 @@
 import CountryStore from './CountryStore.mjs';
-import Gallery      from '../../../src/component/Gallery.mjs';
+import Helix        from '../../../src/component/Helix.mjs';
 
 /**
- * @class Neo.examples.component.coronaGallery.CountryGallery
- * @extends Neo.component.Gallery
+ * @class Neo.examples.component.coronaHelix.CountryHelix
+ * @extends Neo.component.Helix
  */
-class CountryGallery extends Gallery {
+class CountryHelix extends Helix {
     static getStaticConfig() {return {
         /**
          * A regex to replace blank chars
@@ -18,36 +18,27 @@ class CountryGallery extends Gallery {
 
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.examples.component.coronaGallery.CountryGallery'
+         * @member {String} className='Neo.examples.component.coronaHelix.CountryHelix'
          * @private
          */
-        className: 'Neo.examples.component.coronaGallery.CountryGallery',
+        className: 'Neo.examples.component.coronaHelix.CountryHelix',
         /**
-         * @member {String[]} cls=['neo-country-gallery', 'neo-gallery', 'page', 'view']
+         * @member {String[]} cls=['neo-country-helix', 'neo-helix']
          */
-        cls: ['neo-country-gallery', 'neo-gallery', 'page', 'view'],
-        /**
-         * The image height of the gallery
-         * @member {Number} imageHeight=240
-         */
-        imageHeight: 280,
-        /**
-         * The image width of the gallery
-         * @member {Number} imageWidth=320
-         */
-        imageWidth: 340,
+        cls: ['neo-country-helix', 'neo-helix'],
         /**
          * @member {Object} itemTpl_
          */
         itemTpl: {
-            cls     : ['neo-gallery-item', 'image-wrap', 'view', 'neo-transition-1000'],
+            cls     : ['surface', 'neo-helix-item'],
+            style   : {},
             tabIndex: '-1',
             cn: [{
                 cls  : ['neo-item-wrapper'],
                 style: {},
                 cn: [{
                     tag  : 'div',
-                    cls  : ['neo-country-gallery-item'],
+                    cls  : ['neo-country-helix-item'],
                     style: {},
 
                     cn: [{
@@ -99,10 +90,15 @@ class CountryGallery extends Gallery {
          */
         keyProperty: 'country',
         /**
-         * True to select the item inside the middle of the store items on mount
-         * @member {Boolean} selectOnMount=false
+         * The radius of the Helix in px
+         * @member {Number} radius=2500
          */
-        selectOnMount: false,
+        radius: 2500,
+        /**
+         * True displays the first & last name record fields below an expanded item
+         * @member {Boolean} showCloneInfo=false
+         */
+        showCloneInfo: false,
         /**
          * @member {Neo.data.Store} store=CountryStore
          */
@@ -110,7 +106,7 @@ class CountryGallery extends Gallery {
     }}
 
     /**
-     * Override this method to get different item-markups
+     *
      * @param {Object} vdomItem
      * @param {Object} record
      * @param {Number} index
@@ -122,11 +118,6 @@ class CountryGallery extends Gallery {
             table      = firstChild.cn[1];
 
         vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
-
-        vdomItem.cn[0].style.height = me.imageHeight + 'px';
-
-        firstChild.style.height = (me.imageHeight - 70) + 'px';
-        firstChild.style.width  = me.imageWidth  + 'px';
 
         firstChild.cn[0].cn[0].src  = me.getCountryFlagUrl(record.country);
         firstChild.cn[0].cn[1].html = record.country;
@@ -150,7 +141,7 @@ class CountryGallery extends Gallery {
     getCountryFlagUrl(name) {
         let imageName = name.toLowerCase();
 
-        imageName = imageName.replace(CountryGallery.flagRegEx, '-');
+        imageName = imageName.replace(CountryHelix.flagRegEx, '-');
 
         switch(imageName) {
             case 'channel-islands':
@@ -224,26 +215,13 @@ class CountryGallery extends Gallery {
     /**
      *
      * @param {String} vnodeId
-     * @returns {String} itemId
+     * @returns {String}
      */
     getItemId(vnodeId) {
         return vnodeId.split('__')[1];
     }
-
-    /**
-     *
-     * @param {Array} items
-     */
-    onStoreLoad(items) {
-        super.onStoreLoad(items);
-
-        setTimeout(() => {
-            this.selectOnMount = true;
-            this.onMounted();
-        }, Neo.config.environment === 'development' ? 200 : 500);
-    }
 }
 
-Neo.applyClassConfig(CountryGallery);
+Neo.applyClassConfig(CountryHelix);
 
-export {CountryGallery as default};
+export {CountryHelix as default};

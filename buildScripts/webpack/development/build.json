@@ -49,6 +49,12 @@
             "themes": "'neo-theme-dark'",
             "title" : "COVID19 Gallery"
         },
+        "coronaHelix": {
+            "input": "examples/component/CoronaHelix.mjs",
+            "output": "/examples/component/coronaHelix/",
+            "themes": "'neo-theme-dark'",
+            "title" : "COVID19 Helix"
+        },
         "datefield": {
             "input": "examples/form/field/Date.mjs",
             "output": "/examples/form/field/date/",
