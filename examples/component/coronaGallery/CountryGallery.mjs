@@ -180,6 +180,9 @@ class CountryGallery extends Gallery {
             case 'guadeloupe':
                 imageName = 'france'; // ?
                 break;
+            case 'mayotte':
+                imageName = 'france'; // ?
+                break;
             case 'north-macedonia':
                 imageName = 'republic-of-macedonia';
                 break;
