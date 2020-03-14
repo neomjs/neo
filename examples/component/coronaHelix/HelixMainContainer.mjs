@@ -66,7 +66,11 @@ class HelixMainContainer extends Viewport {
                     ntype: 'button',
                     text : 'X',
                     handler: function() {
-                        console.log('hide controls'); // todo
+                        const panel  = this.up('panel'),
+                              expand = panel.width === 40;
+
+                        panel.width = expand ? 250 : 40;
+                        this.text   = expand ? 'X' : '+';
                     }
                 }, {
                     ntype: 'label',
