@@ -13,7 +13,7 @@ class CountryGallery extends Gallery {
          */
         className: 'Neo.examples.component.coronaGallery.CountryGallery',
         /**
-         * @member {String[]} cls=['rw2-article-gallery', 'neo-gallery', 'page', 'view']
+         * @member {String[]} cls=['neo-country-gallery', 'neo-gallery', 'page', 'view']
          */
         cls: ['neo-country-gallery', 'neo-gallery', 'page', 'view'],
         /**
