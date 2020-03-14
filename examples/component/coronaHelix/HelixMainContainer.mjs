@@ -1,4 +1,4 @@
-import {default as Helix}       from '../../../src/component/Helix.mjs';
+import CountryHelix             from './CountryHelix.mjs';
 import {default as NumberField} from '../../../src/form/field/Number.mjs';
 import {default as Panel}       from '../../../src/container/Panel.mjs';
 import {default as RangeField}  from '../../../src/form/field/Range.mjs';
@@ -260,15 +260,26 @@ class HelixMainContainer extends Viewport {
     constructor(config) {
         super(config);
 
-        let me = this;
+        const me       = this,
+              proxyUrl = "https://cors-anywhere.herokuapp.com/",
+              url      = 'https://corona.lmao.ninja/countries';
 
         me.helix = Neo.create({
-            module: Helix,
+            module: CountryHelix,
             id    : 'neo-helix-1',
             ...me.helixConfig || {}
         });
 
         me.items[0].items.push(me.helix);
+
+        fetch(proxyUrl + url)
+            .then(response => response.json())
+            .then(data => me.addStoreItems(data))
+            .catch(err => console.log('Can’t access ' + url, err));
+    }
+
+    addStoreItems(data) {
+        this.getStore().data = data;
     }
 
     /**
