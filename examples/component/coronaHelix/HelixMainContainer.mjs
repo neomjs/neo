@@ -62,7 +62,16 @@ class HelixMainContainer extends Viewport {
 
             headers: [{
                 dock: 'top',
-                text: 'Helix Controls'
+                items: [{
+                    ntype: 'button',
+                    text : 'X',
+                    handler: function() {
+                        console.log('hide controls'); // todo
+                    }
+                }, {
+                    ntype: 'label',
+                    text : 'Helix Controls'
+                }]
             }],
 
             items: [{
