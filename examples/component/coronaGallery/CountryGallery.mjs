@@ -147,7 +147,7 @@ class CountryGallery extends Gallery {
                 imageName = 'jersey';
                 break;
             case 'curaçao':
-                imageName = 'curacao;
+                imageName = 'curacao';
                 break;
             case 'czechia':
                 imageName = 'czech-republic';
