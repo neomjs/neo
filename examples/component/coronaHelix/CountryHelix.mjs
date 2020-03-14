@@ -38,7 +38,7 @@ class CountryHelix extends Helix {
                 style: {},
                 cn: [{
                     tag  : 'div',
-                    cls  : ['neo-country-gallery-item'],
+                    cls  : ['neo-country-helix-item'],
                     style: {},
 
                     cn: [{
@@ -84,6 +84,11 @@ class CountryHelix extends Helix {
                 }]
             }]
         },
+        /**
+         * The unique record field containing the id.
+         * @member {String} keyProperty='id'
+         */
+        keyProperty: 'country',
         /**
          * The radius of the Helix in px
          * @member {Number} radius=2500

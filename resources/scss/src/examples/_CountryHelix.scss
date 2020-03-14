@@ -1,0 +1,58 @@
+.neo-country-helix {
+    color     : #000;
+    text-align: left;
+
+    .neo-align-right {
+        text-align: right;
+    }
+
+    .neo-content-critical {
+        color: orange;
+    }
+
+    .neo-content-deaths {
+        color: red;
+    }
+
+    .neo-content-recovered {
+        color: green;
+    }
+
+    .neo-content-table {
+        white-space: nowrap;
+    }
+
+    .neo-flag {
+        height      : 40px;
+        margin-right: 10px;
+        width       : 40px;
+    }
+
+    .neo-item-wrapper {
+        background-color   : rgba(73,160,154,.35);
+        border-radius      : 10px;
+        pointer-events     : none;
+        transition-duration: .55s;
+        transition-property: transform;
+    }
+
+    .neo-country-helix-item {
+        background-color       : #fff;
+        border-top             : 1px solid rgba(0,0,0,.1);
+        border-top-left-radius : 10px;
+        border-top-right-radius: 10px;
+        padding                : 20px;
+
+        .neo-item-header {
+            align-items  : center;
+            display      : flex;
+            font-size    : 40px;
+            margin-bottom: 20px;
+        }
+    }
+
+    .neo-helix-item {
+        height: 280px;
+        width : 340px;
+    }
+}
