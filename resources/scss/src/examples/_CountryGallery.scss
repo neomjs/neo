@@ -1,4 +1,8 @@
 .neo-gallery-maincontainer {
+    .neo-controls-panel {
+        transition: width .5s ease-in-out;
+    }
+
     .neo-link-color {
         a {
             color: #ddd;
