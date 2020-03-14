@@ -1,8 +1,7 @@
-import CountryHelix             from './CountryHelix.mjs';
-import {default as NumberField} from '../../../src/form/field/Number.mjs';
-import {default as Panel}       from '../../../src/container/Panel.mjs';
-import {default as RangeField}  from '../../../src/form/field/Range.mjs';
-import {default as Viewport}    from '../../../src/container/Viewport.mjs';
+import CountryHelix            from './CountryHelix.mjs';
+import {default as Panel}      from '../../../src/container/Panel.mjs';
+import {default as RangeField} from '../../../src/form/field/Range.mjs';
+import {default as Viewport}   from '../../../src/container/Viewport.mjs';
 
 /**
  * @class TestApp.HelixMainContainer
@@ -149,15 +148,6 @@ class HelixMainContainer extends Viewport {
                 minValue : 0,
                 maxValue : 100,
                 value    : 30
-            }, {
-                module   : NumberField,
-                clearable: false,
-                labelText: 'Max Items',
-                maxValue : 600,
-                minValue : 100,
-                name     : 'maxItems',
-                stepSize : 100,
-                value    : 300
             }, {
                 ntype     : 'button',
                 text      : 'Flip Items',
