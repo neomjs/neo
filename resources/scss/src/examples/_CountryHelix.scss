@@ -30,7 +30,6 @@
 
     .neo-item-wrapper {
         background-color   : rgba(73,160,154,.35);
-        border-radius      : 10px;
         pointer-events     : none;
         transition-duration: .55s;
         transition-property: transform;
@@ -38,9 +37,9 @@
 
     .neo-country-helix-item {
         background-color       : #fff;
-        border-top             : 1px solid rgba(0,0,0,.1);
         border-top-left-radius : 10px;
         border-top-right-radius: 10px;
+        height                 : 210px;
         padding                : 20px;
 
         .neo-item-header {
@@ -52,7 +51,8 @@
     }
 
     .neo-helix-item {
-        height: 280px;
-        width : 340px;
+        border-radius: 10px;
+        height       : 280px;
+        width        : 340px;
     }
 }
