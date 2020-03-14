@@ -114,11 +114,6 @@ class CountryHelix extends Helix {
 
         vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
 
-        vdomItem.cn[0].style.height = me.imageHeight + 'px';
-
-        firstChild.style.height = (me.imageHeight - 70) + 'px';
-        firstChild.style.width  = me.imageWidth  + 'px';
-
         firstChild.cn[0].cn[0].src  = me.getCountryFlagUrl(record.country);
         firstChild.cn[0].cn[1].html = record.country;
 
