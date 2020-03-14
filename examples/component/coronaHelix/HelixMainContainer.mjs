@@ -34,6 +34,7 @@ class HelixMainContainer extends Viewport {
             items : []
         }, {
             ntype : 'panel',
+            cls   : ['neo-controls-panel', 'neo-panel', 'neo-container'],
             layout: {ntype: 'vbox',align: 'stretch'},
             style : {backgroundColor: '#2b2b2b'},
             width : 250,
