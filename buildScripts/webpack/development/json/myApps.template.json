@@ -16,6 +16,11 @@
     },
 
     "apps": {
+        "Covid": {
+            "input": "myApps/Covid.mjs",
+            "output": "/apps/covid/",
+            "title": "Covid"
+        },
         "RealWorld": {
             "indexPath": "apps/realworld/index.ejs",
             "input": "myApps/RealWorld.mjs",

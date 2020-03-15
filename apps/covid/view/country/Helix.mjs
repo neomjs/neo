@@ -1,27 +1,17 @@
-import CountryStore from './CountryStore.mjs';
-import Helix        from '../../../src/component/Helix.mjs';
+import CountryStore from '../../store/Countries.mjs';
+import Helix        from '../../../../src/component/Helix.mjs';
 
 /**
- * @class Neo.examples.component.coronaHelix.CountryHelix
+ * @class Covid.view.country.Helix
  * @extends Neo.component.Helix
  */
 class CountryHelix extends Helix {
-    static getStaticConfig() {return {
-        /**
-         * A regex to replace blank chars
-         * @member {RegExp} flagRegEx=/ /gi
-         * @private
-         * @static
-         */
-        flagRegEx: / /gi
-    }}
-
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.examples.component.coronaHelix.CountryHelix'
+         * @member {String} className='Covid.view.country.Helix'
          * @private
          */
-        className: 'Neo.examples.component.coronaHelix.CountryHelix',
+        className: 'Covid.view.country.Helix',
         /**
          * @member {String[]} cls=['neo-country-helix', 'neo-helix']
          */
@@ -107,6 +97,18 @@ class CountryHelix extends Helix {
 
     /**
      *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        const me = this;
+
+        me.getCountryFlagUrl = me.getController().getCountryFlagUrl.bind(me);
+    }
+
+    /**
+     *
      * @param {Object} vdomItem
      * @param {Object} record
      * @param {Number} index
@@ -131,97 +133,6 @@ class CountryHelix extends Helix {
         table.cn[2].cn[4].html = record.critical;
 
         return vdomItem;
-    }
-
-    /**
-     *
-     * @param {String} name
-     * @return {String} url
-     */
-    getCountryFlagUrl(name) {
-        let imageName = name.toLowerCase();
-
-        imageName = imageName.replace(CountryHelix.flagRegEx, '-');
-
-        switch(imageName) {
-            case 'car':
-                imageName = 'central-african-republic';
-                break;
-            case 'channel-islands':
-                imageName = 'jersey';
-                break;
-            case 'congo':
-                imageName = 'democratic-republic-of-congo';
-                break;
-            case 'curaçao':
-                imageName = 'curacao';
-                break;
-            case 'czechia':
-                imageName = 'czech-republic';
-                break;
-            case 'diamond-princess':
-                imageName = 'japan'; // cruise ship?
-                break;
-            case 'drc':
-                imageName = 'democratic-republic-of-congo';
-                break;
-            case 'eswatini':
-                imageName = 'swaziland';
-                break;
-            case 'faeroe-islands':
-                imageName = 'faroe-islands';
-                break;
-            case 'french-guiana':
-                imageName = 'france'; // ?
-                break;
-            case 'guadeloupe':
-                imageName = 'france'; // ?
-                break;
-            case 'mayotte':
-                imageName = 'france'; // ?
-                break;
-            case 'north-macedonia':
-                imageName = 'republic-of-macedonia';
-                break;
-            case 'poland':
-                imageName = 'republic-of-poland';
-                break;
-            case 'réunion':
-                imageName = 'france';
-                break;
-            case 'saint-lucia':
-                imageName = 'st-lucia';
-                break;
-            case 's.-korea':
-                imageName = 'south-korea';
-                break;
-            case 'st.-barth':
-                imageName = 'st-barts';
-                break;
-            case 'saint-martin':
-                imageName = 'sint-maarten';
-                break;
-            case 'st.-vincent-grenadines':
-                imageName = 'st-vincent-and-the-grenadines';
-                break;
-            case 'u.s.-virgin-islands':
-                imageName = 'virgin-islands';
-                break;
-            case 'uae':
-                imageName = 'united-arab-emirates';
-                break;
-            case 'uk':
-                imageName = 'united-kingdom';
-                break;
-            case 'usa':
-                imageName = 'united-states-of-america';
-                break;
-            case 'uzbekistan':
-                imageName = 'uzbekistn';
-                break;
-        }
-
-        return 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/flaticon/country_flags/png/' + imageName + '.png'
     }
 
     /**

@@ -51,7 +51,7 @@ class View extends Component {
             data       = [],
             i          = 0,
             vdom       = me.vdom,
-            cellId, config, column, dockLeftMargin, dockRightMargin, id, index, j, rendererOutput;
+            cellCls, cellId, config, column, dockLeftMargin, dockRightMargin, id, index, j, rendererOutput;
 
         me.recordVnodeMap = {}; // remove old data
 
@@ -76,14 +76,18 @@ class View extends Component {
 
             for (; j < colCount; j++) {
                 column         = columns[j];
-                rendererOutput = column.renderer(inputData[i][column.dataField], inputData[i], column.dataField);
+                rendererOutput = column.renderer.call(column.rendererScope || container, inputData[i][column.dataField], inputData[i], column.dataField);
 
-                if (Neo.isString(rendererOutput)) {
-                    rendererOutput = {
-                        cls : ['neo-table-cell'],
-                        html: rendererOutput
-                    };
+                cellCls = ['neo-table-cell'];
+
+                if (column.align !== 'left') {
+                    cellCls.push('neo-' + column.align);
                 }
+
+                rendererOutput = {
+                    cls : cellCls,
+                    html: rendererOutput.toString()
+                };
 
                 // todo: remove the if part as soon as all tables use stores (examples table)
                 if (hasStore) {
