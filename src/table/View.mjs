@@ -76,7 +76,7 @@ class View extends Component {
 
             for (; j < colCount; j++) {
                 column         = columns[j];
-                rendererOutput = column.renderer.call(container, inputData[i][column.dataField], inputData[i], column.dataField);
+                rendererOutput = column.renderer.call(column.rendererScope || container, inputData[i][column.dataField], inputData[i], column.dataField);
 
                 cellCls = ['neo-table-cell'];
 

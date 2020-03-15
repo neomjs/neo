@@ -55,6 +55,12 @@ class Button extends BaseButton {
          */
         isSorted: null,
         /**
+         * Scope to execute the column renderer.
+         * Defaults to the matching table.Container
+         * @member {Neo.core.Base|null} rendererScope=null
+         */
+        rendererScope: null,
+        /**
          * @member {String} _vdom
          */
         _vdom: {
