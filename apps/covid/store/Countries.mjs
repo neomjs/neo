@@ -10,7 +10,12 @@ class Countries extends Store {
         className: 'Covid.store.Countries',
 
         keyProperty: 'country',
-        model      : Country
+        model      : Country,
+
+        sorters: [{
+            property : 'cases',
+            direction: 'DESC'
+        }]
     }}
 }
 
