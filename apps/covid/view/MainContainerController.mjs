@@ -9,10 +9,35 @@ class MainContainerController extends ComponentController {
         className: 'Covid.view.MainContainerController'
     }}
 
+    /**
+     *
+     */
     onConstructed() {
         super.onConstructed();
 
-        console.log('MainContainerController onConstructed');
+        this.loadData();
+    }
+
+    /**
+     *
+     * @param {Array} data
+     */
+    addStoreItems(data) {
+        console.log('addStoreItems', data);
+    }
+
+    /**
+     *
+     */
+    loadData() {
+        const me       = this,
+              proxyUrl = "https://cors-anywhere.herokuapp.com/",
+              url      = 'https://corona.lmao.ninja/countries';
+
+        fetch(proxyUrl + url)
+            .then(response => response.json())
+            .then(data => me.addStoreItems(data))
+            .catch(err => console.log('Can’t access ' + url, err));
     }
 }
 
