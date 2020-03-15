@@ -1,4 +1,5 @@
 import {default as Component}    from '../../../src/component/Base.mjs';
+import MainContainerController   from './MainContainerController.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
 import Viewport                  from '../../../src/container/Viewport.mjs';
 
@@ -11,8 +12,9 @@ class MainContainer extends Viewport {
         className: 'Covid.view.MainContainer',
         ntype    : 'main-container',
 
-        autoMount: true,
-        layout   : {ntype: 'vbox', align: 'stretch'},
+        autoMount : true,
+        controller: MainContainerController,
+        layout    : {ntype: 'vbox', align: 'stretch'},
 
         items: [{
             ntype : 'component', // todo: HeaderComponent,
