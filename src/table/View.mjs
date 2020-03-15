@@ -78,12 +78,10 @@ class View extends Component {
                 column         = columns[j];
                 rendererOutput = column.renderer(inputData[i][column.dataField], inputData[i], column.dataField);
 
-                if (Neo.isString(rendererOutput)) {
-                    rendererOutput = {
-                        cls : ['neo-table-cell'],
-                        html: rendererOutput
-                    };
-                }
+                rendererOutput = {
+                    cls : ['neo-table-cell'],
+                    html: rendererOutput.toString()
+                };
 
                 // todo: remove the if part as soon as all tables use stores (examples table)
                 if (hasStore) {
