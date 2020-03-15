@@ -1,4 +1,6 @@
 import {default as Component}    from '../../../src/component/Base.mjs';
+import CountryGallery            from './CountryGallery.mjs';
+import CountryHelix              from './CountryHelix.mjs';
 import MainContainerController   from './MainContainerController.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
 import Viewport                  from '../../../src/container/Viewport.mjs';
@@ -26,24 +28,20 @@ class MainContainer extends Viewport {
             flex  : 1,
             style : {margin: '20px'},
 
-            itemDefaults: {
-                module: Component,
-                cls   : ['neo-examples-tab-component'],
-                style : {padding: '20px'},
-            },
-
             items: [{
+                module: CountryGallery,
+
                 tabButtonConfig: {
-                    iconCls: 'fa fa-home',
-                    text   : 'Tab 1'
-                },
-                vdom: {innerHTML: 'Welcome to your new Neo App.'}
+                    iconCls: 'fa fa-images',
+                    text   : 'Gallery'
+                }
             }, {
+                module: CountryHelix,
+
                 tabButtonConfig: {
-                    iconCls: 'fa fa-play-circle',
-                    text   : 'Tab 2'
-                },
-                vdom: {innerHTML: 'Have fun creating something awesome!'}
+                    iconCls: 'fa fa-dna',
+                    text   : 'Helix'
+                }
             }]
         }]
     }}
