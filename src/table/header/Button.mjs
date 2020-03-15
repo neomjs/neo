@@ -30,7 +30,6 @@ class Button extends BaseButton {
         /**
          * Alignment of the matching table cells. Valid values are left, center, right
          * @member {String} align_='left'
-         * @private
          */
         align_: 'left',
         /**
@@ -144,7 +143,7 @@ class Button extends BaseButton {
      * @private
      */
     beforeSetAlign(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'alignValues');
+        return this.beforeSetEnumValue(value, oldValue, 'align', 'alignValues');
     }
 
     /**

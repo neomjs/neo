@@ -27,8 +27,9 @@ class TableContainer extends Container {
             text     : 'Cases',
             dataField: 'cases'
         }, {
-            text     : 'Deaths',
+            align    : 'right',
             dataField: 'deaths',
+            text     : 'Deaths',
             renderer : function(value) {
                 return `<span style="color:red;">${value}</span>`;
             }

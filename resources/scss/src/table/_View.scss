@@ -1,4 +1,12 @@
 .neo-table-view {
+    .neo-center {
+        text-align: center;
+    }
+
+    .neo-right {
+        text-align: right;
+    }
+
     .neo-table-row {
         &:hover {
             .neo-table-cell {
