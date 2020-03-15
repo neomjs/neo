@@ -12,6 +12,9 @@ class TableContainer extends Container {
          * @private
          */
         className: 'Covid.view.country.TableContainer',
+
+
+        createRandomData: false, // testing config
         /**
          * The unique record field containing the id.
          * @member {String} keyProperty='id'
@@ -20,7 +23,18 @@ class TableContainer extends Container {
         /**
          * @member {Neo.data.Store} store=CountryStore
          */
-        store: CountryStore
+        store: CountryStore,
+
+        columns: [{
+            text     : 'Country',
+            dataField: 'country'
+        }, {
+            text     : 'Cases',
+            dataField: 'cases'
+        }, {
+            text     : 'Deaths',
+            dataField: 'deaths'
+        }]
     }}
 }
 
