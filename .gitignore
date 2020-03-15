@@ -2,6 +2,8 @@
 
 /apps/**/*.html
 /apps/**/*.mjs
+!/apps/covid/index.html
+!/apps/covid/**/*.mjs
 !/apps/realworld/index.html
 !/apps/realworld/**/*.mjs
 !/apps/realworld2/index.html
