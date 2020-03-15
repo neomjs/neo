@@ -1,6 +1,5 @@
-import {default as Component}    from '../../../src/component/Base.mjs';
-import CountryGallery            from './CountryGallery.mjs';
-import CountryHelix              from './CountryHelix.mjs';
+import CountryGallery            from './country/Gallery.mjs';
+import CountryHelix              from './country/Helix.mjs';
 import MainContainerController   from './MainContainerController.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
 import Viewport                  from '../../../src/container/Viewport.mjs';
