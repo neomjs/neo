@@ -6,7 +6,17 @@ import {default as ComponentController} from '../../../src/controller/Component.
  */
 class MainContainerController extends ComponentController {
     static getConfig() {return {
-        className: 'Covid.view.MainContainerController'
+        /**
+         * @member {String} className='Covid.view.MainContainerController'
+         * @private
+         */
+        className: 'Covid.view.MainContainerController',
+        /**
+         * The Covid API does not support CORS, so we do need to use a proxy
+         * @member {String} proxyUrl='https://cors-anywhere.herokuapp.com/'
+         * @private
+         */
+        proxyUrl: 'https://cors-anywhere.herokuapp.com/'
     }}
 
     /**
@@ -20,7 +30,7 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @param {Array} data
+     * @param {Object[]} data
      */
     addStoreItems(data) {
         console.log('addStoreItems', data);
@@ -31,10 +41,9 @@ class MainContainerController extends ComponentController {
      */
     loadData() {
         const me       = this,
-              proxyUrl = "https://cors-anywhere.herokuapp.com/",
               url      = 'https://corona.lmao.ninja/countries';
 
-        fetch(proxyUrl + url)
+        fetch(me.proxyUrl + url)
             .then(response => response.json())
             .then(data => me.addStoreItems(data))
             .catch(err => console.log('Can’t access ' + url, err));
