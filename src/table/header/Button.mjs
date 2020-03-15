@@ -6,6 +6,16 @@ import NeoArray                from '../../util/Array.mjs';
  * @extends Neo.component.Button
  */
 class Button extends BaseButton {
+    static getStaticConfig() {return {
+        /**
+         * Valid values for align
+         * @member {String[]} alignValues: ['left', 'center', 'right']
+         * @private
+         * @static
+         */
+        alignValues: ['left', 'center', 'right']
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.table.header.Button'
@@ -17,6 +27,12 @@ class Button extends BaseButton {
          * @private
          */
         ntype: 'table-header-button',
+        /**
+         * Alignment of the matching table cells. Valid values are left, center, right
+         * @member {String} align_='left'
+         * @private
+         */
+        align_: 'left',
         /**
          * @member {Array} cls=['neo-table-header-button']
          */
@@ -108,7 +124,7 @@ class Button extends BaseButton {
      * @param {Boolean} oldValue
      * @private
      */
-    afterSetDraggable(value) {
+    afterSetDraggable(value, oldValue) {
         let me   = this,
             vdom = me.vdom;
 
@@ -119,6 +135,16 @@ class Button extends BaseButton {
         }
 
         me.vdom = vdom;
+    }
+
+    /**
+     * Triggered before the align config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    beforeSetAlign(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'alignValues');
     }
 
     /**
