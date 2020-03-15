@@ -108,7 +108,9 @@ class CountryGallery extends Gallery {
 
         const me = this;
 
-        me.getCountryFlagUrl = me.getController().getCountryFlagUrl.bind(me);
+        setTimeout(() => {
+            me.getCountryFlagUrl = me.getController().getCountryFlagUrl.bind(me);
+        }, 20);
     }
 
     /**

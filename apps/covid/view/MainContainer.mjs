@@ -1,5 +1,5 @@
-import CountryGallery            from './country/Gallery.mjs';
 import CountryHelix              from './country/Helix.mjs';
+import GalleryContainer          from './GalleryContainer.mjs';
 import MainContainerController   from './MainContainerController.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
 import TableContainer            from './country/TableContainer.mjs';
@@ -11,8 +11,11 @@ import Viewport                  from '../../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
+        /**
+         * @member {String} className='Covid.view.MainContainer'
+         * @private
+         */
         className: 'Covid.view.MainContainer',
-        ntype    : 'main-container',
 
         autoMount : true,
         controller: MainContainerController,
@@ -37,8 +40,7 @@ class MainContainer extends Viewport {
                     text   : 'Table'
                 }
             }, {
-                module   : CountryGallery,
-                reference: 'gallery',
+                module: GalleryContainer,
 
                 tabButtonConfig: {
                     iconCls: 'fa fa-images',
