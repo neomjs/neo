@@ -134,7 +134,7 @@ class Component extends Base {
                 Object.entries(domListener).forEach(([key, value]) => {
                     eventHandler = null;
 
-                    if (key !== 'scope') {
+                    if (key !== 'scope' && key !== 'delegate') {
                         if (Neo.isString(value)) {
                             eventHandler = value;
                         } else if (Neo.isObject(value) && value.hasOwnProperty('fn') && Neo.isString(value.fn)) {
@@ -225,7 +225,7 @@ class Component extends Base {
                 Object.entries(domListener).forEach(([key, value]) => {
                     eventHandler = null;
 
-                    if (key !== 'scope') {
+                    if (key !== 'scope' && key !== 'delegate') {
                         if (Neo.isString(value)) {
                             eventHandler = value;
                         } else if (Neo.isObject(value) && value.hasOwnProperty('fn') && Neo.isString(value.fn)) {
@@ -249,7 +249,7 @@ class Component extends Base {
             Object.entries(view.listeners).forEach(([key, value]) => {
                 eventHandler = null;
 
-                if (key !== 'scope') {
+                if (key !== 'scope' && key !== 'delegate') {
                     if (Neo.isString(value)) {
                         eventHandler = value;
                     } else if (Neo.isObject(value) && value.hasOwnProperty('fn') && Neo.isString(value.fn)) {

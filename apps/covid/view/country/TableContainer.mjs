@@ -16,11 +16,6 @@ class TableContainer extends Container {
 
         createRandomData: false, // testing config
         /**
-         * The unique record field containing the id.
-         * @member {String} keyProperty='id'
-         */
-        keyProperty: 'country',
-        /**
          * @member {Neo.data.Store} store=CountryStore
          */
         store: CountryStore,
@@ -34,6 +29,9 @@ class TableContainer extends Container {
         }, {
             text     : 'Deaths',
             dataField: 'deaths'
+        }, {
+            text     : 'Recovered',
+            dataField: 'recovered'
         }]
     }}
 }

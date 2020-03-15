@@ -44,6 +44,8 @@ class MainContainerController extends ComponentController {
         // me.getReference('gallery').store.data = data;
         // me.getReference('helix')  .store.data = data;
         me.getReference('table').store.data = data;
+
+        console.log(me.getReference('table'));
     }
 
     /**
