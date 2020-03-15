@@ -24,7 +24,11 @@ class TableContainer extends Container {
             dataField: 'country',
             text     : 'Country',
             renderer : function(value) {
-                return '<img style="heigth:20px; margin-right:10px; width:20px;" src="' + this.getCountryFlagUrl(value) + '">' + value;
+                return [
+                    '<div style="display: flex; align-items: center">',
+                        '<img style="height:20px; margin-right:10px; width:20px;" src="' + this.getCountryFlagUrl(value) + '">' + value,
+                    '</div>'
+                ].join('');
             }
         }, {
             align    : 'right',
