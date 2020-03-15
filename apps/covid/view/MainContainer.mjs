@@ -1,14 +1,14 @@
-import {default as Component}    from '../../src/component/Base.mjs';
-import {default as TabContainer} from '../../src/tab/Container.mjs';
-import Viewport                  from '../../src/container/Viewport.mjs';
+import {default as Component}    from '../../../src/component/Base.mjs';
+import {default as TabContainer} from '../../../src/tab/Container.mjs';
+import Viewport                  from '../../../src/container/Viewport.mjs';
 
 /**
- * @class Covid.MainContainer
+ * @class Covid.view.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className: 'Covid.MainContainer',
+        className: 'Covid.view.MainContainer',
         ntype    : 'main-container',
 
         autoMount: true,
