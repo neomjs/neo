@@ -28,19 +28,31 @@ class TableContainer extends Container {
             dataField: 'cases'
         }, {
             text     : 'Deaths',
-            dataField: 'deaths'
+            dataField: 'deaths',
+            renderer : function(value) {
+                return `<span style="color:red;">${value}</span>`;
+            }
         }, {
             text     : 'Critical',
-            dataField: 'critical'
+            dataField: 'critical',
+            renderer : function(value) {
+                return `<span style="color:orange;">${value}</span>`;
+            }
         }, {
             text     : 'Recovered',
-            dataField: 'recovered'
+            dataField: 'recovered',
+            renderer : function(value) {
+                return `<span style="color:green;">${value}</span>`;
+            }
         }, {
             text     : 'Cases today',
             dataField: 'todayCases'
         }, {
             text     : 'Deaths today',
-            dataField: 'todayDeaths'
+            dataField: 'todayDeaths',
+            renderer : function(value) {
+                return `<span style="color:red;">${value}</span>`;
+            }
         }]
     }}
 }
