@@ -153,8 +153,14 @@ class CountryGallery extends Gallery {
         imageName = imageName.replace(CountryGallery.flagRegEx, '-');
 
         switch(imageName) {
+            case 'car':
+                imageName = 'central-african-republic';
+                break;
             case 'channel-islands':
                 imageName = 'jersey';
+                break;
+            case 'congo':
+                imageName = 'democratic-republic-of-congo';
                 break;
             case 'curaçao':
                 imageName = 'curacao';
@@ -218,6 +224,9 @@ class CountryGallery extends Gallery {
                 break;
             case 'usa':
                 imageName = 'united-states-of-america';
+                break;
+            case 'uzbekistan':
+                imageName = 'uzbekistn';
                 break;
         }
 

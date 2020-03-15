@@ -144,8 +144,14 @@ class CountryHelix extends Helix {
         imageName = imageName.replace(CountryHelix.flagRegEx, '-');
 
         switch(imageName) {
+            case 'car':
+                imageName = 'central-african-republic';
+                break;
             case 'channel-islands':
                 imageName = 'jersey';
+                break;
+            case 'congo':
+                imageName = 'democratic-republic-of-congo';
                 break;
             case 'curaçao':
                 imageName = 'curacao';
@@ -209,6 +215,9 @@ class CountryHelix extends Helix {
                 break;
             case 'usa':
                 imageName = 'united-states-of-america';
+                break;
+            case 'uzbekistan':
+                imageName = 'uzbekistn';
                 break;
         }
 
