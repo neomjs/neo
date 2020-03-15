@@ -30,8 +30,17 @@ class TableContainer extends Container {
             text     : 'Deaths',
             dataField: 'deaths'
         }, {
+            text     : 'Critical',
+            dataField: 'critical'
+        }, {
             text     : 'Recovered',
             dataField: 'recovered'
+        }, {
+            text     : 'Cases today',
+            dataField: 'todayCases'
+        }, {
+            text     : 'Deaths today',
+            dataField: 'todayDeaths'
         }]
     }}
 }
