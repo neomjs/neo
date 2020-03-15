@@ -69,8 +69,14 @@ class MainContainerController extends ComponentController {
         imageName = imageName.replace(MainContainerController.flagRegEx, '-');
 
         switch(imageName) {
+            case 'car':
+                imageName = 'central-african-republic';
+                break;
             case 'channel-islands':
                 imageName = 'jersey';
+                break;
+            case 'congo':
+                imageName = 'democratic-republic-of-congo';
                 break;
             case 'curaçao':
                 imageName = 'curacao';
@@ -134,6 +140,9 @@ class MainContainerController extends ComponentController {
                 break;
             case 'usa':
                 imageName = 'united-states-of-america';
+                break;
+            case 'uzbekistan':
+                imageName = 'uzbekistn';
                 break;
         }
 
