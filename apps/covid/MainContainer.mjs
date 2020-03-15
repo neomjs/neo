@@ -12,13 +12,17 @@ class MainContainer extends Viewport {
         ntype    : 'main-container',
 
         autoMount: true,
-        layout   : {ntype: 'fit'},
+        layout   : {ntype: 'vbox', align: 'stretch'},
 
         items: [{
+            ntype : 'component', // todo: HeaderComponent,
+            height: 70,
+            html  : 'COVID-19 neo.mjs App',
+            style : {padding: '20px'}
+        }, {
             module: TabContainer,
-            height: 300,
-            width : 500,
-            style : {flex: 'none', margin: '20px'},
+            flex  : 1,
+            style : {margin: '20px'},
 
             itemDefaults: {
                 module: Component,
