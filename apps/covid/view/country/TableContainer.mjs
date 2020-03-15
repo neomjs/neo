@@ -22,7 +22,10 @@ class TableContainer extends Container {
 
         columns: [{
             dataField: 'country',
-            text     : 'Country'
+            text     : 'Country',
+            renderer : function(value) {
+                return '<img style="heigth:20px; margin-right:10px; width:20px;" src="' + this.getCountryFlagUrl(value) + '">' + value;
+            }
         }, {
             align    : 'right',
             dataField: 'cases',
@@ -61,6 +64,14 @@ class TableContainer extends Container {
             }
         }]
     }}
+
+    constructor(config) {
+        super(config);
+
+        const me = this;
+
+        me.getCountryFlagUrl = me.getController().getCountryFlagUrl.bind(me);
+    }
 }
 
 Neo.applyClassConfig(TableContainer);

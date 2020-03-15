@@ -1,5 +1,4 @@
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
-import Gallery from "src/component/Gallery";
 
 /**
  * @class Covid.view.MainContainerController
