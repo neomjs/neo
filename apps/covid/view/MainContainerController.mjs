@@ -38,7 +38,11 @@ class MainContainerController extends ComponentController {
      * @param {Object[]} data
      */
     addStoreItems(data) {
-        console.log('addStoreItems', data);
+        const me = this;
+
+        // todo: only render the active view & feed the matching store
+        me.getReference('gallery').store.data = data;
+        me.getReference('helix')  .store.data = data;
     }
 
     /**
@@ -50,7 +54,7 @@ class MainContainerController extends ComponentController {
         fetch(me.proxyUrl + me.apiUrl)
             .then(response => response.json())
             .then(data => me.addStoreItems(data))
-            .catch(err => console.log('Can’t access ' + url, err));
+            .catch(err => console.log('Can’t access ' + me.apiUrl, err));
     }
 }
 

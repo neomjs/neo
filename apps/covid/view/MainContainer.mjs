@@ -29,14 +29,16 @@ class MainContainer extends Viewport {
             style : {margin: '20px'},
 
             items: [{
-                module: CountryGallery,
+                module   : CountryGallery,
+                reference: 'gallery',
 
                 tabButtonConfig: {
                     iconCls: 'fa fa-images',
                     text   : 'Gallery'
                 }
             }, {
-                module: CountryHelix,
+                module   : CountryHelix,
+                reference: 'helix',
 
                 tabButtonConfig: {
                     iconCls: 'fa fa-dna',
