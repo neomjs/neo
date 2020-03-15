@@ -21,11 +21,12 @@ class TableContainer extends Container {
         store: CountryStore,
 
         columns: [{
-            text     : 'Country',
-            dataField: 'country'
+            dataField: 'country',
+            text     : 'Country'
         }, {
-            text     : 'Cases',
-            dataField: 'cases'
+            align    : 'right',
+            dataField: 'cases',
+            text     : 'Cases'
         }, {
             align    : 'right',
             dataField: 'deaths',
@@ -34,23 +35,27 @@ class TableContainer extends Container {
                 return `<span style="color:red;">${value}</span>`;
             }
         }, {
-            text     : 'Critical',
+            align    : 'right',
             dataField: 'critical',
+            text     : 'Critical',
             renderer : function(value) {
                 return `<span style="color:orange;">${value}</span>`;
             }
         }, {
-            text     : 'Recovered',
+            align    : 'right',
             dataField: 'recovered',
+            text     : 'Recovered',
             renderer : function(value) {
                 return `<span style="color:green;">${value}</span>`;
             }
         }, {
-            text     : 'Cases today',
-            dataField: 'todayCases'
+            align    : 'right',
+            dataField: 'todayCases',
+            text     : 'Cases today'
         }, {
-            text     : 'Deaths today',
+            align    : 'right',
             dataField: 'todayDeaths',
+            text     : 'Deaths today',
             renderer : function(value) {
                 return `<span style="color:red;">${value}</span>`;
             }
