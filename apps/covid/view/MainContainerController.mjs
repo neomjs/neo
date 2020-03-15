@@ -1,10 +1,21 @@
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
+import Gallery from "src/component/Gallery";
 
 /**
  * @class Covid.view.MainContainerController
  * @extends Neo.controller.Component
  */
 class MainContainerController extends ComponentController {
+    static getStaticConfig() {return {
+        /**
+         * A regex to replace blank chars
+         * @member {RegExp} flagRegEx=/ /gi
+         * @private
+         * @static
+         */
+        flagRegEx: / /gi
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.MainContainerController'
@@ -46,6 +57,88 @@ class MainContainerController extends ComponentController {
         me.getReference('table').store.data = data;
 
         console.log(me.getReference('table'));
+    }
+
+    /**
+     *
+     * @param {String} name
+     * @return {String} url
+     */
+    getCountryFlagUrl(name) {
+        let imageName = name.toLowerCase();
+
+        imageName = imageName.replace(MainContainerController.flagRegEx, '-');
+
+        switch(imageName) {
+            case 'channel-islands':
+                imageName = 'jersey';
+                break;
+            case 'curaçao':
+                imageName = 'curacao';
+                break;
+            case 'czechia':
+                imageName = 'czech-republic';
+                break;
+            case 'diamond-princess':
+                imageName = 'japan'; // cruise ship?
+                break;
+            case 'drc':
+                imageName = 'democratic-republic-of-congo';
+                break;
+            case 'eswatini':
+                imageName = 'swaziland';
+                break;
+            case 'faeroe-islands':
+                imageName = 'faroe-islands';
+                break;
+            case 'french-guiana':
+                imageName = 'france'; // ?
+                break;
+            case 'guadeloupe':
+                imageName = 'france'; // ?
+                break;
+            case 'mayotte':
+                imageName = 'france'; // ?
+                break;
+            case 'north-macedonia':
+                imageName = 'republic-of-macedonia';
+                break;
+            case 'poland':
+                imageName = 'republic-of-poland';
+                break;
+            case 'réunion':
+                imageName = 'france';
+                break;
+            case 'saint-lucia':
+                imageName = 'st-lucia';
+                break;
+            case 's.-korea':
+                imageName = 'south-korea';
+                break;
+            case 'st.-barth':
+                imageName = 'st-barts';
+                break;
+            case 'saint-martin':
+                imageName = 'sint-maarten';
+                break;
+            case 'st.-vincent-grenadines':
+                imageName = 'st-vincent-and-the-grenadines';
+                break;
+            case 'u.s.-virgin-islands':
+                imageName = 'virgin-islands';
+                break;
+            case 'uae':
+                imageName = 'united-arab-emirates';
+                break;
+            case 'uk':
+                imageName = 'united-kingdom';
+                break;
+            case 'usa':
+                imageName = 'united-states-of-america';
+                break;
+        }
+
+        return 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/flaticon/country_flags/png/' + imageName + '.png'
     }
 
     /**
