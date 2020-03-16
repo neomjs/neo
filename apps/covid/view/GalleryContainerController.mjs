@@ -41,6 +41,19 @@ class GalleryContainerController extends ComponentController {
 
     /**
      *
+     * @param {String} id
+     */
+    onRangefieldMounted(id) {
+        const field = Neo.getComponent(id);
+
+        this.gallery.on('changeTranslateZ', function(value) {
+            value = Math.min(Math.max(value, field.minValue), field.maxValue);
+            field.value = value;
+        });
+    }
+
+    /**
+     *
      */
     onCollapseButtonClick() {
         const panel  = this.getReference('controls-panel'),

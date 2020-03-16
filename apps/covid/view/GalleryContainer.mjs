@@ -104,14 +104,7 @@ class GalleryContainer extends Container {
                 value    : 0,
                 listeners: {
                     change : 'onRangefieldChange',
-                    mounted: function(fieldId) {
-                        let field = Neo.get(fieldId);
-
-                        Neo.get('neo-gallery-1').on('changeTranslateZ', function(value) {
-                            value = Math.min(Math.max(value, this.minValue), this.maxValue);
-                            this.value = value;
-                        }, field);
-                    }
+                    mounted: 'onRangefieldMounted'
                 }
             }, {
                 labelText: 'Amount Rows',
