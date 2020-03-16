@@ -135,65 +135,33 @@ class GalleryContainer extends Container {
                         text   : 'Deaths',
                         style  : {margin: '10px', marginBottom: '10px', marginTop: 0}
                     }, {
-                        ntype    : 'button',
-                        text     : 'Country',
-                        listeners: {},
-                        style    : {margin: '10px', marginTop: 0},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
-                                    property : 'country',
-                                    direction: 'ASC'
-                                }];
-                            }
-                        }
+                        ntype  : 'button',
+                        field  : 'country',
+                        handler: 'onSortButtonClick',
+                        text   : 'Country',
+                        style  : {margin: '10px', marginTop: 0}
                     }]
                 }, {
                     ntype : 'container',
                     layout: {ntype: 'vbox', align: 'stretch'},
                     items : [{
-                        ntype    : 'button',
-                        text     : 'Cases today',
-                        listeners: {},
-                        style    : {margin: '10px', marginTop: '0'},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
-                                    property : 'todayCases',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                        ntype  : 'button',
+                        field  : 'todayCases',
+                        handler: 'onSortButtonClick',
+                        text   : 'Cases today',
+                        style  : {margin: '10px', marginTop: '0'}
                     }, {
-                        ntype    : 'button',
-                        text     : 'Deaths today',
-                        listeners: {},
-                        style    : {margin: '10px', marginBottom: '10px', marginTop: 0},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
-                                    property : 'todayDeaths',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                        ntype  : 'button',
+                        field  : 'todayDeaths',
+                        handler: 'onSortButtonClick',
+                        text   : 'Deaths today',
+                        style  : {margin: '10px', marginBottom: '10px', marginTop: 0}
                     }, {
-                        ntype    : 'button',
-                        text     : 'Critical',
-                        listeners: {},
-                        style    : {margin: '10px', marginTop: 0},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
-                                    property : 'critical',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                        ntype  : 'button',
+                        field  : 'critical',
+                        handler: 'onSortButtonClick',
+                        text   : 'Critical',
+                        style  : {margin: '10px', marginTop: 0}
                     }]
                 }]
             }, {
