@@ -1,5 +1,5 @@
-import CountryHelix              from './country/Helix.mjs';
 import GalleryContainer          from './GalleryContainer.mjs';
+import HelixContainer            from './HelixContainer.mjs';
 import MainContainerController   from './MainContainerController.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
 import TableContainer            from './country/TableContainer.mjs';
@@ -47,8 +47,7 @@ class MainContainer extends Viewport {
                     text   : 'Gallery'
                 }
             }, {
-                module   : CountryHelix,
-                reference: 'helix',
+                module: HelixContainer,
 
                 tabButtonConfig: {
                     iconCls: 'fa fa-dna',

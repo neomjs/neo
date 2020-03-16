@@ -1,33 +1,33 @@
-import Gallery                 from './country/Gallery.mjs';
+import Helix                   from './country/Helix.mjs';
 import {default as Panel}      from '../../../src/container/Panel.mjs';
 import {default as RangeField} from '../../../src/form/field/Range.mjs';
 import {default as Container}  from '../../../src/container/Viewport.mjs';
 
 /**
- * @class Covid.view.GalleryContainer
+ * @class Covid.view.HelixContainer
  * @extends Neo.container.Base
  */
-class GalleryContainer extends Container {
+class HelixContainer extends Container {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.GalleryContainer'
+         * @member {String} className='Covid.view.HelixContainer'
          * @private
          */
-        className: 'Covid.view.GalleryContainer',
+        className: 'Covid.view.HelixContainer',
 
         autoMount: true,
         /**
-         * @member {String[]} cls=['neo-gallery-maincontainer', 'neo-viewport']
+         * @member {String[]} cls=['neo-helix-maincontainer', 'neo-viewport']
          */
-        cls: ['neo-gallery-maincontainer', 'neo-viewport'],
+        cls: ['neo-helix-maincontainer', 'neo-viewport'],
         /**
-         * @member {Neo.component.Gallery|null} gallery=null
+         * @member {Neo.component.Helix|null} helix=null
          */
-        gallery: null,
+        helix: null,
         /**
-         * @member {Object|null} galleryConfig=null
+         * @member {Object|null} helixConfig=null
          */
-        galleryConfig: null,
+        helixConfig: null,
         layout: {ntype: 'hbox', align: 'stretch'},
 
         items: [{
@@ -38,23 +38,28 @@ class GalleryContainer extends Container {
         }, {
             module: Panel,
             cls   : ['neo-controls-panel', 'neo-panel', 'neo-container'],
-            layout: {ntype: 'vbox', align: 'stretch'},
+            layout: {ntype: 'vbox',align: 'stretch'},
             style : {backgroundColor: '#2b2b2b'},
-            width : 260,
+            width : 250,
+
+            containerConfig: {
+                flex : null,
+                style: {overflowY: 'scroll'}
+            },
 
             itemDefaults: {
                 ntype        : 'rangefield',
                 flex         : '0 1 auto',
-                labelWidth   : '110px',
+                labelWidth   : '100px',
                 style        : {padding: '10px'},
                 useInputEvent: true,
 
                 listeners: {
                     change: function(data) {
-                        if (this.name === 'opacity') {
+                        if (['deltaY', 'maxOpacity', 'minOpacity'].includes(this.name)) {
                             data.value /= 100;
                         }
-                        Neo.get('neo-gallery-1')[this.name] = data.value;
+                        Neo.get('neo-helix-1')[this.name] = data.value;
                     }
                 }
             },
@@ -73,73 +78,106 @@ class GalleryContainer extends Container {
                     }
                 }, {
                     ntype: 'label',
-                    text : 'Gallery Controls'
+                    text : 'Helix Controls'
                 }]
             }],
 
             items: [{
                 labelText: 'Translate X',
-                maxValue : 5000,
-                minValue : 0,
+                maxValue : 2000,
+                minValue : -2000,
                 name     : 'translateX',
-                value    : 0,
-                listeners: {
-                    change: function(data) {
-                        Neo.get('neo-gallery-1')[this.name] = data.value;
-                    },
-                    mounted: function(fieldId) {
-                        let field = Neo.get(fieldId);
-
-                        Neo.get('neo-gallery-1').on('changeTranslateX', function(value) {
-                            value = Math.min(Math.max(value, this.minValue), this.maxValue);
-                            this.value = value;
-                        }, field);
-                    }
-                }
+                value    : 400
             }, {
                 labelText: 'Translate Y',
-                maxValue : 1500,
-                minValue : -1500,
+                maxValue : 2500,
+                minValue : -2500,
                 name     : 'translateY',
-                value    : 0
+                value    : -350
             }, {
                 labelText: 'Translate Z',
-                maxValue : 550,
+                maxValue : 4500,
                 minValue : -4500,
                 name     : 'translateZ',
-                value    : 0,
+                value    : -1500,
                 listeners: {
                     change: function(data) {
-                        Neo.get('neo-gallery-1')[this.name] = data.value;
+                        Neo.get('neo-helix-1')[this.name] = data.value;
                     },
                     mounted: function(fieldId) {
                         let field = Neo.get(fieldId);
 
-                        Neo.get('neo-gallery-1').on('changeTranslateZ', function(value) {
+                        Neo.get('neo-helix-1').on('changeTranslateZ', function(value) {
                             value = Math.min(Math.max(value, this.minValue), this.maxValue);
                             this.value = value;
                         }, field);
                     }
                 }
             }, {
-                labelText: 'Amount Rows',
-                maxValue : 15,
-                minValue : 1,
-                name     : 'amountRows',
-                value    : 3
+                labelText : 'Delta Y',
+                labelAlign: 'top',
+                maxValue  : 600,
+                minValue  : -600,
+                name      : 'deltaY',
+                value     : 70
             }, {
-                ntype       : 'button',
-                text        : 'Order by Row',
-                listeners   : {},
-                style       : {margin: '20px'},
+                labelText: 'Rotate',
+                minValue : -720,
+                maxValue : 720,
+                name     : 'rotationAngle',
+                value    : 0,
+                listeners: {
+                    change: function(data) {
+                        Neo.get('neo-helix-1')[this.name] = data.value;
+                    },
+                    mounted: function(fieldId) {
+                        let field = Neo.get(fieldId);
+
+                        Neo.get('neo-helix-1').on('changeRotation', function(value) {
+                            value = Math.min(Math.max(value, this.minValue), this.maxValue);
+                            this.value = value;
+                        }, field);
+                    }
+                }
+            }, {
+                labelText: 'Radius',
+                maxValue : 3500,
+                minValue : 900,
+                name     : 'radius',
+                value    : 1500
+            }, {
+                labelText: 'Perspective',
+                minValue : 50,
+                maxValue : 3000,
+                name     : 'perspective',
+                value    : 800
+            }, {
+                labelText: 'Item Angle',
+                minValue : 1,
+                maxValue : 36,
+                name     : 'itemAngle',
+                value    : 8
+            }, {
+                labelText: 'Max Opacity',
+                name     : 'maxOpacity',
+                minValue : 0,
+                maxValue : 100,
+                value    : 80 // todo [30, 80]
+            }, {
+                labelText: 'Min Opacity',
+                name     : 'minOpacity',
+                minValue : 0,
+                maxValue : 100,
+                value    : 30
+            }, {
+                ntype     : 'button',
+                text      : 'Flip Items',
+                listeners: {},
+                style    : {margin: '20px'},
                 domListeners: {
-                    click: function() {
-                        const gallery    = Neo.get('neo-gallery-1'),
-                              orderByRow = !gallery.orderByRow;
-
-                        this.text = orderByRow === true ? 'Order By Column' : 'Order by Row';
-
-                        gallery.orderByRow = orderByRow;
+                    click: data => {
+                        const helix = Neo.get('neo-helix-1');
+                        helix.flipped = !helix.flipped;
                     }
                 }
             }, {
@@ -160,7 +198,7 @@ class GalleryContainer extends Container {
 
                         domListeners: {
                             click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
+                                Neo.get('neo-helix-1').store.sorters = [{
                                     property : 'cases',
                                     direction: 'DESC'
                                 }];
@@ -174,7 +212,7 @@ class GalleryContainer extends Container {
 
                         domListeners: {
                             click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
+                                Neo.get('neo-helix-1').store.sorters = [{
                                     property : 'deaths',
                                     direction: 'DESC'
                                 }];
@@ -188,7 +226,7 @@ class GalleryContainer extends Container {
 
                         domListeners: {
                             click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
+                                Neo.get('neo-helix-1').store.sorters = [{
                                     property : 'country',
                                     direction: 'ASC'
                                 }];
@@ -206,7 +244,7 @@ class GalleryContainer extends Container {
 
                         domListeners: {
                             click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
+                                Neo.get('neo-helix-1').store.sorters = [{
                                     property : 'todayCases',
                                     direction: 'DESC'
                                 }];
@@ -220,7 +258,7 @@ class GalleryContainer extends Container {
 
                         domListeners: {
                             click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
+                                Neo.get('neo-helix-1').store.sorters = [{
                                     property : 'todayDeaths',
                                     direction: 'DESC'
                                 }];
@@ -234,7 +272,7 @@ class GalleryContainer extends Container {
 
                         domListeners: {
                             click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
+                                Neo.get('neo-helix-1').store.sorters = [{
                                     property : 'critical',
                                     direction: 'DESC'
                                 }];
@@ -243,10 +281,35 @@ class GalleryContainer extends Container {
                     }]
                 }]
             }, {
+                ntype    : 'button',
+                iconCls  : 'fa fa-square',
+                text     : 'Follow Selection',
+                listeners: {},
+                domListeners: {
+                    click: function(data) {
+                        let me   = this,
+                            helix = Neo.get('neo-helix-1');
+
+                        if (me.iconCls === 'fa fa-square') {
+                            helix.followSelection = true;
+                            me.iconCls = 'fa fa-check-square';
+                        } else {
+                            helix.followSelection = false;
+                            me.iconCls = 'fa fa-square';
+                        }
+                    }
+                },
+                style: {
+                    margin      : '20px',
+                    marginBottom: '10px'
+                }
+            }, {
                 ntype: 'label',
                 text : [
                     '<b>Navigation Concept</b>',
-                    '<p>You can use the Arrow Keys to walk through the items.</p>'
+                    '<p>Click on an item to select it. Afterwards you can use the Arrow Keys to walk through the items.</p>',
+                    '<p>Hit the Space Key to rotate the currently selected item to the front.</p>',
+                    '<p>Hit the Enter Key to expand the currently selected item.</p>'
                 ].join(''),
 
                 style: {
@@ -288,17 +351,17 @@ class GalleryContainer extends Container {
 
         const me = this;
 
-        me.gallery = Neo.create({
-            module   : Gallery,
-            id       : 'neo-gallery-1',
-            reference: 'gallery',
-            ...me.galleryConfig || {}
+        me.helix = Neo.create({
+            module   : Helix,
+            id       : 'neo-helix-1',
+            reference: 'helix',
+            ...me.helixConfig || {}
         });
 
-        me.items[0].items.push(me.gallery);
+        me.items[0].items.push(me.helix);
     }
 }
 
-Neo.applyClassConfig(GalleryContainer);
+Neo.applyClassConfig(HelixContainer);
 
-export {GalleryContainer as default};
+export {HelixContainer as default};

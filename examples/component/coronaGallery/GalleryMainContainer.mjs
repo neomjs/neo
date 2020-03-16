@@ -5,7 +5,7 @@ import {default as Viewport}   from '../../../src/container/Viewport.mjs';
 
 /**
  * @class TestApp.GalleryMainContainer
- * @extends Neo.tab.Container
+ * @extends Neo.container.Viewport
  */
 class GalleryMainContainer extends Viewport {
     static getConfig() {return {
