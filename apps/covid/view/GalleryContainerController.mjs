@@ -46,7 +46,7 @@ class GalleryContainerController extends ComponentController {
     onRangefieldMounted(id) {
         const field = Neo.getComponent(id);
 
-        this.gallery.on('changeTranslateZ', function(value) {
+        this.gallery.on('change' + Neo.capitalize(field.name), function(value) {
             value = Math.min(Math.max(value, field.minValue), field.maxValue);
             field.value = value;
         });
