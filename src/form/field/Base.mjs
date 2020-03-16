@@ -32,6 +32,7 @@ class Base extends Component {
         if (oldValue !== undefined) {
             this.fire('change', {
                 oldValue: oldValue,
+                sender  : this,
                 value   : value
             });
         }

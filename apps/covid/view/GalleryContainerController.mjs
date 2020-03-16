@@ -18,7 +18,7 @@ class GalleryContainerController extends ComponentController {
      * @param {Object} opts
      */
     onChangeTranslateX(opts) {
-        console.log('onChangeTranslateX', arguments);
+        console.log('onChangeTranslateX', opts.sender);
     }
 
     /**
@@ -30,7 +30,7 @@ class GalleryContainerController extends ComponentController {
 
         panel.width = expand ? 250 : 40;
 
-        this.getReference('collapse-button').text   = expand ? 'X' : '+';
+        this.getReference('collapse-button').text = expand ? 'X' : '+';
     }
 }
 
