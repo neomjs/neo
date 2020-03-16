@@ -41,11 +41,12 @@ class GalleryContainer extends Container {
             layout: 'fit',
             items : []
         }, {
-            module: Panel,
-            cls   : ['neo-controls-panel', 'neo-panel', 'neo-container'],
-            layout: {ntype: 'vbox', align: 'stretch'},
-            style : {backgroundColor: '#2b2b2b'},
-            width : 260,
+            module   : Panel,
+            cls      : ['neo-controls-panel', 'neo-panel', 'neo-container'],
+            layout   : {ntype: 'vbox', align: 'stretch'},
+            reference: 'controls-panel',
+            style    : {backgroundColor: '#2b2b2b'},
+            width    : 260,
 
             itemDefaults: {
                 ntype        : 'rangefield',
@@ -67,15 +68,10 @@ class GalleryContainer extends Container {
             headers: [{
                 dock: 'top',
                 items: [{
-                    ntype: 'button',
-                    text : 'X',
-                    handler: function() {
-                        const panel  = this.up('panel'),
-                              expand = panel.width === 40;
-
-                        panel.width = expand ? 250 : 40;
-                        this.text   = expand ? 'X' : '+';
-                    }
+                    ntype    : 'button',
+                    handler  : 'onCollapseButtonClick',
+                    reference: 'collapse-button',
+                    text     : 'X'
                 }, {
                     ntype: 'label',
                     text : 'Gallery Controls'

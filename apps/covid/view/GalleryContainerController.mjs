@@ -12,6 +12,15 @@ class GalleryContainerController extends ComponentController {
          */
         className: 'Covid.view.GalleryContainerController'
     }}
+
+    onCollapseButtonClick(button) {
+        const panel  = this.getReference('controls-panel'),
+              expand = panel.width === 40;
+
+        panel.width = expand ? 250 : 40;
+
+        this.getReference('collapse-button').text   = expand ? 'X' : '+';
+    }
 }
 
 Neo.applyClassConfig(GalleryContainerController);
