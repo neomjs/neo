@@ -864,19 +864,20 @@ class Base extends CoreBase {
         }).then(data => {
             // console.log('focus received: ' + id || me.id);
         }).catch(err => {
-            console.log('Error attmpting to receive focus for component', err, me);
+            console.log('Error attempting to receive focus for component', err, me);
         });
     }
 
     /**
      * Returns this.controller or the closest parent controller
+     * @param {String} [ntype]
      * @returns {Neo.controller.Base|null}
      */
-    getController() {
+    getController(ntype) {
         let controller = this.controller,
             i, len, parents;
 
-        if (controller) {
+        if (controller && (!ntype || ntype === controller.ntype)) {
             return controller;
         }
 
@@ -885,7 +886,7 @@ class Base extends CoreBase {
         len     = parents.length;
 
         for (; i < len; i++) {
-            if (parents[i].controller) {
+            if (parents[i].controller && (!ntype || ntype === parents[i].controller.ntype)) {
                 return parents[i].controller;
             }
         }
