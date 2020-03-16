@@ -1,11 +1,20 @@
-.neo-examples-configuration-panel {
+.neo-configuration-panel {
+    .neo-details-label {
+        background-color: #323232;
+        color           : #ddd;
+        font-size       : 13px;
+        margin          : 10px;
+        padding         : 10px;
+        white-space     : normal;
+    }
+
     .neo-toolbar {
         border       : 0;
         border-bottom: 1px solid v(panel-border-color);
     }
 }
 
-.neo-examples-configuration-panel-body {
+.neo-configuration-panel-body {
     overflow-y: scroll;
 }
 

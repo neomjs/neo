@@ -3,8 +3,6 @@ import GalleryContainerController from './GalleryContainerController.mjs';
 import {default as Panel}         from '../../../src/container/Panel.mjs';
 import {default as RangeField}    from '../../../src/form/field/Range.mjs';
 import {default as Container}     from '../../../src/container/Viewport.mjs';
-import {default as VDomUtil} from "src/util/VDom";
-import ComponentManager from "src/manager/Component";
 
 /**
  * @class Covid.view.GalleryContainer
@@ -178,37 +176,20 @@ class GalleryContainer extends Container {
                 }]
             }, {
                 ntype: 'label',
+                cls  : ['neo-details-label'],
                 text : [
                     '<b>Navigation Concept</b>',
                     '<p>You can use the Arrow Keys to walk through the items.</p>'
-                ].join(''),
-
-                style: {
-                    backgroundColor: '#323232',
-                    color          : '#ddd',
-                    fontSize       : '13px',
-                    margin         : '10px',
-                    padding        : '10px',
-                    whiteSpace     : 'normal'
-                }
+                ].join('')
             }, {
                 ntype: 'label',
-                cls  : ['neo-link-color'],
+                cls  : ['neo-details-label', 'neo-link-color'],
                 text : [
                     '<b>Attribution</b>',
                     '<p>App created with <a href="https://github.com/neomjs/neo">neo.mjs</a>.</p>',
                     '<p>Data provided by <a href="https://github.com/NovelCOVID/API">NovelCOVID/API</a>.</p>',
                     '<p>Icons made by <a href="https://www.flaticon.com/authors/freepik" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>.</p>'
-                ].join(''),
-
-                style: {
-                    backgroundColor: '#323232',
-                    color          : '#ddd',
-                    fontSize       : '13px',
-                    margin         : '10px',
-                    padding        : '10px',
-                    whiteSpace     : 'normal'
-                }
+                ].join('')
             }]
         }]
     }}
