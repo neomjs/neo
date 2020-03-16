@@ -5,6 +5,8 @@ import GalleryModel                 from '../selection/GalleryModel.mjs';
 import NeoArray                     from '../util/Array.mjs';
 import Store                        from '../data/Store.mjs';
 
+const itemsMounted = Symbol.for('itemsMounted');
+
 /**
  * @class Neo.component.Gallery
  * @extends Neo.component.Base
@@ -193,6 +195,8 @@ class Gallery extends Component {
             camera       = origin.cn[0],
             dolly        = camera.cn[0],
             view         = dolly.cn[0];
+
+        me[itemsMounted] = false;
 
         camera.id = me.id + '__' + 'camera';
         dolly .id = me.id + '__' + 'dolly';
@@ -459,6 +463,10 @@ class Gallery extends Component {
         }
 
         me.vdom = vdom;
+
+        me.promiseVdomUpdate(vdom).then(() => {
+            me[itemsMounted] = true;
+        });
     }
 
     /**
@@ -727,7 +735,7 @@ class Gallery extends Component {
             vdomMap   = view.cn.map(e => e.id),
             fromIndex, vdomId;
 
-        if (items) {
+        if (me[itemsMounted] === true && items) {
             items.forEach((item, index) => {
                 vdomId    = me.getItemVnodeId(item[me.keyProperty]);
                 fromIndex = vdomMap.indexOf(vdomId);

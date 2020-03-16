@@ -1,27 +1,30 @@
-import CountryGallery          from './CountryGallery.mjs';
-import {default as Panel}      from '../../../src/container/Panel.mjs';
-import {default as RangeField} from '../../../src/form/field/Range.mjs';
-import {default as Viewport}   from '../../../src/container/Viewport.mjs';
+import Gallery                    from './country/Gallery.mjs';
+import GalleryContainerController from './GalleryContainerController.mjs';
+import {default as Panel}         from '../../../src/container/Panel.mjs';
+import {default as RangeField}    from '../../../src/form/field/Range.mjs';
+import {default as Container}     from '../../../src/container/Viewport.mjs';
 
 /**
- * @class TestApp.GalleryMainContainer
- * @extends Neo.container.Viewport
+ * @class Covid.view.GalleryContainer
+ * @extends Neo.container.Base
  */
-class GalleryMainContainer extends Viewport {
+class GalleryContainer extends Container {
     static getConfig() {return {
         /**
-         * @member {String} className='TestApp.GalleryMainContainer'
+         * @member {String} className='Covid.view.GalleryContainer'
          * @private
          */
-        className: 'TestApp.MainContainer',
-        /**
-         * @member {Boolean} autoMount=true
-         */
+        className: 'Covid.view.GalleryContainer',
+
         autoMount: true,
         /**
          * @member {String[]} cls=['neo-gallery-maincontainer', 'neo-viewport']
          */
         cls: ['neo-gallery-maincontainer', 'neo-viewport'],
+        /**
+         * @member {Neo.controller.Component|null} controller=GalleryContainerController
+         */
+        controller: GalleryContainerController,
         /**
          * @member {Neo.component.Gallery|null} gallery=null
          */
@@ -30,39 +33,20 @@ class GalleryMainContainer extends Viewport {
          * @member {Object|null} galleryConfig=null
          */
         galleryConfig: null,
-        /**
-         * @member {Object|null} layout={ntype: 'hbox', align: 'stretch'}
-         */
         layout: {ntype: 'hbox', align: 'stretch'},
-        /**
-         * @member {Boolean} showGitHubStarButton=true
-         */
-        showGitHubStarButton: true,
-        /**
-         * @member {Object[]} items
-         */
+
         items: [{
             ntype : 'container',
             flex  : 1,
             layout: 'fit',
-            style : {position: 'relative'},
-
-            items : [{
-                ntype: 'component',
-                html : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
-                style: {
-                    position: 'absolute',
-                    right   : '20px',
-                    top     : '20px',
-                    zIndex  : 1
-                }
-            }]
+            items : []
         }, {
-            ntype : 'panel',
-            cls   : ['neo-controls-panel', 'neo-panel', 'neo-container'],
-            layout: {ntype: 'vbox', align: 'stretch'},
-            style : {backgroundColor: '#2b2b2b'},
-            width : 260,
+            module   : Panel,
+            cls      : ['neo-controls-panel', 'neo-panel', 'neo-container'],
+            layout   : {ntype: 'vbox', align: 'stretch'},
+            reference: 'controls-panel',
+            style    : {backgroundColor: '#2b2b2b'},
+            width    : 260,
 
             itemDefaults: {
                 ntype        : 'rangefield',
@@ -72,27 +56,17 @@ class GalleryMainContainer extends Viewport {
                 useInputEvent: true,
 
                 listeners: {
-                    change: function(data) {
-                        if (this.name === 'opacity') {
-                            data.value /= 100;
-                        }
-                        Neo.get('neo-gallery-1')[this.name] = data.value;
-                    }
+                    change: 'onRangefieldChange'
                 }
             },
 
             headers: [{
                 dock: 'top',
                 items: [{
-                    ntype: 'button',
-                    text : 'X',
-                    handler: function() {
-                        const panel  = this.up('panel'),
-                              expand = panel.width === 40;
-
-                        panel.width = expand ? 250 : 40;
-                        this.text   = expand ? 'X' : '+';
-                    }
+                    ntype    : 'button',
+                    handler  : 'onCollapseButtonClick',
+                    reference: 'collapse-button',
+                    text     : 'X'
                 }, {
                     ntype: 'label',
                     text : 'Gallery Controls'
@@ -106,9 +80,7 @@ class GalleryMainContainer extends Viewport {
                 name     : 'translateX',
                 value    : 0,
                 listeners: {
-                    change: function(data) {
-                        Neo.get('neo-gallery-1')[this.name] = data.value;
-                    },
+                    change : 'onRangefieldChange',
                     mounted: function(fieldId) {
                         let field = Neo.get(fieldId);
 
@@ -131,9 +103,7 @@ class GalleryMainContainer extends Viewport {
                 name     : 'translateZ',
                 value    : 0,
                 listeners: {
-                    change: function(data) {
-                        Neo.get('neo-gallery-1')[this.name] = data.value;
-                    },
+                    change : 'onRangefieldChange',
                     mounted: function(fieldId) {
                         let field = Neo.get(fieldId);
 
@@ -308,53 +278,19 @@ class GalleryMainContainer extends Viewport {
     constructor(config) {
         super(config);
 
-        const me       = this,
-              proxyUrl = "https://cors-anywhere.herokuapp.com/",
-              url      = 'https://corona.lmao.ninja/countries';
+        const me = this;
 
         me.gallery = Neo.create({
-            module: CountryGallery,
-            id    : 'neo-gallery-1',
+            module   : Gallery,
+            id       : 'neo-gallery-1',
+            reference: 'gallery',
             ...me.galleryConfig || {}
         });
 
         me.items[0].items.push(me.gallery);
-
-        fetch(proxyUrl + url)
-            .then(response => response.json())
-            .then(data => me.addStoreItems(data))
-            .catch(err => console.log('Can’t access ' + url, err));
-
-        if (me.showGitHubStarButton) {
-            me.on('mounted', () => {
-                Neo.main.DomAccess.addScript({
-                    async: true,
-                    defer: true,
-                    src  : 'https://buttons.github.io/buttons.js'
-                });
-            });
-        }
-    }
-
-    addStoreItems(data) {
-        this.getStore().data = data;
-
-        setTimeout(() => {
-            Neo.main.DomAccess.focus({
-                id: this.gallery.id
-            });
-        }, 200);
-    }
-
-    /**
-     *
-     * @returns {Neo.data.Store}
-     */
-    getStore() {
-        return this.items[0].items[1].store;
     }
 }
 
-Neo.applyClassConfig(GalleryMainContainer);
+Neo.applyClassConfig(GalleryContainer);
 
-export {GalleryMainContainer as default};
+export {GalleryContainer as default};

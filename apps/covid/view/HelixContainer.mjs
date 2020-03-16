@@ -1,19 +1,20 @@
-import CountryHelix            from './CountryHelix.mjs';
-import {default as Panel}      from '../../../src/container/Panel.mjs';
-import {default as RangeField} from '../../../src/form/field/Range.mjs';
-import {default as Viewport}   from '../../../src/container/Viewport.mjs';
+import Helix                    from './country/Helix.mjs';
+import HelixContainerController from './HelixContainerController.mjs';
+import {default as Panel}       from '../../../src/container/Panel.mjs';
+import {default as RangeField}  from '../../../src/form/field/Range.mjs';
+import {default as Container}   from '../../../src/container/Viewport.mjs';
 
 /**
- * @class TestApp.HelixMainContainer
- * @extends Neo.container.Viewport
+ * @class Covid.view.HelixContainer
+ * @extends Neo.container.Base
  */
-class HelixMainContainer extends Viewport {
+class HelixContainer extends Container {
     static getConfig() {return {
         /**
-         * @member {String} className='TestApp.HelixMainContainer'
+         * @member {String} className='Covid.view.HelixContainer'
          * @private
          */
-        className: 'TestApp.HelixMainContainer',
+        className: 'Covid.view.HelixContainer',
         /**
          * @member {Boolean} autoMount=true
          */
@@ -22,6 +23,10 @@ class HelixMainContainer extends Viewport {
          * @member {String[]} cls=['neo-helix-maincontainer', 'neo-viewport']
          */
         cls: ['neo-helix-maincontainer', 'neo-viewport'],
+        /**
+         * @member {Neo.controller.Component|null} controller=HelixContainerController
+         */
+        controller: HelixContainerController,
         /**
          * @member {Neo.component.Helix|null} helix=null
          */
@@ -35,30 +40,15 @@ class HelixMainContainer extends Viewport {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
-         * @member {Boolean} showGitHubStarButton=true
-         */
-        showGitHubStarButton: true,
-        /**
-         * @member {Object[]} items
+         * @member {Object[]|null} items
          */
         items: [{
             ntype : 'container',
             flex  : 1,
             layout: 'fit',
-            style : {position: 'relative'},
-
-            items: [{
-                ntype: 'component',
-                html : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
-                style: {
-                    position: 'absolute',
-                    right   : '20px',
-                    top     : '20px',
-                    zIndex  : 1
-                }
-            }]
+            items : []
         }, {
-            ntype : 'panel',
+            module: Panel,
             cls   : ['neo-controls-panel', 'neo-panel', 'neo-container'],
             layout: {ntype: 'vbox',align: 'stretch'},
             style : {backgroundColor: '#2b2b2b'},
@@ -371,47 +361,19 @@ class HelixMainContainer extends Viewport {
     constructor(config) {
         super(config);
 
-        const me       = this,
-              proxyUrl = "https://cors-anywhere.herokuapp.com/",
-              url      = 'https://corona.lmao.ninja/countries';
+        const me = this;
 
         me.helix = Neo.create({
-            module: CountryHelix,
-            id    : 'neo-helix-1',
+            module   : Helix,
+            id       : 'neo-helix-1',
+            reference: 'helix',
             ...me.helixConfig || {}
         });
 
         me.items[0].items.push(me.helix);
-
-        fetch(proxyUrl + url)
-            .then(response => response.json())
-            .then(data => me.addStoreItems(data))
-            .catch(err => console.log('Can’t access ' + url, err));
-
-        if (me.showGitHubStarButton) {
-            me.on('mounted', () => {
-                Neo.main.DomAccess.addScript({
-                    async: true,
-                    defer: true,
-                    src  : 'https://buttons.github.io/buttons.js'
-                });
-            });
-        }
-    }
-
-    addStoreItems(data) {
-        this.getStore().data = data;
-    }
-
-    /**
-     *
-     * @returns {Neo.data.Store}
-     */
-    getStore() {
-        return this.items[0].items[1].store;
     }
 }
 
-Neo.applyClassConfig(HelixMainContainer);
+Neo.applyClassConfig(HelixContainer);
 
-export {HelixMainContainer as default};
+export {HelixContainer as default};
