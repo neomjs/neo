@@ -693,10 +693,9 @@ class Base extends CoreBase {
     /**
      * Triggered when accessing the controller config
      * @param {Object} value
-     * @param {Object} oldValue
      * @private
      */
-    beforeGetController(value, oldValue) {
+    beforeGetController(value) {
         return value && Neo.get(value);
     }
 

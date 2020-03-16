@@ -10,15 +10,33 @@ class GalleryContainerController extends ComponentController {
          * @member {String} className='Covid.view.GalleryContainerController'
          * @private
          */
-        className: 'Covid.view.GalleryContainerController'
+        className: 'Covid.view.GalleryContainerController',
+        /**
+         * @member {Neo.component.Gallery|null} gallery_=null
+         * @private
+         */
+        gallery_: null
     }}
+
+    /**
+     * Triggered when accessing the gallery config
+     * @param {Neo.component.Gallery|null} value
+     * @private
+     */
+    beforeGetGallery(value) {
+        if (!value) {
+            this._gallery = value = this.getReference('gallery');
+        }
+
+        return value;
+    }
 
     /**
      *
      * @param {Object} data
      */
     onRangefieldChange(data) {
-        this.getReference('gallery')[data.sender.name] = data.value;
+        this.gallery[data.sender.name] = data.value;
     }
 
     /**
