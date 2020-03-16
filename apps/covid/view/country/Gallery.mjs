@@ -108,8 +108,9 @@ class CountryGallery extends Gallery {
 
         const me = this;
 
+        // we do need a short delay to ensure that the maincontainer and its controller is constructed
         setTimeout(() => {
-            me.getCountryFlagUrl = me.getController().getCountryFlagUrl.bind(me);
+            me.getCountryFlagUrl = me.getController('maincontainer-controller').getCountryFlagUrl.bind(me);
         }, 20);
     }
 

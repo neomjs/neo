@@ -1,7 +1,8 @@
-import Gallery                 from './country/Gallery.mjs';
-import {default as Panel}      from '../../../src/container/Panel.mjs';
-import {default as RangeField} from '../../../src/form/field/Range.mjs';
-import {default as Container}  from '../../../src/container/Viewport.mjs';
+import Gallery                    from './country/Gallery.mjs';
+import GalleryContainerController from './GalleryContainerController.mjs';
+import {default as Panel}         from '../../../src/container/Panel.mjs';
+import {default as RangeField}    from '../../../src/form/field/Range.mjs';
+import {default as Container}     from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Covid.view.GalleryContainer
@@ -20,6 +21,10 @@ class GalleryContainer extends Container {
          * @member {String[]} cls=['neo-gallery-maincontainer', 'neo-viewport']
          */
         cls: ['neo-gallery-maincontainer', 'neo-viewport'],
+        /**
+         * @member {Neo.controller.Component|null} controller=GalleryContainerController
+         */
+        controller: GalleryContainerController,
         /**
          * @member {Neo.component.Gallery|null} gallery=null
          */
