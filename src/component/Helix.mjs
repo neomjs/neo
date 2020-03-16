@@ -6,6 +6,8 @@ import Matrix                       from '../util/Matrix.mjs';
 import NeoArray                     from '../util/Array.mjs';
 import Store                        from '../data/Store.mjs';
 
+const itemsMounted = Symbol.for('itemsMounted');
+
 /**
  * @class Neo.component.Helix
  * @extends Neo.component.Base
@@ -262,6 +264,8 @@ class Helix extends Component {
 
         let me           = this,
             domListeners = Neo.clone(me.domListeners, true);
+
+        me[itemsMounted] = false;
 
         if (me.imageSource === null) {
             me.imageSource = Neo.config.resourcesPath + 'examples/';
@@ -629,7 +633,9 @@ class Helix extends Component {
             group.cn.push(vdomItem);
         }
 
-        me.vdom = vdom;
+        me.promiseVdomUpdate(vdom).then(() => {
+            me[itemsMounted] = true;
+        });
     }
 
     /**
@@ -883,7 +889,11 @@ class Helix extends Component {
      * @private
      */
     onSort() {
-        this.applyItemTransitions(this.sortItems, 1000);
+        const me = this;
+
+        if (me[itemsMounted] === true) {
+            me.applyItemTransitions(me.sortItems, 1000);
+        }
     }
 
     /**
