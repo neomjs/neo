@@ -15,10 +15,10 @@ class GalleryContainerController extends ComponentController {
 
     /**
      *
-     * @param {Object} opts
+     * @param {Object} data
      */
-    onChangeTranslateX(opts) {
-        console.log('onChangeTranslateX', opts.sender);
+    onRangefieldChange(data) {
+        this.getReference('gallery')[data.sender.name] = data.value;
     }
 
     /**

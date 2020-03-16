@@ -56,12 +56,7 @@ class GalleryContainer extends Container {
                 useInputEvent: true,
 
                 listeners: {
-                    change: function(data) {
-                        if (this.name === 'opacity') {
-                            data.value /= 100;
-                        }
-                        Neo.get('neo-gallery-1')[this.name] = data.value;
-                    }
+                    change: 'onRangefieldChange'
                 }
             },
 
@@ -85,10 +80,7 @@ class GalleryContainer extends Container {
                 name     : 'translateX',
                 value    : 0,
                 listeners: {
-                    change: 'onChangeTranslateX',
-                    /*change: function(data) {
-                        Neo.get('neo-gallery-1')[this.name] = data.value;
-                    },*/
+                    change : 'onRangefieldChange',
                     mounted: function(fieldId) {
                         let field = Neo.get(fieldId);
 
@@ -111,9 +103,7 @@ class GalleryContainer extends Container {
                 name     : 'translateZ',
                 value    : 0,
                 listeners: {
-                    change: function(data) {
-                        Neo.get('neo-gallery-1')[this.name] = data.value;
-                    },
+                    change : 'onRangefieldChange',
                     mounted: function(fieldId) {
                         let field = Neo.get(fieldId);
 
