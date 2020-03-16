@@ -51,7 +51,6 @@ class GalleryMainContainer extends Viewport {
                 ntype: 'component',
                 html : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
                 style: {
-                    color   : '#fff',
                     position: 'absolute',
                     right   : '20px',
                     top     : '20px',
