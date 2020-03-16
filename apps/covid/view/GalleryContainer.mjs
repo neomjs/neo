@@ -3,6 +3,8 @@ import GalleryContainerController from './GalleryContainerController.mjs';
 import {default as Panel}         from '../../../src/container/Panel.mjs';
 import {default as RangeField}    from '../../../src/form/field/Range.mjs';
 import {default as Container}     from '../../../src/container/Viewport.mjs';
+import {default as VDomUtil} from "src/util/VDom";
+import ComponentManager from "src/manager/Component";
 
 /**
  * @class Covid.view.GalleryContainer
@@ -227,6 +229,14 @@ class GalleryContainer extends Container {
         });
 
         me.items[0].items.push(me.gallery);
+    }
+
+    /**
+     *
+     */
+    destroy(...args) {
+        this.gallery = null;
+        super.destroy(...args);
     }
 }
 
