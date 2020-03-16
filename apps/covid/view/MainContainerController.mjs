@@ -59,9 +59,12 @@ class MainContainerController extends ComponentController {
         // todo: only render the active view & feed the matching store
         // me.getReference('gallery').store.data = data;
         // me.getReference('helix')  .store.data = data;
-        me.getReference('table').store.data = data;
+        // me.getReference('table').store.data = data;
 
-        console.log(me.getReference('table'));
+        setTimeout(() => {
+            console.log('addStoreItems', data);
+            me.getReference('gallery').store.data = data;
+        }, 2000);
     }
 
     /**
