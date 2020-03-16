@@ -105,7 +105,7 @@ class CountryHelix extends Helix {
         const me = this;
 
         setTimeout(() => {
-            me.getCountryFlagUrl = me.getController().getCountryFlagUrl.bind(me);
+            me.getCountryFlagUrl = me.getController('maincontainer-controller').getCountryFlagUrl.bind(me);
         }, 20);
     }
 

@@ -22,19 +22,21 @@ class MainContainerController extends ComponentController {
          */
         className: 'Covid.view.MainContainerController',
         /**
-         * @member {String} apiUrl='https://corona.lmao.ninja/countries'
+         * @member {String} ntype='maincontainer-controller'
          * @private
+         */
+        ntype: 'maincontainer-controller',
+        /**
+         * @member {String} apiUrl='https://corona.lmao.ninja/countries'
          */
         apiUrl: 'https://corona.lmao.ninja/countries',
         /**
          * @member {String} apiSummaryUrl='https://corona.lmao.ninja/all'
-         * @private
          */
         apiSummaryUrl: 'https://corona.lmao.ninja/all',
         /**
          * The Covid API does not support CORS, so we do need to use a proxy
          * @member {String} proxyUrl='https://cors-anywhere.herokuapp.com/'
-         * @private
          */
         proxyUrl: 'https://cors-anywhere.herokuapp.com/'
     }}
