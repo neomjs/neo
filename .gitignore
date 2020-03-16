@@ -10,6 +10,7 @@
 !/apps/realworld2/**/*.mjs
 
 /buildScripts/webpack/entrypoints/myApps/**/*.mjs
+!/buildScripts/webpack/entrypoints/myApps/Covid.mjs
 !/buildScripts/webpack/entrypoints/myApps/RealWorld.mjs
 !/buildScripts/webpack/entrypoints/myApps/RealWorld2.mjs
 /buildScripts/webpack/development/json/myApps.json
