@@ -49,7 +49,7 @@ class GalleryContainer extends Container {
             items : []
         }, {
             module   : Panel,
-            cls      : ['neo-controls-panel', 'neo-panel', 'neo-container'],
+            cls      : ['neo-configuration-panel', 'neo-panel', 'neo-container'],
             layout   : {ntype: 'vbox', align: 'stretch'},
             reference: 'controls-panel',
             style    : {backgroundColor: '#2b2b2b'},
@@ -138,18 +138,22 @@ class GalleryContainer extends Container {
                         handler: 'onSortButtonClick'
                     },
 
-                    items : [{
-                        field  : 'cases',
-                        text   : 'Cases',
-                        style  : {margin: '10px', marginTop: '0'}
+                    items: [{
+                        field: 'cases',
+                        text : 'Cases',
+                        style: {margin: '10px', marginTop: '0'}
                     }, {
-                        field  : 'deaths',
-                        text   : 'Deaths',
-                        style  : {margin: '10px', marginBottom: '10px', marginTop: 0}
+                        field: 'deaths',
+                        text : 'Deaths',
+                        style: {margin: '10px', marginBottom: '10px', marginTop: 0}
                     }, {
-                        field  : 'country',
-                        text   : 'Country',
-                        style  : {margin: '10px', marginTop: 0}
+                        field: 'country',
+                        text : 'Country',
+                        style: {margin: '10px', marginTop: 0}
+                    }, {
+                        field: 'recovered',
+                        text : 'Recovered',
+                        style: {margin: '10px', marginTop: 0}
                     }]
                 }, {
                     ntype : 'container',
@@ -160,18 +164,18 @@ class GalleryContainer extends Container {
                         handler: 'onSortButtonClick'
                     },
 
-                    items : [{
-                        field  : 'todayCases',
-                        text   : 'Cases today',
-                        style  : {margin: '10px', marginTop: '0'}
+                    items: [{
+                        field: 'todayCases',
+                        text : 'Cases today',
+                        style: {margin: '10px', marginTop: '0'}
                     }, {
-                        field  : 'todayDeaths',
-                        text   : 'Deaths today',
-                        style  : {margin: '10px', marginBottom: '10px', marginTop: 0}
+                        field: 'todayDeaths',
+                        text : 'Deaths today',
+                        style: {margin: '10px', marginBottom: '10px', marginTop: 0}
                     }, {
-                        field  : 'critical',
-                        text   : 'Critical',
-                        style  : {margin: '10px', marginTop: 0}
+                        field: 'critical',
+                        text : 'Critical',
+                        style: {margin: '10px', marginBottom: '43px', marginTop: 0}
                     }]
                 }]
             }, {
