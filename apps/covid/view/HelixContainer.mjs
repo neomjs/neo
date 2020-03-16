@@ -1,7 +1,8 @@
-import Helix                   from './country/Helix.mjs';
-import {default as Panel}      from '../../../src/container/Panel.mjs';
-import {default as RangeField} from '../../../src/form/field/Range.mjs';
-import {default as Container}  from '../../../src/container/Viewport.mjs';
+import Helix                    from './country/Helix.mjs';
+import HelixContainerController from './HelixContainerController.mjs';
+import {default as Panel}       from '../../../src/container/Panel.mjs';
+import {default as RangeField}  from '../../../src/form/field/Range.mjs';
+import {default as Container}   from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Covid.view.HelixContainer
@@ -14,12 +15,18 @@ class HelixContainer extends Container {
          * @private
          */
         className: 'Covid.view.HelixContainer',
-
+        /**
+         * @member {Boolean} autoMount=true
+         */
         autoMount: true,
         /**
          * @member {String[]} cls=['neo-helix-maincontainer', 'neo-viewport']
          */
         cls: ['neo-helix-maincontainer', 'neo-viewport'],
+        /**
+         * @member {Neo.controller.Component|null} controller=HelixContainerController
+         */
+        controller: HelixContainerController,
         /**
          * @member {Neo.component.Helix|null} helix=null
          */
@@ -28,8 +35,13 @@ class HelixContainer extends Container {
          * @member {Object|null} helixConfig=null
          */
         helixConfig: null,
+        /**
+         * @member {Object|null} layout={ntype: 'hbox', align: 'stretch'}
+         */
         layout: {ntype: 'hbox', align: 'stretch'},
-
+        /**
+         * @member {Object[]|null} items
+         */
         items: [{
             ntype : 'container',
             flex  : 1,
