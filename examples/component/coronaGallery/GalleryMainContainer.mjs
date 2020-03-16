@@ -9,9 +9,14 @@ import {default as Viewport}   from '../../../src/container/Viewport.mjs';
  */
 class GalleryMainContainer extends Viewport {
     static getConfig() {return {
+        /**
+         * @member {String} className='TestApp.GalleryMainContainer'
+         * @private
+         */
         className: 'TestApp.MainContainer',
-        ntype: 'gallery-maincontainer',
-
+        /**
+         * @member {Boolean} autoMount=true
+         */
         autoMount: true,
         /**
          * @member {String[]} cls=['neo-gallery-maincontainer', 'neo-viewport']
@@ -25,13 +30,34 @@ class GalleryMainContainer extends Viewport {
          * @member {Object|null} galleryConfig=null
          */
         galleryConfig: null,
+        /**
+         * @member {Object|null} layout={ntype: 'hbox', align: 'stretch'}
+         */
         layout: {ntype: 'hbox', align: 'stretch'},
-
+        /**
+         * @member {Boolean} showGitHubStarButton=true
+         */
+        showGitHubStarButton: true,
+        /**
+         * @member {Object[]} items
+         */
         items: [{
             ntype : 'container',
             flex  : 1,
             layout: 'fit',
-            items : []
+            style : {position: 'relative'},
+
+            items : [{
+                ntype: 'component',
+                html : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
+                style: {
+                    color   : '#fff',
+                    position: 'absolute',
+                    right   : '20px',
+                    top     : '20px',
+                    zIndex  : 1
+                }
+            }]
         }, {
             ntype : 'panel',
             cls   : ['neo-controls-panel', 'neo-panel', 'neo-container'],
@@ -299,6 +325,16 @@ class GalleryMainContainer extends Viewport {
             .then(response => response.json())
             .then(data => me.addStoreItems(data))
             .catch(err => console.log('Can’t access ' + url, err));
+
+        if (me.showGitHubStarButton) {
+            me.on('mounted', () => {
+                Neo.main.DomAccess.addScript({
+                    async: true,
+                    defer: true,
+                    src  : 'https://buttons.github.io/buttons.js'
+                });
+            });
+        }
     }
 
     addStoreItems(data) {
@@ -316,7 +352,7 @@ class GalleryMainContainer extends Viewport {
      * @returns {Neo.data.Store}
      */
     getStore() {
-        return this.items[0].items[0].store;
+        return this.items[0].items[1].store;
     }
 }
 
