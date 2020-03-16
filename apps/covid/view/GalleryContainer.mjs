@@ -132,44 +132,44 @@ class GalleryContainer extends Container {
                 items : [{
                     ntype : 'container',
                     layout: {ntype: 'vbox', align: 'stretch'},
-                    items : [{
+
+                    itemDefaults: {
                         ntype  : 'button',
+                        handler: 'onSortButtonClick'
+                    },
+
+                    items : [{
                         field  : 'cases',
-                        handler: 'onSortButtonClick',
                         text   : 'Cases',
                         style  : {margin: '10px', marginTop: '0'}
                     }, {
-                        ntype  : 'button',
                         field  : 'deaths',
-                        handler: 'onSortButtonClick',
                         text   : 'Deaths',
                         style  : {margin: '10px', marginBottom: '10px', marginTop: 0}
                     }, {
-                        ntype  : 'button',
                         field  : 'country',
-                        handler: 'onSortButtonClick',
                         text   : 'Country',
                         style  : {margin: '10px', marginTop: 0}
                     }]
                 }, {
                     ntype : 'container',
                     layout: {ntype: 'vbox', align: 'stretch'},
-                    items : [{
+
+                    itemDefaults: {
                         ntype  : 'button',
+                        handler: 'onSortButtonClick'
+                    },
+
+                    items : [{
                         field  : 'todayCases',
-                        handler: 'onSortButtonClick',
                         text   : 'Cases today',
                         style  : {margin: '10px', marginTop: '0'}
                     }, {
-                        ntype  : 'button',
                         field  : 'todayDeaths',
-                        handler: 'onSortButtonClick',
                         text   : 'Deaths today',
                         style  : {margin: '10px', marginBottom: '10px', marginTop: 0}
                     }, {
-                        ntype  : 'button',
                         field  : 'critical',
-                        handler: 'onSortButtonClick',
                         text   : 'Critical',
                         style  : {margin: '10px', marginTop: 0}
                     }]
