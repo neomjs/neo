@@ -13,7 +13,18 @@ class GalleryContainerController extends ComponentController {
         className: 'Covid.view.GalleryContainerController'
     }}
 
-    onCollapseButtonClick(button) {
+    /**
+     *
+     * @param {Object} opts
+     */
+    onChangeTranslateX(opts) {
+        console.log('onChangeTranslateX', arguments);
+    }
+
+    /**
+     *
+     */
+    onCollapseButtonClick() {
         const panel  = this.getReference('controls-panel'),
               expand = panel.width === 40;
 

@@ -85,9 +85,10 @@ class GalleryContainer extends Container {
                 name     : 'translateX',
                 value    : 0,
                 listeners: {
-                    change: function(data) {
+                    change: 'onChangeTranslateX',
+                    /*change: function(data) {
                         Neo.get('neo-gallery-1')[this.name] = data.value;
-                    },
+                    },*/
                     mounted: function(fieldId) {
                         let field = Neo.get(fieldId);
 
