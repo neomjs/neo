@@ -59,8 +59,8 @@ class MainContainerController extends ComponentController {
         const me = this;
 
         // todo: only render the active view & feed the matching store
-        me.getReference('gallery').store.data = data;
-        // me.getReference('helix')  .store.data = data;
+        // me.getReference('gallery').store.data = data;
+        me.getReference('helix')  .store.data = data;
         // me.getReference('table').store.data = data;
     }
 

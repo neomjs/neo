@@ -28,7 +28,7 @@ class MainContainer extends Viewport {
             style : {padding: '20px'}
         }, {
             module: TabContainer,
-            activeIndex: 1, // todo: remove, just for testing
+            activeIndex: 2, // todo: remove, just for testing
             flex  : 1,
             style : {margin: '20px'},
 
