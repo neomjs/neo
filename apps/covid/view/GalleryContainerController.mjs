@@ -35,6 +35,19 @@ class GalleryContainerController extends ComponentController {
      *
      * @param {Object} data
      */
+    onOrderButtonClick(data) {
+        const gallery    = this.gallery,
+              orderByRow = !gallery.orderByRow;
+
+        this.getReference('order-button').text = orderByRow === true ? 'Order By Column' : 'Order by Row';
+
+        gallery.orderByRow = orderByRow;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onRangefieldChange(data) {
         this.gallery[data.sender.name] = data.value;
     }

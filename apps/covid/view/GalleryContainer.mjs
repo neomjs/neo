@@ -107,19 +107,11 @@ class GalleryContainer extends Container {
                 value    : 3
             }, {
                 ntype       : 'button',
+                handler     : 'onOrderButtonClick',
                 text        : 'Order by Row',
                 listeners   : {},
-                style       : {margin: '20px'},
-                domListeners: {
-                    click: function() {
-                        const gallery    = Neo.get('neo-gallery-1'),
-                              orderByRow = !gallery.orderByRow;
-
-                        this.text = orderByRow === true ? 'Order By Column' : 'Order by Row';
-
-                        gallery.orderByRow = orderByRow;
-                    }
-                }
+                reference   : 'order-button',
+                style       : {margin: '20px'}
             }, {
                 ntype: 'label',
                 text : 'Sort By:'
