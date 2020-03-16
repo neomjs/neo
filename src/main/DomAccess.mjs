@@ -47,6 +47,7 @@ class DomAccess extends Base {
          */
         remote: {
             app: [
+                'addScript',
                 'applyBodyCls',
                 'execCommand',
                 'focus',
@@ -83,6 +84,21 @@ class DomAccess extends Base {
             me.countDeltas  = 0;
             me.countUpdates = 0;
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Boolean} data.async
+     * @param {Boolean} data.defer
+     * @param {String} data.src
+     */
+    addScript(data) {
+        const script = document.createElement('script');
+
+        Object.assign(script, data);
+
+        document.head.appendChild(script);
     }
 
     /**
