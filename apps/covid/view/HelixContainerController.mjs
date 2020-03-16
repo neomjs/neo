@@ -10,8 +10,40 @@ class HelixContainerController extends ComponentController {
          * @member {String} className='Covid.view.HelixContainerController'
          * @private
          */
-        className: 'Covid.view.HelixContainerController'
+        className: 'Covid.view.HelixContainerController',
+        /**
+         * @member {Neo.component.Helix|null} helix_=null
+         * @private
+         */
+        helix_: null
     }}
+
+    /**
+     * Triggered when accessing the helix config
+     * @param {Neo.component.Helix|null} value
+     * @private
+     */
+    beforeGetHelix(value) {
+        if (!value) {
+            this._helix = value = this.getReference('helix');
+        }
+
+        return value;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onRangefieldChange(data) {
+        const name = data.sender.name;
+
+        if (['deltaY', 'maxOpacity', 'minOpacity'].includes(name)) {
+            data.value /= 100;
+        }
+
+        this.helix[name] = data.value;
+    }
 }
 
 Neo.applyClassConfig(HelixContainerController);
