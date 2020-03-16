@@ -15,7 +15,9 @@ class GalleryContainer extends Container {
          * @private
          */
         className: 'Covid.view.GalleryContainer',
-
+        /**
+         * @member {Boolean} autoMount=true
+         */
         autoMount: true,
         /**
          * @member {String[]} cls=['neo-gallery-maincontainer', 'neo-viewport']
@@ -33,8 +35,13 @@ class GalleryContainer extends Container {
          * @member {Object|null} galleryConfig=null
          */
         galleryConfig: null,
+        /**
+         * @member {Object|null} layout={ntype: 'hbox', align: 'stretch'}
+         */
         layout: {ntype: 'hbox', align: 'stretch'},
-
+        /**
+         * @member {Object[]|null} items
+         */
         items: [{
             ntype : 'container',
             flex  : 1,
@@ -49,7 +56,6 @@ class GalleryContainer extends Container {
             width    : 260,
 
             itemDefaults: {
-                ntype        : 'rangefield',
                 flex         : '0 1 auto',
                 labelWidth   : '110px',
                 style        : {padding: '10px'},
@@ -70,6 +76,7 @@ class GalleryContainer extends Container {
             }],
 
             items: [{
+                module   : RangeField,
                 labelText: 'Translate X',
                 maxValue : 5000,
                 minValue : 0,
@@ -80,6 +87,7 @@ class GalleryContainer extends Container {
                     mounted: 'onRangefieldMounted'
                 }
             }, {
+                module   : RangeField,
                 labelText: 'Translate Y',
                 maxValue : 1500,
                 minValue : -1500,
@@ -89,6 +97,7 @@ class GalleryContainer extends Container {
                     change: 'onRangefieldChange'
                 }
             }, {
+                module   : RangeField,
                 labelText: 'Translate Z',
                 maxValue : 550,
                 minValue : -4500,
@@ -99,6 +108,7 @@ class GalleryContainer extends Container {
                     mounted: 'onRangefieldMounted'
                 }
             }, {
+                module   : RangeField,
                 labelText: 'Amount Rows',
                 maxValue : 15,
                 minValue : 1,
@@ -212,7 +222,6 @@ class GalleryContainer extends Container {
 
         me.gallery = Neo.create({
             module   : Gallery,
-            id       : 'neo-gallery-1',
             reference: 'gallery',
             ...me.galleryConfig || {}
         });
