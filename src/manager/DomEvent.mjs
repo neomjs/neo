@@ -67,7 +67,7 @@ class DomEvent extends Base {
      */
     fire(event) {
         let me         = this,
-            data       = event.data,
+            data       = event.data || {},
             eventName  = event.eventName,
             i          = 0,
             isDisabled = false,
@@ -115,6 +115,7 @@ class DomEvent extends Base {
 
                                 if (!preventFire) {
                                     // console.log(Neo.get(id));
+                                    data.component = component;
                                     listener.fn.apply(listener.scope || self, [data]);
                                 }
                             }

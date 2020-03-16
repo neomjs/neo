@@ -35,8 +35,45 @@ class GalleryContainerController extends ComponentController {
      *
      * @param {Object} data
      */
+    onOrderButtonClick(data) {
+        const gallery    = this.gallery,
+              orderByRow = !gallery.orderByRow;
+
+        data.component.text = orderByRow === true ? 'Order By Column' : 'Order by Row';
+
+        gallery.orderByRow = orderByRow;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onRangefieldChange(data) {
         this.gallery[data.sender.name] = data.value;
+    }
+
+    /**
+     *
+     * @param {String} id
+     */
+    onRangefieldMounted(id) {
+        const field = Neo.getComponent(id);
+
+        this.gallery.on('change' + Neo.capitalize(field.name), function(value) {
+            value = Math.min(Math.max(value, field.minValue), field.maxValue);
+            field.value = value;
+        });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onSortButtonClick(data) {
+        this.gallery.store.sorters = [{
+            property : data.component.field,
+            direction: 'DESC'
+        }];
     }
 
     /**

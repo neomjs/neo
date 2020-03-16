@@ -54,7 +54,7 @@ class ConfigurationViewport extends Viewport {
             style : {padding: '20px'}
         }, {
             module: Panel,
-            cls   : ['neo-panel', 'neo-container', 'neo-examples-configuration-panel'],
+            cls   : ['neo-panel', 'neo-container', 'neo-configuration-panel'],
             flex  : me.configPanelFlex,
             style : {margin: '20px'},
 
@@ -78,7 +78,7 @@ class ConfigurationViewport extends Viewport {
                 module: Container,
                 layout: {ntype: 'vbox'},
                 style : {padding: '10px'},
-                cls   : ['neo-examples-configuration-panel-body'],
+                cls   : ['neo-configuration-panel-body'],
                 itemDefaults: {
                     clearToOriginalValue: true,
                     labelWidth          : me.configItemLabelWidth,
