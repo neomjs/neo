@@ -33,12 +33,7 @@ class MainContainerController extends ComponentController {
         /**
          * @member {String} apiSummaryUrl='https://corona.lmao.ninja/all'
          */
-        apiSummaryUrl: 'https://corona.lmao.ninja/all',
-        /**
-         * The Covid API does not support CORS, so we do need to use a proxy
-         * @member {String} proxyUrl='https://cors-anywhere.herokuapp.com/'
-         */
-        proxyUrl: 'https://cors-anywhere.herokuapp.com/'
+        apiSummaryUrl: 'https://corona.lmao.ninja/all'
     }}
 
     /**
@@ -172,7 +167,7 @@ class MainContainerController extends ComponentController {
     loadData() {
         const me = this;
 
-        fetch(me.proxyUrl + me.apiUrl)
+        fetch(me.apiUrl)
             .then(response => response.json())
             .then(data => me.addStoreItems(data))
             .catch(err => console.log('Can’t access ' + me.apiUrl, err));
@@ -184,7 +179,7 @@ class MainContainerController extends ComponentController {
     loadSummaryData() {
         const me = this;
 
-        fetch(me.proxyUrl + me.apiSummaryUrl)
+        fetch(me.apiSummaryUrl)
             .then(response => response.json())
             .then(data => me.applySummaryData(data))
             .catch(err => console.log('Can’t access ' + me.apiSummaryUrl, err));
