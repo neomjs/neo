@@ -70,7 +70,10 @@ class GalleryContainerController extends ComponentController {
      * @param {Object} data
      */
     onSortButtonClick(data) {
-        console.log('onSortButtonClick', data);
+        this.gallery.store.sorters = [{
+            property : data.component.field,
+            direction: 'DESC'
+        }];
     }
 
     /**

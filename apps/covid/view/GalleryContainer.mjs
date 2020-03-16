@@ -53,11 +53,7 @@ class GalleryContainer extends Container {
                 flex         : '0 1 auto',
                 labelWidth   : '110px',
                 style        : {padding: '10px'},
-                useInputEvent: true,
-
-                listeners: {
-                    change: 'onRangefieldChange'
-                }
+                useInputEvent: true
             },
 
             headers: [{
@@ -88,7 +84,10 @@ class GalleryContainer extends Container {
                 maxValue : 1500,
                 minValue : -1500,
                 name     : 'translateY',
-                value    : 0
+                value    : 0,
+                listeners: {
+                    change: 'onRangefieldChange'
+                }
             }, {
                 labelText: 'Translate Z',
                 maxValue : 550,
@@ -104,13 +103,15 @@ class GalleryContainer extends Container {
                 maxValue : 15,
                 minValue : 1,
                 name     : 'amountRows',
-                value    : 3
+                value    : 3,
+                listeners: {
+                    change: 'onRangefieldChange'
+                }
             }, {
-                ntype    : 'button',
-                handler  : 'onOrderButtonClick',
-                text     : 'Order by Row',
-                listeners: {},
-                style    : {margin: '20px'}
+                ntype  : 'button',
+                handler: 'onOrderButtonClick',
+                text   : 'Order by Row',
+                style  : {margin: '20px'}
             }, {
                 ntype: 'label',
                 text : 'Sort By:'
@@ -122,35 +123,17 @@ class GalleryContainer extends Container {
                     ntype : 'container',
                     layout: {ntype: 'vbox', align: 'stretch'},
                     items : [{
-                        ntype    : 'button',
-                        field    : 'cases',
-                        handler  : 'onSortButtonClick',
-                        text     : 'Cases',
-                        listeners: {},
-                        style    : {margin: '10px', marginTop: '0'},
-
-                        /*domListeners: {
-                            click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
-                                    property : 'cases',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }*/
+                        ntype  : 'button',
+                        field  : 'cases',
+                        handler: 'onSortButtonClick',
+                        text   : 'Cases',
+                        style  : {margin: '10px', marginTop: '0'}
                     }, {
-                        ntype    : 'button',
-                        text     : 'Deaths',
-                        listeners: {},
-                        style    : {margin: '10px', marginBottom: '10px', marginTop: 0},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-gallery-1').store.sorters = [{
-                                    property : 'deaths',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                        ntype  : 'button',
+                        field  : 'deaths',
+                        handler: 'onSortButtonClick',
+                        text   : 'Deaths',
+                        style  : {margin: '10px', marginBottom: '10px', marginTop: 0}
                     }, {
                         ntype    : 'button',
                         text     : 'Country',
