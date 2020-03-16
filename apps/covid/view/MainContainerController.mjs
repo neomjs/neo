@@ -66,7 +66,10 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @param {Object[]} data
+     * @param {Object} data
+     * @param {Number} data.cases
+     * @param {Number} data.deaths
+     * @param {Number} data.recovered
      */
     applySummaryData(data) {
         console.log('applySummaryData', data);
