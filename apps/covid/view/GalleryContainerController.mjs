@@ -39,7 +39,7 @@ class GalleryContainerController extends ComponentController {
         const gallery    = this.gallery,
               orderByRow = !gallery.orderByRow;
 
-        this.getReference('order-button').text = orderByRow === true ? 'Order By Column' : 'Order by Row';
+        data.component.text = orderByRow === true ? 'Order By Column' : 'Order by Row';
 
         gallery.orderByRow = orderByRow;
     }
@@ -63,6 +63,14 @@ class GalleryContainerController extends ComponentController {
             value = Math.min(Math.max(value, field.minValue), field.maxValue);
             field.value = value;
         });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onSortButtonClick(data) {
+        console.log('onSortButtonClick', data);
     }
 
     /**

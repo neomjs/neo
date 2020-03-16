@@ -106,12 +106,11 @@ class GalleryContainer extends Container {
                 name     : 'amountRows',
                 value    : 3
             }, {
-                ntype       : 'button',
-                handler     : 'onOrderButtonClick',
-                text        : 'Order by Row',
-                listeners   : {},
-                reference   : 'order-button',
-                style       : {margin: '20px'}
+                ntype    : 'button',
+                handler  : 'onOrderButtonClick',
+                text     : 'Order by Row',
+                listeners: {},
+                style    : {margin: '20px'}
             }, {
                 ntype: 'label',
                 text : 'Sort By:'
@@ -124,18 +123,20 @@ class GalleryContainer extends Container {
                     layout: {ntype: 'vbox', align: 'stretch'},
                     items : [{
                         ntype    : 'button',
+                        field    : 'cases',
+                        handler  : 'onSortButtonClick',
                         text     : 'Cases',
                         listeners: {},
                         style    : {margin: '10px', marginTop: '0'},
 
-                        domListeners: {
+                        /*domListeners: {
                             click: function() {
                                 Neo.get('neo-gallery-1').store.sorters = [{
                                     property : 'cases',
                                     direction: 'DESC'
                                 }];
                             }
-                        }
+                        }*/
                     }, {
                         ntype    : 'button',
                         text     : 'Deaths',
