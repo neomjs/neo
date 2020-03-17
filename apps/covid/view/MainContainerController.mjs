@@ -27,6 +27,10 @@ class MainContainerController extends ComponentController {
          */
         ntype: 'maincontainer-controller',
         /**
+         * @member {Number} activeMainTabIndex=0
+         */
+        activeMainTabIndex: 0,
+        /**
          * @member {String} apiUrl='https://corona.lmao.ninja/countries'
          */
         apiUrl: 'https://corona.lmao.ninja/countries',
@@ -53,10 +57,17 @@ class MainContainerController extends ComponentController {
     addStoreItems(data) {
         const me = this;
 
-        // todo: only render the active view & feed the matching store
-        // me.getReference('gallery').store.data = data;
-        me.getReference('helix')  .store.data = data;
-        // me.getReference('table').store.data = data;
+        switch(me.activeMainTabIndex) {
+            case 0:
+                me.getReference('table').store.data = data;
+                break;
+            case 1:
+                me.getReference('gallery').store.data = data;
+                break;
+            case 2:
+                me.getReference('helix').store.data = data;
+                break;
+        }
     }
 
     /**
@@ -212,10 +223,14 @@ class MainContainerController extends ComponentController {
      * @param {String} hashString
      */
     onHashChange(value, oldValue, hashString) {
-        let me = this;
+        let me          = this,
+            activeIndex = me.getTabIndex(value);
 
         console.log('onHashChange', value);
-        me.getReference('tab-container').activeIndex = me.getTabIndex(value);
+
+        me.getReference('tab-container').activeIndex = activeIndex;
+
+        me.activeMainTabIndex = activeIndex;
     }
 }
 
