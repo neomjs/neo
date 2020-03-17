@@ -30,11 +30,21 @@ class HeaderContainer extends Container {
          * @member {Array} items
          */
         items: [{
-            html : 'COVID-19 neo.mjs App'
+            html: 'COVID-19 neo.mjs App'
         }, {
             flex: 1
         }, {
-            html : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
+            vdom: {
+                cn: [{
+                    tag              : 'a',
+                    'aria-label'     : 'Star neomjs/neo on GitHub',
+                    cls              : ['github-button'],
+                    'data-show-count': 'true',
+                    'data-size'      : 'large',
+                    href             : 'https://github.com/neomjs/neo',
+                    html             : 'Star'
+                }]
+            },
             width: 150
         }]
     }}
