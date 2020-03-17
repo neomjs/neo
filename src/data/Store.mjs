@@ -167,6 +167,9 @@ class Store extends Base {
                 value = [value];
             }
 
+            // todo: add a config to make the cloning optional
+            value = Neo.clone(value, true);
+
             value.forEach((key, index) => {
                 if (!RecordFactory.isRecord(key)) {
                     value[index] = RecordFactory.createRecord(me.model, key);
