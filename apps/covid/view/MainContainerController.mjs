@@ -184,6 +184,19 @@ class MainContainerController extends ComponentController {
             .then(data => me.applySummaryData(data))
             .catch(err => console.log('Can’t access ' + me.apiSummaryUrl, err));
     }
+
+    /**
+     *
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @param {String} hashString
+     */
+    onHashChange(value, oldValue, hashString) {
+        let me   = this,
+            view = me.view;
+
+        console.log('onHashChange', value);
+    }
 }
 
 Neo.applyClassConfig(MainContainerController);
