@@ -65,10 +65,9 @@ class GalleryContainer extends Container {
             headers: [{
                 dock: 'top',
                 items: [{
-                    ntype    : 'button',
-                    handler  : 'onCollapseButtonClick',
-                    reference: 'collapse-button',
-                    text     : 'X'
+                    ntype  : 'button',
+                    handler: 'onCollapseButtonClick',
+                    text   : 'X'
                 }, {
                     ntype: 'label',
                     text : 'Gallery Controls'

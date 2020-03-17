@@ -77,15 +77,15 @@ class GalleryContainerController extends ComponentController {
     }
 
     /**
-     *
+     * {Object} data
      */
-    onCollapseButtonClick() {
+    onCollapseButtonClick(data) {
         const panel  = this.getReference('controls-panel'),
               expand = panel.width === 40;
 
         panel.width = expand ? 250 : 40;
 
-        this.getReference('collapse-button').text = expand ? 'X' : '+';
+        data.component.text = expand ? 'X' : '+';
     }
 }
 
