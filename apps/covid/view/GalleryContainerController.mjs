@@ -32,6 +32,18 @@ class GalleryContainerController extends ComponentController {
     }
 
     /**
+     * {Object} data
+     */
+    onCollapseButtonClick(data) {
+        const panel  = this.getReference('controls-panel'),
+              expand = panel.width === 40;
+
+        panel.width = expand ? 250 : 40;
+
+        data.component.text = expand ? 'X' : '+';
+    }
+
+    /**
      *
      * @param {Object} data
      */
@@ -74,18 +86,6 @@ class GalleryContainerController extends ComponentController {
             property : data.component.field,
             direction: 'DESC'
         }];
-    }
-
-    /**
-     * {Object} data
-     */
-    onCollapseButtonClick(data) {
-        const panel  = this.getReference('controls-panel'),
-              expand = panel.width === 40;
-
-        panel.width = expand ? 250 : 40;
-
-        data.component.text = expand ? 'X' : '+';
     }
 }
 
