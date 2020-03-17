@@ -65,14 +65,8 @@ class HelixContainer extends Container {
                 labelWidth   : '100px',
                 style        : {padding: '10px'},
                 useInputEvent: true,
-
-                listeners: {
-                    change: function(data) {
-                        if (['deltaY', 'maxOpacity', 'minOpacity'].includes(this.name)) {
-                            data.value /= 100;
-                        }
-                        Neo.get('neo-helix-1')[this.name] = data.value;
-                    }
+                listeners    : {
+                    change: 'onRangefieldChange'
                 }
             },
 
@@ -113,9 +107,7 @@ class HelixContainer extends Container {
                 name     : 'translateZ',
                 value    : -1500,
                 listeners: {
-                    change: function(data) {
-                        Neo.get('neo-helix-1')[this.name] = data.value;
-                    },
+                    change : 'onRangefieldChange',
                     mounted: function(fieldId) {
                         let field = Neo.get(fieldId);
 
@@ -139,9 +131,7 @@ class HelixContainer extends Container {
                 name     : 'rotationAngle',
                 value    : 0,
                 listeners: {
-                    change: function(data) {
-                        Neo.get('neo-helix-1')[this.name] = data.value;
-                    },
+                    change : 'onRangefieldChange',
                     mounted: function(fieldId) {
                         let field = Neo.get(fieldId);
 
@@ -174,7 +164,7 @@ class HelixContainer extends Container {
                 name     : 'maxOpacity',
                 minValue : 0,
                 maxValue : 100,
-                value    : 80 // todo [30, 80]
+                value    : 80 // todo: multi-thumb slider [30, 80]
             }, {
                 labelText: 'Min Opacity',
                 name     : 'minOpacity',
