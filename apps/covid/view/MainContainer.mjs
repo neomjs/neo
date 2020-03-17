@@ -38,6 +38,7 @@ class MainContainer extends Viewport {
 
                 tabButtonConfig: {
                     iconCls: 'fa fa-table',
+                    route  : 'mainview=table',
                     text   : 'Table'
                 }
             }, {
@@ -45,6 +46,7 @@ class MainContainer extends Viewport {
 
                 tabButtonConfig: {
                     iconCls: 'fa fa-images',
+                    route  : 'mainview=gallery',
                     text   : 'Gallery'
                 }
             }, {
@@ -52,6 +54,7 @@ class MainContainer extends Viewport {
 
                 tabButtonConfig: {
                     iconCls: 'fa fa-dna',
+                    route  : 'mainview=helix',
                     text   : 'Helix'
                 }
             }]

@@ -181,6 +181,26 @@ class Button extends Component {
     }
 
     /**
+     * Triggered after the route config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @private
+     */
+    afterSetRoute(value, oldValue) {
+        if (value) {
+            let me           = this,
+                domListeners = me.domListeners || [];
+
+            domListeners.push({
+                click: me.changeRoute,
+                scope: me
+            });
+
+            me.domListeners = domListeners;
+        }
+    }
+
+    /**
      * Triggered after the text config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -244,6 +264,13 @@ class Button extends Component {
      */
     beforeSetIconPosition(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'iconPosition');
+    }
+
+    /**
+     *
+     */
+    changeRoute() {
+        console.log('changeRoute', this.route);
     }
 }
 
