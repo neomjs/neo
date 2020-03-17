@@ -16,10 +16,18 @@ class MainContainer extends Viewport {
          * @private
          */
         className: 'Covid.view.MainContainer',
-
-        autoMount : true,
+        /**
+         * @member {Boolean} autoMount=true
+         */
+        autoMount: true,
+        /**
+         * @member {Neo.controller.Component} controller=MainContainerController
+         */
         controller: MainContainerController,
-        layout    : {ntype: 'vbox', align: 'stretch'}
+        /**
+         * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         */
+        layout: {ntype: 'vbox', align: 'stretch'}
     }}
 
     /**
