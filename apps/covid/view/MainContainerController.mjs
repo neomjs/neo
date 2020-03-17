@@ -175,6 +175,7 @@ class MainContainerController extends ComponentController {
     /**
      *
      * @param {Object} hashObject
+     * @param {String} hashObject.mainview
      * @return {Number}
      */
     getTabIndex(hashObject) {
