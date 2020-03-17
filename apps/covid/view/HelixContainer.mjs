@@ -1,8 +1,8 @@
 import Helix                    from './country/Helix.mjs';
 import HelixContainerController from './HelixContainerController.mjs';
-import {default as Panel}       from '../../../src/container/Panel.mjs';
+import Panel                    from '../../../src/container/Panel.mjs';
 import {default as RangeField}  from '../../../src/form/field/Range.mjs';
-import {default as Container}   from '../../../src/container/Viewport.mjs';
+import {default as Container}   from '../../../src/container/Base.mjs';
 
 /**
  * @class Covid.view.HelixContainer
