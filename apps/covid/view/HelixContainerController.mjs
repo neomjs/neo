@@ -44,6 +44,21 @@ class HelixContainerController extends ComponentController {
     }
 
     /**
+     * {Object} data
+     */
+    onFollowSelectionButtonClick(data) {
+        const button = data.component;
+
+        if (button.iconCls === 'fa fa-square') {
+            this.helix.followSelection = true;
+            button.iconCls = 'fa fa-check-square';
+        } else {
+            this.helix.followSelection = false;
+            button.iconCls = 'fa fa-square';
+        }
+    }
+
+    /**
      *
      * @param {Object} data
      */

@@ -224,23 +224,10 @@ class HelixContainer extends Container {
                 }]
             }, {
                 ntype    : 'button',
+                handler  : 'onFollowSelectionButtonClick',
                 iconCls  : 'fa fa-square',
                 text     : 'Follow Selection',
                 listeners: {},
-                domListeners: {
-                    click: function(data) {
-                        let me   = this,
-                            helix = Neo.get('neo-helix-1');
-
-                        if (me.iconCls === 'fa fa-square') {
-                            helix.followSelection = true;
-                            me.iconCls = 'fa fa-check-square';
-                        } else {
-                            helix.followSelection = false;
-                            me.iconCls = 'fa fa-square';
-                        }
-                    }
-                },
                 style: {
                     margin      : '20px',
                     marginBottom: '10px'
