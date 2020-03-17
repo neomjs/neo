@@ -74,8 +74,6 @@ class MainContainerController extends ComponentController {
                 me.getReference('helix').store.data = data;
                 break;
         }
-
-        console.log(data);
     }
 
     /**
@@ -182,6 +180,29 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @param {Number} tabIndex
+     * @return {String}
+     */
+    getStore(tabIndex) {
+        let reference;
+
+        switch(tabIndex) {
+            case 0:
+                reference = 'table';
+                break;
+            case 1:
+                reference = 'gallery';
+                break;
+            case 2:
+                reference = 'helix';
+                break;
+        }
+
+        return this.getReference(reference).store;
+    }
+
+    /**
+     *
      * @param {Object} hashObject
      * @param {String} hashObject.mainview
      * @return {Number}
@@ -232,14 +253,21 @@ class MainContainerController extends ComponentController {
      * @param {String} hashString
      */
     onHashChange(value, oldValue, hashString) {
-        let me          = this,
-            activeIndex = me.getTabIndex(value);
+        let me           = this,
+            activeIndex  = me.getTabIndex(value),
+            tabContainer = me.getReference('tab-container'),
+            store        = me.getStore(activeIndex);
 
-        console.log('onHashChange', value);
+        // console.log('onHashChange', value);
 
-        me.getReference('tab-container').activeIndex = activeIndex;
+        tabContainer.activeIndex = activeIndex;
+        me.activeMainTabIndex    = activeIndex;
 
-        me.activeMainTabIndex = activeIndex;
+        // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
+
+        if (me.data && store.getCount() < 1) {
+            store.data = me.data;
+        }
     }
 }
 
