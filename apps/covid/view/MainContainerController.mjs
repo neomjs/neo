@@ -199,10 +199,26 @@ class MainContainerController extends ComponentController {
      * @param {String} hashString
      */
     onHashChange(value, oldValue, hashString) {
-        let me   = this,
-            view = me.view;
+        let me = this,
+            activeTabIndex;
 
         console.log('onHashChange', value, hashString);
+
+        switch(value.mainview) {
+            case 'gallery':
+                activeTabIndex = 1;
+                break;
+            case 'helix':
+                activeTabIndex = 2;
+                break;
+            case 'table':
+                activeTabIndex = 0;
+                break;
+
+        }
+
+        me.getReference('tab-container').activeIndex = activeTabIndex;
+        console.log(me.getReference('tab-container'));
     }
 }
 

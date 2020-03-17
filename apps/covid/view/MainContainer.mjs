@@ -27,10 +27,10 @@ class MainContainer extends Viewport {
             html  : 'COVID-19 neo.mjs App',
             style : {padding: '20px'}
         }, {
-            module: TabContainer,
-            activeIndex: 2, // todo: remove, just for testing
-            flex  : 1,
-            style : {margin: '20px'},
+            module   : TabContainer,
+            flex     : 1,
+            reference: 'tab-container',
+            style    : {margin: '20px'},
 
             items: [{
                 module   : TableContainer,
