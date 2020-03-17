@@ -1,8 +1,8 @@
 import Gallery                    from './country/Gallery.mjs';
 import GalleryContainerController from './GalleryContainerController.mjs';
-import {default as Panel}         from '../../../src/container/Panel.mjs';
+import Panel                      from '../../../src/container/Panel.mjs';
 import {default as RangeField}    from '../../../src/form/field/Range.mjs';
-import {default as Container}     from '../../../src/container/Viewport.mjs';
+import {default as Container}     from '../../../src/container/Base.mjs';
 
 /**
  * @class Covid.view.GalleryContainer
