@@ -47,6 +47,19 @@ class HelixContainerController extends ComponentController {
 
     /**
      *
+     * @param {String} id
+     */
+    onRangefieldMounted(id) {
+        const field = Neo.getComponent(id);
+
+        this.helix.on(field.eventName, function(value) {
+            value = Math.min(Math.max(value, field.minValue), field.maxValue);
+            field.value = value;
+        });
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onSortButtonClick(data) {

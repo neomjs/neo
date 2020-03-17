@@ -101,6 +101,7 @@ class HelixContainer extends Container {
                 name     : 'translateY',
                 value    : -350
             }, {
+                eventName: 'changeTranslateZ',
                 labelText: 'Translate Z',
                 maxValue : 4500,
                 minValue : -4500,
@@ -108,14 +109,7 @@ class HelixContainer extends Container {
                 value    : -1500,
                 listeners: {
                     change : 'onRangefieldChange',
-                    mounted: function(fieldId) {
-                        let field = Neo.get(fieldId);
-
-                        Neo.get('neo-helix-1').on('changeTranslateZ', function(value) {
-                            value = Math.min(Math.max(value, this.minValue), this.maxValue);
-                            this.value = value;
-                        }, field);
-                    }
+                    mounted: 'onRangefieldMounted'
                 }
             }, {
                 labelText : 'Delta Y',
@@ -125,6 +119,7 @@ class HelixContainer extends Container {
                 name      : 'deltaY',
                 value     : 70
             }, {
+                eventName: 'changeRotation',
                 labelText: 'Rotate',
                 minValue : -720,
                 maxValue : 720,
@@ -132,14 +127,7 @@ class HelixContainer extends Container {
                 value    : 0,
                 listeners: {
                     change : 'onRangefieldChange',
-                    mounted: function(fieldId) {
-                        let field = Neo.get(fieldId);
-
-                        Neo.get('neo-helix-1').on('changeRotation', function(value) {
-                            value = Math.min(Math.max(value, this.minValue), this.maxValue);
-                            this.value = value;
-                        }, field);
-                    }
+                    mounted: 'onRangefieldMounted'
                 }
             }, {
                 labelText: 'Radius',
