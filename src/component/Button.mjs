@@ -270,7 +270,9 @@ class Button extends Component {
      *
      */
     changeRoute() {
-        console.log('changeRoute', this.route);
+        Neo.Main.setRoute({
+            value: this.route
+        });
     }
 }
 
