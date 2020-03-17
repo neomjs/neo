@@ -42,15 +42,8 @@ class MainContainerController extends ComponentController {
     onConstructed() {
         super.onConstructed();
 
-        const me = this;
-
-        // default route => table
-        if (!Neo.config.hash) {
-            me.onHashChange({mainview: 'table'}, null, 'mainview=table');
-        }
-
-        me.loadData();
-        me.loadSummaryData();
+        this.loadData();
+        this.loadSummaryData();
     }
 
     /**
@@ -170,6 +163,26 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @param {Object} hashObject
+     * @return {Number}
+     */
+    getTabIndex(hashObject) {
+        if (!hashObject) {
+            return 0;
+        }
+
+        switch(hashObject.mainview) {
+            case 'gallery':
+                return 1;
+            case 'helix':
+                return 2;
+            case 'table':
+                return 0;
+        }
+    }
+
+    /**
+     *
      */
     loadData() {
         const me = this;
@@ -199,26 +212,10 @@ class MainContainerController extends ComponentController {
      * @param {String} hashString
      */
     onHashChange(value, oldValue, hashString) {
-        let me = this,
-            activeTabIndex;
+        let me = this;
 
-        console.log('onHashChange', value, hashString);
-
-        switch(value.mainview) {
-            case 'gallery':
-                activeTabIndex = 1;
-                break;
-            case 'helix':
-                activeTabIndex = 2;
-                break;
-            case 'table':
-                activeTabIndex = 0;
-                break;
-
-        }
-
-        me.getReference('tab-container').activeIndex = activeTabIndex;
-        console.log(me.getReference('tab-container'));
+        console.log('onHashChange', value);
+        me.getReference('tab-container').activeIndex = me.getTabIndex(value);
     }
 }
 

@@ -19,18 +19,27 @@ class MainContainer extends Viewport {
 
         autoMount : true,
         controller: MainContainerController,
-        layout    : {ntype: 'vbox', align: 'stretch'},
+        layout    : {ntype: 'vbox', align: 'stretch'}
+    }}
 
-        items: [{
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        this.items = [{
             ntype : 'component', // todo: HeaderComponent,
             height: 70,
             html  : 'COVID-19 neo.mjs App',
             style : {padding: '20px'}
         }, {
-            module   : TabContainer,
-            flex     : 1,
-            reference: 'tab-container',
-            style    : {margin: '20px'},
+            module     : TabContainer,
+            activeIndex: this.controller.getTabIndex(Neo.config.hash),
+            flex       : 1,
+            reference  : 'tab-container',
+            style      : {margin: '20px'},
 
             items: [{
                 module   : TableContainer,
@@ -58,8 +67,8 @@ class MainContainer extends Viewport {
                     text   : 'Helix'
                 }
             }]
-        }]
-    }}
+        }];
+    }
 }
 
 Neo.applyClassConfig(MainContainer);
