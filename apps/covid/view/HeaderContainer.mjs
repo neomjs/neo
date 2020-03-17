@@ -12,6 +12,10 @@ class HeaderContainer extends Container {
          */
         className: 'Covid.view.HeaderContainer',
         /**
+         * @member {Number} height=70
+         */
+        height: 70,
+        /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
          */
         layout: {ntype: 'hbox', align: 'stretch'},
@@ -19,7 +23,9 @@ class HeaderContainer extends Container {
          * @member {Array} items
          */
         items: [{
-
+            ntype: 'component',
+            html : 'COVID-19 neo.mjs App',
+            style: {padding: '20px'}
         }]
     }}
 }

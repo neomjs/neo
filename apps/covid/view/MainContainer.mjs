@@ -1,4 +1,5 @@
 import GalleryContainer          from './GalleryContainer.mjs';
+import HeaderContainer           from './HeaderContainer.mjs';
 import HelixContainer            from './HelixContainer.mjs';
 import MainContainerController   from './MainContainerController.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
@@ -37,12 +38,7 @@ class MainContainer extends Viewport {
     constructor(config) {
         super(config);
 
-        this.items = [{
-            ntype : 'component', // todo: HeaderComponent,
-            height: 70,
-            html  : 'COVID-19 neo.mjs App',
-            style : {padding: '20px'}
-        }, {
+        this.items = [HeaderContainer, {
             module     : TabContainer,
             activeIndex: this.controller.getTabIndex(Neo.config.hash),
             flex       : 1,
