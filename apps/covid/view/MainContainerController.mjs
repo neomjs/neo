@@ -50,8 +50,18 @@ class MainContainerController extends ComponentController {
     onConstructed() {
         super.onConstructed();
 
-        this.loadData();
-        this.loadSummaryData();
+        const me = this;
+
+        me.loadData();
+        me.loadSummaryData();
+
+        me.view.on('mounted', () => {
+            Neo.main.DomAccess.addScript({
+                async: true,
+                defer: true,
+                src  : 'https://buttons.github.io/buttons.js'
+            });
+        });
     }
 
     /**

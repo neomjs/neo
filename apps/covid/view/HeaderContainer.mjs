@@ -20,12 +20,22 @@ class HeaderContainer extends Container {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
+         * @member {Object} itemDefaults
+         */
+        itemDefaults: {
+            ntype: 'component',
+            style: {padding: '20px'}
+        },
+        /**
          * @member {Array} items
          */
         items: [{
-            ntype: 'component',
-            html : 'COVID-19 neo.mjs App',
-            style: {padding: '20px'}
+            html : 'COVID-19 neo.mjs App'
+        }, {
+            flex: 1
+        }, {
+            html : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
+            width: 150
         }]
     }}
 }
