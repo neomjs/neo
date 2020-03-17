@@ -65,6 +65,11 @@ class Button extends Component {
          */
         pressed_: false,
         /**
+         * Change the browser hash value on click
+         * @member {String|null} route_=null
+         */
+        route_: null,
+        /**
          * The text displayed on the button [optional]
          * @member {String} text_=''
          */
