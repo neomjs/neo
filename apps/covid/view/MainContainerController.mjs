@@ -42,8 +42,15 @@ class MainContainerController extends ComponentController {
     onConstructed() {
         super.onConstructed();
 
-        this.loadData();
-        this.loadSummaryData();
+        const me = this;
+
+        // default route => table
+        if (!Neo.config.hash) {
+            me.onHashChange({mainview: 'table'}, null, 'mainview=table');
+        }
+
+        me.loadData();
+        me.loadSummaryData();
     }
 
     /**
@@ -195,7 +202,7 @@ class MainContainerController extends ComponentController {
         let me   = this,
             view = me.view;
 
-        console.log('onHashChange', value);
+        console.log('onHashChange', value, hashString);
     }
 }
 
