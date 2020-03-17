@@ -156,15 +156,10 @@ class HelixContainer extends Container {
                 value    : 30
             }, {
                 ntype     : 'button',
+                handler  : 'onFlipItemsButtonClick',
                 text      : 'Flip Items',
                 listeners: {},
-                style    : {margin: '20px'},
-                domListeners: {
-                    click: data => {
-                        const helix = Neo.get('neo-helix-1');
-                        helix.flipped = !helix.flipped;
-                    }
-                }
+                style    : {margin: '20px'}
             }, {
                 ntype: 'label',
                 text : 'Sort By:'
@@ -265,7 +260,6 @@ class HelixContainer extends Container {
 
         me.helix = Neo.create({
             module   : Helix,
-            id       : 'neo-helix-1',
             reference: 'helix',
             ...me.helixConfig || {}
         });

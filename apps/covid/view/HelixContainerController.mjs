@@ -46,6 +46,13 @@ class HelixContainerController extends ComponentController {
     /**
      * {Object} data
      */
+    onFlipItemsButtonClick(data) {
+        this.helix.flipped = !this.helix.flipped;
+    }
+
+    /**
+     * {Object} data
+     */
     onFollowSelectionButtonClick(data) {
         const button = data.component;
 
