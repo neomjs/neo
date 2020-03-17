@@ -37,7 +37,11 @@ class MainContainerController extends ComponentController {
         /**
          * @member {String} apiSummaryUrl='https://corona.lmao.ninja/all'
          */
-        apiSummaryUrl: 'https://corona.lmao.ninja/all'
+        apiSummaryUrl: 'https://corona.lmao.ninja/all',
+        /**
+         * @member {Object[]|null} data=null
+         */
+        data: null
     }}
 
     /**
@@ -57,6 +61,8 @@ class MainContainerController extends ComponentController {
     addStoreItems(data) {
         const me = this;
 
+        me.data = data;
+
         switch(me.activeMainTabIndex) {
             case 0:
                 me.getReference('table').store.data = data;
@@ -68,6 +74,8 @@ class MainContainerController extends ComponentController {
                 me.getReference('helix').store.data = data;
                 break;
         }
+
+        console.log(data);
     }
 
     /**
