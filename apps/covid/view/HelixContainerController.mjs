@@ -44,6 +44,17 @@ class HelixContainerController extends ComponentController {
 
         this.helix[name] = data.value;
     }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onSortButtonClick(data) {
+        this.helix.store.sorters = [{
+            property : data.component.field,
+            direction: 'DESC'
+        }];
+    }
 }
 
 Neo.applyClassConfig(HelixContainerController);

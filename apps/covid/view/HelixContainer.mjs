@@ -189,97 +189,54 @@ class HelixContainer extends Container {
                 ntype : 'container',
                 layout: {ntype: 'hbox', align: 'stretch'},
                 style : {padding: '0'},
+
                 items : [{
                     ntype : 'container',
                     layout: {ntype: 'vbox', align: 'stretch'},
-                    items : [{
-                        ntype    : 'button',
-                        text     : 'Cases',
-                        listeners: {},
-                        style    : {margin: '10px', marginTop: '0'},
 
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'cases',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                    itemDefaults: {
+                        ntype  : 'button',
+                        handler: 'onSortButtonClick'
+                    },
+
+                    items: [{
+                        field: 'cases',
+                        text : 'Cases',
+                        style: {margin: '10px', marginTop: '0'}
                     }, {
-                        ntype    : 'button',
-                        text     : 'Deaths',
-                        listeners: {},
-                        style    : {margin: '10px', marginBottom: '10px', marginTop: 0},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'deaths',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                        field: 'deaths',
+                        text : 'Deaths',
+                        style: {margin: '10px', marginBottom: '10px', marginTop: 0}
                     }, {
-                        ntype    : 'button',
-                        text     : 'Country',
-                        listeners: {},
-                        style    : {margin: '10px', marginTop: 0},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'country',
-                                    direction: 'ASC'
-                                }];
-                            }
-                        }
+                        field: 'country',
+                        text : 'Country',
+                        style: {margin: '10px', marginTop: 0}
+                    }, {
+                        field: 'recovered',
+                        text : 'Recovered',
+                        style: {margin: '10px', marginTop: 0}
                     }]
                 }, {
                     ntype : 'container',
                     layout: {ntype: 'vbox', align: 'stretch'},
-                    items : [{
-                        ntype    : 'button',
-                        text     : 'Cases today',
-                        listeners: {},
-                        style    : {margin: '10px', marginTop: '0'},
 
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'todayCases',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                    itemDefaults: {
+                        ntype  : 'button',
+                        handler: 'onSortButtonClick'
+                    },
+
+                    items: [{
+                        field: 'todayCases',
+                        text : 'Cases today',
+                        style: {margin: '10px', marginTop: '0'}
                     }, {
-                        ntype    : 'button',
-                        text     : 'Deaths today',
-                        listeners: {},
-                        style    : {margin: '10px', marginBottom: '10px', marginTop: 0},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'todayDeaths',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                        field: 'todayDeaths',
+                        text : 'Deaths today',
+                        style: {margin: '10px', marginBottom: '10px', marginTop: 0}
                     }, {
-                        ntype    : 'button',
-                        text     : 'Critical',
-                        listeners: {},
-                        style    : {margin: '10px', marginTop: 0},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'critical',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                        field: 'critical',
+                        text : 'Critical',
+                        style: {margin: '10px', marginBottom: '43px', marginTop: 0}
                     }]
                 }]
             }, {
