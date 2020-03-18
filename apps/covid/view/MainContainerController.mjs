@@ -288,7 +288,7 @@ class MainContainerController extends ComponentController {
             tabContainer   = me.getReference('tab-container'),
             activeView     = me.getView(activeIndex),
             selectionModel = activeView.selectionModel,
-            delaySelection = !me.data ? 500 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
+            delaySelection = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
             id;
 
         // console.log('onHashChange', value);
@@ -313,9 +313,7 @@ class MainContainerController extends ComponentController {
                     id = selectionModel.getRowId(activeView.store.indexOf(value.country));
                     selectionModel.select(id);
 
-                    Neo.main.DomAccess.scrollIntoView({
-                        id: id
-                    });
+                    Neo.main.DomAccess.scrollIntoView({id: id});
                 } else if (activeView.ntype === 'helix') {
                     selectionModel.select(value.country, false);
                 } else {
