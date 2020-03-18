@@ -267,7 +267,9 @@ class MainContainerController extends ComponentController {
     }
 
     onCountryFieldSelect(data) {
-        console.log('onCountryFieldSelect', data);
+        Neo.Main.editRoute({
+            country: data.value
+        });
     }
 
     /**
