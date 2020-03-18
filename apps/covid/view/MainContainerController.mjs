@@ -319,7 +319,7 @@ class MainContainerController extends ComponentController {
                 } else if (activeView.ntype === 'helix') {
                     selectionModel.select(value.country, false);
                 } else {
-                    selectionModel.select(value.country);
+                    selectionModel.select(value.country, false);
                 }
             }, delaySelection);
         }
