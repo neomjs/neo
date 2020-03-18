@@ -286,6 +286,7 @@ class MainContainerController extends ComponentController {
             activeIndex  = me.getTabIndex(value),
             tabContainer = me.getReference('tab-container'),
             activeView   = me.getView(activeIndex),
+            switchView   = tabContainer.activeIndex !== activeIndex,
             id;
 
         // console.log('onHashChange', value);
@@ -300,16 +301,18 @@ class MainContainerController extends ComponentController {
         }
 
         if (value.country) {
-            if (activeView.ntype === 'table-container') {
-                id = activeView.selectionModel.getRowId(activeView.store.indexOf(value.country));
-                activeView.selectionModel.select(id);
+            setTimeout(() => {
+                if (activeView.ntype === 'table-container') {
+                    id = activeView.selectionModel.getRowId(activeView.store.indexOf(value.country));
+                    activeView.selectionModel.select(id);
 
-                Neo.main.DomAccess.scrollIntoView({
-                    id: id
-                });
-            } else {
-                activeView.selectionModel.select(value.country);
-            }
+                    Neo.main.DomAccess.scrollIntoView({
+                        id: id
+                    });
+                } else {
+                    activeView.selectionModel.select(value.country);
+                }
+            }, switchView ? 100 : 0);
         }
     }
 

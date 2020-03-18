@@ -275,9 +275,15 @@ class Button extends Component {
      * @private
      */
     changeRoute() {
-        Neo.Main[this.editRoute ? 'editRoute' : 'setRoute']({
-            value: this.route
-        });
+        const me = this;
+
+        if (me.editRoute) {
+            Neo.Main.editRoute(this.route);
+        } else {
+            Neo.Main.setRoute({
+                value: me.route
+            });
+        }
     }
 }
 

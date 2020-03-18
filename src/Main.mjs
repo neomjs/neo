@@ -128,6 +128,10 @@ class Main extends core.Base {
         let hashObj = DomEvents.parseHash(window.location.hash.substr(1)),
             hashArr = [];
 
+        if (typeof data === 'string') {
+            data = DomEvents.parseHash(data);
+        }
+
         Object.assign(hashObj, data);
 
         Object.entries(hashObj).forEach(([key, value]) => {
