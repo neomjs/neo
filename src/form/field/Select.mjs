@@ -327,6 +327,11 @@ class Select extends Picker {
             me._value = value;
             me.getInputHintEl().value = '';
             me.afterSetValue(value, oldValue, true); // prevent the list from getting filtered
+
+            me.fire('select', {
+                record: record,
+                value : record[me.store.keyProperty]
+            });
         }
     }
 

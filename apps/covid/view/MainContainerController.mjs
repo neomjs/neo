@@ -266,6 +266,10 @@ class MainContainerController extends ComponentController {
             .catch(err => console.log('Can’t access ' + me.apiSummaryUrl, err));
     }
 
+    onCountryFieldSelect(data) {
+        console.log('onCountryFieldSelect', data);
+    }
+
     /**
      *
      * @param {Object} value

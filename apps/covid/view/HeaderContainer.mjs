@@ -45,6 +45,10 @@ class HeaderContainer extends Container {
             style        : {marginTop: '15px'},
             width        : 200,
 
+            listeners: {
+                select: 'onCountryFieldSelect'
+            },
+
             store: {
                 module : CountryStore,
                 sorters: [{
