@@ -131,10 +131,10 @@ class Main extends core.Base {
         Object.assign(hashObj, data);
 
         Object.entries(hashObj).forEach(([key, value]) => {
-            hashArr.push(key + '=' + value);
+            hashArr.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
         });
 
-        window.location.hash = encodeURIComponent(hashArr.join('&'));
+        window.location.hash = hashArr.join('&');
     }
 
     /**

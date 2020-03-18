@@ -203,29 +203,6 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @param {Number} tabIndex
-     * @return {String}
-     */
-    getStore(tabIndex) {
-        let reference;
-
-        switch(tabIndex) {
-            case 0:
-                reference = 'table';
-                break;
-            case 1:
-                reference = 'gallery';
-                break;
-            case 2:
-                reference = 'helix';
-                break;
-        }
-
-        return this.getReference(reference).store;
-    }
-
-    /**
-     *
      * @param {Object} hashObject
      * @param {String} hashObject.mainview
      * @return {Number}
@@ -240,9 +217,32 @@ class MainContainerController extends ComponentController {
                 return 1;
             case 'helix':
                 return 2;
-            case 'table':
+            default:
                 return 0;
         }
+    }
+
+    /**
+     *
+     * @param {Number} tabIndex
+     * @return {Neo.component.Base}
+     */
+    getView(tabIndex) {
+        let reference;
+
+        switch(tabIndex) {
+            case 0:
+                reference = 'table';
+                break;
+            case 1:
+                reference = 'gallery';
+                break;
+            case 2:
+                reference = 'helix';
+                break;
+        }
+
+        return this.getReference(reference);
     }
 
     /**
@@ -285,17 +285,18 @@ class MainContainerController extends ComponentController {
         let me           = this,
             activeIndex  = me.getTabIndex(value),
             tabContainer = me.getReference('tab-container'),
-            store        = me.getStore(activeIndex);
+            activeView   = me.getView(activeIndex);
 
-        // console.log('onHashChange', value);
+        console.log('onHashChange', value);
+        console.log(activeIndex, activeView);
 
         tabContainer.activeIndex = activeIndex;
         me.activeMainTabIndex    = activeIndex;
 
         // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
 
-        if (me.data && store.getCount() < 1) {
-            store.data = me.data;
+        if (me.data && activeView.store.getCount() < 1) {
+            activeView.store.data = me.data;
         }
     }
 

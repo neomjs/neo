@@ -354,7 +354,7 @@ class DomEvents extends Base {
      *
      */
     onHashChange() {
-        const hashString = decodeURIComponent(location.hash.substr(1));
+        const hashString = location.hash.substr(1);
 
         Neo.worker.Manager.sendMessage('app', {
             action    : 'hashChange',
@@ -444,6 +444,10 @@ class DomEvents extends Base {
      * @returns {Object}
      */
     parseHash(str) {
+        if (str === '') {
+            return {};
+        }
+
         let pieces = str.split('&'),
             data   = {},
             i, key, parts, value;
