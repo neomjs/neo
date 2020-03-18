@@ -130,10 +130,10 @@ class Container extends BaseContainer {
         me.viewId          = Neo.getId('table-view');
 
         me.items = [{
-            ntype: 'table-header-toolbar',
-            id   : me.headerToolbarId
+            module: header.Toolbar,
+            id    : me.headerToolbarId
         }, {
-            ntype      : 'table-view',
+            module     : View,
             containerId: me.id,
             id         : me.viewId
         }];

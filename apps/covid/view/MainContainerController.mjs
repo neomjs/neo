@@ -285,7 +285,8 @@ class MainContainerController extends ComponentController {
         let me           = this,
             activeIndex  = me.getTabIndex(value),
             tabContainer = me.getReference('tab-container'),
-            activeView   = me.getView(activeIndex);
+            activeView   = me.getView(activeIndex),
+            id;
 
         // console.log('onHashChange', value);
 
@@ -299,7 +300,12 @@ class MainContainerController extends ComponentController {
         }
 
         if (value.country) {
-            activeView.selectionModel.select(value.country);
+            if (activeView.ntype === 'table-container') {
+                id = activeView.selectionModel.getRowId(activeView.store.indexOf(value.country));
+                activeView.selectionModel.select(id);
+            } else {
+                activeView.selectionModel.select(value.country);
+            }
         }
     }
 
