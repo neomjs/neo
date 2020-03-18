@@ -467,6 +467,14 @@ class Select extends Picker {
     }
 }
 
+/**
+ * The select event fires when a list item gets selected
+ * @event select
+ * @param {Object} record
+ * @param {value} record[store.keyProperty]
+ * @returns {Object}
+ */
+
 Neo.applyClassConfig(Select);
 
 export {Select as default};
