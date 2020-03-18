@@ -28,9 +28,9 @@ class MainContainerController extends ComponentController {
          */
         ntype: 'maincontainer-controller',
         /**
-         * @member {Number} activeMainTabIndex=0
+         * @member {Number|null} activeMainTabIndex=null
          */
-        activeMainTabIndex: 0,
+        activeMainTabIndex: null,
         /**
          * @member {String} apiUrl='https://corona.lmao.ninja/countries'
          */
@@ -282,14 +282,17 @@ class MainContainerController extends ComponentController {
      * @param {String} hashString
      */
     onHashChange(value, oldValue, hashString) {
-        let me           = this,
-            activeIndex  = me.getTabIndex(value),
-            tabContainer = me.getReference('tab-container'),
-            activeView   = me.getView(activeIndex),
-            switchView   = tabContainer.activeIndex !== activeIndex,
+        let me             = this,
+            activeIndex    = me.getTabIndex(value),
+            countryField   = me.getReference('country-field'),
+            tabContainer   = me.getReference('tab-container'),
+            activeView     = me.getView(activeIndex),
+            delaySelection = !me.data ? 500 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
             id;
 
         // console.log('onHashChange', value);
+
+        console.log(countryField.value, me.activeMainTabIndex);
 
         tabContainer.activeIndex = activeIndex;
         me.activeMainTabIndex    = activeIndex;
@@ -298,10 +301,13 @@ class MainContainerController extends ComponentController {
 
         if (me.data && activeView.store.getCount() < 1) {
             activeView.store.data = me.data;
+            delaySelection = 500;
         }
 
         if (value.country) {
             setTimeout(() => {
+                countryField.value = value.country;
+
                 if (activeView.ntype === 'table-container') {
                     id = activeView.selectionModel.getRowId(activeView.store.indexOf(value.country));
                     activeView.selectionModel.select(id);
@@ -312,7 +318,7 @@ class MainContainerController extends ComponentController {
                 } else {
                     activeView.selectionModel.select(value.country);
                 }
-            }, switchView ? 100 : 0);
+            }, delaySelection);
         }
     }
 
