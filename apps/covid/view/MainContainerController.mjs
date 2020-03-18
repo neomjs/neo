@@ -279,6 +279,13 @@ class MainContainerController extends ComponentController {
             store.data = me.data;
         }
     }
+
+    /**
+     * @param {Object} data
+     */
+    onThemeButtonClick(data) {
+        console.log('onThemeButtonClick');
+    }
 }
 
 Neo.applyClassConfig(MainContainerController);

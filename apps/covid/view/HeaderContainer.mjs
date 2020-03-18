@@ -16,25 +16,35 @@ class HeaderContainer extends Container {
          */
         height: 70,
         /**
-         * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
          */
-        layout: {ntype: 'hbox', align: 'stretch'},
+        layout: {ntype: 'hbox'},
         /**
          * @member {Object} itemDefaults
          */
         itemDefaults: {
-            ntype: 'component',
-            style: {padding: '20px'}
+            ntype: 'component'
         },
         /**
          * @member {Array} items
          */
         items: [{
-            html: 'COVID-19 neo.mjs App'
+            html : 'COVID-19 neo.mjs App',
+            style: {padding: '20px'},
+            width: 210
+        }, {
+            ntype  : 'button',
+            flex   : 'none',
+            handler: 'onThemeButtonClick',
+            height : 25,
+            style  : {marginTop: '15px'},
+            text   : 'Theme Light'
         }, {
             flex: 1
         }, {
-            vdom: {
+            style: {padding: '20px'},
+            width: 150,
+            vdom : {
                 cn: [{
                     tag              : 'a',
                     'aria-label'     : 'Star neomjs/neo on GitHub',
@@ -44,8 +54,7 @@ class HeaderContainer extends Container {
                     href             : 'https://github.com/neomjs/neo',
                     html             : 'Star'
                 }]
-            },
-            width: 150
+            }
         }]
     }}
 }
