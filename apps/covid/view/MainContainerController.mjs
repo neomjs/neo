@@ -1,4 +1,5 @@
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
+import NeoArray                         from '../../../src/util/Array.mjs';
 
 /**
  * @class Covid.view.MainContainerController
@@ -283,8 +284,43 @@ class MainContainerController extends ComponentController {
     /**
      * @param {Object} data
      */
-    onThemeButtonClick(data) {
-        console.log('onThemeButtonClick');
+    onSwitchThemeButtonClick(data) {
+        let me     = this,
+            button = data.component,
+            view   = me.view,
+            buttonText, cls, href, theme;
+
+        if (button.text === 'Theme Light') {
+            buttonText = 'Theme Dark';
+            href       = '../dist/development/neo-theme-light-no-css4.css';
+            theme      = 'neo-theme-light';
+        } else {
+            buttonText = 'Theme Light';
+            href       = '../dist/development/neo-theme-dark-no-css4.css';
+            theme      = 'neo-theme-dark';
+        }
+
+        if (Neo.config.useCss4) {
+            cls = [...view.cls];
+
+            view.cls.forEach((item, index) => {
+                if (item.includes('neo-theme')) {
+                    NeoArray.remove(cls, item);
+                }
+            });
+
+            NeoArray.add(cls, theme);
+            view.cls = cls;
+
+            button.text = buttonText;
+        } else {
+            Neo.main.DomAccess.swapStyleSheet({
+                href: href,
+                id  : 'neo-theme'
+            }).then(data => {
+                button.text = buttonText;
+            });
+        }
     }
 }
 

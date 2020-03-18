@@ -35,7 +35,7 @@ class HeaderContainer extends Container {
         }, {
             ntype  : 'button',
             flex   : 'none',
-            handler: 'onThemeButtonClick',
+            handler: 'onSwitchThemeButtonClick',
             height : 25,
             style  : {marginTop: '15px'},
             text   : 'Theme Light'
