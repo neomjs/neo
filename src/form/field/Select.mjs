@@ -1,7 +1,6 @@
 import {default as ClassSystemUtil} from '../../util/ClassSystem.mjs';
 import {default as List}            from '../../list/Base.mjs';
 import Picker                       from './Picker.mjs';
-import Store                        from '../../data/Store.mjs';
 import {default as VDomUtil}        from '../../util/VDom.mjs';
 
 /**
@@ -87,6 +86,7 @@ class Select extends Picker {
             module        : List,
             displayField  : me.displayField,
             selectionModel: {stayInList: false},
+            silentSelect  : true,
             store         : me.store,
             ...me.listConfig || {}
         });
@@ -140,7 +140,7 @@ class Select extends Picker {
      * @param {Boolean} oldValue
      * @private
      */
-    afterSetTypeAhead() {
+    afterSetTypeAhead(value, oldValue) {
         if (this.rendered) {
             this.updateTypeAhead();
         }
@@ -224,7 +224,7 @@ class Select extends Picker {
      * @param {Object} data
      * @private
      */
-    onContainerKeyDownEnter() {
+    onContainerKeyDownEnter(data) {
         this.hidePicker();
     }
 
@@ -232,7 +232,7 @@ class Select extends Picker {
      * @param {Object} data
      * @private
      */
-    onContainerKeyDownEscape() {
+    onContainerKeyDownEscape(data) {
         this.focusInputEl(this.hidePicker);
     }
 
@@ -328,6 +328,11 @@ class Select extends Picker {
             me._value = value;
             me.getInputHintEl().value = '';
             me.afterSetValue(value, oldValue, true); // prevent the list from getting filtered
+
+            me.fire('select', {
+                record: record,
+                value : record[me.store.keyProperty]
+            });
         }
     }
 
@@ -462,6 +467,14 @@ class Select extends Picker {
         }
     }
 }
+
+/**
+ * The select event fires when a list item gets selected
+ * @event select
+ * @param {Object} record
+ * @param {value} record[store.keyProperty]
+ * @returns {Object}
+ */
 
 Neo.applyClassConfig(Select);
 

@@ -259,7 +259,7 @@ class Picker extends Text {
      * @param {Object} data
      * @private
      */
-    onKeyDownEscape() {
+    onKeyDownEscape(data) {
         if (this.pickerIsMounted) {
             this.hidePicker();
         }

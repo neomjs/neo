@@ -1,8 +1,8 @@
 import Helix                    from './country/Helix.mjs';
 import HelixContainerController from './HelixContainerController.mjs';
-import {default as Panel}       from '../../../src/container/Panel.mjs';
+import Panel                    from '../../../src/container/Panel.mjs';
 import {default as RangeField}  from '../../../src/form/field/Range.mjs';
-import {default as Container}   from '../../../src/container/Viewport.mjs';
+import {default as Container}   from '../../../src/container/Base.mjs';
 
 /**
  * @class Covid.view.HelixContainer
@@ -48,11 +48,12 @@ class HelixContainer extends Container {
             layout: 'fit',
             items : []
         }, {
-            module: Panel,
-            cls   : ['neo-controls-panel', 'neo-panel', 'neo-container'],
-            layout: {ntype: 'vbox',align: 'stretch'},
-            style : {backgroundColor: '#2b2b2b'},
-            width : 250,
+            module   : Panel,
+            cls      : ['neo-configuration-panel', 'neo-panel', 'neo-container'],
+            layout   : {ntype: 'vbox', align: 'stretch'},
+            reference: 'controls-panel',
+            style    : {backgroundColor: '#2b2b2b'},
+            width    : 250,
 
             containerConfig: {
                 flex : null,
@@ -65,29 +66,17 @@ class HelixContainer extends Container {
                 labelWidth   : '100px',
                 style        : {padding: '10px'},
                 useInputEvent: true,
-
-                listeners: {
-                    change: function(data) {
-                        if (['deltaY', 'maxOpacity', 'minOpacity'].includes(this.name)) {
-                            data.value /= 100;
-                        }
-                        Neo.get('neo-helix-1')[this.name] = data.value;
-                    }
+                listeners    : {
+                    change: 'onRangefieldChange'
                 }
             },
 
             headers: [{
                 dock: 'top',
                 items: [{
-                    ntype: 'button',
-                    text : 'X',
-                    handler: function() {
-                        const panel  = this.up('panel'),
-                              expand = panel.width === 40;
-
-                        panel.width = expand ? 250 : 40;
-                        this.text   = expand ? 'X' : '+';
-                    }
+                    ntype  : 'button',
+                    handler: 'onCollapseButtonClick',
+                    text   : 'X'
                 }, {
                     ntype: 'label',
                     text : 'Helix Controls'
@@ -107,23 +96,15 @@ class HelixContainer extends Container {
                 name     : 'translateY',
                 value    : -350
             }, {
+                eventName: 'changeTranslateZ',
                 labelText: 'Translate Z',
                 maxValue : 4500,
                 minValue : -4500,
                 name     : 'translateZ',
                 value    : -1500,
                 listeners: {
-                    change: function(data) {
-                        Neo.get('neo-helix-1')[this.name] = data.value;
-                    },
-                    mounted: function(fieldId) {
-                        let field = Neo.get(fieldId);
-
-                        Neo.get('neo-helix-1').on('changeTranslateZ', function(value) {
-                            value = Math.min(Math.max(value, this.minValue), this.maxValue);
-                            this.value = value;
-                        }, field);
-                    }
+                    change : 'onRangefieldChange',
+                    mounted: 'onRangefieldMounted'
                 }
             }, {
                 labelText : 'Delta Y',
@@ -133,23 +114,15 @@ class HelixContainer extends Container {
                 name      : 'deltaY',
                 value     : 70
             }, {
+                eventName: 'changeRotation',
                 labelText: 'Rotate',
                 minValue : -720,
                 maxValue : 720,
                 name     : 'rotationAngle',
                 value    : 0,
                 listeners: {
-                    change: function(data) {
-                        Neo.get('neo-helix-1')[this.name] = data.value;
-                    },
-                    mounted: function(fieldId) {
-                        let field = Neo.get(fieldId);
-
-                        Neo.get('neo-helix-1').on('changeRotation', function(value) {
-                            value = Math.min(Math.max(value, this.minValue), this.maxValue);
-                            this.value = value;
-                        }, field);
-                    }
+                    change : 'onRangefieldChange',
+                    mounted: 'onRangefieldMounted'
                 }
             }, {
                 labelText: 'Radius',
@@ -174,7 +147,7 @@ class HelixContainer extends Container {
                 name     : 'maxOpacity',
                 minValue : 0,
                 maxValue : 100,
-                value    : 80 // todo [30, 80]
+                value    : 80 // todo: multi-thumb slider [30, 80]
             }, {
                 labelText: 'Min Opacity',
                 name     : 'minOpacity',
@@ -183,15 +156,10 @@ class HelixContainer extends Container {
                 value    : 30
             }, {
                 ntype     : 'button',
+                handler  : 'onFlipItemsButtonClick',
                 text      : 'Flip Items',
                 listeners: {},
-                style    : {margin: '20px'},
-                domListeners: {
-                    click: data => {
-                        const helix = Neo.get('neo-helix-1');
-                        helix.flipped = !helix.flipped;
-                    }
-                }
+                style    : {margin: '20px'}
             }, {
                 ntype: 'label',
                 text : 'Sort By:'
@@ -199,157 +167,84 @@ class HelixContainer extends Container {
                 ntype : 'container',
                 layout: {ntype: 'hbox', align: 'stretch'},
                 style : {padding: '0'},
+
                 items : [{
                     ntype : 'container',
                     layout: {ntype: 'vbox', align: 'stretch'},
-                    items : [{
-                        ntype    : 'button',
-                        text     : 'Cases',
-                        listeners: {},
-                        style    : {margin: '10px', marginTop: '0'},
 
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'cases',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                    itemDefaults: {
+                        ntype  : 'button',
+                        handler: 'onSortButtonClick'
+                    },
+
+                    items: [{
+                        field: 'cases',
+                        text : 'Cases',
+                        style: {margin: '10px', marginTop: '0'}
                     }, {
-                        ntype    : 'button',
-                        text     : 'Deaths',
-                        listeners: {},
-                        style    : {margin: '10px', marginBottom: '10px', marginTop: 0},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'deaths',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                        field: 'deaths',
+                        text : 'Deaths',
+                        style: {margin: '10px', marginBottom: '10px', marginTop: 0}
                     }, {
-                        ntype    : 'button',
-                        text     : 'Country',
-                        listeners: {},
-                        style    : {margin: '10px', marginTop: 0},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'country',
-                                    direction: 'ASC'
-                                }];
-                            }
-                        }
+                        field: 'country',
+                        text : 'Country',
+                        style: {margin: '10px', marginTop: 0}
+                    }, {
+                        field: 'recovered',
+                        text : 'Recovered',
+                        style: {margin: '10px', marginTop: 0}
                     }]
                 }, {
                     ntype : 'container',
                     layout: {ntype: 'vbox', align: 'stretch'},
-                    items : [{
-                        ntype    : 'button',
-                        text     : 'Cases today',
-                        listeners: {},
-                        style    : {margin: '10px', marginTop: '0'},
 
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'todayCases',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                    itemDefaults: {
+                        ntype  : 'button',
+                        handler: 'onSortButtonClick'
+                    },
+
+                    items: [{
+                        field: 'todayCases',
+                        text : 'Cases today',
+                        style: {margin: '10px', marginTop: '0'}
                     }, {
-                        ntype    : 'button',
-                        text     : 'Deaths today',
-                        listeners: {},
-                        style    : {margin: '10px', marginBottom: '10px', marginTop: 0},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'todayDeaths',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                        field: 'todayDeaths',
+                        text : 'Deaths today',
+                        style: {margin: '10px', marginBottom: '10px', marginTop: 0}
                     }, {
-                        ntype    : 'button',
-                        text     : 'Critical',
-                        listeners: {},
-                        style    : {margin: '10px', marginTop: 0},
-
-                        domListeners: {
-                            click: function() {
-                                Neo.get('neo-helix-1').store.sorters = [{
-                                    property : 'critical',
-                                    direction: 'DESC'
-                                }];
-                            }
-                        }
+                        field: 'critical',
+                        text : 'Critical',
+                        style: {margin: '10px', marginBottom: '43px', marginTop: 0}
                     }]
                 }]
             }, {
                 ntype    : 'button',
+                handler  : 'onFollowSelectionButtonClick',
                 iconCls  : 'fa fa-square',
                 text     : 'Follow Selection',
                 listeners: {},
-                domListeners: {
-                    click: function(data) {
-                        let me   = this,
-                            helix = Neo.get('neo-helix-1');
-
-                        if (me.iconCls === 'fa fa-square') {
-                            helix.followSelection = true;
-                            me.iconCls = 'fa fa-check-square';
-                        } else {
-                            helix.followSelection = false;
-                            me.iconCls = 'fa fa-square';
-                        }
-                    }
-                },
                 style: {
                     margin      : '20px',
                     marginBottom: '10px'
                 }
             }, {
                 ntype: 'label',
+                cls  : ['neo-details-label'],
                 text : [
                     '<b>Navigation Concept</b>',
                     '<p>Click on an item to select it. Afterwards you can use the Arrow Keys to walk through the items.</p>',
                     '<p>Hit the Space Key to rotate the currently selected item to the front.</p>',
                     '<p>Hit the Enter Key to expand the currently selected item.</p>'
-                ].join(''),
-
-                style: {
-                    backgroundColor: '#323232',
-                    color          : '#ddd',
-                    fontSize       : '13px',
-                    margin         : '10px',
-                    padding        : '10px',
-                    whiteSpace     : 'normal'
-                }
+                ].join('')
             }, {
                 ntype: 'label',
-                cls  : ['neo-link-color'],
+                cls  : ['neo-details-label', 'neo-link-color'],
                 text : [
                     '<b>Attribution</b>',
                     '<p>App created with <a href="https://github.com/neomjs/neo">neo.mjs</a>.</p>',
                     '<p>Data provided by <a href="https://github.com/NovelCOVID/API">NovelCOVID/API</a>.</p>',
                     '<p>Icons made by <a href="https://www.flaticon.com/authors/freepik" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>.</p>'
-                ].join(''),
-
-                style: {
-                    backgroundColor: '#323232',
-                    color          : '#ddd',
-                    fontSize       : '13px',
-                    margin         : '10px',
-                    padding        : '10px',
-                    whiteSpace     : 'normal'
-                }
+                ].join('')
             }]
         }]
     }}
@@ -365,7 +260,6 @@ class HelixContainer extends Container {
 
         me.helix = Neo.create({
             module   : Helix,
-            id       : 'neo-helix-1',
             reference: 'helix',
             ...me.helixConfig || {}
         });

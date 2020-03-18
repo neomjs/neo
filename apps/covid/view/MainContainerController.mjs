@@ -1,4 +1,5 @@
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
+import NeoArray                         from '../../../src/util/Array.mjs';
 
 /**
  * @class Covid.view.MainContainerController
@@ -27,13 +28,21 @@ class MainContainerController extends ComponentController {
          */
         ntype: 'maincontainer-controller',
         /**
+         * @member {Number} activeMainTabIndex=0
+         */
+        activeMainTabIndex: 0,
+        /**
          * @member {String} apiUrl='https://corona.lmao.ninja/countries'
          */
         apiUrl: 'https://corona.lmao.ninja/countries',
         /**
          * @member {String} apiSummaryUrl='https://corona.lmao.ninja/all'
          */
-        apiSummaryUrl: 'https://corona.lmao.ninja/all'
+        apiSummaryUrl: 'https://corona.lmao.ninja/all',
+        /**
+         * @member {Object[]|null} data=null
+         */
+        data: null
     }}
 
     /**
@@ -42,8 +51,18 @@ class MainContainerController extends ComponentController {
     onConstructed() {
         super.onConstructed();
 
-        this.loadData();
-        this.loadSummaryData();
+        const me = this;
+
+        me.loadData();
+        me.loadSummaryData();
+
+        me.view.on('mounted', () => {
+            Neo.main.DomAccess.addScript({
+                async: true,
+                defer: true,
+                src  : 'https://buttons.github.io/buttons.js'
+            });
+        });
     }
 
     /**
@@ -53,10 +72,21 @@ class MainContainerController extends ComponentController {
     addStoreItems(data) {
         const me = this;
 
-        // todo: only render the active view & feed the matching store
-        // me.getReference('gallery').store.data = data;
-        me.getReference('helix')  .store.data = data;
-        // me.getReference('table').store.data = data;
+        me.data = data;
+
+        me.getReference('country-field').store.data = data;
+
+        switch(me.activeMainTabIndex) {
+            case 0:
+                me.getReference('table').store.data = data;
+                break;
+            case 1:
+                me.getReference('gallery').store.data = data;
+                break;
+            case 2:
+                me.getReference('helix').store.data = data;
+                break;
+        }
     }
 
     /**
@@ -67,7 +97,14 @@ class MainContainerController extends ComponentController {
      * @param {Number} data.recovered
      */
     applySummaryData(data) {
-        console.log('applySummaryData', data);
+        let summaryTable = this.getReference('summary-table'),
+            vdom         = summaryTable.vdom;
+
+        vdom.cn[0].cn[1].html = data.cases;
+        vdom.cn[1].cn[1].html = data.deaths;
+        vdom.cn[2].cn[1].html = data.recovered;
+
+        summaryTable.vdom = vdom;
     }
 
     /**
@@ -117,6 +154,9 @@ class MainContainerController extends ComponentController {
             case 'mayotte':
                 imageName = 'france'; // ?
                 break;
+            case 'new-caledonia':
+                imageName = 'france';
+                break;
             case 'north-macedonia':
                 imageName = 'republic-of-macedonia';
                 break;
@@ -163,6 +203,50 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @param {Number} tabIndex
+     * @return {String}
+     */
+    getStore(tabIndex) {
+        let reference;
+
+        switch(tabIndex) {
+            case 0:
+                reference = 'table';
+                break;
+            case 1:
+                reference = 'gallery';
+                break;
+            case 2:
+                reference = 'helix';
+                break;
+        }
+
+        return this.getReference(reference).store;
+    }
+
+    /**
+     *
+     * @param {Object} hashObject
+     * @param {String} hashObject.mainview
+     * @return {Number}
+     */
+    getTabIndex(hashObject) {
+        if (!hashObject) {
+            return 0;
+        }
+
+        switch(hashObject.mainview) {
+            case 'gallery':
+                return 1;
+            case 'helix':
+                return 2;
+            case 'table':
+                return 0;
+        }
+    }
+
+    /**
+     *
      */
     loadData() {
         const me = this;
@@ -183,6 +267,78 @@ class MainContainerController extends ComponentController {
             .then(response => response.json())
             .then(data => me.applySummaryData(data))
             .catch(err => console.log('Can’t access ' + me.apiSummaryUrl, err));
+    }
+
+    onCountryFieldSelect(data) {
+        Neo.Main.editRoute({
+            country: data.value
+        });
+    }
+
+    /**
+     *
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @param {String} hashString
+     */
+    onHashChange(value, oldValue, hashString) {
+        let me           = this,
+            activeIndex  = me.getTabIndex(value),
+            tabContainer = me.getReference('tab-container'),
+            store        = me.getStore(activeIndex);
+
+        // console.log('onHashChange', value);
+
+        tabContainer.activeIndex = activeIndex;
+        me.activeMainTabIndex    = activeIndex;
+
+        // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
+
+        if (me.data && store.getCount() < 1) {
+            store.data = me.data;
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onSwitchThemeButtonClick(data) {
+        let me     = this,
+            button = data.component,
+            view   = me.view,
+            buttonText, cls, href, theme;
+
+        if (button.text === 'Theme Light') {
+            buttonText = 'Theme Dark';
+            href       = '../dist/development/neo-theme-light-no-css4.css';
+            theme      = 'neo-theme-light';
+        } else {
+            buttonText = 'Theme Light';
+            href       = '../dist/development/neo-theme-dark-no-css4.css';
+            theme      = 'neo-theme-dark';
+        }
+
+        if (Neo.config.useCss4) {
+            cls = [...view.cls];
+
+            view.cls.forEach((item, index) => {
+                if (item.includes('neo-theme')) {
+                    NeoArray.remove(cls, item);
+                }
+            });
+
+            NeoArray.add(cls, theme);
+            view.cls = cls;
+
+            button.text = buttonText;
+        } else {
+            Neo.main.DomAccess.swapStyleSheet({
+                href: href,
+                id  : 'neo-theme'
+            }).then(data => {
+                button.text = buttonText;
+            });
+        }
     }
 }
 

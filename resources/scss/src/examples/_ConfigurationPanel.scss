@@ -1,4 +1,6 @@
 .neo-configuration-panel {
+    transition: width .5s ease-in-out;
+
     .neo-details-label {
         background-color: #323232;
         color           : #ddd;

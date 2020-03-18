@@ -6,6 +6,7 @@ import NeoArray                      from '../util/Array.mjs';
 import {default as VDomUtil}         from '../util/VDom.mjs';
 
 const eventConfigKeys = [
+    'bubble',
     'delegate',
     'local',
     'scope',
@@ -67,6 +68,7 @@ class DomEvent extends Base {
      */
     fire(event) {
         let me         = this,
+            bubble     = true,
             data       = event.data || {},
             eventName  = event.eventName,
             i          = 0,
@@ -117,6 +119,10 @@ class DomEvent extends Base {
                                     // console.log(Neo.get(id));
                                     data.component = component;
                                     listener.fn.apply(listener.scope || self, [data]);
+
+                                    if (!listener.bubble) {
+                                        bubble = false;
+                                    }
                                 }
                             }
                         }
@@ -131,6 +137,10 @@ class DomEvent extends Base {
                     data         : data
                 });
 
+                break;
+            }
+
+            if (!bubble) {
                 break;
             }
         }
@@ -287,6 +297,7 @@ class DomEvent extends Base {
         config.listenerId = listenerId;
 
         listenerConfig = {
+            bubble        : config.hasOwnProperty('bubble') ? config.bubble : opts.hasOwnProperty('bubble') ? opts.bubble : true,
             delegate      : config.delegate,
             fn            : fn,
             id            : listenerId,

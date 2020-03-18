@@ -57,6 +57,11 @@ class Base extends Component {
          */
         selectionModel_: null,
         /**
+         * Set this to true in case a select event should only update _vdom (e.g. when used inside a form.field.Select
+         * @member {Boolean} silentSelect=false
+         */
+        silentSelect: false,
+        /**
          * @member {Neo.data.Store|null} store_=null
          */
         store_: null,
@@ -268,6 +273,23 @@ class Base extends Component {
         }
 
         super.destroy();
+    }
+
+    /**
+     * Calls focus() on the top level DOM node of this component or on a given node via id
+     * @param {String} [id]
+     */
+    focus(id) {
+        super.focus(id);
+
+        let me = this;
+
+        // remote method access
+        Neo.main.DomAccess.scrollIntoView({
+            id: id || me.id
+        }).then(data => {
+            // console.log('scrolled into view: ' + id || me.id);
+        });
     }
 
     /**

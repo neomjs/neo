@@ -1,4 +1,5 @@
 import GalleryContainer          from './GalleryContainer.mjs';
+import HeaderContainer           from './HeaderContainer.mjs';
 import HelixContainer            from './HelixContainer.mjs';
 import MainContainerController   from './MainContainerController.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
@@ -16,21 +17,33 @@ class MainContainer extends Viewport {
          * @private
          */
         className: 'Covid.view.MainContainer',
-
-        autoMount : true,
+        /**
+         * @member {Boolean} autoMount=true
+         */
+        autoMount: true,
+        /**
+         * @member {Neo.controller.Component} controller=MainContainerController
+         */
         controller: MainContainerController,
-        layout    : {ntype: 'vbox', align: 'stretch'},
+        /**
+         * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         */
+        layout: {ntype: 'vbox', align: 'stretch'}
+    }}
 
-        items: [{
-            ntype : 'component', // todo: HeaderComponent,
-            height: 70,
-            html  : 'COVID-19 neo.mjs App',
-            style : {padding: '20px'}
-        }, {
-            module: TabContainer,
-            activeIndex: 2, // todo: remove, just for testing
-            flex  : 1,
-            style : {margin: '20px'},
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        this.items = [HeaderContainer, {
+            module     : TabContainer,
+            activeIndex: this.controller.getTabIndex(Neo.config.hash),
+            flex       : 1,
+            reference  : 'tab-container',
+            style      : {margin: '10px'},
 
             items: [{
                 module   : TableContainer,
@@ -38,6 +51,7 @@ class MainContainer extends Viewport {
 
                 tabButtonConfig: {
                     iconCls: 'fa fa-table',
+                    route  : 'mainview=table',
                     text   : 'Table'
                 }
             }, {
@@ -45,6 +59,7 @@ class MainContainer extends Viewport {
 
                 tabButtonConfig: {
                     iconCls: 'fa fa-images',
+                    route  : 'mainview=gallery',
                     text   : 'Gallery'
                 }
             }, {
@@ -52,11 +67,12 @@ class MainContainer extends Viewport {
 
                 tabButtonConfig: {
                     iconCls: 'fa fa-dna',
+                    route  : 'mainview=helix',
                     text   : 'Helix'
                 }
             }]
-        }]
-    }}
+        }];
+    }
 }
 
 Neo.applyClassConfig(MainContainer);

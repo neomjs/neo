@@ -63,6 +63,7 @@ class Main extends core.Base {
             app: [
                 'createLocalStorageItem',
                 'destroyLocalStorageItem',
+                'editRoute',
                 'readLocalStorageItem',
                 'setRoute',
                 'updateLocalStorageItem'
@@ -117,6 +118,15 @@ class Main extends core.Base {
             'updateVdom'       : me.onUpdateVdom,
             scope              : me
         });
+    }
+
+    /**
+     * Edit the location.hash value
+     * @param {Object} data
+     */
+    editRoute(data) {
+        console.log('editRoute', data);
+        // window.location.hash = data.value;
     }
 
     /**
