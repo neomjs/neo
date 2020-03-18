@@ -24,6 +24,11 @@ class KeyNavigation extends Base {
          */
         component_: null,
         /**
+         * Set this to true in case the keydown event is supposed to bubble upwards inside the component tree
+         * @member {Boolean} keyDownEventBubble=false
+         */
+        keyDownEventBubble: false,
+        /**
          * @member {Array|null} keys_=null
          */
         keys_: null
@@ -156,7 +161,7 @@ class KeyNavigation extends Base {
             domListeners.push({
                 keydown: {
                     fn    : me.onKeyDown,
-                    bubble: false,
+                    bubble: me.keyDownEventBubble,
                     scope : me
                 }
             });
