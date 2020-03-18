@@ -43,7 +43,7 @@ class MainContainer extends Viewport {
             activeIndex: this.controller.getTabIndex(Neo.config.hash),
             flex       : 1,
             reference  : 'tab-container',
-            style      : {margin: '20px'},
+            style      : {margin: '10px'},
 
             items: [{
                 module   : TableContainer,
