@@ -287,8 +287,7 @@ class MainContainerController extends ComponentController {
             tabContainer = me.getReference('tab-container'),
             activeView   = me.getView(activeIndex);
 
-        console.log('onHashChange', value);
-        console.log(activeIndex, activeView);
+        // console.log('onHashChange', value);
 
         tabContainer.activeIndex = activeIndex;
         me.activeMainTabIndex    = activeIndex;
@@ -297,6 +296,10 @@ class MainContainerController extends ComponentController {
 
         if (me.data && activeView.store.getCount() < 1) {
             activeView.store.data = me.data;
+        }
+
+        if (value.country) {
+            activeView.selectionModel.select(value.country);
         }
     }
 
