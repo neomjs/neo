@@ -64,6 +64,11 @@ class GalleryMainContainer extends Viewport {
             style : {backgroundColor: '#2b2b2b'},
             width : 260,
 
+            containerConfig: {
+                flex : null,
+                style: {overflowY: 'scroll'}
+            },
+
             itemDefaults: {
                 ntype        : 'rangefield',
                 flex         : '0 1 auto',
