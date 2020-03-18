@@ -32,6 +32,11 @@ class Button extends Component {
          */
         cls: ['neo-button'],
         /**
+         * false calls Neo.Main.setRoute()
+         * @member {Boolean} editRoute=true
+         */
+        editRoute: true,
+        /**
          * Shortcut for domListeners={click:handler}
          * A string based value assumes that the handlerFn lives inside a ComponentController
          * @member {Function|String|null} handler_=null
@@ -267,10 +272,10 @@ class Button extends Component {
     }
 
     /**
-     *
+     * @private
      */
     changeRoute() {
-        Neo.Main.setRoute({
+        Neo.Main[this.editRoute ? 'editRoute' : 'setRoute']({
             value: this.route
         });
     }
