@@ -95,7 +95,14 @@ class MainContainerController extends ComponentController {
      * @param {Number} data.recovered
      */
     applySummaryData(data) {
-        console.log('applySummaryData', data);
+        let summaryTable = this.getReference('summary-table'),
+            vdom         = summaryTable.vdom;
+
+        vdom.cn[0].cn[1].html = data.cases;
+        vdom.cn[1].cn[1].html = data.deaths;
+        vdom.cn[2].cn[1].html = data.recovered;
+
+        summaryTable.vdom = vdom;
     }
 
     /**

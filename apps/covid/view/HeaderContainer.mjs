@@ -40,6 +40,20 @@ class HeaderContainer extends Container {
             style  : {marginTop: '15px'},
             text   : 'Theme Light'
         }, {
+            reference: 'summary-table',
+            style: {
+                margin    : '5px',
+                marginLeft:'20px'
+            },
+            vdom: {
+                tag: 'table',
+                cn : [
+                    {tag: 'tr', cn : [{tag: 'td', html: 'Cases'},     {tag: 'td'}]},
+                    {tag: 'tr', cn : [{tag: 'td', html: 'Deaths'},    {tag: 'td'}]},
+                    {tag: 'tr', cn : [{tag: 'td', html: 'Recovered'}, {tag: 'td'}]}
+                ]
+            }
+        }, {
             flex: 1
         }, {
             style: {padding: '20px'},
