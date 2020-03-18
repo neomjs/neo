@@ -4,6 +4,7 @@
         border          : v(pickerfield-container-border);
         box-shadow      : v(pickerfield-container-box-shadow);
         position        : fixed;
+        z-index         : 20;
 
         &:focus {
             outline: none;
