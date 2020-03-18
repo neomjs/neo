@@ -42,9 +42,16 @@ class HeaderContainer extends Container {
             labelPosition: 'inline',
             labelText    : 'Select a Country',
             reference    : 'country-field',
-            store        : CountryStore,
             style        : {marginTop: '15px'},
-            width        : 150
+            width        : 200,
+
+            store: {
+                module : CountryStore,
+                sorters: [{
+                    property : 'country',
+                    direction: 'ASC'
+                }]
+            }
         }, {
             ntype  : 'button',
             flex   : 'none',
