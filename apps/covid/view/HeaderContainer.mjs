@@ -1,4 +1,6 @@
-import {default as Container} from '../../../src/container/Base.mjs';
+import {default as Container}   from '../../../src/container/Base.mjs';
+import CountryStore             from '../store/Countries.mjs';
+import {default as SelectField} from '../../../src/form/field/Select.mjs';
 
 /**
  * @class Covid.view.HeaderContainer
@@ -33,11 +35,22 @@ class HeaderContainer extends Container {
             style: {padding: '20px'},
             width: 210
         }, {
+            module       : SelectField,
+            displayField : 'country',
+            flex         : 'none',
+            height       : 25,
+            labelPosition: 'inline',
+            labelText    : 'Select a Country',
+            reference    : 'country-field',
+            store        : CountryStore,
+            style        : {marginTop: '15px'},
+            width        : 150
+        }, {
             ntype  : 'button',
             flex   : 'none',
             handler: 'onSwitchThemeButtonClick',
             height : 25,
-            style  : {marginTop: '15px'},
+            style  : {marginLeft: '10px', marginTop: '15px'},
             text   : 'Theme Light'
         }, {
             reference: 'summary-table',

@@ -74,6 +74,8 @@ class MainContainerController extends ComponentController {
 
         me.data = data;
 
+        me.getReference('country-field').store.data = data;
+
         switch(me.activeMainTabIndex) {
             case 0:
                 me.getReference('table').store.data = data;
