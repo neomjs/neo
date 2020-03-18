@@ -286,9 +286,8 @@ class Base extends Component {
 
         // remote method access
         Neo.main.DomAccess.scrollIntoView({
-            id: id || me.id
-        }).then(data => {
-            // console.log('scrolled into view: ' + id || me.id);
+            behavior: 'auto',
+            id      : id || me.id
         });
     }
 
