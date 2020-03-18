@@ -65,6 +65,14 @@ class HeaderContainer extends Container {
             style  : {marginLeft: '10px', marginTop: '15px'},
             text   : 'Theme Light'
         }, {
+            ntype  : 'button',
+            flex   : 'none',
+            handler: 'onReloadDataButtonClick',
+            height : 25,
+            iconCls: 'fa fa-sync-alt',
+            style  : {marginLeft: '10px', marginTop: '15px'},
+            text   : 'Reload Data'
+        }, {
             reference: 'summary-table',
             style: {
                 margin    : '5px',

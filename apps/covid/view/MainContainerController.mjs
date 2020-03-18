@@ -326,6 +326,13 @@ class MainContainerController extends ComponentController {
     /**
      * @param {Object} data
      */
+    onReloadDataButtonClick(data) {
+        console.log('onReloadDataButtonClick');
+    }
+
+    /**
+     * @param {Object} data
+     */
     onSwitchThemeButtonClick(data) {
         let me     = this,
             button = data.component,
