@@ -330,15 +330,17 @@ class MainContainerController extends ComponentController {
         let me     = this,
             button = data.component,
             view   = me.view,
-            buttonText, cls, href, theme;
+            buttonText, cls, href, iconCls, theme;
 
         if (button.text === 'Theme Light') {
             buttonText = 'Theme Dark';
             href       = '../dist/development/neo-theme-light-no-css4.css';
+            iconCls    = 'fa fa-moon';
             theme      = 'neo-theme-light';
         } else {
             buttonText = 'Theme Light';
             href       = '../dist/development/neo-theme-dark-no-css4.css';
+            iconCls    = 'fa fa-sun';
             theme      = 'neo-theme-dark';
         }
 
@@ -354,7 +356,10 @@ class MainContainerController extends ComponentController {
             NeoArray.add(cls, theme);
             view.cls = cls;
 
-            button.text = buttonText;
+            button.set({
+                iconCls: iconCls,
+                text   : buttonText
+            });
         } else {
             Neo.main.DomAccess.swapStyleSheet({
                 href: href,

@@ -61,6 +61,7 @@ class HeaderContainer extends Container {
             flex   : 'none',
             handler: 'onSwitchThemeButtonClick',
             height : 25,
+            iconCls: 'fa fa-sun',
             style  : {marginLeft: '10px', marginTop: '15px'},
             text   : 'Theme Light'
         }, {
