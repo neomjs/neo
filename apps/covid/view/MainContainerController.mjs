@@ -303,6 +303,10 @@ class MainContainerController extends ComponentController {
             if (activeView.ntype === 'table-container') {
                 id = activeView.selectionModel.getRowId(activeView.store.indexOf(value.country));
                 activeView.selectionModel.select(id);
+
+                Neo.main.DomAccess.scrollIntoView({
+                    id: id
+                });
             } else {
                 activeView.selectionModel.select(value.country);
             }

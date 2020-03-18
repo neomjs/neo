@@ -282,13 +282,13 @@ class Base extends Component {
     focus(id) {
         super.focus(id);
 
-        let me = this;
-
-        // remote method access
-        Neo.main.DomAccess.scrollIntoView({
-            behavior: 'auto',
-            id      : id || me.id
-        });
+        if (id) {
+            // remote method access
+            Neo.main.DomAccess.scrollIntoView({
+                behavior: 'auto',
+                id      : id || this.id
+            });
+        }
     }
 
     /**
