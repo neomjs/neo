@@ -57,6 +57,11 @@ class Base extends Component {
          */
         selectionModel_: null,
         /**
+         * Set this to true in case a select event should only update _vdom (e.g. when used inside a form.field.Select
+         * @member {Boolean} silentSelect=false
+         */
+        silentSelect: false,
+        /**
          * @member {Neo.data.Store|null} store_=null
          */
         store_: null,

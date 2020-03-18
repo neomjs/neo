@@ -86,6 +86,7 @@ class Select extends Picker {
             module        : List,
             displayField  : me.displayField,
             selectionModel: {stayInList: false},
+            silentSelect  : true,
             store         : me.store,
             ...me.listConfig || {}
         });
