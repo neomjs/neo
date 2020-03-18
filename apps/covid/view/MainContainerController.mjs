@@ -154,6 +154,9 @@ class MainContainerController extends ComponentController {
             case 'mayotte':
                 imageName = 'france'; // ?
                 break;
+            case 'new-caledonia':
+                imageName = 'france';
+                break;
             case 'north-macedonia':
                 imageName = 'republic-of-macedonia';
                 break;
