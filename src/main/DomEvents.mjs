@@ -354,7 +354,7 @@ class DomEvents extends Base {
      *
      */
     onHashChange() {
-        const hashString = location.hash.substr(1);
+        const hashString = decodeURIComponent(location.hash.substr(1));
 
         Neo.worker.Manager.sendMessage('app', {
             action    : 'hashChange',
