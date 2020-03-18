@@ -287,6 +287,7 @@ class MainContainerController extends ComponentController {
             countryField   = me.getReference('country-field'),
             tabContainer   = me.getReference('tab-container'),
             activeView     = me.getView(activeIndex),
+            selectionModel = activeView.selectionModel,
             delaySelection = !me.data ? 500 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
             id;
 
@@ -309,14 +310,16 @@ class MainContainerController extends ComponentController {
                 countryField.value = value.country;
 
                 if (activeView.ntype === 'table-container') {
-                    id = activeView.selectionModel.getRowId(activeView.store.indexOf(value.country));
-                    activeView.selectionModel.select(id);
+                    id = selectionModel.getRowId(activeView.store.indexOf(value.country));
+                    selectionModel.select(id);
 
                     Neo.main.DomAccess.scrollIntoView({
                         id: id
                     });
+                } else if (activeView.ntype === 'helix') {
+                    selectionModel.select(value.country, false);
                 } else {
-                    activeView.selectionModel.select(value.country);
+                    selectionModel.select(value.country);
                 }
             }, delaySelection);
         }
