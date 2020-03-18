@@ -155,8 +155,9 @@ class KeyNavigation extends Base {
         if (domListeners) {
             domListeners.push({
                 keydown: {
-                    fn   : me.onKeyDown,
-                    scope: me
+                    fn    : me.onKeyDown,
+                    bubble: false,
+                    scope : me
                 }
             });
 
