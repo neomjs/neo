@@ -78,16 +78,18 @@ class View extends Component {
                 column         = columns[j];
                 rendererOutput = column.renderer.call(column.rendererScope || container, inputData[i][column.dataField], inputData[i], column.dataField);
 
-                cellCls = ['neo-table-cell'];
+                cellCls = rendererOutput.cls || ['neo-table-cell'];
 
                 if (column.align !== 'left') {
                     cellCls.push('neo-' + column.align);
                 }
 
-                rendererOutput = {
-                    cls : cellCls,
-                    html: rendererOutput.toString()
-                };
+                if (!Neo.isObject(rendererOutput)) {
+                    rendererOutput = {
+                        cls : cellCls,
+                        html: rendererOutput.toString()
+                    };
+                }
 
                 // todo: remove the if part as soon as all tables use stores (examples table)
                 if (hasStore) {
