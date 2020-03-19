@@ -178,7 +178,7 @@ class CountryGallery extends Gallery {
             'uzbekistan'            : 'uzbekistn'
         };
 
-        let imageName = name.toLowerCase().replace(MainContainerController.flagRegEx, '-');
+        let imageName = name.toLowerCase().replace(CountryGallery.flagRegEx, '-');
 
         imageName = map[imageName] || imageName;
 
