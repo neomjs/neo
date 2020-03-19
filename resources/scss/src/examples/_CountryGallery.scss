@@ -1,3 +1,19 @@
+.neo-align-right {
+    text-align: right;
+}
+
+.neo-content-critical {
+    color: orange;
+}
+
+.neo-content-deaths {
+    color: red;
+}
+
+.neo-content-recovered {
+    color: green;
+}
+
 .neo-gallery-maincontainer {
     .neo-controls-panel {
         transition: width .5s ease-in-out;
@@ -13,22 +29,6 @@
 .neo-country-gallery {
     color     : #000;
     text-align: left;
-
-    .neo-align-right {
-        text-align: right;
-    }
-
-    .neo-content-critical {
-        color: orange;
-    }
-
-    .neo-content-deaths {
-        color: red;
-    }
-
-    .neo-content-recovered {
-        color: green;
-    }
 
     .neo-content-table {
         white-space: nowrap;
