@@ -56,13 +56,7 @@ class MainContainerController extends ComponentController {
         me.loadData();
         me.loadSummaryData();
 
-        me.view.on('mounted', () => {
-            Neo.main.DomAccess.addScript({
-                async: true,
-                defer: true,
-                src  : 'https://buttons.github.io/buttons.js'
-            });
-        });
+        me.view.on('mounted', me.onMainViewMounted);
     }
 
     /**
@@ -269,6 +263,17 @@ class MainContainerController extends ComponentController {
                 }
             }, delaySelection);
         }
+    }
+
+    /**
+     *
+     */
+    onMainViewMounted() {
+        Neo.main.DomAccess.addScript({
+            async: true,
+            defer: true,
+            src  : 'https://buttons.github.io/buttons.js'
+        });
     }
 
     /**

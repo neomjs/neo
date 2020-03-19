@@ -114,6 +114,10 @@ class RowModel extends Model {
         if (id) {
             me.select(id);
             view.focus(id);
+
+            view.fire('select', {
+                record: store.getAt(newIndex)
+            });
         }
     }
 
