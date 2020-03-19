@@ -75,7 +75,8 @@ class HeaderContainer extends Container {
         }, {
             reference: 'summary-table',
             style: {
-                margin    : '5px',
+                fontSize  : '13px',
+                margin    : '10px',
                 marginLeft:'20px'
             },
             vdom: {
