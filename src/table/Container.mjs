@@ -56,9 +56,9 @@ class Container extends BaseContainer {
          */
         keys: {},
         /**
-         * @member {String} _layout='base'
+         * @member {String} layout='base'
          */
-        _layout: 'base',
+        layout: 'base',
         /**
          * @member {Boolean} scrollbarsCssApplied=false
          * @private

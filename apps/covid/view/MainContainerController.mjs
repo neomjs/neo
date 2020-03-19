@@ -28,9 +28,9 @@ class MainContainerController extends ComponentController {
          */
         ntype: 'maincontainer-controller',
         /**
-         * @member {Number|null} activeMainTabIndex=null
+         * @member {Number} activeMainTabIndex=0
          */
-        activeMainTabIndex: null,
+        activeMainTabIndex: 0,
         /**
          * @member {String} apiUrl='https://corona.lmao.ninja/countries'
          */
