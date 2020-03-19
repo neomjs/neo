@@ -1,0 +1,17 @@
+$neoMap: map-merge($neoMap, (
+    'covid-gallery-background-color'             : #fff,
+    'covid-gallery-border-color'                 : #ddd,
+    'covid-gallery-item-border-color'            : rgba(73,120,184,.5),
+    'covid-gallery-item-border-sides-width'      : 1px,
+    'covid-gallery-item-wrapper-background-color': rgba(73,120,184,.5)
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-light { // .neo-gallery.covid-country-gallery
+        --covid-gallery-background-color             : #{neo(covid-gallery-background-color)};
+        --covid-gallery-border-color                 : #{neo(covid-gallery-border-color)};
+        --covid-gallery-item-border-color            : #{neo(covid-gallery-item-border-color)};
+        --covid-gallery-item-border-sides-width      : #{neo(covid-gallery-item-border-sides-width)};
+        --covid-gallery-item-wrapper-background-color: #{neo(covid-gallery-item-wrapper-background-color)};
+    }
+}
