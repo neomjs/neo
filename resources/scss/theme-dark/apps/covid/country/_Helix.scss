@@ -1,0 +1,19 @@
+$neoMap: map-merge($neoMap, (
+    'covid-helix-background-color'             : #000,
+    'covid-helix-border-color'                 : #3c3f41,
+    'covid-helix-item-border-color'            : rgba(0,0,0,.1),
+    'covid-helix-item-border-sides-width'      : 0,
+    'covid-helix-item-box-shadow-selected'     : 0 0 35px #61dfe5,
+    'covid-helix-item-wrapper-background-color': rgba(73,160,154,.35)
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-dark { // .neo-helix.covid-country-helix
+        --covid-helix-background-color             : #{neo(covid-helix-background-color)};
+        --covid-helix-border-color                 : #{neo(covid-helix-border-color)};
+        --covid-helix-item-border-color            : #{neo(covid-helix-item-border-color)};
+        --covid-helix-item-border-sides-width      : #{neo(covid-helix-item-border-sides-width)};
+        --covid-helix-item-box-shadow-selected     : #{neo(covid-helix-item-box-shadow-selected)};
+        --covid-helix-item-wrapper-background-color: #{neo(covid-helix-item-wrapper-background-color)};
+    }
+}
