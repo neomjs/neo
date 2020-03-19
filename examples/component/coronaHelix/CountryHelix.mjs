@@ -147,6 +147,7 @@ class CountryHelix extends Helix {
             'czechia'               : 'czech-republic',
             'diamond-princess'      : 'japan', // cruise ship?
             'drc'                   : 'democratic-republic-of-congo',
+            'el-salvador'           : 'salvador',
             'eswatini'              : 'swaziland',
             'faeroe-islands'        : 'faroe-islands',
             'french-guiana'         : 'france', // ?
