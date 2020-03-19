@@ -81,9 +81,9 @@ class HeaderContainer extends Container {
             vdom: {
                 tag: 'table',
                 cn : [
-                    {tag: 'tr', cn : [{tag: 'td', html: 'Cases'},     {tag: 'td'}]},
-                    {tag: 'tr', cn : [{tag: 'td', html: 'Deaths'},    {tag: 'td'}]},
-                    {tag: 'tr', cn : [{tag: 'td', html: 'Recovered'}, {tag: 'td'}]}
+                    {tag: 'tr', cn : [{tag: 'td', html: 'Cases'},     {tag: 'td', cls: ['neo-align-right']}]},
+                    {tag: 'tr', cn : [{tag: 'td', html: 'Deaths'},    {tag: 'td', cls: ['neo-align-right', 'neo-content-deaths']}]},
+                    {tag: 'tr', cn : [{tag: 'td', html: 'Recovered'}, {tag: 'td', cls: ['neo-align-right', 'neo-content-recovered']}]}
                 ]
             }
         }, {
