@@ -241,8 +241,6 @@ class MainContainerController extends ComponentController {
 
         // console.log('onHashChange', value);
 
-        console.log(countryField.value, me.activeMainTabIndex);
-
         tabContainer.activeIndex = activeIndex;
         me.activeMainTabIndex    = activeIndex;
 
