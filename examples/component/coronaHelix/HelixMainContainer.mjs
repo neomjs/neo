@@ -255,6 +255,20 @@ class HelixMainContainer extends Viewport {
                                 }];
                             }
                         }
+                    }, {
+                        ntype    : 'button',
+                        text     : 'Recovered',
+                        listeners: {},
+                        style    : {margin: '10px', marginTop: 0},
+
+                        domListeners: {
+                            click: function() {
+                                Neo.get('neo-helix-1').store.sorters = [{
+                                    property : 'recovered',
+                                    direction: 'ASC'
+                                }];
+                            }
+                        }
                     }]
                 }, {
                     ntype : 'container',
@@ -291,7 +305,7 @@ class HelixMainContainer extends Viewport {
                         ntype    : 'button',
                         text     : 'Critical',
                         listeners: {},
-                        style    : {margin: '10px', marginTop: 0},
+                        style: {margin: '10px', marginBottom: '43px', marginTop: 0},
 
                         domListeners: {
                             click: function() {
