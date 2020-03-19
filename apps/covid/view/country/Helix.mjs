@@ -17,6 +17,11 @@ class CountryHelix extends Helix {
          */
         cls: ['neo-country-helix', 'neo-helix'],
         /**
+         * The vertical delta between each helix item (increasing this value will create a spiral)
+         * @member {Number} deltaY=1.2
+         */
+        deltaY: 1.2,
+        /**
          * @member {Object} itemTpl_
          */
         itemTpl: {
@@ -85,6 +90,11 @@ class CountryHelix extends Helix {
          */
         radius: 2500,
         /**
+         * The rotationAngle of the Helix in degrees
+         * @member {Number} rotationAngle=720
+         */
+        rotationAngle: 720,
+        /**
          * True displays the first & last name record fields below an expanded item
          * @member {Boolean} showCloneInfo=false
          */
@@ -92,7 +102,17 @@ class CountryHelix extends Helix {
         /**
          * @member {Neo.data.Store} store=CountryStore
          */
-        store: CountryStore
+        store: CountryStore,
+        /**
+         * The translateX value gets included into each helix item
+         * @member {Number} translateY=500
+         */
+        translateY: 500,
+        /**
+         * The translateX value gets included into each helix item
+         * @member {Number} translateZ_=-2300
+         */
+        translateZ: -2300
     }}
 
     /**
