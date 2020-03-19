@@ -169,7 +169,7 @@ class CountryHelix extends Helix {
             'uzbekistan'            : 'uzbekistn'
         };
 
-        let imageName = name.toLowerCase().replace(MainContainerController.flagRegEx, '-');
+        let imageName = name.toLowerCase().replace(CountryHelix.flagRegEx, '-');
 
         imageName = map[imageName] || imageName;
 
