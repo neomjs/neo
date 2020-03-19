@@ -19,12 +19,14 @@
         "Covid": {
             "input": "myApps/Covid.mjs",
             "output": "/apps/covid/",
+            "themes": "'neo-theme-dark', 'neo-theme-light'",
             "title": "Covid"
         },
         "RealWorld": {
             "indexPath": "apps/realworld/index.ejs",
             "input": "myApps/RealWorld.mjs",
             "output": "/apps/realworld/",
+            "themes": "",
             "title": "Conduit"
         },
         "RealWorld2": {
