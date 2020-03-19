@@ -369,6 +369,7 @@ class DomEvents extends Base {
      */
     onKeyDown(event) {
         this.sendMessageToApp(this.getKeyboardEventData(event));
+        event.preventDefault();
     }
 
     /**
