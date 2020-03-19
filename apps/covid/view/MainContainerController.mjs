@@ -252,14 +252,19 @@ class MainContainerController extends ComponentController {
 
                 if (activeView.ntype === 'table-container') {
                     id = selectionModel.getRowId(activeView.store.indexOf(value.country));
-                    selectionModel.select(id);
-
-                    Neo.main.DomAccess.scrollToTableRow({id: id});
+                    if (!selectionModel.hasSelection(id)) {
+                        selectionModel.select(id);
+                        Neo.main.DomAccess.scrollToTableRow({id: id});
+                    }
                 } else if (activeView.ntype === 'helix') {
-                    selectionModel.select(value.country, false);
-                    activeView.onKeyDownSpace(null);
+                    if (!selectionModel.hasSelection(id)) {
+                        selectionModel.select(value.country, false);
+                        activeView.onKeyDownSpace(null);
+                    }
                 } else {
-                    selectionModel.select(value.country, false);
+                    if (!selectionModel.hasSelection(id)) {
+                        selectionModel.select(value.country, false);
+                    }
                 }
             }, delaySelection);
         }
@@ -343,7 +348,9 @@ class MainContainerController extends ComponentController {
      * @param {Object} data.record
      */
     updateCountryField(data) {
-        console.log('updateCountryField', data.record.country);
+        Neo.Main.editRoute({
+            country: data.record.country
+        });
     }
 }
 
