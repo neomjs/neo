@@ -55,6 +55,7 @@ class DomAccess extends Base {
                 'getBoundingClientRect',
                 'markdownToHtml',
                 'scrollIntoView',
+                'scrollToTableRow',
                 'selectNode',
                 'swapStyleSheet',
                 'windowScrollTo'
@@ -352,6 +353,32 @@ class DomAccess extends Base {
                 behavior: data.behavior || 'smooth',
                 block   : data.block    || 'start',
                 inline  : data.inline   || 'nearest'
+            });
+        }
+
+        return {id: data.id};
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} [data.behavior='smooth']
+     * @param {String} [data.offset=34]
+     * @returns {Object} obj.id => the passed id
+     */
+    scrollToTableRow(data) {
+        let node = this.getElement(data.id); // tr tag
+
+        if (node) {
+            let tableNode   = node.parentNode.parentNode,
+                wrapperNode = tableNode.parentNode,
+                tableTop    = tableNode.getBoundingClientRect().top,
+                top         = node.getBoundingClientRect().top;
+
+            wrapperNode.scrollTo({
+                top     : top - tableTop - (data.hasOwnProperty('offset') ? data.offset : 34),
+                behavior: data.behavior || 'smooth'
             });
         }
 

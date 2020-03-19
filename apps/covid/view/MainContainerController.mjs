@@ -260,7 +260,7 @@ class MainContainerController extends ComponentController {
                     id = selectionModel.getRowId(activeView.store.indexOf(value.country));
                     selectionModel.select(id);
 
-                    Neo.main.DomAccess.scrollIntoView({id: id});
+                    Neo.main.DomAccess.scrollToTableRow({id: id});
                 } else if (activeView.ntype === 'helix') {
                     selectionModel.select(value.country, false);
                 } else {
