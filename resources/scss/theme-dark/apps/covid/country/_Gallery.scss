@@ -1,0 +1,9 @@
+$neoMap: map-merge($neoMap, (
+    'covid-gallery-background-color': #000,
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-dark { // .neo-gallery.covid-country-gallery
+        --covid-gallery-background-color  : #{neo(covid-gallery-background-color)};
+    }
+}

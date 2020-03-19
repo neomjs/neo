@@ -1,6 +1,7 @@
 .neo-gallery.covid-country-gallery {
-    color     : #000;
-    text-align: left;
+    background-color: v(covid-gallery-background-color);
+    color           : #000;
+    text-align      : left;
 
     .neo-content-table {
         white-space: nowrap;
