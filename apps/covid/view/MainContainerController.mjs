@@ -252,17 +252,17 @@ class MainContainerController extends ComponentController {
 
                 if (activeView.ntype === 'table-container') {
                     id = selectionModel.getRowId(activeView.store.indexOf(value.country));
-                    if (!selectionModel.hasSelection(id)) {
+                    if (!selectionModel.isSelected(id)) {
                         selectionModel.select(id);
                         Neo.main.DomAccess.scrollToTableRow({id: id});
                     }
                 } else if (activeView.ntype === 'helix') {
-                    if (!selectionModel.hasSelection(id)) {
+                    if (!selectionModel.isSelected(id)) {
                         selectionModel.select(value.country, false);
                         activeView.onKeyDownSpace(null);
                     }
                 } else {
-                    if (!selectionModel.hasSelection(id)) {
+                    if (!selectionModel.isSelected(id)) {
                         selectionModel.select(value.country, false);
                     }
                 }
@@ -347,7 +347,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      * @param {Object} data.record
      */
-    updateCountryField(data) {
+    updateCountryField(data) {console.log('editRoute');
         Neo.Main.editRoute({
             country: data.record.country
         });
