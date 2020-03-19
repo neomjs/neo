@@ -56,7 +56,7 @@ class MainContainerController extends ComponentController {
         me.loadData();
         me.loadSummaryData();
 
-        me.view.on('mounted', me.onMainViewMounted);
+        me.view.on('mounted', me.onMainViewMounted, me);
     }
 
     /**
@@ -269,11 +269,15 @@ class MainContainerController extends ComponentController {
      *
      */
     onMainViewMounted() {
+        const me = this;
+
         Neo.main.DomAccess.addScript({
             async: true,
             defer: true,
             src  : 'https://buttons.github.io/buttons.js'
         });
+
+        me.getReference('table').on('select', me.updateCountryField, me);
     }
 
     /**
@@ -331,6 +335,15 @@ class MainContainerController extends ComponentController {
                 button.text = buttonText;
             });
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Object} data.record
+     */
+    updateCountryField(data) {
+        console.log('updateCountryField', data.record.country);
     }
 }
 
