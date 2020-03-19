@@ -22,7 +22,7 @@
     }
 
     .neo-item-wrapper {
-        background-color   : rgba(73,160,154,.35);
+        background-color   : v(covid-gallery-item-wrapper-background-color);
         border-radius      : 10px;
         pointer-events     : none;
         transition-duration: .55s;

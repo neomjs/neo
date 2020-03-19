@@ -1,11 +1,13 @@
 $neoMap: map-merge($neoMap, (
-    'covid-gallery-background-color': #000,
-    'covid-gallery-border-color'    : #3c3f41,
+    'covid-gallery-background-color'             : #000,
+    'covid-gallery-border-color'                 : #3c3f41,
+    'covid-gallery-item-wrapper-background-color': rgba(73,160,154,.35)
 ));
 
 @if $useCss4Vars == true {
     :root .neo-theme-dark { // .neo-gallery.covid-country-gallery
-        --covid-gallery-background-color: #{neo(covid-gallery-background-color)};
-        --covid-gallery-border-color    : #{neo(covid-gallery-border-color)};
+        --covid-gallery-background-color             : #{neo(covid-gallery-background-color)};
+        --covid-gallery-border-color                 : #{neo(covid-gallery-border-color)};
+        --covid-gallery-item-wrapper-background-color: #{neo(covid-gallery-item-wrapper-background-color)};
     }
 }
