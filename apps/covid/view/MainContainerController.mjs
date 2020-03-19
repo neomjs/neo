@@ -347,7 +347,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      * @param {Object} data.record
      */
-    updateCountryField(data) {console.log('editRoute');
+    updateCountryField(data) {
         Neo.Main.editRoute({
             country: data.record.country
         });
