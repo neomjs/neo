@@ -38,6 +38,10 @@
 
     .neo-helix-item {
         background-color: v(covid-helix-item-wrapper-background-color);
+
+        &.neo-selected {
+            box-shadow: v(covid-helix-item-box-shadow-selected);
+        }
     }
 
     .neo-country-helix-item {
