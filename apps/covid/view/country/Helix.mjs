@@ -157,16 +157,15 @@ class CountryHelix extends Helix {
 
         return vdomItem;
     }
-
     /**
      *
      * @returns {String}
      */
     getCloneTransform() {
         let me         = this,
-            translateX = (me.offsetWidth  - 1840) / 3,
-            translateY = (me.offsetHeight - 1760) / 3,
-            translateZ = 100700 + me.perspective / 2.5;
+            translateX = (me.offsetWidth  - 2800) / 6,
+            translateY = (me.offsetHeight - 2700) / 6,
+            translateZ = 100400 + me.perspective / 1.5;
 
         return 'matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,'+translateX+','+translateY+','+translateZ+',1)';
     }
