@@ -113,115 +113,41 @@ class MainContainerController extends ComponentController {
      * @return {String} url
      */
     getCountryFlagUrl(name) {
-        let imageName = name.toLowerCase();
+        const map = {
+            'car'                   : 'central-african-republic',
+            'channel-islands'       : 'jersey',
+            'congo'                 : 'democratic-republic-of-congo',
+            'curaçao'               : 'curacao',
+            'czechia'               : 'czech-republic',
+            'diamond-princess'      : 'japan', // cruise ship?
+            'drc'                   : 'democratic-republic-of-congo',
+            'el-salvador'           : 'salvador',
+            'eswatini'              : 'swaziland',
+            'faeroe-islands'        : 'faroe-islands',
+            'french-guiana'         : 'france', // ?
+            'guadeloupe'            : 'france', // ?
+            'mayotte'               : 'france', // ?
+            'new-caledonia'         : 'france',
+            'north-macedonia'       : 'republic-of-macedonia',
+            'poland'                : 'republic-of-poland',
+            'réunion'               : 'france',
+            'saint-lucia'           : 'st-lucia',
+            's.-korea'              : 'south-korea',
+            'st.-barth'             : 'st-barts',
+            'saint-martin'          : 'sint-maarten',
+            'st.-vincent-grenadines': 'st-vincent-and-the-grenadines',
+            'u.s.-virgin-islands'   : 'virgin-islands',
+            'uae'                   : 'united-arab-emirates',
+            'uk'                    : 'united-kingdom',
+            'usa'                   : 'united-states-of-america',
+            'uzbekistan'            : 'uzbekistn'
+        };
 
-        imageName = imageName.replace(MainContainerController.flagRegEx, '-');
+        let imageName = name.toLowerCase().replace(MainContainerController.flagRegEx, '-');
 
-        switch(imageName) {
-            case 'car':
-                imageName = 'central-african-republic';
-                break;
-            case 'channel-islands':
-                imageName = 'jersey';
-                break;
-            case 'congo':
-                imageName = 'democratic-republic-of-congo';
-                break;
-            case 'curaçao':
-                imageName = 'curacao';
-                break;
-            case 'czechia':
-                imageName = 'czech-republic';
-                break;
-            case 'diamond-princess':
-                imageName = 'japan'; // cruise ship?
-                break;
-            case 'drc':
-                imageName = 'democratic-republic-of-congo';
-                break;
-            case 'eswatini':
-                imageName = 'swaziland';
-                break;
-            case 'faeroe-islands':
-                imageName = 'faroe-islands';
-                break;
-            case 'french-guiana':
-                imageName = 'france'; // ?
-                break;
-            case 'guadeloupe':
-                imageName = 'france'; // ?
-                break;
-            case 'mayotte':
-                imageName = 'france'; // ?
-                break;
-            case 'new-caledonia':
-                imageName = 'france';
-                break;
-            case 'north-macedonia':
-                imageName = 'republic-of-macedonia';
-                break;
-            case 'poland':
-                imageName = 'republic-of-poland';
-                break;
-            case 'réunion':
-                imageName = 'france';
-                break;
-            case 'saint-lucia':
-                imageName = 'st-lucia';
-                break;
-            case 's.-korea':
-                imageName = 'south-korea';
-                break;
-            case 'st.-barth':
-                imageName = 'st-barts';
-                break;
-            case 'saint-martin':
-                imageName = 'sint-maarten';
-                break;
-            case 'st.-vincent-grenadines':
-                imageName = 'st-vincent-and-the-grenadines';
-                break;
-            case 'u.s.-virgin-islands':
-                imageName = 'virgin-islands';
-                break;
-            case 'uae':
-                imageName = 'united-arab-emirates';
-                break;
-            case 'uk':
-                imageName = 'united-kingdom';
-                break;
-            case 'usa':
-                imageName = 'united-states-of-america';
-                break;
-            case 'uzbekistan':
-                imageName = 'uzbekistn';
-                break;
-        }
+        imageName = map[imageName] || imageName;
 
         return 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/flaticon/country_flags/png/' + imageName + '.png'
-    }
-
-    /**
-     *
-     * @param {Number} tabIndex
-     * @return {String}
-     */
-    getStore(tabIndex) {
-        let reference;
-
-        switch(tabIndex) {
-            case 0:
-                reference = 'table';
-                break;
-            case 1:
-                reference = 'gallery';
-                break;
-            case 2:
-                reference = 'helix';
-                break;
-        }
-
-        return this.getReference(reference).store;
     }
 
     /**
@@ -240,9 +166,32 @@ class MainContainerController extends ComponentController {
                 return 1;
             case 'helix':
                 return 2;
-            case 'table':
+            default:
                 return 0;
         }
+    }
+
+    /**
+     *
+     * @param {Number} tabIndex
+     * @return {Neo.component.Base}
+     */
+    getView(tabIndex) {
+        let reference;
+
+        switch(tabIndex) {
+            case 0:
+                reference = 'table';
+                break;
+            case 1:
+                reference = 'gallery';
+                break;
+            case 2:
+                reference = 'helix';
+                break;
+        }
+
+        return this.getReference(reference);
     }
 
     /**
@@ -282,10 +231,14 @@ class MainContainerController extends ComponentController {
      * @param {String} hashString
      */
     onHashChange(value, oldValue, hashString) {
-        let me           = this,
-            activeIndex  = me.getTabIndex(value),
-            tabContainer = me.getReference('tab-container'),
-            store        = me.getStore(activeIndex);
+        let me             = this,
+            activeIndex    = me.getTabIndex(value),
+            countryField   = me.getReference('country-field'),
+            tabContainer   = me.getReference('tab-container'),
+            activeView     = me.getView(activeIndex),
+            selectionModel = activeView.selectionModel,
+            delaySelection = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
+            id;
 
         // console.log('onHashChange', value);
 
@@ -294,9 +247,37 @@ class MainContainerController extends ComponentController {
 
         // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
 
-        if (me.data && store.getCount() < 1) {
-            store.data = me.data;
+        if (me.data && activeView.store.getCount() < 1) {
+            activeView.store.data = me.data;
+            delaySelection = 500;
         }
+
+        if (value.country) {
+            setTimeout(() => {
+                countryField.value = value.country;
+
+                if (activeView.ntype === 'table-container') {
+                    id = selectionModel.getRowId(activeView.store.indexOf(value.country));
+                    selectionModel.select(id);
+
+                    Neo.main.DomAccess.scrollIntoView({id: id});
+                } else if (activeView.ntype === 'helix') {
+                    selectionModel.select(value.country, false);
+                } else {
+                    selectionModel.select(value.country, false);
+                }
+            }, delaySelection);
+        }
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onReloadDataButtonClick(data) {
+        const me = this;
+
+        me.loadData();
+        me.loadSummaryData();
     }
 
     /**
@@ -306,15 +287,17 @@ class MainContainerController extends ComponentController {
         let me     = this,
             button = data.component,
             view   = me.view,
-            buttonText, cls, href, theme;
+            buttonText, cls, href, iconCls, theme;
 
         if (button.text === 'Theme Light') {
             buttonText = 'Theme Dark';
             href       = '../dist/development/neo-theme-light-no-css4.css';
+            iconCls    = 'fa fa-moon';
             theme      = 'neo-theme-light';
         } else {
             buttonText = 'Theme Light';
             href       = '../dist/development/neo-theme-dark-no-css4.css';
+            iconCls    = 'fa fa-sun';
             theme      = 'neo-theme-dark';
         }
 
@@ -330,7 +313,10 @@ class MainContainerController extends ComponentController {
             NeoArray.add(cls, theme);
             view.cls = cls;
 
-            button.text = buttonText;
+            button.set({
+                iconCls: iconCls,
+                text   : buttonText
+            });
         } else {
             Neo.main.DomAccess.swapStyleSheet({
                 href: href,

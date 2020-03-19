@@ -56,9 +56,9 @@ class Container extends BaseContainer {
          */
         keys: {},
         /**
-         * @member {String} _layout='base'
+         * @member {String} layout='base'
          */
-        _layout: 'base',
+        layout: 'base',
         /**
          * @member {Boolean} scrollbarsCssApplied=false
          * @private
@@ -130,10 +130,10 @@ class Container extends BaseContainer {
         me.viewId          = Neo.getId('table-view');
 
         me.items = [{
-            ntype: 'table-header-toolbar',
-            id   : me.headerToolbarId
+            module: header.Toolbar,
+            id    : me.headerToolbarId
         }, {
-            ntype      : 'table-view',
+            module     : View,
             containerId: me.id,
             id         : me.viewId
         }];
@@ -281,22 +281,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @override
-     * @returns {*}
-     */
-    getVdomRoot() {
-        return this.vdom.cn[0];
-    }
-
-    /**
-     * @override
-     * @returns {Neo.vdom.VNode}
-     */
-    getVnodeRoot() {
-        return this.vnode.childNodes[0];
-    }
-
-    /**
      *
      * @param columns
      * @returns {*}
@@ -338,22 +322,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
-     * @param {Number} countRows
-     */
-    loadData(countRows) {
-        let me           = this,
-            columns      = me.items[0].items,
-            countColumns = columns.length;
-
-        Neo.manager.Store.createRandomData([countColumns, countRows]).then(data => {
-            me.createViewData(data);
-        }).catch(err => {
-            console.log('Error attempting to call createRandomViewData', err, me);
-        });
-    }
-
-    /**
      * @param {Array} inputData
      */
     createViewData(inputData) {
@@ -367,6 +335,38 @@ class Container extends BaseContainer {
         }
 
         me.items = items;
+    }
+
+    /**
+     * @override
+     * @returns {*}
+     */
+    getVdomRoot() {
+        return this.vdom.cn[0];
+    }
+
+    /**
+     * @override
+     * @returns {Neo.vdom.VNode}
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[0];
+    }
+
+    /**
+     *
+     * @param {Number} countRows
+     */
+    loadData(countRows) {
+        let me           = this,
+            columns      = me.items[0].items,
+            countColumns = columns.length;
+
+        Neo.manager.Store.createRandomData([countColumns, countRows]).then(data => {
+            me.createViewData(data);
+        }).catch(err => {
+            console.log('Error attempting to call createRandomViewData', err, me);
+        });
     }
 
     /**

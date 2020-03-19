@@ -206,7 +206,7 @@ class DomEvent extends Base {
      * @private
      */
     mountDomListeners(component) {
-        let listeners   = component.listeners,
+        let listeners   = component.domListeners,
             localEvents = [],
             event, eventName;
 
@@ -215,6 +215,8 @@ class DomEvent extends Base {
             eventName = event.eventName;
 
             if (eventName && (event.local || !globalDomEvents.includes(eventName))) {
+                console.log('localEvents', eventName);
+
                 localEvents.push({
                     name   : eventName,
                     handler: 'domEventListener',

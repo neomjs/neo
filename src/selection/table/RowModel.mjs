@@ -42,9 +42,22 @@ class RowModel extends Model {
     }
 
     /**
+     * Finds the matching table row for a given row index
+     * @param {Number} index row index
+     * @returns {String|null} The table row node id
+     */
+    getRowId(index) {
+        if (index < 0 || this.view.store.getCount() < index) {
+            return null;
+        }
+
+        return this.view.vdom.cn[0].cn[1].cn[index].id;
+    }
+
+    /**
      * Finds the matching table row for a given event path
      * @param {Object} path The event path
-     * @return {Object|null} The node containing the table row class or null
+     * @returns {Object|null} The node containing the table row class or null
      * @private
      */
     static getRowNode(path) {

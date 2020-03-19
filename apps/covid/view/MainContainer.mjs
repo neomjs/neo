@@ -46,25 +46,22 @@ class MainContainer extends Viewport {
             style      : {margin: '10px'},
 
             items: [{
-                module   : TableContainer,
-                reference: 'table',
-
+                module         : TableContainer,
+                reference      : 'table',
                 tabButtonConfig: {
                     iconCls: 'fa fa-table',
                     route  : 'mainview=table',
                     text   : 'Table'
                 }
             }, {
-                module: GalleryContainer,
-
+                module         : GalleryContainer,
                 tabButtonConfig: {
                     iconCls: 'fa fa-images',
                     route  : 'mainview=gallery',
                     text   : 'Gallery'
                 }
             }, {
-                module: HelixContainer,
-
+                module         : HelixContainer,
                 tabButtonConfig: {
                     iconCls: 'fa fa-dna',
                     route  : 'mainview=helix',

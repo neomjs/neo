@@ -206,11 +206,12 @@ class HelixModel extends Model {
     /**
      *
      * @param {String} itemId
+     * @param {Boolean} [toggleSelection=true]
      */
-    select(itemId) {
+    select(itemId, toggleSelection=true) {
         let me         = this,
             view       = me.view,
-            isSelected = me.items.includes(itemId),
+            isSelected = toggleSelection === false ? false : me.items.includes(itemId),
             oldItems   = [...me.items],
             deltas     = [];
 

@@ -125,8 +125,20 @@ class Main extends core.Base {
      * @param {Object} data
      */
     editRoute(data) {
-        console.log('editRoute', data);
-        // window.location.hash = data.value;
+        let hashObj = DomEvents.parseHash(window.location.hash.substr(1)),
+            hashArr = [];
+
+        if (typeof data === 'string') {
+            data = DomEvents.parseHash(data);
+        }
+
+        Object.assign(hashObj, data);
+
+        Object.entries(hashObj).forEach(([key, value]) => {
+            hashArr.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
+        });
+
+        window.location.hash = hashArr.join('&');
     }
 
     /**

@@ -444,6 +444,10 @@ class DomEvents extends Base {
      * @returns {Object}
      */
     parseHash(str) {
+        if (str === '') {
+            return {};
+        }
+
         let pieces = str.split('&'),
             data   = {},
             i, key, parts, value;

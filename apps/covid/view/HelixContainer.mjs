@@ -166,7 +166,7 @@ class HelixContainer extends Container {
             }, {
                 ntype : 'container',
                 layout: {ntype: 'hbox', align: 'stretch'},
-                style : {padding: '0'},
+                style : {minHeight: '134px', padding: '0'},
 
                 items : [{
                     ntype : 'container',

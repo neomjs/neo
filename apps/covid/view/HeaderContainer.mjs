@@ -61,27 +61,37 @@ class HeaderContainer extends Container {
             flex   : 'none',
             handler: 'onSwitchThemeButtonClick',
             height : 25,
+            iconCls: 'fa fa-sun',
             style  : {marginLeft: '10px', marginTop: '15px'},
             text   : 'Theme Light'
         }, {
+            ntype  : 'button',
+            flex   : 'none',
+            handler: 'onReloadDataButtonClick',
+            height : 25,
+            iconCls: 'fa fa-sync-alt',
+            style  : {marginLeft: '10px', marginTop: '15px'},
+            text   : 'Reload Data'
+        }, {
             reference: 'summary-table',
             style: {
-                margin    : '5px',
+                fontSize  : '13px',
+                margin    : '10px',
                 marginLeft:'20px'
             },
             vdom: {
                 tag: 'table',
                 cn : [
-                    {tag: 'tr', cn : [{tag: 'td', html: 'Cases'},     {tag: 'td'}]},
-                    {tag: 'tr', cn : [{tag: 'td', html: 'Deaths'},    {tag: 'td'}]},
-                    {tag: 'tr', cn : [{tag: 'td', html: 'Recovered'}, {tag: 'td'}]}
+                    {tag: 'tr', cn : [{tag: 'td', html: 'Cases'},     {tag: 'td', cls: ['neo-align-right']}]},
+                    {tag: 'tr', cn : [{tag: 'td', html: 'Deaths'},    {tag: 'td', cls: ['neo-align-right', 'neo-content-deaths']}]},
+                    {tag: 'tr', cn : [{tag: 'td', html: 'Recovered'}, {tag: 'td', cls: ['neo-align-right', 'neo-content-recovered']}]}
                 ]
             }
         }, {
             flex: 1
         }, {
-            style: {padding: '20px'},
-            width: 150,
+            style: {padding: '10px'},
+            width: 130,
             vdom : {
                 cn: [{
                     tag              : 'a',

@@ -64,6 +64,11 @@ class GalleryMainContainer extends Viewport {
             style : {backgroundColor: '#2b2b2b'},
             width : 260,
 
+            containerConfig: {
+                flex : null,
+                style: {overflowY: 'scroll'}
+            },
+
             itemDefaults: {
                 ntype        : 'rangefield',
                 flex         : '0 1 auto',
@@ -170,7 +175,8 @@ class GalleryMainContainer extends Viewport {
             }, {
                 ntype : 'container',
                 layout: {ntype: 'hbox', align: 'stretch'},
-                style : {padding: '0'},
+                style : {minHeight: '134px', padding: '0'},
+
                 items : [{
                     ntype : 'container',
                     layout: {ntype: 'vbox', align: 'stretch'},
