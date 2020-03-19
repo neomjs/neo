@@ -327,7 +327,10 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onReloadDataButtonClick(data) {
-        console.log('onReloadDataButtonClick');
+        const me = this;
+
+        me.loadData();
+        me.loadSummaryData();
     }
 
     /**
