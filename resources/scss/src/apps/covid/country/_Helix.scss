@@ -1,0 +1,68 @@
+.neo-helix.covid-country-helix {
+    background-color: v(covid-helix-background-color);
+    border-color    : v(covid-helix-border-color);
+    color           : #000;
+    text-align      : left;
+
+    .neo-align-right {
+        text-align: right;
+    }
+
+    .neo-content-critical {
+        color: orange;
+    }
+
+    .neo-content-deaths {
+        color: red;
+    }
+
+    .neo-content-recovered {
+        color: green;
+    }
+
+    .neo-content-table {
+        white-space: nowrap;
+    }
+
+    .neo-flag {
+        height      : 40px;
+        margin-right: 10px;
+        width       : 40px;
+    }
+
+    .neo-item-wrapper {
+        pointer-events     : none;
+        transition-duration: .55s;
+        transition-property: transform;
+    }
+
+    .neo-helix-item {
+        background-color: v(covid-helix-item-wrapper-background-color);
+    }
+
+    .neo-country-helix-item {
+        background-color       : #fff;
+        border-color           : v(covid-helix-item-border-color);
+        border-left-width      : v(covid-helix-item-border-sides-width);
+        border-right-width     : v(covid-helix-item-border-sides-width);
+        border-style           : solid;
+        border-top-left-radius : 10px;
+        border-top-right-radius: 10px;
+        border-top-width       : 1px;
+        height                 : 210px;
+        padding                : 20px;
+
+        .neo-item-header {
+            align-items  : center;
+            display      : flex;
+            font-size    : 40px;
+            margin-bottom: 20px;
+        }
+    }
+
+    .neo-helix-item {
+        border-radius: 10px;
+        height       : 280px;
+        width        : 340px;
+    }
+}
