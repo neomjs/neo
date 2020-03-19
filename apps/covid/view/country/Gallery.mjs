@@ -13,9 +13,9 @@ class CountryGallery extends Gallery {
          */
         className: 'Covid.view.Gallery',
         /**
-         * @member {String[]} cls=['neo-country-gallery', 'neo-gallery', 'page', 'view']
+         * @member {String[]} cls=['covid-country-gallery', 'neo-gallery', 'page', 'view']
          */
-        cls: ['neo-country-gallery', 'neo-gallery', 'page', 'view'],
+        cls: ['covid-country-gallery', 'neo-gallery', 'page', 'view'],
         /**
          * The image height of the gallery
          * @member {Number} imageHeight=240
