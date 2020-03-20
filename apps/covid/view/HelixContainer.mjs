@@ -1,3 +1,4 @@
+import BoxLabel                 from '../../../src/component/BoxLabel.mjs';
 import Helix                    from './country/Helix.mjs';
 import HelixContainerController from './HelixContainerController.mjs';
 import Panel                    from '../../../src/container/Panel.mjs';
@@ -228,18 +229,16 @@ class HelixContainer extends Container {
                     marginBottom: '10px'
                 }
             }, {
-                ntype: 'label',
-                cls  : ['neo-details-label'],
-                text : [
+                module: BoxLabel,
+                text  : [
                     '<b>Navigation Concept</b>',
                     '<p>Click on an item to select it. Afterwards you can use the Arrow Keys to walk through the items.</p>',
                     '<p>Hit the Space Key to rotate the currently selected item to the front.</p>',
                     '<p>Hit the Enter Key to expand the currently selected item.</p>'
                 ].join('')
             }, {
-                ntype: 'label',
-                cls  : ['neo-details-label', 'neo-link-color'],
-                text : [
+                module: BoxLabel,
+                text  : [
                     '<b>Attribution</b>',
                     '<p>App created with <a href="https://github.com/neomjs/neo">neo.mjs</a>.</p>',
                     '<p>Data provided by <a href="https://github.com/NovelCOVID/API">NovelCOVID/API</a>.</p>',
