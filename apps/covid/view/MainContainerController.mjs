@@ -238,6 +238,10 @@ class MainContainerController extends ComponentController {
         tabContainer.activeIndex = activeIndex;
         me.activeMainTabIndex    = activeIndex;
 
+        if (activeIndex === 2) {
+            activeView.getOffsetValues();
+        }
+
         // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
 
         if (me.data && activeView.store.getCount() < 1) {
