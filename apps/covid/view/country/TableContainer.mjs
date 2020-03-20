@@ -12,8 +12,13 @@ class TableContainer extends Container {
          * @private
          */
         className: 'Covid.view.country.TableContainer',
-
-
+        /**
+         * @member {Array} cls=['covid-country-table', 'neo-table-container']
+         */
+        cls: ['covid-country-table', 'neo-table-container'],
+        /**
+         * @member {Boolean} createRandomData=false
+         */
         createRandomData: false, // testing config
         /**
          * @member {Neo.data.Store} store=CountryStore
