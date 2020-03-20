@@ -1,11 +1,13 @@
 $neoMap: map-merge($neoMap, (
     'boxlabel-background-color': #323232,
+    'boxlabel-border'          : 0,
     'boxlabel-color'           : #ddd
 ));
 
 @if $useCss4Vars == true {
     :root .neo-theme-dark { // .neo-box-label
         --boxlabel-background-color: #{neo(boxlabel-background-color)};
+        --boxlabel-border          : #{neo(boxlabel-border)};
         --boxlabel-color           : #{neo(boxlabel-color)};
     }
 }
