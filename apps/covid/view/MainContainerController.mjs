@@ -253,17 +253,18 @@ class MainContainerController extends ComponentController {
 
                 if (activeView.ntype === 'table-container') {
                     id = selectionModel.getRowId(activeView.store.indexOf(value.country));
+
                     if (!selectionModel.isSelected(id)) {
                         selectionModel.select(id);
                         Neo.main.DomAccess.scrollToTableRow({id: id});
                     }
                 } else if (activeView.ntype === 'helix') {
-                    if (!selectionModel.isSelected(id)) {
+                    if (!selectionModel.isSelected(value.country)) {
                         selectionModel.select(value.country, false);
                         activeView.onKeyDownSpace(null);
                     }
                 } else {
-                    if (!selectionModel.isSelected(id)) {
+                    if (!selectionModel.isSelected(value.country)) {
                         selectionModel.select(value.country, false);
                     }
                 }
@@ -283,6 +284,7 @@ class MainContainerController extends ComponentController {
             src  : 'https://buttons.github.io/buttons.js'
         });
 
+        me.getReference('helix').on('select', me.updateCountryField, me);
         me.getReference('table').on('select', me.updateCountryField, me);
     }
 

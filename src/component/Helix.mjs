@@ -825,7 +825,7 @@ class Helix extends Component {
      *
      * @param {Object} data
      */
-    onClick(data) {console.log('onClick');
+    onClick(data) {
         this.fire(data.id === this.id ? 'containerClick' : 'itemClick', data);
     }
 
