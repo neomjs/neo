@@ -12,8 +12,13 @@ class TableContainer extends Container {
          * @private
          */
         className: 'Covid.view.country.TableContainer',
-
-
+        /**
+         * @member {Array} cls=['covid-country-table', 'neo-table-container']
+         */
+        cls: ['covid-country-table', 'neo-table-container'],
+        /**
+         * @member {Boolean} createRandomData=false
+         */
         createRandomData: false, // testing config
         /**
          * @member {Neo.data.Store} store=CountryStore
@@ -24,11 +29,14 @@ class TableContainer extends Container {
             dataField: 'country',
             text     : 'Country',
             renderer : function(value) {
-                return [
-                    '<div style="display: flex; align-items: center">',
-                        '<img style="height:20px; margin-right:10px; width:20px;" src="' + this.getCountryFlagUrl(value) + '">' + value,
-                    '</div>'
-                ].join('');
+                return {
+                    cls : ['neo-country-column', 'neo-table-cell'],
+                    html: [
+                        '<div style="display: flex; align-items: center">',
+                            '<img style="height:20px; margin-right:10px; width:20px;" src="' + this.getCountryFlagUrl(value) + '">' + value,
+                        '</div>'
+                    ].join('')
+                };
             }
         }, {
             align    : 'right',

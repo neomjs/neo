@@ -114,6 +114,10 @@ class RowModel extends Model {
         if (id) {
             me.select(id);
             view.focus(id);
+
+            view.fire('select', {
+                record: store.getAt(newIndex)
+            });
         }
     }
 
@@ -124,10 +128,17 @@ class RowModel extends Model {
     onRowClick(data) {
         let me   = this,
             node = RowModel.getRowNode(data.path),
-            id   = node && node.id;
+            id   = node && node.id,
+            view = me.view;
 
         if (id) {
             me.toggleSelection(id);
+
+            if (me.isSelected(id)) {
+                view.fire('select', {
+                    record: view.store.getAt(VDomUtil.findVdomChild(view.vdom, id).index)
+                });
+            }
         }
     }
 

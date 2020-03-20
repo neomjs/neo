@@ -336,21 +336,7 @@ class Helix extends Component {
         super.afterSetMounted(value, oldValue);
 
         if (value) {
-            let me = this;
-
-            setTimeout(() => {
-                Neo.currentWorker.promiseMessage('main', {
-                    action    : 'readDom',
-                    vnodeId   : me.id,
-                    attributes: [
-                        'offsetHeight',
-                        'offsetWidth'
-                    ]
-                }).then(data => {console.log(data.attributes);
-                    me.offsetHeight = data.attributes.offsetHeight;
-                    me.offsetWidth  = data.attributes.offsetWidth;
-                });
-            }, 100);
+            this.getOffsetValues();
         }
     }
 
@@ -794,6 +780,27 @@ class Helix extends Component {
     }
 
     /**
+     * @param {Number} [delay=100]
+     */
+    getOffsetValues(delay=100) {
+        let me = this;
+
+        setTimeout(() => {
+            Neo.currentWorker.promiseMessage('main', {
+                action    : 'readDom',
+                vnodeId   : me.id,
+                attributes: [
+                    'offsetHeight',
+                    'offsetWidth'
+                ]
+            }).then(data => {
+                me.offsetHeight = data.attributes.offsetHeight;
+                me.offsetWidth  = data.attributes.offsetWidth;
+            });
+        }, delay);
+    }
+
+    /**
      *
      */
     loadData() {
@@ -825,7 +832,7 @@ class Helix extends Component {
      *
      * @param {Object} data
      */
-    onClick(data) {console.log('onClick');
+    onClick(data) {
         this.fire(data.id === this.id ? 'containerClick' : 'itemClick', data);
     }
 

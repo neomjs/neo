@@ -149,6 +149,7 @@ class CountryGallery extends Gallery {
      */
     getCountryFlagUrl(name) {
         const map = {
+            'cabo-verde'            : 'cape-verde',
             'car'                   : 'central-african-republic',
             'channel-islands'       : 'jersey',
             'congo'                 : 'democratic-republic-of-congo',

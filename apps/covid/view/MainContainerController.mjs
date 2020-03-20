@@ -56,13 +56,7 @@ class MainContainerController extends ComponentController {
         me.loadData();
         me.loadSummaryData();
 
-        me.view.on('mounted', () => {
-            Neo.main.DomAccess.addScript({
-                async: true,
-                defer: true,
-                src  : 'https://buttons.github.io/buttons.js'
-            });
-        });
+        me.view.on('mounted', me.onMainViewMounted, me);
     }
 
     /**
@@ -114,6 +108,7 @@ class MainContainerController extends ComponentController {
      */
     getCountryFlagUrl(name) {
         const map = {
+            'cabo-verde'            : 'cape-verde',
             'car'                   : 'central-african-republic',
             'channel-islands'       : 'jersey',
             'congo'                 : 'democratic-republic-of-congo',
@@ -240,10 +235,12 @@ class MainContainerController extends ComponentController {
             delaySelection = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
             id;
 
-        // console.log('onHashChange', value);
-
         tabContainer.activeIndex = activeIndex;
         me.activeMainTabIndex    = activeIndex;
+
+        if (activeIndex === 2) {
+            activeView.getOffsetValues();
+        }
 
         // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
 
@@ -258,17 +255,40 @@ class MainContainerController extends ComponentController {
 
                 if (activeView.ntype === 'table-container') {
                     id = selectionModel.getRowId(activeView.store.indexOf(value.country));
-                    selectionModel.select(id);
 
-                    Neo.main.DomAccess.scrollToTableRow({id: id});
+                    if (!selectionModel.isSelected(id)) {
+                        selectionModel.select(id);
+                        Neo.main.DomAccess.scrollToTableRow({id: id});
+                    }
                 } else if (activeView.ntype === 'helix') {
-                    selectionModel.select(value.country, false);
-                    activeView.onKeyDownSpace(null);
+                    if (!selectionModel.isSelected(value.country)) {
+                        selectionModel.select(value.country, false);
+                        activeView.onKeyDownSpace(null);
+                    }
                 } else {
-                    selectionModel.select(value.country, false);
+                    if (!selectionModel.isSelected(value.country)) {
+                        selectionModel.select(value.country, false);
+                    }
                 }
             }, delaySelection);
         }
+    }
+
+    /**
+     *
+     */
+    onMainViewMounted() {
+        const me = this;
+
+        Neo.main.DomAccess.addScript({
+            async: true,
+            defer: true,
+            src  : 'https://buttons.github.io/buttons.js'
+        });
+
+        me.getReference('gallery').on('select', me.updateCountryField, me);
+        me.getReference('helix')  .on('select', me.updateCountryField, me);
+        me.getReference('table')  .on('select', me.updateCountryField, me);
     }
 
     /**
@@ -326,6 +346,17 @@ class MainContainerController extends ComponentController {
                 button.text = buttonText;
             });
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Object} data.record
+     */
+    updateCountryField(data) {
+        Neo.Main.editRoute({
+            country: data.record.country
+        });
     }
 }
 

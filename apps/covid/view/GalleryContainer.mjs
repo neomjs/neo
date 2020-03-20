@@ -1,3 +1,4 @@
+import BoxLabel                   from '../../../src/component/BoxLabel.mjs';
 import Gallery                    from './country/Gallery.mjs';
 import GalleryContainerController from './GalleryContainerController.mjs';
 import Panel                      from '../../../src/container/Panel.mjs';
@@ -184,16 +185,14 @@ class GalleryContainer extends Container {
                     }]
                 }]
             }, {
-                ntype: 'label',
-                cls  : ['neo-details-label'],
-                text : [
+                module: BoxLabel,
+                text  : [
                     '<b>Navigation Concept</b>',
                     '<p>You can use the Arrow Keys to walk through the items.</p>'
                 ].join('')
             }, {
-                ntype: 'label',
-                cls  : ['neo-details-label', 'neo-link-color'],
-                text : [
+                module: BoxLabel,
+                text  : [
                     '<b>Attribution</b>',
                     '<p>App created with <a href="https://github.com/neomjs/neo">neo.mjs</a>.</p>',
                     '<p>Data provided by <a href="https://github.com/NovelCOVID/API">NovelCOVID/API</a>.</p>',

@@ -91,7 +91,7 @@ class HeaderContainer extends Container {
             flex: 1
         }, {
             style: {padding: '10px'},
-            width: 130,
+            width: 110,
             vdom : {
                 cn: [{
                     tag              : 'a',
@@ -101,6 +101,20 @@ class HeaderContainer extends Container {
                     'data-size'      : 'large',
                     href             : 'https://github.com/neomjs/neo',
                     html             : 'Star'
+                }]
+            }
+        }, {
+            style: {padding: '10px'},
+            width: 105,
+            vdom : {
+                cn: [{
+                    tag              : 'a',
+                    'aria-label'     : 'Sponsor @tobiu on GitHub',
+                    cls              : ['github-button'],
+                    'data-icon'      : 'octicon-heart',
+                    'data-size'      : 'large',
+                    href             : 'https://github.com/sponsors/tobiu',
+                    html             : 'Sponsor'
                 }]
             }
         }]

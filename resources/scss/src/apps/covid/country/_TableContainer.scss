@@ -1,0 +1,17 @@
+// todo: add a wrapper cls
+.covid-viewport {
+    .neo-table-wrapper {
+        width: 100%
+    }
+}
+
+.neo-table-container.covid-country-table {
+    .neo-country-column {
+        min-width: 250px;
+        width    : 100%
+    }
+
+    td, th {
+        min-width: 150px;
+    }
+}

@@ -369,6 +369,10 @@ class DomEvents extends Base {
      */
     onKeyDown(event) {
         this.sendMessageToApp(this.getKeyboardEventData(event));
+
+        if (['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp'].includes(event.key)) {
+            event.preventDefault();
+        }
     }
 
     /**
