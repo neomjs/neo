@@ -235,8 +235,6 @@ class MainContainerController extends ComponentController {
             delaySelection = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
             id;
 
-        // console.log('onHashChange', value);
-
         tabContainer.activeIndex = activeIndex;
         me.activeMainTabIndex    = activeIndex;
 
@@ -284,8 +282,9 @@ class MainContainerController extends ComponentController {
             src  : 'https://buttons.github.io/buttons.js'
         });
 
-        me.getReference('helix').on('select', me.updateCountryField, me);
-        me.getReference('table').on('select', me.updateCountryField, me);
+        me.getReference('gallery').on('select', me.updateCountryField, me);
+        me.getReference('helix')  .on('select', me.updateCountryField, me);
+        me.getReference('table')  .on('select', me.updateCountryField, me);
     }
 
     /**

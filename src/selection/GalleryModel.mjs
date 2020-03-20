@@ -65,12 +65,20 @@ class GalleryModel extends Model {
      * @param {Object} data
      */
     onItemClick(data) {
-        let i   = 0,
-            len = data.path.length;
+        let i    = 0,
+            len  = data.path.length,
+            view = this.view,
+            key;
 
         for (; i < len; i++) {
             if (data.path[i].cls.includes('neo-gallery-item')) {
-                this.select(this.view.getItemId(data.path[i].id));
+                key = view.getItemId(data.path[i].id);
+                this.select(key);
+
+                view.fire('select', {
+                    record: view.store.get(key)
+                });
+
                 break;
             }
         }
@@ -118,7 +126,7 @@ class GalleryModel extends Model {
             store        = view.store,
             selected     = me.items[0],
             countRecords = store.getCount(),
-            index;
+            index, record;
 
         if (selected) {
             index = store.indexOf(selected) + step;
@@ -132,7 +140,13 @@ class GalleryModel extends Model {
             index = 0;
         }
 
-        me.select(store.getKeyAt(index));
+        record = store.getAt(index);
+
+        me.select(record[store.keyProperty]);
+
+        view.fire('select', {
+            record: record
+        });
     }
 
     /**
@@ -147,7 +161,7 @@ class GalleryModel extends Model {
             countRecords = store.getCount(),
             amountRows   = view.amountRows,
             stayInRow    = me.stayInRow,
-            index;
+            index, record;
 
         if (view.orderByRow) {
             amountRows = Math.ceil(view.store.getCount() / amountRows);
@@ -177,7 +191,13 @@ class GalleryModel extends Model {
             }
         }
 
-        me.select(store.getKeyAt(index));
+        record = store.getAt(index);
+
+        me.select(record[store.keyProperty]);
+
+        view.fire('select', {
+            record: record
+        });
     }
 
     /**
