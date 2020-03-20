@@ -1,12 +1,12 @@
-.neo-box-label {
+.neo-label.neo-box-label {
     background-color: v(boxlabel-background-color);
-    color           : #ddd;
+    color           : v(boxlabel-color);
     font-size       : 13px;
     margin          : 10px;
     padding         : 10px;
     white-space     : normal;
 
     a {
-        color: #ddd;
+        color: v(boxlabel-color);
     }
 }
