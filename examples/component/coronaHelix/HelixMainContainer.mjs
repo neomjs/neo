@@ -69,23 +69,6 @@ class HelixMainContainer extends Viewport {
                 style: {overflowY: 'scroll'}
             },
 
-            itemDefaults: {
-                ntype        : 'rangefield',
-                flex         : '0 1 auto',
-                labelWidth   : '100px',
-                style        : {padding: '10px'},
-                useInputEvent: true,
-
-                listeners: {
-                    change: function(data) {
-                        if (['deltaY', 'maxOpacity', 'minOpacity'].includes(this.name)) {
-                            data.value /= 100;
-                        }
-                        Neo.get('neo-helix-1')[this.name] = data.value;
-                    }
-                }
-            },
-
             headers: [{
                 dock: 'top',
                 items: [{
@@ -103,6 +86,23 @@ class HelixMainContainer extends Viewport {
                     text : 'Helix Controls'
                 }]
             }],
+
+            itemDefaults: {
+                ntype        : 'rangefield',
+                flex         : '0 1 auto',
+                labelWidth   : '100px',
+                style        : {padding: '10px'},
+                useInputEvent: true,
+
+                listeners: {
+                    change: function(data) {
+                        if (['deltaY', 'maxOpacity', 'minOpacity'].includes(this.name)) {
+                            data.value /= 100;
+                        }
+                        Neo.get('neo-helix-1')[this.name] = data.value;
+                    }
+                }
+            },
 
             items: [{
                 labelText: 'Translate X',
