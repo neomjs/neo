@@ -172,6 +172,7 @@ class CountryGallery extends Gallery {
             'st.-barth'             : 'st-barts',
             'saint-martin'          : 'sint-maarten',
             'st.-vincent-grenadines': 'st-vincent-and-the-grenadines',
+            'timor-leste'           : 'east-timor',
             'u.s.-virgin-islands'   : 'virgin-islands',
             'uae'                   : 'united-arab-emirates',
             'uk'                    : 'united-kingdom',

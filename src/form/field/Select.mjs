@@ -260,13 +260,13 @@ class Select extends Picker {
      * @private
      */
     onKeyDownEnter(data) {
-        let me = this;
+        let me    = this;
 
         if (me.pickerIsMounted) {
-            me.selectFirstListItem();
+            me.selectListItem();
             super.onKeyDownEnter(data);
         } else {
-            super.onKeyDownEnter(data, me.selectFirstListItem);
+            super.onKeyDownEnter(data, me.selectListItem);
         }
     }
 
@@ -359,10 +359,19 @@ class Select extends Picker {
     }
 
     /**
-     * @param {Number} index
+     * If no index is passed, the index matching to the field input will get used (0 if none)
+     * @param {Number} [index]
      */
     selectListItem(index) {
         let me = this;
+
+        if (!Neo.isNumber(index)) {
+            if (me.hintRecordId) {
+                index = me.store.indexOfKey(me.hintRecordId);
+            } else {
+                index = 0;
+            }
+        }
 
         me.onListItemNavigate(me.store.getAt(index));
         me.list.selectItem(index);
@@ -414,7 +423,6 @@ class Select extends Picker {
             inputHintEl = me.getInputHintEl(),
             storeValue;
 
-
         if (value === undefined) {
             value = me.value;
         }
@@ -431,7 +439,7 @@ class Select extends Picker {
 
             if (hasMatch) {
                 inputHintEl.value = value + storeValue.substr(value.length);
-                me.hintRecordId = store.items[i][store.model.keyProperty];
+                me.hintRecordId = store.items[i][store.keyProperty || store.model.keyProperty];
             }
         }
 
@@ -461,7 +469,7 @@ class Select extends Picker {
         }
 
         if (me.typeAhead) {
-            if (!(me.picker && me.picker.mounted)) {
+            if (!(me.picker && me.picker.containsFocus)) {
                 me.updateTypeAheadValue();
             }
         }
