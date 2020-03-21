@@ -61,13 +61,6 @@ class GalleryContainer extends Container {
                 style: {overflowY: 'scroll'}
             },
 
-            itemDefaults: {
-                flex         : '0 1 auto',
-                labelWidth   : '110px',
-                style        : {padding: '10px'},
-                useInputEvent: true
-            },
-
             headers: [{
                 dock: 'top',
                 items: [{
@@ -79,6 +72,13 @@ class GalleryContainer extends Container {
                     text : 'Gallery Controls'
                 }]
             }],
+
+            itemDefaults: {
+                flex         : '0 1 auto',
+                labelWidth   : '110px',
+                style        : {padding: '10px'},
+                useInputEvent: true
+            },
 
             items: [{
                 module   : RangeField,

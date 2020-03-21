@@ -61,17 +61,6 @@ class HelixContainer extends Container {
                 style: {overflowY: 'scroll'}
             },
 
-            itemDefaults: {
-                ntype        : 'rangefield',
-                flex         : '0 1 auto',
-                labelWidth   : '100px',
-                style        : {padding: '10px'},
-                useInputEvent: true,
-                listeners    : {
-                    change: 'onRangefieldChange'
-                }
-            },
-
             headers: [{
                 dock: 'top',
                 items: [{
@@ -83,6 +72,17 @@ class HelixContainer extends Container {
                     text : 'Helix Controls'
                 }]
             }],
+
+            itemDefaults: {
+                ntype        : 'rangefield',
+                flex         : '0 1 auto',
+                labelWidth   : '100px',
+                style        : {padding: '10px'},
+                useInputEvent: true,
+                listeners    : {
+                    change: 'onRangefieldChange'
+                }
+            },
 
             items: [{
                 labelText: 'Translate X',
