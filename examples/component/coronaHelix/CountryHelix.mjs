@@ -23,9 +23,14 @@ class CountryHelix extends Helix {
          */
         className: 'Neo.examples.component.coronaHelix.CountryHelix',
         /**
-         * @member {String[]} cls=['neo-country-helix', 'neo-helix']
+         * @member {String[]} cls=['covid-country-helix', 'neo-helix']
          */
-        cls: ['neo-country-helix', 'neo-helix'],
+        cls: ['covid-country-helix', 'neo-helix'],
+        /**
+         * The vertical delta between each helix item (increasing this value will create a spiral)
+         * @member {Number} deltaY=1.2
+         */
+        deltaY: 1.2,
         /**
          * @member {Object} itemTpl_
          */
@@ -95,6 +100,11 @@ class CountryHelix extends Helix {
          */
         radius: 2500,
         /**
+         * The rotationAngle of the Helix in degrees
+         * @member {Number} rotationAngle=720
+         */
+        rotationAngle: 720,
+        /**
          * True displays the first & last name record fields below an expanded item
          * @member {Boolean} showCloneInfo=false
          */
@@ -102,7 +112,17 @@ class CountryHelix extends Helix {
         /**
          * @member {Neo.data.Store} store=CountryStore
          */
-        store: CountryStore
+        store: CountryStore,
+        /**
+         * The translateX value gets included into each helix item
+         * @member {Number} translateY=500
+         */
+        translateY: 500,
+        /**
+         * The translateX value gets included into each helix item
+         * @member {Number} translateZ_=-2300
+         */
+        translateZ: -2300
     }}
 
     /**
@@ -176,6 +196,18 @@ class CountryHelix extends Helix {
         imageName = map[imageName] || imageName;
 
         return 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/flaticon/country_flags/png/' + imageName + '.png'
+    }
+    /**
+     *
+     * @returns {String}
+     */
+    getCloneTransform() {
+        let me         = this,
+            translateX = (me.offsetWidth  - 2800) / 6,
+            translateY = (me.offsetHeight - 2700) / 6,
+            translateZ = 100400 + me.perspective / 1.5;
+
+        return 'matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,'+translateX+','+translateY+','+translateZ+',1)';
     }
 
     /**
