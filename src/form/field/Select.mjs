@@ -469,7 +469,7 @@ class Select extends Picker {
         }
 
         if (me.typeAhead) {
-            if (!(me.picker && me.picker.mounted)) {
+            if (!(me.picker && me.picker.containsFocus)) {
                 me.updateTypeAheadValue();
             }
         }
