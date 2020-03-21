@@ -414,7 +414,6 @@ class Select extends Picker {
             inputHintEl = me.getInputHintEl(),
             storeValue;
 
-
         if (value === undefined) {
             value = me.value;
         }
@@ -431,7 +430,7 @@ class Select extends Picker {
 
             if (hasMatch) {
                 inputHintEl.value = value + storeValue.substr(value.length);
-                me.hintRecordId = store.items[i][store.model.keyProperty];
+                me.hintRecordId = store.items[i][store.keyProperty || store.model.keyProperty];
             }
         }
 
