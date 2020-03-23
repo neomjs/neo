@@ -12,11 +12,39 @@ class TableContainerController extends ComponentController {
          */
         className: 'Covid.view.TableContainerController',
         /**
+         * @member {String} apiBaseUrl='https://corona.lmao.ninja/'
+         */
+        apiBaseUrl: 'https://corona.lmao.ninja/',
+        /**
+         * @member {String} apiHistoricalDataEndpoint='historical'
+         */
+        apiHistoricalDataEndpoint: 'historical/',
+        /**
          * @member {Neo.table.Container|null} table_=null
          * @private
          */
         table_: null
     }}
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        const me = this;
+
+        // todo: remove, just for testing
+        me.loadHistoricalData('Germany');
+    }
+
+    /**
+     *
+     * @param {Object[]} data
+     */
+    addStoreItems(data) {
+        console.log('addStoreItems', data);
+    }
 
     /**
      * Triggered when accessing the table config
@@ -29,6 +57,20 @@ class TableContainerController extends ComponentController {
         }
 
         return value;
+    }
+
+    /**
+     *
+     * @param {String} countryName
+     */
+    loadHistoricalData(countryName) {
+        const me      = this,
+              apiPath = me.apiBaseUrl + me.apiHistoricalDataEndpoint + countryName;
+
+        fetch(apiPath)
+            .then(response => response.json())
+            .then(data => me.addStoreItems(data))
+            .catch(err => console.log('Can’t access ' + apiPath, err));
     }
 
     /**

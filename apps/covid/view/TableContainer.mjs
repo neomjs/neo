@@ -48,7 +48,7 @@ class TableContainer extends Container {
             layout   : {ntype: 'vbox', align: 'stretch'},
             reference: 'controls-panel',
             style    : {backgroundColor: '#2b2b2b'},
-            width    : 260,
+            width    : 400,
 
             containerConfig: {
                 flex : null,
