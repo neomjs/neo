@@ -1,7 +1,7 @@
-import Table                      from './country/Table.mjs';
-import GalleryContainerController from './GalleryContainerController.mjs';
-import Panel                      from '../../../src/container/Panel.mjs';
 import {default as Container}     from '../../../src/container/Base.mjs';
+import Panel                      from '../../../src/container/Panel.mjs';
+import Table                      from './country/Table.mjs';
+import TableContainerController   from './TableContainerController.mjs';
 
 /**
  * @class Covid.view.TableContainer
@@ -19,9 +19,9 @@ class TableContainer extends Container {
          */
         autoMount: true,
         /**
-         * @member {Neo.controller.Component|null} controller=GalleryContainerController
+         * @member {Neo.controller.Component|null} controller=TableContainerController
          */
-        controller: GalleryContainerController,
+        controller: TableContainerController,
         /**
          * @member {Neo.table.Container|null} table=null
          */
