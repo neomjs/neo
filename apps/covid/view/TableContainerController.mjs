@@ -60,7 +60,7 @@ class TableContainerController extends ComponentController {
                 }
             });
 
-            Object.entries(timeline.deaths).forEach(([key, value]) => {
+            Object.entries(timeline.recovered).forEach(([key, value]) => {
                 if (map.hasOwnProperty(key)) {
                     map[key].recovered = value;
                 } else {
