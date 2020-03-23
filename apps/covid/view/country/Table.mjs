@@ -2,16 +2,16 @@ import CountryStore from '../../store/Countries.mjs';
 import Container    from '../../../../src/table/Container.mjs';
 
 /**
- * @class Covid.view.country.TableContainer
+ * @class Covid.view.country.Table
  * @extends Neo.table.Container
  */
-class TableContainer extends Container {
+class Table extends Container {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.country.TableContainer'
+         * @member {String} className='Covid.view.country.Table'
          * @private
          */
-        className: 'Covid.view.country.TableContainer',
+        className: 'Covid.view.country.Table',
         /**
          * @member {Array} cls=['covid-country-table', 'neo-table-container']
          */
@@ -82,10 +82,13 @@ class TableContainer extends Container {
 
         const me = this;
 
-        me.getCountryFlagUrl = me.getController().getCountryFlagUrl.bind(me);
+        // we do need a short delay to ensure that the maincontainer and its controller is constructed
+        setTimeout(() => {
+            me.getCountryFlagUrl = me.getController('maincontainer-controller').getCountryFlagUrl.bind(me);
+        }, 20);
     }
 }
 
-Neo.applyClassConfig(TableContainer);
+Neo.applyClassConfig(Table);
 
-export {TableContainer as default};
+export {Table as default};
