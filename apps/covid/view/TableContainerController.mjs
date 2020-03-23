@@ -40,7 +40,7 @@ class TableContainerController extends ComponentController {
 
     /**
      *
-     * @param {Object[]} data
+     * @param {Object} data
      */
     addStoreItems(data) {
         const timeline  = data && data.timeline,
