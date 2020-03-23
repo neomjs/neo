@@ -49,7 +49,7 @@ class TableContainer extends Container {
             layout   : {ntype: 'vbox', align: 'stretch'},
             reference: 'controls-panel',
             style    : {backgroundColor: '#2b2b2b'},
-            width    : 510,
+            width    : 410,
 
             containerConfig: {
                 flex : null,
@@ -83,7 +83,7 @@ class TableContainer extends Container {
 
         me.historicalDataTable = Neo.create({
             module   : HistoricalDataTable,
-            reference: 'table',
+            reference: 'historical-data-table',
             ...me.historicalDataTableConfig || {}
         });
 

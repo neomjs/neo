@@ -43,7 +43,40 @@ class TableContainerController extends ComponentController {
      * @param {Object[]} data
      */
     addStoreItems(data) {
-        console.log('addStoreItems', data);
+        const timeline  = data && data.timeline,
+              dataArray = [],
+              map       = {};
+
+        if (timeline) {
+            Object.entries(timeline.cases).forEach(([key, value]) => {
+                map[key] = {date1: key, cases: value};
+            });
+
+            Object.entries(timeline.deaths).forEach(([key, value]) => {
+                if (map.hasOwnProperty(key)) {
+                    map[key].deaths = value;
+                } else {
+                    map[key] = {date: key, deaths: value};
+                }
+            });
+
+            Object.entries(timeline.deaths).forEach(([key, value]) => {
+                if (map.hasOwnProperty(key)) {
+                    map[key].recovered = value;
+                } else {
+                    map[key] = {date: key, recovered: value};
+                }
+            });
+
+            Object.entries(map).forEach(([key, value]) => {
+                dataArray.push(value);
+            });
+
+            console.log('### dataArray', dataArray);
+            console.log(dataArray.length);
+            console.log(this.getReference('historical-data-table'));
+            this.getReference('historical-data-table').store.data = dataArray;
+        }
     }
 
     /**
@@ -80,7 +113,7 @@ class TableContainerController extends ComponentController {
         const panel  = this.getReference('controls-panel'),
               expand = panel.width === 40;
 
-        panel.width = expand ? 510 : 40;
+        panel.width = expand ? 410 : 40;
 
         data.component.text = expand ? 'X' : '+';
     }

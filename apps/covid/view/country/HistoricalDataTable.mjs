@@ -29,7 +29,7 @@ class HistoricalDataTable extends Container {
             dataField: 'date',
             text     : 'Date',
             renderer : function(value) {
-                return 'todo'; // parse date
+                return value; // todo: parse date
             }
         }, {
             align    : 'right',
@@ -41,13 +41,6 @@ class HistoricalDataTable extends Container {
             text     : 'Deaths',
             renderer : function(value) {
                 return `<span style="color:red;">${value}</span>`;
-            }
-        }, {
-            align    : 'right',
-            dataField: 'critical',
-            text     : 'Critical',
-            renderer : function(value) {
-                return `<span style="color:orange;">${value}</span>`;
             }
         }, {
             align    : 'right',
