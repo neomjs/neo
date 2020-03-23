@@ -173,21 +173,7 @@ class MainContainerController extends ComponentController {
      * @return {Neo.component.Base}
      */
     getView(tabIndex) {
-        let reference;
-
-        switch(tabIndex) {
-            case 0:
-                reference = 'table';
-                break;
-            case 1:
-                reference = 'gallery';
-                break;
-            case 2:
-                reference = 'helix';
-                break;
-        }
-
-        return this.getReference(reference);
+        return this.getReference(['table', 'gallery', 'helix'][tabIndex]);
     }
 
     /**
