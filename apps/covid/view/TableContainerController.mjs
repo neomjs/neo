@@ -36,6 +36,10 @@ class TableContainerController extends ComponentController {
 
         // todo: remove, just for testing
         me.loadHistoricalData('Germany');
+
+        me.view.on('mounted', () => {
+            me.getReference('table').on('select', me.onTableSelect, me);
+        });
     }
 
     /**
@@ -113,6 +117,14 @@ class TableContainerController extends ComponentController {
         panel.width = expand ? 410 : 40;
 
         data.component.text = expand ? 'X' : '+';
+    }
+
+    /**
+     * {Object} data
+     * {Object} data.record
+     */
+    onTableSelect(data) {
+        console.log('onTableSelect', data.record.country);
     }
 }
 
