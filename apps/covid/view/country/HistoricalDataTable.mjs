@@ -1,5 +1,5 @@
-import CountryStore from '../../store/Countries.mjs';
-import Container    from '../../../../src/table/Container.mjs';
+import Container      from '../../../../src/table/Container.mjs';
+import HistoricalData from '../../store/HistoricalData.mjs';
 
 /**
  * @class Covid.view.country.HistoricalDataTable
@@ -21,9 +21,9 @@ class HistoricalDataTable extends Container {
          */
         createRandomData: false, // testing config
         /**
-         * @member {Neo.data.Store} store=CountryStore
+         * @member {Neo.data.Store} store=HistoricalData
          */
-        store: CountryStore,
+        store: HistoricalData,
 
         columns: [{
             dataField: 'date',

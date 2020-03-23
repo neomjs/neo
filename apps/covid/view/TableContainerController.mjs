@@ -80,7 +80,7 @@ class TableContainerController extends ComponentController {
         const panel  = this.getReference('controls-panel'),
               expand = panel.width === 40;
 
-        panel.width = expand ? 250 : 40;
+        panel.width = expand ? 510 : 40;
 
         data.component.text = expand ? 'X' : '+';
     }

@@ -1,5 +1,5 @@
-import CountryStore from '../../store/Countries.mjs';
 import Container    from '../../../../src/table/Container.mjs';
+import CountryStore from '../../store/Countries.mjs';
 
 /**
  * @class Covid.view.country.Table

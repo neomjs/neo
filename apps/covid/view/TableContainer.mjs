@@ -1,4 +1,5 @@
 import {default as Container}     from '../../../src/container/Base.mjs';
+import HistoricalDataTable        from './country/HistoricalDataTable.mjs';
 import Panel                      from '../../../src/container/Panel.mjs';
 import Table                      from './country/Table.mjs';
 import TableContainerController   from './TableContainerController.mjs';
@@ -48,7 +49,7 @@ class TableContainer extends Container {
             layout   : {ntype: 'vbox', align: 'stretch'},
             reference: 'controls-panel',
             style    : {backgroundColor: '#2b2b2b'},
-            width    : 400,
+            width    : 510,
 
             containerConfig: {
                 flex : null,
@@ -79,6 +80,14 @@ class TableContainer extends Container {
         super(config);
 
         const me = this;
+
+        me.historicalDataTable = Neo.create({
+            module   : HistoricalDataTable,
+            reference: 'table',
+            ...me.historicalDataTableConfig || {}
+        });
+
+        me.items[1].items.push(me.historicalDataTable);
 
         me.table = Neo.create({
             module   : Table,

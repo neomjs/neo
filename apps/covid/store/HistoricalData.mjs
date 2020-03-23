@@ -1,5 +1,5 @@
-import HistoricalData from '../model/HistoricalData.mjs';
-import Store          from '../../../src/data/Store.mjs';
+import {default as HistoricalDataModel} from '../model/HistoricalData.mjs';
+import Store                            from '../../../src/data/Store.mjs';
 
 /**
  * @class Covid.store.HistoricalData
@@ -10,7 +10,7 @@ class HistoricalData extends Store {
         className: 'Covid.store.HistoricalData',
 
         keyProperty: 'date',
-        model      : HistoricalData,
+        model      : HistoricalDataModel,
 
         sorters: [{
             property : 'date',
