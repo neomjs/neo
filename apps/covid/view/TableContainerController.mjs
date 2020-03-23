@@ -49,14 +49,14 @@ class TableContainerController extends ComponentController {
 
         if (timeline) {
             Object.entries(timeline.cases).forEach(([key, value]) => {
-                map[key] = {date1: key, cases: value};
+                map[key] = {date: new Date(key).toISOString().split('T')[0], cases: value};
             });
 
             Object.entries(timeline.deaths).forEach(([key, value]) => {
                 if (map.hasOwnProperty(key)) {
                     map[key].deaths = value;
                 } else {
-                    map[key] = {date: key, deaths: value};
+                    map[key] = {date: new Date(key).toISOString().split('T')[0], deaths: value};
                 }
             });
 
@@ -64,7 +64,7 @@ class TableContainerController extends ComponentController {
                 if (map.hasOwnProperty(key)) {
                     map[key].recovered = value;
                 } else {
-                    map[key] = {date: key, recovered: value};
+                    map[key] = {date: new Date(key).toISOString().split('T')[0], recovered: value};
                 }
             });
 
@@ -72,9 +72,6 @@ class TableContainerController extends ComponentController {
                 dataArray.push(value);
             });
 
-            console.log('### dataArray', dataArray);
-            console.log(dataArray.length);
-            console.log(this.getReference('historical-data-table'));
             this.getReference('historical-data-table').store.data = dataArray;
         }
     }

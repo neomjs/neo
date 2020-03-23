@@ -6,7 +6,7 @@ import Model  from '../../../src/data/Model.mjs';
  */
 class HistoricalData extends Model {
     static getConfig() {return {
-        className: 'Covid.model.Country',
+        className: 'Covid.model.HistoricalData',
 
         fields: [{
             name: 'cases',
