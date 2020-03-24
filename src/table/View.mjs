@@ -51,7 +51,7 @@ class View extends Component {
             data       = [],
             i          = 0,
             vdom       = me.vdom,
-            cellCls, cellId, config, column, dockLeftMargin, dockRightMargin, id, index, j, rendererOutput;
+            cellCls, cellId, config, column, dockLeftMargin, dockRightMargin, id, index, j, rendererOutput, rendererValue;
 
         me.recordVnodeMap = {}; // remove old data
 
@@ -76,7 +76,13 @@ class View extends Component {
 
             for (; j < colCount; j++) {
                 column         = columns[j];
-                rendererOutput = column.renderer.call(column.rendererScope || container, inputData[i][column.dataField], inputData[i], column.dataField);
+                rendererValue  = inputData[i][column.dataField];
+
+                if (rendererValue === undefined) {
+                    rendererValue = '';
+                }
+
+                rendererOutput = column.renderer.call(column.rendererScope || container, rendererValue, inputData[i], column.dataField);
 
                 cellCls = rendererOutput.cls || ['neo-table-cell'];
 
