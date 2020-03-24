@@ -31,10 +31,11 @@ class HeaderContainer extends Container {
          * @member {Array} items
          */
         items: [{
-            cls  : ['neo-link-color'],
-            html : 'COVID-19 <a target="_blank" href="https://github.com/neomjs/neo">neo.mjs</a> App',
-            style: {padding: '20px'},
-            width: 210
+            cls     : ['neo-link-color'],
+            html    : 'COVID-19 neo.mjs App',
+            minWidth: 140,
+            style   : {padding: '20px'},
+            width   : 210
         }, {
             module       : SelectField,
             displayField : 'country',
@@ -42,6 +43,7 @@ class HeaderContainer extends Container {
             height       : 25,
             labelPosition: 'inline',
             labelText    : 'Select a Country',
+            minWidth     : 140,
             reference    : 'country-field',
             style        : {marginTop: '15px'},
             width        : 200,
