@@ -225,26 +225,29 @@ class MainContainerController extends ComponentController {
         }
 
         if (value.country) {
+            // todo: instead of a timeout this should add a store load listener (single: true)
             setTimeout(() => {
-                countryField.value = value.country;
+                if (me.data) {
+                    countryField.value = value.country;
 
-                if (activeView.ntype === 'table-container') {
-                    id = selectionModel.getRowId(activeView.store.indexOf(value.country));
+                    if (activeView.ntype === 'table-container') {
+                        id = selectionModel.getRowId(activeView.store.indexOf(value.country));
 
-                    me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(value.country)});
+                        me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(value.country)});
 
-                    if (!selectionModel.isSelected(id)) {
-                        selectionModel.select(id);
-                        Neo.main.DomAccess.scrollToTableRow({id: id});
-                    }
-                } else if (activeView.ntype === 'helix') {
-                    if (!selectionModel.isSelected(value.country)) {
-                        selectionModel.select(value.country, false);
-                        activeView.onKeyDownSpace(null);
-                    }
-                } else {
-                    if (!selectionModel.isSelected(value.country)) {
-                        selectionModel.select(value.country, false);
+                        if (!selectionModel.isSelected(id)) {
+                            selectionModel.select(id);
+                            Neo.main.DomAccess.scrollToTableRow({id: id});
+                        }
+                    } else if (activeView.ntype === 'helix') {
+                        if (!selectionModel.isSelected(value.country)) {
+                            selectionModel.select(value.country, false);
+                            activeView.onKeyDownSpace(null);
+                        }
+                    } else {
+                        if (!selectionModel.isSelected(value.country)) {
+                            selectionModel.select(value.country, false);
+                        }
                     }
                 }
             }, delaySelection);
