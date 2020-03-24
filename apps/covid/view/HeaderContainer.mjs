@@ -31,9 +31,11 @@ class HeaderContainer extends Container {
          * @member {Array} items
          */
         items: [{
-            html : 'COVID-19 neo.mjs App',
-            style: {padding: '20px'},
-            width: 210
+            cls     : ['neo-link-color'],
+            html    : 'COVID-19 neo.mjs App',
+            minWidth: 140,
+            style   : {padding: '20px'},
+            width   : 210
         }, {
             module       : SelectField,
             displayField : 'country',
@@ -41,6 +43,7 @@ class HeaderContainer extends Container {
             height       : 25,
             labelPosition: 'inline',
             labelText    : 'Select a Country',
+            minWidth     : 140,
             reference    : 'country-field',
             style        : {marginTop: '15px'},
             width        : 200,
@@ -83,8 +86,8 @@ class HeaderContainer extends Container {
                 tag: 'table',
                 cn : [
                     {tag: 'tr', cn : [{tag: 'td', html: 'Cases'},     {tag: 'td', cls: ['neo-align-right']}]},
-                    {tag: 'tr', cn : [{tag: 'td', html: 'Deaths'},    {tag: 'td', cls: ['neo-align-right', 'neo-content-deaths']}]},
-                    {tag: 'tr', cn : [{tag: 'td', html: 'Recovered'}, {tag: 'td', cls: ['neo-align-right', 'neo-content-recovered']}]}
+                    {tag: 'tr', cn : [{tag: 'td', html: 'Recovered'}, {tag: 'td', cls: ['neo-align-right', 'neo-content-recovered']}]},
+                    {tag: 'tr', cn : [{tag: 'td', html: 'Deaths'},    {tag: 'td', cls: ['neo-align-right', 'neo-content-deaths']}]}
                 ]
             }
         }, {

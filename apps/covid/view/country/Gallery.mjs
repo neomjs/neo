@@ -166,7 +166,7 @@ class CountryGallery extends Gallery {
         setTimeout(() => {
             this.selectOnMount = true;
             this.onMounted();
-        }, Neo.config.environment === 'development' ? 200 : 500);
+        }, 200);
     }
 }
 

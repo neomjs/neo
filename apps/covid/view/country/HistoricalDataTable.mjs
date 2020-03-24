@@ -41,17 +41,17 @@ class HistoricalDataTable extends Container {
             text     : 'Cases'
         }, {
             align    : 'right',
-            dataField: 'deaths',
-            text     : 'Deaths',
-            renderer : function(value) {
-                return `<span style="color:red;">${value}</span>`;
-            }
-        }, {
-            align    : 'right',
             dataField: 'recovered',
             text     : 'Recovered',
             renderer : function(value) {
                 return `<span style="color:green;">${value}</span>`;
+            }
+        }, {
+            align    : 'right',
+            dataField: 'deaths',
+            text     : 'Deaths',
+            renderer : function(value) {
+                return `<span style="color:red;">${value}</span>`;
             }
         }]
     }}

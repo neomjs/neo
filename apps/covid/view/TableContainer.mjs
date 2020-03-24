@@ -24,6 +24,11 @@ class TableContainer extends Container {
          */
         controller: TableContainerController,
         /**
+         * @member {Number} historyPanelWidth=420
+         * @private
+         */
+        historyPanelWidth: 420,
+        /**
          * @member {Neo.table.Container|null} table=null
          */
         table: null,
@@ -49,7 +54,7 @@ class TableContainer extends Container {
             layout   : {ntype: 'vbox', align: 'stretch'},
             reference: 'controls-panel',
             style    : {backgroundColor: '#2b2b2b'},
-            width    : 410,
+            width    : '@config:historyPanelWidth',
 
             containerConfig: {
                 flex : null,

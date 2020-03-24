@@ -1,3 +1,4 @@
+import FooterContainer           from './FooterContainer.mjs';
 import GalleryContainer          from './GalleryContainer.mjs';
 import HeaderContainer           from './HeaderContainer.mjs';
 import HelixContainer            from './HelixContainer.mjs';
@@ -47,7 +48,7 @@ class MainContainer extends Viewport {
             activeIndex: this.controller.getTabIndex(Neo.config.hash),
             flex       : 1,
             reference  : 'tab-container',
-            style      : {margin: '10px'},
+            style      : {margin: '10px', marginBottom: '10px'},
 
             items: [{
                 module         : TableContainer,
@@ -72,7 +73,7 @@ class MainContainer extends Viewport {
                     text   : 'Helix'
                 }
             }]
-        }];
+        }, FooterContainer];
     }
 }
 

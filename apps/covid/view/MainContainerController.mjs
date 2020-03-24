@@ -90,8 +90,8 @@ class MainContainerController extends ComponentController {
             vdom         = summaryTable.vdom;
 
         vdom.cn[0].cn[1].html = data.cases;
-        vdom.cn[1].cn[1].html = data.deaths;
-        vdom.cn[2].cn[1].html = data.recovered;
+        vdom.cn[1].cn[1].html = data.recovered;
+        vdom.cn[2].cn[1].html = data.deaths;
 
         summaryTable.vdom = vdom;
     }
@@ -276,6 +276,13 @@ class MainContainerController extends ComponentController {
 
         me.loadData();
         me.loadSummaryData();
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onRemoveFooterButtonClick(data) {
+        this.view.remove(this.getReference('footer'), true);
     }
 
     /**

@@ -44,10 +44,18 @@ class Table extends Container {
             text     : 'Cases'
         }, {
             align    : 'right',
-            dataField: 'deaths',
-            text     : 'Deaths',
+            dataField: 'casesPerOneMillion',
+            text     : 'Cases / 1M'
+        }, {
+            align    : 'right',
+            dataField: 'active',
+            text     : 'Active'
+        },  {
+            align    : 'right',
+            dataField: 'recovered',
+            text     : 'Recovered',
             renderer : function(value) {
-                return `<span style="color:red;">${value}</span>`;
+                return `<span style="color:green;">${value}</span>`;
             }
         }, {
             align    : 'right',
@@ -58,10 +66,10 @@ class Table extends Container {
             }
         }, {
             align    : 'right',
-            dataField: 'recovered',
-            text     : 'Recovered',
+            dataField: 'deaths',
+            text     : 'Deaths',
             renderer : function(value) {
-                return `<span style="color:green;">${value}</span>`;
+                return `<span style="color:red;">${value}</span>`;
             }
         }, {
             align    : 'right',
