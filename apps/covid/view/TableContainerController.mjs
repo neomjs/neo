@@ -34,9 +34,6 @@ class TableContainerController extends ComponentController {
 
         const me = this;
 
-        // todo: remove, just for testing
-        me.loadHistoricalData('Germany');
-
         me.view.on('countrySelect', me.onTableSelect, me);
     }
 
@@ -122,8 +119,9 @@ class TableContainerController extends ComponentController {
      * {Object} data.record
      */
     onTableSelect(data) {
-        console.log('onTableSelect', data.record.country);
         const me = this;
+
+        me.loadHistoricalData(data.record.country);
 
         me.getReference('historical-data-label').html = 'Historical Data (' + data.record.country + ')';
     }
