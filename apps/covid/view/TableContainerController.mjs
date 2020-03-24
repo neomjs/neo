@@ -38,7 +38,7 @@ class TableContainerController extends ComponentController {
         me.loadHistoricalData('Germany');
 
         me.view.on('mounted', () => {
-            me.getReference('table').on('select', me.onTableSelect, me);
+            me.getReference('table').on('selectionChange', me.onTableSelect, me);
         });
     }
 
@@ -125,6 +125,9 @@ class TableContainerController extends ComponentController {
      */
     onTableSelect(data) {
         console.log('onTableSelect', data.record.country);
+        const me = this;
+
+        me.getReference('historical-data-label').html = 'Historical Data (' + data.record.country + ')';
     }
 }
 

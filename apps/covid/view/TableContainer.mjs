@@ -63,8 +63,9 @@ class TableContainer extends Container {
                     handler: 'onCollapseButtonClick',
                     text   : 'X'
                 }, {
-                    ntype: 'label',
-                    text : 'Historical Data'
+                    ntype    : 'label',
+                    reference: 'historical-data-label',
+                    text     : 'Historical Data'
                 }]
             }],
 
