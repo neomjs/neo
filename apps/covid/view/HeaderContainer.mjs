@@ -31,7 +31,8 @@ class HeaderContainer extends Container {
          * @member {Array} items
          */
         items: [{
-            html : 'COVID-19 neo.mjs App',
+            cls  : ['neo-link-color'],
+            html : 'COVID-19 <a target="_blank" href="https://github.com/neomjs/neo">neo.mjs</a> App',
             style: {padding: '20px'},
             width: 210
         }, {
