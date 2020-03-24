@@ -226,7 +226,7 @@ class DeltaUpdates extends Base {
         let me     = this,
             deltas = data.deltas,
             i      = 0,
-            delta, len;
+            len;
 
         deltas = Array.isArray(deltas) ? deltas : [deltas];
         len    = deltas.length;
@@ -237,18 +237,18 @@ class DeltaUpdates extends Base {
             console.log('update ' + me.countUpdates, 'total deltas ', me.countDeltas, Neo.clone(data, true));
         }
 
-        for (; i < len; i++) {
-            delta  = deltas[i];
+        const map = {
+            focusNode   : me.du_focusNode,
+            insertNode  : me.du_insertNode,
+            moveNode    : me.du_moveNode,
+            removeNode  : me.du_removeNode,
+            replaceChild: me.du_replaceChild,
+            updateVtext : me.du_updateVtext,
+            default     : me.du_updateNode
+        };
 
-            switch (delta.action) {
-                case 'focusNode':    me.du_focusNode(delta);    break;
-                case 'insertNode':   me.du_insertNode(delta);   break;
-                case 'moveNode':     me.du_moveNode(delta);     break;
-                case 'removeNode':   me.du_removeNode(delta);   break;
-                case 'replaceChild': me.du_replaceChild(delta); break;
-                case 'updateVtext':  me.du_updateVtext(delta);  break;
-                default:             me.du_updateNode(delta);   break;
-            }
+        for (; i < len; i++) {
+            (map[deltas[i].action] || map['default']).call(me, deltas[i]);
         }
 
         Neo.worker.Manager.sendMessage(data.origin || 'app', {
