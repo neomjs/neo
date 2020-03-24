@@ -148,7 +148,7 @@ class MainContainerController extends ComponentController {
      * @return {Number}
      */
     getTabIndex(hashObject) {
-        if (!hashObject) {
+        if (!hashObject || !hashObject.mainview) {
             return 0;
         }
 
@@ -200,7 +200,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} oldValue
      * @param {String} hashString
      */
-    onHashChange(value, oldValue, hashString) {
+    onHashChange(value, oldValue, hashString) {console.log(this.getTabIndex(value))
         let me             = this,
             activeIndex    = me.getTabIndex(value),
             countryField   = me.getReference('country-field'),
