@@ -29,7 +29,11 @@ class HistoricalDataTable extends Container {
             dataField: 'date',
             text     : 'Date',
             renderer : function(value) {
-                return value; // todo: parse date
+                return new Intl.DateTimeFormat('default', {
+                    day  : 'numeric',
+                    month: 'numeric',
+                    year : 'numeric'
+                }).format(new Date(value));
             }
         }, {
             align    : 'right',

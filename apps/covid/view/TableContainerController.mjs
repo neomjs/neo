@@ -51,14 +51,14 @@ class TableContainerController extends ComponentController {
 
         if (timeline) {
             Object.entries(timeline.cases).forEach(([key, value]) => {
-                map[key] = {date: new Date(key).toISOString().split('T')[0], cases: value};
+                map[key] = {date: new Date(key).toISOString(), cases: value};
             });
 
             Object.entries(timeline.deaths).forEach(([key, value]) => {
                 if (map.hasOwnProperty(key)) {
                     map[key].deaths = value;
                 } else {
-                    map[key] = {date: new Date(key).toISOString().split('T')[0], deaths: value};
+                    map[key] = {date: new Date(key).toISOString(), deaths: value};
                 }
             });
 
@@ -66,7 +66,7 @@ class TableContainerController extends ComponentController {
                 if (map.hasOwnProperty(key)) {
                     map[key].recovered = value;
                 } else {
-                    map[key] = {date: new Date(key).toISOString().split('T')[0], recovered: value};
+                    map[key] = {date: new Date(key).toISOString(), recovered: value};
                 }
             });
 
