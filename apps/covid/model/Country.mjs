@@ -9,6 +9,9 @@ class Country extends Model {
         className: 'Covid.model.Country',
 
         fields: [{
+            name: 'active',
+            type: 'int'
+        }, {
             name: 'cases',
             type: 'int'
         }, {
