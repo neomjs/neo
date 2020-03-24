@@ -88,7 +88,7 @@ class App extends Base {
      * Every URL hash-change will create a post message in main and end up here first.
      * @param {Object} data parsed key-value pairs for each hash value
      */
-    onHashChange(data) {console.log(data);
+    onHashChange(data) {
         HashHistory.push(data.hash, data.hashString);
     }
 
