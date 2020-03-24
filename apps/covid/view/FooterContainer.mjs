@@ -14,18 +14,26 @@ class FooterContainer extends Container {
         /**
          * @member {Number} height=20
          */
-        height: 20,
+        height: 25,
         /**
          * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
          */
         layout: {ntype: 'hbox'},
+        /**
+         * @member {String} reference='footer'
+         */
+        reference: 'footer',
+        /**
+         * @member {Object} style={overflow: 'visible'}
+         */
+        style: {overflow: 'visible'},
         /**
          * @member {Object} itemDefaults
          */
         itemDefaults: {
             ntype: 'component',
             cls  : ['neo-link-color'],
-            style: {fontSize: '11px', padding: '10px', paddingTop: 0}
+            style: {fontSize: '13px', padding: '10px', paddingTop: 0}
         },
         /**
          * @member {Array} items
@@ -40,6 +48,13 @@ class FooterContainer extends Container {
             flex: 1
         }, {
             html : 'Country Flag Icons made by <a href="https://www.flaticon.com/authors/freepik" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>.'
+        }, {
+            ntype  : 'button',
+            cls    : ['neo-button'],
+            handler: 'onRemoveFooterButtonClick',
+            height : 24,
+            style  : {margin: 0, marginRight: '10px', marginTop: '-5px'},
+            text   : 'Remove Footer'
         }]
     }}
 }

@@ -281,6 +281,13 @@ class MainContainerController extends ComponentController {
     /**
      * @param {Object} data
      */
+    onRemoveFooterButtonClick(data) {
+        this.view.remove(this.getReference('footer'), true);
+    }
+
+    /**
+     * @param {Object} data
+     */
     onSwitchThemeButtonClick(data) {
         let me     = this,
             button = data.component,
