@@ -629,12 +629,19 @@ class Gallery extends Component {
                 me.offsetWidth  = data.attributes.offsetWidth;
 
                 if (me.selectOnMount) {
-                    let index = parseInt(Math.min(me.maxItems, me.store.getCount()) / me.amountRows);
+                    let selection = me.selectionModel.getSelection(),
+                        key       = selection.length > 0 && selection[0];
 
-                    me.selectionModel.select(me.store.getKeyAt(index));
+                    if (!key) {
+                        let index = parseInt(Math.min(me.maxItems, me.store.getCount()) / me.amountRows);
+
+                        key = me.store.getKeyAt(index);
+                    }
+
+                    me.selectionModel.select(key);
                 }
             });
-        }, Neo.config.environment === 'development' ? 200 : 500);
+        }, 200);
     }
 
     /**
