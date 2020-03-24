@@ -44,6 +44,10 @@ class Table extends Container {
             text     : 'Cases'
         }, {
             align    : 'right',
+            dataField: 'casesPerOneMillion',
+            text     : 'Cases / 1M'
+        }, {
+            align    : 'right',
             dataField: 'deaths',
             text     : 'Deaths',
             renderer : function(value) {

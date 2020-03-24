@@ -12,6 +12,9 @@ class Country extends Model {
             name: 'cases',
             type: 'int'
         }, {
+            name: 'casesPerOneMillion',
+            type: 'int'
+        }, {
             name: 'country',
             type: 'string'
         }, {
