@@ -387,6 +387,24 @@ class Base extends Component {
     }
 
     /**
+     * Removes a container item by reference
+     * @param {Neo.component.Base} component
+     * @param {Boolean} [destroyItem=true]
+     * @param {Boolean} [silent=false]
+     */
+    remove(component, destroyItem=true, silent=false) {
+        let items = this.items,
+            i     = 0,
+            len   = items.length;
+
+        for (; i < len; i++) {
+            if (items[i].id === component.id) {
+                this.removeAt(i, destroyItem, silent);
+            }
+        }
+    }
+
+    /**
      * Removes a container item at a given index
      * @param {Number} index
      * @param {Boolean} [destroyItem=true]
