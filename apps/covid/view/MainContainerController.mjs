@@ -200,7 +200,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} oldValue
      * @param {String} hashString
      */
-    onHashChange(value, oldValue, hashString) {console.log(this.getTabIndex(value))
+    onHashChange(value, oldValue, hashString) {
         let me             = this,
             activeIndex    = me.getTabIndex(value),
             countryField   = me.getReference('country-field'),
