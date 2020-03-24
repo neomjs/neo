@@ -72,7 +72,6 @@ class DomEvent extends Base {
             data       = event.data || {},
             eventName  = event.eventName,
             i          = 0,
-            isDisabled = false,
             listeners  = null,
             pathIds    = data.path.map(e => e.id),
             path       = ComponentManager.getParentPath(pathIds),
@@ -83,8 +82,7 @@ class DomEvent extends Base {
             id        = path[i];
             component = Neo.getComponent(id);
 
-            if (component.disabled) {
-                isDisabled = true;
+            if (!component || component.disabled) {
                 break;
             }
 
@@ -93,7 +91,7 @@ class DomEvent extends Base {
             if (listeners) {
                 // console.log('fire', eventName, data, listeners, path);
 
-                if (!isDisabled && Array.isArray(listeners)) {
+                if (Array.isArray(listeners)) {
                     listeners.forEach(listener => {
                         if (listener && listener.fn) {
                             delegationTargetId = me.verifyDelegationPath(listener, data.path);
