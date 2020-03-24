@@ -10,31 +10,34 @@ class Country extends Model {
 
         fields: [{
             name: 'active',
-            type: 'int'
+            type: 'Integer'
         }, {
             name: 'cases',
-            type: 'int'
+            type: 'Integer'
         }, {
             name: 'casesPerOneMillion',
-            type: 'int'
+            type: 'Integer'
         }, {
             name: 'country',
-            type: 'string'
+            type: 'String'
+        }, {
+            name: 'countryInfo',
+            type: 'Object' // _id, flag, iso2, iso3, lat, long
         }, {
             name: 'critical',
-            type: 'int'
+            type: 'Integer'
         }, {
             name: 'deaths',
-            type: 'int'
+            type: 'Integer'
         }, {
             name: 'recovered',
-            type: 'int'
+            type: 'Integer'
         }, {
             name: 'todayCases',
-            type: 'int'
+            type: 'Integer'
         }, {
             name: 'todayDeaths',
-            type: 'int'
+            type: 'Integer'
         }]
     }}
 }
