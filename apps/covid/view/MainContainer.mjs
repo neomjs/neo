@@ -51,6 +51,7 @@ class MainContainer extends Viewport {
 
             items: [{
                 module         : TableContainer,
+                reference      : 'table-container',
                 tabButtonConfig: {
                     iconCls: 'fa fa-table',
                     route  : 'mainview=table',

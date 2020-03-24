@@ -37,9 +37,7 @@ class TableContainerController extends ComponentController {
         // todo: remove, just for testing
         me.loadHistoricalData('Germany');
 
-        me.view.on('mounted', () => {
-            me.getReference('table').on('selectionChange', me.onTableSelect, me);
-        });
+        me.view.on('countrySelect', me.onTableSelect, me);
     }
 
     /**
