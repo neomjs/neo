@@ -69,23 +69,6 @@ class GalleryMainContainer extends Viewport {
                 style: {overflowY: 'scroll'}
             },
 
-            itemDefaults: {
-                ntype        : 'rangefield',
-                flex         : '0 1 auto',
-                labelWidth   : '110px',
-                style        : {padding: '10px'},
-                useInputEvent: true,
-
-                listeners: {
-                    change: function(data) {
-                        if (this.name === 'opacity') {
-                            data.value /= 100;
-                        }
-                        Neo.get('neo-gallery-1')[this.name] = data.value;
-                    }
-                }
-            },
-
             headers: [{
                 dock: 'top',
                 items: [{
@@ -103,6 +86,23 @@ class GalleryMainContainer extends Viewport {
                     text : 'Gallery Controls'
                 }]
             }],
+
+            itemDefaults: {
+                ntype        : 'rangefield',
+                flex         : '0 1 auto',
+                labelWidth   : '110px',
+                style        : {padding: '10px'},
+                useInputEvent: true,
+
+                listeners: {
+                    change: function(data) {
+                        if (this.name === 'opacity') {
+                            data.value /= 100;
+                        }
+                        Neo.get('neo-gallery-1')[this.name] = data.value;
+                    }
+                }
+            },
 
             items: [{
                 labelText: 'Translate X',

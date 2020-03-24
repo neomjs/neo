@@ -42,7 +42,12 @@ class MainContainerController extends ComponentController {
         /**
          * @member {Object[]|null} data=null
          */
-        data: null
+        data: null,
+        /**
+         * @member {String[]} mainTabs=['table', 'gallery', 'helix']
+         * @private
+         */
+        mainTabs: ['table', 'gallery', 'helix']
     }}
 
     /**
@@ -70,17 +75,7 @@ class MainContainerController extends ComponentController {
 
         me.getReference('country-field').store.data = data;
 
-        switch(me.activeMainTabIndex) {
-            case 0:
-                me.getReference('table').store.data = data;
-                break;
-            case 1:
-                me.getReference('gallery').store.data = data;
-                break;
-            case 2:
-                me.getReference('helix').store.data = data;
-                break;
-        }
+        me.getReference(me.mainTabs[me.activeMainTabIndex]).store.data = data;
     }
 
     /**
@@ -153,18 +148,11 @@ class MainContainerController extends ComponentController {
      * @return {Number}
      */
     getTabIndex(hashObject) {
-        if (!hashObject) {
+        if (!hashObject || !hashObject.mainview) {
             return 0;
         }
 
-        switch(hashObject.mainview) {
-            case 'gallery':
-                return 1;
-            case 'helix':
-                return 2;
-            default:
-                return 0;
-        }
+        return this.mainTabs.indexOf(hashObject.mainview);
     }
 
     /**
@@ -173,21 +161,7 @@ class MainContainerController extends ComponentController {
      * @return {Neo.component.Base}
      */
     getView(tabIndex) {
-        let reference;
-
-        switch(tabIndex) {
-            case 0:
-                reference = 'table';
-                break;
-            case 1:
-                reference = 'gallery';
-                break;
-            case 2:
-                reference = 'helix';
-                break;
-        }
-
-        return this.getReference(reference);
+        return this.getReference(this.mainTabs[tabIndex]);
     }
 
     /**
@@ -256,6 +230,8 @@ class MainContainerController extends ComponentController {
 
                 if (activeView.ntype === 'table-container') {
                     id = selectionModel.getRowId(activeView.store.indexOf(value.country));
+
+                    me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(value.country)});
 
                     if (!selectionModel.isSelected(id)) {
                         selectionModel.select(id);

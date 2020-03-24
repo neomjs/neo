@@ -3,7 +3,7 @@ import HeaderContainer           from './HeaderContainer.mjs';
 import HelixContainer            from './HelixContainer.mjs';
 import MainContainerController   from './MainContainerController.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
-import TableContainer            from './country/TableContainer.mjs';
+import TableContainer            from './TableContainer.mjs';
 import Viewport                  from '../../../src/container/Viewport.mjs';
 
 /**
@@ -51,7 +51,7 @@ class MainContainer extends Viewport {
 
             items: [{
                 module         : TableContainer,
-                reference      : 'table',
+                reference      : 'table-container',
                 tabButtonConfig: {
                     iconCls: 'fa fa-table',
                     route  : 'mainview=table',
