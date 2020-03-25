@@ -1,5 +1,6 @@
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
 import NeoArray                         from '../../../src/util/Array.mjs';
+import Util                             from '../Util.mjs';
 
 /**
  * @class Covid.view.MainContainerController
@@ -89,9 +90,9 @@ class MainContainerController extends ComponentController {
         let summaryTable = this.getReference('summary-table'),
             vdom         = summaryTable.vdom;
 
-        vdom.cn[0].cn[1].html = data.cases;
-        vdom.cn[1].cn[1].html = data.recovered;
-        vdom.cn[2].cn[1].html = data.deaths;
+        vdom.cn[0].cn[1].html = Util.formatNumber(data.cases);
+        vdom.cn[1].cn[1].html = Util.formatNumber(data.recovered, 'green');
+        vdom.cn[2].cn[1].html = Util.formatNumber(data.deaths,    'red');
 
         summaryTable.vdom = vdom;
     }
