@@ -26,12 +26,15 @@ class Util extends Base {
     }}
 
     /**
-     *
+     * This method will get used as a grid renderer, so the 2nd param is an overload (would be the record)
      * @param {Number} value
+     * @param {String} [color]
      * @return {String}
      */
-    static formatNumber(value) {
-        return value.toLocaleString(Util.locales);
+    static formatNumber(value, color) {
+        value = value.toLocaleString(Util.locales);
+
+        return typeof color !== 'string' ? value : `<span style="color:${color};">${value}</span>`;
     }
 }
 
