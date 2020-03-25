@@ -14,6 +14,20 @@ class NeoFunction extends Base {
     }}
 
     /**
+     * Append args instead of prepending them
+     * @param {Object} scope
+     * @returns {Function}
+     */
+    static bindAppend(scope) {
+        const fn   = this,
+              args = [].slice.call(arguments).slice(1);
+
+        return function() {
+            return fn.apply(scope, [].slice.call(arguments).concat(args));
+        }
+    }
+
+    /**
      *
      * @param {Neo.core.Base} target
      * @param {String} methodName
