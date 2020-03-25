@@ -100,24 +100,6 @@ class Container extends BaseContainer {
     }}
 
     /**
-     * Override this method to change the order configs are applied to this instance.
-     * @param {Object} config
-     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
-     * @returns {Object} config
-     */
-    mergeConfig(...args) {
-        let config = super.mergeConfig(...args);
-
-        // ensure columnDefaults gets applied first
-        if (config.columnDefaults) {
-            this.columnDefaults = config.columnDefaults;
-            delete config.columnDefaults;
-        }
-
-        return config;
-    }
-
-    /**
      *
      * @param {Object} config
      */

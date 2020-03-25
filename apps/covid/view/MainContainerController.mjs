@@ -1,5 +1,6 @@
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
 import NeoArray                         from '../../../src/util/Array.mjs';
+import Util                             from '../Util.mjs';
 
 /**
  * @class Covid.view.MainContainerController
@@ -89,9 +90,9 @@ class MainContainerController extends ComponentController {
         let summaryTable = this.getReference('summary-table'),
             vdom         = summaryTable.vdom;
 
-        vdom.cn[0].cn[1].html = data.cases;
-        vdom.cn[1].cn[1].html = data.recovered;
-        vdom.cn[2].cn[1].html = data.deaths;
+        vdom.cn[0].cn[1].html = Util.formatNumber(data.cases);
+        vdom.cn[1].cn[1].html = Util.formatNumber(data.recovered, 'green');
+        vdom.cn[2].cn[1].html = Util.formatNumber(data.deaths,    'red');
 
         summaryTable.vdom = vdom;
     }
@@ -225,26 +226,29 @@ class MainContainerController extends ComponentController {
         }
 
         if (value.country) {
+            // todo: instead of a timeout this should add a store load listener (single: true)
             setTimeout(() => {
-                countryField.value = value.country;
+                if (me.data) {
+                    countryField.value = value.country;
 
-                if (activeView.ntype === 'table-container') {
-                    id = selectionModel.getRowId(activeView.store.indexOf(value.country));
+                    if (activeView.ntype === 'table-container') {
+                        id = selectionModel.getRowId(activeView.store.indexOf(value.country));
 
-                    me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(value.country)});
+                        me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(value.country)});
 
-                    if (!selectionModel.isSelected(id)) {
-                        selectionModel.select(id);
-                        Neo.main.DomAccess.scrollToTableRow({id: id});
-                    }
-                } else if (activeView.ntype === 'helix') {
-                    if (!selectionModel.isSelected(value.country)) {
-                        selectionModel.select(value.country, false);
-                        activeView.onKeyDownSpace(null);
-                    }
-                } else {
-                    if (!selectionModel.isSelected(value.country)) {
-                        selectionModel.select(value.country, false);
+                        if (!selectionModel.isSelected(id)) {
+                            selectionModel.select(id);
+                            Neo.main.DomAccess.scrollToTableRow({id: id});
+                        }
+                    } else if (activeView.ntype === 'helix') {
+                        if (!selectionModel.isSelected(value.country)) {
+                            selectionModel.select(value.country, false);
+                            activeView.onKeyDownSpace(null);
+                        }
+                    } else {
+                        if (!selectionModel.isSelected(value.country)) {
+                            selectionModel.select(value.country, false);
+                        }
                     }
                 }
             }, delaySelection);

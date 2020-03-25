@@ -1,5 +1,6 @@
 import Container    from '../../../../src/table/Container.mjs';
 import CountryStore from '../../store/Countries.mjs';
+import Util         from '../../Util.mjs';
 
 /**
  * @class Covid.view.country.Table
@@ -17,15 +18,16 @@ class Table extends Container {
          */
         cls: ['covid-country-table', 'neo-table-container'],
         /**
-         * @member {Boolean} createRandomData=false
+         * Default configs for each column
+         * @member {Object} columnDefaults=null
          */
-        createRandomData: false, // testing config
-        /**
-         * @member {Neo.data.Store} store=CountryStore
-         */
-        store: CountryStore,
+        columnDefaults: {
+            align   : 'right',
+            renderer: Util.formatNumber
+        },
 
         columns: [{
+            align    : 'left',
             dataField: 'country',
             text     : 'Country',
             renderer : function(value) {
@@ -39,50 +41,42 @@ class Table extends Container {
                 };
             }
         }, {
-            align    : 'right',
             dataField: 'cases',
             text     : 'Cases'
         }, {
-            align    : 'right',
             dataField: 'casesPerOneMillion',
             text     : 'Cases / 1M'
         }, {
-            align    : 'right',
             dataField: 'active',
             text     : 'Active'
         },  {
-            align    : 'right',
             dataField: 'recovered',
             text     : 'Recovered',
-            renderer : function(value) {
-                return `<span style="color:green;">${value}</span>`;
-            }
+            renderer : value => Util.formatNumber(value, 'green')
         }, {
-            align    : 'right',
             dataField: 'critical',
             text     : 'Critical',
-            renderer : function(value) {
-                return `<span style="color:orange;">${value}</span>`;
-            }
+            renderer : value => Util.formatNumber(value, 'orange')
         }, {
-            align    : 'right',
             dataField: 'deaths',
             text     : 'Deaths',
-            renderer : function(value) {
-                return `<span style="color:red;">${value}</span>`;
-            }
+            renderer : value => Util.formatNumber(value, 'red')
         }, {
-            align    : 'right',
             dataField: 'todayCases',
             text     : 'Cases today'
         }, {
-            align    : 'right',
             dataField: 'todayDeaths',
             text     : 'Deaths today',
-            renderer : function(value) {
-                return `<span style="color:red;">${value}</span>`;
-            }
-        }]
+            renderer : value => Util.formatNumber(value, 'red')
+        }],
+        /**
+         * @member {Boolean} createRandomData=false
+         */
+        createRandomData: false, // testing config
+        /**
+         * @member {Neo.data.Store} store=CountryStore
+         */
+        store: CountryStore
     }}
 
     constructor(config) {
