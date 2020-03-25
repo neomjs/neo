@@ -1,5 +1,6 @@
 import Container      from '../../../../src/table/Container.mjs';
 import HistoricalData from '../../store/HistoricalData.mjs';
+import Util           from '../../Util.mjs';
 
 /**
  * @class Covid.view.country.HistoricalDataTable
@@ -17,15 +18,18 @@ class HistoricalDataTable extends Container {
          */
         cls: ['covid-country-table', 'neo-table-container'],
         /**
-         * @member {Boolean} createRandomData=false
+         * Default configs for each column
+         * @member {Object} columnDefaults=null
          */
-        createRandomData: false, // testing config
+        columnDefaults: {
+            align   : 'right',
+            renderer: Util.formatNumber
+        },
         /**
-         * @member {Neo.data.Store} store=HistoricalData
+         * @member {Array} columns
          */
-        store: HistoricalData,
-
         columns: [{
+            align    : 'left',
             dataField: 'date',
             text     : 'Date',
             renderer : function(value) {
@@ -36,24 +40,25 @@ class HistoricalDataTable extends Container {
                 }).format(new Date(value));
             }
         }, {
-            align    : 'right',
             dataField: 'cases',
             text     : 'Cases'
         }, {
-            align    : 'right',
             dataField: 'recovered',
             text     : 'Recovered',
-            renderer : function(value) {
-                return `<span style="color:green;">${value}</span>`;
-            }
+            renderer : value => Util.formatNumber(value, 'green')
         }, {
-            align    : 'right',
             dataField: 'deaths',
             text     : 'Deaths',
-            renderer : function(value) {
-                return `<span style="color:red;">${value}</span>`;
-            }
-        }]
+            renderer : value => Util.formatNumber(value, 'red')
+        }],
+        /**
+         * @member {Boolean} createRandomData=false
+         */
+        createRandomData: false, // testing config
+        /**
+         * @member {Neo.data.Store} store=HistoricalData
+         */
+        store: HistoricalData
     }}
 }
 

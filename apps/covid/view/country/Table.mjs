@@ -27,7 +27,7 @@ class Table extends Container {
         store: CountryStore,
         /**
          * Default configs for each column
-         * @member {Object|null} columnDefaults=null
+         * @member {Object} columnDefaults=null
          */
         columnDefaults: {
             align   : 'right',
