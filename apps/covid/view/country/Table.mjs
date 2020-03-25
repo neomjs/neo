@@ -1,5 +1,6 @@
 import Container    from '../../../../src/table/Container.mjs';
 import CountryStore from '../../store/Countries.mjs';
+import Util         from '../../Util.mjs';
 
 /**
  * @class Covid.view.country.Table
@@ -41,6 +42,7 @@ class Table extends Container {
         }, {
             align    : 'right',
             dataField: 'cases',
+            renderer : Util.formatNumber,
             text     : 'Cases'
         }, {
             align    : 'right',

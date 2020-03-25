@@ -1,6 +1,7 @@
 import Base from '../../src/core/Base.mjs';
 
 /**
+ * Static utility class
  * @class Covid.Util
  * @extends Neo.core.Base
  */
@@ -30,7 +31,6 @@ class Util extends Base {
      * @return {String}
      */
     static formatNumber(value) {
-        console.log(Util.locales);
         return value.toLocaleString(Util.locales);
     }
 }
