@@ -25,7 +25,9 @@ class Table extends Container {
             align   : 'right',
             renderer: Util.formatNumber
         },
-
+        /**
+         * @member {Object[]} columns
+         */
         columns: [{
             align    : 'left',
             dataField: 'country',

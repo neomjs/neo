@@ -26,7 +26,7 @@ class HistoricalDataTable extends Container {
             renderer: Util.formatNumber
         },
         /**
-         * @member {Array} columns
+         * @member {Object[]} columns
          */
         columns: [{
             align    : 'left',
