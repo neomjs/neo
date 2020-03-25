@@ -26,7 +26,7 @@ class Util extends Base {
     }}
 
     /**
-     * This method will get used as a grid renderer, so the 2nd param is an overload (would be the record)
+     * This method will get used as a grid renderer, so the 2nd param is an overload (would be {Object} record)
      * @param {Number} value
      * @param {String} [color]
      * @return {String}
