@@ -85,7 +85,7 @@ class Base extends Component {
         let me     = this,
             config = super.mergeConfig(...args);
 
-        // avoid any inferference on prototype level
+        // avoid any interference on prototype level
         // does not clone existing Neo instances
 
         if (config.itemDefaults) {

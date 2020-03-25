@@ -32,6 +32,10 @@ class Util extends Base {
      * @return {String}
      */
     static formatNumber(value, color) {
+        if (!Neo.isNumber(value)) {
+            return '';
+        }
+
         value = value.toLocaleString(Util.locales);
 
         return typeof color !== 'string' ? value : `<span style="color:${color};">${value}</span>`;
