@@ -25,7 +25,9 @@ class Table extends Container {
             align   : 'right',
             renderer: Util.formatNumber
         },
-
+        /**
+         * @member {Object[]} columns
+         */
         columns: [{
             align    : 'left',
             dataField: 'country',
@@ -79,6 +81,10 @@ class Table extends Container {
         store: CountryStore
     }}
 
+    /**
+     *
+     * @param {Object} config
+     */
     constructor(config) {
         super(config);
 
