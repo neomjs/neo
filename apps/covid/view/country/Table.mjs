@@ -81,6 +81,10 @@ class Table extends Container {
         store: CountryStore
     }}
 
+    /**
+     *
+     * @param {Object} config
+     */
     constructor(config) {
         super(config);
 
