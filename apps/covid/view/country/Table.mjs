@@ -18,14 +18,6 @@ class Table extends Container {
          */
         cls: ['covid-country-table', 'neo-table-container'],
         /**
-         * @member {Boolean} createRandomData=false
-         */
-        createRandomData: false, // testing config
-        /**
-         * @member {Neo.data.Store} store=CountryStore
-         */
-        store: CountryStore,
-        /**
          * Default configs for each column
          * @member {Object} columnDefaults=null
          */
@@ -76,7 +68,15 @@ class Table extends Container {
             dataField: 'todayDeaths',
             text     : 'Deaths today',
             renderer : value => Util.formatNumber(value, 'red')
-        }]
+        }],
+        /**
+         * @member {Boolean} createRandomData=false
+         */
+        createRandomData: false, // testing config
+        /**
+         * @member {Neo.data.Store} store=CountryStore
+         */
+        store: CountryStore
     }}
 
     constructor(config) {
