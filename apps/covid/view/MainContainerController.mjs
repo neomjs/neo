@@ -134,7 +134,8 @@ class MainContainerController extends ComponentController {
             'uae'                                       : 'united-arab-emirates',
             'uk'                                        : 'united-kingdom',
             'usa'                                       : 'united-states-of-america',
-            'uzbekistan'                                : 'uzbekistn'
+            'uzbekistan'                                : 'uzbekistn',
+            'viet-nam'                                  : 'vietnam'
         };
 
         let imageName = name.toLowerCase().replace(MainContainerController.flagRegEx, '-');
