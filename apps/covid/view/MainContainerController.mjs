@@ -136,6 +136,7 @@ class MainContainerController extends ComponentController {
             'uk'                                        : 'united-kingdom',
             'usa'                                       : 'united-states-of-america',
             'uzbekistan'                                : 'uzbekistn',
+            'venezuela,-bolivarian-republic-of'         : 'venezuela',
             'viet-nam'                                  : 'vietnam'
         };
 
