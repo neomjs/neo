@@ -18,7 +18,7 @@ class TableContainerController extends ComponentController {
         /**
          * @member {String} apiHistoricalDataEndpoint='historical'
          */
-        apiHistoricalDataEndpoint: 'historical/',
+        apiHistoricalDataEndpoint: 'v2/historical/',
         /**
          * @member {Neo.table.Container|null} table_=null
          * @private
@@ -59,13 +59,15 @@ class TableContainerController extends ComponentController {
                 }
             });
 
-            Object.entries(timeline.recovered).forEach(([key, value]) => {
-                if (map.hasOwnProperty(key)) {
-                    map[key].recovered = value;
-                } else {
-                    map[key] = {date: new Date(key).toISOString(), recovered: value};
-                }
-            });
+            if (timeline.hasOwnProperty('recovered')) {
+                Object.entries(timeline.recovered).forEach(([key, value]) => {
+                    if (map.hasOwnProperty(key)) {
+                        map[key].recovered = value;
+                    } else {
+                        map[key] = {date: new Date(key).toISOString(), recovered: value};
+                    }
+                });
+            }
 
             Object.entries(map).forEach(([key, value]) => {
                 dataArray.push(value);
