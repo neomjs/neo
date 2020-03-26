@@ -220,7 +220,7 @@ class MainContainerController extends ComponentController {
                         'Summary data did not arrive after 2s.</br>',
                         'Please double-check if the API is offline:</br></br>',
                         '<a target="_blank" href="https://corona.lmao.ninja/all">NovelCOVID/API all endpoint</a></br></br>',
-                        'and if so try again later please.'
+                        'and if so please try again later.'
                     ].join(''),
                     style: {
                         margin: '20px'
