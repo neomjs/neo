@@ -104,35 +104,36 @@ class MainContainerController extends ComponentController {
      */
     getCountryFlagUrl(name) {
         const map = {
-            'cabo-verde'            : 'cape-verde',
-            'car'                   : 'central-african-republic',
-            'channel-islands'       : 'jersey',
-            'congo'                 : 'democratic-republic-of-congo',
-            'curaçao'               : 'curacao',
-            'czechia'               : 'czech-republic',
-            'diamond-princess'      : 'japan', // cruise ship?
-            'drc'                   : 'democratic-republic-of-congo',
-            'el-salvador'           : 'salvador',
-            'eswatini'              : 'swaziland',
-            'faeroe-islands'        : 'faroe-islands',
-            'french-guiana'         : 'france', // ?
-            'guadeloupe'            : 'france', // ?
-            'mayotte'               : 'france', // ?
-            'new-caledonia'         : 'france',
-            'north-macedonia'       : 'republic-of-macedonia',
-            'poland'                : 'republic-of-poland',
-            'réunion'               : 'france',
-            'saint-lucia'           : 'st-lucia',
-            's.-korea'              : 'south-korea',
-            'st.-barth'             : 'st-barts',
-            'saint-martin'          : 'sint-maarten',
-            'st.-vincent-grenadines': 'st-vincent-and-the-grenadines',
-            'timor-leste'           : 'east-timor',
-            'u.s.-virgin-islands'   : 'virgin-islands',
-            'uae'                   : 'united-arab-emirates',
-            'uk'                    : 'united-kingdom',
-            'usa'                   : 'united-states-of-america',
-            'uzbekistan'            : 'uzbekistn'
+            'cabo-verde'               : 'cape-verde',
+            'car'                      : 'central-african-republic',
+            'channel-islands'          : 'jersey',
+            'congo'                    : 'democratic-republic-of-congo',
+            'curaçao'                  : 'curacao',
+            'czechia'                  : 'czech-republic',
+            'diamond-princess'         : 'japan', // cruise ship?
+            'drc'                      : 'democratic-republic-of-congo',
+            'el-salvador'              : 'salvador',
+            'eswatini'                 : 'swaziland',
+            'faeroe-islands'           : 'faroe-islands',
+            'french-guiana'            : 'france', // ?
+            'guadeloupe'               : 'france', // ?
+            'iran,-islamic-republic-of': 'iran',
+            'mayotte'                  : 'france', // ?
+            'new-caledonia'            : 'france',
+            'north-macedonia'          : 'republic-of-macedonia',
+            'poland'                   : 'republic-of-poland',
+            'réunion'                  : 'france',
+            'saint-lucia'              : 'st-lucia',
+            's.-korea'                 : 'south-korea',
+            'st.-barth'                : 'st-barts',
+            'saint-martin'             : 'sint-maarten',
+            'st.-vincent-grenadines'   : 'st-vincent-and-the-grenadines',
+            'timor-leste'              : 'east-timor',
+            'u.s.-virgin-islands'      : 'virgin-islands',
+            'uae'                      : 'united-arab-emirates',
+            'uk'                       : 'united-kingdom',
+            'usa'                      : 'united-states-of-america',
+            'uzbekistan'               : 'uzbekistn'
         };
 
         let imageName = name.toLowerCase().replace(MainContainerController.flagRegEx, '-');
