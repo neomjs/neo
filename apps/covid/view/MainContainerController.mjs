@@ -109,6 +109,7 @@ class MainContainerController extends ComponentController {
             'car'                                       : 'central-african-republic',
             'channel-islands'                           : 'jersey',
             'coast-d\'ivoire'                           : 'ivory-coast',
+            'congo'                                     : 'democratic-republic-of-congo', // api bug, congo listed 2x
             'congo,-the-democratic-republic-of-the'     : 'democratic-republic-of-congo',
             'curaçao'                                   : 'curacao',
             'czechia'                                   : 'czech-republic',
@@ -120,6 +121,7 @@ class MainContainerController extends ComponentController {
             'french-guiana'                             : 'france', // ?
             'guadeloupe'                                : 'france', // ?
             'iran,-islamic-republic-of'                 : 'iran',
+            'lao-people\'s-democratic-republic'         : 'laos',
             'macedonia,-the-former-yugoslav-republic-of': 'republic-of-macedonia',
             'mayotte'                                   : 'france', // ?
             'moldova,-republic-of'                      : 'moldova',
@@ -131,7 +133,8 @@ class MainContainerController extends ComponentController {
             's.-korea'                                  : 'south-korea',
             'st.-barth'                                 : 'st-barts',
             'saint-martin'                              : 'sint-maarten',
-            'st.-vincent-grenadines'                    : 'st-vincent-and-the-grenadines',
+            'syrian-arab-republic'                      : 'st-vincent-and-the-grenadines',
+            'saint-lucia'                               : 'syria',
             'tanzania,-united-republic-of'              : 'tanzania',
             'timor-leste'                               : 'east-timor',
             'u.s.-virgin-islands'                       : 'virgin-islands',
