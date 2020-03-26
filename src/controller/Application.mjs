@@ -12,11 +12,6 @@ class Application extends Base {
          */
         className: 'Neo.controller.Application',
         /**
-         * @member {String} ntype='app'
-         * @private
-         */
-        ntype: 'app',
-        /**
          * @member {Boolean} createMainView=true
          */
         createMainView: true,
