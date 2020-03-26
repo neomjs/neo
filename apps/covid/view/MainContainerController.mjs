@@ -104,6 +104,7 @@ class MainContainerController extends ComponentController {
      */
     getCountryFlagUrl(name) {
         const map = {
+            'bosnia'                   : 'bosnia-and-herzegovina',
             'cabo-verde'               : 'cape-verde',
             'car'                      : 'central-african-republic',
             'channel-islands'          : 'jersey',
