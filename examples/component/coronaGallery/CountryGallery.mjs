@@ -149,35 +149,49 @@ class CountryGallery extends Gallery {
      */
     getCountryFlagUrl(name) {
         const map = {
-            'cabo-verde'            : 'cape-verde',
-            'car'                   : 'central-african-republic',
-            'channel-islands'       : 'jersey',
-            'congo'                 : 'democratic-republic-of-congo',
-            'curaçao'               : 'curacao',
-            'czechia'               : 'czech-republic',
-            'diamond-princess'      : 'japan', // cruise ship?
-            'drc'                   : 'democratic-republic-of-congo',
-            'el-salvador'           : 'salvador',
-            'eswatini'              : 'swaziland',
-            'faeroe-islands'        : 'faroe-islands',
-            'french-guiana'         : 'france', // ?
-            'guadeloupe'            : 'france', // ?
-            'mayotte'               : 'france', // ?
-            'new-caledonia'         : 'france',
-            'north-macedonia'       : 'republic-of-macedonia',
-            'poland'                : 'republic-of-poland',
-            'réunion'               : 'france',
-            'saint-lucia'           : 'st-lucia',
-            's.-korea'              : 'south-korea',
-            'st.-barth'             : 'st-barts',
-            'saint-martin'          : 'sint-maarten',
-            'st.-vincent-grenadines': 'st-vincent-and-the-grenadines',
-            'timor-leste'           : 'east-timor',
-            'u.s.-virgin-islands'   : 'virgin-islands',
-            'uae'                   : 'united-arab-emirates',
-            'uk'                    : 'united-kingdom',
-            'usa'                   : 'united-states-of-america',
-            'uzbekistan'            : 'uzbekistn'
+            'bosnia'                                    : 'bosnia-and-herzegovina',
+            'cabo-verde'                                : 'cape-verde',
+            'car'                                       : 'central-african-republic',
+            'channel-islands'                           : 'jersey',
+            'coast-d\'ivoire'                           : 'ivory-coast',
+            'congo'                                     : 'democratic-republic-of-congo', // api bug, congo listed 2x
+            'congo,-the-democratic-republic-of-the'     : 'democratic-republic-of-congo',
+            'curaçao'                                   : 'curacao',
+            'czechia'                                   : 'czech-republic',
+            'diamond-princess'                          : 'japan', // cruise ship?
+            'drc'                                       : 'democratic-republic-of-congo',
+            'el-salvador'                               : 'salvador',
+            'eswatini'                                  : 'swaziland',
+            'faeroe-islands'                            : 'faroe-islands',
+            'french-guiana'                             : 'france', // ?
+            'guadeloupe'                                : 'france', // ?
+            'holy-see-(vatican-city-state)'             : 'vatican-city',
+            'iran,-islamic-republic-of'                 : 'iran',
+            'lao-people\'s-democratic-republic'         : 'laos',
+            'libyan-arab-jamahiriya'                    : 'libya',
+            'macedonia,-the-former-yugoslav-republic-of': 'republic-of-macedonia',
+            'mayotte'                                   : 'france', // ?
+            'moldova,-republic-of'                      : 'moldova',
+            'new-caledonia'                             : 'france',
+            'palestinian-territory,-occupied'           : 'palestine',
+            'poland'                                    : 'republic-of-poland',
+            'réunion'                                   : 'france',
+            's.-korea'                                  : 'south-korea',
+            'st.-barth'                                 : 'st-barts',
+            'saint-lucia'                               : 'st-lucia',
+            'saint-martin'                              : 'sint-maarten',
+            'saint-vincent-and-the-grenadines'          : 'st-vincent-and-the-grenadines',
+            'syrian-arab-republic'                      : 'syria',
+            'tanzania,-united-republic-of'              : 'tanzania',
+            'timor-leste'                               : 'east-timor',
+            'turks-and-caicos-islands'                  : 'turks-and-caicos',
+            'u.s.-virgin-islands'                       : 'virgin-islands',
+            'uae'                                       : 'united-arab-emirates',
+            'uk'                                        : 'united-kingdom',
+            'usa'                                       : 'united-states-of-america',
+            'uzbekistan'                                : 'uzbekistn',
+            'venezuela,-bolivarian-republic-of'         : 'venezuela',
+            'viet-nam'                                  : 'vietnam'
         };
 
         let imageName = name.toLowerCase().replace(CountryGallery.flagRegEx, '-');
