@@ -48,7 +48,11 @@ class MainContainerController extends ComponentController {
          * @member {String[]} mainTabs=['table', 'gallery', 'helix']
          * @private
          */
-        mainTabs: ['table', 'gallery', 'helix']
+        mainTabs: ['table', 'gallery', 'helix'],
+        /**
+         * @member {Object} summaryData=null
+         */
+        summaryData: null,
     }}
 
     /**
@@ -90,6 +94,8 @@ class MainContainerController extends ComponentController {
         let summaryTable = this.getReference('summary-table'),
             vdom         = summaryTable.vdom;
 
+        this.summaryData = data;
+
         vdom.cn[0].cn[1].html = Util.formatNumber(data.cases);
         vdom.cn[1].cn[1].html = Util.formatNumber(data.recovered, 'green');
         vdom.cn[2].cn[1].html = Util.formatNumber(data.deaths,    'red');
@@ -104,35 +110,49 @@ class MainContainerController extends ComponentController {
      */
     getCountryFlagUrl(name) {
         const map = {
-            'cabo-verde'            : 'cape-verde',
-            'car'                   : 'central-african-republic',
-            'channel-islands'       : 'jersey',
-            'congo'                 : 'democratic-republic-of-congo',
-            'curaçao'               : 'curacao',
-            'czechia'               : 'czech-republic',
-            'diamond-princess'      : 'japan', // cruise ship?
-            'drc'                   : 'democratic-republic-of-congo',
-            'el-salvador'           : 'salvador',
-            'eswatini'              : 'swaziland',
-            'faeroe-islands'        : 'faroe-islands',
-            'french-guiana'         : 'france', // ?
-            'guadeloupe'            : 'france', // ?
-            'mayotte'               : 'france', // ?
-            'new-caledonia'         : 'france',
-            'north-macedonia'       : 'republic-of-macedonia',
-            'poland'                : 'republic-of-poland',
-            'réunion'               : 'france',
-            'saint-lucia'           : 'st-lucia',
-            's.-korea'              : 'south-korea',
-            'st.-barth'             : 'st-barts',
-            'saint-martin'          : 'sint-maarten',
-            'st.-vincent-grenadines': 'st-vincent-and-the-grenadines',
-            'timor-leste'           : 'east-timor',
-            'u.s.-virgin-islands'   : 'virgin-islands',
-            'uae'                   : 'united-arab-emirates',
-            'uk'                    : 'united-kingdom',
-            'usa'                   : 'united-states-of-america',
-            'uzbekistan'            : 'uzbekistn'
+            'bosnia'                                    : 'bosnia-and-herzegovina',
+            'cabo-verde'                                : 'cape-verde',
+            'car'                                       : 'central-african-republic',
+            'channel-islands'                           : 'jersey',
+            'coast-d\'ivoire'                           : 'ivory-coast',
+            'congo'                                     : 'republic-of-the-congo',
+            'congo,-the-democratic-republic-of-the'     : 'democratic-republic-of-congo',
+            'curaçao'                                   : 'curacao',
+            'czechia'                                   : 'czech-republic',
+            'diamond-princess'                          : 'japan', // cruise ship?
+            'drc'                                       : 'democratic-republic-of-congo',
+            'el-salvador'                               : 'salvador',
+            'eswatini'                                  : 'swaziland',
+            'faeroe-islands'                            : 'faroe-islands',
+            'french-guiana'                             : 'france', // ?
+            'guadeloupe'                                : 'france', // ?
+            'holy-see-(vatican-city-state)'             : 'vatican-city',
+            'iran,-islamic-republic-of'                 : 'iran',
+            'lao-people\'s-democratic-republic'         : 'laos',
+            'libyan-arab-jamahiriya'                    : 'libya',
+            'macedonia,-the-former-yugoslav-republic-of': 'republic-of-macedonia',
+            'mayotte'                                   : 'france', // ?
+            'moldova,-republic-of'                      : 'moldova',
+            'new-caledonia'                             : 'france',
+            'palestinian-territory,-occupied'           : 'palestine',
+            'poland'                                    : 'republic-of-poland',
+            'réunion'                                   : 'france',
+            's.-korea'                                  : 'south-korea',
+            'st.-barth'                                 : 'st-barts',
+            'saint-lucia'                               : 'st-lucia',
+            'saint-martin'                              : 'sint-maarten',
+            'saint-vincent-and-the-grenadines'          : 'st-vincent-and-the-grenadines',
+            'syrian-arab-republic'                      : 'syria',
+            'tanzania,-united-republic-of'              : 'tanzania',
+            'timor-leste'                               : 'east-timor',
+            'turks-and-caicos-islands'                  : 'turks-and-caicos',
+            'u.s.-virgin-islands'                       : 'virgin-islands',
+            'uae'                                       : 'united-arab-emirates',
+            'uk'                                        : 'united-kingdom',
+            'usa'                                       : 'united-states-of-america',
+            'uzbekistan'                                : 'uzbekistn',
+            'venezuela,-bolivarian-republic-of'         : 'venezuela',
+            'viet-nam'                                  : 'vietnam'
         };
 
         let imageName = name.toLowerCase().replace(MainContainerController.flagRegEx, '-');
@@ -187,6 +207,29 @@ class MainContainerController extends ComponentController {
             .then(response => response.json())
             .then(data => me.applySummaryData(data))
             .catch(err => console.log('Can’t access ' + me.apiSummaryUrl, err));
+
+        setTimeout(() => {
+            if (!me.summaryData) {
+                const table = me.getReference('table'),
+                      vdom = table.vdom;
+
+                vdom.cn[0].cn[1].cn.push({
+                    tag  : 'div',
+                    cls  : ['neo-box-label', 'neo-label'],
+                    html : [
+                        'Summary data did not arrive after 2s.</br>',
+                        'Please double-check if the API is offline:</br></br>',
+                        '<a target="_blank" href="https://corona.lmao.ninja/all">NovelCOVID/API all endpoint</a></br></br>',
+                        'and if so please try again later.'
+                    ].join(''),
+                    style: {
+                        margin: '20px'
+                    }
+                });
+
+                table.vdom = vdom;
+            }
+        }, 2000);
     }
 
     onCountryFieldSelect(data) {

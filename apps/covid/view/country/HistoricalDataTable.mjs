@@ -42,11 +42,11 @@ class HistoricalDataTable extends Container {
         }, {
             dataField: 'cases',
             text     : 'Cases'
-        }, {
+        }, /*{ // not supported in v2 of the api right now
             dataField: 'recovered',
             text     : 'Recovered',
             renderer : value => Util.formatNumber(value, 'green')
-        }, {
+        },*/ {
             dataField: 'deaths',
             text     : 'Deaths',
             renderer : value => Util.formatNumber(value, 'red')
