@@ -121,6 +121,7 @@ class MainContainerController extends ComponentController {
             'iran,-islamic-republic-of'                 : 'iran',
             'macedonia,-the-former-yugoslav-republic-of': 'republic-of-macedonia',
             'mayotte'                                   : 'france', // ?
+            'moldova,-republic-of'                      : 'moldova',
             'new-caledonia'                             : 'france',
             'poland'                                    : 'republic-of-poland',
             'réunion'                                   : 'france',
