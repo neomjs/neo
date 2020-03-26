@@ -120,8 +120,10 @@ class MainContainerController extends ComponentController {
             'faeroe-islands'                            : 'faroe-islands',
             'french-guiana'                             : 'france', // ?
             'guadeloupe'                                : 'france', // ?
+            'holy-see-(vatican-city-state)'             : 'vatican-city',
             'iran,-islamic-republic-of'                 : 'iran',
             'lao-people\'s-democratic-republic'         : 'laos',
+            'libyan-arab-jamahiriya'                    : 'libya',
             'macedonia,-the-former-yugoslav-republic-of': 'republic-of-macedonia',
             'mayotte'                                   : 'france', // ?
             'moldova,-republic-of'                      : 'moldova',
@@ -137,6 +139,7 @@ class MainContainerController extends ComponentController {
             'saint-lucia'                               : 'syria',
             'tanzania,-united-republic-of'              : 'tanzania',
             'timor-leste'                               : 'east-timor',
+            'turks-and-caicos-islands'                  : 'turks-and-caicos',
             'u.s.-virgin-islands'                       : 'virgin-islands',
             'uae'                                       : 'united-arab-emirates',
             'uk'                                        : 'united-kingdom',
