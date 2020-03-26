@@ -48,7 +48,11 @@ class MainContainerController extends ComponentController {
          * @member {String[]} mainTabs=['table', 'gallery', 'helix']
          * @private
          */
-        mainTabs: ['table', 'gallery', 'helix']
+        mainTabs: ['table', 'gallery', 'helix'],
+        /**
+         * @member {Object} summaryData=null
+         */
+        summaryData: null,
     }}
 
     /**
@@ -89,6 +93,8 @@ class MainContainerController extends ComponentController {
     applySummaryData(data) {
         let summaryTable = this.getReference('summary-table'),
             vdom         = summaryTable.vdom;
+
+        this.summaryData = data;
 
         vdom.cn[0].cn[1].html = Util.formatNumber(data.cases);
         vdom.cn[1].cn[1].html = Util.formatNumber(data.recovered, 'green');
@@ -201,6 +207,29 @@ class MainContainerController extends ComponentController {
             .then(response => response.json())
             .then(data => me.applySummaryData(data))
             .catch(err => console.log('Can’t access ' + me.apiSummaryUrl, err));
+
+        setTimeout(() => {
+            if (!me.summaryData) {
+                const table = me.getReference('table'),
+                      vdom = table.vdom;
+
+                vdom.cn[0].cn[1].cn.push({
+                    tag  : 'div',
+                    cls  : ['neo-box-label', 'neo-label'],
+                    html : [
+                        'Summary data did not arrive after 2s.</br>',
+                        'Please double-check if the API is offline:</br></br>',
+                        '<a target="_blank" href="https://corona.lmao.ninja/all">NovelCOVID/API all endpoint</a></br></br>',
+                        'and if so try again later please.'
+                    ].join(''),
+                    style: {
+                        margin: '20px'
+                    }
+                });
+
+                table.vdom = vdom;
+            }
+        }, 2000);
     }
 
     onCountryFieldSelect(data) {
