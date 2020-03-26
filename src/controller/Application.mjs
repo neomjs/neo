@@ -61,10 +61,6 @@ class Application extends Base {
     renderMainView() {
         let me = this;
 
-        if (Neo.isString(me.mainView)) {
-            me.mainView = me.name + '.' + me.mainView;
-        }
-
         me.mainViewInstance = Neo.create(me.mainView, {
             appName   : me.name,
             autoRender: true,
