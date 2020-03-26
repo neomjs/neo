@@ -165,7 +165,7 @@ class CountryHelix extends Helix {
             'car'                                       : 'central-african-republic',
             'channel-islands'                           : 'jersey',
             'coast-d\'ivoire'                           : 'ivory-coast',
-            'congo'                                     : 'republic-of-congo',
+            'congo'                                     : 'republic-of-the-congo',
             'congo,-the-democratic-republic-of-the'     : 'democratic-republic-of-congo',
             'curaçao'                                   : 'curacao',
             'czechia'                                   : 'czech-republic',
