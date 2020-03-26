@@ -108,7 +108,8 @@ class MainContainerController extends ComponentController {
             'cabo-verde'                                : 'cape-verde',
             'car'                                       : 'central-african-republic',
             'channel-islands'                           : 'jersey',
-            'congo'                                     : 'democratic-republic-of-congo',
+            'coast-d\'ivoire'                           : 'ivory-coast',
+            'congo,-the-democratic-republic-of-the'     : 'democratic-republic-of-congo',
             'curaçao'                                   : 'curacao',
             'czechia'                                   : 'czech-republic',
             'diamond-princess'                          : 'japan', // cruise ship?
@@ -123,6 +124,7 @@ class MainContainerController extends ComponentController {
             'mayotte'                                   : 'france', // ?
             'moldova,-republic-of'                      : 'moldova',
             'new-caledonia'                             : 'france',
+            'palestinian-territory,-occupied'           : 'palestine',
             'poland'                                    : 'republic-of-poland',
             'réunion'                                   : 'france',
             'saint-lucia'                               : 'st-lucia',
@@ -130,6 +132,7 @@ class MainContainerController extends ComponentController {
             'st.-barth'                                 : 'st-barts',
             'saint-martin'                              : 'sint-maarten',
             'st.-vincent-grenadines'                    : 'st-vincent-and-the-grenadines',
+            'tanzania,-united-republic-of'              : 'tanzania',
             'timor-leste'                               : 'east-timor',
             'u.s.-virgin-islands'                       : 'virgin-islands',
             'uae'                                       : 'united-arab-emirates',
