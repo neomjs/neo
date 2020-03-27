@@ -33,11 +33,13 @@ class LineChartComponent extends Component {
                 config: {
                     cursor: {}, // default value for each chart type
 
+                    "columns": {
+                        "tooltipText": "Series: {name}\nCategory: {categoryX}\nValue: {valueY}",
+                        "fill": "#104547"
+                    },
+
                     xAxes: [{
                         type: 'DateAxis',
-                        dateFormatter: {
-                            dateFormat: 'MMMM-dd'
-                        },
                         renderer: {
                             minGridDistance: 50,
                             labels: {
@@ -61,6 +63,7 @@ class LineChartComponent extends Component {
                             ]
                         },
                         renderer: {
+                            minGridDistance: 50,
                             labels: {
                                 template: {
                                     fill: '#bbb'
@@ -72,15 +75,19 @@ class LineChartComponent extends Component {
                     series: [{
                         type       : 'LineSeries',
                         dataFields : {dateX : 'date', valueY: 'cases'},
+                        fill       : '#64b5f6',
                         name       : 'Cases',
                         stroke     : '#64b5f6',
-                        strokeWidth: 3
+                        strokeWidth: 3,
+                        tooltipText: '{name}: [bold]{valueY}[/]'
                     }, {
                         type       : 'LineSeries',
                         dataFields : {dateX : 'date', valueY: 'deaths'},
-                        name       : 'Cases',
-                        stroke     : '#ff5b5b',
-                        strokeWidth: 3
+                        fill       : '#e86c6c',
+                        name       : 'Deaths',
+                        stroke     : '#e86c6c',
+                        strokeWidth: 3,
+                        tooltipText: '{name}: [bold]{valueY}[/]'
                     }]
                 }
             });
