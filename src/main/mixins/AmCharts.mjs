@@ -20,16 +20,16 @@ class AmCharts extends Base {
 
     /**
      *
-     * @param {Object} config
+     * @param {Object} data
+     * @param {Object} data.config
+     * @param {String} data.id
+     * @param {String} data.type='XYChart'
      */
-    createLineChart(config) {
-        console.log('createLineChart', config);
-
-        const id = config.id;
-        delete config.id;
+    createChart(data) {
+        console.log('createChart', data);
 
         setTimeout(() => {
-           am4core.createFromConfig(config, id, am4charts.PieChart);
+           am4core.createFromConfig(data.config, data.id, am4charts[data.type || 'XYChart']);
         }, 1000);
     }
 
