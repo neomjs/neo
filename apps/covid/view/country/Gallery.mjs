@@ -9,10 +9,10 @@ import Util         from '../../Util.mjs';
 class CountryGallery extends Gallery {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.Gallery'
+         * @member {String} className='Covid.view.country.Gallery'
          * @private
          */
-        className: 'Covid.view.Gallery',
+        className: 'Covid.view.country.Gallery',
         /**
          * @member {String[]} cls=['covid-country-gallery', 'neo-gallery', 'page', 'view']
          */
