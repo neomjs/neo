@@ -11,6 +11,8 @@ class LineChartComponent extends Component {
          * @private
          */
         className: 'Covid.view.country.LineChartComponent',
+
+        html: 'Hello World!'
     }}
 
     /**

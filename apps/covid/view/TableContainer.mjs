@@ -1,9 +1,10 @@
-import {default as Container}     from '../../../src/container/Base.mjs';
-import HistoricalDataTable        from './country/HistoricalDataTable.mjs';
-import Panel                      from '../../../src/container/Panel.mjs';
+import {default as Container}    from '../../../src/container/Base.mjs';
+import HistoricalDataTable       from './country/HistoricalDataTable.mjs';
+import LineChartComponent        from './country/LineChartComponent.mjs'
+import Panel                     from '../../../src/container/Panel.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
-import Table                      from './country/Table.mjs';
-import TableContainerController   from './TableContainerController.mjs';
+import Table                     from './country/Table.mjs';
+import TableContainerController  from './TableContainerController.mjs';
 
 /**
  * @class Covid.view.TableContainer
@@ -78,9 +79,10 @@ class TableContainer extends Container {
             items: [{
                 module: TabContainer,
                 items: [{
-                    ntype: 'component',
+                    module: LineChartComponent,
+
                     tabButtonConfig: {
-                        iconCls: 'fa fa-table',
+                        iconCls: 'fa fa-chart-line',
                         text   : 'Chart'
                     }
                 }]
