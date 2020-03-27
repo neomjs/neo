@@ -245,6 +245,30 @@ class DomAccess extends Base {
     }
 
     /**
+     * Include a script into the document.head
+     * Could get moved into DomAccess in case other mixins need it
+     * @param {String} src
+     * @param {Boolean} [async=true]
+     * @return {Promise<unknown>}
+     */
+    loadScript(src, async=true) {
+        let script;
+
+        return new Promise((resolve, reject) => {
+            script = document.createElement('script');
+
+            Object.assign(script, {
+                async  : async,
+                onerror: reject,
+                onload : resolve,
+                src    : src
+            });
+
+            document.head.appendChild(script);
+        });
+    }
+
+    /**
      *
      * @param {Object} data
      * @param {String[]} data.attributes
