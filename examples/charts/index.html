@@ -1,0 +1,22 @@
+<!DOCTYPE HTML>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <title>Neo amCharts</title>
+</head>
+<body>
+    <script>
+        Neo = self.Neo || {}; Neo.config = Neo.config || {};
+
+        Object.assign(Neo.config, {
+            appPath       : 'examples/charts/app.mjs',
+            basePath      : '../../',
+            environment   : 'development',
+            isExperimental: true,
+            useAmCharts   : true
+        });
+    </script>
+
+    <script src="../../src/Main.mjs" type="module"></script>
+</body>
+</html>
