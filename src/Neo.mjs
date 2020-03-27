@@ -185,7 +185,7 @@ Neo = self.Neo = Object.assign({
      * @param {Boolean} [bind] set this to true in case you want to bind methods to the "from" namespace
      * @returns {Object} target
      */
-    applyFromNs: function(target, namespace, config, bind) {
+    applyFromNs(target, namespace, config, bind) {
         let fnName;
 
         if (target && config && typeof config === 'object') {
