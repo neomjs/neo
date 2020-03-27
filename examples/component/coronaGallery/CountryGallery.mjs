@@ -172,6 +172,7 @@ class CountryGallery extends Gallery {
             'macedonia'                            : 'republic-of-macedonia',
             'mayotte'                              : 'france', // ?
             'moldova,-republic-of'                 : 'moldova',
+            'ms-zaandam'                           : 'netherlands', // cruise ship
             'new-caledonia'                        : 'france',
             'palestinian-territory,-occupied'      : 'palestine',
             'poland'                               : 'republic-of-poland',
