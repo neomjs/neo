@@ -86,9 +86,11 @@ class MainContainerController extends ComponentController {
     /**
      *
      * @param {Object} data
+     * @param {Number} data.active
      * @param {Number} data.cases
      * @param {Number} data.deaths
      * @param {Number} data.recovered
+     * @param {Number} data.updated // timestamp
      */
     applySummaryData(data) {
         let summaryTable = this.getReference('summary-table'),
