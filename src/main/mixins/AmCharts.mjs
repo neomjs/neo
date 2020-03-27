@@ -27,9 +27,13 @@ class AmCharts extends Base {
      */
     createChart(data) {
         console.log('createChart', data);
+        const me = this;
+
+        me.charts = me.charts || {}; // todo: refactor this class into a singleton
 
         setTimeout(() => {
-           am4core.createFromConfig(data.config, data.id, am4charts[data.type || 'XYChart']);
+            me.charts[data.id] = am4core.createFromConfig(data.config, data.id, am4charts[data.type || 'XYChart']);
+            console.log(me.charts[data.id]);
         }, 1000);
     }
 
