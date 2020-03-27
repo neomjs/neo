@@ -22,14 +22,35 @@ class AmCharts extends Base {
      *
      */
     insertAmChartsScripts() {
-        const basePath = '//www.amcharts.com/lib/4/';
+        const me       = this,
+              basePath = '//www.amcharts.com/lib/4/';
+
+        me.loadScript(basePath + 'core.js').then(() => {
+            me.loadScript(basePath + 'charts.js');
+            me.loadScript(basePath + 'maps.js');
+        });
+    }
+
+    /**
+     * Include a script into the document.head
+     * Could get moved into DomAccess in case other mixins need it
+     * @param {String} src
+     * @param {Boolean} [async=true]
+     * @return {Promise<unknown>}
+     */
+    loadScript(src, async=true) {
         let script;
 
-        ['core.js', 'charts.js', 'maps.js'].forEach(item => {
+        return new Promise((resolve, reject) => {
             script = document.createElement('script');
 
-            // async has to be false: charts & maps load faster than core => console.error
-            Object.assign(script, {async: false, src: basePath + item});
+            Object.assign(script, {
+                async  : async,
+                onerror: reject,
+                onload : resolve,
+                src    : src
+            });
+
             document.head.appendChild(script);
         });
     }
