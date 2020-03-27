@@ -55,6 +55,20 @@ class AmCharts extends Base {
             });
         });
     }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Object} data.data
+     * @param {String} data.id
+     */
+    updateChartData(data) {
+        if (!this.charts[data.id]) {
+            console.log('main.mixins.AmCharts no chart found for data.id:', data.id);
+        } else {
+            this.charts[data.id].data = data.data;
+        }
+    }
 }
 
 Neo.applyClassConfig(AmCharts);

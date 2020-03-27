@@ -61,6 +61,7 @@ class DomAccess extends Base {
                 'scrollToTableRow',
                 'selectNode',
                 'swapStyleSheet',
+                'updateChartData',
                 'windowScrollTo'
             ]
         },

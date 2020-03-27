@@ -43,14 +43,14 @@ class LineChartComponent extends Component {
                     }],
 
                     series: [{
-                        name       : 'Units',
+                        name       : 'Cases',
                         stroke     : '#CDA2AB',
                         type       : 'LineSeries',
                         strokeWidth: 3,
 
                         dataFields : {
-                            valueX: 'date',
-                            valueY: 'cases'
+                            dateX: 'date',
+                            valueY   : 'cases'
                         }
                     }]
                 }

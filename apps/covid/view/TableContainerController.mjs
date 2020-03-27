@@ -74,6 +74,11 @@ class TableContainerController extends ComponentController {
             });
 
             this.getReference('historical-data-table').store.data = dataArray;
+
+            Neo.main.DomAccess.updateChartData({
+                data: dataArray,
+                id  : this.getReference('line-chart').id
+            });
         }
     }
 

@@ -79,7 +79,8 @@ class TableContainer extends Container {
             items: [{
                 module: TabContainer,
                 items: [{
-                    module: LineChartComponent,
+                    module   : LineChartComponent,
+                    reference: 'line-chart',
 
                     tabButtonConfig: {
                         iconCls: 'fa fa-chart-line',
