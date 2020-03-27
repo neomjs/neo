@@ -14,9 +14,9 @@ class HistoricalDataTable extends Container {
          */
         className: 'Covid.view.country.HistoricalDataTable',
         /**
-         * @member {Array} cls=['covid-country-table', 'neo-table-container']
+         * @member {String[]} cls=['covid-historical-data-table', 'neo-table-container']
          */
-        cls: ['covid-country-table', 'neo-table-container'],
+        cls: ['covid-historical-data-table', 'neo-table-container'],
         /**
          * Default configs for each column
          * @member {Object} columnDefaults=null
@@ -33,11 +33,14 @@ class HistoricalDataTable extends Container {
             dataField: 'date',
             text     : 'Date',
             renderer : function(value) {
-                return new Intl.DateTimeFormat('default', {
-                    day  : 'numeric',
-                    month: 'numeric',
-                    year : 'numeric'
-                }).format(new Date(value));
+                return {
+                    cls : ['neo-date-column', 'neo-table-cell'],
+                    html: new Intl.DateTimeFormat('default', {
+                        day  : 'numeric',
+                        month: 'numeric',
+                        year : 'numeric'
+                    }).format(new Date(value))
+                };
             }
         }, {
             dataField: 'cases',

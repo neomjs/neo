@@ -1,8 +1,10 @@
-import {default as Container}     from '../../../src/container/Base.mjs';
-import HistoricalDataTable        from './country/HistoricalDataTable.mjs';
-import Panel                      from '../../../src/container/Panel.mjs';
-import Table                      from './country/Table.mjs';
-import TableContainerController   from './TableContainerController.mjs';
+import {default as Container}    from '../../../src/container/Base.mjs';
+import HistoricalDataTable       from './country/HistoricalDataTable.mjs';
+import LineChartComponent        from './country/LineChartComponent.mjs'
+import Panel                     from '../../../src/container/Panel.mjs';
+import {default as TabContainer} from '../../../src/tab/Container.mjs';
+import Table                     from './country/Table.mjs';
+import TableContainerController  from './TableContainerController.mjs';
 
 /**
  * @class Covid.view.TableContainer
@@ -27,7 +29,7 @@ class TableContainer extends Container {
          * @member {Number} historyPanelWidth=420
          * @private
          */
-        historyPanelWidth: 320, // 420 with the recovered column
+        historyPanelWidth: 420,
         /**
          * @member {Neo.table.Container|null} table=null
          */
@@ -71,10 +73,29 @@ class TableContainer extends Container {
                     ntype    : 'label',
                     reference: 'historical-data-label',
                     text     : 'Historical Data'
+                }, '->', {
+                    ntype  : 'button',
+                    handler: 'on420pxButtonClick',
+                    text   : '420px'
+                }, {
+                    ntype  : 'button',
+                    handler: 'on800pxButtonClick',
+                    text   : '800px'
                 }]
             }],
 
-            items: []
+            items: [{
+                module: TabContainer,
+                items: [{
+                    module   : LineChartComponent,
+                    reference: 'line-chart',
+
+                    tabButtonConfig: {
+                        iconCls: 'fa fa-chart-line',
+                        text   : 'Chart'
+                    }
+                }]
+            }]
         }]
     }}
 
@@ -90,10 +111,16 @@ class TableContainer extends Container {
         me.historicalDataTable = Neo.create({
             module   : HistoricalDataTable,
             reference: 'historical-data-table',
+
+            tabButtonConfig: {
+                iconCls: 'fa fa-table',
+                text   : 'Table'
+            },
+
             ...me.historicalDataTableConfig || {}
         });
 
-        me.items[1].items.push(me.historicalDataTable);
+        me.items[1].items[0].items.push(me.historicalDataTable);
 
         me.table = Neo.create({
             module   : Table,
@@ -102,14 +129,6 @@ class TableContainer extends Container {
         });
 
         me.items[0].items.push(me.table);
-    }
-
-    /**
-     *
-     */
-    destroy(...args) {
-        this.table = null;
-        super.destroy(...args);
     }
 }
 

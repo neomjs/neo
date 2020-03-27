@@ -45,7 +45,7 @@ Neo = self.Neo = Object.assign({
      * @private
      * @tutorial 02_ClassSystem
      */
-    applyClassConfig: function(cls) {
+    applyClassConfig(cls) {
         let baseCfg       = null,
             baseStaticCfg = null,
             config        = {},
@@ -145,7 +145,7 @@ Neo = self.Neo = Object.assign({
      * @memberOf module:Neo
      * @param {Neo.core.Base} cls
      */
-    applyToGlobalNs: function(cls) {
+    applyToGlobalNs(cls) {
         let proto = typeof cls === 'function' ? cls.prototype: cls,
             className, nsArray, key, ns;
 
@@ -185,7 +185,7 @@ Neo = self.Neo = Object.assign({
      * @param {Boolean} [bind] set this to true in case you want to bind methods to the "from" namespace
      * @returns {Object} target
      */
-    applyFromNs: function(target, namespace, config, bind) {
+    applyFromNs(target, namespace, config, bind) {
         let fnName;
 
         if (target && config && typeof config === 'object') {
@@ -205,7 +205,7 @@ Neo = self.Neo = Object.assign({
      * @param {Object} defaults The object containing the keys you want to copy
      * @returns {Object} target
      */
-    assignDefaults: function(target, defaults) {
+    assignDefaults(target, defaults) {
         if (target && defaults && typeof defaults === 'object') {
             Object.entries(defaults).forEach(([key, value]) => {
                 if (!target.hasOwnProperty(key)) {
@@ -224,7 +224,7 @@ Neo = self.Neo = Object.assign({
      * @param {Boolean} [ignoreNeoInstances=false] returns existing instances if set to true
      * @returns {Object|Array|*} the cloned input
      */
-    clone: function(obj, deep, ignoreNeoInstances) {
+    clone(obj, deep, ignoreNeoInstances) {
         let out;
 
         if (Array.isArray(obj)) {
@@ -257,7 +257,7 @@ Neo = self.Neo = Object.assign({
      * @param {Neo.core.Base} instance
      * @returns {Neo.core.Base} the cloned instance
      */
-    cloneNeoInstance: function(instance) {
+    cloneNeoInstance(instance) {
         let config = {...instance.originalConfig};
         delete config._id;
         delete config.id;
@@ -298,7 +298,7 @@ Neo = self.Neo = Object.assign({
      * @returns {Neo.core.Base|null} The new class instance
      * @tutorial 02_ClassSystem
      */
-    create: function(className, config) {
+    create(className, config) {
         let cls, instance;
 
         if (typeof className === 'function' && undefined !== className.constructor) {
@@ -331,7 +331,7 @@ Neo = self.Neo = Object.assign({
         return instance;
     },
 
-    emptyFn: function() {},
+    emptyFn() {},
 
     /**
      * Maps a className string into a global namespace
@@ -349,7 +349,7 @@ Neo = self.Neo = Object.assign({
      * @param {Object} [scope] Set a different starting point as self
      * @returns {Object} reference to the toplevel namespace
      */
-    ns: function(names, create, scope) {
+    ns(names, create, scope) {
         names = Array.isArray(names) ? names : names.split('.');
 
         return names.reduce((prev, current) => {
@@ -381,7 +381,7 @@ Neo = self.Neo = Object.assign({
      * @returns {Neo.core.Base}
      * @see {@link module:Neo.create create}
      */
-    ntype: function(ntype, config) {
+    ntype(ntype, config) {
         if (typeof ntype === 'object') {
             config = ntype;
             if (!config.ntype) {
@@ -553,7 +553,7 @@ function autoGenerateGetSet(proto, key) {
 
     if (!Neo[getSetCache][key]) {
         Neo[getSetCache][key] = {
-            get: function() {
+            get() {
                 let me        = this,
                     beforeGet = 'beforeGet' + Neo.capitalize(key),
                     hasNewKey = me[configSymbol].hasOwnProperty(key),
@@ -580,7 +580,7 @@ function autoGenerateGetSet(proto, key) {
                 return value;
             },
 
-            set: function(value) {
+            set(value) {
                 let me        = this,
                     _key      = '_' + key,
                     uKey      = Neo.capitalize(key),

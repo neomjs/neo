@@ -93,7 +93,7 @@ the following concepts will be addictive.
 <a href=".github/CONCEPT.md">neo.mjs Concepts</a>
 
 ### Impossible? Pick with caution!
-<a href="https://en.wikipedia.org/wiki/Red_pill_and_blue_pill"><img alt="blue or red pill" src="./.github/images/redorbluepill.png"></a>
+<a href="https://en.wikipedia.org/wiki/Red_pill_and_blue_pill"><img alt="blue or red pill" src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/redorbluepill.png"></a>
 
 
 ### The webworkers driven UI framework

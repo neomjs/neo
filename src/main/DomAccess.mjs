@@ -1,3 +1,4 @@
+import AmCharts        from './mixins/AmCharts.mjs';
 import Base            from '../core/Base.mjs';
 import DeltaUpdates    from './mixins/DeltaUpdates.mjs';
 import Markdown        from './mixins/Markdown.mjs';
@@ -32,6 +33,7 @@ class DomAccess extends Base {
          * @member {Array} mixins=[DeltaUpdates, Hljs, Observable, Siesta, Stylesheet]
          */
         mixins: [
+            AmCharts,
             DeltaUpdates,
             GoogleAnalytics,
             Hljs,
@@ -49,6 +51,7 @@ class DomAccess extends Base {
             app: [
                 'addScript',
                 'applyBodyCls',
+                'createChart', // todo: conditional include
                 'execCommand',
                 'focus',
                 'getAttributes',
@@ -58,6 +61,7 @@ class DomAccess extends Base {
                 'scrollToTableRow',
                 'selectNode',
                 'swapStyleSheet',
+                'updateChartData',
                 'windowScrollTo'
             ]
         },
@@ -239,6 +243,29 @@ class DomAccess extends Base {
         }
 
         return this.getElement(nodeId);
+    }
+
+    /**
+     * Include a script into the document.head
+     * @param {String} src
+     * @param {Boolean} [async=true]
+     * @return {Promise<unknown>}
+     */
+    loadScript(src, async=true) {
+        let script;
+
+        return new Promise((resolve, reject) => {
+            script = document.createElement('script');
+
+            Object.assign(script, {
+                async  : async,
+                onerror: reject,
+                onload : resolve,
+                src    : src
+            });
+
+            document.head.appendChild(script);
+        });
     }
 
     /**

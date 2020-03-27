@@ -14,7 +14,7 @@ class Table extends Container {
          */
         className: 'Covid.view.country.Table',
         /**
-         * @member {Array} cls=['covid-country-table', 'neo-table-container']
+         * @member {String[]} cls=['covid-country-table', 'neo-table-container']
          */
         cls: ['covid-country-table', 'neo-table-container'],
         /**

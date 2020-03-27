@@ -163,6 +163,10 @@ class Main extends core.Base {
             DomAccess.adjustSiestaEnvironment();
         }
 
+        if (Neo.config.useAmCharts) {
+            DomAccess.insertAmChartsScripts();
+        }
+
         if (Neo.config.useGoogleAnalytics) {
             DomAccess.insertGoogleAnalyticsScript();
         }

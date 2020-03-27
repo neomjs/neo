@@ -3,7 +3,7 @@ import {default as Viewport}     from '../../src/container/Viewport.mjs';
 
 /**
  * @class TestApp.MainContainer
- * @extends Neo.tab.Container
+ * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
@@ -29,8 +29,8 @@ class MainContainer extends Viewport {
             },
 
             itemDefaults: {
-                ntype: 'tab-container',
-                style: {
+                module: TabContainer,
+                style : {
                     margin: '50px'
                 },
 

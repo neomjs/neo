@@ -86,9 +86,11 @@ class MainContainerController extends ComponentController {
     /**
      *
      * @param {Object} data
+     * @param {Number} data.active
      * @param {Number} data.cases
      * @param {Number} data.deaths
      * @param {Number} data.recovered
+     * @param {Number} data.updated // timestamp
      */
     applySummaryData(data) {
         let summaryTable = this.getReference('summary-table'),
@@ -110,49 +112,49 @@ class MainContainerController extends ComponentController {
      */
     getCountryFlagUrl(name) {
         const map = {
-            'bosnia'                                    : 'bosnia-and-herzegovina',
-            'cabo-verde'                                : 'cape-verde',
-            'car'                                       : 'central-african-republic',
-            'channel-islands'                           : 'jersey',
-            'coast-d\'ivoire'                           : 'ivory-coast',
-            'congo'                                     : 'republic-of-the-congo',
-            'congo,-the-democratic-republic-of-the'     : 'democratic-republic-of-congo',
-            'curaçao'                                   : 'curacao',
-            'czechia'                                   : 'czech-republic',
-            'diamond-princess'                          : 'japan', // cruise ship?
-            'drc'                                       : 'democratic-republic-of-congo',
-            'el-salvador'                               : 'salvador',
-            'eswatini'                                  : 'swaziland',
-            'faeroe-islands'                            : 'faroe-islands',
-            'french-guiana'                             : 'france', // ?
-            'guadeloupe'                                : 'france', // ?
-            'holy-see-(vatican-city-state)'             : 'vatican-city',
-            'iran,-islamic-republic-of'                 : 'iran',
-            'lao-people\'s-democratic-republic'         : 'laos',
-            'libyan-arab-jamahiriya'                    : 'libya',
-            'macedonia,-the-former-yugoslav-republic-of': 'republic-of-macedonia',
-            'mayotte'                                   : 'france', // ?
-            'moldova,-republic-of'                      : 'moldova',
-            'new-caledonia'                             : 'france',
-            'palestinian-territory,-occupied'           : 'palestine',
-            'poland'                                    : 'republic-of-poland',
-            'réunion'                                   : 'france',
-            's.-korea'                                  : 'south-korea',
-            'st.-barth'                                 : 'st-barts',
-            'saint-lucia'                               : 'st-lucia',
-            'saint-martin'                              : 'sint-maarten',
-            'saint-vincent-and-the-grenadines'          : 'st-vincent-and-the-grenadines',
-            'syrian-arab-republic'                      : 'syria',
-            'tanzania,-united-republic-of'              : 'tanzania',
-            'timor-leste'                               : 'east-timor',
-            'turks-and-caicos-islands'                  : 'turks-and-caicos',
-            'u.s.-virgin-islands'                       : 'virgin-islands',
-            'uae'                                       : 'united-arab-emirates',
-            'uk'                                        : 'united-kingdom',
-            'usa'                                       : 'united-states-of-america',
-            'uzbekistan'                                : 'uzbekistn',
-            'venezuela,-bolivarian-republic-of'         : 'venezuela',
-            'viet-nam'                                  : 'vietnam'
+            'bosnia'                               : 'bosnia-and-herzegovina',
+            'cabo-verde'                           : 'cape-verde',
+            'car'                                  : 'central-african-republic',
+            'channel-islands'                      : 'jersey',
+            'coast-d\'ivoire'                      : 'ivory-coast',
+            'congo'                                : 'republic-of-the-congo',
+            'congo,-the-democratic-republic-of-the': 'democratic-republic-of-congo',
+            'curaçao'                              : 'curacao',
+            'czechia'                              : 'czech-republic',
+            'diamond-princess'                     : 'japan', // cruise ship?
+            'drc'                                  : 'democratic-republic-of-congo',
+            'el-salvador'                          : 'salvador',
+            'eswatini'                             : 'swaziland',
+            'faeroe-islands'                       : 'faroe-islands',
+            'french-guiana'                        : 'france', // ?
+            'guadeloupe'                           : 'france', // ?
+            'holy-see-(vatican-city-state)'        : 'vatican-city',
+            'iran,-islamic-republic-of'            : 'iran',
+            'lao-people\'s-democratic-republic'    : 'laos',
+            'libyan-arab-jamahiriya'               : 'libya',
+            'macedonia'                            : 'republic-of-macedonia',
+            'mayotte'                              : 'france', // ?
+            'moldova,-republic-of'                 : 'moldova',
+            'new-caledonia'                        : 'france',
+            'palestinian-territory,-occupied'      : 'palestine',
+            'poland'                               : 'republic-of-poland',
+            'réunion'                              : 'france',
+            's.-korea'                             : 'south-korea',
+            'st.-barth'                            : 'st-barts',
+            'saint-lucia'                          : 'st-lucia',
+            'saint-martin'                         : 'sint-maarten',
+            'saint-vincent-and-the-grenadines'     : 'st-vincent-and-the-grenadines',
+            'syrian-arab-republic'                 : 'syria',
+            'tanzania,-united-republic-of'         : 'tanzania',
+            'timor-leste'                          : 'east-timor',
+            'turks-and-caicos-islands'             : 'turks-and-caicos',
+            'u.s.-virgin-islands'                  : 'virgin-islands',
+            'uae'                                  : 'united-arab-emirates',
+            'uk'                                   : 'united-kingdom',
+            'usa'                                  : 'united-states-of-america',
+            'uzbekistan'                           : 'uzbekistn',
+            'venezuela,-bolivarian-republic-of'    : 'venezuela',
+            'viet-nam'                             : 'vietnam'
         };
 
         let imageName = name.toLowerCase().replace(MainContainerController.flagRegEx, '-');

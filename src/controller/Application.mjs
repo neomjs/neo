@@ -12,11 +12,6 @@ class Application extends Base {
          */
         className: 'Neo.controller.Application',
         /**
-         * @member {String} ntype='app'
-         * @private
-         */
-        ntype: 'app',
-        /**
          * @member {Boolean} createMainView=true
          */
         createMainView: true,
@@ -61,10 +56,6 @@ class Application extends Base {
     renderMainView() {
         let me = this;
 
-        if (Neo.isString(me.mainView)) {
-            me.mainView = me.name + '.' + me.mainView;
-        }
-
         me.mainViewInstance = Neo.create(me.mainView, {
             appName   : me.name,
             autoRender: true,
@@ -76,8 +67,6 @@ class Application extends Base {
 Neo.applyClassConfig(Application);
 
 // shortcut
-Neo.app = function(config) {
-    return Neo.create(Application, config);
-};
+Neo.app = config => Neo.create(Application, config);
 
 export {Application as default};
