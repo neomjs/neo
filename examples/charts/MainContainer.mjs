@@ -18,9 +18,26 @@ class MainContainer extends Viewport {
 
         items: [{
             ntype: 'component',
+            id   : 'am-chart-1',
             html : 'Hello World!'
         }]
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        this.on('mounted', () => {
+            console.log('mounted');
+
+            Neo.main.DomAccess.createLineChart({
+                id: 'am-chart-1'
+            });
+        });
+    }
 }
 
 Neo.applyClassConfig(MainContainer);

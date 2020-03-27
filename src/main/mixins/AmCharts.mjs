@@ -20,6 +20,14 @@ class AmCharts extends Base {
 
     /**
      *
+     * @param {Object} config
+     */
+    createLineChart(config) {
+        console.log('createLineChart', config);
+    }
+
+    /**
+     *
      */
     insertAmChartsScripts() {
         const me       = this,
