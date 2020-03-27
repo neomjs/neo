@@ -31,6 +31,7 @@ class MainContainer extends Viewport {
 
         this.on('mounted', () => {
             Neo.main.DomAccess.createLineChart({
+                id    : 'am-chart-1',
                 legend: {},
 
                 series: [{
