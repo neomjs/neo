@@ -99,6 +99,7 @@ module.exports = env => {
                             environment   : 'production',
                             themes        : value.themes || "'neo-theme-light', 'neo-theme-dark'", // arrays are not supported as templateParameters
                             title         : value.title,
+                            useAmCharts   : value.hasOwnProperty('useAmCharts') ? value.useAmCharts : false,
                             workerBasePath: workerBasePath
                         }
                     }));

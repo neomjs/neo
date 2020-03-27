@@ -20,7 +20,8 @@
             "input": "myApps/Covid.mjs",
             "output": "/apps/covid/",
             "themes": "'neo-theme-dark', 'neo-theme-light'",
-            "title": "Covid"
+            "title": "Covid",
+            "useAmCharts": true
         },
         "RealWorld": {
             "indexPath": "apps/realworld/index.ejs",
