@@ -30,51 +30,46 @@ class MainContainer extends Viewport {
         super(config);
 
         this.on('mounted', () => {
-            console.log('mounted');
-
             Neo.main.DomAccess.createLineChart({
-                // Create pie series
-                "series": [{
-                    "type": "PieSeries",
-                    "dataFields": {
-                        "value": "litres",
-                        "category": "country"
+                legend: {},
+
+                series: [{
+                    type: "PieSeries",
+
+                    dataFields: {
+                        value   : "litres",
+                        category: "country"
                     }
                 }],
 
-                    // Add data
-                    "data": [{
-                    "country": "Lithuania",
-                    "litres": 501.9
+                data: [{
+                    country: "Lithuania",
+                    litres : 501.9
                 }, {
-                    "country": "Czech Republic",
-                    "litres": 301.9
+                    country: "Czech Republic",
+                    litres : 301.9
                 }, {
-                    "country": "Ireland",
-                    "litres": 201.1
+                    country: "Ireland",
+                    litres : 201.1
                 }, {
-                    "country": "Germany",
-                    "litres": 165.8
+                    country: "Germany",
+                    litres : 165.8
                 }, {
-                    "country": "Australia",
-                    "litres": 139.9
+                    country: "Australia",
+                    litres : 139.9
                 }, {
-                    "country": "Austria",
-                    "litres": 128.3
+                    country: "Austria",
+                    litres : 128.3
                 }, {
-                    "country": "UK",
-                    "litres": 99
+                    country: "UK",
+                    litres : 99
                 }, {
-                    "country": "Belgium",
-                    "litres": 60
+                    country: "Belgium",
+                    litres : 60
                 }, {
-                    "country": "The Netherlands",
-                    "litres": 50
-                }],
-
-                    // And, for a good measure, let's add a legend
-                    "legend": {}
-
+                    country: "The Netherlands",
+                    litres : 50
+                }]
             });
         });
     }
