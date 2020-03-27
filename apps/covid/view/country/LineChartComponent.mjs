@@ -31,27 +31,56 @@ class LineChartComponent extends Component {
                 type: 'XYChart',
 
                 config: {
+                    cursor: {}, // default value for each chart type
+
                     xAxes: [{
                         type: 'DateAxis',
+                        dateFormatter: {
+                            dateFormat: 'MMMM-dd'
+                        },
                         renderer: {
-                            minGridDistance: 50
+                            minGridDistance: 50,
+                            labels: {
+                                template: {
+                                    fill: '#bbb'
+                                }
+                            }
                         }
                     }],
 
                     yAxes: [{
-                        type: 'ValueAxis'
+                        type: 'ValueAxis',
+
+                        numberFormatter: {
+                            numberFormat: '#a',
+
+                            bigNumberPrefixes: [
+                                {number: 1e3, suffix: 'K'},
+                                {number: 1e6, suffix: 'M'},
+                                {number: 1e9, suffix: 'B'}
+                            ]
+                        },
+                        renderer: {
+                            labels: {
+                                template: {
+                                    fill: '#bbb'
+                                }
+                            }
+                        }
                     }],
 
                     series: [{
-                        name       : 'Cases',
-                        stroke     : '#CDA2AB',
                         type       : 'LineSeries',
-                        strokeWidth: 3,
-
-                        dataFields : {
-                            dateX: 'date',
-                            valueY   : 'cases'
-                        }
+                        dataFields : {dateX : 'date', valueY: 'cases'},
+                        name       : 'Cases',
+                        stroke     : '#64b5f6',
+                        strokeWidth: 3
+                    }, {
+                        type       : 'LineSeries',
+                        dataFields : {dateX : 'date', valueY: 'deaths'},
+                        name       : 'Cases',
+                        stroke     : '#ff5b5b',
+                        strokeWidth: 3
                     }]
                 }
             });
