@@ -28,7 +28,7 @@ class TableContainer extends Container {
          * @member {Number} historyPanelWidth=420
          * @private
          */
-        historyPanelWidth: 320, // 420 with the recovered column
+        historyPanelWidth: 600, // 420 with the recovered column
         /**
          * @member {Neo.table.Container|null} table=null
          */
