@@ -17,8 +17,45 @@ class AmChart extends Component {
          * @member {String} ntype='am-chart'
          * @private
          */
-        ntype: 'am-chart'
+        ntype: 'am-chart',
+        /**
+         * See: https://www.amcharts.com/docs/v4/
+         * @member {Object} chartConfig=null
+         */
+        chartConfig: null,
+        /**
+         * @member {String} chartType='XYChart'
+         */
+        chartType: 'XYChart'
     }}
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        const me = this;
+
+        if (!me.chartConfig) {
+            console.error('wrapper.AmChart defined without a chartConfig', me.id);
+        }
+
+        me.on('mounted', () => {
+            Neo.main.DomAccess.createChart({
+                config: me.chartConfig,
+                id    : me.id,
+                type  : me.chartType
+            }).then(me.onChartMounted);
+        });
+    }
+
+    /**
+     * Override this method to trigger logic after the chart got mounted into the dom
+     */
+    onChartMounted() {
+        console.log('onChartMounted');
+    }
 }
 
 Neo.applyClassConfig(AmChart);
