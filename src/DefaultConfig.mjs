@@ -96,8 +96,17 @@ const DefaultConfig = {
      */
     unitTestMode: false,
     /**
-     * Flag if CSS4 stylesheets are in use (important for switching themes)
+     * Flag if to load the files needed for working with amCharts
+     * https://www.amcharts.com/docs/v4/
      * @default false
+     * @memberOf! module:Neo
+     * @name config.useAmCharts
+     * @type Boolean
+     */
+    useAmCharts: false,
+    /**
+     * Flag if CSS4 stylesheets are in use (important for switching themes)
+     * @default true
      * @memberOf! module:Neo
      * @name config.useCss4
      * @type Boolean
