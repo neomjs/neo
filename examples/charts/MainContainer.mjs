@@ -10,8 +10,7 @@ class MainContainer extends Viewport {
         ntype    : 'main-container',
 
         autoMount: true,
-
-        layout: 'fit',
+        layout   : 'fit',
 
         style: {
             padding: '50px'

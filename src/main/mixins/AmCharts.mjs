@@ -17,6 +17,13 @@ class AmCharts extends Base {
             className: 'Neo.main.mixins.AmCharts'
         }
     }
+
+    /**
+     *
+     */
+    insertAmChartsScripts() {
+        console.log('insertAmChartsScripts');
+    }
 }
 
 Neo.applyClassConfig(AmCharts);
