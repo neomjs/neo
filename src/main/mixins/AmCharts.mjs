@@ -24,6 +24,10 @@ class AmCharts extends Base {
      */
     createLineChart(config) {
         console.log('createLineChart', config);
+
+        setTimeout(() => {
+            am4core.createFromConfig(config, 'am-chart-1', am4charts.PieChart);
+        }, 1000);
     }
 
     /**
