@@ -54,7 +54,7 @@ class AmChart extends Component {
      * Override this method to trigger logic after the chart got mounted into the dom
      */
     onChartMounted() {
-        console.log('onChartMounted');
+
     }
 }
 
