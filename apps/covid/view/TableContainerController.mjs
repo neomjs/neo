@@ -81,7 +81,7 @@ class TableContainerController extends ComponentController {
 
             me.getReference('historical-data-table').store.data = dataArray;
 
-            if (record) {console.log(new Date().getTime());
+            if (record) {
                 dataArray.push({
                     cases : record.cases,
                     date  : new Date().getTime(),
@@ -121,6 +121,20 @@ class TableContainerController extends ComponentController {
             .then(response => response.json())
             .then(data => me.addStoreItems(data))
             .catch(err => console.log('Can’t access ' + apiPath, err));
+    }
+
+    /**
+     * {Object} data
+     */
+    on420pxButtonClick(data) {
+        this.getReference('controls-panel').width = 420;
+    }
+
+    /**
+     * {Object} data
+     */
+    on800pxButtonClick(data) {
+        this.getReference('controls-panel').width = 800;
     }
 
     /**

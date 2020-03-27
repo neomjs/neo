@@ -29,7 +29,7 @@ class TableContainer extends Container {
          * @member {Number} historyPanelWidth=420
          * @private
          */
-        historyPanelWidth: 700, // 420 with the recovered column
+        historyPanelWidth: 420,
         /**
          * @member {Neo.table.Container|null} table=null
          */
@@ -73,6 +73,14 @@ class TableContainer extends Container {
                     ntype    : 'label',
                     reference: 'historical-data-label',
                     text     : 'Historical Data'
+                }, '->', {
+                    ntype  : 'button',
+                    handler: 'on420pxButtonClick',
+                    text   : '420px'
+                }, {
+                    ntype  : 'button',
+                    handler: 'on800pxButtonClick',
+                    text   : '800px'
                 }]
             }],
 
