@@ -1,3 +1,4 @@
+import AmCharts        from './mixins/AmCharts.mjs';
 import Base            from '../core/Base.mjs';
 import DeltaUpdates    from './mixins/DeltaUpdates.mjs';
 import Markdown        from './mixins/Markdown.mjs';
@@ -32,6 +33,7 @@ class DomAccess extends Base {
          * @member {Array} mixins=[DeltaUpdates, Hljs, Observable, Siesta, Stylesheet]
          */
         mixins: [
+            AmCharts,
             DeltaUpdates,
             GoogleAnalytics,
             Hljs,
