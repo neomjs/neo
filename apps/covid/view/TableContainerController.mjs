@@ -20,6 +20,10 @@ class TableContainerController extends ComponentController {
          */
         apiHistoricalDataEndpoint: 'v2/historical/',
         /**
+         * @member {Object} selectedRecord=null
+         */
+        selectedRecord: null,
+        /**
          * @member {Neo.table.Container|null} table_=null
          * @private
          */
@@ -42,9 +46,11 @@ class TableContainerController extends ComponentController {
      * @param {Object} data
      */
     addStoreItems(data) {
-        const timeline  = data && data.timeline,
+        const me        = this,
+              timeline  = data && data.timeline,
               dataArray = [],
-              map       = {};
+              map       = {},
+              record    = me.selectedRecord;
 
         if (timeline) {
             Object.entries(timeline.cases).forEach(([key, value]) => {
@@ -73,11 +79,19 @@ class TableContainerController extends ComponentController {
                 dataArray.push(value);
             });
 
-            this.getReference('historical-data-table').store.data = dataArray;
+            me.getReference('historical-data-table').store.data = dataArray;
+
+            if (record) {console.log(new Date().getTime());
+                dataArray.push({
+                    cases : record.cases,
+                    date  : new Date().getTime(),
+                    deaths: record.deaths
+                });
+            }
 
             Neo.main.DomAccess.updateChartData({
                 data: dataArray,
-                id  : this.getReference('line-chart').id
+                id  : me.getReference('line-chart').id
             });
         }
     }
@@ -126,11 +140,13 @@ class TableContainerController extends ComponentController {
      * {Object} data.record
      */
     onTableSelect(data) {
-        const me = this;
+        const me     = this,
+              record = data.record;
 
-        me.loadHistoricalData(data.record.country);
+        me.selectedRecord = {...record};
+        me.loadHistoricalData(record.country);
 
-        me.getReference('historical-data-label').html = 'Historical Data (' + data.record.country + ')';
+        me.getReference('historical-data-label').html = 'Historical Data (' + record.country + ')';
     }
 }
 
