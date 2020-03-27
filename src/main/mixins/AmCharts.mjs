@@ -29,20 +29,26 @@ class AmCharts extends Base {
         delete config.id;
 
         setTimeout(() => {
-            am4core.createFromConfig(config, id, am4charts.PieChart);
+           am4core.createFromConfig(config, id, am4charts.PieChart);
         }, 1000);
     }
 
     /**
-     *
+     * Async approach
+     * core.js has to arrive first or the other scripts will cause JS errors since they rely on it
+     * => fetching the other files after core.js is loaded
      */
     insertAmChartsScripts() {
         const me       = this,
               basePath = '//www.amcharts.com/lib/4/';
 
         me.loadScript(basePath + 'core.js').then(() => {
-            me.loadScript(basePath + 'charts.js');
-            me.loadScript(basePath + 'maps.js');
+            Promise.all([
+                me.loadScript(basePath + 'charts.js'),
+                me.loadScript(basePath + 'maps.js')
+            ]).then(() => {
+                console.log('#####amCharts ready');
+            });
         });
     }
 }
