@@ -246,7 +246,6 @@ class DomAccess extends Base {
 
     /**
      * Include a script into the document.head
-     * Could get moved into DomAccess in case other mixins need it
      * @param {String} src
      * @param {Boolean} [async=true]
      * @return {Promise<unknown>}
