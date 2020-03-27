@@ -22,7 +22,16 @@ class AmCharts extends Base {
      *
      */
     insertAmChartsScripts() {
-        console.log('insertAmChartsScripts');
+        const basePath = '//www.amcharts.com/lib/4/';
+        let script;
+
+        ['core.js', 'charts.js', 'maps.js'].forEach(item => {
+            script = document.createElement('script');
+
+            // async has to be false: charts & maps load faster than core => console.error
+            Object.assign(script, {async: false, src: basePath + item});
+            document.head.appendChild(script);
+        });
     }
 }
 
