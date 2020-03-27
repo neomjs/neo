@@ -1,6 +1,7 @@
 import {default as Container}     from '../../../src/container/Base.mjs';
 import HistoricalDataTable        from './country/HistoricalDataTable.mjs';
 import Panel                      from '../../../src/container/Panel.mjs';
+import {default as TabContainer} from '../../../src/tab/Container.mjs';
 import Table                      from './country/Table.mjs';
 import TableContainerController   from './TableContainerController.mjs';
 
@@ -74,7 +75,16 @@ class TableContainer extends Container {
                 }]
             }],
 
-            items: []
+            items: [{
+                module: TabContainer,
+                items: [{
+                    ntype: 'component',
+                    tabButtonConfig: {
+                        iconCls: 'fa fa-table',
+                        text   : 'Chart'
+                    }
+                }]
+            }]
         }]
     }}
 
@@ -90,10 +100,16 @@ class TableContainer extends Container {
         me.historicalDataTable = Neo.create({
             module   : HistoricalDataTable,
             reference: 'historical-data-table',
+
+            tabButtonConfig: {
+                iconCls: 'fa fa-table',
+                text   : 'Table'
+            },
+
             ...me.historicalDataTableConfig || {}
         });
 
-        me.items[1].items.push(me.historicalDataTable);
+        me.items[1].items[0].items.push(me.historicalDataTable);
 
         me.table = Neo.create({
             module   : Table,
@@ -102,14 +118,6 @@ class TableContainer extends Container {
         });
 
         me.items[0].items.push(me.table);
-    }
-
-    /**
-     *
-     */
-    destroy(...args) {
-        this.table = null;
-        super.destroy(...args);
     }
 }
 
