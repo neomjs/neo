@@ -273,7 +273,7 @@ class MainContainerController extends ComponentController {
 
         // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
 
-        if (me.data && activeView.store.getCount() < 1) {
+        if (me.data && activeView.store && activeView.store.getCount() < 1) {
             activeView.store.data = me.data;
             delaySelection = 500;
         }
@@ -284,7 +284,16 @@ class MainContainerController extends ComponentController {
                 if (me.data) {
                     countryField.value = value.country;
 
-                    if (activeView.ntype === 'table-container') {
+                    if (activeView.ntype === 'gallery') {
+                        if (!selectionModel.isSelected(value.country)) {
+                            selectionModel.select(value.country, false);
+                        }
+                    } else if (activeView.ntype === 'helix') {
+                        if (!selectionModel.isSelected(value.country)) {
+                            selectionModel.select(value.country, false);
+                            activeView.onKeyDownSpace(null);
+                        }
+                    }  else if (activeView.ntype === 'table-container') {
                         id = selectionModel.getRowId(activeView.store.indexOf(value.country));
 
                         me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(value.country)});
@@ -292,15 +301,6 @@ class MainContainerController extends ComponentController {
                         if (!selectionModel.isSelected(id)) {
                             selectionModel.select(id);
                             Neo.main.DomAccess.scrollToTableRow({id: id});
-                        }
-                    } else if (activeView.ntype === 'helix') {
-                        if (!selectionModel.isSelected(value.country)) {
-                            selectionModel.select(value.country, false);
-                            activeView.onKeyDownSpace(null);
-                        }
-                    } else {
-                        if (!selectionModel.isSelected(value.country)) {
-                            selectionModel.select(value.country, false);
                         }
                     }
                 }

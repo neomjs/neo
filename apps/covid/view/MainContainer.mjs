@@ -46,8 +46,7 @@ class MainContainer extends Viewport {
 
         this.items = [HeaderContainer, {
             module     : TabContainer,
-            //activeIndex: this.controller.getTabIndex(Neo.config.hash),
-            activeIndex: 3,
+            activeIndex: this.controller.getTabIndex(Neo.config.hash),
             flex       : 1,
             reference  : 'tab-container',
             style      : {margin: '10px', marginTop: 0},
@@ -76,6 +75,7 @@ class MainContainer extends Viewport {
                 }
             }, {
                 module         : AttributionComponent,
+                reference      : 'attribution',
                 tabButtonConfig: {
                     iconCls: 'fa fa-copyright',
                     route  : 'mainview=attribution',
