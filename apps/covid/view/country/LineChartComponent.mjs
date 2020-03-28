@@ -28,6 +28,7 @@ class LineChartComponent extends AmChartComponent {
 
             xAxes: [{
                 type: 'DateAxis',
+
                 renderer: {
                     minGridDistance: 50,
                     labels: {
@@ -40,7 +41,6 @@ class LineChartComponent extends AmChartComponent {
 
             yAxes: [{
                 type: 'ValueAxis',
-                logarithmic:true,
 
                 numberFormatter: {
                     numberFormat: '#a',

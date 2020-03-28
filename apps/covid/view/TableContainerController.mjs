@@ -141,9 +141,9 @@ class TableContainerController extends ComponentController {
      * {Object} data
      */
     onLogarithmicScaleChange(data) {
-        console.log('onLogarithmicScaleChange', data);
-        Neo.main.DomAccess.changeChartConfig({
-            id: this.getReference('line-chart').id
+        Neo.main.DomAccess.toggleChartLogarithmic({
+            id   : this.getReference('line-chart').id,
+            value: data.value
         });
     }
 

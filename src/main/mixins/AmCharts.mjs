@@ -21,22 +21,6 @@ class AmCharts extends Base {
     /**
      *
      * @param {Object} data
-     * @param {String} data.id
-     * @param {String} data.path
-     */
-    changeChartConfig(data) {
-        console.log('changeChartConfig', data);
-        if (this.hasChart(data.id)) {
-            console.log(this.charts[data.id].yAxes.values[0]);
-            this.charts[data.id].xAxes.values[0].logarithmic = true;
-            this.charts[data.id].validateNow();
-            //this.charts[data.id].yAxes = data.data;
-        }
-    }
-
-    /**
-     *
-     * @param {Object} data
      * @param {Object} data.config
      * @param {String} data.id
      * @param {String} data.type='XYChart'
@@ -84,6 +68,18 @@ class AmCharts extends Base {
                 console.log('#####amCharts ready');
             });
         });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Boolean} data.value
+     */
+    toggleChartLogarithmic(data) {
+        if (this.hasChart(data.id)) {
+            this.charts[data.id].yAxes.values[0].logarithmic = data.value;
+        }
     }
 
     /**
