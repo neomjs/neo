@@ -30,7 +30,7 @@ class LineChartComponent extends AmChartComponent {
                 type: 'DateAxis',
 
                 renderer: {
-                    minGridDistance: 50,
+                    minGridDistance: 60,
                     labels: {
                         template: {
                             fill: '#bbb'
@@ -52,7 +52,7 @@ class LineChartComponent extends AmChartComponent {
                     ]
                 },
                 renderer: {
-                    minGridDistance: 50,
+                    minGridDistance: 60,
                     labels: {
                         template: {
                             fill: '#bbb'
