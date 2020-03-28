@@ -48,7 +48,7 @@ class MainContainerController extends ComponentController {
          * @member {String[]} mainTabs=['table', 'gallery', 'helix']
          * @private
          */
-        mainTabs: ['table', 'gallery', 'helix'],
+        mainTabs: ['table', 'gallery', 'helix', 'attribution'],
         /**
          * @member {Object} summaryData=null
          */
@@ -74,13 +74,19 @@ class MainContainerController extends ComponentController {
      * @param {Object[]} data
      */
     addStoreItems(data) {
-        const me = this;
+        const me           = this,
+              countryStore = me.getReference('country-field').store,
+              activeTab    = me.mainTabs[me.activeMainTabIndex];
 
         me.data = data;
 
-        me.getReference('country-field').store.data = data;
+        if (countryStore.getCount() < 1) {
+            me.getReference('country-field').store.data = data;
+        }
 
-        me.getReference(me.mainTabs[me.activeMainTabIndex]).store.data = data;
+        if (activeTab !== 'attribution') {
+            me.getReference(activeTab).store.data = data;
+        }
     }
 
     /**
