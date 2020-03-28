@@ -40,7 +40,10 @@ class AmCharts extends Base {
      */
     constructor(config) {
         super(config);
-        this.insertAmChartsScripts();
+
+        if (Neo.config.useAmCharts) {
+            this.insertAmChartsScripts();
+        }
     }
 
     /**
