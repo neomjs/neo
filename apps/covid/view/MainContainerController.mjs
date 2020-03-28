@@ -48,7 +48,7 @@ class MainContainerController extends ComponentController {
          * @member {String[]} mainTabs=['table', 'gallery', 'helix']
          * @private
          */
-        mainTabs: ['table', 'gallery', 'helix'],
+        mainTabs: ['table', 'gallery', 'helix', 'attribution'],
         /**
          * @member {Object} summaryData=null
          */
@@ -74,13 +74,19 @@ class MainContainerController extends ComponentController {
      * @param {Object[]} data
      */
     addStoreItems(data) {
-        const me = this;
+        const me           = this,
+              countryStore = me.getReference('country-field').store,
+              activeTab    = me.mainTabs[me.activeMainTabIndex];
 
         me.data = data;
 
-        me.getReference('country-field').store.data = data;
+        if (countryStore.getCount() < 1) {
+            me.getReference('country-field').store.data = data;
+        }
 
-        me.getReference(me.mainTabs[me.activeMainTabIndex]).store.data = data;
+        if (activeTab !== 'attribution') {
+            me.getReference(activeTab).store.data = data;
+        }
     }
 
     /**
@@ -99,8 +105,9 @@ class MainContainerController extends ComponentController {
         this.summaryData = data;
 
         vdom.cn[0].cn[1].html = Util.formatNumber(data.cases);
-        vdom.cn[1].cn[1].html = Util.formatNumber(data.recovered, 'green');
-        vdom.cn[2].cn[1].html = Util.formatNumber(data.deaths,    'red');
+        vdom.cn[1].cn[1].html = Util.formatNumber(data.active);
+        vdom.cn[2].cn[1].html = Util.formatNumber(data.recovered, 'green');
+        vdom.cn[3].cn[1].html = Util.formatNumber(data.deaths,    'red');
 
         summaryTable.vdom = vdom;
     }
@@ -116,7 +123,7 @@ class MainContainerController extends ComponentController {
             'cabo-verde'                           : 'cape-verde',
             'car'                                  : 'central-african-republic',
             'channel-islands'                      : 'jersey',
-            'coast-d\'ivoire'                      : 'ivory-coast',
+            'côte-d\'ivoire'                       : 'ivory-coast',
             'congo'                                : 'republic-of-the-congo',
             'congo,-the-democratic-republic-of-the': 'democratic-republic-of-congo',
             'curaçao'                              : 'curacao',
@@ -266,7 +273,7 @@ class MainContainerController extends ComponentController {
 
         // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
 
-        if (me.data && activeView.store.getCount() < 1) {
+        if (me.data && activeView.store && activeView.store.getCount() < 1) {
             activeView.store.data = me.data;
             delaySelection = 500;
         }
@@ -277,7 +284,16 @@ class MainContainerController extends ComponentController {
                 if (me.data) {
                     countryField.value = value.country;
 
-                    if (activeView.ntype === 'table-container') {
+                    if (activeView.ntype === 'gallery') {
+                        if (!selectionModel.isSelected(value.country)) {
+                            selectionModel.select(value.country, false);
+                        }
+                    } else if (activeView.ntype === 'helix') {
+                        if (!selectionModel.isSelected(value.country)) {
+                            selectionModel.select(value.country, false);
+                            activeView.onKeyDownSpace(null);
+                        }
+                    }  else if (activeView.ntype === 'table-container') {
                         id = selectionModel.getRowId(activeView.store.indexOf(value.country));
 
                         me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(value.country)});
@@ -285,15 +301,6 @@ class MainContainerController extends ComponentController {
                         if (!selectionModel.isSelected(id)) {
                             selectionModel.select(id);
                             Neo.main.DomAccess.scrollToTableRow({id: id});
-                        }
-                    } else if (activeView.ntype === 'helix') {
-                        if (!selectionModel.isSelected(value.country)) {
-                            selectionModel.select(value.country, false);
-                            activeView.onKeyDownSpace(null);
-                        }
-                    } else {
-                        if (!selectionModel.isSelected(value.country)) {
-                            selectionModel.select(value.country, false);
                         }
                     }
                 }
@@ -339,9 +346,12 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onSwitchThemeButtonClick(data) {
-        let me     = this,
-            button = data.component,
-            view   = me.view,
+        let me       = this,
+            button   = data.component,
+            logo     = me.getReference('logo'),
+            logoPath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
+            vdom     = logo.vdom,
+            view     = me.view,
             buttonText, cls, href, iconCls, theme;
 
         if (button.text === 'Theme Light') {
@@ -355,6 +365,10 @@ class MainContainerController extends ComponentController {
             iconCls    = 'fa fa-sun';
             theme      = 'neo-theme-dark';
         }
+
+        vdom.src = logoPath + (theme === 'neo-theme-dark' ? 'covid_logo_dark.jpg' : 'covid_logo_light.jpg');
+        logo.vdom = vdom;
+
 
         if (Neo.config.useCss4) {
             cls = [...view.cls];

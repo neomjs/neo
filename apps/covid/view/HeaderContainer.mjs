@@ -16,7 +16,7 @@ class HeaderContainer extends Container {
         /**
          * @member {Number} height=70
          */
-        height: 70,
+        height: 120,
         /**
          * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
          */
@@ -31,11 +31,15 @@ class HeaderContainer extends Container {
          * @member {Array} items
          */
         items: [{
-            cls     : ['neo-link-color'],
-            html    : 'COVID-19 neo.mjs App',
-            minWidth: 140,
-            style   : {padding: '20px'},
-            width   : 210
+            minWidth : 267,
+            reference: 'logo',
+            style    : {margin: '10px'},
+            width    : 267,
+
+            vdom: {
+                tag: 'img',
+                src: 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/covid_logo_dark.jpg'
+            }
         }, {
             module       : SelectField,
             displayField : 'country',
@@ -86,6 +90,7 @@ class HeaderContainer extends Container {
                 tag: 'table',
                 cn : [
                     {tag: 'tr', cn : [{tag: 'td', html: 'Cases'},     {tag: 'td', cls: ['neo-align-right']}]},
+                    {tag: 'tr', cn : [{tag: 'td', html: 'Active'},    {tag: 'td', cls: ['neo-align-right']}]},
                     {tag: 'tr', cn : [{tag: 'td', html: 'Recovered'}, {tag: 'td', cls: ['neo-align-right']}]},
                     {tag: 'tr', cn : [{tag: 'td', html: 'Deaths'},    {tag: 'td', cls: ['neo-align-right']}]}
                 ]

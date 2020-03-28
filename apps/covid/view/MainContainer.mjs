@@ -1,3 +1,4 @@
+import AttributionComponent      from './AttributionComponent.mjs';
 import FooterContainer           from './FooterContainer.mjs';
 import GalleryContainer          from './GalleryContainer.mjs';
 import HeaderContainer           from './HeaderContainer.mjs';
@@ -48,7 +49,7 @@ class MainContainer extends Viewport {
             activeIndex: this.controller.getTabIndex(Neo.config.hash),
             flex       : 1,
             reference  : 'tab-container',
-            style      : {margin: '10px', marginBottom: '10px'},
+            style      : {margin: '10px', marginTop: 0},
 
             items: [{
                 module         : TableContainer,
@@ -71,6 +72,14 @@ class MainContainer extends Viewport {
                     iconCls: 'fa fa-dna',
                     route  : 'mainview=helix',
                     text   : 'Helix'
+                }
+            }, {
+                module         : AttributionComponent,
+                reference      : 'attribution',
+                tabButtonConfig: {
+                    iconCls: 'fa fa-copyright',
+                    route  : 'mainview=attribution',
+                    text   : 'Attribution'
                 }
             }]
         }, FooterContainer];

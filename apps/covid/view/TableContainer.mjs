@@ -87,7 +87,8 @@ class TableContainer extends Container {
 
             items: [{
                 module: TabContainer,
-                items: [{
+                style : {marginTop: '10px'},
+                items : [{
                     ntype : 'container',
                     layout: {ntype: 'vbox', align: 'stretch'},
                     items : [{
@@ -95,6 +96,7 @@ class TableContainer extends Container {
                         flex : '0 1 auto',
                         items: [{
                             module   : CheckBox,
+                            checked  : true,
                             labelText: 'Logarithmic Scale',
                             listeners: {
                                 change: 'onLogarithmicScaleChange'
