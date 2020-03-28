@@ -48,7 +48,7 @@ class MainContainerController extends ComponentController {
          * @member {String[]} mainTabs=['table', 'gallery', 'helix']
          * @private
          */
-        mainTabs: ['table', 'gallery', 'helix', 'attribution'],
+        mainTabs: ['table', 'worldmap', 'gallery', 'helix', 'attribution'],
         /**
          * @member {Object} summaryData=null
          */
@@ -84,7 +84,7 @@ class MainContainerController extends ComponentController {
             me.getReference('country-field').store.data = data;
         }
 
-        if (activeTab !== 'attribution') {
+        if (['gallery', 'helix', 'table'].includes(activeTab)) {
             me.getReference(activeTab).store.data = data;
         }
     }
@@ -267,7 +267,7 @@ class MainContainerController extends ComponentController {
         tabContainer.activeIndex = activeIndex;
         me.activeMainTabIndex    = activeIndex;
 
-        if (activeIndex === 2) {
+        if (activeView.ntype === 'helix') {
             activeView.getOffsetValues();
         }
 
