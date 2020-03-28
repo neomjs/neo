@@ -1,3 +1,4 @@
+import AttributionComponent      from './AttributionComponent.mjs';
 import FooterContainer           from './FooterContainer.mjs';
 import GalleryContainer          from './GalleryContainer.mjs';
 import HeaderContainer           from './HeaderContainer.mjs';
@@ -71,6 +72,12 @@ class MainContainer extends Viewport {
                     iconCls: 'fa fa-dna',
                     route  : 'mainview=helix',
                     text   : 'Helix'
+                }
+            }, {
+                module         : AttributionComponent,
+                tabButtonConfig: {
+                    iconCls: 'fa fa-copyright',
+                    text   : 'Attribution'
                 }
             }]
         }, FooterContainer];
