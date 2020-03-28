@@ -1,5 +1,6 @@
 import Neo                        from './Neo.mjs';
 import * as core                  from './core/_export.mjs';
+import AmCharts                   from './main/AmCharts.mjs';
 import DomAccess                  from './main/DomAccess.mjs';
 import DomEvents                  from './main/DomEvents.mjs';
 import LocalStorage               from './main/mixins/LocalStorage.mjs';
@@ -163,9 +164,12 @@ class Main extends core.Base {
             DomAccess.adjustSiestaEnvironment();
         }
 
-        if (Neo.config.useAmCharts) {
-            DomAccess.insertAmChartsScripts();
-        }
+        // we can not use dynamic imports until webpack is ready to support it.
+        // using a static import for now. see:
+        // https://github.com/neomjs/neo/issues/393
+        /*if (Neo.config.useAmCharts) {
+            import('./main/AmCharts.mjs');
+        }*/
 
         if (Neo.config.useGoogleAnalytics) {
             DomAccess.insertGoogleAnalyticsScript();

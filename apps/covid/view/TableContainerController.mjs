@@ -141,7 +141,7 @@ class TableContainerController extends ComponentController {
      * {Object} data
      */
     onLogarithmicScaleChange(data) {
-        Neo.main.DomAccess.toggleChartLogarithmic({
+        Neo.main.AmCharts.toggleLogarithmic({
             id   : this.getReference('line-chart').id,
             value: data.value
         });
@@ -182,7 +182,7 @@ class TableContainerController extends ComponentController {
             });
         }
 
-        Neo.main.DomAccess.updateChartData({
+        Neo.main.AmCharts.updateData({
             data: dataArray,
             id  : this.getReference('line-chart').id
         });
