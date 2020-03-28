@@ -17,15 +17,21 @@ class AmCharts extends Base {
         className: 'Neo.main.AmCharts',
         /**
          * Stores all chart ids inside an object
-         * @member {Object} map={}
+         * @member {Object} charts={}
          * @private
          */
-        map: {},
+        charts: {},
         /**
-         * @member {Boolean} singleton=true
+         * Stores all chart config objects which arrived before the chart lib scripts got loaded
+         * @member {Object[]} chartsToCreate=[]
          * @private
          */
-        scriptsLoaded: false,
+        chartsToCreate: [],
+        /**
+         * @member {Boolean} scriptsLoaded_=true
+         * @private
+         */
+        scriptsLoaded_: false,
         /**
          * @member {Boolean} singleton=true
          * @private
@@ -58,6 +64,24 @@ class AmCharts extends Base {
     }
 
     /**
+     * Triggered after the scriptsLoaded config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @private
+     */
+    afterSetScriptsLoaded(value, oldValue) {
+        if (value) {
+            const me  = this;
+
+            me.chartsToCreate.forEach(config => {
+                me.create(config);
+            });
+
+            me.chartsToCreate = [];
+        }
+    }
+
+    /**
      *
      * @param {Object} data
      * @param {Object} data.config
@@ -65,15 +89,13 @@ class AmCharts extends Base {
      * @param {String} data.type='XYChart'
      */
     create(data) {
-        console.log('create', data);
         const me = this;
 
-        me.charts = me.charts || {}; // todo: refactor this class into a singleton
-
-        setTimeout(() => {
+        if (!me.scriptsLoaded) {
+            me.chartsToCreate.push(data);
+        } else {
             me.charts[data.id] = am4core.createFromConfig(data.config, data.id, am4charts[data.type || 'XYChart']);
-            console.log(me.charts[data.id]);
-        }, 1000);
+        }
     }
 
     /**
@@ -103,7 +125,7 @@ class AmCharts extends Base {
                 DomAccess.loadScript(basePath + 'charts.js'),
                 DomAccess.loadScript(basePath + 'maps.js')
             ]).then(() => {
-                console.log('#####amCharts ready');
+                this.scriptsLoaded = true;
             });
         });
     }
