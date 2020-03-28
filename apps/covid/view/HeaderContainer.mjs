@@ -16,7 +16,7 @@ class HeaderContainer extends Container {
         /**
          * @member {Number} height=70
          */
-        height: 70,
+        height: 120,
         /**
          * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
          */
@@ -31,11 +31,10 @@ class HeaderContainer extends Container {
          * @member {Array} items
          */
         items: [{
-            cls     : ['neo-link-color'],
-            html    : 'COVID-19 neo.mjs App',
-            minWidth: 140,
-            style   : {padding: '20px'},
-            width   : 210
+            html    : '<img src="./resources/images/covid_logo_dark.jpg">',
+            minWidth: 300,
+            style   : {margin: '10px'},
+            width   : 300
         }, {
             module       : SelectField,
             displayField : 'country',
