@@ -78,6 +78,7 @@ class MainContainer extends Viewport {
                 module         : AttributionComponent,
                 tabButtonConfig: {
                     iconCls: 'fa fa-copyright',
+                    route  : 'mainview=attribution',
                     text   : 'Attribution'
                 }
             }]
