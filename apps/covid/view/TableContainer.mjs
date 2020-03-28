@@ -96,6 +96,7 @@ class TableContainer extends Container {
                         flex : '0 1 auto',
                         items: [{
                             module   : CheckBox,
+                            checked  : true,
                             labelText: 'Logarithmic Scale',
                             listeners: {
                                 change: 'onLogarithmicScaleChange'

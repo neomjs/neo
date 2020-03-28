@@ -40,7 +40,8 @@ class LineChartComponent extends AmChartComponent {
             }],
 
             yAxes: [{
-                type: 'ValueAxis',
+                type       : 'ValueAxis',
+                logarithmic: true,
 
                 numberFormatter: {
                     numberFormat: '#a',
