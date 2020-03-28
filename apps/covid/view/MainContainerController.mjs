@@ -339,11 +339,12 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onSwitchThemeButtonClick(data) {
-        let me     = this,
-            button = data.component,
-            logo   = me.getReference('logo'),
-            vdom   = logo.vdom,
-            view   = me.view,
+        let me       = this,
+            button   = data.component,
+            logo     = me.getReference('logo'),
+            logoPath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
+            vdom     = logo.vdom,
+            view     = me.view,
             buttonText, cls, href, iconCls, theme;
 
         if (button.text === 'Theme Light') {
@@ -358,7 +359,7 @@ class MainContainerController extends ComponentController {
             theme      = 'neo-theme-dark';
         }
 
-        vdom.src = theme === 'neo-theme-dark' ? './resources/images/covid_logo_dark.jpg' : './resources/images/covid_logo_light.jpg';
+        vdom.src = logoPath + (theme === 'neo-theme-dark' ? 'covid_logo_dark.jpg' : 'covid_logo_light.jpg');
         logo.vdom = vdom;
 
 

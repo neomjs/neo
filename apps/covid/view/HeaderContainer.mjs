@@ -38,7 +38,7 @@ class HeaderContainer extends Container {
 
             vdom: {
                 tag: 'img',
-                src: './resources/images/covid_logo_dark.jpg'
+                src: 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/covid_logo_dark.jpg'
             }
         }, {
             module       : SelectField,
