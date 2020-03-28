@@ -71,7 +71,7 @@ class AmCharts extends Base {
      */
     afterSetScriptsLoaded(value, oldValue) {
         if (value) {
-            const me  = this;
+            const me = this;
 
             me.chartsToCreate.forEach(config => {
                 me.create(config);
