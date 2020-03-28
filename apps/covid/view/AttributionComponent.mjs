@@ -12,16 +12,10 @@ class AttributionComponent extends Component {
          */
         className: 'Covid.view.AttributionComponent',
         /**
-         * @member {String[]} cls=[]
+         * @member {String[]} cls=['covid-attribution-component']
          * @private
          */
-        cls: ['covid-attribution-component', 'neo-link-color'],
-        /**
-         * @member {Object} style
-         */
-        style: {
-            margin: '30px'
-        },
+        cls: ['covid-attribution-component'],
         /**
          * @member {Object} vdom
          */
