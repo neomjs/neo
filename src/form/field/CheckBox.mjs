@@ -123,7 +123,7 @@ class CheckBox extends Base {
      * @param {String} oldValue
      * @private
      */
-    afterSetHideLabel(value) {
+    afterSetHideLabel(value, oldValue) {
         let vdom = this.vdom;
 
         vdom.cn[0].removeDom = value;
@@ -136,7 +136,7 @@ class CheckBox extends Base {
      * @param {String} oldValue
      * @private
      */
-    afterSetHideValueLabel(value) {
+    afterSetHideValueLabel(value, oldValue) {
         let vdom = this.vdom;
 
         vdom.cn[2].removeDom = value;
@@ -149,7 +149,7 @@ class CheckBox extends Base {
      * @param {String} oldValue
      * @private
      */
-    afterSetInputType(value) {
+    afterSetInputType(value, oldValue) {
         let vdom = this.vdom;
 
         vdom.cn[1].type = value;
@@ -162,7 +162,7 @@ class CheckBox extends Base {
      * @param {String} oldValue
      * @private
      */
-    afterSetLabelText(value) {
+    afterSetLabelText(value, oldValue) {
         let vdom = this.vdom;
 
         vdom.cn[0].innerHTML = value;
@@ -175,7 +175,7 @@ class CheckBox extends Base {
      * @param {Number|String} oldValue
      * @private
      */
-    afterSetLabelWidth(value) {
+    afterSetLabelWidth(value, oldValue) {
         let me   = this,
             vdom = me.vdom;
 
@@ -191,7 +191,7 @@ class CheckBox extends Base {
      * @param {String} oldValue
      * @private
      */
-    afterSetName(value) {
+    afterSetName(value, oldValue) {
         let vdom = this.vdom;
 
         vdom.cn[1].name = value;
@@ -221,7 +221,7 @@ class CheckBox extends Base {
      * @param {String} oldValue
      * @private
      */
-    afterSetValueLabelText(value) {
+    afterSetValueLabelText(value, oldValue) {
         let me   = this,
             vdom = me.vdom;
 

@@ -152,7 +152,7 @@ class MainContainer extends ConfigurationViewport {
 
     /**
      *
-     * @returns {Neo.tab.HeaderButton}
+     * @returns {Neo.tab.header.Button}
      */
     getFirstTabHeader() {
         return this.exampleComponent.getTabBar().items[0];

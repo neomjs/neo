@@ -38,6 +38,20 @@ class AmCharts extends Base {
     }
 
     /**
+     *
+     * @param {String} id
+     * @return {Boolean}
+     */
+    hasChart(id) {
+        if (!this.charts[id]) {
+            console.log('main.mixins.AmCharts no chart found for data.id:', id);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Async approach
      * core.js has to arrive first or the other scripts will cause JS errors since they rely on it
      * => fetching the other files after core.js is loaded
@@ -59,13 +73,23 @@ class AmCharts extends Base {
     /**
      *
      * @param {Object} data
+     * @param {String} data.id
+     * @param {Boolean} data.value
+     */
+    toggleChartLogarithmic(data) {
+        if (this.hasChart(data.id)) {
+            this.charts[data.id].yAxes.values[0].logarithmic = data.value;
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
      * @param {Object} data.data
      * @param {String} data.id
      */
     updateChartData(data) {
-        if (!this.charts[data.id]) {
-            console.log('main.mixins.AmCharts no chart found for data.id:', data.id);
-        } else {
+        if (this.hasChart(data.id)) {
             this.charts[data.id].data = data.data;
         }
     }

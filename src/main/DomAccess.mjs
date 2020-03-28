@@ -51,7 +51,7 @@ class DomAccess extends Base {
             app: [
                 'addScript',
                 'applyBodyCls',
-                'createChart', // todo: conditional include
+                'createChart', // todo: singleton
                 'execCommand',
                 'focus',
                 'getAttributes',
@@ -61,6 +61,7 @@ class DomAccess extends Base {
                 'scrollToTableRow',
                 'selectNode',
                 'swapStyleSheet',
+                'toggleChartLogarithmic', // todo: singleton
                 'updateChartData',
                 'windowScrollTo'
             ]

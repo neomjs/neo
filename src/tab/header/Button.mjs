@@ -1,16 +1,16 @@
-import Button from '../component/Button.mjs';
+import {default as BaseButton} from '../../component/Button.mjs';
 
 /**
- * @class Neo.tab.HeaderButton
- * @extends Neo.container.Toolbar
+ * @class Neo.tab.header.Button
+ * @extends Neo.component.Button
  */
-class HeaderButton extends Button {
+class Button extends BaseButton {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.tab.HeaderButton'
+         * @member {String} className='Neo.tab.header.Button'
          * @private
          */
-        className: 'Neo.tab.HeaderButton',
+        className: 'Neo.tab.header.Button',
         /**
          * @member {String} ntype='tab-header-button'
          * @private
@@ -65,6 +65,6 @@ class HeaderButton extends Button {
     }
 }
 
-Neo.applyClassConfig(HeaderButton);
+Neo.applyClassConfig(Button);
 
-export {HeaderButton as default};
+export {Button as default};
