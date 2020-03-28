@@ -81,6 +81,11 @@ class TableContainerController extends ComponentController {
 
             me.getReference('historical-data-table').store.data = dataArray;
 
+            dataArray.forEach(item => {
+                item.deaths    = item.deaths || null;
+                item.recovered = item.deaths || null;
+            });
+
             if (record) {
                 dataArray.push({
                     cases : record.cases,
@@ -101,7 +106,7 @@ class TableContainerController extends ComponentController {
      * @param {Neo.table.Container|null} value
      * @private
      */
-    beforeGetTabley(value) {
+    beforeGetTable(value) {
         if (!value) {
             this._table = value = this.getReference('table');
         }
@@ -154,6 +159,9 @@ class TableContainerController extends ComponentController {
      */
     onLogarithmicScaleChange(data) {
         console.log('onLogarithmicScaleChange', data);
+        Neo.main.DomAccess.changeChartConfig({
+            id: this.getReference('line-chart').id
+        });
     }
 
     /**

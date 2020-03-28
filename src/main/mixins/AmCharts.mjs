@@ -21,6 +21,22 @@ class AmCharts extends Base {
     /**
      *
      * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.path
+     */
+    changeChartConfig(data) {
+        console.log('changeChartConfig', data);
+        if (this.hasChart(data.id)) {
+            console.log(this.charts[data.id].yAxes.values[0]);
+            this.charts[data.id].xAxes.values[0].logarithmic = true;
+            this.charts[data.id].validateNow();
+            //this.charts[data.id].yAxes = data.data;
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
      * @param {Object} data.config
      * @param {String} data.id
      * @param {String} data.type='XYChart'
@@ -35,6 +51,20 @@ class AmCharts extends Base {
             me.charts[data.id] = am4core.createFromConfig(data.config, data.id, am4charts[data.type || 'XYChart']);
             console.log(me.charts[data.id]);
         }, 1000);
+    }
+
+    /**
+     *
+     * @param {String} id
+     * @return {Boolean}
+     */
+    hasChart(id) {
+        if (!this.charts[id]) {
+            console.log('main.mixins.AmCharts no chart found for data.id:', id);
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -63,9 +93,7 @@ class AmCharts extends Base {
      * @param {String} data.id
      */
     updateChartData(data) {
-        if (!this.charts[data.id]) {
-            console.log('main.mixins.AmCharts no chart found for data.id:', data.id);
-        } else {
+        if (this.hasChart(data.id)) {
             this.charts[data.id].data = data.data;
         }
     }

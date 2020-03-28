@@ -51,7 +51,8 @@ class DomAccess extends Base {
             app: [
                 'addScript',
                 'applyBodyCls',
-                'createChart', // todo: conditional include
+                'changeChartConfig', // todo: singleton
+                'createChart',       // todo: singleton
                 'execCommand',
                 'focus',
                 'getAttributes',
