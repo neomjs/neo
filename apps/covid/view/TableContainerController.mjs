@@ -49,8 +49,7 @@ class TableContainerController extends ComponentController {
         const me        = this,
               timeline  = data && data.timeline,
               dataArray = [],
-              map       = {},
-              record    = me.selectedRecord;
+              map       = {};
 
         if (timeline) {
             Object.entries(timeline.cases).forEach(([key, value]) => {
@@ -79,25 +78,9 @@ class TableContainerController extends ComponentController {
                 dataArray.push(value);
             });
 
+            // todo: we could only update the active tab
             me.getReference('historical-data-table').store.data = dataArray;
-
-            dataArray.forEach(item => {
-                item.deaths    = item.deaths || null;
-                item.recovered = item.deaths || null;
-            });
-
-            if (record) {
-                dataArray.push({
-                    cases : record.cases,
-                    date  : new Date().getTime(),
-                    deaths: record.deaths
-                });
-            }
-
-            Neo.main.DomAccess.updateChartData({
-                data: dataArray,
-                id  : me.getReference('line-chart').id
-            });
+            me.updateLineChart(dataArray);
         }
     }
 
@@ -176,6 +159,33 @@ class TableContainerController extends ComponentController {
         me.loadHistoricalData(record.country);
 
         me.getReference('historical-data-label').html = 'Historical Data (' + record.country + ')';
+    }
+
+    /**
+     * Logarithmic Axis break for values of 0, so we need to change those to null
+     * Adding the current record, since the historical data starts "yesterday"
+     * @param {Object[]} dataArray
+     */
+    updateLineChart(dataArray) {
+        const record = this.selectedRecord;
+
+        dataArray.forEach(item => {
+            item.deaths    = item.deaths || null;
+            item.recovered = item.deaths || null;
+        });
+
+        if (record) {
+            dataArray.push({
+                cases : record.cases,
+                date  : new Date().getTime(),
+                deaths: record.deaths
+            });
+        }
+
+        Neo.main.DomAccess.updateChartData({
+            data: dataArray,
+            id  : this.getReference('line-chart').id
+        });
     }
 }
 
