@@ -16,7 +16,18 @@ class AmCharts extends Base {
          */
         className: 'Neo.main.AmCharts',
         /**
-         * @member {boolean} singleton=true
+         * Stores all chart ids inside an object
+         * @member {Object} map={}
+         * @private
+         */
+        map: {},
+        /**
+         * @member {Boolean} singleton=true
+         * @private
+         */
+        scriptsLoaded: false,
+        /**
+         * @member {Boolean} singleton=true
          * @private
          */
         singleton: true,
