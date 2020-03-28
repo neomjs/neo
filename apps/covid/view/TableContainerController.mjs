@@ -170,15 +170,15 @@ class TableContainerController extends ComponentController {
         const record = this.selectedRecord;
 
         dataArray.forEach(item => {
-            item.deaths    = item.deaths || null;
-            item.recovered = item.deaths || null;
+            item.cases  = item.cases  || null;
+            item.deaths = item.deaths || null;
         });
 
         if (record) {
             dataArray.push({
-                cases : record.cases,
+                cases : record.cases || null,
                 date  : new Date().getTime(),
-                deaths: record.deaths
+                deaths: record.deaths || null
             });
         }
 
