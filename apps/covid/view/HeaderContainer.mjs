@@ -31,10 +31,15 @@ class HeaderContainer extends Container {
          * @member {Array} items
          */
         items: [{
-            html    : '<img src="./resources/images/covid_logo_dark.jpg">',
-            minWidth: 300,
-            style   : {margin: '10px'},
-            width   : 300
+            minWidth : 267,
+            reference: 'logo',
+            style    : {margin: '10px'},
+            width    : 267,
+
+            vdom: {
+                tag: 'img',
+                src: './resources/images/covid_logo_dark.jpg'
+            }
         }, {
             module       : SelectField,
             displayField : 'country',

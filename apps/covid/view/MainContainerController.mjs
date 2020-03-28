@@ -341,6 +341,8 @@ class MainContainerController extends ComponentController {
     onSwitchThemeButtonClick(data) {
         let me     = this,
             button = data.component,
+            logo   = me.getReference('logo'),
+            vdom   = logo.vdom,
             view   = me.view,
             buttonText, cls, href, iconCls, theme;
 
@@ -355,6 +357,10 @@ class MainContainerController extends ComponentController {
             iconCls    = 'fa fa-sun';
             theme      = 'neo-theme-dark';
         }
+
+        vdom.src = theme === 'neo-theme-dark' ? './resources/images/covid_logo_dark.jpg' : './resources/images/covid_logo_light.jpg';
+        logo.vdom = vdom;
+
 
         if (Neo.config.useCss4) {
             cls = [...view.cls];
