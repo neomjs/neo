@@ -151,6 +151,13 @@ class TableContainerController extends ComponentController {
 
     /**
      * {Object} data
+     */
+    onLogarithmicScaleChange(data) {
+        console.log('onLogarithmicScaleChange', data);
+    }
+
+    /**
+     * {Object} data
      * {Object} data.record
      */
     onTableSelect(data) {
