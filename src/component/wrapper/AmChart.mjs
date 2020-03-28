@@ -42,7 +42,7 @@ class AmChart extends Component {
         }
 
         me.on('mounted', () => {
-            Neo.main.DomAccess.createChart({
+            Neo.main.AmCharts.create({
                 config: me.chartConfig,
                 id    : me.id,
                 type  : me.chartType

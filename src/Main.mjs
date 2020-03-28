@@ -164,7 +164,7 @@ class Main extends core.Base {
         }
 
         if (Neo.config.useAmCharts) {
-            DomAccess.insertAmChartsScripts();
+            import('./main/AmCharts.mjs');
         }
 
         if (Neo.config.useGoogleAnalytics) {

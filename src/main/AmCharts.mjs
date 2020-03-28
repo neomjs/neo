@@ -1,21 +1,46 @@
-import Base from '../../core/Base.mjs';
+import Base      from '../core/Base.mjs';
+import DomAccess from './DomAccess.mjs';
 
 /**
  * Helper class to include amCharts into your neo.mjs app
  * https://www.amcharts.com/docs/v4/
- * @class Neo.main.mixins.AmCharts
+ * @class Neo.main.AmCharts
  * @extends Neo.core.Base
  * @singleton
  */
 class AmCharts extends Base {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.main.mixins.AmCharts'
-             * @private
-             */
-            className: 'Neo.main.mixins.AmCharts'
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.main.AmCharts'
+         * @private
+         */
+        className: 'Neo.main.AmCharts',
+        /**
+         * @member {boolean} singleton=true
+         * @private
+         */
+        singleton: true,
+        /**
+         * Remote method access for other workers
+         * @member {Object} remote={app: [//...]}
+         * @private
+         */
+        remote: {
+            app: [
+                'create',
+                'toggleLogarithmic',
+                'updateData'
+            ]
         }
+    }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+        this.insertAmChartsScripts();
     }
 
     /**
@@ -25,8 +50,8 @@ class AmCharts extends Base {
      * @param {String} data.id
      * @param {String} data.type='XYChart'
      */
-    createChart(data) {
-        console.log('createChart', data);
+    create(data) {
+        console.log('create', data);
         const me = this;
 
         me.charts = me.charts || {}; // todo: refactor this class into a singleton
@@ -44,7 +69,7 @@ class AmCharts extends Base {
      */
     hasChart(id) {
         if (!this.charts[id]) {
-            console.log('main.mixins.AmCharts no chart found for data.id:', id);
+            console.log('main.AmCharts: no chart found for data.id =>', id);
             return false;
         }
 
@@ -57,13 +82,12 @@ class AmCharts extends Base {
      * => fetching the other files after core.js is loaded
      */
     insertAmChartsScripts() {
-        const me       = this,
-              basePath = '//www.amcharts.com/lib/4/';
+        const basePath = '//www.amcharts.com/lib/4/';
 
-        me.loadScript(basePath + 'core.js').then(() => {
+        DomAccess.loadScript(basePath + 'core.js').then(() => {
             Promise.all([
-                me.loadScript(basePath + 'charts.js'),
-                me.loadScript(basePath + 'maps.js')
+                DomAccess.loadScript(basePath + 'charts.js'),
+                DomAccess.loadScript(basePath + 'maps.js')
             ]).then(() => {
                 console.log('#####amCharts ready');
             });
@@ -76,7 +100,7 @@ class AmCharts extends Base {
      * @param {String} data.id
      * @param {Boolean} data.value
      */
-    toggleChartLogarithmic(data) {
+    toggleLogarithmic(data) {
         if (this.hasChart(data.id)) {
             this.charts[data.id].yAxes.values[0].logarithmic = data.value;
         }
@@ -88,7 +112,7 @@ class AmCharts extends Base {
      * @param {Object} data.data
      * @param {String} data.id
      */
-    updateChartData(data) {
+    updateData(data) {
         if (this.hasChart(data.id)) {
             this.charts[data.id].data = data.data;
         }
@@ -97,4 +121,8 @@ class AmCharts extends Base {
 
 Neo.applyClassConfig(AmCharts);
 
-export {AmCharts as default};
+let instance = Neo.create(AmCharts);
+
+Neo.applyToGlobalNs(instance);
+
+export default instance;

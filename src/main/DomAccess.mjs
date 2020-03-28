@@ -1,4 +1,3 @@
-import AmCharts        from './mixins/AmCharts.mjs';
 import Base            from '../core/Base.mjs';
 import DeltaUpdates    from './mixins/DeltaUpdates.mjs';
 import Markdown        from './mixins/Markdown.mjs';
@@ -30,10 +29,9 @@ class DomAccess extends Base {
          */
         singleton: true,
         /**
-         * @member {Array} mixins=[DeltaUpdates, Hljs, Observable, Siesta, Stylesheet]
+         * @member {Array} mixins=[DeltaUpdates, GoogleAnalytics, Hljs, Markdown, Observable, Siesta, Stylesheet]
          */
         mixins: [
-            AmCharts,
             DeltaUpdates,
             GoogleAnalytics,
             Hljs,
@@ -51,7 +49,6 @@ class DomAccess extends Base {
             app: [
                 'addScript',
                 'applyBodyCls',
-                'createChart', // todo: singleton
                 'execCommand',
                 'focus',
                 'getAttributes',
@@ -61,8 +58,6 @@ class DomAccess extends Base {
                 'scrollToTableRow',
                 'selectNode',
                 'swapStyleSheet',
-                'toggleChartLogarithmic', // todo: singleton
-                'updateChartData',
                 'windowScrollTo'
             ]
         },
