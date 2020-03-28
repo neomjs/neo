@@ -90,6 +90,7 @@ class HeaderContainer extends Container {
                 tag: 'table',
                 cn : [
                     {tag: 'tr', cn : [{tag: 'td', html: 'Cases'},     {tag: 'td', cls: ['neo-align-right']}]},
+                    {tag: 'tr', cn : [{tag: 'td', html: 'Active'},    {tag: 'td', cls: ['neo-align-right']}]},
                     {tag: 'tr', cn : [{tag: 'td', html: 'Recovered'}, {tag: 'td', cls: ['neo-align-right']}]},
                     {tag: 'tr', cn : [{tag: 'td', html: 'Deaths'},    {tag: 'td', cls: ['neo-align-right']}]}
                 ]
