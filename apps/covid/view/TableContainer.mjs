@@ -87,7 +87,8 @@ class TableContainer extends Container {
 
             items: [{
                 module: TabContainer,
-                items: [{
+                style : {marginTop: '10px'},
+                items : [{
                     ntype : 'container',
                     layout: {ntype: 'vbox', align: 'stretch'},
                     items : [{
