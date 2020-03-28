@@ -164,7 +164,7 @@ class CountryHelix extends Helix {
             'cabo-verde'                           : 'cape-verde',
             'car'                                  : 'central-african-republic',
             'channel-islands'                      : 'jersey',
-            'coast-d\'ivoire'                      : 'ivory-coast',
+            'côte-d\'ivoire'                       : 'ivory-coast',
             'congo'                                : 'republic-of-the-congo',
             'congo,-the-democratic-republic-of-the': 'democratic-republic-of-congo',
             'curaçao'                              : 'curacao',
