@@ -1,16 +1,16 @@
-import Toolbar from '../container/Toolbar.mjs';
+import {default as BaseToolbar} from '../../container/Toolbar.mjs';
 
 /**
- * @class Neo.tab.HeaderToolbar
+ * @class Neo.tab.header.Toolbar
  * @extends Neo.container.Toolbar
  */
-class HeaderToolbar extends Toolbar {
+class Toolbar extends BaseToolbar {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.tab.HeaderToolbar'
+         * @member {String} className='Neo.tab.header.Toolbar'
          * @private
          */
-        className: 'Neo.tab.HeaderToolbar',
+        className: 'Neo.tab.header.Toolbar',
         /**
          * @member {String} ntype='tab-header-toolbar'
          * @private
@@ -100,6 +100,6 @@ class HeaderToolbar extends Toolbar {
     }
 }
 
-Neo.applyClassConfig(HeaderToolbar);
+Neo.applyClassConfig(Toolbar);
 
-export {HeaderToolbar as default};
+export {Toolbar as default};

@@ -1,6 +1,6 @@
 import {default as BaseContainer} from '../container/Base.mjs';
-import HeaderButton               from './HeaderButton.mjs';
-import HeaderToolbar              from './HeaderToolbar.mjs';
+import {default as HeaderButton}  from './header/Button.mjs';
+import {default as HeaderToolbar} from './header/Toolbar.mjs';
 import NeoArray                   from '../util/Array.mjs';
 import Strip                      from './Strip.mjs';
 
