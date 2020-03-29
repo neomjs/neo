@@ -26,7 +26,20 @@ class AmChart extends Component {
         /**
          * @member {String} chartType='XYChart'
          */
-        chartType: 'XYChart'
+        chartType: 'XYChart',
+        /**
+         * Charts & maps can have different targets to apply the data to. E.g.:
+         * myChart.data = data; // => ''
+         * myChart.series.values[0].data = data; // => 'series.values.0'
+         * Use a Neo.ns() conform syntax with dots between props
+         * @member {String} dataPath=''
+         */
+        dataPath: '',
+        /**
+         * am4charts, am4maps
+         * @member {String} package='am4charts'
+         */
+        package: 'am4charts'
     }}
 
     /**
@@ -43,9 +56,10 @@ class AmChart extends Component {
 
         me.on('mounted', () => {
             Neo.main.AmCharts.create({
-                config: me.chartConfig,
-                id    : me.id,
-                type  : me.chartType
+                config : me.chartConfig,
+                id     : me.id,
+                package: me.package,
+                type   : me.chartType
             }).then(me.onChartMounted);
         });
     }

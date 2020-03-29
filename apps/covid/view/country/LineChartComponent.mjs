@@ -22,8 +22,7 @@ class LineChartComponent extends AmChartComponent {
             cursor: {}, // default value for each chart type
 
             "columns": {
-                "tooltipText": "Series: {name}\nCategory: {categoryX}\nValue: {valueY}",
-                "fill": "#104547"
+                "tooltipText": "Series: {name}\nCategory: {categoryX}\nValue: {valueY}"
             },
 
             xAxes: [{

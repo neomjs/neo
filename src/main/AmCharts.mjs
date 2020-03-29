@@ -28,6 +28,13 @@ class AmCharts extends Base {
          */
         chartsToCreate: [],
         /**
+         * Stores all chart data inside an object. key => chart id
+         * No array since in case a chart gets loaded multiple times, we only want to apply the last data on mount.
+         * @member {Object} charts={}
+         * @private
+         */
+        dataMap: {},
+        /**
          * @member {Boolean} scriptsLoaded_=true
          * @private
          */
@@ -71,13 +78,21 @@ class AmCharts extends Base {
      */
     afterSetScriptsLoaded(value, oldValue) {
         if (value) {
-            const me  = this;
+            const me = this;
 
             me.chartsToCreate.forEach(config => {
                 me.create(config);
             });
 
             me.chartsToCreate = [];
+
+            setTimeout(() => {
+                Object.entries(me.dataMap).forEach((key, dataValue) => {
+                    me.updateData(dataValue);
+                });
+
+                me.dataMap = {};
+            }, 1000);
         }
     }
 
@@ -86,6 +101,7 @@ class AmCharts extends Base {
      * @param {Object} data
      * @param {Object} data.config
      * @param {String} data.id
+     * @param {String} data.package
      * @param {String} data.type='XYChart'
      */
     create(data) {
@@ -94,7 +110,15 @@ class AmCharts extends Base {
         if (!me.scriptsLoaded) {
             me.chartsToCreate.push(data);
         } else {
-            me.charts[data.id] = am4core.createFromConfig(data.config, data.id, am4charts[data.type || 'XYChart']);
+            // todo: check if self[data.package] exists, if not load it and call create afterwards
+
+            me.charts[data.id] = am4core.createFromConfig(data.config, data.id, self[data.package][data.type || 'XYChart']);
+
+            // in case data has arrived before the chart got created, apply it now
+            if (me.dataMap[data.id]) {
+                me.updateData(me.dataMap[data.id]);
+                delete me.dataMap[data.id];
+            }
         }
     }
 
@@ -104,12 +128,7 @@ class AmCharts extends Base {
      * @return {Boolean}
      */
     hasChart(id) {
-        if (!this.charts[id]) {
-            console.log('main.AmCharts: no chart found for data.id =>', id);
-            return false;
-        }
-
-        return true;
+        return this.charts[id];
     }
 
     /**
@@ -123,7 +142,8 @@ class AmCharts extends Base {
         DomAccess.loadScript(basePath + 'core.js').then(() => {
             Promise.all([
                 DomAccess.loadScript(basePath + 'charts.js'),
-                DomAccess.loadScript(basePath + 'maps.js')
+                DomAccess.loadScript(basePath + 'maps.js'),
+                DomAccess.loadScript(basePath + 'geodata/worldLow.js')
             ]).then(() => {
                 this.scriptsLoaded = true;
             });
@@ -146,11 +166,22 @@ class AmCharts extends Base {
      *
      * @param {Object} data
      * @param {Object} data.data
+     * @param {String} data.dataPath
      * @param {String} data.id
      */
     updateData(data) {
-        if (this.hasChart(data.id)) {
-            this.charts[data.id].data = data.data;
+        const me = this;
+
+        if (!me.scriptsLoaded || !me.hasChart(data.id)) {
+            me.dataMap[data.id] = data;
+        } else {
+            const chart = me.charts[data.id];
+
+            if (data.dataPath === '') {
+                chart.data = data.data;
+            } else {
+                Neo.ns(data.dataPath, false, chart).data = data.data;
+            }
         }
     }
 }
