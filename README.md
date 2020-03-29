@@ -20,8 +20,9 @@ the following concepts will be addictive.
 7. <a href="#ready-to-get-started">Ready to get started?</a>
 8. <a href="#project-history">Project History</a>
 9. <a href="#story-vision">Story & Vision</a>
-9. <a href="#sponsors-are-needed">Sponsors are needed!</a>
-10. <a href="#join-our-slack-channel-for-questions--feedback">Join our Slack Channel for questions & feedback</a>
+10. <a href="#sponsors-are-needed">Sponsors are needed!</a>
+11. <a href="#contributors-are-needed">Contributors are needed!</a>
+12. <a href="#join-our-slack-channel-for-questions--feedback">Join our Slack Channel for questions & feedback</a>
 
 
 ## Sponsors
@@ -158,6 +159,14 @@ This is obviously not sustainable, so to enable me to keep pushing like this, pl
 The benefit of doing so is to get results delivered faster.
 
 Here you go: <a href="./BACKERS.md">Sponsors & Backers</a>
+
+## Contributors are needed!
+Another way to fasten up the neo.mjs development speed is to actively jump in.</br>
+As the shiny "PRs are welcome" badge suggest: open source is intended to be improved by anyone who is up for the challenge.
+
+You can also write a guide in case you learned something new using neo.mjs or just help getting more eyes on this project.
+
+Either way, here are more infos: <a href="./CONTRIBUTING.md">Contributing</a>
 
 ## Join our Slack Channel for questions & feedback
 There are some Javascript legends hiding in the shadows and waiting to be discovered.</br>
