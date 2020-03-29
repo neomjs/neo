@@ -35,15 +35,9 @@ class WorldMapComponent extends AmChartComponent {
                 exclude   : ['AQ'],
                 useGeodata: true,
 
-                data: [{
-                    id   : 'US',
-                    name : 'United States',
-                    value: 100
-                }, {
-                    id   : 'FR',
-                    name : 'France',
-                    value: 50
-                }],
+                dataFields: {
+                    value: 'cases'
+                },
 
                 heatRules: [{
                     target  : 'mapPolygons.template',
@@ -87,7 +81,10 @@ class WorldMapComponent extends AmChartComponent {
             });
         });
 
-        console.log('loadData', chartData);
+        Neo.main.AmCharts.updateData({
+            data: chartData,
+            id  : this.id
+        });
     }
 }
 

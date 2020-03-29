@@ -28,6 +28,13 @@ class AmCharts extends Base {
          */
         chartsToCreate: [],
         /**
+         * Stores all chart data inside an object. key => chart id
+         * No array since in case a chart gets loaded multiple times, we only want to apply the last data on mount.
+         * @member {Object} charts={}
+         * @private
+         */
+        dataMap: {},
+        /**
          * @member {Boolean} scriptsLoaded_=true
          * @private
          */
@@ -78,6 +85,14 @@ class AmCharts extends Base {
             });
 
             me.chartsToCreate = [];
+console.log(me.dataMap);
+            setTimeout(() => {
+                Object.entries(me.dataMap).forEach((key, dataValue) => {
+                    me.updateData(dataValue);
+                });
+
+                me.dataMap = {};
+            }, 1000);
         }
     }
 
@@ -108,7 +123,7 @@ class AmCharts extends Base {
      */
     hasChart(id) {
         if (!this.charts[id]) {
-            console.log('main.AmCharts: no chart found for data.id =>', id);
+            console.warn('main.AmCharts: no chart found for data.id =>', id);
             return false;
         }
 
@@ -153,8 +168,18 @@ class AmCharts extends Base {
      * @param {String} data.id
      */
     updateData(data) {
-        if (this.hasChart(data.id)) {
-            this.charts[data.id].data = data.data;
+        const me = this;
+
+        if (!me.scriptsLoaded) {
+            me.dataMap[data.id] = data;
+        } else {
+            if (me.hasChart(data.id)) {
+                console.log('updateData', data);
+                me.charts[data.id].data = data.data;
+            } else {
+                // todo: script loaded, data arrives, chart not yet created
+                // => store the data
+            }
         }
     }
 }
