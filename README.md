@@ -19,7 +19,7 @@ the following concepts will be addictive.
 6. <a href="#impossible-pick-with-caution">Impossible? Pick with caution!</a>
 7. <a href="#ready-to-get-started">Ready to get started?</a>
 8. <a href="#project-history">Project History</a>
-9. <a href="#story-vision">Story & Vision</a>
+9. <a href="#story--vision">Story & Vision</a>
 10. <a href="#sponsors-are-needed">Sponsors are needed!</a>
 11. <a href="#contributors-are-needed">Contributors are needed!</a>
 12. <a href="#join-our-slack-channel-for-questions--feedback">Join our Slack Channel for questions & feedback</a>
