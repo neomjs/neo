@@ -1,0 +1,9 @@
+$neoMap: map-merge($neoMap, (
+    'covid-line-chart-background-color': #323232
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-dark { // .covid-line-chart
+        --covid-line-chart-background-color: #{neo(covid-line-chart-background-color)};
+    }
+}
