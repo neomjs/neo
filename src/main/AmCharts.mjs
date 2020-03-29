@@ -85,7 +85,7 @@ class AmCharts extends Base {
             });
 
             me.chartsToCreate = [];
-console.log(me.dataMap);
+
             setTimeout(() => {
                 Object.entries(me.dataMap).forEach((key, dataValue) => {
                     me.updateData(dataValue);
@@ -113,6 +113,12 @@ console.log(me.dataMap);
             // todo: check if self[data.package] exists, if not load it and call create afterwards
 
             me.charts[data.id] = am4core.createFromConfig(data.config, data.id, self[data.package][data.type || 'XYChart']);
+
+            // in case data has arrived before the chart got created, apply it now
+            if (me.dataMap[data.id]) {
+                me.updateData(me.dataMap[data.id]);
+                delete me.dataMap[data.id];
+            }
         }
     }
 
@@ -170,16 +176,13 @@ console.log(me.dataMap);
     updateData(data) {
         const me = this;
 
-        if (!me.scriptsLoaded) {
+        if (!me.scriptsLoaded || !me.hasChart(data.id)) {
             me.dataMap[data.id] = data;
         } else {
-            if (me.hasChart(data.id)) {
-                console.log('updateData', data);
-                me.charts[data.id].data = data.data;
-            } else {
-                // todo: script loaded, data arrives, chart not yet created
-                // => store the data
-            }
+            console.log('update data', data);
+            console.log(me.charts[data.id].series);
+            me.charts[data.id].data = data.data; // chart
+            //me.charts[data.id].series.values[0].data = data.data; // map => todo
         }
     }
 }
