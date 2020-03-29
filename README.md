@@ -38,8 +38,12 @@ the following concepts will be addictive.
 <!--bronze end-->
 
 ## COVID19 IN NUMBERS Demo App
+The most compelling way to introduce a new framework might simply be to show what you can do with it.
+
 Live Demo: Desktop only (Support for mobile devices is on the roadmap)</br>
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/covid/index.html#country=USA">COIN App dist/production</a>
+
+You can find the code of the covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/covid">here</a>.
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/table.png">
 
