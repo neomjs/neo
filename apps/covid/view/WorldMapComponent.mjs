@@ -35,19 +35,6 @@ class WorldMapComponent extends AmChartComponent {
                 exclude   : ['AQ'],
                 useGeodata: true,
 
-                mapPolygons: {
-                    tooltipText: '{name}: [bold]{value}[/]',
-                    fill       : '#74B266',
-
-                    states: {
-                        hover: {
-                            properties: {
-                                fill: '#367B25'
-                            }
-                        }
-                    }
-                },
-
                 data: [{
                     id   : 'US',
                     name : 'United States',
@@ -56,7 +43,27 @@ class WorldMapComponent extends AmChartComponent {
                     id   : 'FR',
                     name : 'France',
                     value: 50
-                }]
+                }],
+
+                heatRules: [{
+                    target  : 'mapPolygons.template',
+                    property: 'fill',
+                    min     : '#ffffff',
+                    max     : '#AAAA00'
+                }],
+                
+                mapPolygons: {
+                    tooltipText: '{name}: [bold]{value}[/]',
+                    //fill       : '#74B266',
+
+                    states: {
+                        hover: {
+                            properties: {
+                                //fill: '#367B25'
+                            }
+                        }
+                    }
+                }
             }]
         }
     }}
