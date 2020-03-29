@@ -14,6 +14,7 @@ the following concepts will be addictive.
 1. <a href="#sponsors">Sponsors</a>
 2. <a href="#covid19-in-numbers-demo-app">COVID19 IN NUMBERS Demo App</a>
 3. <a href="#online-examples">Online Examples</a>
+4. <a href="#online-examples">What if ...</a> (Short overview of the design concept & design goals)
 
 
 ## Sponsors
@@ -33,7 +34,7 @@ the following concepts will be addictive.
 <!--bronze end-->
 
 ## COVID19 IN NUMBERS Demo App
-Desktop only (Support for mobile devices is on the roadmap)</br>
+Live Demo: Desktop only (Support for mobile devices is on the roadmap)</br>
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/covid/index.html#country=USA">COIN App dist/production</a>
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/table.png">
@@ -50,6 +51,7 @@ You can find a full list of (desktop based) online examples here:</br>
 
 You can pick between the 3 modes (development, dist/development, dist/production) for each one.
 
+## What if ...
 <table>
     <tr>
         <th></th>
