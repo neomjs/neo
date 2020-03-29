@@ -22,7 +22,7 @@ the following concepts will be addictive.
 9. <a href="#story--vision">Story & Vision</a>
 10. <a href="#sponsors-are-needed">Sponsors are needed!</a>
 11. <a href="#contributors-are-needed">Contributors are needed!</a>
-12. <a href="#join-our-slack-channel-for-questions--feedback">Join our Slack Channel for questions & feedback</a>
+12. <a href="#slack-channel-for-questions--feedback">Slack Channel for questions & feedback</a>
 
 
 ## Sponsors
@@ -168,7 +168,7 @@ You can also write a guide in case you learned something new using neo.mjs or ju
 
 Either way, here are more infos: <a href="./CONTRIBUTING.md">Contributing</a>
 
-## Join our Slack Channel for questions & feedback
+## Slack Channel for questions & feedback
 There are some Javascript legends hiding in the shadows and waiting to be discovered.</br>
 Join our community:
 <a href="https://join.slack.com/t/neotericjs/shared_invite/enQtNDk2NjEwMTIxODQ2LWRjNGQ3ZTMzODRmZGM2NDM2NzZmZTMzZmE2YjEwNDM4NDhjZDllNWY2ZDkwOWQ5N2JmZWViYjYzZTg5YjdiMDc">Slack Channel Invite Link</a>
