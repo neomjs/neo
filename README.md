@@ -15,7 +15,10 @@ the following concepts will be addictive.
 2. <a href="#covid19-in-numbers-demo-app">COVID19 IN NUMBERS Demo App</a>
 3. <a href="#online-examples">Online Examples</a>
 4. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
-5. <a href="#online-examples">Want to learn more?</a>
+5. <a href="#want-to-learn-more">Want to learn more?</a>
+6. <a href="#online-examples">Impossible? Pick with caution!</a>
+7. <a href="#online-examples">Online Examples</a>
+8. <a href="#online-examples">Online Examples</a>
 
 
 ## Sponsors
@@ -117,11 +120,11 @@ You can pick between the 3 modes (development, dist/development, dist/production
 ## Want to learn more?
 <a href=".github/CONCEPT.md">neo.mjs Concepts</a>
 
-### Impossible? Pick with caution!
+## Impossible? Pick with caution!
 <a href="https://en.wikipedia.org/wiki/Red_pill_and_blue_pill"><img alt="blue or red pill" src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/redorbluepill.png"></a>
 
 
-### The webworkers driven UI framework
+## The webworkers driven UI framework
 
 Prior to the public release on November 23, 2019, the project was already at <a href=".github/NEOMJS_HISTORY.md">3720 commits</a>.
 
@@ -133,7 +136,7 @@ Take a look at the <a href=".github/STORY.md">Project Story</a> and <a href=".gi
 
 In case you like the neo.mjs concepts, please support it: <a href="./BACKERS.md">Sponsors & Backers</a>.
 
-### Join our Slack Channel for questions & feedback:
+## Join our Slack Channel for questions & feedback:
 
 <a href="https://join.slack.com/t/neotericjs/shared_invite/enQtNDk2NjEwMTIxODQ2LWRjNGQ3ZTMzODRmZGM2NDM2NzZmZTMzZmE2YjEwNDM4NDhjZDllNWY2ZDkwOWQ5N2JmZWViYjYzZTg5YjdiMDc">Slack Channel Invite Link</a>
 
