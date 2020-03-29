@@ -28,6 +28,14 @@ class AmChart extends Component {
          */
         chartType: 'XYChart',
         /**
+         * Charts & maps can have different targets to apply the data to. E.g.:
+         * myChart.data = data; // => ''
+         * myChart.series.values[0].data = data; // => 'series.values.0'
+         * Use a Neo.ns() conform syntax with dots between props
+         * @member {String} dataPath=''
+         */
+        dataPath: '',
+        /**
          * am4charts, am4maps
          * @member {String} package='am4charts'
          */

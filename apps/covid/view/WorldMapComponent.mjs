@@ -12,13 +12,17 @@ class WorldMapComponent extends AmChartComponent {
          */
         className: 'Covid.view.country.WorldMapComponent',
         /**
+         * @member {String} chartType='MapChart'
+         */
+        chartType: 'MapChart',
+        /**
          * @member {String[]} cls=['covid-line-chart']
          */
         cls: ['covid-world-map'],
         /**
-         * @member {String} chartType='MapChart'
+         * @member {String} dataPath='data.series.values.0'
          */
-        chartType: 'MapChart',
+        dataPath: 'series.values.0',
         /**
          * @member {String} package='am4maps'
          */
@@ -40,10 +44,12 @@ class WorldMapComponent extends AmChartComponent {
                 },
 
                 heatRules: [{
-                    target  : 'mapPolygons.template',
-                    property: 'fill',
+                    max     : '#AAAA00',
+                    maxValue: 10000,
                     min     : '#ffffff',
-                    max     : '#AAAA00'
+                    minValue: 0,
+                    property: 'fill',
+                    target  : 'mapPolygons.template'
                 }],
                 
                 mapPolygons: {
@@ -82,8 +88,9 @@ class WorldMapComponent extends AmChartComponent {
         });
 
         Neo.main.AmCharts.updateData({
-            data: chartData,
-            id  : this.id
+            data    : chartData,
+            dataPath: this.dataPath,
+            id      : this.id
         });
     }
 }

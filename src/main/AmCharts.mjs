@@ -172,6 +172,7 @@ class AmCharts extends Base {
      * @param {Object} data
      * @param {Object} data.data
      * @param {String} data.id
+     * @param {String} data.id
      */
     updateData(data) {
         const me = this;
@@ -179,10 +180,7 @@ class AmCharts extends Base {
         if (!me.scriptsLoaded || !me.hasChart(data.id)) {
             me.dataMap[data.id] = data;
         } else {
-            console.log('update data', data);
-            console.log(me.charts[data.id].series);
-            me.charts[data.id].data = data.data; // chart
-            //me.charts[data.id].series.values[0].data = data.data; // map => todo
+            Neo.ns(data.dataPath, false, me.charts[data.id]).data = data.data;
         }
     }
 }
