@@ -36,7 +36,7 @@ class WorldMapComponent extends AmChartComponent {
                 useGeodata: true,
 
                 mapPolygons: {
-                    tooltipText: '{name}',
+                    tooltipText: '{name}: [bold]{value}[/]',
                     fill       : '#74B266',
 
                     states: {
