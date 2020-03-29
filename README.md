@@ -162,7 +162,7 @@ Here you go: <a href="./BACKERS.md">Sponsors & Backers</a>
 
 ## Contributors are needed!
 Another way to fasten up the neo.mjs development speed is to actively jump in.</br>
-As the shiny "PRs are welcome" badge suggest: open source is intended to be improved by anyone who is up for the challenge.
+As the shiny "PRs welcome" badge suggest: open source is intended to be improved by anyone who is up for the challenge.
 
 You can also write a guide in case you learned something new using neo.mjs or just help getting more eyes on this project.
 
