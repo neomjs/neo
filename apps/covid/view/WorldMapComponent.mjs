@@ -34,6 +34,29 @@ class WorldMapComponent extends AmChartComponent {
                 type      : 'MapPolygonSeries',
                 exclude   : ['AQ'],
                 useGeodata: true,
+
+                mapPolygons: {
+                    tooltipText: '{name}',
+                    fill       : '#74B266',
+
+                    states: {
+                        hover: {
+                            properties: {
+                                fill: '#367B25'
+                            }
+                        }
+                    }
+                },
+
+                data: [{
+                    id   : 'US',
+                    name : 'United States',
+                    value: 100
+                }, {
+                    id   : 'FR',
+                    name : 'France',
+                    value: 50
+                }]
             }]
         }
     }}
