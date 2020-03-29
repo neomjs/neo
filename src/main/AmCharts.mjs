@@ -128,12 +128,7 @@ class AmCharts extends Base {
      * @return {Boolean}
      */
     hasChart(id) {
-        if (!this.charts[id]) {
-            console.warn('main.AmCharts: no chart found for data.id =>', id);
-            return false;
-        }
-
-        return true;
+        return this.charts[id];
     }
 
     /**
