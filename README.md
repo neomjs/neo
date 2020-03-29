@@ -7,12 +7,16 @@
 </p>
 
 # Welcome to neo.mjs! (Beta Version)
-
-<a href="https://neomjs.github.io/pages/">Online Examples (Desktop)</a>
-
 This is a new paradigm. If you want to enter a new era of making better Web Based User Interfaces,
 the following concepts will be addictive.
 
+## Content
+1. <a href="#sponsors">Sponsors</a>
+2. <a href="#covid19-in-numbers-demo-app">COVID19 IN NUMBERS Demo App</a>
+3. <a href="#online-examples">Online Examples</a>
+
+
+## Sponsors
 <h3 align="center">Bronze Sponsors</h3>
 <!--bronze start-->
 <table>
@@ -27,6 +31,24 @@ the following concepts will be addictive.
   </tbody>
 </table>
 <!--bronze end-->
+
+## COVID19 IN NUMBERS Demo App
+Desktop only (Support for mobile devices is on the roadmap)</br>
+<a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/covid/index.html#country=USA">COIN App dist/production</a>
+
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/table.png">
+
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/gallery.png">
+
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/helix.png">
+
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/world.png">
+
+## Online Examples
+You can find a full list of (desktop based) online examples here:</br>
+<a href="https://neomjs.github.io/pages/">Online Examples</a>
+
+You can pick between the 3 modes (development, dist/development, dist/production) for each one.
 
 <table>
     <tr>
