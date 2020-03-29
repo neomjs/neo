@@ -14,7 +14,7 @@ the following concepts will be addictive.
 1. <a href="#sponsors">Sponsors</a>
 2. <a href="#covid19-in-numbers-demo-app">COVID19 IN NUMBERS Demo App</a>
 3. <a href="#online-examples">Online Examples</a>
-4. <a href="#online-examples">What if ...</a> (Short overview of the design concept & design goals)
+4. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
 
 
 ## Sponsors
