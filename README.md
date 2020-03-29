@@ -15,6 +15,7 @@ the following concepts will be addictive.
 2. <a href="#covid19-in-numbers-demo-app">COVID19 IN NUMBERS Demo App</a>
 3. <a href="#online-examples">Online Examples</a>
 4. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
+5. <a href="#online-examples">Want to learn more?</a>
 
 
 ## Sponsors
@@ -51,7 +52,7 @@ You can find a full list of (desktop based) online examples here:</br>
 
 You can pick between the 3 modes (development, dist/development, dist/production) for each one.
 
-## What if ...
+## Short overview of the concept & design goals
 <table>
     <tr>
         <th></th>
@@ -113,7 +114,7 @@ You can pick between the 3 modes (development, dist/development, dist/production
     </tr>
 </table>
 
-### Want to learn more?
+## Want to learn more?
 <a href=".github/CONCEPT.md">neo.mjs Concepts</a>
 
 ### Impossible? Pick with caution!
