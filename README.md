@@ -17,7 +17,8 @@ the following concepts will be addictive.
 4. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
 5. <a href="#want-to-learn-more">Want to learn more?</a>
 6. <a href="#impossible-pick-with-caution">Impossible? Pick with caution!</a>
-7. <a href="#the-webworkers-driven-ui-framework">The webworkers driven UI framework</a>
+7. <a href="#ready-to-get-started">Ready to get started?</a>
+7. <a href="#project-history">Project History</a>
 8. <a href="#join-our-slack-channel-for-questions--feedback">Join our Slack Channel for questions & feedback</a>
 
 
@@ -41,7 +42,7 @@ the following concepts will be addictive.
 The most compelling way to introduce a new framework might simply be to show what you can do with it.
 
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/covid/index.html#country=USA">Live Demo: COIN App dist/production</a></br>
-Desktop only ;support for mobile devices is on the roadmap)
+Desktop only; support for mobile devices is on the roadmap)
 
 <a href="https://www.youtube.com/watch?v=BhSZS6_UlO4">Demo Video on YouTube</a></b>
 Just clicking around randomly, but might give you an idea on you to navigate inside the helix and gallery.
@@ -130,11 +131,16 @@ You can pick between the 3 modes (development, dist/development, dist/production
 ## Impossible? Pick with caution!
 <a href="https://en.wikipedia.org/wiki/Red_pill_and_blue_pill"><img alt="blue or red pill" src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/redorbluepill.png"></a>
 
+Still here? Welcome to neo.mjs - The webworkers driven UI framework
 
-## The webworkers driven UI framework
-Prior to the public release on November 23, 2019, the project was already at <a href=".github/NEOMJS_HISTORY.md">3720 commits</a>.
-
+## Ready to get started?
+There are 3 different ways on how you can get the basics running locally.</br>
 Please take a look at the <a href=".github/GETTING_STARTED.md">Getting Started Guide</a>.
+
+## Project History
+neo.mjs got released to the public on November 23, 2019.</br>
+Before this point, the project was already at 3720 commits.<br>
+Find out more about the start of it inside the <a href=".github/NEOMJS_HISTORY.md">Project History</a> file.
 
 Although neo.mjs is ready to craft beautiful & blazing fast UIs, the current state is just a fraction of a bigger
 picture.<br/>
