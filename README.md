@@ -160,6 +160,8 @@ The benefit of doing so is to get results delivered faster.
 Here you go: <a href="./BACKERS.md">Sponsors & Backers</a>
 
 ## Join our Slack Channel for questions & feedback
+There are some Javascript legends hiding in the shadows and waiting to be discovered.</br>
+Join our community:
 <a href="https://join.slack.com/t/neotericjs/shared_invite/enQtNDk2NjEwMTIxODQ2LWRjNGQ3ZTMzODRmZGM2NDM2NzZmZTMzZmE2YjEwNDM4NDhjZDllNWY2ZDkwOWQ5N2JmZWViYjYzZTg5YjdiMDc">Slack Channel Invite Link</a>
 
 Build with :heart: in Germany.
