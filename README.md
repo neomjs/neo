@@ -18,8 +18,10 @@ the following concepts will be addictive.
 5. <a href="#want-to-learn-more">Want to learn more?</a>
 6. <a href="#impossible-pick-with-caution">Impossible? Pick with caution!</a>
 7. <a href="#ready-to-get-started">Ready to get started?</a>
-7. <a href="#project-history">Project History</a>
-8. <a href="#join-our-slack-channel-for-questions--feedback">Join our Slack Channel for questions & feedback</a>
+8. <a href="#project-history">Project History</a>
+9. <a href="#story-vision">Story & Vision</a>
+9. <a href="#sponsors-are-needed">Sponsors are needed!</a>
+10. <a href="#join-our-slack-channel-for-questions--feedback">Join our Slack Channel for questions & feedback</a>
 
 
 ## Sponsors
@@ -142,11 +144,20 @@ neo.mjs got released to the public on November 23, 2019.</br>
 Before this point, the project was already at 3720 commits.<br>
 Find out more about the start of it inside the <a href=".github/NEOMJS_HISTORY.md">Project History</a> file.
 
-Although neo.mjs is ready to craft beautiful & blazing fast UIs, the current state is just a fraction of a bigger
-picture.<br/>
+## Story & Vision
+Although neo.mjs is ready to craft beautiful & blazing fast UIs,</br>
+the current state is just a fraction of a bigger picture.
+
 Take a look at the <a href=".github/STORY.md">Project Story</a> and <a href=".github/VISION.md">Vision</a>.
 
-In case you like the neo.mjs concepts, please support it: <a href="./BACKERS.md">Sponsors & Backers</a>.
+## Sponsors are needed!
+Is the current code base useful for you or could it be in the future and you like the neo.mjs concepts?</br>
+So far the development was made possible with burning all of my (tobiu's) personal savings.</br>
+
+This is obviously not sustainable, so to enable me to keep pushing like this, please support it.</br>
+The benefit of doing so is to get results delivered faster.
+
+Here you go: <a href="./BACKERS.md">Sponsors & Backers</a>
 
 ## Join our Slack Channel for questions & feedback
 <a href="https://join.slack.com/t/neotericjs/shared_invite/enQtNDk2NjEwMTIxODQ2LWRjNGQ3ZTMzODRmZGM2NDM2NzZmZTMzZmE2YjEwNDM4NDhjZDllNWY2ZDkwOWQ5N2JmZWViYjYzZTg5YjdiMDc">Slack Channel Invite Link</a>
