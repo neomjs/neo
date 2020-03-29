@@ -16,9 +16,9 @@ the following concepts will be addictive.
 3. <a href="#online-examples">Online Examples</a>
 4. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
 5. <a href="#want-to-learn-more">Want to learn more?</a>
-6. <a href="#online-examples">Impossible? Pick with caution!</a>
-7. <a href="#online-examples">Online Examples</a>
-8. <a href="#online-examples">Online Examples</a>
+6. <a href="#impossible-pick-with-caution">Impossible? Pick with caution!</a>
+7. <a href="#the-webworkers-driven-ui-framework">The webworkers driven UI framework</a>
+8. <a href="#join-our-slack-channel-for-questions--feedback">Join our Slack Channel for questions & feedback</a>
 
 
 ## Sponsors
@@ -125,7 +125,6 @@ You can pick between the 3 modes (development, dist/development, dist/production
 
 
 ## The webworkers driven UI framework
-
 Prior to the public release on November 23, 2019, the project was already at <a href=".github/NEOMJS_HISTORY.md">3720 commits</a>.
 
 Please take a look at the <a href=".github/GETTING_STARTED.md">Getting Started Guide</a>.
@@ -136,8 +135,7 @@ Take a look at the <a href=".github/STORY.md">Project Story</a> and <a href=".gi
 
 In case you like the neo.mjs concepts, please support it: <a href="./BACKERS.md">Sponsors & Backers</a>.
 
-## Join our Slack Channel for questions & feedback:
-
+## Join our Slack Channel for questions & feedback
 <a href="https://join.slack.com/t/neotericjs/shared_invite/enQtNDk2NjEwMTIxODQ2LWRjNGQ3ZTMzODRmZGM2NDM2NzZmZTMzZmE2YjEwNDM4NDhjZDllNWY2ZDkwOWQ5N2JmZWViYjYzZTg5YjdiMDc">Slack Channel Invite Link</a>
 
 Build with :heart: in Germany.
