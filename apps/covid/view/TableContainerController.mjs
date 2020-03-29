@@ -167,7 +167,8 @@ class TableContainerController extends ComponentController {
      * @param {Object[]} dataArray
      */
     updateLineChart(dataArray) {
-        const record = this.selectedRecord;
+        const record = this.selectedRecord,
+              chart  = this.getReference('line-chart');
 
         dataArray.forEach(item => {
             item.cases  = item.cases  || null;
@@ -183,8 +184,9 @@ class TableContainerController extends ComponentController {
         }
 
         Neo.main.AmCharts.updateData({
-            data: dataArray,
-            id  : this.getReference('line-chart').id
+            data    : dataArray,
+            dataPath: chart.dataPath,
+            id      : chart.id
         });
     }
 }

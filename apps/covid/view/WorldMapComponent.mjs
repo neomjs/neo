@@ -44,8 +44,8 @@ class WorldMapComponent extends AmChartComponent {
                 },
 
                 heatRules: [{
-                    max     : '#AAAA00',
-                    maxValue: 10000,
+                    max     : '#64b5f6',
+                    maxValue: 7500,
                     min     : '#ffffff',
                     minValue: 0,
                     property: 'fill',

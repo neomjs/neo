@@ -171,7 +171,7 @@ class AmCharts extends Base {
      *
      * @param {Object} data
      * @param {Object} data.data
-     * @param {String} data.id
+     * @param {String} data.dataPath
      * @param {String} data.id
      */
     updateData(data) {
@@ -180,7 +180,13 @@ class AmCharts extends Base {
         if (!me.scriptsLoaded || !me.hasChart(data.id)) {
             me.dataMap[data.id] = data;
         } else {
-            Neo.ns(data.dataPath, false, me.charts[data.id]).data = data.data;
+            const chart = me.charts[data.id];
+
+            if (data.dataPath === '') {
+                chart.data = data.data;
+            } else {
+                Neo.ns(data.dataPath, false, chart).data = data.data;
+            }
         }
     }
 }
