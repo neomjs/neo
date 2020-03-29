@@ -12,6 +12,11 @@ class WorldMapComponent extends AmChartComponent {
          */
         className: 'Covid.view.country.WorldMapComponent',
         /**
+         * @member {String} ntype='covid-world-map'
+         * @private
+         */
+        ntype: 'covid-world-map',
+        /**
          * @member {String} chartType='MapChart'
          */
         chartType: 'MapChart',

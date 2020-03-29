@@ -53,6 +53,12 @@ class MainContainerController extends ComponentController {
          * @member {Object} summaryData=null
          */
         summaryData: null,
+        /**
+         * Flag to only load the map once onHashChange, but always on reload button click
+         * @member {Boolean} worldMapHasData=false
+         * @private
+         */
+        worldMapHasData: false
     }}
 
     /**
@@ -91,6 +97,7 @@ class MainContainerController extends ComponentController {
 
         if (reference === 'worldmap') {
             activeTab.loadData(data);
+            me.worldMapHasData = true;
         }
     }
 
@@ -283,30 +290,39 @@ class MainContainerController extends ComponentController {
             delaySelection = 500;
         }
 
-        if (value.country) {
+        if (activeView.ntype === 'covid-world-map' && me.data) {
+            if (!me.worldMapHasData) {
+                activeView.loadData(me.data);
+                me.worldMapHasData = true;
+            }
+        } else if (value.country) {
             // todo: instead of a timeout this should add a store load listener (single: true)
             setTimeout(() => {
                 if (me.data) {
                     countryField.value = value.country;
 
-                    if (activeView.ntype === 'gallery') {
-                        if (!selectionModel.isSelected(value.country)) {
-                            selectionModel.select(value.country, false);
-                        }
-                    } else if (activeView.ntype === 'helix') {
-                        if (!selectionModel.isSelected(value.country)) {
-                            selectionModel.select(value.country, false);
-                            activeView.onKeyDownSpace(null);
-                        }
-                    }  else if (activeView.ntype === 'table-container') {
-                        id = selectionModel.getRowId(activeView.store.indexOf(value.country));
+                    switch(activeView.ntype) {
+                        case 'gallery':
+                            if (!selectionModel.isSelected(value.country)) {
+                                selectionModel.select(value.country, false);
+                            }
+                            break;
+                        case 'helix':
+                            if (!selectionModel.isSelected(value.country)) {
+                                selectionModel.select(value.country, false);
+                                activeView.onKeyDownSpace(null);
+                            }
+                            break;
+                        case 'table-container':
+                            id = selectionModel.getRowId(activeView.store.indexOf(value.country));
 
-                        me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(value.country)});
+                            me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(value.country)});
 
-                        if (!selectionModel.isSelected(id)) {
-                            selectionModel.select(id);
-                            Neo.main.DomAccess.scrollToTableRow({id: id});
-                        }
+                            if (!selectionModel.isSelected(id)) {
+                                selectionModel.select(id);
+                                Neo.main.DomAccess.scrollToTableRow({id: id});
+                            }
+                            break;
                     }
                 }
             }, delaySelection);
