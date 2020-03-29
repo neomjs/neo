@@ -40,8 +40,11 @@ the following concepts will be addictive.
 ## COVID19 IN NUMBERS Demo App
 The most compelling way to introduce a new framework might simply be to show what you can do with it.
 
-Live Demo: Desktop only (Support for mobile devices is on the roadmap)</br>
-<a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/covid/index.html#country=USA">COIN App dist/production</a>
+<a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/covid/index.html#country=USA">Live Demo: COIN App dist/production</a></br>
+Desktop only ;support for mobile devices is on the roadmap)
+
+<a href="https://www.youtube.com/watch?v=BhSZS6_UlO4">Demo Video on YouTube</a></b>
+Just clicking around randomly, but might give you an idea on you to navigate inside the helix and gallery.
 
 You can find the code of the covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/covid">here</a>.
 
