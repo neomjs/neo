@@ -86,6 +86,7 @@ class AmCharts extends Base {
      * @param {Object} data
      * @param {Object} data.config
      * @param {String} data.id
+     * @param {String} data.package
      * @param {String} data.type='XYChart'
      */
     create(data) {
@@ -94,7 +95,11 @@ class AmCharts extends Base {
         if (!me.scriptsLoaded) {
             me.chartsToCreate.push(data);
         } else {
-            me.charts[data.id] = am4core.createFromConfig(data.config, data.id, am4charts[data.type || 'XYChart']);
+            console.log('create', data);
+            console.log(am4core);
+            console.log(am4geodata_worldLow);
+
+            me.charts[data.id] = am4core.createFromConfig(data.config, data.id, self[data.package][data.type || 'XYChart']);
         }
     }
 
@@ -123,7 +128,8 @@ class AmCharts extends Base {
         DomAccess.loadScript(basePath + 'core.js').then(() => {
             Promise.all([
                 DomAccess.loadScript(basePath + 'charts.js'),
-                DomAccess.loadScript(basePath + 'maps.js')
+                DomAccess.loadScript(basePath + 'maps.js'),
+                DomAccess.loadScript(basePath + 'geodata/worldLow.js')
             ]).then(() => {
                 this.scriptsLoaded = true;
             });

@@ -26,7 +26,12 @@ class AmChart extends Component {
         /**
          * @member {String} chartType='XYChart'
          */
-        chartType: 'XYChart'
+        chartType: 'XYChart',
+        /**
+         * am4charts, am4maps
+         * @member {String} package='am4charts'
+         */
+        package: 'am4charts'
     }}
 
     /**
@@ -43,9 +48,10 @@ class AmChart extends Component {
 
         me.on('mounted', () => {
             Neo.main.AmCharts.create({
-                config: me.chartConfig,
-                id    : me.id,
-                type  : me.chartType
+                config : me.chartConfig,
+                id     : me.id,
+                package: me.package,
+                type   : me.chartType
             }).then(me.onChartMounted);
         });
     }
