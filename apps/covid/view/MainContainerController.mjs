@@ -76,7 +76,8 @@ class MainContainerController extends ComponentController {
     addStoreItems(data) {
         const me           = this,
               countryStore = me.getReference('country-field').store,
-              activeTab    = me.mainTabs[me.activeMainTabIndex];
+              reference    = me.mainTabs[me.activeMainTabIndex],
+              activeTab    = me.getReference(reference);
 
         me.data = data;
 
@@ -84,8 +85,12 @@ class MainContainerController extends ComponentController {
             me.getReference('country-field').store.data = data;
         }
 
-        if (['gallery', 'helix', 'table'].includes(activeTab)) {
-            me.getReference(activeTab).store.data = data;
+        if (['gallery', 'helix', 'table'].includes(reference)) {
+            activeTab.store.data = data;
+        }
+
+        if (reference === 'worldmap') {
+            activeTab.loadData(data);
         }
     }
 

@@ -95,9 +95,7 @@ class AmCharts extends Base {
         if (!me.scriptsLoaded) {
             me.chartsToCreate.push(data);
         } else {
-            console.log('create', data);
-            console.log(am4core);
-            console.log(am4geodata_worldLow);
+            // todo: check if self[data.package] exists, if not load it and call create afterwards
 
             me.charts[data.id] = am4core.createFromConfig(data.config, data.id, self[data.package][data.type || 'XYChart']);
         }

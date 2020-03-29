@@ -67,6 +67,28 @@ class WorldMapComponent extends AmChartComponent {
             }]
         }
     }}
+
+    /**
+     *
+     * @param {Object[]} data
+     */
+    loadData(data) {
+        const chartData = [];
+
+        data.forEach(item => {
+            chartData.push({
+                active   : item.active,
+                cases    : item.cases,
+                critical : item.critical,
+                deaths   : item.deaths,
+                id       : item.countryInfo.iso2,
+                name     : item.country,
+                recovered: item.recovered,
+            });
+        });
+
+        console.log('loadData', chartData);
+    }
 }
 
 Neo.applyClassConfig(WorldMapComponent);
