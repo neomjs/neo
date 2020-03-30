@@ -162,6 +162,12 @@ class HeaderContainer extends Container {
                     iconCls: 'fa fa-sync-alt',
                     style  : {marginLeft: '10px', marginTop: '15px'},
                     text   : 'Reload Data'
+                },{
+                    ntype    : 'label',
+                    height   : 25,
+                    reference: 'last-update',
+                    style    : {marginLeft: '10px', marginTop: '18px'},
+                    text     : ''
                 }]
             }]
         }]

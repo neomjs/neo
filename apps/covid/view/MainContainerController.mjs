@@ -111,15 +111,27 @@ class MainContainerController extends ComponentController {
      * @param {Number} data.updated // timestamp
      */
     applySummaryData(data) {
-        let container = this.getReference('total-stats'),
+        let me        = this,
+            container = me.getReference('total-stats'),
             vdom      = container.vdom;
 
-        this.summaryData = data;
+        me.summaryData = data;
 
         vdom.cn[0].cn[1].html = Util.formatNumber(data.cases);
         vdom.cn[1].cn[1].html = Util.formatNumber(data.active);
         vdom.cn[2].cn[1].html = Util.formatNumber(data.recovered);
         vdom.cn[3].cn[1].html = Util.formatNumber(data.deaths);
+
+        container.vdom = vdom;
+
+        container = me.getReference('last-update');
+        vdom      = container.vdom;
+
+        vdom.html = 'Last Update: ' + new Intl.DateTimeFormat('default', {
+            hour  : 'numeric',
+            minute: 'numeric',
+            second: 'numeric'
+        }).format(new Date(data.updated));
 
         container.vdom = vdom;
     }
