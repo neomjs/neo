@@ -44,15 +44,12 @@ class HistoricalDataTable extends Container {
             }
         }, {
             dataField: 'cases',
-            text     : 'Cases'
-        }, /*{ // not supported in v2 of the api right now
-            dataField: 'recovered',
-            text     : 'Recovered',
-            renderer : value => Util.formatNumber(value, 'green')
-        },*/ {
+            text     : 'Cases',
+            renderer : value => Util.formatNumber(value, '#64B5F6')
+        }, {
             dataField: 'deaths',
             text     : 'Deaths',
-            renderer : value => Util.formatNumber(value, 'red')
+            renderer : value => Util.formatNumber(value, '#fb6767')
         }],
         /**
          * @member {Boolean} createRandomData=false

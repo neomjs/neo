@@ -35,21 +35,6 @@
             }
 
             &.active {
-                background : rgba(100, 181, 246,.5);
-                border-left: 5px solid rgb(100, 181, 246);
-
-                &:after {
-                    background: rgba(100, 181, 246,.5);
-                }
-
-                &:before {
-                    border-bottom: 5px solid rgba(100, 181, 246,.5);
-                    border-right : 5px solid rgba(100, 181, 246,.5);
-                    border-color : rgba(100, 181, 246,.5) transparent transparent rgba(100, 181, 246,.5);
-                }
-            }
-
-            &.cases {
                 background : rgba(187, 187, 187,.5);
                 border-left: 5px solid rgb(187, 187, 187);
 
@@ -61,6 +46,21 @@
                     border-bottom: 5px solid rgba(187, 187, 187,.5);
                     border-right : 5px solid rgba(187, 187, 187,.5);
                     border-color : rgba(187, 187, 187,.5) transparent transparent rgba(187, 187, 187,.5);
+                }
+            }
+
+            &.cases {
+                background : rgba(100, 181, 246,.5);
+                border-left: 5px solid rgb(100, 181, 246);
+
+                &:after {
+                    background: rgba(100, 181, 246,.5);
+                }
+
+                &:before {
+                    border-bottom: 5px solid rgba(100, 181, 246,.5);
+                    border-right : 5px solid rgba(100, 181, 246,.5);
+                    border-color : rgba(100, 181, 246,.5) transparent transparent rgba(100, 181, 246,.5);
                 }
             }
 
@@ -100,15 +100,15 @@
             margin   : 5px 0;
 
             &.active {
-                color: rgb(100, 181, 246);
-            }
-
-            &.cases {
                 color: #bbb;
             }
 
+            &.cases {
+                color: rgb(100, 181, 246);
+            }
+
             &.deaths {
-                color: lighten(rgb(251,103,103), 5%);
+                color: #fb6767; // => lighten(rgb(251,103,103), 5%);
             }
 
             &.recovered {
