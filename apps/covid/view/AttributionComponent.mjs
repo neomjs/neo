@@ -29,7 +29,7 @@ class AttributionComponent extends Component {
             {
                 tag: 'ul',
                 cn: [
-                    {tag: 'li', html: 'The logos were created by <a target="_blank" href="https://www.linkedin.com/in/sebastian-d-036aab6/">Sebastian Driefmeier</a>. Thank you!'},
+                    {tag: 'li', html: 'The logos were created by <a target="_blank" href="https://www.driefmeier.com/">Sebastian Driefmeier</a>. Thank you!'},
                     {tag: 'li', html: ['The logos are based on the image from <a target="_blank" href="https://phil.cdc.gov/Details.aspx?pid=23312">CDC Public Health Image Library (PHIL)</a>,</br>',
                         'so credits to the content providers CDC/ Alissa Eckert, MS; Dan Higgins, MAMS.'].join('')},
                     {tag: 'li', html: 'Data provided by: <a target="_blank" href="https://github.com/NovelCOVID/API">NovelCOVID / API</a>.'},

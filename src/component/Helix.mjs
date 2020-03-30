@@ -7,6 +7,7 @@ import NeoArray                     from '../util/Array.mjs';
 import Store                        from '../data/Store.mjs';
 
 const itemsMounted = Symbol.for('itemsMounted');
+const lockWheel    = Symbol.for('lockWheel'); // we can not use itemsMounted, since it is connected to onSort()
 
 /**
  * @class Neo.component.Helix
@@ -266,6 +267,7 @@ class Helix extends Component {
             domListeners = Neo.clone(me.domListeners, true);
 
         me[itemsMounted] = false;
+        me[lockWheel]    = false;
 
         if (me.imageSource === null) {
             me.imageSource = Neo.config.resourcesPath + 'examples/';
@@ -575,53 +577,67 @@ class Helix extends Component {
             len           = Math.min(me.maxItems, me.store.items.length),
             angle, item, matrixItems, transformStyle, vdomItem, c, s, x, y, z;
 
-        // console.log('createItems', me.id, me.store);
+        if (!me.mounted) {
+            me.on('mounted', () => {
+                setTimeout(() => {
+                    me.createItems(startIndex);
+                }, 100);
+            });
+        } else {
+            // console.log('createItems', me.id, me.store);
 
-        for (; i < len; i++) {
-            item = me.store.items[i];
+            for (; i < len; i++) {
+                item = me.store.items[i];
 
-            angle = -rotationAngle + i * itemAngle;
+                angle = -rotationAngle + i * itemAngle;
 
-            s = Math.sin(angle * Math.PI / 180);
-            c = Math.cos(angle * Math.PI / 180);
+                s = Math.sin(angle * Math.PI / 180);
+                c = Math.cos(angle * Math.PI / 180);
 
-            x = radius * s - 300 + translateX;
-            y = -400 + angle * deltaY + translateY;
-            z = 99800 + radius * c + translateZ;
+                x = radius * s - 300 + translateX;
+                y = -400 + angle * deltaY + translateY;
+                z = 99800 + radius * c + translateZ;
 
-            matrixItems = [
-                [c, 0, -s, 0],
-                [0, 1,  0, 0],
-                [s, 0,  c, 0],
-                [x, y,  z, 1]
-            ];
+                matrixItems = [
+                    [c, 0, -s, 0],
+                    [0, 1,  0, 0],
+                    [s, 0,  c, 0],
+                    [x, y,  z, 1]
+                ];
 
-            if (!matrix) {
-                me.matrix = matrix = Neo.create(Matrix, {
-                    items: matrixItems
-                });
-            } else {
-                matrix.items = matrixItems;
+                if (!matrix) {
+                    me.matrix = matrix = Neo.create(Matrix, {
+                        items: matrixItems
+                    });
+                } else {
+                    matrix.items = matrixItems;
+                }
+
+                transformStyle = matrix.getTransformStyle();
+
+                vdomItem = me.createItem(me.itemTpl, item, i);
+
+                item.rotationAngle  = angle;
+                item.transformStyle = transformStyle;
+
+                vdomItem. style = vdomItem.style || {};
+
+                vdomItem.style.opacity   = me.calculateOpacity(item);
+                vdomItem.style.transform = transformStyle;
+
+                group.cn.push(vdomItem);
             }
 
-            transformStyle = matrix.getTransformStyle();
+            me[lockWheel] = false;
 
-            vdomItem = me.createItem(me.itemTpl, item, i);
+            me.promiseVdomUpdate(vdom).then(() => {
+                me[itemsMounted] = true;
 
-            item.rotationAngle  = angle;
-            item.transformStyle = transformStyle;
-
-            vdomItem. style = vdomItem.style || {};
-
-            vdomItem.style.opacity   = me.calculateOpacity(item);
-            vdomItem.style.transform = transformStyle;
-
-            group.cn.push(vdomItem);
+                setTimeout(() => {
+                    me[lockWheel] = true;
+                }, 500);
+            });
         }
-
-        me.promiseVdomUpdate(vdom).then(() => {
-            me[itemsMounted] = true;
-        });
     }
 
     /**
@@ -811,9 +827,7 @@ class Helix extends Component {
             url      : Neo.config.isExperimental ? me.url : me.url
         }).then(data => {
             me.store.items = data.json.data;
-            setTimeout(() => { // todo: rendering check
-                me.createItems();
-            }, 100);
+            me.createItems();
         }).catch(err => {
             console.log('Error for Neo.Xhr.request', err, me.id);
         });
@@ -867,8 +881,7 @@ class Helix extends Component {
             rotationAngle = me.rotationAngle,
             translateZ    = me.translateZ;
 
-
-        if (me.mouseWheelEnabled) {
+        if (me.mouseWheelEnabled && me[lockWheel]) {
             me._rotationAngle = rotationAngle + (deltaX * me.mouseWheelDeltaX); // silent update
             me._translateZ    = translateZ    + (deltaY * me.mouseWheelDeltaY); // silent update
 
@@ -898,7 +911,7 @@ class Helix extends Component {
     onSort() {
         const me = this;
 
-        if (me[itemsMounted] === true) {
+        if (me[itemsMounted] === true) {console.log('sort');
             me.applyItemTransitions(me.sortItems, 1000);
         }
     }

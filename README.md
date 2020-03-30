@@ -7,12 +7,25 @@
 </p>
 
 # Welcome to neo.mjs! (Beta Version)
-
-<a href="https://neomjs.github.io/pages/">Online Examples (Desktop)</a>
-
 This is a new paradigm. If you want to enter a new era of making better Web Based User Interfaces,
 the following concepts will be addictive.
 
+## Content
+1. <a href="#sponsors">Sponsors</a>
+2. <a href="#covid19-in-numbers-demo-app">COVID19 IN NUMBERS Demo App</a>
+3. <a href="#online-examples">Online Examples</a>
+4. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
+5. <a href="#want-to-learn-more">Want to learn more?</a>
+6. <a href="#impossible-pick-with-caution">Impossible? Pick with caution!</a>
+7. <a href="#ready-to-get-started">Ready to get started?</a>
+8. <a href="#project-history">Project History</a>
+9. <a href="#story--vision">Story & Vision</a>
+10. <a href="#sponsors-are-needed">Sponsors are needed!</a>
+11. <a href="#contributors-are-needed">Contributors are needed!</a>
+12. <a href="#slack-channel-for-questions--feedback">Slack Channel for questions & feedback</a>
+
+
+## Sponsors
 <h3 align="center">Bronze Sponsors</h3>
 <!--bronze start-->
 <table>
@@ -23,11 +36,42 @@ the following concepts will be addictive.
           <img width="150px" src="https://raw.githubusercontent.com/neomjs/pages/master/sponsors/bronze/stream4tech.png">
         </a>
       </td>
+      <td align="center" valign="middle">
+        <a href="https://github.com/sponsors/tobiu">
+          <img width="150px" src="https://raw.githubusercontent.com/neomjs/pages/master/sponsors/sponsor_you.jpg">
+        </a>
+      </td>
     </tr>
   </tbody>
 </table>
 <!--bronze end-->
 
+## COVID19 IN NUMBERS Demo App
+The most compelling way to introduce a new framework might simply be to show what you can do with it.
+
+<a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/covid/index.html#country=USA">Live Demo: COIN App dist/production</a></br>
+Desktop only; support for mobile devices is on the roadmap)
+
+<a href="https://www.youtube.com/watch?v=BhSZS6_UlO4">Demo Video on YouTube</a></br>
+Just clicking around randomly, but might give you an idea on you to navigate inside the helix and gallery.
+
+You can find the code of the covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/covid">here</a>.
+
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/table.png">
+
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/gallery.png">
+
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/helix.png">
+
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/world.png">
+
+## Online Examples
+You can find a full list of (desktop based) online examples here:</br>
+<a href="https://neomjs.github.io/pages/">Online Examples</a>
+
+You can pick between the 3 modes (development, dist/development, dist/production) for each one.
+
+## Short overview of the concept & design goals
 <table>
     <tr>
         <th></th>
@@ -89,27 +133,49 @@ the following concepts will be addictive.
     </tr>
 </table>
 
-### Want to learn more?
+## Want to learn more?
 <a href=".github/CONCEPT.md">neo.mjs Concepts</a>
 
-### Impossible? Pick with caution!
+## Impossible? Pick with caution!
 <a href="https://en.wikipedia.org/wiki/Red_pill_and_blue_pill"><img alt="blue or red pill" src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/redorbluepill.png"></a>
 
+Still here? Welcome to neo.mjs - The webworkers driven UI framework
 
-### The webworkers driven UI framework
-
-Prior to the public release on November 23, 2019, the project was already at <a href=".github/NEOMJS_HISTORY.md">3720 commits</a>.
-
+## Ready to get started?
+There are 3 different ways on how you can get the basics running locally.</br>
 Please take a look at the <a href=".github/GETTING_STARTED.md">Getting Started Guide</a>.
 
-Although neo.mjs is ready to craft beautiful & blazing fast UIs, the current state is just a fraction of a bigger
-picture.<br/>
+## Project History
+neo.mjs got released to the public on November 23, 2019.</br>
+Before this point, the project was already at 3720 commits.<br>
+Find out more about the start of it inside the <a href=".github/NEOMJS_HISTORY.md">Project History</a> file.
+
+## Story & Vision
+Although neo.mjs is ready to craft beautiful & blazing fast UIs,</br>
+the current state is just a fraction of a bigger picture.
+
 Take a look at the <a href=".github/STORY.md">Project Story</a> and <a href=".github/VISION.md">Vision</a>.
 
-In case you like the neo.mjs concepts, please support it: <a href="./BACKERS.md">Sponsors & Backers</a>.
+## Sponsors are needed!
+Is the current code base useful for you or could it be in the future and you like the neo.mjs concepts?</br>
+So far the development was made possible with burning all of my (tobiu's) personal savings.</br>
 
-### Join our Slack Channel for questions & feedback:
+This is obviously not sustainable, so to enable me to keep pushing like this, please support it.</br>
+The benefit of doing so is to get results delivered faster.
 
+Here you go: <a href="./BACKERS.md">Sponsors & Backers</a>
+
+## Contributors are needed!
+Another way to fasten up the neo.mjs development speed is to actively jump in.</br>
+As the shiny "PRs welcome" badge suggest: open source is intended to be improved by anyone who is up for the challenge.
+
+You can also write a guide in case you learned something new using neo.mjs or just help getting more eyes on this project.
+
+Either way, here are more infos: <a href="./CONTRIBUTING.md">Contributing</a>
+
+## Slack Channel for questions & feedback
+There are some Javascript legends hiding in the shadows and waiting to be discovered.</br>
+Join our community:
 <a href="https://join.slack.com/t/neotericjs/shared_invite/enQtNDk2NjEwMTIxODQ2LWRjNGQ3ZTMzODRmZGM2NDM2NzZmZTMzZmE2YjEwNDM4NDhjZDllNWY2ZDkwOWQ5N2JmZWViYjYzZTg5YjdiMDc">Slack Channel Invite Link</a>
 
 Build with :heart: in Germany.
