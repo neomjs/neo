@@ -75,6 +75,7 @@ class TableContainerController extends ComponentController {
             }
 
             Object.entries(map).forEach(([key, value]) => {
+                value.active = value.cases - value.deaths - value.recovered;
                 dataArray.push(value);
             });
 
@@ -114,8 +115,8 @@ class TableContainerController extends ComponentController {
     /**
      * {Object} data
      */
-    on420pxButtonClick(data) {
-        this.getReference('controls-panel').width = 420;
+    on520pxButtonClick(data) {
+        this.getReference('controls-panel').width = 520;
     }
 
     /**
@@ -171,15 +172,20 @@ class TableContainerController extends ComponentController {
               chart  = this.getReference('line-chart');
 
         dataArray.forEach(item => {
-            item.cases  = item.cases  || null;
-            item.deaths = item.deaths || null;
+            item.active    = item.active    || null;
+            item.cases     = item.cases     || null;
+            item.deaths    = item.deaths    || null;
+            item.recovered = item.recovered || null;
         });
 
         if (record) {
             dataArray.push({
-                cases : record.cases || null,
-                date  : new Date().getTime(),
-                deaths: record.deaths || null
+                date: new Date().getTime(),
+
+                active   : record.active    || null,
+                cases    : record.cases     || null,
+                deaths   : record.deaths    || null,
+                recovered: record.recovered || null
             });
         }
 

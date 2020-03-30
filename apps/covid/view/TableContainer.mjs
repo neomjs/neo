@@ -27,10 +27,10 @@ class TableContainer extends Container {
          */
         controller: TableContainerController,
         /**
-         * @member {Number} historyPanelWidth=420
+         * @member {Number} historyPanelWidth=520
          * @private
          */
-        historyPanelWidth: 420,
+        historyPanelWidth: 520,
         /**
          * @member {Neo.table.Container|null} table=null
          */
@@ -76,8 +76,8 @@ class TableContainer extends Container {
                     text     : 'Historical Data'
                 }, '->', {
                     ntype  : 'button',
-                    handler: 'on420pxButtonClick',
-                    text   : '420px'
+                    handler: 'on520pxButtonClick',
+                    text   : '520px'
                 }, {
                     ntype  : 'button',
                     handler: 'on800pxButtonClick',

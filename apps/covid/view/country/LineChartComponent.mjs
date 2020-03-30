@@ -67,18 +67,34 @@ class LineChartComponent extends AmChartComponent {
 
             series: [{
                 type       : 'LineSeries',
-                dataFields : {dateX : 'date', valueY: 'cases'},
+                dataFields : {dateX : 'date', valueY: 'active'},
                 fill       : '#64b5f6',
-                name       : 'Cases',
+                name       : 'Active',
                 stroke     : '#64b5f6',
                 strokeWidth: 3,
                 tooltipText: '{name}: [bold]{valueY}[/]'
             }, {
                 type       : 'LineSeries',
+                dataFields : {dateX : 'date', valueY: 'cases'},
+                fill       : '#bbb',
+                name       : 'Cases',
+                stroke     : '#bbb',
+                strokeWidth: 3,
+                tooltipText: '{name}: [bold]{valueY}[/]'
+            }, {
+                type       : 'LineSeries',
                 dataFields : {dateX : 'date', valueY: 'deaths'},
-                fill       : '#e86c6c',
+                fill       : '#fb6767',
                 name       : 'Deaths',
-                stroke     : '#e86c6c',
+                stroke     : '#fb6767',
+                strokeWidth: 3,
+                tooltipText: '{name}: [bold]{valueY}[/]'
+            }, {
+                type       : 'LineSeries',
+                dataFields : {dateX : 'date', valueY: 'recovered'},
+                fill       : '#28ca68',
+                name       : 'Recovered',
+                stroke     : '#28ca68',
                 strokeWidth: 3,
                 tooltipText: '{name}: [bold]{valueY}[/]'
             }]

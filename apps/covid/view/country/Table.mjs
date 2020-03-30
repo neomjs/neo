@@ -44,14 +44,14 @@ class Table extends Container {
             }
         }, {
             dataField: 'cases',
-            text     : 'Cases',
-            renderer : value => Util.formatNumber(value, '#64B5F6')
+            text     : 'Cases'
         }, {
             dataField: 'casesPerOneMillion',
             text     : 'Cases / 1M'
         }, {
             dataField: 'active',
-            text     : 'Active'
+            text     : 'Active',
+            renderer : value => Util.formatNumber(value, '#64B5F6')
         },  {
             dataField: 'recovered',
             text     : 'Recovered',
