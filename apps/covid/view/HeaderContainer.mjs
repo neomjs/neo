@@ -155,7 +155,7 @@ class HeaderContainer extends Container {
                         vdom : {
                             cn: [
                                 {html: 'Cases'},
-                                {html: 1000, style:{textAlign:'right'}}
+                                {html: 1000, style:{color: '#bbb', textAlign:'right'}}
                             ]
                         }
                     }, {
@@ -165,7 +165,7 @@ class HeaderContainer extends Container {
                         vdom : {
                             cn: [
                                 {html: 'Active'},
-                                {html: 1000, style:{textAlign:'right'}}
+                                {html: 1000, style:{color: '#64b5f6', textAlign:'right'}}
                             ]
                         }
                     }, {
@@ -175,7 +175,7 @@ class HeaderContainer extends Container {
                         vdom : {
                             cn: [
                                 {html: 'Recovered'},
-                                {html: 1000, style:{textAlign:'right'}}
+                                {html: 1000, style:{color: 'green', textAlign:'right'}}
                             ]
                         }
                     }, {
@@ -185,7 +185,7 @@ class HeaderContainer extends Container {
                         vdom : {
                             cn: [
                                 {html: 'Deaths'},
-                                {html: 1000, style:{textAlign:'right'}}
+                                {html: 1000, style:{color: 'red', textAlign:'right'}}
                             ]
                         }
                     }]
