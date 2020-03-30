@@ -111,17 +111,29 @@ class MainContainerController extends ComponentController {
      * @param {Number} data.updated // timestamp
      */
     applySummaryData(data) {
-        let summaryTable = this.getReference('summary-table'),
-            vdom         = summaryTable.vdom;
+        let me        = this,
+            container = me.getReference('total-stats'),
+            vdom      = container.vdom;
 
-        this.summaryData = data;
+        me.summaryData = data;
 
         vdom.cn[0].cn[1].html = Util.formatNumber(data.cases);
         vdom.cn[1].cn[1].html = Util.formatNumber(data.active);
-        vdom.cn[2].cn[1].html = Util.formatNumber(data.recovered, 'green');
-        vdom.cn[3].cn[1].html = Util.formatNumber(data.deaths,    'red');
+        vdom.cn[2].cn[1].html = Util.formatNumber(data.recovered);
+        vdom.cn[3].cn[1].html = Util.formatNumber(data.deaths);
 
-        summaryTable.vdom = vdom;
+        container.vdom = vdom;
+
+        container = me.getReference('last-update');
+        vdom      = container.vdom;
+
+        vdom.html = 'Last Update: ' + new Intl.DateTimeFormat('default', {
+            hour  : 'numeric',
+            minute: 'numeric',
+            second: 'numeric'
+        }).format(new Date(data.updated));
+
+        container.vdom = vdom;
     }
 
     /**
@@ -232,24 +244,7 @@ class MainContainerController extends ComponentController {
 
         setTimeout(() => {
             if (!me.summaryData) {
-                const table = me.getReference('table'),
-                      vdom = table.vdom;
-
-                vdom.cn[0].cn[1].cn.push({
-                    tag  : 'div',
-                    cls  : ['neo-box-label', 'neo-label'],
-                    html : [
-                        'Summary data did not arrive after 2s.</br>',
-                        'Please double-check if the API is offline:</br></br>',
-                        '<a target="_blank" href="https://corona.lmao.ninja/all">NovelCOVID/API all endpoint</a></br></br>',
-                        'and if so please try again later.'
-                    ].join(''),
-                    style: {
-                        margin: '20px'
-                    }
-                });
-
-                table.vdom = vdom;
+                me.onLoadSummaryDataFail();
             }
         }, 2000);
     }
@@ -327,6 +322,30 @@ class MainContainerController extends ComponentController {
                 }
             }, delaySelection);
         }
+    }
+
+    /**
+     *
+     */
+    onLoadSummaryDataFail() {
+        const table = this.getReference('table'),
+              vdom = table.vdom;
+
+        vdom.cn[0].cn[1].cn.push({
+            tag  : 'div',
+            cls  : ['neo-box-label', 'neo-label'],
+            html : [
+                'Summary data did not arrive after 2s.</br>',
+                'Please double-check if the API is offline:</br></br>',
+                '<a target="_blank" href="https://corona.lmao.ninja/all">NovelCOVID/API all endpoint</a></br></br>',
+                'and if so please try again later.'
+            ].join(''),
+            style: {
+                margin: '20px'
+            }
+        });
+
+        table.vdom = vdom;
     }
 
     /**

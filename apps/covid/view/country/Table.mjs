@@ -44,7 +44,8 @@ class Table extends Container {
             }
         }, {
             dataField: 'cases',
-            text     : 'Cases'
+            text     : 'Cases',
+            renderer : value => Util.formatNumber(value, '#64B5F6')
         }, {
             dataField: 'casesPerOneMillion',
             text     : 'Cases / 1M'
@@ -54,7 +55,7 @@ class Table extends Container {
         },  {
             dataField: 'recovered',
             text     : 'Recovered',
-            renderer : value => Util.formatNumber(value, 'green')
+            renderer : value => Util.formatNumber(value, '#28ca68')
         }, {
             dataField: 'critical',
             text     : 'Critical',
@@ -62,14 +63,14 @@ class Table extends Container {
         }, {
             dataField: 'deaths',
             text     : 'Deaths',
-            renderer : value => Util.formatNumber(value, 'red')
+            renderer : value => Util.formatNumber(value, '#fb6767')
         }, {
             dataField: 'todayCases',
             text     : 'Cases today'
         }, {
             dataField: 'todayDeaths',
             text     : 'Deaths today',
-            renderer : value => Util.formatNumber(value, 'red')
+            renderer : value => Util.formatNumber(value, '#fb6767')
         }],
         /**
          * @member {Boolean} createRandomData=false
