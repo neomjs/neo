@@ -145,17 +145,12 @@ class HeaderContainer extends Container {
 
                     itemDefaults: {
                         ntype: 'component',
-                        cls  : 'covid-numberbox',
-                        width: 150
+                        cls  : ['covid-numberbox']
                     },
 
                     items: [{
                         style: {
-                            border      : '1px solid #bbb',
-                            borderRadius: '5px',
-                            marginBottom: '10px',
-                            marginRight : '10px',
-                            padding     : '5px'
+                            borderColor: '#bbb'
                         },
                         vdom : {
                             cn: [
@@ -165,11 +160,7 @@ class HeaderContainer extends Container {
                         }
                     }, {
                         style: {
-                            border      : '1px solid #64b5f6',
-                            borderRadius: '5px',
-                            marginBottom: '10px',
-                            marginRight : '10px',
-                            padding     : '5px'
+                            borderColor: '#64b5f6'
                         },
                         vdom : {
                             cn: [
@@ -179,11 +170,7 @@ class HeaderContainer extends Container {
                         }
                     }, {
                         style: {
-                            border      : '1px solid green',
-                            borderRadius: '5px',
-                            marginBottom: '10px',
-                            marginRight : '10px',
-                            padding     : '5px'
+                            borderColor: 'green'
                         },
                         vdom : {
                             cn: [
@@ -193,11 +180,7 @@ class HeaderContainer extends Container {
                         }
                     }, {
                         style: {
-                            border      : '1px solid red',
-                            borderRadius: '5px',
-                            marginBottom: '10px',
-                            marginRight : '10px',
-                            padding     : '5px'
+                            borderColor: 'red'
                         },
                         vdom : {
                             cn: [
