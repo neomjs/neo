@@ -232,24 +232,7 @@ class MainContainerController extends ComponentController {
 
         setTimeout(() => {
             if (!me.summaryData) {
-                const table = me.getReference('table'),
-                      vdom = table.vdom;
-
-                vdom.cn[0].cn[1].cn.push({
-                    tag  : 'div',
-                    cls  : ['neo-box-label', 'neo-label'],
-                    html : [
-                        'Summary data did not arrive after 2s.</br>',
-                        'Please double-check if the API is offline:</br></br>',
-                        '<a target="_blank" href="https://corona.lmao.ninja/all">NovelCOVID/API all endpoint</a></br></br>',
-                        'and if so please try again later.'
-                    ].join(''),
-                    style: {
-                        margin: '20px'
-                    }
-                });
-
-                table.vdom = vdom;
+                me.onLoadSummaryDataFail();
             }
         }, 2000);
     }
@@ -327,6 +310,30 @@ class MainContainerController extends ComponentController {
                 }
             }, delaySelection);
         }
+    }
+
+    /**
+     *
+     */
+    onLoadSummaryDataFail() {
+        const table = this.getReference('table'),
+              vdom = table.vdom;
+
+        vdom.cn[0].cn[1].cn.push({
+            tag  : 'div',
+            cls  : ['neo-box-label', 'neo-label'],
+            html : [
+                'Summary data did not arrive after 2s.</br>',
+                'Please double-check if the API is offline:</br></br>',
+                '<a target="_blank" href="https://corona.lmao.ninja/all">NovelCOVID/API all endpoint</a></br></br>',
+                'and if so please try again later.'
+            ].join(''),
+            style: {
+                margin: '20px'
+            }
+        });
+
+        table.vdom = vdom;
     }
 
     /**
