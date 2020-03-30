@@ -35,6 +35,16 @@ class AmCharts extends Base {
          */
         dataMap: {},
         /**
+         * @member {String} downLoadPath='https//www.amcharts.com/lib/4/'
+         * @private
+         */
+        downLoadPath: 'https://www.amcharts.com/lib/4/',
+        /**
+         * @member {String} fallbackPath='https://neomjs.github.io/pages/resources/amCharts/'
+         * @private
+         */
+        fallbackPath: 'https://neomjs.github.io/pages/resources/amCharts/',
+        /**
          * @member {Boolean} scriptsLoaded_=true
          * @private
          */
@@ -136,17 +146,21 @@ class AmCharts extends Base {
      * core.js has to arrive first or the other scripts will cause JS errors since they rely on it
      * => fetching the other files after core.js is loaded
      */
-    insertAmChartsScripts() {
-        const basePath = '//www.amcharts.com/lib/4/';
+    insertAmChartsScripts(useFallback=false) {
+        const me       = this,
+              basePath = useFallback ? me.fallbackPath : me.downLoadPath;
 
         DomAccess.loadScript(basePath + 'core.js').then(() => {
             Promise.all([
-                DomAccess.loadScript(basePath + 'charts.js'),
+                DomAccess.loadScript(basePath+ 'charts.js'),
                 DomAccess.loadScript(basePath + 'maps.js'),
                 DomAccess.loadScript(basePath + 'geodata/worldLow.js')
             ]).then(() => {
-                this.scriptsLoaded = true;
+                me.scriptsLoaded = true;
             });
+        }).catch(e => {
+            console.log('Download from amcharts.com failed, switching to fallback', e);
+            me.insertAmChartsScripts(true);
         });
     }
 
