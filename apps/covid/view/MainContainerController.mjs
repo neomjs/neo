@@ -116,12 +116,10 @@ class MainContainerController extends ComponentController {
 
         this.summaryData = data;
 
-        console.log(vdom.cn[0]);
-
         vdom.cn[0].cn[1].html = Util.formatNumber(data.cases);
         vdom.cn[1].cn[1].html = Util.formatNumber(data.active);
-        vdom.cn[2].cn[1].html = Util.formatNumber(data.recovered, 'green');
-        vdom.cn[3].cn[1].html = Util.formatNumber(data.deaths,    'red');
+        vdom.cn[2].cn[1].html = Util.formatNumber(data.recovered);
+        vdom.cn[3].cn[1].html = Util.formatNumber(data.deaths);
 
         container.vdom = vdom;
     }

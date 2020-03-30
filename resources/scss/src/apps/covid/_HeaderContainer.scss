@@ -1,12 +1,119 @@
 .covid-header-container {
     .covid-numberbox {
-        background-color: #3c3f41;
-        border-radius   : 3px;
-        border-style    : solid;
-        border-width    : 1px;
-        margin-bottom   : 10px;
-        margin-right    : 10px;
-        padding         : 5px;
-        width           : 150px;
+        margin-right: 20px;
+        width       : 150px;
+
+        .covid-numberbox-title {
+            color      : #fff;
+            font-size  : 16px;
+            font-weight: 700;
+            line-height: 16px;
+            margin     : 10px 10px 0 0;
+            padding    : 5px 0 5px 10px;
+            position   : relative;
+            text-align : left;
+            text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
+
+            &:after {
+                bottom  : 10px;
+                content : '';
+                position: absolute;
+                right   : -10px;
+                top     : 0;
+                width   : 10px;
+            }
+
+            &:before {
+                border-style: solid;
+                border-width: 5px;
+                bottom      : 0;
+                content     : '';
+                height      : 0;
+                position    : absolute;
+                right       : -10px;
+                width       : 0;
+            }
+
+            &.active {
+                background : rgba(100, 181, 246,.5);
+                border-left: 5px solid rgb(100, 181, 246);
+
+                &:after {
+                    background: rgba(100, 181, 246,.5);
+                }
+
+                &:before {
+                    border-bottom: 5px solid rgba(100, 181, 246,.5);
+                    border-right : 5px solid rgba(100, 181, 246,.5);
+                    border-color : rgba(100, 181, 246,.5) transparent transparent rgba(100, 181, 246,.5);
+                }
+            }
+
+            &.cases {
+                background : rgba(187, 187, 187,.5);
+                border-left: 5px solid rgb(187, 187, 187);
+
+                &:after {
+                    background: rgba(187, 187, 187,.5);
+                }
+
+                &:before {
+                    border-bottom: 5px solid rgba(187, 187, 187,.5);
+                    border-right : 5px solid rgba(187, 187, 187,.5);
+                    border-color : rgba(187, 187, 187,.5) transparent transparent rgba(187, 187, 187,.5);
+                }
+            }
+
+            &.deaths {
+                background : rgba(251,103,103,.5);
+                border-left: 5px solid rgb(251,103,103);
+
+                &:after {
+                    background: rgba(251,103,103,.5);
+                }
+
+                &:before {
+                    border-bottom: 5px solid rgba(251,103,103,.5);
+                    border-right : 5px solid rgba(251,103,103,.5);
+                    border-color : rgba(251,103,103,.5) transparent transparent rgba(251,103,103,.5);
+                }
+            }
+
+            &.recovered {
+                background : rgba(40,218,111,.5);
+                border-left: 5px solid rgb(40,218,111);
+
+                &:after {
+                    background: rgba(40,218,111,.5);
+                }
+
+                &:before {
+                    border-bottom: 5px solid rgba(40,218,111,.5);
+                    border-right : 5px solid rgba(40,218,111,.5);
+                    border-color : rgba(40,218,111,.5) transparent transparent rgba(40,218,111,.5);
+                }
+            }
+        }
+
+        .covid-numberbox-number {
+            font-size: 20px;
+            margin   : 5px 0;
+
+            &.active {
+                color: rgb(100, 181, 246);
+            }
+
+            &.cases {
+                color: #bbb;
+            }
+
+            &.deaths {
+                color: lighten(rgb(251,103,103), 5%);
+            }
+
+            &.recovered {
+                color: #28ca68;
+            }
+        }
     }
 }

@@ -43,6 +43,79 @@ class HeaderContainer extends Container {
             ntype : 'container',
             layout: {ntype: 'vbox', align: 'stretch'},
             items : [{
+                ntype    : 'container',
+                height   : 65,
+                layout   : {ntype: 'hbox'},
+                reference: 'total-stats',
+
+                itemDefaults: {
+                    ntype: 'component'
+                },
+
+                items: [{
+                    cls : ['covid-numberbox'],
+                    vdom: {
+                        cn: [
+                            {cls: ['covid-numberbox-title',  'cases'],  html:'Cases'},
+                            {cls: ['covid-numberbox-number', 'cases']}
+                        ]
+                    }
+                }, {
+                    cls : ['covid-numberbox'],
+                    vdom: {
+                        cn: [
+                            {cls: ['covid-numberbox-title',  'active'], html:'Active'},
+                            {cls: ['covid-numberbox-number', 'active']}
+                        ]
+                    }
+                }, {
+                    cls : ['covid-numberbox'],
+                    vdom: {
+                        cn: [
+                            {cls: ['covid-numberbox-title',  'recovered'], html:'Recovered'},
+                            {cls: ['covid-numberbox-number', 'recovered']}
+                        ]
+                    }
+                }, {
+                    cls : ['covid-numberbox'],
+                    vdom: {
+                        cn: [
+                            {cls: ['covid-numberbox-title',  'deaths'], html:'Deaths'},
+                            {cls: ['covid-numberbox-number', 'deaths']}
+                        ]
+                    }
+                }, {
+                    flex: 1
+                }, {
+                    style: {padding: '10px'},
+                    width: 110,
+                    vdom : {
+                        cn: [{
+                            tag              : 'a',
+                            'aria-label'     : 'Star neomjs/neo on GitHub',
+                            cls              : ['github-button'],
+                            'data-show-count': 'true',
+                            'data-size'      : 'large',
+                            href             : 'https://github.com/neomjs/neo',
+                            html             : 'Star'
+                        }]
+                    }
+                }, {
+                    style: {padding: '10px'},
+                    width: 105,
+                    vdom : {
+                        cn: [{
+                            tag              : 'a',
+                            'aria-label'     : 'Sponsor @tobiu on GitHub',
+                            cls              : ['github-button'],
+                            'data-icon'      : 'octicon-heart',
+                            'data-size'      : 'large',
+                            href             : 'https://github.com/sponsors/tobiu',
+                            html             : 'Sponsor'
+                        }]
+                    }
+                }]
+            }, {
                 ntype: 'container',
                 layout: {ntype: 'hbox'},
 
@@ -89,87 +162,6 @@ class HeaderContainer extends Container {
                     iconCls: 'fa fa-sync-alt',
                     style  : {marginLeft: '10px', marginTop: '15px'},
                     text   : 'Reload Data'
-                }, {
-                    flex: 1
-                }, {
-                    style: {padding: '10px'},
-                    width: 110,
-                    vdom : {
-                        cn: [{
-                            tag              : 'a',
-                            'aria-label'     : 'Star neomjs/neo on GitHub',
-                            cls              : ['github-button'],
-                            'data-show-count': 'true',
-                            'data-size'      : 'large',
-                            href             : 'https://github.com/neomjs/neo',
-                            html             : 'Star'
-                        }]
-                    }
-                }, {
-                    style: {padding: '10px'},
-                    width: 105,
-                    vdom : {
-                        cn: [{
-                            tag              : 'a',
-                            'aria-label'     : 'Sponsor @tobiu on GitHub',
-                            cls              : ['github-button'],
-                            'data-icon'      : 'octicon-heart',
-                            'data-size'      : 'large',
-                            href             : 'https://github.com/sponsors/tobiu',
-                            html             : 'Sponsor'
-                        }]
-                    }
-                }]
-            }, {
-                ntype    : 'container',
-                layout   : {ntype: 'hbox'},
-                reference: 'total-stats',
-
-                itemDefaults: {
-                    ntype: 'component',
-                    cls  : ['covid-numberbox']
-                },
-
-                items: [{
-                    style: {
-                        borderColor: '#bbb'
-                    },
-                    vdom : {
-                        cn: [
-                            {html: 'Cases'},
-                            {style:{color: '#bbb', textAlign:'right'}}
-                        ]
-                    }
-                }, {
-                    style: {
-                        borderColor: '#64b5f6'
-                    },
-                    vdom : {
-                        cn: [
-                            {html: 'Active'},
-                            {style:{color: '#64b5f6', textAlign:'right'}}
-                        ]
-                    }
-                }, {
-                    style: {
-                        borderColor: 'green'
-                    },
-                    vdom : {
-                        cn: [
-                            {html: 'Recovered'},
-                            {style:{color: 'green', textAlign:'right'}}
-                        ]
-                    }
-                }, {
-                    style: {
-                        borderColor: 'red'
-                    },
-                    vdom : {
-                        cn: [
-                            {html: 'Deaths'},
-                            {style:{color: 'red', textAlign:'right'}}
-                        ]
-                    }
                 }]
             }]
         }]
