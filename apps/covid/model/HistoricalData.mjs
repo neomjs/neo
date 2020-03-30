@@ -9,6 +9,9 @@ class HistoricalData extends Model {
         className: 'Covid.model.HistoricalData',
 
         fields: [{
+            name: 'active', // does not exist in the api => cases - deaths - recovered
+            type: 'int'
+        }, {
             name: 'cases',
             type: 'int'
         }, {
