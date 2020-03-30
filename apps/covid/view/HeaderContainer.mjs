@@ -90,22 +90,6 @@ class HeaderContainer extends Container {
                     style  : {marginLeft: '10px', marginTop: '15px'},
                     text   : 'Reload Data'
                 }, {
-                    reference: 'summary-table',
-                    style: {
-                        fontSize  : '13px',
-                        margin    : '10px',
-                        marginLeft:'20px'
-                    },
-                    vdom: {
-                        tag: 'table',
-                        cn : [
-                            {tag: 'tr', cn : [{tag: 'td', html: 'Cases'},     {tag: 'td', cls: ['neo-align-right']}]},
-                            {tag: 'tr', cn : [{tag: 'td', html: 'Active'},    {tag: 'td', cls: ['neo-align-right']}]},
-                            {tag: 'tr', cn : [{tag: 'td', html: 'Recovered'}, {tag: 'td', cls: ['neo-align-right']}]},
-                            {tag: 'tr', cn : [{tag: 'td', html: 'Deaths'},    {tag: 'td', cls: ['neo-align-right']}]}
-                        ]
-                    }
-                }, {
                     flex: 1
                 }, {
                     style: {padding: '10px'},
@@ -137,58 +121,55 @@ class HeaderContainer extends Container {
                     }
                 }]
             }, {
-                ntype : 'container',
-                layout: {ntype: 'vbox', align: 'stretch'},
-                items : [{
-                    ntype : 'container',
-                    layout: {ntype: 'hbox'},
+                ntype    : 'container',
+                layout   : {ntype: 'hbox'},
+                reference: 'total-stats',
 
-                    itemDefaults: {
-                        ntype: 'component',
-                        cls  : ['covid-numberbox']
+                itemDefaults: {
+                    ntype: 'component',
+                    cls  : ['covid-numberbox']
+                },
+
+                items: [{
+                    style: {
+                        borderColor: '#bbb'
                     },
-
-                    items: [{
-                        style: {
-                            borderColor: '#bbb'
-                        },
-                        vdom : {
-                            cn: [
-                                {html: 'Cases'},
-                                {html: 1000, style:{color: '#bbb', textAlign:'right'}}
-                            ]
-                        }
-                    }, {
-                        style: {
-                            borderColor: '#64b5f6'
-                        },
-                        vdom : {
-                            cn: [
-                                {html: 'Active'},
-                                {html: 1000, style:{color: '#64b5f6', textAlign:'right'}}
-                            ]
-                        }
-                    }, {
-                        style: {
-                            borderColor: 'green'
-                        },
-                        vdom : {
-                            cn: [
-                                {html: 'Recovered'},
-                                {html: 1000, style:{color: 'green', textAlign:'right'}}
-                            ]
-                        }
-                    }, {
-                        style: {
-                            borderColor: 'red'
-                        },
-                        vdom : {
-                            cn: [
-                                {html: 'Deaths'},
-                                {html: 1000, style:{color: 'red', textAlign:'right'}}
-                            ]
-                        }
-                    }]
+                    vdom : {
+                        cn: [
+                            {html: 'Cases'},
+                            {style:{color: '#bbb', textAlign:'right'}}
+                        ]
+                    }
+                }, {
+                    style: {
+                        borderColor: '#64b5f6'
+                    },
+                    vdom : {
+                        cn: [
+                            {html: 'Active'},
+                            {style:{color: '#64b5f6', textAlign:'right'}}
+                        ]
+                    }
+                }, {
+                    style: {
+                        borderColor: 'green'
+                    },
+                    vdom : {
+                        cn: [
+                            {html: 'Recovered'},
+                            {style:{color: 'green', textAlign:'right'}}
+                        ]
+                    }
+                }, {
+                    style: {
+                        borderColor: 'red'
+                    },
+                    vdom : {
+                        cn: [
+                            {html: 'Deaths'},
+                            {style:{color: 'red', textAlign:'right'}}
+                        ]
+                    }
                 }]
             }]
         }]

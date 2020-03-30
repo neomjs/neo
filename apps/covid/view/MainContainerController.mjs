@@ -111,17 +111,19 @@ class MainContainerController extends ComponentController {
      * @param {Number} data.updated // timestamp
      */
     applySummaryData(data) {
-        let summaryTable = this.getReference('summary-table'),
-            vdom         = summaryTable.vdom;
+        let container = this.getReference('total-stats'),
+            vdom      = container.vdom;
 
         this.summaryData = data;
+
+        console.log(vdom.cn[0]);
 
         vdom.cn[0].cn[1].html = Util.formatNumber(data.cases);
         vdom.cn[1].cn[1].html = Util.formatNumber(data.active);
         vdom.cn[2].cn[1].html = Util.formatNumber(data.recovered, 'green');
         vdom.cn[3].cn[1].html = Util.formatNumber(data.deaths,    'red');
 
-        summaryTable.vdom = vdom;
+        container.vdom = vdom;
     }
 
     /**
