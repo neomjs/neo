@@ -171,15 +171,18 @@ class TableContainerController extends ComponentController {
               chart  = this.getReference('line-chart');
 
         dataArray.forEach(item => {
-            item.cases  = item.cases  || null;
-            item.deaths = item.deaths || null;
+            item.cases     = item.cases     || null;
+            item.deaths    = item.deaths    || null;
+            item.recovered = item.recovered || null;
         });
 
         if (record) {
             dataArray.push({
-                cases : record.cases || null,
-                date  : new Date().getTime(),
-                deaths: record.deaths || null
+                date: new Date().getTime(),
+
+                cases    : record.cases     || null,
+                deaths   : record.deaths    || null,
+                recovered: record.recovered || null
             });
         }
 

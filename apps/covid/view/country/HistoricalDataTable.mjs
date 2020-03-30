@@ -47,6 +47,10 @@ class HistoricalDataTable extends Container {
             text     : 'Cases',
             renderer : value => Util.formatNumber(value, '#64B5F6')
         }, {
+            dataField: 'recovered',
+            text     : 'Recovered',
+            renderer : value => Util.formatNumber(value, '#28ca68')
+        }, {
             dataField: 'deaths',
             text     : 'Deaths',
             renderer : value => Util.formatNumber(value, '#fb6767')
