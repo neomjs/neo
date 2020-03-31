@@ -93,20 +93,26 @@ class Toolbar extends BaseToolbar {
             style;
 
         items.forEach((item, index) => {
+            style = item.wrapperStyle;
+
+            // todo: only add px if number
+            if (item.maxWidth) {style.maxWidth = item.maxWidth + 'px'}
+            if (item.minWidth) {style.minWidth = item.minWidth + 'px'}
+            if (item.width)    {style.width    = item.width + 'px'}
+
             if (item.dock) {
                 item.vdom.cls = ['neo-locked'];
-                style = item.wrapperStyle;
 
                 if (item.dock === 'left') {
                     style.left = dockLeftWidth + 'px';
                 }
 
-                item.wrapperStyle = style;
-
                 dockLeftWidth += (item.width + 2); // todo: borders fix
             } else {
                 item.vdom.cls = []; // remove the button cls from the th tag
             }
+
+            item.wrapperStyle = style;
 
             // inverse loop direction
             item = items[len - index -1];

@@ -29,15 +29,22 @@ class Table extends Container {
          * @member {Object[]} columns
          */
         columns: [{
+            cls      : ['neo-index-column', 'neo-table-header-button'],
+            dataField: 'index',
+            minWidth : 40,
+            text     : '#',
+            renderer : Util.indexRenderer,
+            width    : 40
+        }, {
             align    : 'left',
             dataField: 'country',
             text     : 'Country',
-            renderer : function(value) {
+            renderer : function(data) {
                 return {
                     cls : ['neo-country-column', 'neo-table-cell'],
                     html: [
                         '<div style="display: flex; align-items: center">',
-                            '<img style="height:20px; margin-right:10px; width:20px;" src="' + this.getCountryFlagUrl(value) + '">' + value,
+                            '<img style="height:20px; margin-right:10px; width:20px;" src="' + this.getCountryFlagUrl(data.value) + '">' + data.value,
                         '</div>'
                     ].join('')
                 };
@@ -51,26 +58,26 @@ class Table extends Container {
         }, {
             dataField: 'active',
             text     : 'Active',
-            renderer : value => Util.formatNumber(value, '#64B5F6')
+            renderer : data => Util.formatNumber(data, '#64B5F6')
         },  {
             dataField: 'recovered',
             text     : 'Recovered',
-            renderer : value => Util.formatNumber(value, '#28ca68')
+            renderer : data => Util.formatNumber(data, '#28ca68')
         }, {
             dataField: 'critical',
             text     : 'Critical',
-            renderer : value => Util.formatNumber(value, 'orange')
+            renderer : data => Util.formatNumber(data, 'orange')
         }, {
             dataField: 'deaths',
             text     : 'Deaths',
-            renderer : value => Util.formatNumber(value, '#fb6767')
+            renderer : data => Util.formatNumber(data, '#fb6767')
         }, {
             dataField: 'todayCases',
             text     : 'Cases today'
         }, {
             dataField: 'todayDeaths',
             text     : 'Deaths today',
-            renderer : value => Util.formatNumber(value, '#fb6767')
+            renderer : data => Util.formatNumber(data, '#fb6767')
         }],
         /**
          * @member {Boolean} createRandomData=false

@@ -66,11 +66,11 @@ class MainContainer2 extends Container {
                             amountRows: 20,
 
                             columnDefaults: {
-                                renderer: function(value, record, dataField) {
+                                renderer: function(data) {
                                     return {
-                                        html : value,
+                                        html : data.value,
                                         style: {
-                                            backgroundColor: record[dataField + 'style']
+                                            backgroundColor: data.record[data.dataField + 'style']
                                         }
                                     }
                                 }

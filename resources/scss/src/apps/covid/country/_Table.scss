@@ -11,6 +11,12 @@
         width    : 100%
     }
 
+    .neo-index-column {
+        max-width: 40px;
+        min-width: 40px;
+        width    : 40px;
+    }
+
     td, th {
         min-width: 100px;
     }

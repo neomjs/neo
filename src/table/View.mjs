@@ -82,7 +82,14 @@ class View extends Component {
                     rendererValue = '';
                 }
 
-                rendererOutput = column.renderer.call(column.rendererScope || container, rendererValue, inputData[i], column.dataField);
+                //rendererOutput = column.renderer.call(column.rendererScope || container, rendererValue, inputData[i], column.dataField);
+
+                rendererOutput = column.renderer.call(column.rendererScope || container, {
+                    dataField: column.dataField,
+                    index    : i,
+                    record   : inputData[i],
+                    value    : rendererValue
+                });
 
                 cellCls = rendererOutput.cls || ['neo-table-cell'];
 
