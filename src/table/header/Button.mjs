@@ -275,11 +275,15 @@ class Button extends BaseButton {
 
     /**
      *
-     * @param {String} value
+     * @param {Object} data
+     * @param {String} data.dataField
+     * @param {Number} data.index
+     * @param {Object} data.record
+     * @param {Number|String} data.value
      * @returns {*}
      */
-    renderer(value) {
-        return value;
+    renderer(data) {
+        return data.value;
     }
 }
 
