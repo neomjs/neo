@@ -148,13 +148,13 @@ class CountryHelix extends Helix {
         firstChild.cn[0].cn[0].src  = me.getCountryFlagUrl(record.country);
         firstChild.cn[0].cn[1].html = record.country;
 
-        table.cn[0].cn[1].html = Util.formatNumber(record.cases);
-        table.cn[1].cn[1].html = Util.formatNumber(record.deaths);
-        table.cn[2].cn[1].html = Util.formatNumber(record.recovered);
+        table.cn[0].cn[1].html = Util.formatNumber({value: record.cases});
+        table.cn[1].cn[1].html = Util.formatNumber({value: record.deaths});
+        table.cn[2].cn[1].html = Util.formatNumber({value: record.recovered});
 
-        table.cn[0].cn[4].html = Util.formatNumber(record.todayCases);
-        table.cn[1].cn[4].html = Util.formatNumber(record.todayDeaths);
-        table.cn[2].cn[4].html = Util.formatNumber(record.critical);
+        table.cn[0].cn[4].html = Util.formatNumber({value: record.todayCases});
+        table.cn[1].cn[4].html = Util.formatNumber({value: record.todayDeaths});
+        table.cn[2].cn[4].html = Util.formatNumber({value: record.critical});
 
         return vdomItem;
     }
