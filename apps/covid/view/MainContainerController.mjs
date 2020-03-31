@@ -249,6 +249,20 @@ class MainContainerController extends ComponentController {
         }, 2000);
     }
 
+
+    /**
+     *
+     */
+    onCountryClear() {
+        Neo.Main.editRoute({
+            country: null
+        });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onCountryFieldSelect(data) {
         Neo.Main.editRoute({
             country: data.value
@@ -290,11 +304,16 @@ class MainContainerController extends ComponentController {
                 activeView.loadData(me.data);
                 me.worldMapHasData = true;
             }
-        } else if (value.country) {
+        } else {
+
             // todo: instead of a timeout this should add a store load listener (single: true)
             setTimeout(() => {
                 if (me.data) {
-                    countryField.value = value.country;
+                    if (value.country) {
+                        countryField.value = value.country;
+                    } else {
+                        value.country = 'all';
+                    }
 
                     switch(activeView.ntype) {
                         case 'gallery':

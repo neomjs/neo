@@ -47,9 +47,15 @@ class TableContainerController extends ComponentController {
      */
     addStoreItems(data) {
         const me        = this,
-              timeline  = data && data.timeline,
               dataArray = [],
               map       = {};
+
+        let timeline  = data && data.timeline;
+
+        // https://github.com/NovelCOVID/API/issues/309 // different format for 'all'
+        if (data && !data.timeline) {
+            timeline = data;
+        }
 
         if (timeline) {
             Object.entries(timeline.cases).forEach(([key, value]) => {
@@ -153,13 +159,25 @@ class TableContainerController extends ComponentController {
      * {Object} data.record
      */
     onTableSelect(data) {
-        const me     = this,
-              record = data.record;
+        const me      = this,
+              record  = data.record;
 
-        me.selectedRecord = {...record};
-        me.loadHistoricalData(record.country);
+        let country = record && record.country;
 
-        me.getReference('historical-data-label').html = 'Historical Data (' + record.country + ')';
+        if (data.record) {
+            me.selectedRecord = {...record};
+        } else {
+            me.selectedRecord = null;
+            country = 'all'
+        }
+
+        me.loadHistoricalData(country);
+
+        if (country === 'all') {
+            country = 'World';
+        }
+
+        me.getReference('historical-data-label').html = 'Historical Data (' + country + ')';
     }
 
     /**

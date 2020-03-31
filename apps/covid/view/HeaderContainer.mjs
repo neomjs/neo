@@ -136,6 +136,7 @@ class HeaderContainer extends Container {
                     width        : 200,
 
                     listeners: {
+                        clear : 'onCountryClear',
                         select: 'onCountryFieldSelect'
                     },
 

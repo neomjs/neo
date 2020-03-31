@@ -123,6 +123,7 @@ class Main extends core.Base {
 
     /**
      * Edit the location.hash value
+     * A value of null will remove the given key.
      * @param {Object} data
      */
     editRoute(data) {
@@ -136,7 +137,9 @@ class Main extends core.Base {
         Object.assign(hashObj, data);
 
         Object.entries(hashObj).forEach(([key, value]) => {
-            hashArr.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
+            if (value !== null) {
+                hashArr.push(encodeURIComponent(key) + '=' + encodeURIComponent(value));
+            }
         });
 
         window.location.hash = hashArr.join('&');
