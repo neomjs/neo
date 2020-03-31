@@ -186,8 +186,9 @@ class TableContainerController extends ComponentController {
      * @param {Object[]} dataArray
      */
     updateLineChart(dataArray) {
-        const record = this.selectedRecord,
-              chart  = this.getReference('line-chart');
+        let me     = this,
+            record = me.selectedRecord,
+            chart  = me.getReference('line-chart');
 
         dataArray.forEach(item => {
             item.active    = item.active    || null;
@@ -195,6 +196,10 @@ class TableContainerController extends ComponentController {
             item.deaths    = item.deaths    || null;
             item.recovered = item.recovered || null;
         });
+
+        if (!record) {
+            record = me.getParent().summaryData;
+        }
 
         if (record) {
             dataArray.push({
