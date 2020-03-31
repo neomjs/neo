@@ -269,7 +269,8 @@ class Container extends BaseContainer {
      */
     createColumns(columns) {
         let me             = this,
-            columnDefaults = me.columnDefaults;
+            columnDefaults = me.columnDefaults,
+            sorters        = me.store.sorters;
 
         if (!columns || !columns.length) {
             Neo.logError('Attempting to create a table.Container without defined columns', me.id);
@@ -282,6 +283,12 @@ class Container extends BaseContainer {
 
             if (columnDefaults) {
                 Neo.assignDefaults(column, columnDefaults);
+            }
+
+            if (sorters && sorters[0]) {
+                if (column.dataField === sorters[0].property) {
+                    column.isSorted = sorters[0].direction;
+                }
             }
 
             column.listeners = {
