@@ -33,6 +33,9 @@ class Country extends Model {
             name: 'index',
             type: 'Integer'
         }, {
+            name: 'infected', // renderer parses to % of population
+            type: 'Integer'
+        }, {
             name: 'recovered',
             type: 'Integer'
         }, {
