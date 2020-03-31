@@ -57,13 +57,13 @@ Just clicking around randomly, but might give you an idea on you to navigate ins
 
 You can find the code of the covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/covid">here</a>.
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/table.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v2/table.png">
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/gallery.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v2/gallery.png">
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/helix.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v2/helix.png">
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/world.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v2/world.png">
 
 ## Online Examples
 You can find a full list of (desktop based) online examples here:</br>
