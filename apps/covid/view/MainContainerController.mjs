@@ -85,6 +85,10 @@ class MainContainerController extends ComponentController {
               reference    = me.mainTabs[me.activeMainTabIndex],
               activeTab    = me.getReference(reference);
 
+        data.forEach(item => {
+            item.infected = item.casesPerOneMillion;
+        });
+
         me.data = data;
 
         if (countryStore.getCount() < 1) {

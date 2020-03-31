@@ -26,6 +26,27 @@ class Util extends Base {
     }}
 
     /**
+     * Used for the casesPerOneMillion column to show % of population
+     * @param {Object} data
+     * @param {Number} data.value
+     * @return {String}
+     */
+    static formatInfected(data) {
+        let value = data.value;
+
+        if (!Neo.isNumber(value)) {
+            return '';
+        }
+
+        value = Math.round(value / 100);
+        value /= 100;
+
+        value = value.toFixed(2) + ' %';
+
+        return value.toLocaleString(Util.locales);
+    }
+
+    /**
      * This method will get used as a grid renderer, so the 2nd param is an overload (would be {Object} record)
      * @param {Object} data
      * @param {Number} data.value
