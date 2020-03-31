@@ -117,10 +117,10 @@ class MainContainerController extends ComponentController {
 
         me.summaryData = data;
 
-        vdom.cn[0].cn[1].html = Util.formatNumber(data.cases);
-        vdom.cn[1].cn[1].html = Util.formatNumber(data.active);
-        vdom.cn[2].cn[1].html = Util.formatNumber(data.recovered);
-        vdom.cn[3].cn[1].html = Util.formatNumber(data.deaths);
+        vdom.cn[0].cn[1].html = Util.formatNumber({value: data.cases});
+        vdom.cn[1].cn[1].html = Util.formatNumber({value: data.active});
+        vdom.cn[2].cn[1].html = Util.formatNumber({value: data.recovered});
+        vdom.cn[3].cn[1].html = Util.formatNumber({value: data.deaths});
 
         container.vdom = vdom;
 
