@@ -50,10 +50,10 @@ class Button extends BaseButton {
         iconPosition: 'right',
         /**
          * 'ASC', 'DESC' or null
-         * @member {String|null} isSorted=null
+         * @member {String|null} isSorted_=null
          * @private
          */
-        isSorted: null,
+        isSorted_: null,
         /**
          * Scope to execute the column renderer.
          * Defaults to the matching table.Container
@@ -143,6 +143,48 @@ class Button extends BaseButton {
     }
 
     /**
+     * Triggered after the isSorted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @private
+     */
+    afterSetIsSorted(value, oldValue) {
+        let me        = this,
+            cls       = me.cls,
+            container = me.up('table-container');
+
+        switch(value) {
+            case null:
+                NeoArray.add(cls, 'neo-sort-hidden');
+                break;
+            case 'ASC':
+                NeoArray.remove(cls, 'neo-sort-desc');
+                NeoArray.remove(cls, 'neo-sort-hidden');
+                NeoArray.add(cls, 'neo-sort-asc');
+                break;
+            case 'DESC':
+                NeoArray.remove(cls, 'neo-sort-asc');
+                NeoArray.remove(cls, 'neo-sort-hidden');
+                NeoArray.add(cls, 'neo-sort-desc');
+                break;
+        }
+
+        me.cls = cls;
+
+        // testing check until all example tables have a store
+        if (!container || !container.store) {
+            return;
+        }
+
+        if (me.mounted) {
+            me.fire('sort', {
+                direction: value,
+                property : me.dataField
+            });
+        }
+    }
+
+    /**
      * Triggered before the align config gets changed
      * @param {String} value
      * @param {String} oldValue
@@ -157,40 +199,21 @@ class Button extends BaseButton {
      */
     onButtonClick() {
         let me  = this,
-            cls = me.cls,
             direction;
-
-        // testing check until all example tables have a store
-        if (!me.up('table-container').store) {
-            return;
-        }
 
         switch(me.isSorted) {
             case null:
                 direction = 'ASC';
-                NeoArray.remove(cls, 'neo-sort-desc');
-                NeoArray.remove(cls, 'neo-sort-hidden');
-                NeoArray.add(cls, 'neo-sort-asc');
                 break;
             case 'ASC':
                 direction = 'DESC';
-                NeoArray.remove(cls, 'neo-sort-asc');
-                NeoArray.remove(cls, 'neo-sort-hidden');
-                NeoArray.add(cls, 'neo-sort-desc');
                 break;
             case 'DESC':
                 direction = null;
-                NeoArray.add(cls, 'neo-sort-hidden');
                 break;
         }
 
-        me.cls      = cls;
         me.isSorted = direction;
-
-        me.fire('sort', {
-            direction: direction,
-            property : me.dataField
-        });
     }
 
     /**
