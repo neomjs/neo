@@ -293,7 +293,7 @@ class Button extends BaseButton {
         NeoArray.add(cls, 'neo-sort-hidden');
 
         me.cls      = cls;
-        me.isSorted = null;
+        me._isSorted = null;
     }
 
     /**
