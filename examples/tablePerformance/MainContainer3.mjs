@@ -112,11 +112,11 @@ class MainContainer3 extends Container {
                 width              : '100%',
 
                 columnDefaults: {
-                    renderer: function(value, record, dataField) {
+                    renderer: function(data) {
                         return {
-                            html : value,
+                            html : data.value,
                             style: {
-                                backgroundColor: record[dataField + 'style']
+                                backgroundColor: data.record[data.dataField + 'style']
                             }
                         }
                     }
