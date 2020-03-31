@@ -134,11 +134,9 @@ class RowModel extends Model {
         if (id) {
             me.toggleSelection(id);
 
-            if (me.isSelected(id)) {
-                view.fire('select', {
-                    record: view.store.getAt(VDomUtil.findVdomChild(view.vdom, id).index)
-                });
-            }
+            view.fire(me.isSelected(id) ? 'select' : 'deselect', {
+                record: view.store.getAt(VDomUtil.findVdomChild(view.vdom, id).index)
+            });
         }
     }
 
