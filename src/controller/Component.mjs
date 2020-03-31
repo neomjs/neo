@@ -64,6 +64,36 @@ class Component extends Base {
 
     /**
      *
+     * @param {String} [ntype]
+     * @returns {Neo.controller.Component|null}
+     */
+    getParent(ntype) {
+        let me      = this,
+            view    = me.view,
+            parents = ComponentManager.getParents(view),
+            i       = 0,
+            len     = parents.length,
+            controller;
+
+        for (; i < len; i++) {
+            controller = parents[i].controller;
+
+            if (controller) {
+                if (ntype) {
+                    if (ntype === controller.ntype) {
+                        return controller;
+                    }
+                } else {
+                    return controller;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     *
      * @param {String} handlerName
      * @returns {Neo.controller.Component|null}
      */
