@@ -30,6 +30,9 @@ class Country extends Model {
             name: 'deaths',
             type: 'Integer'
         }, {
+            name: 'index',
+            type: 'Integer'
+        }, {
             name: 'recovered',
             type: 'Integer'
         }, {

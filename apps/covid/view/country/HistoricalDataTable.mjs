@@ -32,32 +32,32 @@ class HistoricalDataTable extends Container {
             align    : 'left',
             dataField: 'date',
             text     : 'Date',
-            renderer : function(value) {
+            renderer : function(data) {
                 return {
                     cls : ['neo-date-column', 'neo-table-cell'],
                     html: new Intl.DateTimeFormat('default', {
                         day  : 'numeric',
                         month: 'numeric',
                         year : 'numeric'
-                    }).format(new Date(value))
+                    }).format(new Date(data.value))
                 };
             }
         }, {
             dataField: 'cases',
             text     : 'Cases',
-            renderer : value => Util.formatNumber(value)
+            renderer : data => Util.formatNumber(data)
         }, {
             dataField: 'active',
             text     : 'Active',
-            renderer : value => Util.formatNumber(value, '#64B5F6')
+            renderer : data => Util.formatNumber(data, '#64B5F6')
         }, {
             dataField: 'recovered',
             text     : 'Recovered',
-            renderer : value => Util.formatNumber(value, '#28ca68')
+            renderer : data => Util.formatNumber(data, '#28ca68')
         }, {
             dataField: 'deaths',
             text     : 'Deaths',
-            renderer : value => Util.formatNumber(value, '#fb6767')
+            renderer : data => Util.formatNumber(data, '#fb6767')
         }],
         /**
          * @member {Boolean} createRandomData=false
