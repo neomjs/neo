@@ -41,6 +41,7 @@ class Table extends Container {
             dataField: 'country',
             dock     : 'left',
             text     : 'Country',
+            width    : 200,
             renderer : function(data) {
                 return {
                     cls : ['neo-country-column', 'neo-table-cell'],

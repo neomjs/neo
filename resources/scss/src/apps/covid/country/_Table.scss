@@ -8,7 +8,7 @@
 .neo-table-container.covid-country-table {
     .neo-country-column {
         min-width: 200px;
-        width    : 100%
+        //width    : inherit;
     }
 
     .neo-index-column {
@@ -19,5 +19,6 @@
 
     td, th {
         min-width: 100px;
+        width    : 300px;
     }
 }
