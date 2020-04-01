@@ -107,7 +107,7 @@ class Toolbar extends BaseToolbar {
                     style.left = dockLeftWidth + 'px';
                 }
 
-                dockLeftWidth += (item.width + 2); // todo: borders fix
+                dockLeftWidth += (item.width + 1); // todo: borders fix
             } else {
                 item.vdom.cls = []; // remove the button cls from the th tag
             }
