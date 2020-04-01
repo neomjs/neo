@@ -158,6 +158,7 @@ class MainContainerController extends ComponentController {
             'bosnia'                               : 'bosnia-and-herzegovina',
             'cabo-verde'                           : 'cape-verde',
             'car'                                  : 'central-african-republic',
+            'caribbean-netherlands'                : 'netherlands',
             'channel-islands'                      : 'jersey',
             'côte-d\'ivoire'                       : 'ivory-coast',
             'congo'                                : 'republic-of-the-congo',
