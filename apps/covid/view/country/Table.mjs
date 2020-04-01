@@ -31,6 +31,7 @@ class Table extends Container {
         columns: [{
             cls      : ['neo-index-column', 'neo-table-header-button'],
             dataField: 'index',
+            dock     : 'left',
             minWidth : 40,
             text     : '#',
             renderer : Util.indexRenderer,
@@ -38,7 +39,9 @@ class Table extends Container {
         }, {
             align    : 'left',
             dataField: 'country',
+            dock     : 'left',
             text     : 'Country',
+            width    : 200,
             renderer : function(data) {
                 return {
                     cls : ['neo-country-column', 'neo-table-cell'],

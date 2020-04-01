@@ -121,11 +121,11 @@ class View extends Component {
                 };
 
                 if (column.dock) {
-                    config.cls = ['neo-locked'];
+                    config.cls = ['neo-locked', ...config.cls || []];
 
                     if (column.dock === 'left') {
                         config.style.left = dockLeftMargin + 'px';
-                        dockLeftMargin += (column.width + 2); // todo: borders fix
+                        dockLeftMargin += (column.width + 1); // todo: borders fix
                     }
                 }
 
