@@ -85,7 +85,7 @@ class AmChart extends Component {
             config.forEach(item => {
                 me.parseChartConfig(item);
             });
-        } else if (Neo.isObject(config)) {
+        } else {
             Object.entries(config).forEach(([key, value]) => {
                 if (Neo.isArray(value) || Neo.isObject(value)) {
                     me.parseChartConfig(value);
