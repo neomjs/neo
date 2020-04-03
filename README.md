@@ -157,7 +157,8 @@ the current state is just a fraction of a bigger picture.
 Take a look at the <a href=".github/STORY.md">Project Story</a> and <a href=".github/VISION.md">Vision</a>.
 
 ## Sponsors are needed!
-Is the current code base useful for you or could it be in the future and you like the neo.mjs concepts?</br>
+Is the current code base useful for you or could it be in the future?</br>
+Do you like the neo.mjs concepts?</br>
 So far the development was made possible with burning all of my (tobiu's) personal savings.</br>
 
 This is obviously not sustainable, so to enable me to keep pushing like this, please support it.</br>
