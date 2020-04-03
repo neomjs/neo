@@ -1,4 +1,5 @@
 import {default as Component} from '../Base.mjs';
+import Logger                 from '../../core/Logger.mjs';
 
 /**
  * Convenience class to render an amChart
@@ -51,8 +52,10 @@ class AmChart extends Component {
         const me = this;
 
         if (!me.chartConfig) {
-            console.error('wrapper.AmChart defined without a chartConfig', me.id);
+            Logger.logError('wrapper.AmChart defined without a chartConfig', me.id);
         }
+
+        me.parseChartConfig(me.chartConfig);
 
         me.on('mounted', () => {
             Neo.main.AmCharts.create({
@@ -69,6 +72,34 @@ class AmChart extends Component {
      */
     onChartMounted() {
 
+    }
+
+    /**
+     *
+     * @param {Array|Object} config
+     */
+    parseChartConfig(config) {
+        const me = this;
+
+        if (Neo.isArray(config)) {
+            config.forEach(item => {
+                me.parseChartConfig(item);
+            });
+        } else if (Neo.isObject(config)) {
+            Object.entries(config).forEach(([key, value]) => {
+                if (Neo.isArray(value) || Neo.isObject(value)) {
+                    me.parseChartConfig(value);
+                } else if (Neo.isString(value) && value.startsWith('@config:')) {
+                    value = value.substr(8);
+
+                    if (!me[value]) {
+                        Logger.logError('The used @config does not exist:', value, me);
+                    } else {
+                        config[key] = me[value];
+                    }
+                }
+            });
+        }
     }
 }
 
