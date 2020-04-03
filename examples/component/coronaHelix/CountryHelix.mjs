@@ -163,13 +163,14 @@ class CountryHelix extends Helix {
             'bosnia'                               : 'bosnia-and-herzegovina',
             'cabo-verde'                           : 'cape-verde',
             'car'                                  : 'central-african-republic',
+            'caribbean-netherlands'                : 'netherlands',
             'channel-islands'                      : 'jersey',
             'côte-d\'ivoire'                       : 'ivory-coast',
             'congo'                                : 'republic-of-the-congo',
             'congo,-the-democratic-republic-of-the': 'democratic-republic-of-congo',
             'curaçao'                              : 'curacao',
             'czechia'                              : 'czech-republic',
-            'diamond-princess'                     : 'japan', // cruise ship?
+            'diamond-princess'                     : 'japan', // cruise ship
             'drc'                                  : 'democratic-republic-of-congo',
             'el-salvador'                          : 'salvador',
             'eswatini'                             : 'swaziland',
