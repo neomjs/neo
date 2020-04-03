@@ -159,7 +159,7 @@ class CountryGallery extends Gallery {
             'congo,-the-democratic-republic-of-the': 'democratic-republic-of-congo',
             'curaçao'                              : 'curacao',
             'czechia'                              : 'czech-republic',
-            'diamond-princess'                     : 'japan', // cruise ship?
+            'diamond-princess'                     : 'japan', // cruise ship
             'drc'                                  : 'democratic-republic-of-congo',
             'el-salvador'                          : 'salvador',
             'eswatini'                             : 'swaziland',
