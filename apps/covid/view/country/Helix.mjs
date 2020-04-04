@@ -141,6 +141,7 @@ class CountryHelix extends Helix {
     createItem(vdomItem, record, index) {
         let me         = this,
             firstChild = vdomItem.cn[0].cn[0],
+            fN         = Util.formatNumber,
             table      = firstChild.cn[1];
 
         vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
@@ -148,13 +149,13 @@ class CountryHelix extends Helix {
         firstChild.cn[0].cn[0].src  = me.getCountryFlagUrl(record.country);
         firstChild.cn[0].cn[1].html = record.country;
 
-        table.cn[0].cn[1].html = Util.formatNumber({value: record.cases});
-        table.cn[1].cn[1].html = Util.formatNumber({value: record.deaths});
-        table.cn[2].cn[1].html = Util.formatNumber({value: record.recovered});
+        table.cn[0].cn[1].html = fN({value: record.cases});
+        table.cn[1].cn[1].html = fN({value: record.deaths});
+        table.cn[2].cn[1].html = fN({value: record.recovered});
 
-        table.cn[0].cn[4].html = Util.formatNumber({value: record.todayCases});
-        table.cn[1].cn[4].html = Util.formatNumber({value: record.todayDeaths});
-        table.cn[2].cn[4].html = Util.formatNumber({value: record.critical});
+        table.cn[0].cn[4].html = fN({value: record.todayCases});
+        table.cn[1].cn[4].html = fN({value: record.todayDeaths});
+        table.cn[2].cn[4].html = fN({value: record.critical});
 
         return vdomItem;
     }
