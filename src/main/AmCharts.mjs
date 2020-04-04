@@ -125,6 +125,8 @@ class AmCharts extends Base {
 
             me.charts[data.id] = am4core.createFromConfig(data.config, data.id, self[data.package][data.type || 'XYChart']);
 
+            document.getElementById(data.id).childNodes[1].style.height = document.getElementById(data.id).parentNode.clientHeight + 'px';
+
             if (data.combinedSeriesTooltip) {
                 me.createCombinedSeriesTooltip(me.charts[data.id]);
             }
