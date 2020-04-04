@@ -29,6 +29,11 @@ class AmChart extends Component {
          */
         chartType: 'XYChart',
         /**
+         * It is not possible to define adapters via json, so we pass a flag to main instead
+         * @member {Boolean} combineSeriesTooltip=false
+         */
+        combineSeriesTooltip: false,
+        /**
          * Charts & maps can have different targets to apply the data to. E.g.:
          * myChart.data = data; // => ''
          * myChart.series.values[0].data = data; // => 'series.values.0'
@@ -36,6 +41,12 @@ class AmChart extends Component {
          * @member {String} dataPath=''
          */
         dataPath: '',
+        /**
+         * The amCharts4 resize listener slows down animations close to a freeze in case their height is 100%
+         * Set this config to true in case you want to drop a chart into a fit or vbox layout without a fixed height
+         * @member {Boolean} fitParentHeight=false
+         */
+        fitParentHeight: false,
         /**
          * am4charts, am4maps
          * @member {String} package='am4charts'
@@ -59,10 +70,12 @@ class AmChart extends Component {
 
         me.on('mounted', () => {
             Neo.main.AmCharts.create({
-                config : me.chartConfig,
-                id     : me.id,
-                package: me.package,
-                type   : me.chartType
+                combineSeriesTooltip: me.combineSeriesTooltip,
+                config              : me.chartConfig,
+                fitParentHeight     : me.fitParentHeight,
+                id                  : me.id,
+                package             : me.package,
+                type                : me.chartType
             }).then(me.onChartMounted);
         });
     }

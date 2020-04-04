@@ -109,7 +109,9 @@ class AmCharts extends Base {
     /**
      *
      * @param {Object} data
+     * @param {Boolean} data.combineSeriesTooltip
      * @param {Object} data.config
+     * @param {Boolean} data.fitParentHeight
      * @param {String} data.id
      * @param {String} data.package
      * @param {String} data.type='XYChart'
@@ -124,12 +126,49 @@ class AmCharts extends Base {
 
             me.charts[data.id] = am4core.createFromConfig(data.config, data.id, self[data.package][data.type || 'XYChart']);
 
+            if (data.combineSeriesTooltip) {
+                me.combineSeriesTooltip(me.charts[data.id]);
+            }
+
+            if (data.fitParentHeight) {
+                me.fitParentHeight(data.id);
+            }
+
             // in case data has arrived before the chart got created, apply it now
             if (me.dataMap[data.id]) {
                 me.updateData(me.dataMap[data.id]);
                 delete me.dataMap[data.id];
             }
         }
+    }
+
+    /**
+     *
+     * @param {Object} chart
+     */
+    combineSeriesTooltip(chart) {
+        chart.series.each(series => {
+            series.adapter.add('tooltipText', () => {
+                let text = "[bold]{dateX}[/]\n";
+
+                chart.series.each(item => {
+                    text += "[" + item.stroke + "]●[/] " + item.name + ": {" + item.dataFields.valueY + "}\n";
+                });
+
+                return text;
+            });
+        });
+    }
+
+    /**
+     *
+     * @param {String} chartId
+     */
+    fitParentHeight(chartId) {
+        const chartNode = document.getElementById(chartId);
+
+        chartNode.style.overflow = 'hidden';
+        chartNode.childNodes[1].style.height = chartNode.clientHeight + 'px';
     }
 
     /**
