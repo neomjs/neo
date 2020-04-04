@@ -124,6 +124,18 @@ class AmCharts extends Base {
 
             me.charts[data.id] = am4core.createFromConfig(data.config, data.id, self[data.package][data.type || 'XYChart']);
 
+            me.charts[data.id].series.each(function(series) {
+                series.adapter.add('tooltipText', function(ev) {
+                    let text = "[bold]{dateX}[/]\n";
+
+                    me.charts[data.id].series.each(function(item) {
+                        text += "[" + item.stroke + "]●[/] " + item.name + ": {" + item.dataFields.valueY + "}\n";
+                    });
+
+                    return text;
+                });
+            });
+
             // in case data has arrived before the chart got created, apply it now
             if (me.dataMap[data.id]) {
                 me.updateData(me.dataMap[data.id]);
