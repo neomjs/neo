@@ -74,7 +74,7 @@ class LineChartComponent extends AmChartComponent {
                 name       : 'Active',
                 stroke     : '#64b5f6',
                 strokeWidth: 3,
-                tooltipText: '{name}: [bold]{valueY}[/]',
+
                 tooltip: {
                     background       : {fill: '#fff'},
                     getFillFromObject: false,
@@ -87,7 +87,7 @@ class LineChartComponent extends AmChartComponent {
                 name       : 'Cases',
                 stroke     : '#bbb',
                 strokeWidth: 3,
-                tooltipText: '{name}: [bold]{valueY}[/]',
+
                 tooltip: {
                     background       : {fill: '#fff'},
                     getFillFromObject: false,
@@ -100,7 +100,7 @@ class LineChartComponent extends AmChartComponent {
                 name       : 'Deaths',
                 stroke     : '#fb6767',
                 strokeWidth: 3,
-                tooltipText: '{name}: [bold]{valueY}[/]',
+
                 tooltip: {
                     background       : {fill: '#fff'},
                     getFillFromObject: false,
@@ -113,7 +113,7 @@ class LineChartComponent extends AmChartComponent {
                 name       : 'Recovered',
                 stroke     : '#28ca68',
                 strokeWidth: 3,
-                tooltipText: '{name}: [bold]{valueY}[/]',
+
                 tooltip: {
                     background       : {fill: '#fff'},
                     getFillFromObject: false,

@@ -125,18 +125,9 @@ class AmCharts extends Base {
 
             me.charts[data.id] = am4core.createFromConfig(data.config, data.id, self[data.package][data.type || 'XYChart']);
 
-            console.log(data.combinedSeriesTooltip);
-            me.charts[data.id].series.each(function(series) {
-                series.adapter.add('tooltipText', function(ev) {
-                    let text = "[bold]{dateX}[/]\n";
-
-                    me.charts[data.id].series.each(function(item) {
-                        text += "[" + item.stroke + "]●[/] " + item.name + ": {" + item.dataFields.valueY + "}\n";
-                    });
-
-                    return text;
-                });
-            });
+            if (data.combinedSeriesTooltip) {
+                me.createCombinedSeriesTooltip(me.charts[data.id]);
+            }
 
             // in case data has arrived before the chart got created, apply it now
             if (me.dataMap[data.id]) {
@@ -144,6 +135,24 @@ class AmCharts extends Base {
                 delete me.dataMap[data.id];
             }
         }
+    }
+
+    /**
+     *
+     * @param {Object} chart
+     */
+    createCombinedSeriesTooltip(chart) {
+        chart.series.each(series => {
+            series.adapter.add('tooltipText', () => {
+                let text = "[bold]{dateX}[/]\n";
+
+                chart.series.each(item => {
+                    text += "[" + item.stroke + "]●[/] " + item.name + ": {" + item.dataFields.valueY + "}\n";
+                });
+
+                return text;
+            });
+        });
     }
 
     /**
