@@ -372,12 +372,7 @@ class Base extends CoreBase {
 
         me._style = value;
 
-        // silent update
-        if (!vdomRoot.style) {
-            vdomRoot.style = {};
-        }
-
-        vdomRoot.style = value;
+        vdomRoot.style = Object.assign(vdomRoot.style || {}, value);
 
         if (me.mounted) {
             me.updateStyle(value, oldStyle);
