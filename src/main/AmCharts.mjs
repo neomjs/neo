@@ -61,7 +61,9 @@ class AmCharts extends Base {
          */
         remote: {
             app: [
+                'callMethod',
                 'create',
+                'setProperty',
                 'toggleLogarithmic',
                 'updateData'
             ]
@@ -104,6 +106,22 @@ class AmCharts extends Base {
                 me.dataMap = {};
             }, 1000);
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.path
+     * @param {Array} [data.params]
+     */
+    callMethod(data) {
+        const chart      = this.charts[data.id],
+              pathArray  = data.path.split('.'),
+              methodName = pathArray.pop(),
+              scope      = Neo.ns(pathArray.join('.'), false, chart);
+
+        scope[methodName].call(scope, ...data.params || []);
     }
 
     /**
@@ -185,6 +203,23 @@ class AmCharts extends Base {
             console.log('Download from amcharts.com failed, switching to fallback', e);
             me.insertAmChartsScripts(true);
         });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Boolean} [data.isColor=false] true will wrap the value into am4core.color()
+     * @param {String} data.path
+     * @param {*} data.value
+     */
+    setProperty(data) {
+        const chart        = this.charts[data.id],
+              pathArray    = data.path.split('.'),
+              propertyName = pathArray.pop(),
+              scope        = Neo.ns(pathArray.join('.'), false, chart);
+
+        scope[propertyName] = data.isColor ? am4core.color(data.value) : data.value;
     }
 
     /**

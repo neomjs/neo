@@ -49,7 +49,7 @@ class WorldMapComponent extends AmChartComponent {
                 useGeodata: true,
 
                 dataFields: {
-                    value: 'cases'
+                    value: 'active'
                 },
 
                 heatRules: [{

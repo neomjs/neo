@@ -16,7 +16,7 @@ class FooterContainer extends Container {
          */
         height: 25,
         /**
-         * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
+         * @member {Object} layout={ntype: 'hbox'}
          */
         layout: {ntype: 'hbox'},
         /**
