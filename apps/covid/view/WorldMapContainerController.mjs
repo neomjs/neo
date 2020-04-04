@@ -55,7 +55,9 @@ class WorldMapContainerController extends ComponentController {
      * @param {Object} data
      */
     onSeriesButtonClick(data) {
-        const chartId = this.getReference('worldmap').id;
+        const me          = this,
+              chartId     = me.getReference('worldmap').id,
+              countryData = [...me.getParent().data];
 
         const colorMap = {
             active   : '#64b5f6',
@@ -81,7 +83,11 @@ class WorldMapContainerController extends ComponentController {
             id  : chartId,
             path: 'series.values.0.invalidateData'
         }). then(() => {
-            this.getReference('currentMapViewLabel').text = 'Current view: ' + Neo.capitalize(data.component.series);
+            me.getReference('currentMapViewLabel').text = 'Current view: ' + Neo.capitalize(data.component.series);
+
+            countryData.sort((a, b) => b[data.component.series] - a[data.component.series]);
+
+            me.getReference('heatRuleField').value = Math.ceil(countryData[9][data.component.series] / 100) * 100;
         });
     }
 }

@@ -40,6 +40,7 @@ class WorldMapContainer extends Container {
                 labelText    : 'HeatRule maxValue',
                 maxValue     : 1e6,
                 minValue     : 100,
+                reference    : 'heatRuleField',
                 stepSize     : 100,
                 value        : 15000,
                 width        : 200,
