@@ -10,8 +10,49 @@ class WorldMapContainerController extends ComponentController {
          * @member {String} className='Covid.view.WorldMapContainerController'
          * @private
          */
-        className: 'Covid.view.WorldMapContainerController'
+        className: 'Covid.view.WorldMapContainerController',
+        /**
+         * @member {Number} heatRuleChangeDelay=250
+         */
+        heatRuleChangeDelay: 250,
+        /**
+         * @member {Boolean} heatRuleChangeThrottled=false
+         */
+        heatRuleChangeThrottled: false
     }}
+
+    changeHeatRule(value) {
+        const chartId = this.getReference('worldmap').id;
+
+        Neo.main.AmCharts.setProperty({
+            id     : this.getReference('worldmap').id,
+            path   : 'series.values.0.heatRules.values.0.maxValue',
+            value  : value
+        });
+
+        Neo.main.AmCharts.callMethod({
+            id  : chartId,
+            path: 'series.values.0.invalidateData'
+        });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onHeatRuleFieldChange(data) {
+        const me = this;
+
+        if (!me.heatRuleChangeThrottled) {
+            me.changeHeatRule(data.value);
+
+            me.heatRuleChangeThrottled = true;
+
+            setTimeout(() => {
+                me.heatRuleChangeThrottled = false;
+            }, me.heatRuleChangeDelay);
+        }
+    }
 
     /**
      *

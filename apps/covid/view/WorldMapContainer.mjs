@@ -1,4 +1,5 @@
 import {default as Container}      from '../../../src/container/Base.mjs';
+import {default as NumberField}    from '../../../src/form/field/Number.mjs';
 import Toolbar                     from '../../../src/container/Toolbar.mjs';
 import WorldMapComponent           from './WorldMapComponent.mjs';
 import WorldMapContainerController from './WorldMapContainerController.mjs';
@@ -30,7 +31,22 @@ class WorldMapContainer extends Container {
             items : [{
                 ntype    : 'label',
                 reference: 'currentMapViewLabel',
+                style    : {marginRight: '20px'},
                 text     : 'Current view: Active'
+            }, {
+                module       : NumberField,
+                clearToOriginalValue: true,
+                labelPosition: 'inline',
+                labelText    : 'HeatRule maxValue',
+                maxValue     : 1e6,
+                minValue     : 100,
+                stepSize     : 100,
+                value        : 15000,
+                width        : 200,
+
+                listeners: {
+                    change: 'onHeatRuleFieldChange'
+                }
             }, '->', {
                 handler: 'onSeriesButtonClick',
                 series : 'cases',
