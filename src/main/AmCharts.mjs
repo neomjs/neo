@@ -111,7 +111,6 @@ class AmCharts extends Base {
      * @param {Object} data
      * @param {Boolean} data.combineSeriesTooltip
      * @param {Object} data.config
-     * @param {Boolean} data.fitParentHeight
      * @param {String} data.id
      * @param {String} data.package
      * @param {String} data.type='XYChart'
@@ -128,10 +127,6 @@ class AmCharts extends Base {
 
             if (data.combineSeriesTooltip) {
                 me.combineSeriesTooltip(me.charts[data.id]);
-            }
-
-            if (data.fitParentHeight) {
-                me.fitParentHeight(data.id);
             }
 
             // in case data has arrived before the chart got created, apply it now
@@ -158,17 +153,6 @@ class AmCharts extends Base {
                 return text;
             });
         });
-    }
-
-    /**
-     *
-     * @param {String} chartId
-     */
-    fitParentHeight(chartId) {
-        const chartNode = document.getElementById(chartId);
-
-        //chartNode.style.overflow = 'hidden';
-        //chartNode.childNodes[1].style.height = chartNode.clientHeight + 'px';
     }
 
     /**

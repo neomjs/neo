@@ -42,12 +42,6 @@ class AmChart extends Component {
          */
         dataPath: '',
         /**
-         * The amCharts4 resize listener slows down animations close to a freeze in case their height is 100%
-         * Set this config to true in case you want to drop a chart into a fit or vbox layout without a fixed height
-         * @member {Boolean} fitParentHeight=false
-         */
-        fitParentHeight: false,
-        /**
          * am4charts, am4maps
          * @member {String} package='am4charts'
          */
@@ -100,7 +94,6 @@ class AmChart extends Component {
             Neo.main.AmCharts.create({
                 combineSeriesTooltip: me.combineSeriesTooltip,
                 config              : me.chartConfig,
-                fitParentHeight     : me.fitParentHeight,
                 id                  : me.id,
                 package             : me.package,
                 type                : me.chartType
