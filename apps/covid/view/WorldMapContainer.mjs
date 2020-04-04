@@ -1,6 +1,7 @@
-import {default as Container}   from '../../../src/container/Base.mjs';
-import Toolbar                  from '../../../src/container/Toolbar.mjs';
-import WorldMapComponent        from './WorldMapComponent.mjs';
+import {default as Container}      from '../../../src/container/Base.mjs';
+import Toolbar                     from '../../../src/container/Toolbar.mjs';
+import WorldMapComponent           from './WorldMapComponent.mjs';
+import WorldMapContainerController from './WorldMapContainerController.mjs';
 
 /**
  * @class Covid.view.WorldMapContainer
@@ -14,6 +15,10 @@ class WorldMapContainer extends Container {
          */
         className: 'Covid.view.WorldMapContainer',
         /**
+         * @member {Neo.controller.Component} controller=WorldMapContainerController
+         */
+        controller: WorldMapContainerController,
+        /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'},
@@ -23,16 +28,24 @@ class WorldMapContainer extends Container {
         items: [{
             module: Toolbar,
             items : ['->', {
-                style: {marginRight: '2px'},
-                text : '<span style="color: #bbbbbb">●</span> Cases'
+                handler: 'onSeriesButtonClick',
+                series : 'cases',
+                style  : {marginRight: '2px'},
+                text   : '<span style="color: #bbbbbb">●</span> Cases'
             }, {
-                style: {marginRight: '2px'},
-                text : '<span style="color: #64b5f6">●</span> Active'
+                handler: 'onSeriesButtonClick',
+                series : 'active',
+                style  : {marginRight: '2px'},
+                text   : '<span style="color: #64b5f6">●</span> Active'
             }, {
-                style: {marginRight: '2px'},
-                text : '<span style="color: #28ca68">●</span> Recovered'
+                handler: 'onSeriesButtonClick',
+                series : 'recovered',
+                style  : {marginRight: '2px'},
+                text   : '<span style="color: #28ca68">●</span> Recovered'
             }, {
-                text: '<span style="color: #fb6767">●</span> Deaths'
+                handler: 'onSeriesButtonClick',
+                series : 'deaths',
+                text   : '<span style="color: #fb6767">●</span> Deaths'
             }]
         }, {
             module   : WorldMapComponent,
