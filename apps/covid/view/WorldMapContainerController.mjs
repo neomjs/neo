@@ -12,13 +12,13 @@ class WorldMapContainerController extends ComponentController {
          */
         className: 'Covid.view.WorldMapContainerController',
         /**
-         * @member {Number} heatRuleChangeDelay=250
+         * @member {Number} heatRuleChangeDelay=150
          */
-        heatRuleChangeDelay: 250,
+        heatRuleChangeDelay: 150,
         /**
-         * @member {Boolean} heatRuleChangeThrottled=false
+         * @member {String|null} heatRuleChangeTimeout=null
          */
-        heatRuleChangeThrottled: false
+        heatRuleChangeTimeout: null
     }}
 
     changeHeatRule(value) {
@@ -43,15 +43,11 @@ class WorldMapContainerController extends ComponentController {
     onHeatRuleFieldChange(data) {
         const me = this;
 
-        if (!me.heatRuleChangeThrottled) {
+        clearTimeout(me.heatRuleChangeTimeout);
+
+        me.heatRuleChangeTimeout = setTimeout(() => {
             me.changeHeatRule(data.value);
-
-            me.heatRuleChangeThrottled = true;
-
-            setTimeout(() => {
-                me.heatRuleChangeThrottled = false;
-            }, me.heatRuleChangeDelay);
-        }
+        }, me.heatRuleChangeDelay);
     }
 
     /**
