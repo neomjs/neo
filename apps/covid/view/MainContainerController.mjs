@@ -177,6 +177,7 @@ class MainContainerController extends ComponentController {
             'el-salvador'                          : 'salvador',
             'eswatini'                             : 'swaziland',
             'faeroe-islands'                       : 'faroe-islands',
+            'falkland-islands-(malvinas)'          : 'falkland-islands',
             'french-guiana'                        : 'france', // ?
             'guadeloupe'                           : 'france', // ?
             'holy-see-(vatican-city-state)'        : 'vatican-city',
