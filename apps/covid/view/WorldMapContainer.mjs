@@ -44,7 +44,7 @@ class WorldMapContainer extends Container {
                 stepSize     : 100,
                 style        : {margin: 0},
                 value        : 15000,
-                width        : 200,
+                width        : 150,
 
                 listeners: {
                     change: 'onHeatRuleFieldChange'
