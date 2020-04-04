@@ -165,10 +165,21 @@ class AmCharts extends Base {
      * @param {String} chartId
      */
     fitParentHeight(chartId) {
-        const chartNode = document.getElementById(chartId);
-        chartNode.childNodes[1].style.height = chartNode.clientHeight + 'px';
+        const delay = 300;
 
-        // todo: add a buffered(!) window resize listener
+        let timeout;
+
+        function fitParentHeight() {console.log('now');
+            const chartNode = document.getElementById(chartId);
+            chartNode.childNodes[1].style.height = chartNode.clientHeight + 'px';
+        }
+
+        fitParentHeight();
+
+        window.addEventListener('resize', function() {
+            clearTimeout(timeout);
+            timeout = setTimeout(fitParentHeight, delay);
+        });
     }
 
     /**
