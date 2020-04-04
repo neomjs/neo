@@ -27,7 +27,11 @@ class WorldMapContainer extends Container {
          */
         items: [{
             module: Toolbar,
-            items : ['->', {
+            items : [{
+                ntype    : 'label',
+                reference: 'currentMapViewLabel',
+                text     : 'Current view: Active'
+            }, '->', {
                 handler: 'onSeriesButtonClick',
                 series : 'cases',
                 style  : {marginRight: '2px'},

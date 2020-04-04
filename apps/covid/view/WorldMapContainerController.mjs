@@ -43,6 +43,8 @@ class WorldMapContainerController extends ComponentController {
         Neo.main.AmCharts.callMethod({
             id  : chartId,
             path: 'series.values.0.invalidateData'
+        }). then(() => {
+            this.getReference('currentMapViewLabel').text = 'Current view: ' + Neo.capitalize(data.component.series);
         });
     }
 }
