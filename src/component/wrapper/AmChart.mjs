@@ -29,6 +29,11 @@ class AmChart extends Component {
          */
         chartType: 'XYChart',
         /**
+         * It is not possible to define adapters via json, so we pass a flag to main instead
+         * @member {Boolean} combinedSeriesTooltip=false
+         */
+        combinedSeriesTooltip: false,
+        /**
          * Charts & maps can have different targets to apply the data to. E.g.:
          * myChart.data = data; // => ''
          * myChart.series.values[0].data = data; // => 'series.values.0'
@@ -59,10 +64,11 @@ class AmChart extends Component {
 
         me.on('mounted', () => {
             Neo.main.AmCharts.create({
-                config : me.chartConfig,
-                id     : me.id,
-                package: me.package,
-                type   : me.chartType
+                combinedSeriesTooltip: me.combinedSeriesTooltip,
+                config               : me.chartConfig,
+                id                   : me.id,
+                package              : me.package,
+                type                 : me.chartType
             }).then(me.onChartMounted);
         });
     }

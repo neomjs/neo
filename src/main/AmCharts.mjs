@@ -109,6 +109,7 @@ class AmCharts extends Base {
     /**
      *
      * @param {Object} data
+     * @param {Object} data.combinedSeriesTooltip
      * @param {Object} data.config
      * @param {String} data.id
      * @param {String} data.package
@@ -124,6 +125,7 @@ class AmCharts extends Base {
 
             me.charts[data.id] = am4core.createFromConfig(data.config, data.id, self[data.package][data.type || 'XYChart']);
 
+            console.log(data.combinedSeriesTooltip);
             me.charts[data.id].series.each(function(series) {
                 series.adapter.add('tooltipText', function(ev) {
                     let text = "[bold]{dateX}[/]\n";

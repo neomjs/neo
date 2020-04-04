@@ -120,7 +120,11 @@ class LineChartComponent extends AmChartComponent {
                     label            : {fill: '#000'}
                 }
             }]
-        }
+        },
+        /**
+         * @member {Boolean} combinedSeriesTooltip=true
+         */
+        combinedSeriesTooltip: true
     }}
 }
 
