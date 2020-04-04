@@ -167,8 +167,8 @@ class AmCharts extends Base {
     fitParentHeight(chartId) {
         const chartNode = document.getElementById(chartId);
 
-        chartNode.style.overflow = 'hidden';
-        chartNode.childNodes[1].style.height = chartNode.clientHeight + 'px';
+        //chartNode.style.overflow = 'hidden';
+        //chartNode.childNodes[1].style.height = chartNode.clientHeight + 'px';
     }
 
     /**

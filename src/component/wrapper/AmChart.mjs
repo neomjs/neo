@@ -51,8 +51,36 @@ class AmChart extends Component {
          * am4charts, am4maps
          * @member {String} package='am4charts'
          */
-        package: 'am4charts'
+        package: 'am4charts',
+        /**
+         * @member {Object} _vdom
+         */
+        _vdom: {
+            style: {position: 'relative', height: '100%', width: '100%'},
+            cn: [{
+                style: {position: 'absolute', height: '100%', width: '100%'},
+                cn: [{
+                    style: {
+                        height: '100%'
+                    }
+                }]
+            }]
+        }
     }}
+
+    /**
+     *
+     */
+    getVdomRoot() {
+        return this.vdom.cn[0].cn[0];
+    }
+
+    /**
+     *
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[0].childNodes[0];
+    }
 
     /**
      *
