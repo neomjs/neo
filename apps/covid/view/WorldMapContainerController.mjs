@@ -18,7 +18,32 @@ class WorldMapContainerController extends ComponentController {
      * @param {Object} data
      */
     onSeriesButtonClick(data) {
-        console.log('onSeriesButtonClick', data.component.series);
+        const chartId = this.getReference('worldmap').id;
+
+        const colorMap = {
+            active   : '#64b5f6',
+            cases    : '#bbbbbb',
+            deaths   : '#fb6767',
+            recovered: '#28ca68'
+        };
+
+        Neo.main.AmCharts.setProperty({
+            id     : chartId,
+            isColor: true,
+            path   : 'series.values.0.heatRules.values.0.max',
+            value  : colorMap[data.component.series]
+        });
+
+        Neo.main.AmCharts.setProperty({
+            id   : chartId,
+            path : 'series.values.0.dataFields.value',
+            value: data.component.series
+        });
+
+        Neo.main.AmCharts.callMethod({
+            id  : chartId,
+            path: 'series.values.0.invalidateData'
+        });
     }
 }
 
