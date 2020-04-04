@@ -23,13 +23,16 @@ class WorldMapContainer extends Container {
         items: [{
             module: Toolbar,
             items : ['->', {
-                text: 'Cases'
+                style: {marginRight: '2px'},
+                text : '<span style="color: #bbbbbb">●</span> Cases'
             }, {
-                text: 'Active'
+                style: {marginRight: '2px'},
+                text : '<span style="color: #64b5f6">●</span> Active'
             }, {
-                text: 'Recovered'
+                style: {marginRight: '2px'},
+                text : '<span style="color: #28ca68">●</span> Recovered'
             }, {
-                text: 'Deaths'
+                text: '<span style="color: #fb6767">●</span> Deaths'
             }]
         }, {
             module   : WorldMapComponent,
