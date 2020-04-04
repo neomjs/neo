@@ -64,7 +64,6 @@ class AmCharts extends Base {
                 'callMethod',
                 'create',
                 'setProperty',
-                'toggleLogarithmic',
                 'updateData'
             ]
         }
