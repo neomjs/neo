@@ -109,8 +109,9 @@ class AmCharts extends Base {
     /**
      *
      * @param {Object} data
-     * @param {Object} data.combinedSeriesTooltip
+     * @param {Boolean} data.combineSeriesTooltip
      * @param {Object} data.config
+     * @param {Boolean} data.fitParentHeight
      * @param {String} data.id
      * @param {String} data.package
      * @param {String} data.type='XYChart'
@@ -125,10 +126,12 @@ class AmCharts extends Base {
 
             me.charts[data.id] = am4core.createFromConfig(data.config, data.id, self[data.package][data.type || 'XYChart']);
 
-            document.getElementById(data.id).childNodes[1].style.height = document.getElementById(data.id).parentNode.clientHeight + 'px';
+            if (data.combineSeriesTooltip) {
+                me.combineSeriesTooltip(me.charts[data.id]);
+            }
 
-            if (data.combinedSeriesTooltip) {
-                me.createCombinedSeriesTooltip(me.charts[data.id]);
+            if (data.fitParentHeight) {
+                me.fitParentHeight(data.id);
             }
 
             // in case data has arrived before the chart got created, apply it now
@@ -143,7 +146,7 @@ class AmCharts extends Base {
      *
      * @param {Object} chart
      */
-    createCombinedSeriesTooltip(chart) {
+    combineSeriesTooltip(chart) {
         chart.series.each(series => {
             series.adapter.add('tooltipText', () => {
                 let text = "[bold]{dateX}[/]\n";
@@ -155,6 +158,17 @@ class AmCharts extends Base {
                 return text;
             });
         });
+    }
+
+    /**
+     *
+     * @param {String} chartId
+     */
+    fitParentHeight(chartId) {
+        const chartNode = document.getElementById(chartId);
+        chartNode.childNodes[1].style.height = chartNode.clientHeight + 'px';
+
+        // todo: add a buffered(!) window resize listener
     }
 
     /**

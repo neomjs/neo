@@ -122,9 +122,13 @@ class LineChartComponent extends AmChartComponent {
             }]
         },
         /**
-         * @member {Boolean} combinedSeriesTooltip=true
+         * @member {Boolean} combineSeriesTooltip=true
          */
-        combinedSeriesTooltip: true
+        combineSeriesTooltip: true,
+        /**
+         * @member {Boolean} fitParentHeight=true
+         */
+        fitParentHeight: true
     }}
 }
 
