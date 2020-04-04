@@ -116,12 +116,16 @@ class AmCharts extends Base {
      * @param {Array} [data.params]
      */
     callMethod(data) {
-        const chart      = this.charts[data.id],
-              pathArray  = data.path.split('.'),
-              methodName = pathArray.pop(),
-              scope      = Neo.ns(pathArray.join('.'), false, chart);
+        if (this.hasChart(data.id)) {
+            const chart      = this.charts[data.id],
+                  pathArray  = data.path.split('.'),
+                  methodName = pathArray.pop(),
+                  scope      = Neo.ns(pathArray.join('.'), false, chart);
 
-        scope[methodName].call(scope, ...data.params || []);
+            scope[methodName].call(scope, ...data.params || []);
+        } else {
+            // todo
+        }
     }
 
     /**
@@ -179,7 +183,7 @@ class AmCharts extends Base {
      * @return {Boolean}
      */
     hasChart(id) {
-        return this.charts[id];
+        return !!this.charts[id];
     }
 
     /**
@@ -214,23 +218,15 @@ class AmCharts extends Base {
      * @param {*} data.value
      */
     setProperty(data) {
-        const chart        = this.charts[data.id],
-              pathArray    = data.path.split('.'),
-              propertyName = pathArray.pop(),
-              scope        = Neo.ns(pathArray.join('.'), false, chart);
-
-        scope[propertyName] = data.isColor ? am4core.color(data.value) : data.value;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     * @param {String} data.id
-     * @param {Boolean} data.value
-     */
-    toggleLogarithmic(data) {
         if (this.hasChart(data.id)) {
-            this.charts[data.id].yAxes.values[0].logarithmic = data.value;
+            const chart        = this.charts[data.id],
+                  pathArray    = data.path.split('.'),
+                  propertyName = pathArray.pop(),
+                  scope        = Neo.ns(pathArray.join('.'), false, chart);
+
+            scope[propertyName] = data.isColor ? am4core.color(data.value) : data.value;
+        } else {
+            // todo
         }
     }
 
