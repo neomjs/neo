@@ -29,6 +29,10 @@ class WorldMapComponent extends AmChartComponent {
          */
         dataPath: 'series.values.0',
         /**
+         * @member {Number} heatRulesMaxValue=15000
+         */
+        heatRulesMaxValue: 15000,
+        /**
          * @member {String} package='am4maps'
          */
         package: 'am4maps',
@@ -50,7 +54,7 @@ class WorldMapComponent extends AmChartComponent {
 
                 heatRules: [{
                     max     : '#64b5f6',
-                    maxValue: 7500,
+                    maxValue: '@config:heatRulesMaxValue',
                     min     : '#ffffff',
                     minValue: 0,
                     property: 'fill',

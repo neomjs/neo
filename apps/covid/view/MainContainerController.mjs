@@ -85,6 +85,13 @@ class MainContainerController extends ComponentController {
               reference    = me.mainTabs[me.activeMainTabIndex],
               activeTab    = me.getReference(reference);
 
+        // worldometer added world as a country
+        // might get removed by the NovelCovid API
+        if (data[0] && data[0].country === 'World') {
+            const worldData = data.shift();
+            console.log(worldData);
+        }
+
         data.forEach(item => {
             item.infected = item.casesPerOneMillion;
         });
