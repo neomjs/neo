@@ -1,4 +1,5 @@
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
+import NeoArray                         from '../../../src/util/Array.mjs';
 
 /**
  * @class Covid.view.TableContainerController
@@ -24,6 +25,11 @@ class TableContainerController extends ComponentController {
          * @member {Number|String} apiHistoricalDataTimeRange='all'
          */
         apiHistoricalDataTimeRange: 'all',
+        /**
+         * Remove all records with 0 cases from the historical data (table & chart)
+         * @member {Boolean} removeEmptyRecords=true
+         */
+        removeEmptyRecords: true,
         /**
          * @member {Object} selectedRecord=null
          */
@@ -89,6 +95,14 @@ class TableContainerController extends ComponentController {
                 value.active = value.cases - value.deaths - value.recovered;
                 dataArray.push(value);
             });
+
+            if (me.removeEmptyRecords) {
+                [...dataArray].forEach(item => {
+                    if (item.cases === 0) {
+                        NeoArray.remove(dataArray, item);
+                    }
+                });
+            }
 
             // todo: we could only update the active tab
             me.getReference('historical-data-table').store.data = dataArray;
