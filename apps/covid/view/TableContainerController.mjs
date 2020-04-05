@@ -148,8 +148,9 @@ class TableContainerController extends ComponentController {
      * {Object} data
      */
     onLogarithmicScaleChange(data) {
-        Neo.main.AmCharts.toggleLogarithmic({
+        Neo.main.AmCharts.setProperty({
             id   : this.getReference('line-chart').id,
+            path : 'yAxes.values.0.logarithmic',
             value: data.value
         });
     }

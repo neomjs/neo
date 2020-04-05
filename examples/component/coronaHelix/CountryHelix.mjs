@@ -175,6 +175,7 @@ class CountryHelix extends Helix {
             'el-salvador'                          : 'salvador',
             'eswatini'                             : 'swaziland',
             'faeroe-islands'                       : 'faroe-islands',
+            'falkland-islands-(malvinas)'          : 'falkland-islands',
             'french-guiana'                        : 'france', // ?
             'guadeloupe'                           : 'france', // ?
             'holy-see-(vatican-city-state)'        : 'vatican-city',
@@ -193,6 +194,7 @@ class CountryHelix extends Helix {
             'st.-barth'                            : 'st-barts',
             'saint-lucia'                          : 'st-lucia',
             'saint-martin'                         : 'sint-maarten',
+            'saint-pierre-miquelon'                : 'france',
             'saint-vincent-and-the-grenadines'     : 'st-vincent-and-the-grenadines',
             'syrian-arab-republic'                 : 'syria',
             'tanzania,-united-republic-of'         : 'tanzania',
