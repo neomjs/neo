@@ -1,4 +1,5 @@
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
+import NeoArray                         from '../../../src/util/Array.mjs';
 
 /**
  * @class Covid.view.TableContainerController
@@ -19,6 +20,16 @@ class TableContainerController extends ComponentController {
          * @member {String} apiHistoricalDataEndpoint='historical'
          */
         apiHistoricalDataEndpoint: 'v2/historical/',
+        /**
+         * Number of days you want the data to go back to. Default is 30. Use all for full data set. Ex: 15, all, 24
+         * @member {Number|String} apiHistoricalDataTimeRange='all'
+         */
+        apiHistoricalDataTimeRange: 'all',
+        /**
+         * Remove all records with 0 cases from the historical data (table & chart)
+         * @member {Boolean} removeEmptyRecords=true
+         */
+        removeEmptyRecords: true,
         /**
          * @member {Object} selectedRecord=null
          */
@@ -85,6 +96,14 @@ class TableContainerController extends ComponentController {
                 dataArray.push(value);
             });
 
+            if (me.removeEmptyRecords) {
+                [...dataArray].forEach(item => {
+                    if (item.cases === 0) {
+                        NeoArray.remove(dataArray, item);
+                    }
+                });
+            }
+
             // todo: we could only update the active tab
             me.getReference('historical-data-table').store.data = dataArray;
             me.updateLineChart(dataArray);
@@ -110,7 +129,7 @@ class TableContainerController extends ComponentController {
      */
     loadHistoricalData(countryName) {
         const me      = this,
-              apiPath = me.apiBaseUrl + me.apiHistoricalDataEndpoint + countryName;
+              apiPath = me.apiBaseUrl + me.apiHistoricalDataEndpoint + countryName + '?lastdays=' + me.apiHistoricalDataTimeRange;
 
         fetch(apiPath)
             .then(response => response.json())
