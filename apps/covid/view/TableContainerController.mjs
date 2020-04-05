@@ -204,7 +204,7 @@ class TableContainerController extends ComponentController {
 
         if (record) {
             dataArray.push({
-                date: new Date().getTime(),
+                date: new Date().toISOString(),
 
                 active   : record.active    || null,
                 cases    : record.cases     || null,

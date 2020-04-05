@@ -93,7 +93,12 @@ class MainContainerController extends ComponentController {
         }
 
         data.forEach(item => {
-            item.infected = item.casesPerOneMillion;
+            if (item.country.includes('"')) {
+                item.country = item.country.replace('"', "\'");
+            }
+
+            item.casesPerOneMillion = item.casesPerOneMillion || 0;
+            item.infected           = item.casesPerOneMillion;
         });
 
         me.data = data;
