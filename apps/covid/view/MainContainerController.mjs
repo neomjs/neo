@@ -167,7 +167,7 @@ class MainContainerController extends ComponentController {
             'car'                                  : 'central-african-republic',
             'caribbean-netherlands'                : 'netherlands',
             'channel-islands'                      : 'jersey',
-            'côte-d\'ivoire'                       : 'ivory-coast',
+            'côte-d"ivoire'                        : 'ivory-coast',
             'congo'                                : 'republic-of-the-congo',
             'congo,-the-democratic-republic-of-the': 'democratic-republic-of-congo',
             'curaçao'                              : 'curacao',
@@ -182,7 +182,7 @@ class MainContainerController extends ComponentController {
             'guadeloupe'                           : 'france', // ?
             'holy-see-(vatican-city-state)'        : 'vatican-city',
             'iran,-islamic-republic-of'            : 'iran',
-            'lao-people\'s-democratic-republic'    : 'laos',
+            'lao-people"s-democratic-republic'     : 'laos',
             'libyan-arab-jamahiriya'               : 'libya',
             'macedonia'                            : 'republic-of-macedonia',
             'mayotte'                              : 'france', // ?
