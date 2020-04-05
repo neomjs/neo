@@ -183,6 +183,7 @@ class CountryGallery extends Gallery {
             'st.-barth'                            : 'st-barts',
             'saint-lucia'                          : 'st-lucia',
             'saint-martin'                         : 'sint-maarten',
+            'saint-pierre-miquelon'                : 'france',
             'saint-vincent-and-the-grenadines'     : 'st-vincent-and-the-grenadines',
             'syrian-arab-republic'                 : 'syria',
             'tanzania,-united-republic-of'         : 'tanzania',
