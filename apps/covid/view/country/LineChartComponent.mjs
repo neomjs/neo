@@ -20,7 +20,7 @@ class LineChartComponent extends AmChartComponent {
          */
         chartConfig: {
             cursor: {
-                maxTooltipDistance: 0
+                maxTooltipDistance: -1
             },
 
             legend: {
