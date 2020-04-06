@@ -148,7 +148,7 @@ The Online Docs are also included inside the Online Examples.
 dist/production does not support lazy loading the examples yet, but works in every browser:</br>
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html">Online Docs (dist/production)</a>
 
-The development only works on Chrome 80+, but does lazy load the example apps:</br>
+The development mode only works on Chrome 80+, but does lazy load the example apps:</br>
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/docs/index.html">Online Docs (dev mode)</a>
 
 Hint: As soon as you create your own apps, you want to use the docs app locally,
