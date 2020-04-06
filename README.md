@@ -151,7 +151,7 @@ dist/production does not support lazy loading the examples yet, but works in eve
 The development mode only works on Chrome 80+, but does lazy load the example apps:</br>
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/docs/index.html">Online Docs (dev mode)</a>
 
-Hint: As soon as you create your own apps, you want to use the docs app locally,
+Hint: As soon as you create your own apps, you want to use the docs app locally,</br>
 since this will include the documentation for your own apps.
 
 ## Ready to get started?
