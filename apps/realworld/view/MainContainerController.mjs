@@ -108,7 +108,10 @@ class MainContainerController extends ComponentController {
                 userImage: value ? value.image    : null,
                 userName : value ? value.username : null
             }).then(() => {
-                this.fire('afterSetCurrentUser', value);
+                // todo: test to ensure the initial markup is rendered
+                setTimeout(() => {
+                    this.fire('afterSetCurrentUser', value);
+                }, 200);
             });
         }
     }

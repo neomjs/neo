@@ -93,7 +93,7 @@ class Base extends CoreBase {
      * @returns {Promise<any>}
      */
     delete(opts={}) {
-        console.log('delete', opts);
+        // console.log('delete', opts);
 
         return Neo.Xhr.promiseJson({
             data   : opts.data,
@@ -121,7 +121,7 @@ class Base extends CoreBase {
      * @returns {Promise<any>}
      */
     get(opts={}) {
-        console.log('get', opts);
+        // console.log('get', opts);
 
         return Neo.Xhr.promiseJson({
             data   : opts.data,
@@ -165,7 +165,7 @@ class Base extends CoreBase {
      * @returns {Promise<any>}
      */
     post(opts={}) {
-        console.log('post', opts);
+        // console.log('post', opts);
 
         const params = opts.params;
         delete opts.params;
@@ -196,7 +196,7 @@ class Base extends CoreBase {
      * @returns {Promise<any>}
      */
     put(opts={}) {
-        console.log('put', opts);
+        // console.log('put', opts);
 
         const params = opts.params;
         delete opts.params;
