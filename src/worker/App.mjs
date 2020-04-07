@@ -82,7 +82,8 @@ class App extends Base {
     constructor(config) {
         super(config);
 
-        let me = this;
+        const me = this;
+
         me.on('remoteregistered', me.onRemoteRegistered, me);
     }
 
@@ -126,11 +127,9 @@ class App extends Base {
                     HashHistory.push(Neo.config.hash, Neo.config.hashString);
                 }
             } else {
-                // todo: in case FF still does not support dynamic imports, remove the dynamic import call for FF dev builds
-
                 import(
                     /* webpackIgnore: true */
-                    '../../' + me.data.path).then((module) => {
+                    `../../${me.data.path}`).then(module => {
                         Neo.onStart();
 
                         if (Neo.config.hash) {
