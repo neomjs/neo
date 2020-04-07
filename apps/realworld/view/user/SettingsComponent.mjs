@@ -138,19 +138,10 @@ class SettingsComponent extends Component {
         let me           = this,
             domListeners = me.domListeners;
 
-        domListeners.push({
-            click: {
-                fn      : me.onLogoutButtonClick,
-                delegate: '.btn-outline-danger',
-                scope   : me
-            }
-        }, {
-            click: {
-                fn      : me.onSubmitButtonClick,
-                delegate: '.btn-primary',
-                scope   : me
-            }
-        });
+        domListeners.push(
+            {click: {fn: me.onLogoutButtonClick, delegate: '.btn-outline-danger', scope: me}},
+            {click: {fn: me.onSubmitButtonClick, delegate: '.btn-primary',        scope: me}}
+        );
 
         me.domListeners = domListeners;
 
@@ -243,11 +234,11 @@ class SettingsComponent extends Component {
     onCurrentUserChange(value) {
         if (value) {
             this.set({
-                bio      : value.bio,
-                email    : value.email,
-                errors   : [],
-                image    : value.image,
-                userName : value.username
+                bio     : value.bio,
+                email   : value.email,
+                errors  : [],
+                image   : value.image,
+                userName: value.username
             });
         }
     }

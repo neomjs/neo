@@ -156,19 +156,10 @@ class ProfileComponent extends Component {
         let me           = this,
             domListeners = me.domListeners;
 
-        domListeners.push({
-            click: {
-                fn      : me.onFollowButtonClick,
-                delegate: '.follow-button',
-                scope   : me
-            }
-        }, {
-            click: {
-                fn      : me.onNavLinkClick,
-                delegate: '.nav-link',
-                scope   : me
-            }
-        });
+        domListeners.push(
+            {click: {fn: me.onFollowButtonClick, delegate: '.follow-button', scope: me}},
+            {click: {fn: me.onNavLinkClick,      delegate: '.nav-link',      scope: me}}
+        );
 
         me.domListeners = domListeners;
 

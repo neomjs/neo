@@ -118,19 +118,10 @@ class HomeComponent extends Component {
         let me           = this,
             domListeners = me.domListeners;
 
-        domListeners.push({
-            click: {
-                fn      : me.onNavLinkClick,
-                delegate: '.nav-link',
-                scope   : me
-            }
-        }, {
-            click: {
-                fn      : me.onPageNavLinkClick,
-                delegate: '.page-link',
-                scope   : me
-            }
-        });
+        domListeners.push(
+            {click: {fn: me.onNavLinkClick,     delegate: '.nav-link',  scope: me}},
+            {click: {fn: me.onPageNavLinkClick, delegate: '.page-link', scope: me}}
+        );
 
         me.domListeners = domListeners;
 
