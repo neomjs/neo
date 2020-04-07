@@ -149,8 +149,6 @@ class App extends Base {
     onRemoteRegistered(remote) {
         let me = this;
 
-        console.log('onRemoteRegistered', remote.origin);
-
         switch(remote.origin) {
             case 'data':
                 me.dataRemotesRegistered++;
