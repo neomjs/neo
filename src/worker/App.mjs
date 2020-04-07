@@ -36,6 +36,11 @@ class App extends Base {
          */
         dataRemotesRegistered: 0,
         /**
+         * @member {Number} mainRemotesRegistered=0
+         * @private
+         */
+        mainRemotesRegistered: 0,
+        /**
          * @member {Boolean} singleton=true
          * @private
          */
@@ -50,13 +55,18 @@ class App extends Base {
          * @private
          */
         workerId: 'app',
-
         /**
          * todo: App needs to know how many singletons have remotes registered here to ensure a correct starting point
          * @member {Number} countDataRemotes=2
          * @private
          */
         countDataRemotes: 2,
+        /**
+         * todo: App needs to know how many singletons have remotes registered here to ensure a correct starting point
+         * @member {Number} countMainRemotes=4
+         * @private
+         */
+        countMainRemotes: 4,
         /**
          * todo: App needs to know how many singletons have remotes registered here to ensure a correct starting point
          * @member {Number} countVdomRemotes=1
@@ -106,6 +116,7 @@ class App extends Base {
 
         if (
             me.dataRemotesRegistered === me.countDataRemotes &&
+            me.mainRemotesRegistered === me.countMainRemotes &&
             me.vdomRemotesRegistered === me.countVdomRemotes
         ) {
             if (!Neo.config.isExperimental) {
@@ -138,9 +149,14 @@ class App extends Base {
     onRemoteRegistered(remote) {
         let me = this;
 
+        console.log('onRemoteRegistered', remote.origin);
+
         switch(remote.origin) {
             case 'data':
                 me.dataRemotesRegistered++;
+                break;
+            case 'main':
+                me.mainRemotesRegistered++;
                 break;
             case 'vdom':
                 me.vdomRemotesRegistered++;
