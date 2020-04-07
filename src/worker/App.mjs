@@ -143,6 +143,7 @@ class App extends Base {
     }
 
     /**
+     * todo: https://github.com/neomjs/neo/issues/442
      * Each registered remote method will trigger this receiver
      * @param {Object} remote
      */
