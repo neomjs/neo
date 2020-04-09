@@ -35,28 +35,55 @@ class Base extends CoreBase {
         resource: '/'
     }}
 
+    /**
+     *
+     */
     onConstructed() {
         super.onConstructed();
+        this.onAfterConstructed();
+    }
 
+    /**
+     * todo: this construct is just a workaround until webpack based builds are changed to the worker target
+     * and lazy loading apps is supported in dist/*
+     */
+    onAfterConstructed() {
+        const me = this;
+
+        if (!Neo.apps || !Neo.apps['RealWorld']) {
+            setTimeout(() => {
+                me.onAfterConstructed();
+            }, 200);
+        } else {
+            if (Neo.apps['RealWorld'].rendered) {
+                me.onAppRendered();
+            } else {
+                Neo.apps['RealWorld'].on('render',me.onAppRendered, me);
+            }
+        }
+    }
+
+    /**
+     *
+     */
+    onAppRendered() {
         const me = this;
 
         if (!Base.initialTokenRequestSent) {
             Base.initialTokenRequestSent = true;
 
-            setTimeout(() => {
-                Neo.Main.readLocalStorageItem({
-                    key: LOCAL_STORAGE_KEY
-                }).then(data => {
-                    const token = data.value;
+            Neo.Main.readLocalStorageItem({
+                key: LOCAL_STORAGE_KEY
+            }).then(data => {
+                const token = data.value;
 
-                    if (token) {
-                        Base.token = token;
-                    }
+                if (token) {
+                    Base.token = token;
+                }
 
-                    me.onReady(token);
-                    Base.fire('ready', token);
-                });
-            }, Neo.config.isExperimental ? 0 : 200);
+                me.onReady(token);
+                Base.fire('ready', token);
+            });
         } else {
             Base.on({
                 ready: me.onReady,
@@ -93,7 +120,7 @@ class Base extends CoreBase {
      * @returns {Promise<any>}
      */
     delete(opts={}) {
-        console.log('delete', opts);
+        // console.log('delete', opts);
 
         return Neo.Xhr.promiseJson({
             data   : opts.data,
@@ -121,7 +148,7 @@ class Base extends CoreBase {
      * @returns {Promise<any>}
      */
     get(opts={}) {
-        console.log('get', opts);
+        // console.log('get', opts);
 
         return Neo.Xhr.promiseJson({
             data   : opts.data,
@@ -165,7 +192,7 @@ class Base extends CoreBase {
      * @returns {Promise<any>}
      */
     post(opts={}) {
-        console.log('post', opts);
+        // console.log('post', opts);
 
         const params = opts.params;
         delete opts.params;
@@ -196,7 +223,7 @@ class Base extends CoreBase {
      * @returns {Promise<any>}
      */
     put(opts={}) {
-        console.log('put', opts);
+        // console.log('put', opts);
 
         const params = opts.params;
         delete opts.params;

@@ -39,6 +39,12 @@ class Country extends Model {
             name: 'recovered',
             type: 'Integer'
         }, {
+            name: 'tests',
+            type: 'Integer'
+        }, {
+            name: 'testsPerOneMillion',
+            type: 'Integer'
+        }, {
             name: 'todayCases',
             type: 'Integer'
         }, {

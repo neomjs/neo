@@ -85,6 +85,12 @@ class Table extends Container {
             dataField: 'todayDeaths',
             text     : 'Deaths today',
             renderer : data => Util.formatNumber(data, '#fb6767')
+        }, {
+            dataField: 'tests',
+            text     : 'Tests'
+        }, {
+            dataField: 'testsPerOneMillion',
+            text     : 'Tests / 1M'
         }],
         /**
          * @member {Boolean} createRandomData=false

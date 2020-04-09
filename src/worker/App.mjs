@@ -36,6 +36,11 @@ class App extends Base {
          */
         dataRemotesRegistered: 0,
         /**
+         * @member {Number} mainRemotesRegistered=0
+         * @private
+         */
+        mainRemotesRegistered: 0,
+        /**
          * @member {Boolean} singleton=true
          * @private
          */
@@ -50,13 +55,18 @@ class App extends Base {
          * @private
          */
         workerId: 'app',
-
         /**
          * todo: App needs to know how many singletons have remotes registered here to ensure a correct starting point
          * @member {Number} countDataRemotes=2
          * @private
          */
         countDataRemotes: 2,
+        /**
+         * todo: App needs to know how many singletons have remotes registered here to ensure a correct starting point
+         * @member {Number} countMainRemotes=4
+         * @private
+         */
+        countMainRemotes: 4,
         /**
          * todo: App needs to know how many singletons have remotes registered here to ensure a correct starting point
          * @member {Number} countVdomRemotes=1
@@ -72,7 +82,8 @@ class App extends Base {
     constructor(config) {
         super(config);
 
-        let me = this;
+        const me = this;
+
         me.on('remoteregistered', me.onRemoteRegistered, me);
     }
 
@@ -106,6 +117,7 @@ class App extends Base {
 
         if (
             me.dataRemotesRegistered === me.countDataRemotes &&
+            me.mainRemotesRegistered === me.countMainRemotes &&
             me.vdomRemotesRegistered === me.countVdomRemotes
         ) {
             if (!Neo.config.isExperimental) {
@@ -115,11 +127,9 @@ class App extends Base {
                     HashHistory.push(Neo.config.hash, Neo.config.hashString);
                 }
             } else {
-                // todo: in case FF still does not support dynamic imports, remove the dynamic import call for FF dev builds
-
                 import(
                     /* webpackIgnore: true */
-                    '../../' + me.data.path).then((module) => {
+                    `../../${me.data.path}`).then(module => {
                         Neo.onStart();
 
                         if (Neo.config.hash) {
@@ -132,6 +142,7 @@ class App extends Base {
     }
 
     /**
+     * todo: https://github.com/neomjs/neo/issues/442
      * Each registered remote method will trigger this receiver
      * @param {Object} remote
      */
@@ -141,6 +152,9 @@ class App extends Base {
         switch(remote.origin) {
             case 'data':
                 me.dataRemotesRegistered++;
+                break;
+            case 'main':
+                me.mainRemotesRegistered++;
                 break;
             case 'vdom':
                 me.vdomRemotesRegistered++;

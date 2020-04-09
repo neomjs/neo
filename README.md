@@ -13,16 +13,17 @@ the following concepts will be addictive.
 ## Content
 1. <a href="#sponsors">Sponsors</a>
 2. <a href="#covid19-in-numbers-demo-app">COVID19 IN NUMBERS Demo App</a>
-3. <a href="#online-examples">Online Examples</a>
-4. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
-5. <a href="#want-to-learn-more">Want to learn more?</a>
-6. <a href="#impossible-pick-with-caution">Impossible? Pick with caution!</a>
-7. <a href="#ready-to-get-started">Ready to get started?</a>
-8. <a href="#project-history">Project History</a>
-9. <a href="#story--vision">Story & Vision</a>
-10. <a href="#sponsors-are-needed">Sponsors are needed!</a>
-11. <a href="#contributors-are-needed">Contributors are needed!</a>
-12. <a href="#slack-channel-for-questions--feedback">Slack Channel for questions & feedback</a>
+3. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
+4. <a href="#want-to-learn-more">Want to learn more?</a>
+5. <a href="#impossible-pick-with-caution">Impossible? Pick with caution!</a>
+6. <a href="#online-examples">Online Examples</a>
+7. <a href="#online-docs">Online Docs</a>
+8. <a href="#ready-to-get-started">Ready to get started?</a>
+9. <a href="#project-history">Project History</a>
+10. <a href="#story--vision">Story & Vision</a>
+11. <a href="#sponsors-are-needed">Sponsors are needed!</a>
+12. <a href="#contributors-are-needed">Contributors are needed!</a>
+13. <a href="#slack-channel-for-questions--feedback">Slack Channel for questions & feedback</a>
 
 
 ## Sponsors
@@ -50,7 +51,7 @@ the following concepts will be addictive.
 The most compelling way to introduce a new framework might simply be to show what you can do with it.
 
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/covid/index.html#mainview=table">Live Demo: COIN App dist/production</a></br>
-Desktop only; support for mobile devices is on the roadmap)
+Desktop only => support for mobile devices is on the roadmap.
 
 <a href="https://www.youtube.com/watch?v=BhSZS6_UlO4">Demo Video on YouTube</a></br>
 Just clicking around randomly, but might give you an idea on you to navigate inside the helix and gallery.
@@ -64,12 +65,6 @@ You can find the code of the covid app <a href="https://github.com/neomjs/neo/tr
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v2/helix.png">
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v2/world.png">
-
-## Online Examples
-You can find a full list of (desktop based) online examples here:</br>
-<a href="https://neomjs.github.io/pages/">Online Examples</a>
-
-You can pick between the 3 modes (development, dist/development, dist/production) for each one.
 
 ## Short overview of the concept & design goals
 <table>
@@ -140,6 +135,24 @@ You can pick between the 3 modes (development, dist/development, dist/production
 <a href="https://en.wikipedia.org/wiki/Red_pill_and_blue_pill"><img alt="blue or red pill" src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/redorbluepill.png"></a>
 
 Still here? Welcome to neo.mjs - The webworkers driven UI framework
+
+## Online Examples
+You can find a full list of (desktop based) online examples here:</br>
+<a href="https://neomjs.github.io/pages/">Online Examples</a>
+
+You can pick between the 3 modes (development, dist/development, dist/production) for each one.
+
+## Online Docs
+The Online Docs are also included inside the Online Examples.
+
+dist/production does not support lazy loading the examples yet, but works in every browser:</br>
+<a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html">Online Docs (dist/production)</a>
+
+The development mode only works on Chrome 80+, but does lazy load the example apps:</br>
+<a href="https://neomjs.github.io/pages/node_modules/neo.mjs/docs/index.html">Online Docs (dev mode)</a>
+
+Hint: As soon as you create your own apps, you want to use the docs app locally,</br>
+since this will include the documentation for your own apps.
 
 ## Ready to get started?
 There are 3 different ways on how you can get the basics running locally.</br>
