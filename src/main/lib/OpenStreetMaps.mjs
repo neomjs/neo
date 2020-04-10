@@ -24,7 +24,7 @@ class AmCharts extends Base {
     constructor(config) {
         super(config);
 
-        if (Neo.config.useAmCharts) {
+        if (Neo.config.useOpenStreetMaps) {
             this.insertOpenStreetMapsScripts();
         }
     }

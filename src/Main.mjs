@@ -4,6 +4,7 @@ import AmCharts                   from './main/lib/AmCharts.mjs';
 import DomAccess                  from './main/DomAccess.mjs';
 import DomEvents                  from './main/DomEvents.mjs';
 import LocalStorage               from './main/mixins/LocalStorage.mjs';
+import OpenStreetMaps             from './main/lib/OpenStreetMaps.mjs';
 import {default as WorkerManager} from './worker/Manager.mjs';
 
 /**
