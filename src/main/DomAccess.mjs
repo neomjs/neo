@@ -270,12 +270,12 @@ class DomAccess extends Base {
      * @return {Promise<unknown>}
      */
     loadStylesheet(href) {
-        let script;
+        let link;
 
         return new Promise((resolve, reject) => {
-            script = document.createElement('link');
+            link = document.createElement('link');
 
-            Object.assign(script, {
+            Object.assign(link, {
                 href   : href,
                 onerror: reject,
                 onload : resolve,
@@ -283,7 +283,7 @@ class DomAccess extends Base {
                 type   : 'text/css'
             });
 
-            document.head.appendChild(script);
+            document.head.appendChild(link);
         });
     }
 
