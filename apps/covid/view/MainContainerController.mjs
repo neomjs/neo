@@ -45,10 +45,10 @@ class MainContainerController extends ComponentController {
          */
         data: null,
         /**
-         * @member {String[]} mainTabs=['table', 'gallery', 'helix']
+         * @member {String[]} mainTabs=['table', 'openstreetmap', 'worldmap', 'gallery', 'helix', 'attribution']
          * @private
          */
-        mainTabs: ['table', 'worldmap', 'gallery', 'helix', 'attribution'],
+        mainTabs: ['table','openstreetmap', 'worldmap', 'gallery', 'helix', 'attribution'],
         /**
          * @member {Object} summaryData=null
          */

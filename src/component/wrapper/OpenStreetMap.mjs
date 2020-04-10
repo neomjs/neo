@@ -26,7 +26,6 @@ class OpenStreetMap extends Component {
             cn: [{
                 style: {position: 'absolute', height: '100%', width: '100%'},
                 cn: [{
-                    html : 'OpenStreetMaps',
                     style: {
                         height: '100%'
                     }
