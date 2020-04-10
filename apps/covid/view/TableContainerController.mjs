@@ -167,7 +167,7 @@ class TableContainerController extends ComponentController {
      * {Object} data
      */
     onLogarithmicScaleChange(data) {
-        Neo.main.AmCharts.setProperty({
+        Neo.main.lib.AmCharts.setProperty({
             id   : this.getReference('line-chart').id,
             path : 'yAxes.values.0.logarithmic',
             value: data.value
@@ -232,7 +232,7 @@ class TableContainerController extends ComponentController {
             });
         }
 
-        Neo.main.AmCharts.updateData({
+        Neo.main.lib.AmCharts.updateData({
             data    : dataArray,
             dataPath: chart.dataPath,
             id      : chart.id

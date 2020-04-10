@@ -1,20 +1,20 @@
-import Base      from '../core/Base.mjs';
-import DomAccess from './DomAccess.mjs';
+import Base      from '../../core/Base.mjs';
+import DomAccess from '../DomAccess.mjs';
 
 /**
  * Helper class to include amCharts into your neo.mjs app
  * https://www.amcharts.com/docs/v4/
- * @class Neo.main.AmCharts
+ * @class Neo.main.lib.AmCharts
  * @extends Neo.core.Base
  * @singleton
  */
 class AmCharts extends Base {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.main.AmCharts'
+         * @member {String} className='Neo.main.lib.AmCharts'
          * @private
          */
-        className: 'Neo.main.AmCharts',
+        className: 'Neo.main.lib.AmCharts',
         /**
          * Stores all chart ids inside an object
          * @member {Object} charts={}
