@@ -30,7 +30,7 @@ class View extends Component {
          */
         recordVnodeMap: {},
         /**
-         * @member {Neo.data.Store||null} store=null
+         * @member {Neo.data.Store|null} store=null
          */
         store: null,
         /**
