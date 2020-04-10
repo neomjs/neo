@@ -21,6 +21,11 @@ class AmCharts extends Base {
          */
         downloadPath: 'https://api.mapbox.com/mapbox-gl-js/',
         /**
+         * @member {Boolean} scriptsLoaded_=true
+         * @private
+         */
+        scriptsLoaded_: false,
+        /**
          * @member {String} version='v1.8.1'
          * @private
          */
@@ -40,7 +45,15 @@ class AmCharts extends Base {
     }
 
     insertOpenStreetMapsScripts() {
-        console.log('insertOpenStreetMapsScripts');
+        const me       = this,
+              basePath = me.downloadPath + me.version + '/';
+
+        Promise.all([
+            DomAccess.loadScript(basePath + 'mapbox-gl.js')
+        ]).then(() => {
+            me.scriptsLoaded = true;
+            console.log('insertOpenStreetMapsScripts');
+        });
     }
 }
 

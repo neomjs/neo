@@ -196,7 +196,7 @@ class AmCharts extends Base {
 
         DomAccess.loadScript(basePath + 'core.js').then(() => {
             Promise.all([
-                DomAccess.loadScript(basePath+ 'charts.js'),
+                DomAccess.loadScript(basePath + 'charts.js'),
                 DomAccess.loadScript(basePath + 'maps.js'),
                 DomAccess.loadScript(basePath + 'geodata/worldLow.js')
             ]).then(() => {
