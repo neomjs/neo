@@ -1,10 +1,10 @@
-import {default as AmChartComponent} from '../../../src/component/wrapper/AmChart.mjs';
+import {default as OpenStreetMapComponent} from '../../../src/component/wrapper/OpenStreetMap.mjs';
 
 /**
  * @class Covid.view.OpenStreetMapsComponent
- * @extends Neo.component.wrapper.AmChart
+ * @extends Neo.component.wrapper.OpenStreetMap
  */
-class OpenStreetMapsComponent extends AmChartComponent {
+class OpenStreetMapsComponent extends OpenStreetMapComponent {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.OpenStreetMapsComponent'
