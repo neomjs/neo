@@ -8,7 +8,7 @@ import DomAccess from '../DomAccess.mjs';
  * @extends Neo.core.Base
  * @singleton
  */
-class AmCharts extends Base {
+class OpenStreetMaps extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.main.lib.OpenStreetMaps'
@@ -57,9 +57,9 @@ class AmCharts extends Base {
     }
 }
 
-Neo.applyClassConfig(AmCharts);
+Neo.applyClassConfig(OpenStreetMaps);
 
-let instance = Neo.create(AmCharts);
+let instance = Neo.create(OpenStreetMaps);
 
 Neo.applyToGlobalNs(instance);
 
