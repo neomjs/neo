@@ -399,6 +399,25 @@ class Helper extends Base {
                     return {
                         indexDelta: 0
                     }
+                }
+
+                // this case matches a typical array re-sorting
+                else if (movedNode && movedOldNode && movedNode.parentNode.id === movedOldNode.parentNode.id) {
+                    deltas.push({
+                        action: 'moveNode',
+                        id      : movedOldNode.vnode.id,
+                        index   : index,
+                        parentId: parentId
+                    });
+
+                    me.createDeltas({
+                        deltas      : deltas,
+                        newVnode    : newVnode,
+                        newVnodeRoot: newVnodeRoot,
+                        oldVnode    : movedOldNode.vnode,
+                        oldVnodeRoot: oldVnodeRoot,
+                        parentId    : movedNode.parentNode.id
+                    });
                 } else if (!movedNode && movedOldNode) {
                     if (newVnode.id === movedOldNode.vnode.id) {
                         indexDelta = 0;
@@ -449,7 +468,7 @@ class Helper extends Base {
 
                                 movedOldNodeDetails.parentNode.childNodes.splice(movedOldNodeDetails.index, 1);
 
-                                // do not move a node in case its previous sibbling nodes will get removed
+                                // do not move a node in case its previous sibling nodes will get removed
                                 if (movedOldNodeDetails.index !== targetIndex) {
                                     deltas.push({
                                         action: 'moveNode',
