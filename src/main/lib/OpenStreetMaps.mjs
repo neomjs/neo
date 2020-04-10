@@ -76,7 +76,7 @@ class OpenStreetMaps extends Base {
 
             new mapboxgl.Map({
                 container: data.id,
-                style    : 'mapbox://styles/mapbox/streets-v11'
+                style    : 'mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
             });
         }
     }
