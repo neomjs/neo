@@ -278,7 +278,9 @@ class DomAccess extends Base {
             Object.assign(script, {
                 href   : href,
                 onerror: reject,
-                onload : resolve
+                onload : resolve,
+                rel    : 'stylesheet',
+                type   : 'text/css'
             });
 
             document.head.appendChild(script);

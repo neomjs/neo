@@ -49,7 +49,8 @@ class OpenStreetMaps extends Base {
               basePath = me.downloadPath + me.version + '/';
 
         Promise.all([
-            DomAccess.loadScript(basePath + 'mapbox-gl.js')
+            DomAccess.loadScript(    basePath + 'mapbox-gl.js'),
+            DomAccess.loadStylesheet(basePath + 'mapbox-gl.css')
         ]).then(() => {
             me.scriptsLoaded = true;
             console.log('insertOpenStreetMapsScripts');
