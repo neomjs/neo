@@ -14,7 +14,17 @@ class AmCharts extends Base {
          * @member {String} className='Neo.main.lib.OpenStreetMaps'
          * @private
          */
-        className: 'Neo.main.lib.OpenStreetMaps'
+        className: 'Neo.main.lib.OpenStreetMaps',
+        /**
+         * @member {String} downloadPath='https://api.mapbox.com/mapbox-gl-js/'
+         * @private
+         */
+        downloadPath: 'https://api.mapbox.com/mapbox-gl-js/',
+        /**
+         * @member {String} version='v1.8.1'
+         * @private
+         */
+        version: 'v1.8.1',
     }}
 
     /**
