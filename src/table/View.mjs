@@ -30,6 +30,10 @@ class View extends Component {
          */
         recordVnodeMap: {},
         /**
+         * @member {Neo.data.Store||null} store=null
+         */
+        store: null,
+        /**
          * @member {Boolean} useRowRecordIds=true
          */
         useRowRecordIds: true,
@@ -160,6 +164,16 @@ class View extends Component {
         container.dockRightMargin = dockRightMargin;
 
         me.vdom = vdom;
+    }
+
+    /**
+     *
+     * @param {Boolean} updateParentVdom
+     * @param {Boolean} silent
+     */
+    destroy(updateParentVdom, silent) {
+        this.store = null;
+        super.destroy(updateParentVdom, silent);
     }
 
     /**

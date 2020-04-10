@@ -250,6 +250,11 @@ class Container extends BaseContainer {
             }
         });
 
+        // in case we dynamically change the store, the new needs to get the new reference
+        if (me.view) {
+            me.view.store = value;
+        }
+
         return value;
     }
 
