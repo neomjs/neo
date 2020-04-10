@@ -306,8 +306,8 @@ StartTest(t => {
         }, 'vnode got updated successfully');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'moveNode', id: 'neo-vnode-2', index: 2, parentId: 'neo-vnode-1'},
-            {action: 'moveNode', id: 'neo-vnode-3', index: 0, parentId: 'neo-vnode-1'}
+            {action: 'moveNode', id: 'neo-vnode-3', index: 0, parentId: 'neo-vnode-1'},
+            {action: 'moveNode', id: 'neo-vnode-2', index: 2, parentId: 'neo-vnode-1'}
         ], 'deltas got created successfully');
 
         vdom.cn.push(vdom.cn.shift()); // left shift
@@ -332,9 +332,9 @@ StartTest(t => {
         }, 'vnode got updated successfully');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'moveNode', id: 'neo-vnode-3',  index: 2, parentId: 'neo-vnode-1'},
             {action: 'moveNode', id: 'neo-button-1', index: 0, parentId: 'neo-vnode-1'},
-            {action: 'moveNode', id: 'neo-vnode-2',  index: 1, parentId: 'neo-vnode-1'}
+            {action: 'moveNode', id: 'neo-vnode-2',  index: 1, parentId: 'neo-vnode-1'},
+            {action: 'moveNode', id: 'neo-vnode-3',  index: 2, parentId: 'neo-vnode-1'}
         ], 'deltas got created successfully');
 
         vdom.cn.unshift(vdom.cn.pop()); // right shift
@@ -359,9 +359,9 @@ StartTest(t => {
         }, 'vnode got updated successfully');
 
         t.isDeeplyStrict(deltas, [
+            {action: 'moveNode', id: 'neo-vnode-3',  index: 0, parentId: 'neo-vnode-1'},
             {action: 'moveNode', id: 'neo-button-1', index: 1, parentId: 'neo-vnode-1'},
-            {action: 'moveNode', id: 'neo-vnode-2',  index: 2, parentId: 'neo-vnode-1'},
-            {action: 'moveNode', id: 'neo-vnode-3',  index: 0, parentId: 'neo-vnode-1'}
+            {action: 'moveNode', id: 'neo-vnode-2',  index: 2, parentId: 'neo-vnode-1'}
         ], 'deltas got created successfully');
     });
 
