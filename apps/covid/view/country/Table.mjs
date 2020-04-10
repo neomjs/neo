@@ -19,11 +19,12 @@ class Table extends Container {
         cls: ['covid-country-table', 'neo-table-container'],
         /**
          * Default configs for each column
-         * @member {Object} columnDefaults=null
+         * @member {Object} columnDefaults
          */
         columnDefaults: {
-            align   : 'right',
-            renderer: Util.formatNumber
+            align               : 'right',
+            defaultSortDirection: 'DESC',
+            renderer            : Util.formatNumber
         },
         /**
          * @member {Object[]} columns
@@ -37,12 +38,14 @@ class Table extends Container {
             renderer : Util.indexRenderer,
             width    : 40
         }, {
-            align    : 'left',
-            dataField: 'country',
-            dock     : 'left',
-            text     : 'Country',
-            width    : 200,
-            renderer : function(data) {
+            align               : 'left',
+            dataField           : 'country',
+            defaultSortDirection: 'ASC',
+            dock                : 'left',
+            text                : 'Country',
+            width               : 200,
+
+            renderer: function(data) {
                 return {
                     cls : ['neo-country-column', 'neo-table-cell'],
                     html: [

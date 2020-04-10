@@ -37,6 +37,11 @@ class Button extends BaseButton {
          */
         cls: ['neo-table-header-button'],
         /**
+         * Sort direction when clicking on an unsorted button
+         * @member {String} defaultSortDirection='ASC'
+         */
+        defaultSortDirection: 'ASC',
+        /**
          * @member {Boolean} draggable_=true
          */
         draggable_: true,
@@ -198,22 +203,24 @@ class Button extends BaseButton {
      * @private
      */
     onButtonClick() {
-        let me  = this,
-            direction;
+        let me = this,
+            map;
 
-        switch(me.isSorted) {
-            case null:
-                direction = 'ASC';
-                break;
-            case 'ASC':
-                direction = 'DESC';
-                break;
-            case 'DESC':
-                direction = null;
-                break;
+        if (me.defaultSortDirection === 'DESC') {
+            map = {
+                ASC : null,
+                DESC: 'ASC',
+                null: 'DESC'
+            };
+        } else {
+            map = {
+                ASC : 'DESC',
+                DESC: null,
+                null: 'ASC'
+            };
         }
 
-        me.isSorted = direction;
+        me.isSorted = map[me.isSorted + ''];
     }
 
     /**

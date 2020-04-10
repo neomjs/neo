@@ -117,7 +117,8 @@ class Container extends BaseContainer {
         }, {
             module     : View,
             containerId: me.id,
-            id         : me.viewId
+            id         : me.viewId,
+            store      : me.store
         }];
 
         me.vdom.id = me.id + 'wrapper';
@@ -248,6 +249,11 @@ class Container extends BaseContainer {
                 scope       : me
             }
         });
+
+        // in case we dynamically change the store, the new needs to get the new reference
+        if (me.view) {
+            me.view.store = value;
+        }
 
         return value;
     }
