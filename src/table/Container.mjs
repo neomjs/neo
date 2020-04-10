@@ -117,7 +117,8 @@ class Container extends BaseContainer {
         }, {
             module     : View,
             containerId: me.id,
-            id         : me.viewId
+            id         : me.viewId,
+            store      : me.store
         }];
 
         me.vdom.id = me.id + 'wrapper';

@@ -30,6 +30,10 @@ class View extends Component {
          */
         recordVnodeMap: {},
         /**
+         * @member {Boolean} useRowRecordIds=true
+         */
+        useRowRecordIds: true,
+        /**
          * @member {Object} _vdom={tag: 'tbody', cn : []}
          */
         _vdom: {
@@ -58,7 +62,12 @@ class View extends Component {
         // console.log('createViewData', me.id, inputData);
 
         for (; i < amountRows; i++) {
-            id = vdom.cn[i] && vdom.cn[i].id || Neo.getId('tr');
+            if (me.useRowRecordIds) {
+                id = me.id + '-tr-' + inputData[i][me.store.keyProperty];
+            } else {
+                id = vdom.cn[i] && vdom.cn[i].id || Neo.getId('tr');
+            }
+
             me.recordVnodeMap[id] = i;
 
             data.push({
@@ -160,9 +169,7 @@ class View extends Component {
      * @return {String}
      */
     getCellId(record, dataField) {
-        let store = Neo.get(this.containerId).store;
-
-        return this.id + '__' + record[store.keyProperty] + '__' + dataField;
+        return this.id + '__' + record[this.store.keyProperty] + '__' + dataField;
     }
 
     /**
