@@ -40,14 +40,15 @@ if (config.examples) {
             filename: path.resolve(processRoot, config.buildFolder) + value.output + 'index.html',
             template: path.resolve(neoPath, value.indexPath || 'buildScripts/webpack/index.ejs'),
             templateParameters: {
-                appPath       : value.output + 'app.js',
-                bodyTag       : value.bodyTag || config.bodyTag,
-                basePath      : basePath,
-                environment   : config.environment,
-                themes        : value.themes || "'neo-theme-light', 'neo-theme-dark'", // arrays are not supported as templateParameters
-                title         : value.title,
-                useAmCharts   : value.hasOwnProperty('useAmCharts') ? value.useAmCharts : false,
-                workerBasePath: workerBasePath
+                appPath          : value.output + 'app.js',
+                bodyTag          : value.bodyTag || config.bodyTag,
+                basePath         : basePath,
+                environment      : config.environment,
+                themes           : value.themes || "'neo-theme-light', 'neo-theme-dark'", // arrays are not supported as templateParameters
+                title            : value.title,
+                useAmCharts      : value.hasOwnProperty('useAmCharts')       ? value.useAmCharts       : false,
+                useOpenStreetMaps: value.hasOwnProperty('useOpenStreetMaps') ? value.useOpenStreetMaps : false,
+                workerBasePath   : workerBasePath
             }
         }));
     });
