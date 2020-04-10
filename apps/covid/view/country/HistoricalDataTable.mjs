@@ -19,11 +19,12 @@ class HistoricalDataTable extends Container {
         cls: ['covid-historical-data-table', 'neo-table-container'],
         /**
          * Default configs for each column
-         * @member {Object} columnDefaults=null
+         * @member {Object} columnDefaults
          */
         columnDefaults: {
-            align   : 'right',
-            renderer: Util.formatNumber
+            align               : 'right',
+            defaultSortDirection: 'DESC',
+            renderer            : Util.formatNumber
         },
         /**
          * @member {Object[]} columns
