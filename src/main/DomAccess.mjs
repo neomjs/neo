@@ -265,6 +265,27 @@ class DomAccess extends Base {
     }
 
     /**
+     * Include a link into the document.head
+     * @param {String} href
+     * @return {Promise<unknown>}
+     */
+    loadStylesheet(href) {
+        let script;
+
+        return new Promise((resolve, reject) => {
+            script = document.createElement('link');
+
+            Object.assign(script, {
+                href   : href,
+                onerror: reject,
+                onload : resolve
+            });
+
+            document.head.appendChild(script);
+        });
+    }
+
+    /**
      *
      * @param {Object} data
      * @param {String[]} data.attributes
