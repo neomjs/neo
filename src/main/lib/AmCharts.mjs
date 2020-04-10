@@ -35,10 +35,10 @@ class AmCharts extends Base {
          */
         dataMap: {},
         /**
-         * @member {String} downLoadPath='https//www.amcharts.com/lib/4/'
+         * @member {String} downloadPath='https//www.amcharts.com/lib/4/'
          * @private
          */
-        downLoadPath: 'https://www.amcharts.com/lib/4/',
+        downloadPath: 'https://www.amcharts.com/lib/4/',
         /**
          * @member {String} fallbackPath='https://neomjs.github.io/pages/resources/amCharts/'
          * @private
@@ -192,7 +192,7 @@ class AmCharts extends Base {
      */
     insertAmChartsScripts(useFallback=false) {
         const me       = this,
-              basePath = useFallback ? me.fallbackPath : me.downLoadPath;
+              basePath = useFallback ? me.fallbackPath : me.downloadPath;
 
         DomAccess.loadScript(basePath + 'core.js').then(() => {
             Promise.all([
