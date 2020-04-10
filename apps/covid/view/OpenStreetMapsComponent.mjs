@@ -12,7 +12,7 @@ class OpenStreetMapsComponent extends OpenStreetMapComponent {
          */
         className: 'Covid.view.OpenStreetMapsComponent',
         /**
-         * @member {String} ntype='covid-world-map'
+         * @member {String} ntype='covid-openstreet-map'
          * @private
          */
         ntype: 'covid-openstreet-map'

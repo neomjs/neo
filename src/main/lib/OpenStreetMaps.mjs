@@ -26,6 +26,21 @@ class OpenStreetMaps extends Base {
          */
         scriptsLoaded_: false,
         /**
+         * @member {Boolean} singleton=true
+         * @private
+         */
+        singleton: true,
+        /**
+         * Remote method access for other workers
+         * @member {Object} remote
+         * @private
+         */
+        remote: {
+            app: [
+                'create'
+            ]
+        },
+        /**
          * @member {String} version='v1.8.1'
          * @private
          */
@@ -41,6 +56,28 @@ class OpenStreetMaps extends Base {
 
         if (Neo.config.useOpenStreetMaps) {
             this.insertOpenStreetMapsScripts();
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    create(data) {
+        const me = this;
+
+        if (!me.scriptsLoaded) {
+            console.log('NOT scriptsLoaded');
+        } else {
+            console.log('scriptsLoaded');
+
+            mapboxgl.accessToken = 'pk.eyJ1IjoidG9iaXUiLCJhIjoiY2s4dTlsdHA5MDRmYzNtcGxlczFpcGVncyJ9.qcmzDjpdyQeLtz9z7d7CkA';
+
+            new mapboxgl.Map({
+                container: data.id,
+                style    : 'mapbox://styles/mapbox/streets-v11'
+            });
         }
     }
 

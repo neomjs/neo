@@ -57,8 +57,17 @@ class OpenStreetMap extends Component {
         const me = this;
 
         me.on('mounted', () => {
-            console.log('onMounted');
+            Neo.main.lib.OpenStreetMaps.create({
+                id: me.id
+            }).then(me.onMapMounted);
         });
+    }
+
+    /**
+     * Override this method to trigger logic after the map got mounted into the dom
+     */
+    onMapMounted() {
+        console.log('onMapMounted');
     }
 }
 

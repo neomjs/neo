@@ -63,10 +63,10 @@ class App extends Base {
         countDataRemotes: 2,
         /**
          * todo: App needs to know how many singletons have remotes registered here to ensure a correct starting point
-         * @member {Number} countMainRemotes=4
+         * @member {Number} countMainRemotes=5
          * @private
          */
-        countMainRemotes: 4,
+        countMainRemotes: 5,
         /**
          * todo: App needs to know how many singletons have remotes registered here to ensure a correct starting point
          * @member {Number} countVdomRemotes=1
