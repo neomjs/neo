@@ -117,7 +117,12 @@ class MainContainerController extends ComponentController {
             activeTab.store.data = data;
         }
 
-        if (reference === 'worldmap') {
+        else if (reference === 'openstreetmap') {
+            activeTab.data = data;
+            me.openstreetMapHasData = true;
+        }
+
+        else if (reference === 'worldmap') {
             activeTab.loadData(data);
             me.worldMapHasData = true;
         }
