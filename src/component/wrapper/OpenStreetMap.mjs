@@ -19,6 +19,11 @@ class OpenStreetMap extends Component {
          */
         ntype: 'openstreetmap',
         /**
+         * @member {Boolean} convertDataToGeoJson=true
+         * @private
+         */
+        convertDataToGeoJson: true,
+        /**
          * @member {Array|null} data_=null
          * @private
          */
@@ -75,9 +80,22 @@ class OpenStreetMap extends Component {
      * @private
      */
     beforeSetData(value, oldValue) {
-        console.log('beforeSetData', value);
+        if (value && this.convertDataToGeoJson) {
+            value = this.convertToGeoJson(value);
+        }
 
         return value;
+    }
+
+    /**
+     *
+     * @param {Array} data
+     * @return {Object} Object matching the geojson format
+     */
+    convertToGeoJson(data) {
+        console.log('convertToGeoJson', data);
+
+        return data;
     }
 
     /**
