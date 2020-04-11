@@ -129,6 +129,24 @@ class AmCharts extends Base {
 
     /**
      *
+     * @param {Object} chart
+     */
+    combineSeriesTooltip(chart) {
+        chart.series.each(series => {
+            series.adapter.add('tooltipText', () => {
+                let text = "[bold]{dateX}[/]\n";
+
+                chart.series.each(item => {
+                    text += "[" + item.stroke + "]●[/] " + item.name + ": {" + item.dataFields.valueY + "}\n";
+                });
+
+                return text;
+            });
+        });
+    }
+
+    /**
+     *
      * @param {Object} data
      * @param {Boolean} data.combineSeriesTooltip
      * @param {Object} data.config
@@ -156,24 +174,6 @@ class AmCharts extends Base {
                 delete me.dataMap[data.id];
             }
         }
-    }
-
-    /**
-     *
-     * @param {Object} chart
-     */
-    combineSeriesTooltip(chart) {
-        chart.series.each(series => {
-            series.adapter.add('tooltipText', () => {
-                let text = "[bold]{dateX}[/]\n";
-
-                chart.series.each(item => {
-                    text += "[" + item.stroke + "]●[/] " + item.name + ": {" + item.dataFields.valueY + "}\n";
-                });
-
-                return text;
-            });
-        });
     }
 
     /**
