@@ -158,6 +158,17 @@ class OpenStreetMaps extends Base {
     onMapLoaded(event) {
         const map = event.target;
 
+        map.addSource('dem', {
+            type: 'raster-dem',
+            url : 'mapbox://mapbox.terrain-rgb'
+        });
+
+        map.addLayer({
+            id    : 'hillshading',
+            source: 'dem',
+            type  : 'hillshade'
+        }, 'waterway-label');
+
         map.addSource('covid19', {
             type: 'geojson',
             data: {
