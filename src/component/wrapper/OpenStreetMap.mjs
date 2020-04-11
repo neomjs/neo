@@ -19,6 +19,11 @@ class OpenStreetMap extends Component {
          */
         ntype: 'openstreetmap',
         /**
+         *
+         * @member {String|null} accessToken=null
+         */
+        accessToken: null,
+        /**
          * @member {Boolean} convertDataToGeoJson=true
          * @private
          */
@@ -68,7 +73,8 @@ class OpenStreetMap extends Component {
 
         me.on('mounted', () => {
             Neo.main.lib.OpenStreetMaps.create({
-                id: me.id
+                accessToken: me.accessToken,
+                id         : me.id
             }).then(me.onMapMounted);
         });
     }

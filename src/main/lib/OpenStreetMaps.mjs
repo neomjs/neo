@@ -108,6 +108,7 @@ class OpenStreetMaps extends Base {
     /**
      *
      * @param {Object} data
+     * @param {String} data.accessToken
      * @param {String} data.id
      */
     create(data) {
@@ -118,7 +119,7 @@ class OpenStreetMaps extends Base {
         } else {
             console.log('scriptsLoaded');
 
-            mapboxgl.accessToken = 'pk.eyJ1IjoidG9iaXUiLCJhIjoiY2s4dTlsdHA5MDRmYzNtcGxlczFpcGVncyJ9.qcmzDjpdyQeLtz9z7d7CkA';
+            mapboxgl.accessToken = data.accessToken;
 
             me.maps[data.id] = new mapboxgl.Map({
                 center   : [20, 40],
