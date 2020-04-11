@@ -21,7 +21,8 @@
             "output": "/apps/covid/",
             "themes": "'neo-theme-dark', 'neo-theme-light'",
             "title": "Covid",
-            "useAmCharts": true
+            "useAmCharts": true,
+            "useOpenStreetMaps": true
         },
         "RealWorld": {
             "indexPath": "apps/realworld/index.ejs",

@@ -1,20 +1,20 @@
-import Base      from '../core/Base.mjs';
-import DomAccess from './DomAccess.mjs';
+import Base      from '../../core/Base.mjs';
+import DomAccess from '../DomAccess.mjs';
 
 /**
  * Helper class to include amCharts into your neo.mjs app
  * https://www.amcharts.com/docs/v4/
- * @class Neo.main.AmCharts
+ * @class Neo.main.lib.AmCharts
  * @extends Neo.core.Base
  * @singleton
  */
 class AmCharts extends Base {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.main.AmCharts'
+         * @member {String} className='Neo.main.lib.AmCharts'
          * @private
          */
-        className: 'Neo.main.AmCharts',
+        className: 'Neo.main.lib.AmCharts',
         /**
          * Stores all chart ids inside an object
          * @member {Object} charts={}
@@ -30,15 +30,15 @@ class AmCharts extends Base {
         /**
          * Stores all chart data inside an object. key => chart id
          * No array since in case a chart gets loaded multiple times, we only want to apply the last data on mount.
-         * @member {Object} charts={}
+         * @member {Object} dataMap={}
          * @private
          */
         dataMap: {},
         /**
-         * @member {String} downLoadPath='https//www.amcharts.com/lib/4/'
+         * @member {String} downloadPath='https//www.amcharts.com/lib/4/'
          * @private
          */
-        downLoadPath: 'https://www.amcharts.com/lib/4/',
+        downloadPath: 'https://www.amcharts.com/lib/4/',
         /**
          * @member {String} fallbackPath='https://neomjs.github.io/pages/resources/amCharts/'
          * @private
@@ -98,7 +98,7 @@ class AmCharts extends Base {
             me.chartsToCreate = [];
 
             setTimeout(() => {
-                Object.entries(me.dataMap).forEach((key, dataValue) => {
+                Object.entries(me.dataMap).forEach(([key, dataValue]) => {
                     me.updateData(dataValue);
                 });
 
@@ -125,6 +125,24 @@ class AmCharts extends Base {
         } else {
             // todo
         }
+    }
+
+    /**
+     *
+     * @param {Object} chart
+     */
+    combineSeriesTooltip(chart) {
+        chart.series.each(series => {
+            series.adapter.add('tooltipText', () => {
+                let text = "[bold]{dateX}[/]\n";
+
+                chart.series.each(item => {
+                    text += "[" + item.stroke + "]●[/] " + item.name + ": {" + item.dataFields.valueY + "}\n";
+                });
+
+                return text;
+            });
+        });
     }
 
     /**
@@ -160,24 +178,6 @@ class AmCharts extends Base {
 
     /**
      *
-     * @param {Object} chart
-     */
-    combineSeriesTooltip(chart) {
-        chart.series.each(series => {
-            series.adapter.add('tooltipText', () => {
-                let text = "[bold]{dateX}[/]\n";
-
-                chart.series.each(item => {
-                    text += "[" + item.stroke + "]●[/] " + item.name + ": {" + item.dataFields.valueY + "}\n";
-                });
-
-                return text;
-            });
-        });
-    }
-
-    /**
-     *
      * @param {String} id
      * @return {Boolean}
      */
@@ -192,11 +192,11 @@ class AmCharts extends Base {
      */
     insertAmChartsScripts(useFallback=false) {
         const me       = this,
-              basePath = useFallback ? me.fallbackPath : me.downLoadPath;
+              basePath = useFallback ? me.fallbackPath : me.downloadPath;
 
         DomAccess.loadScript(basePath + 'core.js').then(() => {
             Promise.all([
-                DomAccess.loadScript(basePath+ 'charts.js'),
+                DomAccess.loadScript(basePath + 'charts.js'),
                 DomAccess.loadScript(basePath + 'maps.js'),
                 DomAccess.loadScript(basePath + 'geodata/worldLow.js')
             ]).then(() => {

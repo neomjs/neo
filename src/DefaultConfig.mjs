@@ -96,7 +96,7 @@ const DefaultConfig = {
      */
     unitTestMode: false,
     /**
-     * Flag if to load the files needed for working with amCharts
+     * Flag if you want to load the files needed for working with amCharts
      * https://www.amcharts.com/docs/v4/
      * @default false
      * @memberOf! module:Neo
@@ -127,7 +127,16 @@ const DefaultConfig = {
      * @name config.useGoogleAnalytics
      * @type Boolean
      */
-    useGoogleAnalytics: false
+    useGoogleAnalytics: false,
+    /**
+     * Flag if you want to load the files needed for working with OpenStreetMaps
+     * https://docs.mapbox.com/mapbox-gl-js/overview/
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.useOpenStreetMaps
+     * @type Boolean
+     */
+    useOpenStreetMaps: false
 };
 
 Object.assign(DefaultConfig, {

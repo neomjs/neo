@@ -4,6 +4,7 @@ import GalleryContainer          from './GalleryContainer.mjs';
 import HeaderContainer           from './HeaderContainer.mjs';
 import HelixContainer            from './HelixContainer.mjs';
 import MainContainerController   from './MainContainerController.mjs';
+import OpenStreetMapsComponent   from './OpenStreetMapsComponent.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
 import TableContainer            from './TableContainer.mjs';
 import Viewport                  from '../../../src/container/Viewport.mjs';
@@ -59,6 +60,14 @@ class MainContainer extends Viewport {
                     iconCls: 'fa fa-table',
                     route  : 'mainview=table',
                     text   : 'Table'
+                }
+            }, {
+                module         : OpenStreetMapsComponent,
+                reference      : 'openstreetmap',
+                tabButtonConfig: {
+                    iconCls: 'fa fa-globe-americas',
+                    route  : 'mainview=openstreetmap',
+                    text   : 'OpenStreetMap'
                 }
             }, {
                 module         : WorldMapContainer,

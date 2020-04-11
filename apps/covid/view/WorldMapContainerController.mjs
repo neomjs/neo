@@ -24,13 +24,13 @@ class WorldMapContainerController extends ComponentController {
     changeHeatRule(value) {
         const chartId = this.getReference('worldmap').id;
 
-        Neo.main.AmCharts.setProperty({
+        Neo.main.lib.AmCharts.setProperty({
             id     : this.getReference('worldmap').id,
             path   : 'series.values.0.heatRules.values.0.maxValue',
             value  : value
         });
 
-        Neo.main.AmCharts.callMethod({
+        Neo.main.lib.AmCharts.callMethod({
             id  : chartId,
             path: 'series.values.0.invalidateData'
         });
@@ -66,20 +66,20 @@ class WorldMapContainerController extends ComponentController {
             recovered: '#28ca68'
         };
 
-        Neo.main.AmCharts.setProperty({
+        Neo.main.lib.AmCharts.setProperty({
             id     : chartId,
             isColor: true,
             path   : 'series.values.0.heatRules.values.0.max',
             value  : colorMap[data.component.series]
         });
 
-        Neo.main.AmCharts.setProperty({
+        Neo.main.lib.AmCharts.setProperty({
             id   : chartId,
             path : 'series.values.0.dataFields.value',
             value: data.component.series
         });
 
-        Neo.main.AmCharts.callMethod({
+        Neo.main.lib.AmCharts.callMethod({
             id  : chartId,
             path: 'series.values.0.invalidateData'
         }). then(() => {

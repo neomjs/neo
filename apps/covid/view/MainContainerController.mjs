@@ -45,10 +45,16 @@ class MainContainerController extends ComponentController {
          */
         data: null,
         /**
-         * @member {String[]} mainTabs=['table', 'gallery', 'helix']
+         * @member {String[]} mainTabs=['table', 'openstreetmap', 'worldmap', 'gallery', 'helix', 'attribution']
          * @private
          */
-        mainTabs: ['table', 'worldmap', 'gallery', 'helix', 'attribution'],
+        mainTabs: ['table','openstreetmap', 'worldmap', 'gallery', 'helix', 'attribution'],
+        /**
+         * Flag to only load the map once onHashChange, but always on reload button click
+         * @member {Boolean} openstreetMapHasData=false
+         * @private
+         */
+        openstreetMapHasData: false,
         /**
          * @member {Object} summaryData=null
          */
@@ -111,7 +117,12 @@ class MainContainerController extends ComponentController {
             activeTab.store.data = data;
         }
 
-        if (reference === 'worldmap') {
+        else if (reference === 'openstreetmap') {
+            activeTab.data = data;
+            me.openstreetMapHasData = true;
+        }
+
+        else if (reference === 'worldmap') {
             activeTab.loadData(data);
             me.worldMapHasData = true;
         }
@@ -326,7 +337,12 @@ class MainContainerController extends ComponentController {
             delaySelection = 500;
         }
 
-        if (activeView.ntype === 'covid-world-map' && me.data) {
+        if (activeView.ntype === 'covid-openstreet-map' && me.data) {
+            if (!me.openstreetMapHasData) {
+                activeView.data = me.data;
+                me.openstreetMapHasData = true;
+            }
+        } else if (activeView.ntype === 'covid-world-map' && me.data) {
             if (!me.worldMapHasData) {
                 activeView.loadData(me.data);
                 me.worldMapHasData = true;
