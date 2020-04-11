@@ -21,6 +21,12 @@ class OpenStreetMaps extends Base {
          */
         downloadPath: 'https://api.mapbox.com/mapbox-gl-js/',
         /**
+         * Stores all map ids inside an object
+         * @member {Object} maps={}
+         * @private
+         */
+        maps: {},
+        /**
          * @member {Boolean} scriptsLoaded_=true
          * @private
          */
@@ -74,7 +80,7 @@ class OpenStreetMaps extends Base {
 
             mapboxgl.accessToken = 'pk.eyJ1IjoidG9iaXUiLCJhIjoiY2s4dTlsdHA5MDRmYzNtcGxlczFpcGVncyJ9.qcmzDjpdyQeLtz9z7d7CkA';
 
-            new mapboxgl.Map({
+            me.maps[data.id] = new mapboxgl.Map({
                 container: data.id,
                 style    : 'mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
             });
