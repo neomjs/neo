@@ -93,9 +93,35 @@ class OpenStreetMap extends Component {
      * @return {Object} Object matching the geojson format
      */
     convertToGeoJson(data) {
-        console.log('convertToGeoJson', data);
+        const geoJson = {
+            type    : 'FeatureCollection',
+            features: []
+        };
 
-        return data;
+        data.forEach(item => {
+            // todo: this needs to get more generic
+            geoJson.features.push({
+                type: 'feature',
+
+                properties: {
+                    active   : item.active,
+                    cases    : item.cases,
+                    deaths   : item.deaths,
+                    id       : item.countryInfo.iso2,
+                    recovered: item.recovered,
+                    time     : item.updated
+                },
+
+                geometry: {
+                    type       : 'point',
+                    coordinates: [item.countryInfo.lat, item.countryInfo.long]
+                }
+            })
+        });
+
+        console.log(geoJson);
+
+        return geoJson;
     }
 
     /**
