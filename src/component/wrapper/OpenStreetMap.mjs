@@ -75,7 +75,7 @@ class OpenStreetMap extends Component {
      * @private
      */
     beforeSetData(value, oldValue) {
-        console.log('beforeSetData', value)
+        console.log('beforeSetData', value);
 
         return value;
     }
