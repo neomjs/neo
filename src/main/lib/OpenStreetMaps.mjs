@@ -178,7 +178,7 @@ class OpenStreetMaps extends Base {
                         ['get', 'cases'],
                         0,
                         0,
-                        6,
+                        1000,
                         1
                     ],
                     // Increase the heatmap color weight by zoom level
@@ -188,9 +188,9 @@ class OpenStreetMaps extends Base {
                         ['linear'],
                         ['zoom'],
                         0,
-                        1,
+                        3,
                         9,
-                        3
+                        5
                     ],
                     // Color ramp for heatmap.  Domain is 0 (low) to 1 (high).
                     // Begin color ramp at 0-stop with a 0-transparency color
@@ -200,37 +200,27 @@ class OpenStreetMaps extends Base {
                         ['linear'],
                         ['heatmap-density'],
                         0,
-                        'rgba(33,102,172,0)',
-                        0.2,
-                        'rgb(103,169,207)',
-                        0.4,
-                        'rgb(209,229,240)',
-                        0.6,
-                        'rgb(253,219,199)',
-                        0.8,
-                        'rgb(239,138,98)',
+                        'rgba(0,0,0,0)',
+                        0.1,
+                        '#927903',
+                        0.15,
+                        '#ffd403',
                         1,
-                        'rgb(178,24,43)'
+                        '#ff0000'
                     ],
                     // Adjust the heatmap radius by zoom level
                     'heatmap-radius': [
                         'interpolate',
                         ['linear'],
                         ['zoom'],
-                        0,
-                        2,
-                        9,
-                        20
+                        0, 2, 1, 4, 2, 8, 3, 16, 4, 32, 5, 64, 6, 128, 7, 256, 8, 512, 9, 1024
                     ],
                     // Transition from heatmap to circle layer by zoom level
                     'heatmap-opacity': [
                         'interpolate',
                         ['linear'],
                         ['zoom'],
-                        7,
-                        1,
-                        9,
-                        0
+                        5, .95, 6, 0
                     ]
                 }
             },

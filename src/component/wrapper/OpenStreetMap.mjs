@@ -129,7 +129,7 @@ class OpenStreetMap extends Component {
 
                 geometry: {
                     type       : 'Point',
-                    coordinates: [item.countryInfo.lat, item.countryInfo.long]
+                    coordinates: [item.countryInfo.long, item.countryInfo.lat]
                 }
             })
         });
