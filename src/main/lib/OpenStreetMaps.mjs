@@ -101,7 +101,7 @@ class OpenStreetMaps extends Base {
                 });
 
                 me.dataMap = {};
-            }, 2000);
+            }, 3000); // todo
         }
     }
 
@@ -121,8 +121,10 @@ class OpenStreetMaps extends Base {
             mapboxgl.accessToken = 'pk.eyJ1IjoidG9iaXUiLCJhIjoiY2s4dTlsdHA5MDRmYzNtcGxlczFpcGVncyJ9.qcmzDjpdyQeLtz9z7d7CkA';
 
             me.maps[data.id] = new mapboxgl.Map({
+                center   : [20, 40],
                 container: data.id,
-                style    : 'mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
+                style    : 'mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2',
+                zoom     : 3
             });
 
             me.maps[data.id].on('load', me.onMapLoaded.bind(me));
