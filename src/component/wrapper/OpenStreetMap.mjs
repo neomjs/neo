@@ -19,6 +19,11 @@ class OpenStreetMap extends Component {
          */
         ntype: 'openstreetmap',
         /**
+         * @member {Array|null} data_=null
+         * @private
+         */
+        data_: null,
+        /**
          * @member {Object} _vdom
          */
         _vdom: {
@@ -61,6 +66,18 @@ class OpenStreetMap extends Component {
                 id: me.id
             }).then(me.onMapMounted);
         });
+    }
+
+    /**
+     * Triggered before the data config gets changed.
+     * @param {Array|null} value
+     * @param {Array|null} oldValue
+     * @private
+     */
+    beforeSetData(value, oldValue) {
+        console.log('beforeSetData', value)
+
+        return value;
     }
 
     /**
