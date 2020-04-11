@@ -95,6 +95,15 @@ class OpenStreetMap extends Component {
     }
 
     /**
+     *
+     */
+    autoResize() {
+        Neo.main.lib.OpenStreetMaps.autoResize({
+            id: this.id
+        });
+    }
+
+    /**
      * Triggered before the data config gets changed.
      * @param {Array|null} value
      * @param {Array|null} oldValue

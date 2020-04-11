@@ -342,6 +342,8 @@ class MainContainerController extends ComponentController {
                 activeView.data = me.data;
                 me.openstreetMapHasData = true;
             }
+
+            activeView.autoResize();
         } else if (activeView.ntype === 'covid-world-map' && me.data) {
             if (!me.worldMapHasData) {
                 activeView.loadData(me.data);

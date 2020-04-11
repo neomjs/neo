@@ -56,6 +56,7 @@ class OpenStreetMaps extends Base {
          */
         remote: {
             app: [
+                'autoResize',
                 'create',
                 'updateData'
             ]
@@ -102,6 +103,21 @@ class OpenStreetMaps extends Base {
 
                 me.dataMap = {};
             }, 3000); // todo
+        }
+    }
+
+    /**
+     * Mounting a map into an inactive tab and activating it should call this
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    autoResize(data) {
+        const map = this.maps[data.id];
+
+        if (map) {
+            setTimeout(() => {
+                map.resize();
+            }, 100);
         }
     }
 
