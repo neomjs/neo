@@ -14,10 +14,10 @@ class OpenStreetMap extends Component {
          */
         className: 'Neo.component.wrapper.OpenStreetMap',
         /**
-         * @member {String} ntype='am-chart'
+         * @member {String} ntype='openstreetmap'
          * @private
          */
-        ntype: 'am-chart',
+        ntype: 'openstreetmap',
         /**
          * @member {Object} _vdom
          */

@@ -131,7 +131,7 @@ class OpenStreetMaps extends Base {
                         6,
                         1
                     ],
-                    // Increase the heatmap color weight weight by zoom level
+                    // Increase the heatmap color weight by zoom level
                     // heatmap-intensity is a multiplier on top of heatmap-weight
                     'heatmap-intensity': [
                         'interpolate',
