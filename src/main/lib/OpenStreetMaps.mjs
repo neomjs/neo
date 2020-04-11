@@ -84,6 +84,8 @@ class OpenStreetMaps extends Base {
                 container: data.id,
                 style    : 'mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
             });
+
+            me.maps[data.id].on('load', me.onMapLoaded.bind(me));
         }
     }
 
@@ -98,6 +100,13 @@ class OpenStreetMaps extends Base {
             me.scriptsLoaded = true;
             console.log('insertOpenStreetMapsScripts');
         });
+    }
+
+    /**
+     *
+     */
+    onMapLoaded() {
+        console.log('onMapLoaded', this);
     }
 }
 
