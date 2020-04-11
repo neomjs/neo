@@ -74,6 +74,21 @@ class OpenStreetMap extends Component {
     }
 
     /**
+     * Triggered after the data config got changed
+     * @param {Array|null} value
+     * @param {Array|null} oldValue
+     * @private
+     */
+    afterSetData(value, oldValue) {
+        if (value) {
+            Neo.main.lib.OpenStreetMaps.updateData({
+                data: value,
+                id  : this.id
+            });
+        }
+    }
+
+    /**
      * Triggered before the data config gets changed.
      * @param {Array|null} value
      * @param {Array|null} oldValue
@@ -101,7 +116,7 @@ class OpenStreetMap extends Component {
         data.forEach(item => {
             // todo: this needs to get more generic
             geoJson.features.push({
-                type: 'feature',
+                type: 'Feature',
 
                 properties: {
                     active   : item.active,
@@ -113,7 +128,7 @@ class OpenStreetMap extends Component {
                 },
 
                 geometry: {
-                    type       : 'point',
+                    type       : 'Point',
                     coordinates: [item.countryInfo.lat, item.countryInfo.long]
                 }
             })

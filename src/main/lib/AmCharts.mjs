@@ -30,7 +30,7 @@ class AmCharts extends Base {
         /**
          * Stores all chart data inside an object. key => chart id
          * No array since in case a chart gets loaded multiple times, we only want to apply the last data on mount.
-         * @member {Object} charts={}
+         * @member {Object} dataMap={}
          * @private
          */
         dataMap: {},
@@ -98,7 +98,7 @@ class AmCharts extends Base {
             me.chartsToCreate = [];
 
             setTimeout(() => {
-                Object.entries(me.dataMap).forEach((key, dataValue) => {
+                Object.entries(me.dataMap).forEach(([key, dataValue]) => {
                     me.updateData(dataValue);
                 });
 

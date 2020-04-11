@@ -16,6 +16,13 @@ class OpenStreetMaps extends Base {
          */
         className: 'Neo.main.lib.OpenStreetMaps',
         /**
+         * Stores all map data inside an object. key => map id
+         * No array since in case a map gets loaded multiple times, we only want to apply the last data on mount.
+         * @member {Object} dataMap={}
+         * @private
+         */
+        dataMap: {},
+        /**
          * @member {String} downloadPath='https://api.mapbox.com/mapbox-gl-js/'
          * @private
          */
@@ -26,6 +33,12 @@ class OpenStreetMaps extends Base {
          * @private
          */
         maps: {},
+        /**
+         * Stores all map config objects which arrived before the map lib scripts got loaded
+         * @member {Object[]} mapsToCreate=[]
+         * @private
+         */
+        mapsToCreate: [],
         /**
          * @member {Boolean} scriptsLoaded_=true
          * @private
@@ -43,7 +56,8 @@ class OpenStreetMaps extends Base {
          */
         remote: {
             app: [
-                'create'
+                'create',
+                'updateData'
             ]
         },
         /**
@@ -66,6 +80,32 @@ class OpenStreetMaps extends Base {
     }
 
     /**
+     * Triggered after the scriptsLoaded config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @private
+     */
+    afterSetScriptsLoaded(value, oldValue) {
+        if (value) {
+            const me = this;
+
+            me.mapsToCreate.forEach(config => {
+                me.create(config);
+            });
+
+            me.mapsToCreate = [];
+
+            setTimeout(() => {
+                Object.entries(me.dataMap).forEach(([key, dataValue]) => {
+                    me.updateData(dataValue);
+                });
+
+                me.dataMap = {};
+            }, 2000);
+        }
+    }
+
+    /**
      *
      * @param {Object} data
      * @param {String} data.id
@@ -74,7 +114,7 @@ class OpenStreetMaps extends Base {
         const me = this;
 
         if (!me.scriptsLoaded) {
-            console.log('NOT scriptsLoaded');
+            me.mapsToCreate.push(data);
         } else {
             console.log('scriptsLoaded');
 
@@ -89,6 +129,15 @@ class OpenStreetMaps extends Base {
         }
     }
 
+    /**
+     *
+     * @param {String} id
+     * @return {Boolean}
+     */
+    hasMap(id) {
+        return !!this.maps[id];
+    }
+
     insertOpenStreetMapsScripts() {
         const me       = this,
               basePath = me.downloadPath + me.version + '/';
@@ -98,7 +147,6 @@ class OpenStreetMaps extends Base {
             DomAccess.loadStylesheet(basePath + 'mapbox-gl.css')
         ]).then(() => {
             me.scriptsLoaded = true;
-            console.log('insertOpenStreetMapsScripts');
         });
     }
 
@@ -108,24 +156,26 @@ class OpenStreetMaps extends Base {
     onMapLoaded(event) {
         const map = event.target;
 
-        map.addSource('earthquakes', {
-            'type': 'geojson',
-            'data':
-                'https://docs.mapbox.com/mapbox-gl-js/assets/earthquakes.geojson'
+        map.addSource('covid19', {
+            type: 'geojson',
+            data: {
+                type    : 'FeatureCollection',
+                features: []
+            }
         });
 
         map.addLayer(
             {
-                'id': 'earthquakes-heat',
+                'id': 'covid19-heat',
                 'type': 'heatmap',
-                'source': 'earthquakes',
+                'source': 'covid19',
                 'maxzoom': 9,
                 'paint': {
                     // Increase the heatmap weight based on frequency and property magnitude
                     'heatmap-weight': [
                         'interpolate',
                         ['linear'],
-                        ['get', 'mag'],
+                        ['get', 'cases'],
                         0,
                         0,
                         6,
@@ -143,7 +193,7 @@ class OpenStreetMaps extends Base {
                         3
                     ],
                     // Color ramp for heatmap.  Domain is 0 (low) to 1 (high).
-                    // Begin color ramp at 0-stop with a 0-transparancy color
+                    // Begin color ramp at 0-stop with a 0-transparency color
                     // to create a blur-like effect.
                     'heatmap-color': [
                         'interpolate',
@@ -186,6 +236,29 @@ class OpenStreetMaps extends Base {
             },
             'waterway-label'
         );
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Object} data.data
+     * @param {String} data.id
+     */
+    updateData(data) {
+        const me = this;
+
+        console.log('####### update data', data);
+
+        if (!me.scriptsLoaded || !me.hasMap(data.id)) {
+            me.dataMap[data.id] = data;
+        } else {
+            const map    = me.maps[data.id],
+                  source = map.getSource('covid19');
+
+            if (source) {
+                source.setData(data.data);
+            }
+        }
     }
 }
 
