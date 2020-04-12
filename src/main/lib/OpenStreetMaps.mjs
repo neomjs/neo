@@ -292,6 +292,7 @@ class OpenStreetMaps extends Base {
      *
      * @param {Object} data
      * @param {Object} data.data
+     * @param {String} data.dataSourceId
      * @param {String} data.id
      */
     updateData(data) {
@@ -303,7 +304,7 @@ class OpenStreetMaps extends Base {
             me.dataMap[data.id] = data;
         } else {
             const map    = me.maps[data.id],
-                  source = map.getSource('covid19');
+                  source = map.getSource(data.dataSourceId);
 
             if (source) {
                 source.setData(data.data);

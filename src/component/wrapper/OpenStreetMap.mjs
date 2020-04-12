@@ -38,6 +38,12 @@ class OpenStreetMap extends Component {
          */
         data_: null,
         /**
+         * Assuming there is just 1 source for data changes.
+         * Create a ticket in case it needs to get enhanced.
+         * @member {String|null} dataSourceId=null
+         */
+        dataSourceId: null,
+        /**
          * https://docs.mapbox.com/mapbox-gl-js/style-spec/
          * @member {Object|String} mapboxStyle=null
          */
@@ -115,8 +121,9 @@ class OpenStreetMap extends Component {
     afterSetData(value, oldValue) {
         if (value) {
             Neo.main.lib.OpenStreetMaps.updateData({
-                data: value,
-                id  : this.id
+                data        : value,
+                dataSourceId: this.dataSourceId,
+                id          : this.id
             });
         }
     }
