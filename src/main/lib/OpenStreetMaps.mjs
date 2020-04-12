@@ -156,7 +156,7 @@ class OpenStreetMaps extends Base {
      * @param {String} data.accessToken
      * @param {Object} data.center
      * @param {String} data.id
-     * @param {String} data.mapStyle
+     * @param {String} data.mapboxStyle
      * @param {String} data.zoom
      */
     create(data) {
@@ -179,7 +179,7 @@ class OpenStreetMaps extends Base {
             me.maps[data.id] = new mapboxgl.Map({
                 center   : data.center,
                 container: data.id,
-                style    : data.mapStyle,
+                style    : data.mapboxStyle,
                 zoom     : zoom
             });
 

@@ -26,9 +26,9 @@ class OpenStreetMapsComponent extends OpenStreetMapComponent {
         center: {lat: 40, lng: 20},
         /**
          * https://docs.mapbox.com/mapbox-gl-js/style-spec/
-         * @member {String} mapStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
+         * @member {String} mapboxStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
          */
-        mapStyle: 'mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
+        mapboxStyle: 'mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
     }}
 }
 
