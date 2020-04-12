@@ -221,6 +221,17 @@ class Select extends Picker {
     }
 
     /**
+     * Returns the first selected record or null
+     * return {Object}
+     */
+    getRecord() {
+        const list      = this.list,
+              recordKey = list.selectionModel.getSelection()[0];
+
+        return recordKey && this.store.get(list.getItemRecordId(recordKey)) || null;
+    }
+
+    /**
      * @param {Object} data
      * @private
      */
