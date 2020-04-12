@@ -351,6 +351,8 @@ class MainContainerController extends ComponentController {
                 me.openstreetMapHasData = true;
             }
 
+            // console.log(countryField.getRecord());
+
             if (me.countryRecord) {
                 activeView.center = {
                     lat: me.countryRecord.countryInfo.lat,
