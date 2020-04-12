@@ -238,62 +238,16 @@ class OpenStreetMaps extends Base {
 
         map.addLayer(
             {
-                'id': 'covid19-heat',
-                'type': 'heatmap',
-                'source': 'covid19',
-                'maxzoom': 9,
-                'paint': {
-                    // Increase the heatmap weight based on frequency and property magnitude
-                    'heatmap-weight': [
-                        'interpolate',
-                        ['linear'],
-                        ['get', 'cases'],
-                        0,
-                        0,
-                        1000,
-                        1
-                    ],
-                    // Increase the heatmap color weight by zoom level
-                    // heatmap-intensity is a multiplier on top of heatmap-weight
-                    'heatmap-intensity': [
-                        'interpolate',
-                        ['linear'],
-                        ['zoom'],
-                        0,
-                        3,
-                        9,
-                        5
-                    ],
-                    // Color ramp for heatmap.  Domain is 0 (low) to 1 (high).
-                    // Begin color ramp at 0-stop with a 0-transparency color
-                    // to create a blur-like effect.
-                    'heatmap-color': [
-                        'interpolate',
-                        ['linear'],
-                        ['heatmap-density'],
-                        0,
-                        'rgba(0,0,0,0)',
-                        0.1,
-                        '#927903',
-                        0.15,
-                        '#ffd403',
-                        1,
-                        '#ff0000'
-                    ],
-                    // Adjust the heatmap radius by zoom level
-                    'heatmap-radius': [
-                        'interpolate',
-                        ['linear'],
-                        ['zoom'],
-                        0, 2, 1, 4, 2, 8, 3, 16, 4, 32, 5, 64, 6, 128, 7, 256, 8, 512, 9, 1024
-                    ],
-                    // Transition from heatmap to circle layer by zoom level
-                    'heatmap-opacity': [
-                        'interpolate',
-                        ['linear'],
-                        ['zoom'],
-                        5, .95, 6, 0
-                    ]
+                id     : 'covid19-heat',
+                type   : 'heatmap',
+                source : 'covid19',
+                maxzoom: 9,
+                paint: {
+                    'heatmap-weight'   : ['interpolate', ['linear'], ['get', 'cases'], 0, 0, 1000, 1],
+                    'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 3, 9, 5],
+                    'heatmap-color'    : ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(0,0,0,0)', 0.1, '#927903', 0.15, '#ffd403', 1, '#ff0000'],
+                    'heatmap-radius'   : ['interpolate', ['linear'], ['zoom'], 0, 2, 1, 4, 2, 8, 3, 16, 4, 32, 5, 64, 6, 128, 7, 256, 8, 512, 9, 1024],
+                    'heatmap-opacity'  : ['interpolate', ['linear'], ['zoom'], 5, .95, 6, 0]
                 }
             },
             'waterway-label'
