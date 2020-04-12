@@ -15,7 +15,16 @@ class OpenStreetMapsComponent extends OpenStreetMapComponent {
          * @member {String} ntype='covid-openstreet-map'
          * @private
          */
-        ntype: 'covid-openstreet-map'
+        ntype: 'covid-openstreet-map',
+        /**
+         *
+         * @member {String|null} accessToken
+         */
+        accessToken: 'pk.eyJ1IjoidG9iaXUiLCJhIjoiY2s4dTlsdHA5MDRmYzNtcGxlczFpcGVncyJ9.qcmzDjpdyQeLtz9z7d7CkA',
+        /**
+         * @member {Object} center={lat: 40, lng: 20}
+         */
+        center: {lat: 40, lng: 20}
     }}
 }
 

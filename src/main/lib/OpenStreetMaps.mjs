@@ -16,7 +16,7 @@ class OpenStreetMaps extends Base {
          */
         className: 'Neo.main.lib.OpenStreetMaps',
         /**
-         * Stores all map data inside an object. key => map id
+         * Stores all map data inside an object until mounting. key => map id
          * No array since in case a map gets loaded multiple times, we only want to apply the last data on mount.
          * @member {Object} dataMap={}
          * @private
@@ -56,8 +56,11 @@ class OpenStreetMaps extends Base {
          */
         remote: {
             app: [
+                'autoResize',
+                'center',
                 'create',
-                'updateData'
+                'updateData',
+                'zoom'
             ]
         },
         /**
@@ -65,6 +68,13 @@ class OpenStreetMaps extends Base {
          * @private
          */
         version: 'v1.8.1',
+        /**
+         * Stores all map zoom values inside an object until mounting. key => map id
+         * No array since in case a map gets zoomed multiple times, we only want to apply the last value on mount.
+         * @member {Object} zoomMap={}
+         * @private
+         */
+        zoomMap: {}
     }}
 
     /**
@@ -106,9 +116,47 @@ class OpenStreetMaps extends Base {
     }
 
     /**
+     * Mounting a map into an inactive tab and activating it should call this
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    autoResize(data) {
+        const map = this.maps[data.id];
+
+        if (map) {
+            setTimeout(() => {
+                map.resize();
+            }, 100);
+        }
+    }
+
+    /**
      *
      * @param {Object} data
      * @param {String} data.id
+     * @param {Number} data.lat
+     * @param {Number} data.lng
+     */
+    center(data) {
+        const map = this.maps[data.id];
+
+        if (map) {
+            map.setCenter({
+                lat: data.lat,
+                lng: data.lng
+            });
+        } else {
+            // todo
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.accessToken
+     * @param {Object} data.center
+     * @param {String} data.id
+     * @param {String} data.zoom
      */
     create(data) {
         const me = this;
@@ -118,13 +166,20 @@ class OpenStreetMaps extends Base {
         } else {
             console.log('scriptsLoaded');
 
-            mapboxgl.accessToken = 'pk.eyJ1IjoidG9iaXUiLCJhIjoiY2s4dTlsdHA5MDRmYzNtcGxlczFpcGVncyJ9.qcmzDjpdyQeLtz9z7d7CkA';
+            mapboxgl.accessToken = data.accessToken;
+
+            let zoom = data.zoom;
+
+            if (me.zoomMap[data.id]) {
+                zoom = me.zoomMap[data.id].zoom;
+                delete me.zoomMap[data.id];
+            }
 
             me.maps[data.id] = new mapboxgl.Map({
-                center   : [20, 40],
+                center   : data.center,
                 container: data.id,
                 style    : 'mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2',
-                zoom     : 3
+                zoom     : zoom
             });
 
             me.maps[data.id].on('load', me.onMapLoaded.bind(me));
@@ -157,6 +212,17 @@ class OpenStreetMaps extends Base {
      */
     onMapLoaded(event) {
         const map = event.target;
+
+        map.addSource('dem', {
+            type: 'raster-dem',
+            url : 'mapbox://mapbox.terrain-rgb'
+        });
+
+        map.addLayer({
+            id    : 'hillshading',
+            source: 'dem',
+            type  : 'hillshade'
+        }, 'waterway-label');
 
         map.addSource('covid19', {
             type: 'geojson',
@@ -250,6 +316,22 @@ class OpenStreetMaps extends Base {
             if (source) {
                 source.setData(data.data);
             }
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Number} data.zoom
+     */
+    zoom(data) {
+        const map = this.maps[data.id];
+
+        if (map) {
+            map.setZoom(data.zoom);
+        } else {
+            this.zoomMap[data.id] = data;
         }
     }
 }

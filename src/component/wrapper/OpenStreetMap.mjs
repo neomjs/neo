@@ -19,6 +19,15 @@ class OpenStreetMap extends Component {
          */
         ntype: 'openstreetmap',
         /**
+         *
+         * @member {String|null} accessToken=null
+         */
+        accessToken: null,
+        /**
+         * @member {Object} center_={lat: 0, lng: 0}
+         */
+        center_: {lat: 0, lng: 0},
+        /**
          * @member {Boolean} convertDataToGeoJson=true
          * @private
          */
@@ -41,7 +50,12 @@ class OpenStreetMap extends Component {
                     }
                 }]
             }]
-        }
+        },
+        /**
+         *
+         * @member {Number} zoom_=3
+         */
+        zoom_: 3
     }}
 
     /**
@@ -68,9 +82,28 @@ class OpenStreetMap extends Component {
 
         me.on('mounted', () => {
             Neo.main.lib.OpenStreetMaps.create({
-                id: me.id
+                accessToken: me.accessToken,
+                center     : me.center,
+                id         : me.id,
+                zoom       : me.zoom
             }).then(me.onMapMounted);
         });
+    }
+
+    /**
+     * Triggered after the center config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @private
+     */
+    afterSetCenter(value, oldValue) {
+        if (this.mounted) {
+            Neo.main.lib.OpenStreetMaps.center({
+                id : this.id,
+                lat: value.lat,
+                lng: value.lng
+            });
+        }
     }
 
     /**
@@ -86,6 +119,45 @@ class OpenStreetMap extends Component {
                 id  : this.id
             });
         }
+    }
+
+    /**
+     * Triggered after the zoom config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @private
+     */
+    afterSetZoom(value, oldValue) {
+        if (this.mounted) {
+            Neo.main.lib.OpenStreetMaps.zoom({
+                id  : this.id,
+                zoom: value
+            });
+        }
+    }
+
+    /**
+     *
+     */
+    autoResize() {
+        Neo.main.lib.OpenStreetMaps.autoResize({
+            id: this.id
+        });
+    }
+
+    /**
+     * Triggered before the center config gets changed.
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @private
+     */
+    beforeSetCenter(value, oldValue) {
+        if (value && value.long) {
+            value.lng = value.long;
+            delete value.long;
+        }
+
+        return value;
     }
 
     /**
