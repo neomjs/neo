@@ -3,7 +3,7 @@ import DomAccess from '../DomAccess.mjs';
 
 /**
  * Helper class to include OpenStreetMaps into your neo.mjs app
- * https://docs.mapbox.com/mapbox-gl-js/overview/
+ * See: https://docs.mapbox.com/mapbox-gl-js/api/
  * @class Neo.main.lib.OpenStreetMaps
  * @extends Neo.core.Base
  * @singleton
@@ -64,10 +64,10 @@ class OpenStreetMaps extends Base {
             ]
         },
         /**
-         * @member {String} version='v1.8.1'
+         * @member {String} version='v1.9.1'
          * @private
          */
-        version: 'v1.8.1',
+        version: 'v1.9.1',
         /**
          * Stores all map zoom values inside an object until mounting. key => map id
          * No array since in case a map gets zoomed multiple times, we only want to apply the last value on mount.
@@ -156,6 +156,7 @@ class OpenStreetMaps extends Base {
      * @param {String} data.accessToken
      * @param {Object} data.center
      * @param {String} data.id
+     * @param {String} data.mapboxStyle
      * @param {String} data.zoom
      */
     create(data) {
@@ -178,7 +179,7 @@ class OpenStreetMaps extends Base {
             me.maps[data.id] = new mapboxgl.Map({
                 center   : data.center,
                 container: data.id,
-                style    : 'mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2',
+                style    : data.mapboxStyle,
                 zoom     : zoom
             });
 

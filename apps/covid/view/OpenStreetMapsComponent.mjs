@@ -17,14 +17,18 @@ class OpenStreetMapsComponent extends OpenStreetMapComponent {
          */
         ntype: 'covid-openstreet-map',
         /**
-         *
          * @member {String|null} accessToken
          */
         accessToken: 'pk.eyJ1IjoidG9iaXUiLCJhIjoiY2s4dTlsdHA5MDRmYzNtcGxlczFpcGVncyJ9.qcmzDjpdyQeLtz9z7d7CkA',
         /**
          * @member {Object} center={lat: 40, lng: 20}
          */
-        center: {lat: 40, lng: 20}
+        center: {lat: 40, lng: 20},
+        /**
+         * https://docs.mapbox.com/mapbox-gl-js/style-spec/
+         * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
+         */
+        mapboxStyle: 'mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
     }}
 }
 

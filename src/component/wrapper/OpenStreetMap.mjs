@@ -38,6 +38,11 @@ class OpenStreetMap extends Component {
          */
         data_: null,
         /**
+         * https://docs.mapbox.com/mapbox-gl-js/style-spec/
+         * @member {Object|String} mapboxStyle=null
+         */
+        mapboxStyle: 'null',
+        /**
          * @member {Object} _vdom
          */
         _vdom: {
@@ -85,6 +90,7 @@ class OpenStreetMap extends Component {
                 accessToken: me.accessToken,
                 center     : me.center,
                 id         : me.id,
+                mapboxStyle: me.mapboxStyle,
                 zoom       : me.zoom
             }).then(me.onMapMounted);
         });
