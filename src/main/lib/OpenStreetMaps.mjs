@@ -133,18 +133,21 @@ class OpenStreetMaps extends Base {
     /**
      *
      * @param {Object} data
+     * @param {Boolean} [data.animate=false]
      * @param {String} data.id
      * @param {Number} data.lat
      * @param {Number} data.lng
      */
     center(data) {
-        const map = this.maps[data.id];
+        const map    = this.maps[data.id],
+              center = {lat: data.lat, lng: data.lng};
 
         if (map) {
-            map.setCenter({
-                lat: data.lat,
-                lng: data.lng
-            });
+            if (data.animate) {
+                map.flyTo({center: center});
+            } else {
+                map.setCenter(center);
+            }
         } else {
             // todo
         }

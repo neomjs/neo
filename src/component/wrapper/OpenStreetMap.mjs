@@ -103,13 +103,7 @@ class OpenStreetMap extends Component {
      * @private
      */
     afterSetCenter(value, oldValue) {
-        if (this.mounted) {
-            Neo.main.lib.OpenStreetMaps.center({
-                id : this.id,
-                lat: value.lat,
-                lng: value.lng
-            });
-        }
+        this.centerMap(value);
     }
 
     /**
@@ -181,6 +175,23 @@ class OpenStreetMap extends Component {
     }
 
     /**
+     * Use component.center = {} or component.flyTo() instead
+     * @param {Object} value
+     * @param {Number} value.lat
+     * @param {Number} value.lng
+     * @param {Boolean} animate=false
+     * @private
+     */
+    centerMap(value, animate=false) {
+        Neo.main.lib.OpenStreetMaps.center({
+            animate: animate,
+            id     : this.id,
+            lat    : value.lat,
+            lng    : value.lng
+        });
+    }
+
+    /**
      *
      * @param {Array} data
      * @return {Object} Object matching the geojson format
@@ -212,9 +223,23 @@ class OpenStreetMap extends Component {
             })
         });
 
-        console.log(geoJson);
-
         return geoJson;
+    }
+
+    /**
+     *
+     * @param {Object} value
+     * @param {Number} value.lat
+     * @param {Number} value.lng
+     */
+    flyTo(value) {
+        const me = this;
+
+        value = me.beforeSetCenter(value, null); // long => lng if needed
+
+        me._center = {lat: value.lat, lng: value.lng}; // silent update
+
+        me.centerMap(value, true);
     }
 
     /**
