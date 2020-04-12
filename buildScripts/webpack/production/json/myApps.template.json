@@ -20,7 +20,7 @@
             "input": "myApps/Covid.mjs",
             "output": "/apps/covid/",
             "themes": "'neo-theme-dark', 'neo-theme-light'",
-            "title": "Covid",
+            "title": "COVID-19 IN NUMBERS",
             "useAmCharts": true,
             "useOpenStreetMaps": true
         },

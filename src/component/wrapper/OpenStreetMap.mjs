@@ -90,7 +90,7 @@ class OpenStreetMap extends Component {
                 accessToken: me.accessToken,
                 center     : me.center,
                 id         : me.id,
-                mapStyle   : me.mapStyle,
+                mapboxStyle: me.mapboxStyle,
                 zoom       : me.zoom
             }).then(me.onMapMounted);
         });
