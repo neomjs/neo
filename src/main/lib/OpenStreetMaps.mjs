@@ -59,7 +59,8 @@ class OpenStreetMaps extends Base {
                 'autoResize',
                 'center',
                 'create',
-                'updateData'
+                'updateData',
+                'zoom'
             ]
         },
         /**
@@ -148,6 +149,7 @@ class OpenStreetMaps extends Base {
      * @param {String} data.accessToken
      * @param {Object} data.center
      * @param {String} data.id
+     * @param {String} data.zoom
      */
     create(data) {
         const me = this;
@@ -163,7 +165,7 @@ class OpenStreetMaps extends Base {
                 center   : data.center,
                 container: data.id,
                 style    : 'mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2',
-                zoom     : 3
+                zoom     : data.zoom
             });
 
             me.maps[data.id].on('load', me.onMapLoaded.bind(me));
@@ -300,6 +302,22 @@ class OpenStreetMaps extends Base {
             if (source) {
                 source.setData(data.data);
             }
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Number} data.zoom
+     */
+    zoom(data) {
+        const map = this.maps[data.id];
+
+        if (map) {
+            map.setZoom(data.zoom);
+        } else {
+            // todo
         }
     }
 }

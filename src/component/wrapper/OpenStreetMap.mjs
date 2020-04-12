@@ -50,7 +50,12 @@ class OpenStreetMap extends Component {
                     }
                 }]
             }]
-        }
+        },
+        /**
+         *
+         * @member {Number} zoom_=3
+         */
+        zoom_: 3
     }}
 
     /**
@@ -79,7 +84,8 @@ class OpenStreetMap extends Component {
             Neo.main.lib.OpenStreetMaps.create({
                 accessToken: me.accessToken,
                 center     : me.center,
-                id         : me.id
+                id         : me.id,
+                zoom       : me.zoom
             }).then(me.onMapMounted);
         });
     }
@@ -109,6 +115,21 @@ class OpenStreetMap extends Component {
             Neo.main.lib.OpenStreetMaps.updateData({
                 data: value,
                 id  : this.id
+            });
+        }
+    }
+
+    /**
+     * Triggered after the zoom config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @private
+     */
+    afterSetZoom(value, oldValue) {
+        if (value) {
+            Neo.main.lib.OpenStreetMaps.zoom({
+                id  : this.id,
+                zoom: value
             });
         }
     }

@@ -351,11 +351,13 @@ class MainContainerController extends ComponentController {
                 me.openstreetMapHasData = true;
             }
 
-            if (value.country) {
+            if (me.countryRecord) {
                 activeView.center = {
                     lat: me.countryRecord.countryInfo.lat,
                     lng: me.countryRecord.countryInfo.long
                 };
+
+                activeView.zoom = 5; // todo: we could use a different value for big countries (Russia, USA,...)
             }
 
             activeView.autoResize();
