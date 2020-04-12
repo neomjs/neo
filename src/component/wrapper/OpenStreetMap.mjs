@@ -39,7 +39,7 @@ class OpenStreetMap extends Component {
         data_: null,
         /**
          * https://docs.mapbox.com/mapbox-gl-js/style-spec/
-         * @member {String|null} mapboxStyle=null
+         * @member {Object|String} mapboxStyle=null
          */
         mapboxStyle: 'null',
         /**

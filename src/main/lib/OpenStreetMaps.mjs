@@ -3,7 +3,7 @@ import DomAccess from '../DomAccess.mjs';
 
 /**
  * Helper class to include OpenStreetMaps into your neo.mjs app
- * https://docs.mapbox.com/mapbox-gl-js/overview/
+ * See: https://docs.mapbox.com/mapbox-gl-js/api/
  * @class Neo.main.lib.OpenStreetMaps
  * @extends Neo.core.Base
  * @singleton
