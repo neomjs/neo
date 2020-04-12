@@ -127,13 +127,16 @@ class OpenStreetMaps extends Base {
      * @param {Object} data
      * @param {String} data.id
      * @param {Number} data.lat
-     * @param {Number} data.long
+     * @param {Number} data.lng
      */
     center(data) {
         const map = this.maps[data.id];
 
         if (map) {
-            map.setCenter([data.long, data.lat]);
+            map.setCenter({
+                lat: data.lat,
+                lng: data.lng
+            });
         } else {
             // todo
         }
@@ -143,6 +146,7 @@ class OpenStreetMaps extends Base {
      *
      * @param {Object} data
      * @param {String} data.accessToken
+     * @param {Object} data.center
      * @param {String} data.id
      */
     create(data) {
@@ -156,7 +160,7 @@ class OpenStreetMaps extends Base {
             mapboxgl.accessToken = data.accessToken;
 
             me.maps[data.id] = new mapboxgl.Map({
-                center   : [20, 40],
+                center   : data.center,
                 container: data.id,
                 style    : 'mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2',
                 zoom     : 3

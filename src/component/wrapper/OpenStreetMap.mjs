@@ -24,6 +24,10 @@ class OpenStreetMap extends Component {
          */
         accessToken: null,
         /**
+         * @member {Object} center_={lat: 0, lng: 0}
+         */
+        center_: {lat: 0, lng: 0},
+        /**
          * @member {Boolean} convertDataToGeoJson=true
          * @private
          */
@@ -74,8 +78,23 @@ class OpenStreetMap extends Component {
         me.on('mounted', () => {
             Neo.main.lib.OpenStreetMaps.create({
                 accessToken: me.accessToken,
+                center     : me.center,
                 id         : me.id
             }).then(me.onMapMounted);
+        });
+    }
+
+    /**
+     * Triggered after the center config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @private
+     */
+    afterSetCenter(value, oldValue) {
+        Neo.main.lib.OpenStreetMaps.center({
+            id : this.id,
+            lat: value.lat,
+            lng: value.lng
         });
     }
 

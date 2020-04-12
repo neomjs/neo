@@ -352,11 +352,10 @@ class MainContainerController extends ComponentController {
             }
 
             if (value.country) {
-                Neo.main.lib.OpenStreetMaps.center({
-                    id  : activeView.id,
-                    lat : me.countryRecord.countryInfo.lat,
-                    long: me.countryRecord.countryInfo.long
-                });
+                activeView.center = {
+                    lat: me.countryRecord.countryInfo.lat,
+                    lng: me.countryRecord.countryInfo.long
+                };
             }
 
             activeView.autoResize();
