@@ -236,68 +236,56 @@ class OpenStreetMaps extends Base {
             }
         });
 
-        map.addLayer(
-            {
-                'id': 'covid19-heat',
-                'type': 'heatmap',
-                'source': 'covid19',
-                'maxzoom': 9,
-                'paint': {
-                    // Increase the heatmap weight based on frequency and property magnitude
-                    'heatmap-weight': [
-                        'interpolate',
-                        ['linear'],
-                        ['get', 'cases'],
-                        0,
-                        0,
-                        1000,
-                        1
-                    ],
-                    // Increase the heatmap color weight by zoom level
-                    // heatmap-intensity is a multiplier on top of heatmap-weight
-                    'heatmap-intensity': [
-                        'interpolate',
-                        ['linear'],
-                        ['zoom'],
-                        0,
-                        3,
-                        9,
-                        5
-                    ],
-                    // Color ramp for heatmap.  Domain is 0 (low) to 1 (high).
-                    // Begin color ramp at 0-stop with a 0-transparency color
-                    // to create a blur-like effect.
-                    'heatmap-color': [
-                        'interpolate',
-                        ['linear'],
-                        ['heatmap-density'],
-                        0,
-                        'rgba(0,0,0,0)',
-                        0.1,
-                        '#927903',
-                        0.15,
-                        '#ffd403',
-                        1,
-                        '#ff0000'
-                    ],
-                    // Adjust the heatmap radius by zoom level
-                    'heatmap-radius': [
-                        'interpolate',
-                        ['linear'],
-                        ['zoom'],
-                        0, 2, 1, 4, 2, 8, 3, 16, 4, 32, 5, 64, 6, 128, 7, 256, 8, 512, 9, 1024
-                    ],
-                    // Transition from heatmap to circle layer by zoom level
-                    'heatmap-opacity': [
-                        'interpolate',
-                        ['linear'],
-                        ['zoom'],
-                        5, .95, 6, 0
-                    ]
-                }
+        map.addLayer({
+            filter: ['>=', ['get', 'cases'], 1],
+            id    : 'covid19-heat',
+            source: 'covid19',
+            type  : 'heatmap',
+
+            paint: {
+                'heatmap-color'    : ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(0,0,0,0)', 0.1, '#927903', 0.15, '#ffd403', 1, '#ff0000'],
+                'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 3, 9, 5],
+                'heatmap-opacity'  : ['interpolate', ['linear'], ['zoom'], 5, .95, 6, 0],
+                'heatmap-radius'   : ['interpolate', ['linear'], ['zoom'], 0, 2, 1, 4, 2, 8, 3, 16, 4, 32, 5, 64, 6, 128, 7, 256, 8, 512, 9, 1024],
+                'heatmap-weight'   : ['interpolate', ['linear'], ['get', 'cases'], 0, 0, 1000, 1]
+            }
+        }, 'waterway-label');
+
+        map.addLayer({
+            filter : ['>=', ['get', 'cases'], 1],
+            id     : 'covid19-circle',
+            source : 'covid19',
+            type   : 'circle',
+            minzoom: 5,
+
+            paint: {
+                'circle-color'    : ['step', ['get', 'cases'], '#9ad5ff', 0, '#9af6ff', 20, 'cyan', 200, 'yellow', 400, '#f1f075', 800, '#f9b196', 1e3, '#f28cb1', 2e3, '#f28cb1'],
+                'circle-opacity'  : ['interpolate', ['linear'], ['zoom'], 5, 0, 6, .6],
+                'circle-radius'   : ['step', ['get', 'cases'], 10, 100, 20, 500, 30, 1e3, 40, 1e4, 50],
+                'circle-translate': [0, 20]
+            }
+        }, 'waterway-label');
+
+        map.addLayer({
+            filter : ['>=', ['get', 'cases'], 1],
+            id     : 'covid19-circle-text',
+            source : 'covid19',
+            type   : 'symbol',
+            minzoom: 5,
+
+            layout: {
+                'text-allow-overlap'   : true,
+                'text-field'           : ['to-string', ['get', 'cases']],
+                'text-font'            : ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+                'text-ignore-placement': true,
+                'text-size'            : 12
             },
-            'waterway-label'
-        );
+
+            paint: {
+                'text-opacity'  : ['interpolate', ['linear'], ['zoom'], 5, 0, 7, 1],
+                'text-translate': [0, 20],
+            }
+        }, 'waterway-label');
     }
 
     /**
