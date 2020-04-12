@@ -123,6 +123,21 @@ class OpenStreetMap extends Component {
     }
 
     /**
+     * Triggered before the center config gets changed.
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @private
+     */
+    beforeSetCenter(value, oldValue) {
+        if (value && value.long) {
+            value.lng = value.long;
+            delete value.long;
+        }
+
+        return value;
+    }
+
+    /**
      * Triggered before the data config gets changed.
      * @param {Array|null} value
      * @param {Array|null} oldValue
