@@ -57,6 +57,7 @@ class OpenStreetMaps extends Base {
         remote: {
             app: [
                 'autoResize',
+                'center',
                 'create',
                 'updateData'
             ]
@@ -118,6 +119,23 @@ class OpenStreetMaps extends Base {
             setTimeout(() => {
                 map.resize();
             }, 100);
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Number} data.lat
+     * @param {Number} data.long
+     */
+    center(data) {
+        const map = this.maps[data.id];
+
+        if (map) {
+            map.setCenter([data.long, data.lat]);
+        } else {
+            // todo
         }
     }
 

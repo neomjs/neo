@@ -41,6 +41,10 @@ class MainContainerController extends ComponentController {
          */
         apiSummaryUrl: 'https://corona.lmao.ninja/all',
         /**
+         * @member {Object|null} countryRecord=null
+         */
+        countryRecord: null,
+        /**
          * @member {Object[]|null} data=null
          */
         data: null,
@@ -292,6 +296,8 @@ class MainContainerController extends ComponentController {
      *
      */
     onCountryFieldClear() {
+        this.countryRecord = null;
+
         Neo.Main.editRoute({
             country: null
         });
@@ -302,6 +308,8 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onCountryFieldSelect(data) {
+        this.countryRecord = data.record;
+
         Neo.Main.editRoute({
             country: data.value
         });
@@ -343,6 +351,14 @@ class MainContainerController extends ComponentController {
                 me.openstreetMapHasData = true;
             }
 
+            if (value.country) {
+                Neo.main.lib.OpenStreetMaps.center({
+                    id  : activeView.id,
+                    lat : me.countryRecord.countryInfo.lat,
+                    long: me.countryRecord.countryInfo.long
+                });
+            }
+
             activeView.autoResize();
         } else if (activeView.ntype === 'covid-world-map' && me.data) {
             if (!me.worldMapHasData) {
@@ -350,7 +366,6 @@ class MainContainerController extends ComponentController {
                 me.worldMapHasData = true;
             }
         } else {
-
             // todo: instead of a timeout this should add a store load listener (single: true)
             setTimeout(() => {
                 if (me.data) {
