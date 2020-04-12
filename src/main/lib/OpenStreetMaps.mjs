@@ -16,7 +16,7 @@ class OpenStreetMaps extends Base {
          */
         className: 'Neo.main.lib.OpenStreetMaps',
         /**
-         * Stores all map data inside an object. key => map id
+         * Stores all map data inside an object until mounting. key => map id
          * No array since in case a map gets loaded multiple times, we only want to apply the last data on mount.
          * @member {Object} dataMap={}
          * @private
@@ -68,6 +68,13 @@ class OpenStreetMaps extends Base {
          * @private
          */
         version: 'v1.8.1',
+        /**
+         * Stores all map zoom values inside an object until mounting. key => map id
+         * No array since in case a map gets zoomed multiple times, we only want to apply the last value on mount.
+         * @member {Object} zoomMap={}
+         * @private
+         */
+        zoomMap: {}
     }}
 
     /**
@@ -161,11 +168,18 @@ class OpenStreetMaps extends Base {
 
             mapboxgl.accessToken = data.accessToken;
 
+            let zoom = data.zoom;
+
+            if (me.zoomMap[data.id]) {
+                zoom = me.zoomMap[data.id].zoom;
+                delete me.zoomMap[data.id];
+            }
+
             me.maps[data.id] = new mapboxgl.Map({
                 center   : data.center,
                 container: data.id,
                 style    : 'mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2',
-                zoom     : data.zoom
+                zoom     : zoom
             });
 
             me.maps[data.id].on('load', me.onMapLoaded.bind(me));
@@ -317,7 +331,7 @@ class OpenStreetMaps extends Base {
         if (map) {
             map.setZoom(data.zoom);
         } else {
-            // todo
+            this.zoomMap[data.id] = data;
         }
     }
 }

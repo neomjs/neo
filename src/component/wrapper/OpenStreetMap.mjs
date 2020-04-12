@@ -97,11 +97,13 @@ class OpenStreetMap extends Component {
      * @private
      */
     afterSetCenter(value, oldValue) {
-        Neo.main.lib.OpenStreetMaps.center({
-            id : this.id,
-            lat: value.lat,
-            lng: value.lng
-        });
+        if (this.mounted) {
+            Neo.main.lib.OpenStreetMaps.center({
+                id : this.id,
+                lat: value.lat,
+                lng: value.lng
+            });
+        }
     }
 
     /**
@@ -126,7 +128,7 @@ class OpenStreetMap extends Component {
      * @private
      */
     afterSetZoom(value, oldValue) {
-        if (value) {
+        if (this.mounted) {
             Neo.main.lib.OpenStreetMaps.zoom({
                 id  : this.id,
                 zoom: value
