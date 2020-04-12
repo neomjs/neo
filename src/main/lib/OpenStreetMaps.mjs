@@ -64,10 +64,10 @@ class OpenStreetMaps extends Base {
             ]
         },
         /**
-         * @member {String} version='v1.8.1'
+         * @member {String} version='v1.9.1'
          * @private
          */
-        version: 'v1.8.1',
+        version: 'v1.9.1',
         /**
          * Stores all map zoom values inside an object until mounting. key => map id
          * No array since in case a map gets zoomed multiple times, we only want to apply the last value on mount.

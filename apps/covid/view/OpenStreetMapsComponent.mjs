@@ -17,7 +17,6 @@ class OpenStreetMapsComponent extends OpenStreetMapComponent {
          */
         ntype: 'covid-openstreet-map',
         /**
-         *
          * @member {String|null} accessToken
          */
         accessToken: 'pk.eyJ1IjoidG9iaXUiLCJhIjoiY2s4dTlsdHA5MDRmYzNtcGxlczFpcGVncyJ9.qcmzDjpdyQeLtz9z7d7CkA',
