@@ -215,7 +215,7 @@ class OpenStreetMaps extends Base {
     /**
      *
      */
-    onMapLoaded(event) {
+    onMapLoaded(event) {console.log('onMapLoaded');
         const map = event.target;
 
         map.addSource('dem', {
@@ -303,7 +303,20 @@ class OpenStreetMaps extends Base {
         if (!me.scriptsLoaded || !me.hasMap(data.id)) {
             // todo
         } else {
-            me.maps[data.id].setStyle(data.style);
+            const map = me.maps[data.id];
+
+            map.setStyle(data.style);
+
+            // this one is tricky: setStyle() can fail silently, only doing:
+            // console.warn('Unable to perform style diff: Unimplemented: setSprite..  Rebuilding the style from scratch.');
+            // in which case all custom layers and sources get lost.
+            setTimeout(() => {
+                if (!map.getSource('covid19')) {
+                    me.onMapLoaded({
+                        target: map
+                    });
+                }
+            }, 300);
         }
     }
 
