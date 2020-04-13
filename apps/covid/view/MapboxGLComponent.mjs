@@ -1,21 +1,21 @@
-import {default as OpenStreetMapComponent} from '../../../src/component/wrapper/OpenStreetMap.mjs';
+import {default as BaseComponent} from '../../../src/component/wrapper/MapboxGL.mjs';
 
 /**
- * @class Covid.view.OpenStreetMapsComponent
- * @extends Neo.component.wrapper.OpenStreetMap
+ * @class Covid.view.MapboxGLComponent
+ * @extends Neo.component.wrapper.MapboxGL
  */
-class OpenStreetMapsComponent extends OpenStreetMapComponent {
+class MapboxGLComponent extends BaseComponent {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.OpenStreetMapsComponent'
+         * @member {String} className='Covid.view.MapboxGLComponent'
          * @private
          */
-        className: 'Covid.view.OpenStreetMapsComponent',
+        className: 'Covid.view.MapboxGLComponent',
         /**
-         * @member {String} ntype='covid-openstreet-map'
+         * @member {String} ntype='covid-mapboxgl-map'
          * @private
          */
-        ntype: 'covid-openstreet-map',
+        ntype: 'covid-mapboxgl-map',
         /**
          * @member {String|null} accessToken
          */
@@ -46,6 +46,6 @@ class OpenStreetMapsComponent extends OpenStreetMapComponent {
     }}
 }
 
-Neo.applyClassConfig(OpenStreetMapsComponent);
+Neo.applyClassConfig(MapboxGLComponent);
 
-export {OpenStreetMapsComponent as default};
+export {MapboxGLComponent as default};

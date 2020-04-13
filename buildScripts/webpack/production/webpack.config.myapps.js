@@ -93,15 +93,15 @@ module.exports = env => {
                         filename: indexPath,
                         template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
                         templateParameters: {
-                            appPath          : value.output + 'app.js',
-                            bodyTag          : value.bodyTag || config.bodyTag,
-                            basePath         : basePath,
-                            environment      : 'production',
-                            themes           : value.themes || "'neo-theme-light', 'neo-theme-dark'", // arrays are not supported as templateParameters
-                            title            : value.title,
-                            useAmCharts      : value.hasOwnProperty('useAmCharts')       ? value.useAmCharts       : false,
-                            useOpenStreetMaps: value.hasOwnProperty('useOpenStreetMaps') ? value.useOpenStreetMaps : false,
-                            workerBasePath   : workerBasePath
+                            appPath       : value.output + 'app.js',
+                            bodyTag       : value.bodyTag || config.bodyTag,
+                            basePath      : basePath,
+                            environment   : 'production',
+                            themes        : value.themes || "'neo-theme-light', 'neo-theme-dark'", // arrays are not supported as templateParameters
+                            title         : value.title,
+                            useAmCharts   : value.hasOwnProperty('useAmCharts') ? value.useAmCharts : false,
+                            useMapboxGL   : value.hasOwnProperty('useMapboxGL') ? value.useMapboxGL : false,
+                            workerBasePath: workerBasePath
                         }
                     }));
                 }

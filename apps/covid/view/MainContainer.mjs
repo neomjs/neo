@@ -4,7 +4,7 @@ import GalleryContainer          from './GalleryContainer.mjs';
 import HeaderContainer           from './HeaderContainer.mjs';
 import HelixContainer            from './HelixContainer.mjs';
 import MainContainerController   from './MainContainerController.mjs';
-import OpenStreetMapsComponent   from './OpenStreetMapsComponent.mjs';
+import MapboxGLComponent         from './MapboxGLComponent.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
 import TableContainer            from './TableContainer.mjs';
 import Viewport                  from '../../../src/container/Viewport.mjs';
@@ -62,12 +62,12 @@ class MainContainer extends Viewport {
                     text   : 'Table'
                 }
             }, {
-                module         : OpenStreetMapsComponent,
-                reference      : 'openstreetmap',
+                module         : MapboxGLComponent,
+                reference      : 'mapboxglmap',
                 tabButtonConfig: {
                     iconCls: 'fa fa-globe-americas',
-                    route  : 'mainview=openstreetmap',
-                    text   : 'OpenStreetMap'
+                    route  : 'mainview=mapboxglmap',
+                    text   : 'Mapbox GL Map'
                 }
             }, {
                 module         : WorldMapContainer,

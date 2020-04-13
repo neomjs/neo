@@ -49,16 +49,16 @@ class MainContainerController extends ComponentController {
          */
         data: null,
         /**
-         * @member {String[]} mainTabs=['table', 'openstreetmap', 'worldmap', 'gallery', 'helix', 'attribution']
+         * @member {String[]} mainTabs=['table', 'mapboxglmap', 'worldmap', 'gallery', 'helix', 'attribution']
          * @private
          */
-        mainTabs: ['table','openstreetmap', 'worldmap', 'gallery', 'helix', 'attribution'],
+        mainTabs: ['table','mapboxglmap', 'worldmap', 'gallery', 'helix', 'attribution'],
         /**
          * Flag to only load the map once onHashChange, but always on reload button click
-         * @member {Boolean} openstreetMapHasData=false
+         * @member {Boolean} mapboxglMapHasData=false
          * @private
          */
-        openstreetMapHasData: false,
+        mapboxglMapHasData: false,
         /**
          * @member {Object} summaryData=null
          */
@@ -121,9 +121,9 @@ class MainContainerController extends ComponentController {
             activeTab.store.data = data;
         }
 
-        else if (reference === 'openstreetmap') {
+        else if (reference === 'mapboxglmap') {
             activeTab.data = data;
-            me.openstreetMapHasData = true;
+            me.mapboxglMapHasData = true;
         }
 
         else if (reference === 'worldmap') {
@@ -345,10 +345,10 @@ class MainContainerController extends ComponentController {
             delaySelection = 500;
         }
 
-        if (activeView.ntype === 'covid-openstreet-map' && me.data) {
-            if (!me.openstreetMapHasData) {
+        if (activeView.ntype === 'covid-mapboxgl-map' && me.data) {
+            if (!me.mapboxglMapHasData) {
                 activeView.data = me.data;
-                me.openstreetMapHasData = true;
+                me.mapboxglMapHasData = true;
             }
 
             // console.log(countryField.getRecord());
@@ -477,7 +477,7 @@ class MainContainerController extends ComponentController {
             button   = data.component,
             logo     = me.getReference('logo'),
             logoPath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
-            mapView  = me.getReference('openstreetmap'),
+            mapView  = me.getReference('mapboxglmap'),
             vdom     = logo.vdom,
             view     = me.view,
             buttonText, cls, href, iconCls, mapViewStyle, theme;

@@ -129,14 +129,14 @@ const DefaultConfig = {
      */
     useGoogleAnalytics: false,
     /**
-     * Flag if you want to load the files needed for working with OpenStreetMaps
+     * Flag if you want to load the files needed for working with Mapbox GL
      * https://docs.mapbox.com/mapbox-gl-js/overview/
      * @default false
      * @memberOf! module:Neo
-     * @name config.useOpenStreetMaps
+     * @name config.useMapboxGL
      * @type Boolean
      */
-    useOpenStreetMaps: false
+    useMapboxGL: false
 };
 
 Object.assign(DefaultConfig, {

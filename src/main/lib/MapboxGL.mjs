@@ -2,19 +2,19 @@ import Base      from '../../core/Base.mjs';
 import DomAccess from '../DomAccess.mjs';
 
 /**
- * Helper class to include OpenStreetMaps into your neo.mjs app
+ * Helper class to include Mapbox GL maps into your neo.mjs app
  * See: https://docs.mapbox.com/mapbox-gl-js/api/
- * @class Neo.main.lib.OpenStreetMaps
+ * @class Neo.main.lib.MapboxGL
  * @extends Neo.core.Base
  * @singleton
  */
-class OpenStreetMaps extends Base {
+class MapboxGL extends Base {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.main.lib.OpenStreetMaps'
+         * @member {String} className='Neo.main.lib.MapboxGL'
          * @private
          */
-        className: 'Neo.main.lib.OpenStreetMaps',
+        className: 'Neo.main.lib.MapboxGL',
         /**
          * Stores all map data inside an object until mounting. key => map id
          * No array since in case a map gets loaded multiple times, we only want to apply the last data on mount.
@@ -92,7 +92,7 @@ class OpenStreetMaps extends Base {
     constructor(config) {
         super(config);
 
-        if (Neo.config.useOpenStreetMaps) {
+        if (Neo.config.useMapboxGL) {
             this.insertOpenStreetMapsScripts();
         }
     }
@@ -386,9 +386,9 @@ class OpenStreetMaps extends Base {
     }
 }
 
-Neo.applyClassConfig(OpenStreetMaps);
+Neo.applyClassConfig(MapboxGL);
 
-let instance = Neo.create(OpenStreetMaps);
+let instance = Neo.create(MapboxGL);
 
 Neo.applyToGlobalNs(instance);
 
