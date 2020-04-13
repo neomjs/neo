@@ -110,8 +110,6 @@ class OpenStreetMaps extends Base {
                 Object.entries(me.dataMap).forEach(([key, dataValue]) => {
                     me.updateData(dataValue);
                 });
-
-                me.dataMap = {};
             }, 3000); // todo
         }
     }
@@ -298,8 +296,6 @@ class OpenStreetMaps extends Base {
     setStyle(data) {
         const me = this;
 
-        console.log('####### setStyle', data);
-
         if (!me.scriptsLoaded || !me.hasMap(data.id)) {
             // todo
         } else {
@@ -316,8 +312,12 @@ class OpenStreetMaps extends Base {
                     me.onMapLoaded({
                         target: map
                     });
+
+                    setTimeout(() => {
+                        me.updateData(me.dataMap[data.id]);
+                    }, 200);
                 }
-            }, 300);
+            }, 100);
         }
     }
 
@@ -331,11 +331,9 @@ class OpenStreetMaps extends Base {
     updateData(data) {
         const me = this;
 
-        console.log('####### update data', data);
+        me.dataMap[data.id] = data;
 
-        if (!me.scriptsLoaded || !me.hasMap(data.id)) {
-            me.dataMap[data.id] = data;
-        } else {
+        if (me.scriptsLoaded && me.hasMap(data.id)) {
             const map    = me.maps[data.id],
                   source = map.getSource(data.dataSourceId);
 
