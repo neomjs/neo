@@ -46,17 +46,17 @@
     "homepage": "https://neomjs.github.io/pages/",
     "dependencies": {
         "@fortawesome/fontawesome-free": "^5.13.0",
-        "autoprefixer": "^9.7.5",
+        "autoprefixer": "^9.7.6",
         "clean-webpack-plugin": "^3.0.0",
         "commander": "^5.0.0",
-        "css-loader": "^3.4.2",
+        "css-loader": "^3.5.2",
         "cssnano": "^4.1.10",
         "deasync": "^0.1.19",
         "fs-extra": "^9.0.0",
         "highlightjs-line-numbers.js": "^2.7.0",
-        "html-webpack-plugin": "^4.0.2",
+        "html-webpack-plugin": "^4.2.0",
         "inquirer": "^7.1.0",
-        "jsdoc": "^3.6.3",
+        "jsdoc": "^3.6.4",
         "jsdoc-x": "^4.1.0",
         "mini-css-extract-plugin": "^0.9.0",
         "node-sass": "^4.13.1",
@@ -70,7 +70,7 @@
         "webpack-shell-plugin": "^0.5.0"
     },
     "devDependencies": {
-        "siesta-lite": "^5.3.2"
+        "siesta-lite": "^5.4.0"
     },
     "funding": {
         "type": "GitHub Sponsors",
