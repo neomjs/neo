@@ -92,7 +92,7 @@ class OpenStreetMaps extends Base {
     constructor(config) {
         super(config);
 
-        if (Neo.config.useOpenStreetMaps) {
+        if (Neo.config.useMapboxGL) {
             this.insertOpenStreetMapsScripts();
         }
     }
