@@ -37,12 +37,12 @@ class OpenStreetMapsComponent extends OpenStreetMapComponent {
          * Version for the neo-dark theme
          * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
          */
-        mapboxStyleDark: 'mapbox://styles/tobiu/ck8yaxakx11zx1ilgshq451cv',
+        mapboxStyleDark: 'tobiu/ck8yaxakx11zx1ilgshq451cv',
         /**
          * Version for the neo-light theme
          * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
          */
-        mapboxStyleLight: 'mapbox://styles/tobiu/ck8yeacdx22a41jo1do9iafd7'
+        mapboxStyleLight: 'tobiu/ck8yeacdx22a41jo1do9iafd7'
     }}
 }
 

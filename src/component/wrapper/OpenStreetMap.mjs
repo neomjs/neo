@@ -137,8 +137,9 @@ class OpenStreetMap extends Component {
     afterSetMapboxStyle(value, oldValue) {
         if (this.mounted) {
             Neo.main.lib.OpenStreetMaps.setStyle({
-                id   : this.id,
-                style: value
+                accessToken: this.accessToken,
+                id         : this.id,
+                style      : value
             });
         }
     }

@@ -289,7 +289,21 @@ class OpenStreetMaps extends Base {
 
     /**
      *
+     * @param {Object} map
+     * @param {Object} styleJson
+     */
+    applyStyleObject(map, styleJson) {
+        styleJson.layers.forEach(layer => {
+            Object.entries(layer.paint).forEach(([key, value]) => {
+                map.setPaintProperty(layer.id, key, value);
+            });
+        });
+    }
+
+    /**
+     *
      * @param {Object} data
+     * @param {String} data.accessToken
      * @param {String} data.id
      * @param {Object|String} data.style
      */
@@ -299,25 +313,15 @@ class OpenStreetMaps extends Base {
         if (!me.scriptsLoaded || !me.hasMap(data.id)) {
             // todo
         } else {
-            const map = me.maps[data.id];
+            if (Neo.isString(data.style)) {
+                fetch(`https://api.mapbox.com/styles/v1/${data.style}?access_token=${data.accessToken}`)
+                    .then(response => response.json())
+                    .then(styleJson => me.applyStyleObject(me.maps[data.id], styleJson))
+            }
 
-            map.setStyle(data.style);
-
-            // this one is tricky: setStyle() can fail silently, only doing:
-            // console.warn('Unable to perform style diff: Unimplemented: setSprite..  Rebuilding the style from scratch.');
-            // in which case all custom layers and sources get lost.
-            // there is still a composite source inside map.style.sourceCaches, so we check for < 2
-            setTimeout(() => {
-                if (Object.keys(map.style.sourceCaches).length < 2) {
-                    me.onMapLoaded({
-                        target: map
-                    });
-
-                    setTimeout(() => {
-                        me.updateData(me.dataMap[data.id]);
-                    }, 200);
-                }
-            }, 100);
+            // map.setStyle breaks with only a console.warn()
+            // => causing a full repaint, losing custom sources & layers
+            // map.setStyle(data.style);
         }
     }
 
