@@ -477,20 +477,23 @@ class MainContainerController extends ComponentController {
             button   = data.component,
             logo     = me.getReference('logo'),
             logoPath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
+            mapView  = me.getReference('openstreetmap'),
             vdom     = logo.vdom,
             view     = me.view,
-            buttonText, cls, href, iconCls, theme;
+            buttonText, cls, href, iconCls, mapViewStyle, theme;
 
         if (button.text === 'Theme Light') {
-            buttonText = 'Theme Dark';
-            href       = '../dist/development/neo-theme-light-no-css4.css';
-            iconCls    = 'fa fa-moon';
-            theme      = 'neo-theme-light';
+            buttonText   = 'Theme Dark';
+            href         = '../dist/development/neo-theme-light-no-css4.css';
+            iconCls      = 'fa fa-moon';
+            mapViewStyle = mapView.mapboxStyleLight;
+            theme        = 'neo-theme-light';
         } else {
-            buttonText = 'Theme Light';
-            href       = '../dist/development/neo-theme-dark-no-css4.css';
-            iconCls    = 'fa fa-sun';
-            theme      = 'neo-theme-dark';
+            buttonText   = 'Theme Light';
+            href         = '../dist/development/neo-theme-dark-no-css4.css';
+            iconCls      = 'fa fa-sun';
+            mapViewStyle = mapView.mapboxStyleDark;
+            theme        = 'neo-theme-dark';
         }
 
         vdom.src = logoPath + (theme === 'neo-theme-dark' ? 'covid_logo_dark.jpg' : 'covid_logo_light.jpg');
@@ -521,6 +524,8 @@ class MainContainerController extends ComponentController {
                 button.text = buttonText;
             });
         }
+
+        mapView.mapboxStyle = mapViewStyle;
     }
 
     /**

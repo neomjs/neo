@@ -38,10 +38,16 @@ class OpenStreetMap extends Component {
          */
         data_: null,
         /**
+         * Assuming there is just 1 source for data changes.
+         * Create a ticket in case it needs to get enhanced.
+         * @member {String|null} dataSourceId=null
+         */
+        dataSourceId: null,
+        /**
          * https://docs.mapbox.com/mapbox-gl-js/style-spec/
          * @member {Object|String} mapboxStyle=null
          */
-        mapboxStyle: 'null',
+        mapboxStyle_: null,
         /**
          * @member {Object} _vdom
          */
@@ -115,8 +121,25 @@ class OpenStreetMap extends Component {
     afterSetData(value, oldValue) {
         if (value) {
             Neo.main.lib.OpenStreetMaps.updateData({
-                data: value,
-                id  : this.id
+                data        : value,
+                dataSourceId: this.dataSourceId,
+                id          : this.id
+            });
+        }
+    }
+
+    /**
+     * Triggered after the mapboxStyle config got changed
+     * @param {Object|String} value
+     * @param {Object|String} oldValue
+     * @private
+     */
+    afterSetMapboxStyle(value, oldValue) {
+        if (this.mounted) {
+            Neo.main.lib.OpenStreetMaps.setStyle({
+                accessToken: this.accessToken,
+                id         : this.id,
+                style      : value
             });
         }
     }

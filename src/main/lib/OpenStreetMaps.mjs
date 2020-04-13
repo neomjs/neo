@@ -59,10 +59,18 @@ class OpenStreetMaps extends Base {
                 'autoResize',
                 'center',
                 'create',
+                'setStyle',
                 'updateData',
                 'zoom'
             ]
         },
+        /**
+         * Stores all map style objects inside an objects to prevent reloads when switching themes multiple times.
+         * key => style name (url)
+         * @member {Object} styleMap={}
+         * @private
+         */
+        styleMap: {},
         /**
          * @member {String} version='v1.9.1'
          * @private
@@ -113,6 +121,24 @@ class OpenStreetMaps extends Base {
                 me.dataMap = {};
             }, 3000); // todo
         }
+    }
+
+    /**
+     *
+     * @param {Object} map
+     * @param {Object} styleJson
+     * @param {String} [name]
+     */
+    applyStyleObject(map, styleJson, name) {
+        if (name) {
+            this.styleMap[name] = styleJson;
+        }
+
+        styleJson.layers.forEach(layer => {
+            Object.entries(layer.paint).forEach(([key, value]) => {
+                map.setPaintProperty(layer.id, key, value);
+            });
+        });
     }
 
     /**
@@ -291,19 +317,51 @@ class OpenStreetMaps extends Base {
     /**
      *
      * @param {Object} data
+     * @param {String} data.accessToken
+     * @param {String} data.id
+     * @param {Object|String} data.style
+     */
+    setStyle(data) {
+        const me = this;
+
+        if (!me.scriptsLoaded || !me.hasMap(data.id)) {
+            // todo
+        } else {
+            if (Neo.isString(data.style)) {
+                if (data.style.indexOf('mapbox://styles/') === 0) {
+                    data.style = data.style.substring(16);
+                }
+
+                if (me.styleMap[data.style]) {
+                    me.applyStyleObject(me.maps[data.id], me.styleMap[data.style]);
+                } else {
+                    fetch(`https://api.mapbox.com/styles/v1/${data.style}?access_token=${data.accessToken}`)
+                        .then(response => response.json())
+                        .then(styleJson => me.applyStyleObject(me.maps[data.id], styleJson, data.style))
+                }
+            }
+
+            // map.setStyle breaks with only a console.warn()
+            // => causing a full repaint, losing custom sources & layers
+            // map.setStyle(data.style);
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
      * @param {Object} data.data
+     * @param {String} data.dataSourceId
      * @param {String} data.id
      */
     updateData(data) {
         const me = this;
 
-        console.log('####### update data', data);
-
         if (!me.scriptsLoaded || !me.hasMap(data.id)) {
             me.dataMap[data.id] = data;
         } else {
             const map    = me.maps[data.id],
-                  source = map.getSource('covid19');
+                  source = map.getSource(data.dataSourceId);
 
             if (source) {
                 source.setData(data.data);

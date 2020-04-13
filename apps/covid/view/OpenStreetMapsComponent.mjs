@@ -25,10 +25,24 @@ class OpenStreetMapsComponent extends OpenStreetMapComponent {
          */
         center: {lat: 40, lng: 20},
         /**
+         * @member {String} dataSourceId='covid19'
+         */
+        dataSourceId: 'covid19',
+        /**
          * https://docs.mapbox.com/mapbox-gl-js/style-spec/
          * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
          */
-        mapboxStyle: 'mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
+        mapboxStyle: 'mapbox://styles/tobiu/ck8yaxakx11zx1ilgshq451cv',
+        /**
+         * Version for the neo-dark theme
+         * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
+         */
+        mapboxStyleDark: 'tobiu/ck8yaxakx11zx1ilgshq451cv',
+        /**
+         * Version for the neo-light theme
+         * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
+         */
+        mapboxStyleLight: 'mapbox://styles/tobiu/ck8yeacdx22a41jo1do9iafd7'
     }}
 }
 
