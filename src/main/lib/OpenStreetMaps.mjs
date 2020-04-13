@@ -110,6 +110,8 @@ class OpenStreetMaps extends Base {
                 Object.entries(me.dataMap).forEach(([key, dataValue]) => {
                     me.updateData(dataValue);
                 });
+
+                me.dataMap = {};
             }, 3000); // todo
         }
     }
@@ -335,9 +337,9 @@ class OpenStreetMaps extends Base {
     updateData(data) {
         const me = this;
 
-        me.dataMap[data.id] = data;
-
-        if (me.scriptsLoaded && me.hasMap(data.id)) {
+        if (!me.scriptsLoaded || !me.hasMap(data.id)) {
+            me.dataMap[data.id] = data;
+        } else {
             const map    = me.maps[data.id],
                   source = map.getSource(data.dataSourceId);
 
