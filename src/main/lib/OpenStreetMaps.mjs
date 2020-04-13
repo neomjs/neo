@@ -215,7 +215,7 @@ class OpenStreetMaps extends Base {
     /**
      *
      */
-    onMapLoaded(event) {console.log('onMapLoaded');
+    onMapLoaded(event) {
         const map = event.target;
 
         map.addSource('dem', {
@@ -310,8 +310,9 @@ class OpenStreetMaps extends Base {
             // this one is tricky: setStyle() can fail silently, only doing:
             // console.warn('Unable to perform style diff: Unimplemented: setSprite..  Rebuilding the style from scratch.');
             // in which case all custom layers and sources get lost.
+            // there is still a composite source inside map.style.sourceCaches, so we check for < 2
             setTimeout(() => {
-                if (!map.getSource('covid19')) {
+                if (Object.keys(map.style.sourceCaches).length < 2) {
                     me.onMapLoaded({
                         target: map
                     });
