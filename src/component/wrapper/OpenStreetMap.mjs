@@ -47,7 +47,7 @@ class OpenStreetMap extends Component {
          * https://docs.mapbox.com/mapbox-gl-js/style-spec/
          * @member {Object|String} mapboxStyle=null
          */
-        mapboxStyle: 'null',
+        mapboxStyle_: null,
         /**
          * @member {Object} _vdom
          */
@@ -124,6 +124,21 @@ class OpenStreetMap extends Component {
                 data        : value,
                 dataSourceId: this.dataSourceId,
                 id          : this.id
+            });
+        }
+    }
+
+    /**
+     * Triggered after the mapboxStyle config got changed
+     * @param {Object|String} value
+     * @param {Object|String} oldValue
+     * @private
+     */
+    afterSetMapboxStyle(value, oldValue) {
+        if (this.mounted) {
+            Neo.main.lib.OpenStreetMaps.setStyle({
+                id   : this.id,
+                style: value
             });
         }
     }

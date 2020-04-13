@@ -59,6 +59,7 @@ class OpenStreetMaps extends Base {
                 'autoResize',
                 'center',
                 'create',
+                'setStyle',
                 'updateData',
                 'zoom'
             ]
@@ -286,6 +287,24 @@ class OpenStreetMaps extends Base {
                 'text-translate': [0, 20],
             }
         }, 'waterway-label');
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Object|String} data.style
+     */
+    setStyle(data) {
+        const me = this;
+
+        console.log('####### setStyle', data);
+
+        if (!me.scriptsLoaded || !me.hasMap(data.id)) {
+            // todo
+        } else {
+            me.maps[data.id].setStyle(data.style);
+        }
     }
 
     /**
