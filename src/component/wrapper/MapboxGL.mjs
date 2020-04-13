@@ -1,23 +1,23 @@
 import {default as Component} from '../Base.mjs';
 
 /**
- * Convenience class to render an OpenStreetMap
- * Requires setting Neo.config.useOpenStreetMaps to true (or manually include the lib)
- * @class Neo.component.wrapper.OpenStreetMap
+ * Convenience class to render Mapbox GL maps
+ * Requires setting Neo.config.useMapboxGL to true (or manually include the lib)
+ * @class Neo.component.wrapper.MapboxGL
  * @extends Neo.component.Base
  */
-class OpenStreetMap extends Component {
+class MapboxGL extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.component.wrapper.OpenStreetMap'
+         * @member {String} className='Neo.component.wrapper.MapboxGL'
          * @private
          */
-        className: 'Neo.component.wrapper.OpenStreetMap',
+        className: 'Neo.component.wrapper.MapboxGL',
         /**
-         * @member {String} ntype='openstreetmap'
+         * @member {String} ntype='mapboxgl'
          * @private
          */
-        ntype: 'openstreetmap',
+        ntype: 'mapboxgl',
         /**
          *
          * @member {String|null} accessToken=null
@@ -92,7 +92,7 @@ class OpenStreetMap extends Component {
         const me = this;
 
         me.on('mounted', () => {
-            Neo.main.lib.OpenStreetMaps.create({
+            Neo.main.lib.MapboxGL.create({
                 accessToken: me.accessToken,
                 center     : me.center,
                 id         : me.id,
@@ -120,7 +120,7 @@ class OpenStreetMap extends Component {
      */
     afterSetData(value, oldValue) {
         if (value) {
-            Neo.main.lib.OpenStreetMaps.updateData({
+            Neo.main.lib.MapboxGL.updateData({
                 data        : value,
                 dataSourceId: this.dataSourceId,
                 id          : this.id
@@ -136,7 +136,7 @@ class OpenStreetMap extends Component {
      */
     afterSetMapboxStyle(value, oldValue) {
         if (this.mounted) {
-            Neo.main.lib.OpenStreetMaps.setStyle({
+            Neo.main.lib.MapboxGL.setStyle({
                 accessToken: this.accessToken,
                 id         : this.id,
                 style      : value
@@ -152,7 +152,7 @@ class OpenStreetMap extends Component {
      */
     afterSetZoom(value, oldValue) {
         if (this.mounted) {
-            Neo.main.lib.OpenStreetMaps.zoom({
+            Neo.main.lib.MapboxGL.zoom({
                 id  : this.id,
                 zoom: value
             });
@@ -163,7 +163,7 @@ class OpenStreetMap extends Component {
      *
      */
     autoResize() {
-        Neo.main.lib.OpenStreetMaps.autoResize({
+        Neo.main.lib.MapboxGL.autoResize({
             id: this.id
         });
     }
@@ -206,7 +206,7 @@ class OpenStreetMap extends Component {
      * @private
      */
     centerMap(value, animate=false) {
-        Neo.main.lib.OpenStreetMaps.center({
+        Neo.main.lib.MapboxGL.center({
             animate: animate,
             id     : this.id,
             lat    : value.lat,
@@ -273,6 +273,6 @@ class OpenStreetMap extends Component {
     }
 }
 
-Neo.applyClassConfig(OpenStreetMap);
+Neo.applyClassConfig(MapboxGL);
 
-export {OpenStreetMap as default};
+export {MapboxGL as default};
