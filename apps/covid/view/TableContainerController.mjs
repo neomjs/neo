@@ -188,9 +188,10 @@ class TableContainerController extends ComponentController {
             me.selectedRecord = null;
         }
 
-        me.loadHistoricalData(record?.countryInfo?.iso2 || 'all');
+        // removed optional chaining for now, see: https://github.com/neomjs/neo/issues/467
+        me.loadHistoricalData(record && record.countryInfo && record.countryInfo.iso2 || 'all');
 
-        me.getReference('historical-data-label').html = 'Historical Data (' + (record?.country || 'World') + ')';
+        me.getReference('historical-data-label').html = 'Historical Data (' + (record && record.country || 'World') + ')';
     }
 
     /**
