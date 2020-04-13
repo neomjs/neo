@@ -32,7 +32,7 @@ class OpenStreetMapsComponent extends OpenStreetMapComponent {
          * https://docs.mapbox.com/mapbox-gl-js/style-spec/
          * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
          */
-        mapboxStyle: 'mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
+        mapboxStyle: 'mapbox://styles/tobiu/ck8yaxakx11zx1ilgshq451cv'
     }}
 }
 
