@@ -42,7 +42,7 @@ class OpenStreetMapsComponent extends OpenStreetMapComponent {
          * Version for the neo-light theme
          * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
          */
-        mapboxStyleLight: 'tobiu/ck8yeacdx22a41jo1do9iafd7'
+        mapboxStyleLight: 'mapbox://styles/tobiu/ck8yeacdx22a41jo1do9iafd7'
     }}
 }
 

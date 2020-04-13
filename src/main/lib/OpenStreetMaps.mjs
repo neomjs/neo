@@ -65,6 +65,13 @@ class OpenStreetMaps extends Base {
             ]
         },
         /**
+         * Stores all map style objects inside an objects to prevent reloads when switching themes multiple times.
+         * key => style name (url)
+         * @member {Object} styleMap={}
+         * @private
+         */
+        styleMap: {},
+        /**
          * @member {String} version='v1.9.1'
          * @private
          */
@@ -114,6 +121,24 @@ class OpenStreetMaps extends Base {
                 me.dataMap = {};
             }, 3000); // todo
         }
+    }
+
+    /**
+     *
+     * @param {Object} map
+     * @param {Object} styleJson
+     * @param {String} [name]
+     */
+    applyStyleObject(map, styleJson, name) {
+        if (name) {
+            this.styleMap[name] = styleJson;
+        }
+
+        styleJson.layers.forEach(layer => {
+            Object.entries(layer.paint).forEach(([key, value]) => {
+                map.setPaintProperty(layer.id, key, value);
+            });
+        });
     }
 
     /**
@@ -291,19 +316,6 @@ class OpenStreetMaps extends Base {
 
     /**
      *
-     * @param {Object} map
-     * @param {Object} styleJson
-     */
-    applyStyleObject(map, styleJson) {
-        styleJson.layers.forEach(layer => {
-            Object.entries(layer.paint).forEach(([key, value]) => {
-                map.setPaintProperty(layer.id, key, value);
-            });
-        });
-    }
-
-    /**
-     *
      * @param {Object} data
      * @param {String} data.accessToken
      * @param {String} data.id
@@ -316,9 +328,17 @@ class OpenStreetMaps extends Base {
             // todo
         } else {
             if (Neo.isString(data.style)) {
-                fetch(`https://api.mapbox.com/styles/v1/${data.style}?access_token=${data.accessToken}`)
-                    .then(response => response.json())
-                    .then(styleJson => me.applyStyleObject(me.maps[data.id], styleJson))
+                if (data.style.indexOf('mapbox://styles/') === 0) {
+                    data.style = data.style.substring(16);
+                }
+
+                if (me.styleMap[data.style]) {
+                    me.applyStyleObject(me.maps[data.id], me.styleMap[data.style]);
+                } else {
+                    fetch(`https://api.mapbox.com/styles/v1/${data.style}?access_token=${data.accessToken}`)
+                        .then(response => response.json())
+                        .then(styleJson => me.applyStyleObject(me.maps[data.id], styleJson, data.style))
+                }
             }
 
             // map.setStyle breaks with only a console.warn()
