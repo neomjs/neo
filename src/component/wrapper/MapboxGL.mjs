@@ -312,7 +312,7 @@ class MapboxGL extends Component {
      * Override this method to trigger logic after the map got mounted into the dom
      */
     onMapMounted() {
-        console.log('onMapMounted');
+
     }
 }
 
