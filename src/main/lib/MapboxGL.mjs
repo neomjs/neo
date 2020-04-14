@@ -4,6 +4,8 @@ import DomAccess from '../DomAccess.mjs';
 /**
  * Helper class to include Mapbox GL maps into your neo.mjs app
  * See: https://docs.mapbox.com/mapbox-gl-js/api/
+ * In case you need more API methods to get exposed to the App worker,
+ * please open issues inside the tracker and / or submit PRs.
  * @class Neo.main.lib.MapboxGL
  * @extends Neo.core.Base
  * @singleton
