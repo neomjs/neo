@@ -28,6 +28,13 @@ class MapboxGL extends Base {
          */
         downloadPath: 'https://api.mapbox.com/mapbox-gl-js/',
         /**
+         * Stores all extra map sources layers an object.
+         * key => map id, value => {Array} layers
+         * @member {Object} layers={}
+         * @private
+         */
+        layers: {},
+        /**
          * Stores all map ids inside an object
          * @member {Object} maps={}
          * @private
@@ -50,15 +57,25 @@ class MapboxGL extends Base {
          */
         singleton: true,
         /**
+         * Stores all map sources inside an object.
+         * key => map id, value => {Array} sources
+         * @member {Object} sources={}
+         * @private
+         */
+        sources: {},
+        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @private
          */
         remote: {
             app: [
+                'addLayers',
+                'addSources',
                 'autoResize',
                 'center',
                 'create',
+                'setPaintProperty',
                 'setStyle',
                 'updateData',
                 'zoom'
@@ -94,6 +111,54 @@ class MapboxGL extends Base {
 
         if (Neo.config.useMapboxGL) {
             this.insertOpenStreetMapsScripts();
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Object[]} data.layers
+     */
+    addLayers(data) {
+        const me  = this,
+              map = me.maps[data.id];
+
+        let beforeId;
+
+        if (map) {
+            data.layers.forEach(item => {
+                beforeId = item.beforeId;
+                delete item.beforeId;
+
+                map.addLayer(item, beforeId);
+            });
+        } else {
+            me.layers[data.id] = Object.assign(me.layers[data.id] || {}, data);
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Object[]} data.sources
+     */
+    addSources(data) {
+        const me  = this,
+              map = me.maps[data.id];
+
+        let id;
+
+        if (map) {
+            data.sources.forEach(item => {
+                id = item.id;
+                delete item.id;
+
+                map.addSource(id, item);
+            });
+        } else {
+            me.sources[data.id] = Object.assign(me.sources[data.id] || {}, data);
         }
     }
 
@@ -212,7 +277,7 @@ class MapboxGL extends Base {
                 zoom     : zoom
             });
 
-            me.maps[data.id].on('load', me.onMapLoaded.bind(me));
+            me.maps[data.id].on('load', me.onMapLoaded.bind(me, data.id));
         }
     }
 
@@ -239,79 +304,40 @@ class MapboxGL extends Base {
 
     /**
      *
+     * @param {String} mapId
+     * @param {Object} event
+     * @param {Object} event.target map instance
      */
-    onMapLoaded(event) {
-        const map = event.target;
+    onMapLoaded(mapId, event) {
+        const me = this;
 
-        map.addSource('dem', {
-            type: 'raster-dem',
-            url : 'mapbox://mapbox.terrain-rgb'
-        });
+        if (me.sources[mapId]) {
+            me.addSources(me.sources[mapId]);
+            delete me.sources[mapId];
+        }
 
-        map.addLayer({
-            id    : 'hillshading',
-            source: 'dem',
-            type  : 'hillshade'
-        }, 'waterway-label');
+        if (me.layers[mapId]) {
+            me.addLayers(me.layers[mapId]);
+            delete me.layers[mapId];
+        }
+    }
 
-        map.addSource('covid19', {
-            type: 'geojson',
-            data: {
-                type    : 'FeatureCollection',
-                features: []
-            }
-        });
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.layerId
+     * @param {String} data.key
+     * @param {String} data.value
+     */
+    setPaintProperty(data) {
+        const map = this.maps[data.id];
 
-        map.addLayer({
-            filter: ['>=', ['get', 'cases'], 1],
-            id    : 'covid19-heat',
-            source: 'covid19',
-            type  : 'heatmap',
-
-            paint: {
-                'heatmap-color'    : ['interpolate', ['linear'], ['heatmap-density'], 0, 'rgba(0,0,0,0)', 0.1, '#927903', 0.15, '#ffd403', 1, '#ff0000'],
-                'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 3, 9, 5],
-                'heatmap-opacity'  : ['interpolate', ['linear'], ['zoom'], 5, .95, 6, 0],
-                'heatmap-radius'   : ['interpolate', ['linear'], ['zoom'], 0, 2, 1, 4, 2, 8, 3, 16, 4, 32, 5, 64, 6, 128, 7, 256, 8, 512, 9, 1024],
-                'heatmap-weight'   : ['interpolate', ['linear'], ['get', 'cases'], 0, 0, 1000, 1]
-            }
-        }, 'waterway-label');
-
-        map.addLayer({
-            filter : ['>=', ['get', 'cases'], 1],
-            id     : 'covid19-circle',
-            source : 'covid19',
-            type   : 'circle',
-            minzoom: 5,
-
-            paint: {
-                'circle-color'    : ['step', ['get', 'cases'], '#9ad5ff', 0, '#9af6ff', 20, 'cyan', 200, 'yellow', 400, '#f1f075', 800, '#f9b196', 1e3, '#f28cb1', 2e3, '#f28cb1'],
-                'circle-opacity'  : ['interpolate', ['linear'], ['zoom'], 5, 0, 6, .6],
-                'circle-radius'   : ['step', ['get', 'cases'], 10, 100, 20, 500, 30, 1e3, 40, 1e4, 50],
-                'circle-translate': [0, 20]
-            }
-        }, 'waterway-label');
-
-        map.addLayer({
-            filter : ['>=', ['get', 'cases'], 1],
-            id     : 'covid19-circle-text',
-            source : 'covid19',
-            type   : 'symbol',
-            minzoom: 5,
-
-            layout: {
-                'text-allow-overlap'   : true,
-                'text-field'           : ['to-string', ['get', 'cases']],
-                'text-font'            : ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-                'text-ignore-placement': true,
-                'text-size'            : 12
-            },
-
-            paint: {
-                'text-opacity'  : ['interpolate', ['linear'], ['zoom'], 5, 0, 7, 1],
-                'text-translate': [0, 20],
-            }
-        }, 'waterway-label');
+        if (map) {
+            map.setPaintProperty(data.layerId, data.key, data.value);
+        } else {
+            // todo: we could cache this and apply onMapLoaded
+        }
     }
 
     /**

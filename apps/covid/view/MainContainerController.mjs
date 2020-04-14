@@ -503,7 +503,7 @@ class MainContainerController extends ComponentController {
         if (Neo.config.useCss4) {
             cls = [...view.cls];
 
-            view.cls.forEach((item, index) => {
+            view.cls.forEach(item => {
                 if (item.includes('neo-theme')) {
                     NeoArray.remove(cls, item);
                 }

@@ -34,7 +34,6 @@ class MapboxGL extends Component {
         convertDataToGeoJson: true,
         /**
          * @member {Array|null} data_=null
-         * @private
          */
         data_: null,
         /**
@@ -44,10 +43,24 @@ class MapboxGL extends Component {
          */
         dataSourceId: null,
         /**
+         * Additional layers to add to the map style.
+         * beforeId is a custom property which will get passed as the second param for:
+         * https://docs.mapbox.com/mapbox-gl-js/api/#map#addlayer
+         * @member {Object[]|null} layers_=null
+         */
+        layers_: null,
+        /**
          * https://docs.mapbox.com/mapbox-gl-js/style-spec/
          * @member {Object|String} mapboxStyle=null
          */
         mapboxStyle_: null,
+        /**
+         * Data sources for the map.
+         * id is a custom property which will get passed as the first param for:
+         * https://docs.mapbox.com/mapbox-gl-js/api/#map#addsource
+         * @member {Object[]|null} sources_=null
+         */
+        sources_: null,
         /**
          * @member {Object} _vdom
          */
@@ -129,6 +142,21 @@ class MapboxGL extends Component {
     }
 
     /**
+     * Triggered after the layers config got changed
+     * @param {Object[]|null} value
+     * @param {Object[]|null} oldValue
+     * @private
+     */
+    afterSetLayers(value, oldValue) {
+        if (value) {
+            Neo.main.lib.MapboxGL.addLayers({
+                id    : this.id,
+                layers: value
+            });
+        }
+    }
+
+    /**
      * Triggered after the mapboxStyle config got changed
      * @param {Object|String} value
      * @param {Object|String} oldValue
@@ -140,6 +168,21 @@ class MapboxGL extends Component {
                 accessToken: this.accessToken,
                 id         : this.id,
                 style      : value
+            });
+        }
+    }
+
+    /**
+     * Triggered after the sources config got changed
+     * @param {Object[]|null} value
+     * @param {Object[]|null} oldValue
+     * @private
+     */
+    afterSetSources(value, oldValue) {
+        if (value) {
+            Neo.main.lib.MapboxGL.addSources({
+                id     : this.id,
+                sources: value
             });
         }
     }
@@ -269,7 +312,7 @@ class MapboxGL extends Component {
      * Override this method to trigger logic after the map got mounted into the dom
      */
     onMapMounted() {
-        console.log('onMapMounted');
+
     }
 }
 
