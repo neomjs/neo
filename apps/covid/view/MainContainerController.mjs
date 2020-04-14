@@ -466,10 +466,14 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onRemoveFooterButtonClick(data) {
-        const me = this;
+        const me        = this,
+              activeTab = me.getReference('tab-container').getActiveCard();
 
         me.view.remove(me.getReference('footer'), true);
-        me.getReference('mapboxglmap').autoResize();
+
+        if (activeTab.ntype === 'covid-mapboxgl-map') {
+            me.getReference('mapboxglmap').autoResize();
+        }
     }
 
     /**
