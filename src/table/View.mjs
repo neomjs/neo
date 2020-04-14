@@ -59,11 +59,15 @@ class View extends Component {
             data       = [],
             i          = 0,
             vdom       = me.vdom,
-            cellCls, cellId, config, column, dockLeftMargin, dockRightMargin, id, index, j, rendererOutput, rendererValue;
+            cellCls, cellId, config, column, dockLeftMargin, dockRightMargin, id, index, j, rendererOutput, rendererValue, selectedRows, trCls;
 
         me.recordVnodeMap = {}; // remove old data
 
         // console.log('createViewData', me.id, inputData);
+
+        if (container.selectionModel.ntype === 'selection-table-rowmodel') {
+            selectedRows = container.selectionModel.items || [];
+        }
 
         for (; i < amountRows; i++) {
             if (me.useRowRecordIds) {
@@ -74,10 +78,16 @@ class View extends Component {
 
             me.recordVnodeMap[id] = i;
 
+            trCls = ['neo-table-row'];
+
+            if (selectedRows && selectedRows.includes(id)) {
+                trCls.push('neo-selected');
+            }
+
             data.push({
                 tag     : 'tr',
                 id      : id,
-                cls     : ['neo-table-row'],
+                cls     : trCls,
                 cn      : [],
                 tabIndex: '-1'
             });
