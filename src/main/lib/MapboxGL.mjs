@@ -146,14 +146,14 @@ class MapboxGL extends Base {
     addSources(data) {
         const me  = this,
               map = me.maps[data.id];
-        let name;
+        let id;
 
         if (map) {
             data.sources.forEach(item => {
-                name = item.name;
-                delete item.name;
+                id = item.id;
+                delete item.id;
 
-                map.addSource(name, item);
+                map.addSource(id, item);
             });
         } else {
             me.sources[data.id] = Object.assign(me.sources[data.id] || {}, data);
