@@ -112,7 +112,7 @@ class MapboxGL extends Base {
         super(config);
 
         if (Neo.config.useMapboxGL) {
-            this.insertOpenStreetMapsScripts();
+            this.insertMapboxGLScripts();
         }
     }
 
@@ -179,14 +179,6 @@ class MapboxGL extends Base {
             });
 
             me.mapsToCreate = [];
-
-            setTimeout(() => {
-                Object.entries(me.dataMap).forEach(([key, dataValue]) => {
-                    me.updateData(dataValue);
-                });
-
-                me.dataMap = {};
-            }, 3000); // todo
         }
     }
 
@@ -261,8 +253,6 @@ class MapboxGL extends Base {
         if (!me.scriptsLoaded) {
             me.mapsToCreate.push(data);
         } else {
-            console.log('scriptsLoaded');
-
             mapboxgl.accessToken = data.accessToken;
 
             let zoom = data.zoom;
@@ -292,7 +282,7 @@ class MapboxGL extends Base {
         return !!this.maps[id];
     }
 
-    insertOpenStreetMapsScripts() {
+    insertMapboxGLScripts() {
         const me       = this,
               basePath = me.downloadPath + me.version + '/';
 
@@ -321,6 +311,30 @@ class MapboxGL extends Base {
         if (me.layers[mapId]) {
             me.addLayers(me.layers[mapId]);
             delete me.layers[mapId];
+        }
+
+        // map.loaded() is false at this point,
+        // in case we do add layers / sources
+        // the "idle" event seems to be the best fit
+        if (event.target.loaded()) {
+            me.onMapReallyLoaded(mapId, event);
+        } else {
+            event.target.once('idle', me.onMapReallyLoaded.bind(me, mapId));
+        }
+    }
+
+    /**
+     *
+     * @param {String} mapId
+     * @param {Object} event
+     * @param {Object} event.target map instance
+     */
+    onMapReallyLoaded(mapId, event) {
+        const me = this;
+
+        if (me.dataMap[mapId]) {
+            me.updateData(me.dataMap[mapId]);
+            delete me.dataMap[mapId];
         }
     }
 
