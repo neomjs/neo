@@ -29,10 +29,14 @@ class MapboxGLComponent extends BaseComponent {
          */
         dataSourceId: 'covid19',
         /**
-         * Additional layers to add to the map style
          * @member {Object[]}
          */
-        layers: [],
+        layers: [{
+            beforeId: 'waterway-label',
+            id      : 'hillshading',
+            source  : 'dem',
+            type    : 'hillshade'
+        }],
         /**
          * https://docs.mapbox.com/mapbox-gl-js/style-spec/
          * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
@@ -49,9 +53,6 @@ class MapboxGLComponent extends BaseComponent {
          */
         mapboxStyleLight: 'mapbox://styles/tobiu/ck8yeacdx22a41jo1do9iafd7',
         /**
-         * Data sources for the map.
-         * id is a custom property which will get passed as the first param for:
-         * https://docs.mapbox.com/mapbox-gl-js/api/#map#addsource
          * @member {Object[]}
          */
         sources: [{

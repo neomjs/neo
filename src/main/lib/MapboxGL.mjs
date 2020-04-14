@@ -123,14 +123,14 @@ class MapboxGL extends Base {
     addLayers(data) {
         const me  = this,
               map = me.maps[data.id];
-        let name;
+        let beforeId;
 
         if (map) {
             data.layers.forEach(item => {
-                name = item.name;
-                delete item.name;
+                beforeId = item.beforeId;
+                delete item.beforeId;
 
-                map.addLayer(name, item);
+                map.addLayer(item, beforeId);
             });
         } else {
             me.sources[data.id] = Object.assign(me.sources[data.id] || {}, data);
@@ -311,14 +311,12 @@ class MapboxGL extends Base {
               map = event.target;
 
         if (me.sources[mapId]) {
-            me.addMapSources(me.sources[mapId]);
+            me.addSources(me.sources[mapId]);
         }
 
-        map.addLayer({
-            id    : 'hillshading',
-            source: 'dem',
-            type  : 'hillshade'
-        }, 'waterway-label');
+        if (me.layers[mapId]) {
+            me.addLayers(me.layers[mapId]);
+        }
 
         map.addLayer({
             filter: ['>=', ['get', 'cases'], 1],

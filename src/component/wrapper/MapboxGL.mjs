@@ -43,7 +43,9 @@ class MapboxGL extends Component {
          */
         dataSourceId: null,
         /**
-         * Additional layers to add to a map style (e.g. heat-maps)
+         * Additional layers to add to the map style.
+         * beforeId is a custom property which will get passed as the second param for:
+         * https://docs.mapbox.com/mapbox-gl-js/api/#map#addlayer
          * @member {Object[]|null} layers_=null
          */
         layers_: null,
@@ -53,6 +55,9 @@ class MapboxGL extends Component {
          */
         mapboxStyle_: null,
         /**
+         * Data sources for the map.
+         * id is a custom property which will get passed as the first param for:
+         * https://docs.mapbox.com/mapbox-gl-js/api/#map#addsource
          * @member {Object[]|null} sources_=null
          */
         sources_: null,
