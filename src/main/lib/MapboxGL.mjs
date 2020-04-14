@@ -59,6 +59,7 @@ class MapboxGL extends Base {
                 'autoResize',
                 'center',
                 'create',
+                'setPaintProperty',
                 'setStyle',
                 'updateData',
                 'zoom'
