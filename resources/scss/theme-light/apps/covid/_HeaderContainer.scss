@@ -1,0 +1,23 @@
+$neoMap: map-merge($neoMap, (
+    'covid-header-active-background-color'   : rgba(100, 181, 246, .65),
+    'covid-header-active-color'              : darken(#64b5f6, 20%),
+    'covid-header-cases-background-color'    : rgba(187, 187, 187, .65),
+    'covid-header-cases-color'               : darken(#bbb, 30%),
+    'covid-header-deaths-background-color'   : rgba(251, 103, 103, .65),
+    'covid-header-deaths-color'              : darken(#fb6767, 20%),
+    'covid-header-recovered-background-color': rgba( 40, 218, 111, .65),
+    'covid-header-recovered-color'           : darken(#28ca68, 20%)
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-light { // .covid-header-container
+        --covid-header-active-background-color   : #{neo(covid-header-active-background-color)};
+        --covid-header-active-color              : #{neo(covid-header-active-color)};
+        --covid-header-cases-background-color    : #{neo(covid-header-cases-background-color)};
+        --covid-header-cases-color               : #{neo(covid-header-cases-color)};
+        --covid-header-deaths-background-color   : #{neo(covid-header-deaths-background-color)};
+        --covid-header-deaths-color              : #{neo(covid-header-deaths-color)};
+        --covid-header-recovered-background-color: #{neo(covid-header-recovered-background-color)};
+        --covid-header-recovered-color           : #{neo(covid-header-recovered-color)};
+    }
+}

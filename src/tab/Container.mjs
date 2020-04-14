@@ -257,14 +257,20 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Returns the card matching this.activeIndex
+     * @return {Neo.component.Base|null}
+     */
+    getActiveCard() {
+        return this.getCardContainer().items[this.activeIndex] || null;
+    }
+
+    /**
      * Returns a card by a given index
      * @param {Number} index
      * @return {Neo.component.Base|null}
      */
     getCard(index) {
-        const card = this.getCardContainer().items[index];
-
-        return card || null;
+        return this.getCardContainer().items[index] || null;
     }
 
     /**
