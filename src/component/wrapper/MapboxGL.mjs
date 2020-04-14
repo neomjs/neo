@@ -175,7 +175,7 @@ class MapboxGL extends Component {
      */
     afterSetSources(value, oldValue) {
         if (value) {
-            Neo.main.lib.MapboxGL.addMapSources({
+            Neo.main.lib.MapboxGL.addSources({
                 id     : this.id,
                 sources: value
             });

@@ -28,6 +28,13 @@ class MapboxGL extends Base {
          */
         downloadPath: 'https://api.mapbox.com/mapbox-gl-js/',
         /**
+         * Stores all extra map sources layers an object.
+         * key => map id, value => {Array} layers
+         * @member {Object} layers={}
+         * @private
+         */
+        layers: {},
+        /**
          * Stores all map ids inside an object
          * @member {Object} maps={}
          * @private
@@ -52,7 +59,7 @@ class MapboxGL extends Base {
         /**
          * Stores all map sources inside an object.
          * key => map id, value => {Array} sources
-         * @member {Object} sources{}
+         * @member {Object} sources={}
          * @private
          */
         sources: {},
@@ -63,7 +70,8 @@ class MapboxGL extends Base {
          */
         remote: {
             app: [
-                'addMapSources',
+                'addLayers',
+                'addSources',
                 'autoResize',
                 'center',
                 'create',
@@ -110,9 +118,32 @@ class MapboxGL extends Base {
      *
      * @param {Object} data
      * @param {String} data.id
+     * @param {Object[]} data.layers
+     */
+    addLayers(data) {
+        const me  = this,
+              map = me.maps[data.id];
+        let name;
+
+        if (map) {
+            data.layers.forEach(item => {
+                name = item.name;
+                delete item.name;
+
+                map.addLayer(name, item);
+            });
+        } else {
+            me.sources[data.id] = Object.assign(me.sources[data.id] || {}, data);
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
      * @param {Object[]} data.sources
      */
-    addMapSources(data) {
+    addSources(data) {
         const me  = this,
               map = me.maps[data.id];
         let name;
