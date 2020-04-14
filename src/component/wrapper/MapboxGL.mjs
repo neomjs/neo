@@ -43,6 +43,11 @@ class MapboxGL extends Component {
          */
         dataSourceId: null,
         /**
+         * Additional layers to add to a map style (e.g. heat-maps)
+         * @member {Object[]|null} layers_=null
+         */
+        layers_: null,
+        /**
          * https://docs.mapbox.com/mapbox-gl-js/style-spec/
          * @member {Object|String} mapboxStyle=null
          */
@@ -127,6 +132,21 @@ class MapboxGL extends Component {
                 data        : value,
                 dataSourceId: this.dataSourceId,
                 id          : this.id
+            });
+        }
+    }
+
+    /**
+     * Triggered after the layers config got changed
+     * @param {Object[]|null} value
+     * @param {Object[]|null} oldValue
+     * @private
+     */
+    afterSetLayers(value, oldValue) {
+        if (value) {
+            Neo.main.lib.MapboxGL.addLayers({
+                id    : this.id,
+                layers: value
             });
         }
     }
