@@ -50,12 +50,20 @@ class MapboxGL extends Base {
          */
         singleton: true,
         /**
+         * Stores all map sources inside an object.
+         * key => map id, value => {Array} sources
+         * @member {Object} sources{}
+         * @private
+         */
+        sources: {},
+        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @private
          */
         remote: {
             app: [
+                'addMapSources',
                 'autoResize',
                 'center',
                 'create',
@@ -95,6 +103,29 @@ class MapboxGL extends Base {
 
         if (Neo.config.useMapboxGL) {
             this.insertOpenStreetMapsScripts();
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Object[]} data.sources
+     */
+    addMapSources(data) {
+        const me  = this,
+              map = me.maps[data.id];
+        let name;
+
+        if (map) {
+            data.sources.forEach(item => {
+                name = item.name;
+                delete item.name;
+
+                map.addSource(name, item);
+            });
+        } else {
+            me.sources[data.id] = Object.assign(me.sources[data.id] || {}, data);
         }
     }
 
@@ -213,7 +244,7 @@ class MapboxGL extends Base {
                 zoom     : zoom
             });
 
-            me.maps[data.id].on('load', me.onMapLoaded.bind(me));
+            me.maps[data.id].on('load', me.onMapLoaded.bind(me, data.id));
         }
     }
 
@@ -240,28 +271,23 @@ class MapboxGL extends Base {
 
     /**
      *
+     * @param {String} mapId
+     * @param {Object} event
+     * @param {Object} event.target map instance
      */
-    onMapLoaded(event) {
-        const map = event.target;
+    onMapLoaded(mapId, event) {
+        const me  = this,
+              map = event.target;
 
-        map.addSource('dem', {
-            type: 'raster-dem',
-            url : 'mapbox://mapbox.terrain-rgb'
-        });
+        if (me.sources[mapId]) {
+            me.addMapSources(me.sources[mapId]);
+        }
 
         map.addLayer({
             id    : 'hillshading',
             source: 'dem',
             type  : 'hillshade'
         }, 'waterway-label');
-
-        map.addSource('covid19', {
-            type: 'geojson',
-            data: {
-                type    : 'FeatureCollection',
-                features: []
-            }
-        });
 
         map.addLayer({
             filter: ['>=', ['get', 'cases'], 1],

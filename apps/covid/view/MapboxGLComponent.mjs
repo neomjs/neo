@@ -42,7 +42,23 @@ class MapboxGLComponent extends BaseComponent {
          * Version for the neo-light theme
          * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
          */
-        mapboxStyleLight: 'mapbox://styles/tobiu/ck8yeacdx22a41jo1do9iafd7'
+        mapboxStyleLight: 'mapbox://styles/tobiu/ck8yeacdx22a41jo1do9iafd7',
+        /**
+         * Version for the neo-light theme
+         * @member {Object[]}
+         */
+        sources: [{
+            name: 'covid19',
+            type: 'geojson',
+            data: {
+                type    : 'FeatureCollection',
+                features: []
+            }
+        }, {
+            name: 'dem',
+            type: 'raster-dem',
+            url : 'mapbox://mapbox.terrain-rgb'
+        }]
     }}
 }
 

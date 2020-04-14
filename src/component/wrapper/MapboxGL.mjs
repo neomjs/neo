@@ -34,7 +34,6 @@ class MapboxGL extends Component {
         convertDataToGeoJson: true,
         /**
          * @member {Array|null} data_=null
-         * @private
          */
         data_: null,
         /**
@@ -48,6 +47,10 @@ class MapboxGL extends Component {
          * @member {Object|String} mapboxStyle=null
          */
         mapboxStyle_: null,
+        /**
+         * @member {Object[]|null} sources_=null
+         */
+        sources_: null,
         /**
          * @member {Object} _vdom
          */
@@ -140,6 +143,21 @@ class MapboxGL extends Component {
                 accessToken: this.accessToken,
                 id         : this.id,
                 style      : value
+            });
+        }
+    }
+
+    /**
+     * Triggered after the sources config got changed
+     * @param {Object[]|null} value
+     * @param {Object[]|null} oldValue
+     * @private
+     */
+    afterSetSources(value, oldValue) {
+        if (value) {
+            Neo.main.lib.MapboxGL.addMapSources({
+                id     : this.id,
+                sources: value
             });
         }
     }
