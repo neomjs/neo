@@ -49,7 +49,7 @@ class LineChartComponent extends AmChartComponent {
                 logarithmic: true,
 
                 numberFormatter: {
-                    numberFormat: '#a',
+                    numberFormat: '#.0a',
 
                     bigNumberPrefixes: [
                         {number: 1e3, suffix: 'K'},
