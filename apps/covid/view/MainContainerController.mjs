@@ -466,7 +466,10 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onRemoveFooterButtonClick(data) {
-        this.view.remove(this.getReference('footer'), true);
+        const me = this;
+
+        me.view.remove(me.getReference('footer'), true);
+        me.getReference('mapboxglmap').autoResize();
     }
 
     /**

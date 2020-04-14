@@ -259,7 +259,7 @@ class MapboxGL extends Component {
 
     /**
      *
-     * @param {Array} data
+     * @param {Object[]} data
      * @return {Object} Object matching the geojson format
      */
     convertToGeoJson(data) {
