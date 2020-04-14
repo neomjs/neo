@@ -100,19 +100,19 @@
             margin   : 5px 0;
 
             &.active {
-                color: rgb(100, 181, 246);
+                color: v(covid-header-active-color);
             }
 
             &.cases {
-                color: #bbb;
+                color: v(covid-header-cases-color);
             }
 
             &.deaths {
-                color: #fb6767; // => lighten(rgb(251,103,103), 5%);
+                color: v(covid-header-deaths-color);
             }
 
             &.recovered {
-                color: #28ca68;
+                color: v(covid-header-recovered-color);
             }
         }
     }
