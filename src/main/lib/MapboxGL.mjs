@@ -313,10 +313,12 @@ class MapboxGL extends Base {
 
         if (me.sources[mapId]) {
             me.addSources(me.sources[mapId]);
+            delete me.sources[mapId];
         }
 
         if (me.layers[mapId]) {
             me.addLayers(me.layers[mapId]);
+            delete me.layers[mapId];
         }
     }
 
