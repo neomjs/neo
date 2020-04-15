@@ -107,7 +107,7 @@ class MainContainerController extends ComponentController {
                 item.country = item.country.replace('"', "\'");
             }
 
-            item.casesPerOneMillion = item.casesPerOneMillion || 0;
+            item.casesPerOneMillion = item.casesPerOneMillion > item.cases ? 'N/A' : item.casesPerOneMillion || 0;
             item.infected           = item.casesPerOneMillion;
         });
 
@@ -343,6 +343,13 @@ class MainContainerController extends ComponentController {
         if (me.data && activeView.store && activeView.store.getCount() < 1) {
             activeView.store.data = me.data;
             delaySelection = 500;
+        }
+
+        // todo: https://github.com/neomjs/neo/issues/483
+        // quick hack. selectionModels update the vdom of the table.Container.
+        // if table.View is vdom updating, this can result in a 2x rendering of all rows.
+        if (delaySelection === 1000 && activeView.ntype === 'table-container') {
+            delaySelection = 2000;
         }
 
         if (activeView.ntype === 'covid-mapboxgl-map' && me.data) {

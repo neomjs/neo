@@ -35,7 +35,7 @@ class Util extends Base {
         let value = data.value;
 
         if (!Neo.isNumber(value)) {
-            return '';
+            return value || 'N/A';
         }
 
         value = Math.round(value / 100);
@@ -57,7 +57,7 @@ class Util extends Base {
         let value = data.value;
 
         if (!Neo.isNumber(value)) {
-            return '';
+            return value || 'N/A';
         }
 
         value = value.toLocaleString(Util.locales);

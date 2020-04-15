@@ -156,7 +156,7 @@ class Base extends CoreBase {
         mounted_: false,
         /**
          * Internal flag which will get set to true in case an update call arrives while another update is running
-         * @member {Boolean} isVdomUpdating=false
+         * @member {Boolean} needsVdomUpdate=false
          * @private
          */
         needsVdomUpdate: false,

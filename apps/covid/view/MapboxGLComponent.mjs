@@ -48,7 +48,7 @@ class MapboxGLComponent extends BaseComponent {
                 'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 3, 9, 5],
                 'heatmap-opacity'  : ['interpolate', ['linear'], ['zoom'], 5, .95, 6, 0],
                 'heatmap-radius'   : ['interpolate', ['linear'], ['zoom'], 0, 2, 1, 4, 2, 8, 3, 16, 4, 32, 5, 64, 6, 128, 7, 256, 8, 512, 9, 1024],
-                'heatmap-weight'   : ['interpolate', ['linear'], ['get', 'cases'], 0, 0, 1000, 1]
+                'heatmap-weight'   : ['interpolate', ['linear'], ['get', 'cases'], 0, 0, 1e4, 1]
             }
         }, {
             beforeId: 'waterway-label',
