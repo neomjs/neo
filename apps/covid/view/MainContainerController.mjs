@@ -403,7 +403,6 @@ class MainContainerController extends ComponentController {
                             me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(value.country)});
 
                             if (!selectionModel.isSelected(id)) {
-                                console.log('SELECT');
                                 selectionModel.select(id);
                                 Neo.main.DomAccess.scrollToTableRow({id: id});
                             }
