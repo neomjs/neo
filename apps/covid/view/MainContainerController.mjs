@@ -107,7 +107,7 @@ class MainContainerController extends ComponentController {
                 item.country = item.country.replace('"', "\'");
             }
 
-            item.casesPerOneMillion = item.casesPerOneMillion || 0;
+            item.casesPerOneMillion = item.casesPerOneMillion > item.cases ? 'N/A' : item.casesPerOneMillion || 0;
             item.infected           = item.casesPerOneMillion;
         });
 
