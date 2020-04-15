@@ -415,7 +415,7 @@ class Container extends BaseContainer {
      * @param {*} opts.value
      */
     onStoreRecordChange(opts) {
-        Neo.get(this.viewId).onStoreRecordChange(opts);
+        Neo.getComponent(this.viewId).onStoreRecordChange(opts);
     }
 
     /**

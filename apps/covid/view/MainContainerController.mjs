@@ -345,6 +345,13 @@ class MainContainerController extends ComponentController {
             delaySelection = 500;
         }
 
+        // todo: https://github.com/neomjs/neo/issues/483
+        // quick hack. selectionModels update the vdom of the table.Container.
+        // if table.View is vdom updating, this can result in a 2x rendering of all rows.
+        if (delaySelection === 1000 && activeView.ntype === 'table-container') {
+            delaySelection = 2000;
+        }
+
         if (activeView.ntype === 'covid-mapboxgl-map' && me.data) {
             if (!me.mapboxglMapHasData) {
                 activeView.data = me.data;
@@ -396,6 +403,7 @@ class MainContainerController extends ComponentController {
                             me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(value.country)});
 
                             if (!selectionModel.isSelected(id)) {
+                                console.log('SELECT');
                                 selectionModel.select(id);
                                 Neo.main.DomAccess.scrollToTableRow({id: id});
                             }
