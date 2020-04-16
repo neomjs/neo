@@ -202,28 +202,14 @@ class TableContainerController extends ComponentController {
             logCheckbox.disabled = false;
         }
 
-        Neo.main.lib.AmCharts.setProperty({
-            id   : chartId,
-            path : 'series.values.0.dataFields.valueY',
-            value: value ? 'dailyActive' : 'active'
-        });
-
-        Neo.main.lib.AmCharts.setProperty({
-            id   : chartId,
-            path : 'series.values.1.dataFields.valueY',
-            value: value ? 'dailyCases' : 'cases'
-        });
-
-        Neo.main.lib.AmCharts.setProperty({
-            id   : chartId,
-            path : 'series.values.2.dataFields.valueY',
-            value: value ? 'dailyDeaths' : 'deaths'
-        });
-
-        Neo.main.lib.AmCharts.setProperty({
-            id   : chartId,
-            path : 'series.values.3.dataFields.valueY',
-            value: value ? 'dailyRecovered' : 'recovered'
+        Neo.main.lib.AmCharts.setProperties({
+            id        : chartId,
+            properties: {
+                'series.values.0.dataFields.valueY' : value ? 'dailyActive'    : 'active',
+                'series.values.1.dataFields.valueY' : value ? 'dailyCases'     : 'cases',
+                'series.values.2.dataFields.valueY' : value ? 'dailyDeaths'    : 'deaths',
+                'series.values.3.dataFields.valueY' : value ? 'dailyRecovered' : 'recovered'
+            }
         });
 
         Neo.main.lib.AmCharts.callMethod({
