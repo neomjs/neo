@@ -59,6 +59,10 @@ class HistoricalDataTable extends Container {
             dataField: 'deaths',
             text     : 'Deaths',
             renderer : data => Util.formatNumber(data, '#fb6767')
+        }, {
+            dataField: 'dailyCases',
+            text     : 'Daily Cases',
+            renderer : data => Util.formatNumber(data)
         }],
         /**
          * @member {Boolean} createRandomData=false

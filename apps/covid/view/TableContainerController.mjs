@@ -61,7 +61,8 @@ class TableContainerController extends ComponentController {
               dataArray = [],
               map       = {};
 
-        let timeline  = data && data.timeline;
+        let timeline  = data && data.timeline,
+            nextItem;
 
         // https://github.com/NovelCOVID/API/issues/309 // different format for 'all'
         if (data && !data.timeline) {
@@ -103,6 +104,23 @@ class TableContainerController extends ComponentController {
                     }
                 });
             }
+
+            // the array is sorted by date ASC
+            Object.assign(dataArray[0], {
+                dailyCases: dataArray[0].cases
+            });
+
+            dataArray.forEach((item, index) => {
+                nextItem = dataArray[index + 1];
+
+                if (nextItem) {
+                    nextItem.dailyCases = nextItem.cases - item.cases;
+                } else {
+                    Object.assign(item, {
+                        //dailyCases: item.cases
+                    });
+                }
+            });
 
             // todo: we could only update the active tab
             me.getReference('historical-data-table').store.data = dataArray;
