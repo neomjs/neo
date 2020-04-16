@@ -30,7 +30,7 @@ cp.spawnSync(npmCmd, ['run', 'prod-theme-light-no-css4'], cpOpts);
 cp.spawnSync(npmCmd, ['run', 'build-development'],        cpOpts);
 cp.spawnSync(npmCmd, ['run', 'build-production'],         cpOpts);
 
-// neo dist versions => default apps (rw1 & rw2)
+// neo dist versions => default apps (covid, rw1 & rw2)
 cp.spawnSync(npmCmd, ['run', 'dev-build-all-my-apps'],    cpOpts);
 cp.spawnSync(npmCmd, ['run', 'prod-build-all-my-apps'],   cpOpts);
 
