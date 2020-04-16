@@ -87,6 +87,7 @@ class LineChartComponent extends AmChartComponent {
                 name       : 'Cases',
                 stroke     : '#bbb',
                 strokeWidth: 3,
+                //tensionX   : .9,
 
                 tooltip: {
                     background       : {fill: '#fff'},

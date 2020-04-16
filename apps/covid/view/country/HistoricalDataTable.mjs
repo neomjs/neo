@@ -32,7 +32,9 @@ class HistoricalDataTable extends Container {
         columns: [{
             align    : 'left',
             dataField: 'date',
+            dock     : 'left',
             text     : 'Date',
+            width    : 100,
             renderer : function(data) {
                 return {
                     cls : ['neo-date-column', 'neo-table-cell'],
@@ -58,6 +60,22 @@ class HistoricalDataTable extends Container {
         }, {
             dataField: 'deaths',
             text     : 'Deaths',
+            renderer : data => Util.formatNumber(data, '#fb6767')
+        }, {
+            dataField: 'dailyCases',
+            text     : 'Daily C',
+            renderer : data => Util.formatNumber(data)
+        }, {
+            dataField: 'dailyActive',
+            text     : 'Daily A',
+            renderer : data => Util.formatNumber(data, '#64B5F6')
+        }, {
+            dataField: 'dailyRecovered',
+            text     : 'Daily R',
+            renderer : data => Util.formatNumber(data, '#28ca68')
+        }, {
+            dataField: 'dailyDeaths',
+            text     : 'Daily D',
             renderer : data => Util.formatNumber(data, '#fb6767')
         }],
         /**

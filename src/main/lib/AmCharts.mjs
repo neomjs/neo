@@ -119,7 +119,7 @@ class AmCharts extends Base {
             const chart      = this.charts[data.id],
                   pathArray  = data.path.split('.'),
                   methodName = pathArray.pop(),
-                  scope      = Neo.ns(pathArray.join('.'), false, chart);
+                  scope      = pathArray.length < 1 ? chart:  Neo.ns(pathArray.join('.'), false, chart);
 
             scope[methodName].call(scope, ...data.params || []);
         } else {

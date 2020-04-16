@@ -95,11 +95,21 @@ class TableContainer extends Container {
                         ntype: 'toolbar',
                         flex : '0 1 auto',
                         items: [{
-                            module   : CheckBox,
-                            checked  : true,
-                            labelText: 'Logarithmic Scale',
-                            listeners: {
+                            module    : CheckBox,
+                            checked   : true,
+                            labelText : 'Logarithmic Scale',
+                            labelWidth: 135,
+                            reference : 'logarithmic-scale-checkbox',
+                            listeners : {
                                 change: 'onLogarithmicScaleChange'
+                            }
+                        }, {
+                            module    : CheckBox,
+                            labelText : 'Daily Values',
+                            style     : {marginLeft: '30px'},
+                            labelWidth: 95,
+                            listeners : {
+                                change: 'onDailyValuesChange'
                             }
                         }]
                     }, {
