@@ -133,6 +133,25 @@ class TableContainerController extends ComponentController {
     }
 
     /**
+     *
+     * @param {Object} record
+     * @private
+     * @return {Object}
+     */
+    static assignFieldsOrNull(record) {
+        return {
+            active        : record.active         || null,
+            cases         : record.cases          || null,
+            deaths        : record.deaths         || null,
+            dailyActive   : record.dailyActive    || null,
+            dailyCases    : record.dailyCases     || null,
+            dailyDeaths   : record.dailyDeaths    || null,
+            dailyRecovered: record.dailyRecovered || null,
+            recovered     : record.recovered      || null
+        };
+    }
+
+    /**
      * Triggered when accessing the table config
      * @param {Neo.table.Container|null} value
      * @private
@@ -202,28 +221,14 @@ class TableContainerController extends ComponentController {
             logCheckbox.disabled = false;
         }
 
-        Neo.main.lib.AmCharts.setProperty({
-            id   : chartId,
-            path : 'series.values.0.dataFields.valueY',
-            value: value ? 'dailyActive' : 'active'
-        });
-
-        Neo.main.lib.AmCharts.setProperty({
-            id   : chartId,
-            path : 'series.values.1.dataFields.valueY',
-            value: value ? 'dailyCases' : 'cases'
-        });
-
-        Neo.main.lib.AmCharts.setProperty({
-            id   : chartId,
-            path : 'series.values.2.dataFields.valueY',
-            value: value ? 'dailyDeaths' : 'deaths'
-        });
-
-        Neo.main.lib.AmCharts.setProperty({
-            id   : chartId,
-            path : 'series.values.3.dataFields.valueY',
-            value: value ? 'dailyRecovered' : 'recovered'
+        Neo.main.lib.AmCharts.setProperties({
+            id        : chartId,
+            properties: {
+                'series.values.0.dataFields.valueY' : value ? 'dailyActive'    : 'active',
+                'series.values.1.dataFields.valueY' : value ? 'dailyCases'     : 'cases',
+                'series.values.2.dataFields.valueY' : value ? 'dailyDeaths'    : 'deaths',
+                'series.values.3.dataFields.valueY' : value ? 'dailyRecovered' : 'recovered'
+            }
         });
 
         Neo.main.lib.AmCharts.callMethod({
@@ -273,18 +278,7 @@ class TableContainerController extends ComponentController {
             record = me.selectedRecord,
             chart  = me.getReference('line-chart');
 
-        dataArray.forEach(item => {
-            Object.assign(item, {
-                active        : item.active         || null,
-                cases         : item.cases          || null,
-                deaths        : item.deaths         || null,
-                dailyActive   : item.dailyActive    || null,
-                dailyCases    : item.dailyCases     || null,
-                dailyDeaths   : item.dailyDeaths    || null,
-                dailyRecovered: item.dailyRecovered || null,
-                recovered     : item.recovered      || null
-            });
-        });
+        dataArray.forEach(item => Object.assign(item, TableContainerController.assignFieldsOrNull(item)));
 
         if (!record) {
             record = me.getParent().summaryData;
@@ -293,15 +287,7 @@ class TableContainerController extends ComponentController {
         if (record) {
             dataArray.push({
                 date: new Date().toISOString(),
-
-                active        : record.active         || null,
-                cases         : record.cases          || null,
-                deaths        : record.deaths         || null,
-                dailyActive   : record.dailyActive    || null,
-                dailyCases    : record.dailyCases     || null,
-                dailyDeaths   : record.dailyDeaths    || null,
-                dailyRecovered: record.dailyRecovered || null,
-                recovered     : record.recovered      || null
+                ...TableContainerController.assignFieldsOrNull(record)
             });
         }
 

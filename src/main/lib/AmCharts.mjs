@@ -63,6 +63,7 @@ class AmCharts extends Base {
             app: [
                 'callMethod',
                 'create',
+                'setProperties',
                 'setProperty',
                 'updateData'
             ]
@@ -205,6 +206,22 @@ class AmCharts extends Base {
         }).catch(e => {
             console.log('Download from amcharts.com failed, switching to fallback', e);
             me.insertAmChartsScripts(true);
+        });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Object} data.properties
+     */
+    setProperties(data) {
+        Object.entries(data.properties).forEach(([key, value]) => {
+            this.setProperty({
+                id   : data.id,
+                path : key,
+                value: value
+            })
         });
     }
 
