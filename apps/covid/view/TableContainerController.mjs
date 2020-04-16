@@ -188,6 +188,53 @@ class TableContainerController extends ComponentController {
     /**
      * {Object} data
      */
+    onDailyValuesChange(data) {
+        const chartId     = this.getReference('line-chart').id,
+              logCheckbox = this.getReference('logarithmic-scale-checkbox'),
+              value       = data.value;
+
+        if (value) {
+            logCheckbox.set({
+                checked : false,
+                disabled: data.value
+            });
+        } else {
+            logCheckbox.disabled = false;
+        }
+
+        Neo.main.lib.AmCharts.setProperty({
+            id   : chartId,
+            path : 'series.values.0.dataFields.valueY',
+            value: value ? 'dailyActive' : 'active'
+        });
+
+        Neo.main.lib.AmCharts.setProperty({
+            id   : chartId,
+            path : 'series.values.1.dataFields.valueY',
+            value: value ? 'dailyCases' : 'cases'
+        });
+
+        Neo.main.lib.AmCharts.setProperty({
+            id   : chartId,
+            path : 'series.values.2.dataFields.valueY',
+            value: value ? 'dailyDeaths' : 'deaths'
+        });
+
+        Neo.main.lib.AmCharts.setProperty({
+            id   : chartId,
+            path : 'series.values.3.dataFields.valueY',
+            value: value ? 'dailyRecovered' : 'recovered'
+        });
+
+        Neo.main.lib.AmCharts.callMethod({
+            id  : chartId,
+            path: 'invalidateData'
+        });
+    }
+
+    /**
+     * {Object} data
+     */
     onLogarithmicScaleChange(data) {
         Neo.main.lib.AmCharts.setProperty({
             id   : this.getReference('line-chart').id,
@@ -227,10 +274,16 @@ class TableContainerController extends ComponentController {
             chart  = me.getReference('line-chart');
 
         dataArray.forEach(item => {
-            item.active    = item.active    || null;
-            item.cases     = item.cases     || null;
-            item.deaths    = item.deaths    || null;
-            item.recovered = item.recovered || null;
+            Object.assign(item, {
+                active        : item.active         || null,
+                cases         : item.cases          || null,
+                deaths        : item.deaths         || null,
+                dailyActive   : item.dailyActive    || null,
+                dailyCases    : item.dailyCases     || null,
+                dailyDeaths   : item.dailyDeaths    || null,
+                dailyRecovered: item.dailyRecovered || null,
+                recovered     : item.recovered      || null
+            });
         });
 
         if (!record) {
@@ -241,10 +294,14 @@ class TableContainerController extends ComponentController {
             dataArray.push({
                 date: new Date().toISOString(),
 
-                active   : record.active    || null,
-                cases    : record.cases     || null,
-                deaths   : record.deaths    || null,
-                recovered: record.recovered || null
+                active        : record.active         || null,
+                cases         : record.cases          || null,
+                deaths        : record.deaths         || null,
+                dailyActive   : record.dailyActive    || null,
+                dailyCases    : record.dailyCases     || null,
+                dailyDeaths   : record.dailyDeaths    || null,
+                dailyRecovered: record.dailyRecovered || null,
+                recovered     : record.recovered      || null
             });
         }
 
