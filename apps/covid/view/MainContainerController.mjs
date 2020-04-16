@@ -33,13 +33,13 @@ class MainContainerController extends ComponentController {
          */
         activeMainTabIndex: 0,
         /**
-         * @member {String} apiUrl='https://corona.lmao.ninja/countries'
+         * @member {String} apiUrl='https://corona.lmao.ninja/v2/countries'
          */
-        apiUrl: 'https://corona.lmao.ninja/countries',
+        apiUrl: 'https://corona.lmao.ninja/v2/countries',
         /**
-         * @member {String} apiSummaryUrl='https://corona.lmao.ninja/all'
+         * @member {String} apiSummaryUrl='https://corona.lmao.ninja/v2/all'
          */
-        apiSummaryUrl: 'https://corona.lmao.ninja/all',
+        apiSummaryUrl: 'https://corona.lmao.ninja/v2/all',
         /**
          * @member {Object|null} countryRecord=null
          */
