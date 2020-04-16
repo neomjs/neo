@@ -18,7 +18,16 @@ class HistoricalData extends Model {
             name: 'date',
             type: 'string' // date => 1/22/20
         }, {
+            name: 'dailyActive',
+            type: 'int'
+        }, {
             name: 'dailyCases',
+            type: 'int'
+        }, {
+            name: 'dailyDeaths',
+            type: 'int'
+        }, {
+            name: 'dailyRecovered',
             type: 'int'
         }, {
             name: 'deaths',

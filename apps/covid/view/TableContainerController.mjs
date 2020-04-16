@@ -107,17 +107,21 @@ class TableContainerController extends ComponentController {
 
             // the array is sorted by date ASC
             Object.assign(dataArray[0], {
-                dailyCases: dataArray[0].cases
+                dailyActive   : dataArray[0].active,
+                dailyCases    : dataArray[0].cases,
+                dailyDeaths   : dataArray[0].deaths,
+                dailyRecovered: dataArray[0].recovered
             });
 
             dataArray.forEach((item, index) => {
                 nextItem = dataArray[index + 1];
 
                 if (nextItem) {
-                    nextItem.dailyCases = nextItem.cases - item.cases;
-                } else {
-                    Object.assign(item, {
-                        //dailyCases: item.cases
+                    Object.assign(nextItem, {
+                        dailyActive   : nextItem.active    - item.active,
+                        dailyCases    : nextItem.cases     - item.cases,
+                        dailyDeaths   : nextItem.deaths    - item.deaths,
+                        dailyRecovered: nextItem.recovered - item.recovered
                     });
                 }
             });
