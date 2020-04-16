@@ -133,6 +133,25 @@ class TableContainerController extends ComponentController {
     }
 
     /**
+     *
+     * @param {Object} record
+     * @private
+     * @return {Object}
+     */
+    assignFieldsOrNull(record) {
+        return {
+            active        : record.active         || null,
+            cases         : record.cases          || null,
+            deaths        : record.deaths         || null,
+            dailyActive   : record.dailyActive    || null,
+            dailyCases    : record.dailyCases     || null,
+            dailyDeaths   : record.dailyDeaths    || null,
+            dailyRecovered: record.dailyRecovered || null,
+            recovered     : record.recovered      || null
+        };
+    }
+
+    /**
      * Triggered when accessing the table config
      * @param {Neo.table.Container|null} value
      * @private
@@ -259,18 +278,7 @@ class TableContainerController extends ComponentController {
             record = me.selectedRecord,
             chart  = me.getReference('line-chart');
 
-        dataArray.forEach(item => {
-            Object.assign(item, {
-                active        : item.active         || null,
-                cases         : item.cases          || null,
-                deaths        : item.deaths         || null,
-                dailyActive   : item.dailyActive    || null,
-                dailyCases    : item.dailyCases     || null,
-                dailyDeaths   : item.dailyDeaths    || null,
-                dailyRecovered: item.dailyRecovered || null,
-                recovered     : item.recovered      || null
-            });
-        });
+        dataArray.forEach(item => Object.assign(item, me.assignFieldsOrNull(item)));
 
         if (!record) {
             record = me.getParent().summaryData;
@@ -279,15 +287,7 @@ class TableContainerController extends ComponentController {
         if (record) {
             dataArray.push({
                 date: new Date().toISOString(),
-
-                active        : record.active         || null,
-                cases         : record.cases          || null,
-                deaths        : record.deaths         || null,
-                dailyActive   : record.dailyActive    || null,
-                dailyCases    : record.dailyCases     || null,
-                dailyDeaths   : record.dailyDeaths    || null,
-                dailyRecovered: record.dailyRecovered || null,
-                recovered     : record.recovered      || null
+                ...me.assignFieldsOrNull(record)
             });
         }
 
