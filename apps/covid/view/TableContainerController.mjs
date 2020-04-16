@@ -138,7 +138,7 @@ class TableContainerController extends ComponentController {
      * @private
      * @return {Object}
      */
-    assignFieldsOrNull(record) {
+    static assignFieldsOrNull(record) {
         return {
             active        : record.active         || null,
             cases         : record.cases          || null,
@@ -278,7 +278,7 @@ class TableContainerController extends ComponentController {
             record = me.selectedRecord,
             chart  = me.getReference('line-chart');
 
-        dataArray.forEach(item => Object.assign(item, me.assignFieldsOrNull(item)));
+        dataArray.forEach(item => Object.assign(item, TableContainerController.assignFieldsOrNull(item)));
 
         if (!record) {
             record = me.getParent().summaryData;
@@ -287,7 +287,7 @@ class TableContainerController extends ComponentController {
         if (record) {
             dataArray.push({
                 date: new Date().toISOString(),
-                ...me.assignFieldsOrNull(record)
+                ...TableContainerController.assignFieldsOrNull(record)
             });
         }
 
