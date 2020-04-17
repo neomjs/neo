@@ -543,9 +543,17 @@ class MainContainerController extends ComponentController {
      * @param record
      */
     static selectMapboxGlCountry(view, record) {console.log(record.countryInfo.iso2);
+        // https://github.com/neomjs/neo/issues/490
+        // there are missing iso2&3 values on natural earth vector
+        const map = {
+            FRA    : ['match', ['get', 'NAME'], ['France'], true, false],
+            NOR    : ['match', ['get', 'NAME'], ['Norway'], true, false],
+            default: ['match', ['get', 'ISO_A3'], [record.countryInfo.iso3], true, false]
+        };
+
         view.setFilter({
             layerId: 'ne-10m-admin-0-countries-4s7rvf',
-            value  : ['match', ['get', 'ISO_A2'], [record.countryInfo.iso2], true, false]
+            value  : map[record.countryInfo.iso3] || map['default']
         });
         
         view.flyTo({
