@@ -17,6 +17,14 @@ class ContainerController extends ComponentController {
          */
         ntype: 'mapboxgl-container-controller'
     }}
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onShowTerrainChange(data) {
+        console.log('onShowTerrainChange', data);
+    }
 }
 
 Neo.applyClassConfig(ContainerController);

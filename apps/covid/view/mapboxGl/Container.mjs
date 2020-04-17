@@ -1,6 +1,7 @@
 import {default as BaseContainer} from '../../../../src/container/Base.mjs';
 import CheckBox                   from '../../../../src/form/field/CheckBox.mjs';
 import Component                  from './Component.mjs';
+import ContainerController        from './ContainerController.mjs';
 import Panel                      from '../../../../src/container/Panel.mjs';
 
 /**
@@ -19,6 +20,10 @@ class Container extends BaseContainer {
          * @private
          */
         ntype: 'covid-mapboxgl-container',
+        /**
+         * @member {Neo.controller.Component} controller=ContainerController
+         */
+        controller: ContainerController,
         /**
          * @member {Object[]} items
          */
@@ -54,7 +59,10 @@ class Container extends BaseContainer {
             items: [{
                 module   : CheckBox,
                 checked  : true,
-                labelText: 'Show Terrain'
+                labelText: 'Show Terrain',
+                listeners: {
+                    change: 'onShowTerrainChange'
+                }
             }],
 
             style: {
