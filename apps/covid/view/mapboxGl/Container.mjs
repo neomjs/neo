@@ -32,7 +32,7 @@ class Container extends BaseContainer {
             reference: 'mapboxglmap'
         }, {
             module      : Panel,
-            height      : 200,
+            height      : 150,
             ignoreLayout: true,
 
             containerConfig: {
@@ -58,17 +58,18 @@ class Container extends BaseContainer {
             }],
 
             itemDefaults: {
-                module: CheckBox,
-                flex  : '0 1 auto'
+                module    : CheckBox,
+                flex      : '0 1 auto',
+                labelWidth: 70
             },
 
             items: [{
                 checked  : true,
-                labelText: 'Show HeatMap',
+                labelText: 'HeatMap',
                 listeners: {change: 'onShowHeatMapChange'}
             }, {
                 checked  : true,
-                labelText: 'Show Terrain',
+                labelText: 'Terrain',
                 listeners: {change: 'onShowTerrainChange'},
                 style    : {marginTop: '5px'}
             }],
