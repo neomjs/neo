@@ -22,8 +22,20 @@ class ContainerController extends ComponentController {
      *
      * @param {Object} data
      */
+    onHideMapControlsButtonClick(data) {
+        console.log('onHideMapControlsButtonClick', data);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onShowTerrainChange(data) {
-        console.log('onShowTerrainChange', data);
+        this.getReference('mapboxglmap').setLayoutProperty({
+            layerId: 'hillshading',
+            key    : 'visibility',
+            value  : data.value ? 'visible' : 'none'
+        });
     }
 }
 

@@ -45,8 +45,9 @@ class Container extends BaseContainer {
             headers: [{
                 dock: 'top',
                 items: [{
-                    ntype: 'button',
-                    text : 'X'
+                    ntype  : 'button',
+                    handler: 'onHideMapControlsButtonClick',
+                    text   : 'X'
                 }, {
                     ntype: 'label',
                     text : 'Map Controls'
