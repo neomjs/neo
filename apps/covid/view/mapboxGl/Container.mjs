@@ -28,24 +28,40 @@ class Container extends BaseContainer {
             module      : Panel,
             ignoreLayout: true,
 
+            containerConfig: {
+                style: {
+                    opacity: 0.6
+                }
+            },
+
             headers: [{
                 dock: 'top',
                 items: [{
                     ntype: 'button',
                     text : 'X'
                 }, {
-                    ntype    : 'label',
-                    reference: 'historical-data-label',
-                    text     : 'Historical Data'
-                }]
+                    ntype: 'label',
+                    text : 'Map Controls'
+                }],
+                style: {
+                    opacity: 1
+                }
             }],
 
             items: [{
-                ntype: 'component',
-                vdom : {
+                ntype : 'component',
+                height: 200,
+                vdom  : {
                     html: 'Hello World!'
                 }
-            }]
+            }],
+
+            style: {
+                backgroundColor: 'transparent',
+                position       : 'absolute',
+                right          : '10px',
+                top            : '10px'
+            }
         }],
         /**
          * @member {Object} layout={ntype: 'fit'}

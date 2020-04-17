@@ -74,10 +74,10 @@ class Panel extends Container {
             headers              = me.headers || [],
             bottomHeaders        = headers.filter(header => {return header.dock === (hf ?'bottom': 'right')}),
             leftHeaders          = headers.filter(header => {return header.dock === (hf ?'left'  : 'top')}),
-            rightHeders          = headers.filter(header => {return header.dock === (hf ?'right' : 'bottom')}),
+            rightHeaders         = headers.filter(header => {return header.dock === (hf ?'right' : 'bottom')}),
             topHeaders           = headers.filter(header => {return header.dock === (hf ?'top'   : 'left')}),
-            hasHorizontalHeaders = bottomHeaders.length > 0 || topHeaders .length > 0,
-            hasVerticalHeaders   = leftHeaders  .length > 0 || rightHeders.length > 0,
+            hasHorizontalHeaders = bottomHeaders.length > 0 || topHeaders  .length > 0,
+            hasVerticalHeaders   = leftHeaders  .length > 0 || rightHeaders.length > 0,
             items                = me.items,
             horizontalItems      = [],
             verticalItems        = [],
@@ -100,13 +100,12 @@ class Panel extends Container {
                 ntype       : 'container',
                 flex        : 1,
                 items       : items,
-                itemDefaults: me.itemDefaults,
-                ...(me.containerConfig || {})
+                itemDefaults: me.itemDefaults
             };
 
             horizontalItems.push({...me.headerDefaults, ...config});
 
-            rightHeders.forEach(header => {
+            rightHeaders.forEach(header => {
                 horizontalItems.push(Panel.createHeaderConfig(header));
             });
 
@@ -116,7 +115,8 @@ class Panel extends Container {
                 layout: {
                     ntype: (hf ? 'hbox' : 'vbox'),
                     align: 'stretch'
-                }
+                },
+                ...me.containerConfig || {}
             });
         } else {
             config = {
@@ -124,7 +124,7 @@ class Panel extends Container {
                 flex        : 1,
                 items       : items,
                 itemDefaults: me.itemDefaults,
-                ...(me.containerConfig || {})
+                ...me.containerConfig || {}
             };
 
             verticalItems.push({...me.headerDefaults, ...config});
