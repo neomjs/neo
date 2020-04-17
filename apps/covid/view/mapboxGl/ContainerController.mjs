@@ -36,7 +36,10 @@ class ContainerController extends ComponentController {
      * @param {Object} data
      */
     onDetailCirclesChange(data) {
-        this.changeLayerVisibility('covid19-circle', data.value ? 'visible' : 'none');
+        const visibility = data.value ? 'visible' : 'none';
+
+        this.changeLayerVisibility('covid19-circle',      visibility);
+        this.changeLayerVisibility('covid19-circle-text', visibility);
     }
 
     /**

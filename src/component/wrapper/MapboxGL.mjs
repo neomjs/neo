@@ -335,6 +335,8 @@ class MapboxGL extends Component {
      * @param {Object} data
      * @param {String} data.layerId
      * @param {String} data.key
+     * @param {Object} data.options
+     * @param {Boolean} data.options.validate = true
      * @param {String} data.value
      */
     setLayoutProperty(data) {
@@ -342,6 +344,26 @@ class MapboxGL extends Component {
             id     : this.id,
             key    : data.key,
             layerId: data.layerId,
+            options: data.options,
+            value  : data.value
+        });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.layerId
+     * @param {String} data.key
+     * @param {Object} data.options
+     * @param {Boolean} data.options.validate = true
+     * @param {String} data.value
+     */
+    setPaintProperty(data) {
+        Neo.main.lib.MapboxGL.setPaintProperty({
+            id     : this.id,
+            key    : data.key,
+            layerId: data.layerId,
+            options: data.options,
             value  : data.value
         });
     }
