@@ -12,11 +12,6 @@ class Component extends BaseComponent {
          */
         className: 'Covid.view.mapboxGl.Component',
         /**
-         * @member {String} ntype='covid-mapboxgl-component'
-         * @private
-         */
-        ntype: 'covid-mapboxgl-component',
-        /**
          * @member {String|null} accessToken
          */
         accessToken: 'pk.eyJ1IjoidG9iaXUiLCJhIjoiY2s4dTlsdHA5MDRmYzNtcGxlczFpcGVncyJ9.qcmzDjpdyQeLtz9z7d7CkA',

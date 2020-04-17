@@ -352,7 +352,7 @@ class MainContainerController extends ComponentController {
             delaySelection = 2000;
         }
 
-        if (activeView.ntype === 'covid-mapboxgl-map' && me.data) {
+        if (activeView.ntype === 'covid-mapboxgl-container' && me.data) {
             if (!me.mapboxglMapHasData) {
                 activeView.data = me.data;
                 me.mapboxglMapHasData = true;
@@ -473,7 +473,7 @@ class MainContainerController extends ComponentController {
 
         me.view.remove(me.getReference('footer'), true);
 
-        if (activeTab.ntype === 'covid-mapboxgl-map') {
+        if (activeTab.ntype === 'covid-mapboxgl-container') {
             me.getReference('mapboxglmap').autoResize();
         }
     }

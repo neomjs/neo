@@ -13,6 +13,11 @@ class Container extends BaseContainer {
          */
         className: 'Covid.view.mapboxGl.Container',
         /**
+         * @member {String} ntype='covid-mapboxgl-container'
+         * @private
+         */
+        ntype: 'covid-mapboxgl-container',
+        /**
          * @member {Object[]} items
          */
         items: [{
