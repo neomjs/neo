@@ -20,6 +20,19 @@ class ContainerController extends ComponentController {
 
     /**
      *
+     * @param {String} layerId
+     * @param {String} visibility
+     */
+    changeLayerVisibility(layerId, visibility) {
+        this.getReference('mapboxglmap').setLayoutProperty({
+            layerId: layerId,
+            key    : 'visibility',
+            value  : visibility
+        });
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onHideMapControlsButtonClick(data) {
@@ -31,11 +44,7 @@ class ContainerController extends ComponentController {
      * @param {Object} data
      */
     onShowHeatMapChange(data) {
-        this.getReference('mapboxglmap').setLayoutProperty({
-            layerId: 'covid19-heat',
-            key    : 'visibility',
-            value  : data.value ? 'visible' : 'none'
-        });
+        this.changeLayerVisibility('covid19-heat', data.value ? 'visible' : 'none');
     }
 
     /**
@@ -43,11 +52,7 @@ class ContainerController extends ComponentController {
      * @param {Object} data
      */
     onShowTerrainChange(data) {
-        this.getReference('mapboxglmap').setLayoutProperty({
-            layerId: 'hillshading',
-            key    : 'visibility',
-            value  : data.value ? 'visible' : 'none'
-        });
+        this.changeLayerVisibility('hillshading', data.value ? 'visible' : 'none');
     }
 }
 
