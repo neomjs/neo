@@ -57,13 +57,20 @@ class Container extends BaseContainer {
                 }
             }],
 
+            itemDefaults: {
+                module: CheckBox,
+                flex  : '0 1 auto'
+            },
+
             items: [{
-                module   : CheckBox,
+                checked  : true,
+                labelText: 'Show HeatMap',
+                listeners: {change: 'onShowHeatMapChange'}
+            }, {
                 checked  : true,
                 labelText: 'Show Terrain',
-                listeners: {
-                    change: 'onShowTerrainChange'
-                }
+                listeners: {change: 'onShowTerrainChange'},
+                style    : {marginTop: '5px'}
             }],
 
             style: {

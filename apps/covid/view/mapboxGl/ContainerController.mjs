@@ -30,6 +30,18 @@ class ContainerController extends ComponentController {
      *
      * @param {Object} data
      */
+    onShowHeatMapChange(data) {
+        this.getReference('mapboxglmap').setLayoutProperty({
+            layerId: 'covid19-heat',
+            key    : 'visibility',
+            value  : data.value ? 'visible' : 'none'
+        });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onShowTerrainChange(data) {
         this.getReference('mapboxglmap').setLayoutProperty({
             layerId: 'hillshading',
