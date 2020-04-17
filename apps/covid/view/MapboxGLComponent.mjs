@@ -87,19 +87,19 @@ class MapboxGLComponent extends BaseComponent {
         }],
         /**
          * https://docs.mapbox.com/mapbox-gl-js/style-spec/
-         * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
+         * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck944yerq3hrj1ip91o34fa7d'
          */
-        mapboxStyle: 'mapbox://styles/tobiu/ck8yaxakx11zx1ilgshq451cv',
+        mapboxStyle: 'mapbox://styles/tobiu/ck944yerq3hrj1ip91o34fa7d',
         /**
          * Version for the neo-dark theme
-         * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
+         * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck944yerq3hrj1ip91o34fa7d'
          */
         mapboxStyleDark: 'mapbox://styles/tobiu/ck8yaxakx11zx1ilgshq451cv',
         /**
          * Version for the neo-light theme
-         * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
+         * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck9459ple0qc71invugdz6bbf'
          */
-        mapboxStyleLight: 'mapbox://styles/tobiu/ck8yeacdx22a41jo1do9iafd7',
+        mapboxStyleLight: 'mapbox://styles/tobiu/ck9459ple0qc71invugdz6bbf',
         /**
          * @member {Object[]}
          */
