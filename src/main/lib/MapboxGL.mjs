@@ -359,6 +359,24 @@ class MapboxGL extends Base {
     }
 
     /**
+     * https://docs.mapbox.com/mapbox-gl-js/api/#map#setlayoutproperty
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.layerId
+     * @param {String} data.key
+     * @param {String} data.value
+     */
+    setLayoutProperty(data) {
+        const map = this.maps[data.id];
+
+        if (map) {
+            map.setLayoutProperty(data.layerId, data.key, data.value);
+        } else {
+            // todo: we could cache this and apply onMapLoaded
+        }
+    }
+
+    /**
      * https://docs.mapbox.com/mapbox-gl-js/api/#map#setpaintproperty
      * @param {Object} data
      * @param {String} data.id
