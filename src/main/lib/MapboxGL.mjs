@@ -346,14 +346,14 @@ class MapboxGL extends Base {
      * @param {String} data.id
      * @param {String} data.layerId
      * @param {Object} data.options
-     * @param {Boolean} data.options.validate = true
+     * @param {Boolean} data.options.validate
      * @param {Array} data.value
      */
     setFilter(data) {
         const map = this.maps[data.id];
 
         if (map) {
-            map.setFilter(data.layerId, data.value, data.options);
+            map.setFilter(data.layerId, data.value, data.options || {});
         } else {
             // todo: we could cache this and apply onMapLoaded
         }
@@ -365,13 +365,15 @@ class MapboxGL extends Base {
      * @param {String} data.id
      * @param {String} data.layerId
      * @param {String} data.key
+     * @param {Object} data.options
+     * @param {Boolean} data.options.validate
      * @param {String} data.value
      */
     setLayoutProperty(data) {
         const map = this.maps[data.id];
 
         if (map) {
-            map.setLayoutProperty(data.layerId, data.key, data.value);
+            map.setLayoutProperty(data.layerId, data.key, data.value, data.options || {});
         } else {
             // todo: we could cache this and apply onMapLoaded
         }
@@ -383,13 +385,15 @@ class MapboxGL extends Base {
      * @param {String} data.id
      * @param {String} data.layerId
      * @param {String} data.key
+     * @param {Object} data.options
+     * @param {Boolean} data.options.validate
      * @param {String} data.value
      */
     setPaintProperty(data) {
         const map = this.maps[data.id];
 
         if (map) {
-            map.setPaintProperty(data.layerId, data.key, data.value);
+            map.setPaintProperty(data.layerId, data.key, data.value, data.options || {});
         } else {
             // todo: we could cache this and apply onMapLoaded
         }
