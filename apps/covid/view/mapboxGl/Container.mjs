@@ -1,4 +1,5 @@
 import {default as BaseContainer} from '../../../../src/container/Base.mjs';
+import CheckBox                   from '../../../../src/form/field/CheckBox.mjs';
 import Component                  from './Component.mjs';
 import Panel                      from '../../../../src/container/Panel.mjs';
 
@@ -26,11 +27,13 @@ class Container extends BaseContainer {
             reference: 'mapboxglmap'
         }, {
             module      : Panel,
+            height      : 200,
             ignoreLayout: true,
 
             containerConfig: {
                 style: {
-                    opacity: 0.6
+                    opacity: 0.6,
+                    padding: '10px'
                 }
             },
 
@@ -49,11 +52,9 @@ class Container extends BaseContainer {
             }],
 
             items: [{
-                ntype : 'component',
-                height: 200,
-                vdom  : {
-                    html: 'Hello World!'
-                }
+                module   : CheckBox,
+                checked  : true,
+                labelText: 'Show Terrain'
             }],
 
             style: {

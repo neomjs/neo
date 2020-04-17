@@ -122,7 +122,7 @@ class MainContainerController extends ComponentController {
         }
 
         else if (reference === 'mapboxglmap') {
-            activeTab.data = data;
+            me.getReference('mapboxglmap').data = data;
             me.mapboxglMapHasData = true;
         }
 
@@ -322,13 +322,13 @@ class MainContainerController extends ComponentController {
      * @param {String} hashString
      */
     onHashChange(value, oldValue, hashString) {
-        let me             = this,
-            activeIndex    = me.getTabIndex(value),
-            countryField   = me.getReference('country-field'),
-            tabContainer   = me.getReference('tab-container'),
-            activeView     = me.getView(activeIndex),
-            selectionModel = activeView.selectionModel,
-            delaySelection = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
+        let me                = this,
+            activeIndex       = me.getTabIndex(value),
+            countryField      = me.getReference('country-field'),
+            tabContainer      = me.getReference('tab-container'),
+            activeView        = me.getView(activeIndex),
+            selectionModel    = activeView.selectionModel,
+            delaySelection    = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
             id;
 
         tabContainer.activeIndex = activeIndex;
@@ -352,7 +352,7 @@ class MainContainerController extends ComponentController {
             delaySelection = 2000;
         }
 
-        if (activeView.ntype === 'covid-mapboxgl-container' && me.data) {
+        if (activeView.ntype === 'mapboxgl' && me.data) {
             if (!me.mapboxglMapHasData) {
                 activeView.data = me.data;
                 me.mapboxglMapHasData = true;
