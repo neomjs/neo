@@ -60,17 +60,22 @@ class Container extends BaseContainer {
             itemDefaults: {
                 module    : CheckBox,
                 flex      : '0 1 auto',
-                labelWidth: 70
+                labelWidth: 100
             },
 
             items: [{
                 checked  : true,
+                labelText: 'Detail Circles',
+                listeners: {change: 'onDetailCirclesChange'}
+            }, {
+                checked  : true,
                 labelText: 'HeatMap',
-                listeners: {change: 'onShowHeatMapChange'}
+                listeners: {change: 'onHeatMapChange'},
+                style    : {marginTop: '5px'}
             }, {
                 checked  : true,
                 labelText: 'Terrain',
-                listeners: {change: 'onShowTerrainChange'},
+                listeners: {change: 'onTerrainChange'},
                 style    : {marginTop: '5px'}
             }],
 

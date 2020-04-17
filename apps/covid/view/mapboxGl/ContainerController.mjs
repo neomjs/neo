@@ -35,6 +35,22 @@ class ContainerController extends ComponentController {
      *
      * @param {Object} data
      */
+    onDetailCirclesChange(data) {
+        this.changeLayerVisibility('covid19-circle', data.value ? 'visible' : 'none');
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onHeatMapChange(data) {
+        this.changeLayerVisibility('covid19-heat', data.value ? 'visible' : 'none');
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onHideMapControlsButtonClick(data) {
         console.log('onHideMapControlsButtonClick', data);
     }
@@ -43,15 +59,7 @@ class ContainerController extends ComponentController {
      *
      * @param {Object} data
      */
-    onShowHeatMapChange(data) {
-        this.changeLayerVisibility('covid19-heat', data.value ? 'visible' : 'none');
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onShowTerrainChange(data) {
+    onTerrainChange(data) {
         this.changeLayerVisibility('hillshading', data.value ? 'visible' : 'none');
     }
 }
