@@ -542,7 +542,12 @@ class MainContainerController extends ComponentController {
      * @param view
      * @param record
      */
-    static selectMapboxGlCountry(view, record) {
+    static selectMapboxGlCountry(view, record) {console.log(record.countryInfo.iso2);
+        view.setFilter({
+            layerId: 'ne-10m-admin-0-countries-4s7rvf',
+            value  : ['match', ['get', 'ISO_A2'], [record.countryInfo.iso2], true, false]
+        });
+        
         view.flyTo({
             lat: record.countryInfo.lat,
             lng: record.countryInfo.long

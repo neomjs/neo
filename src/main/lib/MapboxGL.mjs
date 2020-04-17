@@ -77,6 +77,7 @@ class MapboxGL extends Base {
                 'autoResize',
                 'center',
                 'create',
+                'setFilter',
                 'setPaintProperty',
                 'setStyle',
                 'updateData',
@@ -339,7 +340,26 @@ class MapboxGL extends Base {
     }
 
     /**
-     *
+     * https://docs.mapbox.com/mapbox-gl-js/api/#map#setfilter
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.layerId
+     * @param {Object} data.options
+     * @param {Boolean} data.options.validate = true
+     * @param {Array} data.value
+     */
+    setFilter(data) {
+        const map = this.maps[data.id];
+
+        if (map) {
+            map.setFilter(data.layerId, data.value, data.options);
+        } else {
+            // todo: we could cache this and apply onMapLoaded
+        }
+    }
+
+    /**
+     * https://docs.mapbox.com/mapbox-gl-js/api/#map#setpaintproperty
      * @param {Object} data
      * @param {String} data.id
      * @param {String} data.layerId

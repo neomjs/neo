@@ -314,6 +314,23 @@ class MapboxGL extends Component {
     onMapMounted() {
 
     }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.layerId
+     * @param {Object} data.options
+     * @param {Boolean} data.options.validate = true
+     * @param {Array} data.value
+     */
+    setFilter(data) {
+        Neo.main.lib.MapboxGL.setFilter({
+            id     : this.id,
+            layerId: data.layerId,
+            options: data.options,
+            value  : data.value
+        });
+    }
 }
 
 Neo.applyClassConfig(MapboxGL);
