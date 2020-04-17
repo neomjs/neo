@@ -66,8 +66,36 @@ class Container extends BaseContainer {
         /**
          * @member {Object} layout={ntype: 'fit'}
          */
-        layout: {ntype: 'fit'}
+        layout: {ntype: 'fit'},
+
+        /**
+         * @member {Object} _vdom
+         */
+        _vdom: {
+            style: {position: 'relative', height: '100%', width: '100%'},
+            cn: [{
+                style: {position: 'absolute', height: '100%', width: '100%'},
+                cn: [{
+                    style: {height: '100%'},
+                    cn: []
+                }]
+            }]
+        }
     }}
+
+    /**
+     *
+     */
+    getVdomRoot() {
+        return this.vdom.cn[0].cn[0];
+    }
+
+    /**
+     *
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[0].childNodes[0];
+    }
 }
 
 Neo.applyClassConfig(Container);

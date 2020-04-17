@@ -69,9 +69,7 @@ class MapboxGL extends Component {
             cn: [{
                 style: {position: 'absolute', height: '100%', width: '100%'},
                 cn: [{
-                    style: {
-                        height: '100%'
-                    }
+                    style: { height: '100%'}
                 }]
             }]
         },
