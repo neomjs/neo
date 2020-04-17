@@ -361,12 +361,7 @@ class MainContainerController extends ComponentController {
             // console.log(countryField.getRecord());
 
             if (me.countryRecord) {
-                activeView.flyTo({
-                    lat: me.countryRecord.countryInfo.lat,
-                    lng: me.countryRecord.countryInfo.long
-                });
-
-                activeView.zoom = 5; // todo: we could use a different value for big countries (Russia, USA,...)
+                MainContainerController.selectMapboxGlCountry(activeView, me.countryRecord);
             }
 
             activeView.autoResize();
@@ -540,6 +535,20 @@ class MainContainerController extends ComponentController {
         }
 
         mapView.mapboxStyle = mapViewStyle;
+    }
+
+    /**
+     *
+     * @param view
+     * @param record
+     */
+    static selectMapboxGlCountry(view, record) {
+        view.flyTo({
+            lat: record.countryInfo.lat,
+            lng: record.countryInfo.long
+        });
+
+        view.zoom = 5; // todo: we could use a different value for big countries (Russia, USA,...)
     }
 
     /**
