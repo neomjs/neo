@@ -78,6 +78,7 @@ class MapboxGL extends Base {
                 'center',
                 'create',
                 'setFilter',
+                'setLayoutProperty',
                 'setPaintProperty',
                 'setStyle',
                 'updateData',

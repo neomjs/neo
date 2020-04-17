@@ -329,6 +329,22 @@ class MapboxGL extends Component {
             value  : data.value
         });
     }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.layerId
+     * @param {String} data.key
+     * @param {String} data.value
+     */
+    setLayoutProperty(data) {
+        Neo.main.lib.MapboxGL.setLayoutProperty({
+            id     : this.id,
+            key    : data.key,
+            layerId: data.layerId,
+            value  : data.value
+        });
+    }
 }
 
 Neo.applyClassConfig(MapboxGL);
