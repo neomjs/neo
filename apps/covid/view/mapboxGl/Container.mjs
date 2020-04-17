@@ -1,5 +1,6 @@
 import {default as BaseContainer} from '../../../../src/container/Base.mjs';
 import Component                  from './Component.mjs';
+import Panel                      from '../../../../src/container/Panel.mjs';
 
 /**
  * @class Covid.view.mapboxGl.Container
@@ -23,6 +24,28 @@ class Container extends BaseContainer {
         items: [{
             module   : Component,
             reference: 'mapboxglmap'
+        }, {
+            module      : Panel,
+            ignoreLayout: true,
+
+            headers: [{
+                dock: 'top',
+                items: [{
+                    ntype: 'button',
+                    text : 'X'
+                }, {
+                    ntype    : 'label',
+                    reference: 'historical-data-label',
+                    text     : 'Historical Data'
+                }]
+            }],
+
+            items: [{
+                ntype: 'component',
+                vdom : {
+                    html: 'Hello World!'
+                }
+            }]
         }],
         /**
          * @member {Object} layout={ntype: 'fit'}

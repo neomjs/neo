@@ -21,11 +21,13 @@ class Fit extends Base {
 
     /**
      * Initially sets the CSS classes of the container items this layout is bound to.
-     * @param child
-     * @param index
+     * @param {Neo.component.Base} child
+     * @param {Number} index
      */
-    applyChildAttributes(child) {
-        child.cls = NeoArray.union(child.cls, 'neo-layout-fit-item');
+    applyChildAttributes(child, index) {
+        if (!child.ignoreLayout) {
+            child.cls = NeoArray.union(child.cls, 'neo-layout-fit-item');
+        }
     }
 
     /**
