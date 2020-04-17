@@ -1,4 +1,5 @@
 import {default as BaseContainer} from '../../../../src/container/Base.mjs';
+import Component                  from './Component.mjs';
 
 /**
  * @class Covid.view.mapboxGl.Container
@@ -10,7 +11,18 @@ class Container extends BaseContainer {
          * @member {String} className='Covid.view.mapboxGl.Container'
          * @private
          */
-        className: 'Covid.view.mapboxGl.Container'
+        className: 'Covid.view.mapboxGl.Container',
+        /**
+         * @member {Object[]} items
+         */
+        items: [{
+            module   : Component,
+            reference: 'mapboxglmap'
+        }],
+        /**
+         * @member {Object} layout={ntype: 'fit'}
+         */
+        layout: {ntype: 'fit'}
     }}
 }
 

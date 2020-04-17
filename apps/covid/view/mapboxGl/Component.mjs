@@ -1,21 +1,21 @@
-import {default as BaseComponent} from '../../../src/component/wrapper/MapboxGL.mjs';
+import {default as BaseComponent} from '../../../../src/component/wrapper/MapboxGL.mjs';
 
 /**
- * @class Covid.view.MapboxGLComponent
+ * @class Covid.view.mapboxGl.Component
  * @extends Neo.component.wrapper.MapboxGL
  */
-class MapboxGLComponent extends BaseComponent {
+class Component extends BaseComponent {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.MapboxGLComponent'
+         * @member {String} className='Covid.view.mapboxGl.Component'
          * @private
          */
-        className: 'Covid.view.MapboxGLComponent',
+        className: 'Covid.view.mapboxGl.Component',
         /**
-         * @member {String} ntype='covid-mapboxgl-map'
+         * @member {String} ntype='covid-mapboxgl-component'
          * @private
          */
-        ntype: 'covid-mapboxgl-map',
+        ntype: 'covid-mapboxgl-component',
         /**
          * @member {String|null} accessToken
          */
@@ -118,6 +118,6 @@ class MapboxGLComponent extends BaseComponent {
     }}
 }
 
-Neo.applyClassConfig(MapboxGLComponent);
+Neo.applyClassConfig(Component);
 
-export {MapboxGLComponent as default};
+export {Component as default};
