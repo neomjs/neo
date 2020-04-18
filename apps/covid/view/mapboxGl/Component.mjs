@@ -33,7 +33,7 @@ class Component extends BaseComponent {
             type    : 'hillshade'
         }, {
             beforeId: 'waterway-label',
-            filter  : ['>=', ['get', 'cases'], 1],
+            filter  : ['>', ['get', 'cases'], 0],
             id      : 'covid19-heat',
             source  : 'covid19',
             type    : 'heatmap',
@@ -47,21 +47,21 @@ class Component extends BaseComponent {
             }
         }, {
             beforeId: 'waterway-label',
-            filter  : ['>=', ['get', 'cases'], 1],
+            filter  : ['>', ['get', 'cases'], 0],
             id      : 'covid19-circle',
             source  : 'covid19',
             type    : 'circle',
             minzoom : 5,
 
             paint: {
-                'circle-color'    : ['step', ['get', 'cases'], '#9ad5ff', 0, '#9af6ff', 20, 'cyan', 200, 'yellow', 400, '#f1f075', 800, '#f9b196', 1e3, '#f28cb1', 2e3, '#f28cb1'],
+                'circle-color'    : ['step', ['get', 'cases'], '#9ad5ff', 0, '#9af6ff', 20, '#00ffff', 200, '#ffff00', 400, '#f1f075', 800, '#f9b196', 1e3, '#f28cb1', 2e3, '#f28cb1'],
                 'circle-opacity'  : ['interpolate', ['linear'], ['zoom'], 5, 0, 6, .6],
                 'circle-radius'   : ['step', ['get', 'cases'], 10, 100, 20, 500, 30, 1e3, 40, 1e4, 50],
                 'circle-translate': [0, 20]
             }
         }, {
             beforeId: 'waterway-label',
-            filter  : ['>=', ['get', 'cases'], 1],
+            filter  : ['>', ['get', 'cases'], 0],
             id      : 'covid19-circle-text',
             source  : 'covid19',
             type    : 'symbol',
