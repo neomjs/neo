@@ -77,6 +77,8 @@ class MapboxGL extends Base {
                 'autoResize',
                 'center',
                 'create',
+                'setFilter',
+                'setLayoutProperty',
                 'setPaintProperty',
                 'setStyle',
                 'updateData',
@@ -339,18 +341,59 @@ class MapboxGL extends Base {
     }
 
     /**
-     *
+     * https://docs.mapbox.com/mapbox-gl-js/api/#map#setfilter
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.layerId
+     * @param {Object} data.options
+     * @param {Boolean} data.options.validate
+     * @param {Array} data.value
+     */
+    setFilter(data) {
+        const map = this.maps[data.id];
+
+        if (map) {
+            map.setFilter(data.layerId, data.value, data.options || {});
+        } else {
+            // todo: we could cache this and apply onMapLoaded
+        }
+    }
+
+    /**
+     * https://docs.mapbox.com/mapbox-gl-js/api/#map#setlayoutproperty
      * @param {Object} data
      * @param {String} data.id
      * @param {String} data.layerId
      * @param {String} data.key
+     * @param {Object} data.options
+     * @param {Boolean} data.options.validate
+     * @param {String} data.value
+     */
+    setLayoutProperty(data) {
+        const map = this.maps[data.id];
+
+        if (map) {
+            map.setLayoutProperty(data.layerId, data.key, data.value, data.options || {});
+        } else {
+            // todo: we could cache this and apply onMapLoaded
+        }
+    }
+
+    /**
+     * https://docs.mapbox.com/mapbox-gl-js/api/#map#setpaintproperty
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {String} data.layerId
+     * @param {String} data.key
+     * @param {Object} data.options
+     * @param {Boolean} data.options.validate
      * @param {String} data.value
      */
     setPaintProperty(data) {
         const map = this.maps[data.id];
 
         if (map) {
-            map.setPaintProperty(data.layerId, data.key, data.value);
+            map.setPaintProperty(data.layerId, data.key, data.value, data.options || {});
         } else {
             // todo: we could cache this and apply onMapLoaded
         }

@@ -69,9 +69,7 @@ class MapboxGL extends Component {
             cn: [{
                 style: {position: 'absolute', height: '100%', width: '100%'},
                 cn: [{
-                    style: {
-                        height: '100%'
-                    }
+                    style: { height: '100%'}
                 }]
             }]
         },
@@ -313,6 +311,61 @@ class MapboxGL extends Component {
      */
     onMapMounted() {
 
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.layerId
+     * @param {Object} data.options
+     * @param {Boolean} data.options.validate = true
+     * @param {Array} data.value
+     */
+    setFilter(data) {
+        Neo.main.lib.MapboxGL.setFilter({
+            id     : this.id,
+            layerId: data.layerId,
+            options: data.options,
+            value  : data.value
+        });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.layerId
+     * @param {String} data.key
+     * @param {Object} data.options
+     * @param {Boolean} data.options.validate = true
+     * @param {String} data.value
+     */
+    setLayoutProperty(data) {
+        Neo.main.lib.MapboxGL.setLayoutProperty({
+            id     : this.id,
+            key    : data.key,
+            layerId: data.layerId,
+            options: data.options,
+            value  : data.value
+        });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.layerId
+     * @param {String} data.key
+     * @param {Object} data.options
+     * @param {Boolean} data.options.validate = true
+     * @param {String} data.value
+     */
+    setPaintProperty(data) {
+        Neo.main.lib.MapboxGL.setPaintProperty({
+            id     : this.id,
+            key    : data.key,
+            layerId: data.layerId,
+            options: data.options,
+            value  : data.value
+        });
     }
 }
 

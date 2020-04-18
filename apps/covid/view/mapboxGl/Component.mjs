@@ -1,21 +1,16 @@
-import {default as BaseComponent} from '../../../src/component/wrapper/MapboxGL.mjs';
+import {default as BaseComponent} from '../../../../src/component/wrapper/MapboxGL.mjs';
 
 /**
- * @class Covid.view.MapboxGLComponent
+ * @class Covid.view.mapboxGl.Component
  * @extends Neo.component.wrapper.MapboxGL
  */
-class MapboxGLComponent extends BaseComponent {
+class Component extends BaseComponent {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.MapboxGLComponent'
+         * @member {String} className='Covid.view.mapboxGl.Component'
          * @private
          */
-        className: 'Covid.view.MapboxGLComponent',
-        /**
-         * @member {String} ntype='covid-mapboxgl-map'
-         * @private
-         */
-        ntype: 'covid-mapboxgl-map',
+        className: 'Covid.view.mapboxGl.Component',
         /**
          * @member {String|null} accessToken
          */
@@ -38,7 +33,7 @@ class MapboxGLComponent extends BaseComponent {
             type    : 'hillshade'
         }, {
             beforeId: 'waterway-label',
-            filter  : ['>=', ['get', 'cases'], 1],
+            filter  : ['>', ['get', 'cases'], 0],
             id      : 'covid19-heat',
             source  : 'covid19',
             type    : 'heatmap',
@@ -52,21 +47,21 @@ class MapboxGLComponent extends BaseComponent {
             }
         }, {
             beforeId: 'waterway-label',
-            filter  : ['>=', ['get', 'cases'], 1],
+            filter  : ['>', ['get', 'cases'], 0],
             id      : 'covid19-circle',
             source  : 'covid19',
             type    : 'circle',
             minzoom : 5,
 
             paint: {
-                'circle-color'    : ['step', ['get', 'cases'], '#9ad5ff', 0, '#9af6ff', 20, 'cyan', 200, 'yellow', 400, '#f1f075', 800, '#f9b196', 1e3, '#f28cb1', 2e3, '#f28cb1'],
+                'circle-color'    : ['step', ['get', 'cases'], '#9ad5ff', 0, '#9af6ff', 20, '#00ffff', 200, '#ffff00', 400, '#f1f075', 800, '#f9b196', 1e3, '#f28cb1', 2e3, '#f28cb1'],
                 'circle-opacity'  : ['interpolate', ['linear'], ['zoom'], 5, 0, 6, .6],
                 'circle-radius'   : ['step', ['get', 'cases'], 10, 100, 20, 500, 30, 1e3, 40, 1e4, 50],
                 'circle-translate': [0, 20]
             }
         }, {
             beforeId: 'waterway-label',
-            filter  : ['>=', ['get', 'cases'], 1],
+            filter  : ['>', ['get', 'cases'], 0],
             id      : 'covid19-circle-text',
             source  : 'covid19',
             type    : 'symbol',
@@ -87,19 +82,19 @@ class MapboxGLComponent extends BaseComponent {
         }],
         /**
          * https://docs.mapbox.com/mapbox-gl-js/style-spec/
-         * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
+         * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck944yerq3hrj1ip91o34fa7d'
          */
-        mapboxStyle: 'mapbox://styles/tobiu/ck8yaxakx11zx1ilgshq451cv',
+        mapboxStyle: 'mapbox://styles/tobiu/ck944yerq3hrj1ip91o34fa7d',
         /**
          * Version for the neo-dark theme
-         * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
+         * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck944yerq3hrj1ip91o34fa7d'
          */
         mapboxStyleDark: 'mapbox://styles/tobiu/ck8yaxakx11zx1ilgshq451cv',
         /**
          * Version for the neo-light theme
-         * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck8u9n0fo0o241imgid28vre2'
+         * @member {Object|String} mapboxStyle='mapbox://styles/tobiu/ck9459ple0qc71invugdz6bbf'
          */
-        mapboxStyleLight: 'mapbox://styles/tobiu/ck8yeacdx22a41jo1do9iafd7',
+        mapboxStyleLight: 'mapbox://styles/tobiu/ck9459ple0qc71invugdz6bbf',
         /**
          * @member {Object[]}
          */
@@ -118,6 +113,6 @@ class MapboxGLComponent extends BaseComponent {
     }}
 }
 
-Neo.applyClassConfig(MapboxGLComponent);
+Neo.applyClassConfig(Component);
 
-export {MapboxGLComponent as default};
+export {Component as default};
