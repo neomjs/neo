@@ -47,6 +47,11 @@ class Container extends BaseContainer {
          */
         columns_: [],
         /**
+         * Configs for Neo.table.header.Toolbar
+         * @member {Object|null} [headerToolbarConfig=null]
+         */
+        headerToolbarConfig: null,
+        /**
          * @member {String|null} headerToolbarId_=null
          */
         headerToolbarId_: null,
@@ -118,7 +123,8 @@ class Container extends BaseContainer {
 
         me.items = [{
             module: header.Toolbar,
-            id    : me.headerToolbarId
+            id    : me.headerToolbarId,
+            ...me.headerToolbarConfig || {}
         }, {
             module     : View,
             containerId: me.id,
