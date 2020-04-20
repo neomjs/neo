@@ -78,7 +78,7 @@ class View extends Component {
 
             me.recordVnodeMap[id] = i;
 
-            trCls = ['neo-table-row'];
+            trCls = me.getTrClass(inputData[i], i);
 
             if (selectedRows && selectedRows.includes(id)) {
                 trCls.push('neo-selected');
@@ -192,6 +192,16 @@ class View extends Component {
      */
     getCellId(record, dataField) {
         return this.id + '__' + record[this.store.keyProperty] + '__' + dataField;
+    }
+
+    /**
+     * Override this method to apply custom CSS rules to table rows
+     * @param {Object} record
+     * @param {Number} rowIndex
+     * @return {String[]}
+     */
+    getTrClass(record, rowIndex) {
+        return ['neo-table-row'];
     }
 
     /**

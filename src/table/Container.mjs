@@ -47,6 +47,11 @@ class Container extends BaseContainer {
          */
         columns_: [],
         /**
+         * Configs for Neo.table.header.Toolbar
+         * @member {Object|null} [headerToolbarConfig=null]
+         */
+        headerToolbarConfig: null,
+        /**
          * @member {String|null} headerToolbarId_=null
          */
         headerToolbarId_: null,
@@ -77,6 +82,11 @@ class Container extends BaseContainer {
          * @member {Boolean} useCustomScrollbars_=true
          */
         useCustomScrollbars_: true,
+        /**
+         * Configs for Neo.table.View
+         * @member {Object|null} [viewConfig=null]
+         */
+        viewConfig: null,
         /**
          * @member {String|null} viewId_=null
          * @private
@@ -113,12 +123,14 @@ class Container extends BaseContainer {
 
         me.items = [{
             module: header.Toolbar,
-            id    : me.headerToolbarId
+            id    : me.headerToolbarId,
+            ...me.headerToolbarConfig || {}
         }, {
             module     : View,
             containerId: me.id,
             id         : me.viewId,
-            store      : me.store
+            store      : me.store,
+            ...me.viewConfig || {}
         }];
 
         me.vdom.id = me.id + 'wrapper';
