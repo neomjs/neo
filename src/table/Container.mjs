@@ -78,6 +78,11 @@ class Container extends BaseContainer {
          */
         useCustomScrollbars_: true,
         /**
+         * Configs for Neo.table.View
+         * @member {Object|null} [viewConfig=null]
+         */
+        viewConfig: null,
+        /**
          * @member {String|null} viewId_=null
          * @private
          */
@@ -118,7 +123,8 @@ class Container extends BaseContainer {
             module     : View,
             containerId: me.id,
             id         : me.viewId,
-            store      : me.store
+            store      : me.store,
+            ...me.viewConfig || {}
         }];
 
         me.vdom.id = me.id + 'wrapper';
