@@ -53,7 +53,7 @@ The most compelling way to introduce a new framework might simply be to show wha
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/covid/index.html#mainview=table">Live Demo: COIN App dist/production</a></br>
 Desktop only => support for mobile devices is on the roadmap.
 
-[![Demo Video on YouTube](https://img.youtube.com/vi/T-8lqNVaoGNdU/maxresdefault.jpg)](https://youtu.be/8lqNVaoGNdU)
+<a href="https://www.youtube.com/watch?v=8lqNVaoGNdU">Demo Video on YouTube</a></br>
 Just clicking around randomly, but might give you an idea on you to navigate inside the helix and gallery.
 
 You can find the code of the covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/covid">here</a>.
