@@ -236,10 +236,10 @@ class MainContainerController extends ComponentController {
         imageName = map[imageName] || imageName;
 
         if (Neo.config.isGitHubPages) {
-            let path = '../../../../../resources/images/flaticon/country_flags/png/' + imageName + '.png';
+            let path = '../../../../resources/images/flaticon/country_flags/png/' + imageName + '.png';
 
             if (!Neo.config.isExperimental) {
-                path = '../' + path;
+                path = '../../' + path;
             }
 
             return path;
