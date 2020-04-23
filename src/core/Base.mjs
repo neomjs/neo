@@ -140,11 +140,7 @@ class Base {
     createId(id) {
         let me = this;
 
-        if (!id) {
-            id = IdGenerator.getId(me.ntype);
-        }
-
-        me.id = id;
+        me.id = id || IdGenerator.getId(me.ntype);
 
         if (Base.instanceManagerAvailable === true) {
             Neo.manager.Instance.register(me);
