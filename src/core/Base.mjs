@@ -237,9 +237,9 @@ class Base {
                     origin = Neo.workerId === 'main' ? Neo.worker.Manager : Neo.currentWorker;
 
                     origin.sendMessage(worker, {
-                        action      : 'registerRemote',
-                        methods     : methods,
-                        className   : className
+                        action   : 'registerRemote',
+                        methods  : methods,
+                        className: className
                     });
                 }
             });
