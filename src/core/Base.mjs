@@ -130,6 +130,12 @@ class Base {
         return value;
     }
 
+    /**
+     * Uses the IdGenerator to create an id if a static one is not explicitly set.
+     * Registers the instance to manager.Instance if this one is already created,
+     * otherwise stores it inside a tmp map.
+     * @param {String} id
+     */
     createId(id) {
         let me = this;
 
