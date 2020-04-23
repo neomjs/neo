@@ -4,7 +4,8 @@ const configSymbol = Symbol.for('configSymbol'),
       isInstance   = Symbol('isInstance');
 
 /**
- * The base class for all classes inside the Neo namespace
+ * The base class for (almost) all classes inside the Neo namespace
+ * Exceptions are e.g. core.IdGenerator, vdom.VNode
  * @class Neo.core.Base
  */
 class Base {
