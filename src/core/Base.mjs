@@ -164,7 +164,9 @@ class Base {
             Neo.manager.Instance.unregister(me);
         }
 
-        Object.entries(me).forEach(key => {
+        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Reflect/ownKeys
+        // equivalent to Object.getOwnPropertyNames(me).concat(Object.getOwnPropertySymbols(me))
+        Reflect.ownKeys(me).forEach(key => {
             me[key] = null;
             delete me[key];
         });
