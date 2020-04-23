@@ -46,8 +46,8 @@ class HelixContainer extends Container {
         items: [{
             ntype : 'container',
             flex  : 1,
-            layout: 'fit',
-            items : []
+            items : [],
+            layout: 'fit'
         }, {
             module   : Panel,
             cls      : ['neo-configuration-panel', 'neo-panel', 'neo-container'],
@@ -62,7 +62,7 @@ class HelixContainer extends Container {
             },
 
             headers: [{
-                dock: 'top',
+                dock : 'top',
                 items: [{
                     ntype  : 'button',
                     handler: 'onCollapseButtonClick',
@@ -169,7 +169,7 @@ class HelixContainer extends Container {
                 layout: {ntype: 'hbox', align: 'stretch'},
                 style : {minHeight: '134px', padding: '0'},
 
-                items : [{
+                items: [{
                     ntype : 'container',
                     layout: {ntype: 'vbox', align: 'stretch'},
 
