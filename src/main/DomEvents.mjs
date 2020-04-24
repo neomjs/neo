@@ -17,7 +17,12 @@ const globalDomEvents = [
 
 // Will get applied to the document.body in case Neo.config.useTouchEvents === true (default value)
 const touchEvents = [
-    {name: 'touchstart', handler: 'onTouchStart'}
+    {name: 'touchcancel', handler: 'onTouchCancel'},
+    {name: 'touchend',    handler: 'onTouchEnd'},
+    {name: 'touchenter',  handler: 'onTouchEnter'},
+    {name: 'touchleave',  handler: 'onTouchLeave'},
+    {name: 'touchmove',   handler: 'onTouchMove'},
+    {name: 'touchstart',  handler: 'onTouchStart'}
 ];
 
 // wheel events fire very often, so we limit the targets to avoid unnecessary post messages from main to the app worker
@@ -408,6 +413,46 @@ class DomEvents extends Base {
             ...this.getMouseEventData(event),
             toElementId: event.toElement && event.toElement.id || null
         });
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onTouchCancel(event) {
+        this.sendMessageToApp(this.getEventData(event));
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onTouchEnd(event) {
+        this.sendMessageToApp(this.getEventData(event));
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onTouchEnter(event) {
+        this.sendMessageToApp(this.getEventData(event));
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onTouchLeave(event) {
+        this.sendMessageToApp(this.getEventData(event));
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onTouchMove(event) {
+        this.sendMessageToApp(this.getEventData(event));
     }
 
     /**
