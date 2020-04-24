@@ -135,7 +135,7 @@ class DomEvents extends Base {
     addGlobalDomListeners() {
         let me = this;
 
-        globalDomEvents.forEach(event => {
+        [...globalDomEvents].concat(Neo.config.useTouchEvents ? touchEvents : []).forEach(event => {
             document.body.addEventListener(event.name, me[event.handler].bind(me), event.options);
         });
     }
