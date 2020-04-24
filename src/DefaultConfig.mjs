@@ -145,7 +145,15 @@ const DefaultConfig = {
      * @name config.useMapboxGL
      * @type Boolean
      */
-    useMapboxGL: false
+    useMapboxGL: false,
+    /**
+     * Adds global dom event listeners for mobile related events like rotate, swipe, tap
+     * @default true
+     * @memberOf! module:Neo
+     * @name config.useTouchEvents
+     * @type Boolean
+     */
+    useTouchEvents: true
 };
 
 Object.assign(DefaultConfig, {
