@@ -15,6 +15,11 @@ const globalDomEvents = [
     {name: 'wheel',       handler: 'onWheel',      options: {passive: false}}
 ];
 
+// Will get applied to the document.body in case Neo.config.useTouchEvents === true (default value)
+const touchEvents = [
+    {name: 'touchstart', handler: 'onTouchStart'}
+];
+
 // wheel events fire very often, so we limit the targets to avoid unnecessary post messages from main to the app worker
 const globalWheelTargets = [
     'neo-circle-component',
@@ -403,6 +408,15 @@ class DomEvents extends Base {
             ...this.getMouseEventData(event),
             toElementId: event.toElement && event.toElement.id || null
         });
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onTouchStart(event) {
+        console.log('onTouchStart', event);
+        this.sendMessageToApp(this.getEventData(event));
     }
 
     /**
