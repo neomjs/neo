@@ -235,7 +235,17 @@ class MainContainerController extends ComponentController {
 
         imageName = map[imageName] || imageName;
 
-        return 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/flaticon/country_flags/png/' + imageName + '.png'
+        if (Neo.config.isGitHubPages) {
+            let path = '../../../../resources/images/flaticon/country_flags/png/' + imageName + '.png';
+
+            if (!Neo.config.isExperimental) {
+                path = '../../' + path;
+            }
+
+            return path;
+        }
+
+        return 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/flaticon/country_flags/png/' + imageName + '.png';
     }
 
     /**

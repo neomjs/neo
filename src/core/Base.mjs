@@ -4,7 +4,8 @@ const configSymbol = Symbol.for('configSymbol'),
       isInstance   = Symbol('isInstance');
 
 /**
- * The base class for all classes inside the Neo namespace
+ * The base class for (almost) all classes inside the Neo namespace
+ * Exceptions are e.g. core.IdGenerator, vdom.VNode
  * @class Neo.core.Base
  */
 class Base {
@@ -130,14 +131,16 @@ class Base {
         return value;
     }
 
+    /**
+     * Uses the IdGenerator to create an id if a static one is not explicitly set.
+     * Registers the instance to manager.Instance if this one is already created,
+     * otherwise stores it inside a tmp map.
+     * @param {String} id
+     */
     createId(id) {
         let me = this;
 
-        if (!id) {
-            id = IdGenerator.getId(me.ntype);
-        }
-
-        me.id = id;
+        me.id = id || IdGenerator.getId(me.ntype);
 
         if (Base.instanceManagerAvailable === true) {
             Neo.manager.Instance.register(me);
@@ -159,9 +162,13 @@ class Base {
 
         if (Base.instanceManagerAvailable === true) {
             Neo.manager.Instance.unregister(me);
+        } else if (Neo.idMap) {
+            delete Neo.idMap[me.id];
         }
 
-        Object.entries(me).forEach(key => {
+        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Reflect/ownKeys
+        // equivalent to Object.getOwnPropertyNames(me).concat(Object.getOwnPropertySymbols(me))
+        Reflect.ownKeys(me).forEach(key => {
             me[key] = null;
             delete me[key];
         });
@@ -232,9 +239,9 @@ class Base {
                     origin = Neo.workerId === 'main' ? Neo.worker.Manager : Neo.currentWorker;
 
                     origin.sendMessage(worker, {
-                        action      : 'registerRemote',
-                        methods     : methods,
-                        className   : className
+                        action   : 'registerRemote',
+                        methods  : methods,
+                        className: className
                     });
                 }
             });
@@ -305,7 +312,7 @@ class Base {
      * @returns {String}
      */
     get [Symbol.toStringTag]() {
-        return this.className + ' (id:' + this.id + ')';
+        return `${this.className} (id: ${this.id})`;
     }
 
     /**

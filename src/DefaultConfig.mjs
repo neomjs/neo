@@ -62,6 +62,15 @@ const DefaultConfig = {
      */
     isExperimental: false,
     /**
+     * Flag for running on https://neomjs.github.io/pages/
+     * => to use local images paths instead of raw.githubusercontent.com
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.isGitHubPages
+     * @type Boolean
+     */
+    isGitHubPages: false,
+    /**
      * Flag for running the Neo main thread inside an iframe (Siesta Browser Harness)
      * @default false
      * @memberOf! module:Neo
