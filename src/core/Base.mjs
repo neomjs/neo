@@ -162,6 +162,8 @@ class Base {
 
         if (Base.instanceManagerAvailable === true) {
             Neo.manager.Instance.unregister(me);
+        } else if (Neo.idMap) {
+            delete Neo.idMap[me.id];
         }
 
         // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Reflect/ownKeys
