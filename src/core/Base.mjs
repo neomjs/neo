@@ -169,8 +169,9 @@ class Base {
         // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Reflect/ownKeys
         // equivalent to Object.getOwnPropertyNames(me).concat(Object.getOwnPropertySymbols(me))
         Reflect.ownKeys(me).forEach(key => {
-            me[key] = null;
-            delete me[key];
+            if (Object.getOwnPropertyDescriptor(me, key).writable) {
+                delete me[key];
+            }
         });
     }
 

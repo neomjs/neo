@@ -1,5 +1,6 @@
-import Base       from '../core/Base.mjs';
-import Observable from '../core/Observable.mjs';
+import Base           from '../core/Base.mjs';
+import Observable     from '../core/Observable.mjs';
+import TouchDomEvents from './mixins/TouchDomEvents.mjs';
 
 const globalDomEvents = [
     {name: 'change',      handler: 'onChange'},
@@ -13,6 +14,16 @@ const globalDomEvents = [
     {name: 'mouseenter',  handler: 'onMouseEnter', options: {capture: true}},
     {name: 'mouseleave',  handler: 'onMouseLeave', options: {capture: true}},
     {name: 'wheel',       handler: 'onWheel',      options: {passive: false}}
+];
+
+// Will get applied to the document.body in case Neo.config.useTouchEvents === true (default value)
+const touchEvents = [
+    {name: 'touchcancel', handler: 'onTouchCancel'},
+    {name: 'touchend',    handler: 'onTouchEnd'},
+    {name: 'touchenter',  handler: 'onTouchEnter'},
+    {name: 'touchleave',  handler: 'onTouchLeave'},
+    {name: 'touchmove',   handler: 'onTouchMove'},
+    {name: 'touchstart',  handler: 'onTouchStart'}
 ];
 
 // wheel events fire very often, so we limit the targets to avoid unnecessary post messages from main to the app worker
@@ -57,6 +68,11 @@ class DomEvents extends Base {
          * @private
          */
         className: 'Neo.main.DomEvents',
+        /**
+         * todo: conditional dynamic import once the build processes can handle it
+         * @member {Array} mixins=[TouchDomEvents]
+         */
+        mixins: [TouchDomEvents],
         /**
          * @member {boolean} singleton=true
          * @private
@@ -130,7 +146,7 @@ class DomEvents extends Base {
     addGlobalDomListeners() {
         let me = this;
 
-        globalDomEvents.forEach(event => {
+        [...globalDomEvents].concat(Neo.config.useTouchEvents ? touchEvents : []).forEach(event => {
             document.body.addEventListener(event.name, me[event.handler].bind(me), event.options);
         });
     }
