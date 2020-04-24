@@ -1,5 +1,6 @@
-import Base       from '../core/Base.mjs';
-import Observable from '../core/Observable.mjs';
+import Base           from '../core/Base.mjs';
+import Observable     from '../core/Observable.mjs';
+import TouchDomEvents from './mixins/TouchDomEvents.mjs';
 
 const globalDomEvents = [
     {name: 'change',      handler: 'onChange'},
@@ -67,6 +68,11 @@ class DomEvents extends Base {
          * @private
          */
         className: 'Neo.main.DomEvents',
+        /**
+         * todo: conditional dynamic import once the build processes can handle it
+         * @member {Array} mixins=[TouchDomEvents]
+         */
+        mixins: [TouchDomEvents],
         /**
          * @member {boolean} singleton=true
          * @private
@@ -413,55 +419,6 @@ class DomEvents extends Base {
             ...this.getMouseEventData(event),
             toElementId: event.toElement && event.toElement.id || null
         });
-    }
-
-    /**
-     *
-     * @param {Object} event
-     */
-    onTouchCancel(event) {
-        this.sendMessageToApp(this.getEventData(event));
-    }
-
-    /**
-     *
-     * @param {Object} event
-     */
-    onTouchEnd(event) {
-        this.sendMessageToApp(this.getEventData(event));
-    }
-
-    /**
-     *
-     * @param {Object} event
-     */
-    onTouchEnter(event) {
-        this.sendMessageToApp(this.getEventData(event));
-    }
-
-    /**
-     *
-     * @param {Object} event
-     */
-    onTouchLeave(event) {
-        this.sendMessageToApp(this.getEventData(event));
-    }
-
-    /**
-     *
-     * @param {Object} event
-     */
-    onTouchMove(event) {
-        this.sendMessageToApp(this.getEventData(event));
-    }
-
-    /**
-     *
-     * @param {Object} event
-     */
-    onTouchStart(event) {
-        console.log('onTouchStart', event);
-        this.sendMessageToApp(this.getEventData(event));
     }
 
     /**

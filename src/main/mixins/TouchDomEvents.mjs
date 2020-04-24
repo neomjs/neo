@@ -16,6 +16,55 @@ class TouchDomEvents extends Base {
             className: 'Neo.main.mixins.TouchDomEvents'
         }
     }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onTouchCancel(event) {
+        this.sendMessageToApp(this.getEventData(event));
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onTouchEnd(event) {
+        this.sendMessageToApp(this.getEventData(event));
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onTouchEnter(event) {
+        this.sendMessageToApp(this.getEventData(event));
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onTouchLeave(event) {
+        this.sendMessageToApp(this.getEventData(event));
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onTouchMove(event) {
+        this.sendMessageToApp(this.getEventData(event));
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onTouchStart(event) {
+        console.log('onTouchStart', event);
+        this.sendMessageToApp(this.getEventData(event));
+    }
 }
 
 Neo.applyClassConfig(TouchDomEvents);
