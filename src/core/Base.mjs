@@ -166,9 +166,7 @@ class Base {
             delete Neo.idMap[me.id];
         }
 
-        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Reflect/ownKeys
-        // equivalent to Object.getOwnPropertyNames(me).concat(Object.getOwnPropertySymbols(me))
-        Reflect.ownKeys(me).forEach(key => {
+        Object.keys(me).forEach(key => {
             if (Object.getOwnPropertyDescriptor(me, key).writable) {
                 delete me[key];
             }
