@@ -7,37 +7,18 @@ const fs          = require('fs-extra'),
       entry       = {main: path.resolve(neoPath, config.mainInput)};
 
 module.exports = {
-    mode: 'development',
-
-    // see: https://webpack.js.org/configuration/devtool/
+    mode   : 'development',
     devtool: 'inline-source-map',
-    //devtool: 'cheap-module-eval-source-map',
 
     entry    : entry,
     target   : 'web',
 
     output: {
         filename: (chunkData) => {
-            console.log(chunkData.chunk.name, 'foo');
-
             if (chunkData.chunk.name === 'main') {
                 return config.mainOutput;
             }
         },
         path: path.resolve(processRoot, config.buildFolder)
-    }/*,
-
-    optimization: {
-        splitChunks: {
-            chunks: 'all',
-
-            cacheGroups: {
-                collection: {
-                    test (chunks) {
-                        return true;
-                    }
-                }
-            }
-        }
-    }*/
+    }
 };

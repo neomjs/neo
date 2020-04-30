@@ -6,6 +6,8 @@ import LocalStorage               from './main/mixins/LocalStorage.mjs';
 import MapboxGL                   from './main/lib/MapboxGL.mjs';
 import {default as WorkerManager} from './worker/Manager.mjs';
 
+__webpack_public_path__ = '../../';
+
 /**
  * @class Neo.Main
  * @extends Neo.core.Base
@@ -173,7 +175,7 @@ class Main extends core.Base {
         // using a static import for now. see:
         // https://github.com/neomjs/neo/issues/393
         if (Neo.config.useAmCharts) {
-            await import(/* webpackChunkName: 'AmCharts' */ './main/lib/AmCharts.mjs');
+            await import(/* webpackChunkName: 'src/main/lib/AmCharts' */ './main/lib/AmCharts.mjs');
         }
 
         if (Neo.config.useGoogleAnalytics) {
