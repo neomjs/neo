@@ -18,14 +18,8 @@ module.exports = {
 
     output: {
         filename: (chunkData) => {
-            let name = chunkData.chunk.name;
-
-            if (name === 'main') {
+            if (chunkData.chunk.name === 'main') {
                 return config.mainOutput;
-            } else if (config.workers.hasOwnProperty(name)) {
-                return config.workers[name].output;
-            } else if (config.examples.hasOwnProperty(name)) {
-                return config.examples[name].output + 'app.js';
             }
         },
         path: path.resolve(processRoot, config.buildFolder)
