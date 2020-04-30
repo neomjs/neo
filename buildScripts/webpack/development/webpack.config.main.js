@@ -18,6 +18,8 @@ module.exports = {
 
     output: {
         filename: (chunkData) => {
+            console.log(chunkData.chunk.name, 'foo');
+
             if (chunkData.chunk.name === 'main') {
                 return config.mainOutput;
             }
