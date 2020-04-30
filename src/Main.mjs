@@ -6,7 +6,9 @@ import LocalStorage               from './main/mixins/LocalStorage.mjs';
 import MapboxGL                   from './main/lib/MapboxGL.mjs';
 import {default as WorkerManager} from './worker/Manager.mjs';
 
-__webpack_public_path__ = '../../';
+if (window.__webpack_public_path__) {
+    __webpack_public_path__ = '../../';
+}
 
 /**
  * @class Neo.Main
