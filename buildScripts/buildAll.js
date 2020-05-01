@@ -27,6 +27,10 @@ cp.spawnSync(npmCmd, ['run', 'prod-theme-dark-no-css4'],  cpOpts);
 cp.spawnSync(npmCmd, ['run', 'prod-theme-light'],         cpOpts);
 cp.spawnSync(npmCmd, ['run', 'prod-theme-light-no-css4'], cpOpts);
 
+// neo dist versions => main thread
+cp.spawnSync(npmCmd, ['run', 'dev-build-main'],           cpOpts);
+cp.spawnSync(npmCmd, ['run', 'prod-build-main'],          cpOpts);
+
 // neo dist versions => examples, docs app
 // not included in all sub-repos, e.g.:
 // https://github.com/neomjs/covid-dashboard
