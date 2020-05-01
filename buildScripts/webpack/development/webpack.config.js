@@ -42,19 +42,17 @@ if (config.examples) {
             templateParameters: {
                 appPath       : value.output + 'app.js',
                 bodyTag       : value.bodyTag || config.bodyTag,
-                basePath      : basePath,
+                basePath,
                 environment   : config.environment,
                 themes        : value.themes || "'neo-theme-light', 'neo-theme-dark'", // arrays are not supported as templateParameters
                 title         : value.title,
                 useAmCharts   : value.hasOwnProperty('useAmCharts') ? value.useAmCharts : false,
                 useMapboxGL   : value.hasOwnProperty('useMapboxGL') ? value.useMapboxGL : false,
-                workerBasePath: workerBasePath
+                workerBasePath
             }
         }));
     });
 }
-
-console.log(path.resolve(processRoot, config.buildFolder, 'main.js'));
 
 module.exports = {
     mode: 'development',
@@ -63,7 +61,7 @@ module.exports = {
     devtool: 'inline-source-map',
     //devtool: 'cheap-module-eval-source-map',
 
-    entry    : entry,
+    entry,
     externals: [NodeExternals()], // in order to ignore all modules in node_modules folder
     target   : 'node',            // in order to ignore built-in modules like path, fs, etc.
 

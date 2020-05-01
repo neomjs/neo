@@ -8,7 +8,7 @@ const fs          = require('fs-extra'),
 
 module.exports = {
     mode  : 'production',
-    entry : entry,
+    entry,
     target: 'web',
 
     output: {

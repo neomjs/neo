@@ -9,7 +9,7 @@ const fs          = require('fs-extra'),
 module.exports = {
     mode   : 'development',
     devtool: 'inline-source-map',
-    entry  : entry,
+    entry,
     target : 'web',
 
     output: {

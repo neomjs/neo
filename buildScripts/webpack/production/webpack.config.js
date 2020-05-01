@@ -42,13 +42,13 @@ if (config.examples) {
             templateParameters: {
                 appPath       : value.output + 'app.js',
                 bodyTag       : value.bodyTag || config.bodyTag,
-                basePath      : basePath,
+                basePath,
                 environment   : config.environment,
                 themes        : value.themes || "'neo-theme-light', 'neo-theme-dark'", // arrays are not supported as templateParameters
                 title         : value.title,
                 useAmCharts   : value.hasOwnProperty('useAmCharts') ? value.useAmCharts : false,
                 useMapboxGL   : value.hasOwnProperty('useMapboxGL') ? value.useMapboxGL : false,
-                workerBasePath: workerBasePath
+                workerBasePath
             }
         }));
     });

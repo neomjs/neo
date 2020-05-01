@@ -50,7 +50,7 @@ module.exports = env => {
                 type   : 'checkbox',
                 name   : 'apps',
                 message: 'Please choose which apps you want to build:',
-                choices: choices
+                choices
             }];
 
             let done = false;
@@ -95,13 +95,13 @@ module.exports = env => {
                         templateParameters: {
                             appPath       : value.output + 'app.js',
                             bodyTag       : value.bodyTag || config.bodyTag,
-                            basePath      : basePath,
+                            basePath,
                             environment   : 'production',
                             themes        : value.themes || "'neo-theme-light', 'neo-theme-dark'", // arrays are not supported as templateParameters
                             title         : value.title,
                             useAmCharts   : value.hasOwnProperty('useAmCharts') ? value.useAmCharts : false,
                             useMapboxGL   : value.hasOwnProperty('useMapboxGL') ? value.useMapboxGL : false,
-                            workerBasePath: workerBasePath
+                            workerBasePath
                         }
                     }));
                 }
@@ -111,9 +111,9 @@ module.exports = env => {
 
     return {
         mode     : 'production',
-        entry    : entry,
+        entry,
         externals: [NodeExternals()], // in order to ignore all modules in node_modules folder
-        plugins  : plugins,
+        plugins,
         target   : 'node',            // in order to ignore built-in modules like path, fs, etc.
 
         output: {
