@@ -9,9 +9,8 @@ const fs          = require('fs-extra'),
 module.exports = {
     mode   : 'development',
     devtool: 'inline-source-map',
-
-    entry    : entry,
-    target   : 'web',
+    entry  : entry,
+    target : 'web',
 
     output: {
         filename: (chunkData) => {
