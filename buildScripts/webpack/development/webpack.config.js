@@ -54,6 +54,8 @@ if (config.examples) {
     });
 }
 
+console.log(path.resolve(processRoot, config.buildFolder, 'main.js'));
+
 module.exports = {
     mode: 'development',
 
@@ -67,7 +69,7 @@ module.exports = {
 
     plugins: [
         new CleanWebpackPlugin({
-            cleanOnceBeforeBuildPatterns: ['**/*.js', '**/*.mjs', '!apps/**/*.js', '!**/*highlight.pack.js'],
+            cleanOnceBeforeBuildPatterns: ['**/*.js', '**/*.mjs', '!apps/**/*.js', '!**/*highlight.pack.js', '!main.js'],
             root                        : path.resolve(processRoot, config.buildFolder),
             verbose                     : true
         }),
