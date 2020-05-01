@@ -36,7 +36,7 @@ if (config.examples) {
         }
 
         plugins.push(new HtmlWebpackPlugin({
-            chunks  : ['main'],
+            chunks  : [],
             filename: path.resolve(processRoot, config.buildFolder) + value.output + 'index.html',
             template: path.resolve(neoPath, value.indexPath || 'buildScripts/webpack/index.ejs'),
             templateParameters: {
@@ -44,6 +44,7 @@ if (config.examples) {
                 bodyTag       : value.bodyTag || config.bodyTag,
                 basePath,
                 environment   : config.environment,
+                mainPath      : workerBasePath + 'main.js',
                 themes        : value.themes || "'neo-theme-light', 'neo-theme-dark'", // arrays are not supported as templateParameters
                 title         : value.title,
                 useAmCharts   : value.hasOwnProperty('useAmCharts') ? value.useAmCharts : false,

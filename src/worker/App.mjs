@@ -66,7 +66,7 @@ class App extends Base {
          * @member {Number} countMainRemotes=5
          * @private
          */
-        countMainRemotes: 5,
+        countMainRemotes: 4, // todo => dynamic for amCharts
         /**
          * todo: App needs to know how many singletons have remotes registered here to ensure a correct starting point
          * @member {Number} countVdomRemotes=1
