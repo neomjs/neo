@@ -89,7 +89,7 @@ module.exports = env => {
 
                 if (!fs.existsSync(indexPath)) {
                     plugins.push(new HtmlWebpackPlugin({
-                        chunks  : ['main'],
+                        chunks  : [],
                         filename: indexPath,
                         template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
                         templateParameters: {
@@ -97,6 +97,7 @@ module.exports = env => {
                             bodyTag       : value.bodyTag || config.bodyTag,
                             basePath,
                             environment   : 'production',
+                            mainPath      : workerBasePath + 'main.js',
                             themes        : value.themes || "'neo-theme-light', 'neo-theme-dark'", // arrays are not supported as templateParameters
                             title         : value.title,
                             useAmCharts   : value.hasOwnProperty('useAmCharts') ? value.useAmCharts : false,
