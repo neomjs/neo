@@ -117,6 +117,8 @@ module.exports = env => {
         target   : 'node',            // in order to ignore built-in modules like path, fs, etc.
 
         output: {
+            chunkFilename: '[name].js', // would default to '[id].js': src/main/lib/AmCharts => 1.js
+
             filename: (chunkData) => {
                 let name = chunkData.chunk.name;
 
