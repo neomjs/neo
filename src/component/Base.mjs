@@ -638,7 +638,7 @@ class Base extends CoreBase {
             if (Neo.ns('Neo.tooltip.Base')) {
                 me.createTooltips(value);
             } else {
-                import(
+                import(/* webpackChunkName: 'src/tooltip/Base' */
                     '../tooltip/Base.mjs').then((module) => {
                         me.createTooltips(value);
                     }

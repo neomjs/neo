@@ -8,7 +8,7 @@ const fs                     = require('fs-extra'),
       packageJson            = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
       neoPath                = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
       config                 = JSON.parse(fs.readFileSync(path.resolve(neoPath, 'buildScripts/webpack/production/build.json')), 'utf8'),
-      entry                  = {main: path.resolve(neoPath, config.mainInput)},
+      entry                  = {},
       plugins                = [];
 
 let basePath, i, treeLevel, workerBasePath;
@@ -36,19 +36,20 @@ if (config.examples) {
         }
 
         plugins.push(new HtmlWebpackPlugin({
-            chunks  : ['main'],
+            chunks  : [],
             filename: path.resolve(processRoot, config.buildFolder) + value.output + 'index.html',
             template: path.resolve(neoPath, value.indexPath || 'buildScripts/webpack/index.ejs'),
             templateParameters: {
                 appPath       : value.output + 'app.js',
                 bodyTag       : value.bodyTag || config.bodyTag,
-                basePath      : basePath,
+                basePath,
                 environment   : config.environment,
+                mainPath      : workerBasePath + 'main.js',
                 themes        : value.themes || "'neo-theme-light', 'neo-theme-dark'", // arrays are not supported as templateParameters
                 title         : value.title,
                 useAmCharts   : value.hasOwnProperty('useAmCharts') ? value.useAmCharts : false,
                 useMapboxGL   : value.hasOwnProperty('useMapboxGL') ? value.useMapboxGL : false,
-                workerBasePath: workerBasePath
+                workerBasePath
             }
         }));
     });
@@ -62,7 +63,7 @@ module.exports = {
 
     plugins: [
         new CleanWebpackPlugin({
-            cleanOnceBeforeBuildPatterns: ['**/*.js', '**/*.mjs', '!apps/**/*.js', '!**/*highlight.pack.js'],
+            cleanOnceBeforeBuildPatterns: ['**/*.js', '**/*.mjs', '!apps/**/*.js', '!**/*highlight.pack.js', '!main.js'],
             root                        : path.resolve(processRoot, config.buildFolder),
             verbose                     : true
         }),
@@ -76,9 +77,7 @@ module.exports = {
         filename: (chunkData) => {
             let name = chunkData.chunk.name;
 
-            if (name === 'main') {
-                return config.mainOutput;
-            } else if (config.workers.hasOwnProperty(name)) {
+            if (config.workers.hasOwnProperty(name)) {
                 return config.workers[name].output;
             } else if (config.examples.hasOwnProperty(name)) {
                 return config.examples[name].output + 'app.js';

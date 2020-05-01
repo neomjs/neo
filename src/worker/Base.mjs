@@ -53,6 +53,14 @@ class Base extends CoreBase {
 
     /**
      *
+     */
+    onConstructed() {
+        super.onConstructed();
+        this.sendMessage('main', {action: 'workerConstructed'});
+    }
+
+    /**
+     *
      * @param {Object} e
      */
     onMessage(e) {

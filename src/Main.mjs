@@ -1,6 +1,5 @@
 import Neo                        from './Neo.mjs';
 import * as core                  from './core/_export.mjs';
-import AmCharts                   from './main/lib/AmCharts.mjs';
 import DomAccess                  from './main/DomAccess.mjs';
 import DomEvents                  from './main/DomEvents.mjs';
 import LocalStorage               from './main/mixins/LocalStorage.mjs';
@@ -149,7 +148,7 @@ class Main extends core.Base {
     /**
      *
      */
-    onDomContentLoaded() {
+    async onDomContentLoaded() {
         let me = this;
 
         me.isReady = true;
@@ -171,20 +170,20 @@ class Main extends core.Base {
         // we can not use dynamic imports until webpack is ready to support it.
         // using a static import for now. see:
         // https://github.com/neomjs/neo/issues/393
-        /*if (Neo.config.useAmCharts) {
-            import('./main/AmCharts.mjs');
-        }*/
+        if (Neo.config.useAmCharts) {
+            await import(/* webpackChunkName: 'src/main/lib/AmCharts' */ './main/lib/AmCharts.mjs');
+        }
 
         if (Neo.config.useGoogleAnalytics) {
             DomAccess.insertGoogleAnalyticsScript();
         }
 
-        if (Neo.config.appPath) {
-            WorkerManager.loadApplication(Neo.config.appPath);
-        }
-
         // not in use right now
         // window.addEventListener('resize', me['globalResizeListener'].bind(me));
+
+        WorkerManager.onWorkerConstructed({
+            origin: 'main'
+        });
     }
 
     // todo: https://developer.mozilla.org/en-US/docs/Web/Events/resize
