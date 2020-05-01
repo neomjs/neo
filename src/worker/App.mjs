@@ -31,48 +31,15 @@ class App extends Base {
          */
         data: null,
         /**
-         * @member {Number} dataRemotesRegistered=0
-         * @private
-         */
-        dataRemotesRegistered: 0,
-        /**
-         * @member {Number} mainRemotesRegistered=0
-         * @private
-         */
-        mainRemotesRegistered: 0,
-        /**
          * @member {Boolean} singleton=true
          * @private
          */
         singleton: true,
         /**
-         * @member {Number} vdomRemotesRegistered=0
-         * @private
-         */
-        vdomRemotesRegistered: 0,
-        /**
          * @member {String} workerId='app'
          * @private
          */
-        workerId: 'app',
-        /**
-         * todo: App needs to know how many singletons have remotes registered here to ensure a correct starting point
-         * @member {Number} countDataRemotes=2
-         * @private
-         */
-        countDataRemotes: 2,
-        /**
-         * todo: App needs to know how many singletons have remotes registered here to ensure a correct starting point
-         * @member {Number} countMainRemotes=5
-         * @private
-         */
-        countMainRemotes: 4, // todo => dynamic for amCharts
-        /**
-         * todo: App needs to know how many singletons have remotes registered here to ensure a correct starting point
-         * @member {Number} countVdomRemotes=1
-         * @private
-         */
-        countVdomRemotes: 1
+        workerId: 'app'
     }}
 
     /**
@@ -115,53 +82,32 @@ class App extends Base {
             Neo.config.resourcesPath = data.resourcesPath;
         }
 
-        if (
-            me.dataRemotesRegistered === me.countDataRemotes &&
-            me.mainRemotesRegistered === me.countMainRemotes &&
-            me.vdomRemotesRegistered === me.countVdomRemotes
-        ) {
-            if (!Neo.config.isExperimental) {
-                Neo.onStart();
+        if (!Neo.config.isExperimental) {
+            Neo.onStart();
 
-                if (Neo.config.hash) {
-                    HashHistory.push(Neo.config.hash, Neo.config.hashString);
-                }
-            } else {
-                import(
-                    /* webpackIgnore: true */
-                    `../../${me.data.path}`).then(module => {
-                        Neo.onStart();
-
-                        if (Neo.config.hash) {
-                            HashHistory.push(Neo.config.hash, Neo.config.hashString);
-                        }
-                    }
-                );
+            if (Neo.config.hash) {
+                HashHistory.push(Neo.config.hash, Neo.config.hashString);
             }
+        } else {
+            import(
+                /* webpackIgnore: true */
+                `../../${me.data.path}`).then(module => {
+                    Neo.onStart();
+
+                    if (Neo.config.hash) {
+                        HashHistory.push(Neo.config.hash, Neo.config.hashString);
+                    }
+                }
+            );
         }
     }
 
     /**
-     * todo: https://github.com/neomjs/neo/issues/442
-     * Each registered remote method will trigger this receiver
+     * Keeping this one for debugging reasons
      * @param {Object} remote
      */
     onRemoteRegistered(remote) {
-        let me = this;
-
-        switch(remote.origin) {
-            case 'data':
-                me.dataRemotesRegistered++;
-                break;
-            case 'main':
-                me.mainRemotesRegistered++;
-                break;
-            case 'vdom':
-                me.vdomRemotesRegistered++;
-                break;
-        }
-
-        me.onLoadApplication();
+        // console.log('app worker onRemoteRegistered');
     }
 }
 

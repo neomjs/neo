@@ -36,6 +36,11 @@ class Manager extends Base {
          */
         basePath: Neo.config.workerBasePath || 'worker/',
         /**
+         * @member {Number} constructedThreads=0
+         * @private
+         */
+        constructedThreads: 0,
+        /**
          * @member {String[]|Neo.core.Base[]|null} mixins=[Observable, RemoteMethodAccess]
          */
         mixins: [Observable, RemoteMethodAccess],
@@ -104,7 +109,8 @@ class Manager extends Base {
             'message:scrollIntoView'       : {fn: DomAccess.onScrollIntoView,      scope: DomAccess},
             'message:syntaxHighlight'      : {fn: DomAccess.onSyntaxHighlight,     scope: DomAccess},
             'message:syntaxHighlightInit'  : {fn: DomAccess.onSyntaxHighlightInit, scope: DomAccess},
-            'message:syntaxHighlightLine'  : {fn: DomAccess.onSyntaxHighlightLine, scope: DomAccess}
+            'message:syntaxHighlightLine'  : {fn: DomAccess.onSyntaxHighlightLine, scope: DomAccess},
+            'message:workerConstructed'    : {fn: me.onWorkerConstructed,          scope: me}
         });
     }
 
@@ -180,6 +186,24 @@ class Manager extends Base {
                 action: 'registerNeoConfig',
                 data  : Neo.config
             });
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onWorkerConstructed(data) {
+        let me = this;
+
+        me.constructedThreads++;
+
+        if (me.constructedThreads === Object.keys(me.workers).length + 1) {
+            if (Neo.config.appPath) {
+                setTimeout(() => { // better save than sorry => all remotes need to be registered
+                    me.loadApplication(Neo.config.appPath);
+                }, 20);
+            }
         }
     }
 

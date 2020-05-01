@@ -178,12 +178,12 @@ class Main extends core.Base {
             DomAccess.insertGoogleAnalyticsScript();
         }
 
-        if (Neo.config.appPath) {
-            WorkerManager.loadApplication(Neo.config.appPath);
-        }
-
         // not in use right now
         // window.addEventListener('resize', me['globalResizeListener'].bind(me));
+
+        WorkerManager.onWorkerConstructed({
+            origin: 'main'
+        });
     }
 
     // todo: https://developer.mozilla.org/en-US/docs/Web/Events/resize
