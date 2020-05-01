@@ -6,12 +6,6 @@ import LocalStorage               from './main/mixins/LocalStorage.mjs';
 import MapboxGL                   from './main/lib/MapboxGL.mjs';
 import {default as WorkerManager} from './worker/Manager.mjs';
 
-// by default webpack is looking for lazy loaded chunks in the spot of the app file
-// instead of the path of the main file (relative to its inclusion)
-if (window.__webpack_public_path__) {
-    __webpack_public_path__ = '../../';
-}
-
 /**
  * @class Neo.Main
  * @extends Neo.core.Base
