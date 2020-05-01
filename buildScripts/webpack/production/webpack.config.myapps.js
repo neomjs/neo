@@ -27,7 +27,7 @@ if (!config.buildFolder) {
     config.buildFolder = 'dist/production';
 }
 
-entry = {main: path.resolve(neoPath, config.mainInput)};
+entry = {};
 
 if (config.workers) {
     Object.entries(config.workers).forEach(([key, value]) => {
@@ -120,9 +120,7 @@ module.exports = env => {
             filename: (chunkData) => {
                 let name = chunkData.chunk.name;
 
-                if (name === 'main') {
-                    return config.mainOutput;
-                } else if (config.workers.hasOwnProperty(name)) {
+                if (config.workers.hasOwnProperty(name)) {
                     return config.workers[name].output;
                 } else if (config.apps.hasOwnProperty(name)) {
                     if (buildAll || choices.length < 2 || inquirerAnswers.apps.includes(name)) {
