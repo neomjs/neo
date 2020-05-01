@@ -8,7 +8,7 @@ const fs                     = require('fs-extra'),
       packageJson            = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
       neoPath                = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
       config                 = JSON.parse(fs.readFileSync(path.resolve(neoPath, 'buildScripts/webpack/production/build.json')), 'utf8'),
-      entry                  = {main: path.resolve(neoPath, config.mainInput)},
+      entry                  = {},
       plugins                = [];
 
 let basePath, i, treeLevel, workerBasePath;
@@ -62,7 +62,7 @@ module.exports = {
 
     plugins: [
         new CleanWebpackPlugin({
-            cleanOnceBeforeBuildPatterns: ['**/*.js', '**/*.mjs', '!apps/**/*.js', '!**/*highlight.pack.js'],
+            cleanOnceBeforeBuildPatterns: ['**/*.js', '**/*.mjs', '!apps/**/*.js', '!**/*highlight.pack.js', '!main.js'],
             root                        : path.resolve(processRoot, config.buildFolder),
             verbose                     : true
         }),
@@ -76,9 +76,7 @@ module.exports = {
         filename: (chunkData) => {
             let name = chunkData.chunk.name;
 
-            if (name === 'main') {
-                return config.mainOutput;
-            } else if (config.workers.hasOwnProperty(name)) {
+            if (config.workers.hasOwnProperty(name)) {
                 return config.workers[name].output;
             } else if (config.examples.hasOwnProperty(name)) {
                 return config.examples[name].output + 'app.js';
