@@ -170,8 +170,17 @@ function generateStructure(target, parentId, docs) {
     });
 }
 
+console.log('Start default jsdocx parsing.');
+const startDateDefault = new Date();
+
 jsdocx.parse(options)
     .then(function (docs) {
+        console.log('Default jsdocx parsing done.');
+        const processTimeDefault = (Math.round((new Date - startDateDefault) * 100) / 100000).toFixed(2);
+        console.log(`jsdocx default parsing time: ${processTimeDefault}s`);
+
+        const startDate = new Date();
+
         let i         = 0,
             len       = docs.length,
             structure = {},
@@ -340,6 +349,10 @@ jsdocx.parse(options)
             indent: 4,
             force : true
         }, neoStructure);
+
+
+        const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
+        console.log(`jsdocx custom parsing time: ${processTime}s`);
     })
     .catch(function (err) {
         console.log(err.stack);
