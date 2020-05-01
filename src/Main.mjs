@@ -6,6 +6,8 @@ import LocalStorage               from './main/mixins/LocalStorage.mjs';
 import MapboxGL                   from './main/lib/MapboxGL.mjs';
 import {default as WorkerManager} from './worker/Manager.mjs';
 
+// by default webpack is looking for lazy loaded chunks in the spot of the app file
+// instead of the path of the main file (relative to its inclusion)
 if (window.__webpack_public_path__) {
     __webpack_public_path__ = '../../';
 }
@@ -170,8 +172,6 @@ class Main extends core.Base {
         if (Neo.config.isInsideSiesta) {
             DomAccess.adjustSiestaEnvironment();
         }
-
-        console.log('##### test new main build');
 
         // we can not use dynamic imports until webpack is ready to support it.
         // using a static import for now. see:
