@@ -118,7 +118,7 @@ module.exports = env => {
 
         entry,
         plugins,
-        target: 'webworker', // in order to ignore built-in modules like path, fs, etc.
+        target: 'webworker',
 
         output: {
             filename: (chunkData) => {

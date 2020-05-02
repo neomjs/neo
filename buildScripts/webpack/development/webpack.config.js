@@ -62,7 +62,7 @@ module.exports = {
     //devtool: 'cheap-module-eval-source-map',
 
     entry,
-    target: 'webworker', // in order to ignore built-in modules like path, fs, etc.
+    target: 'webworker',
 
     plugins: [
         new CleanWebpackPlugin({

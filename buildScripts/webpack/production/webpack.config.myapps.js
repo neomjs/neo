@@ -113,7 +113,7 @@ module.exports = env => {
         mode  : 'production',
         entry,
         plugins,
-        target: 'webworker', // in order to ignore built-in modules like path, fs, etc.
+        target: 'webworker',
 
         output: {
             chunkFilename: '[name].js', // would default to '[id].js': src/main/lib/AmCharts => 1.js
