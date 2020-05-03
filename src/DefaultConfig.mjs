@@ -138,6 +138,14 @@ const DefaultConfig = {
      */
     useGoogleAnalytics: false,
     /**
+     * Flag to only include Neo.main.mixins.LocalStorage if needed
+     * @default true
+     * @memberOf! module:Neo
+     * @name config.useLocalStorage
+     * @type Boolean
+     */
+    useLocalStorage: true,
+    /**
      * Flag if you want to load the files needed for working with Mapbox GL
      * https://docs.mapbox.com/mapbox-gl-js/overview/
      * @default false
