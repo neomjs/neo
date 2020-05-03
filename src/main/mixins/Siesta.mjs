@@ -26,7 +26,7 @@ class Siesta extends Base {
             len = document.styleSheets.length,
             sheet;
 
-        document.body.classList.add('neo-body', 'neo-body-viewport', 'neo-theme-dark');
+        document.body.classList.add('neo-body', 'neo-body-viewport');
 
         for (; i < len; i++) {
             sheet = document.styleSheets[i];

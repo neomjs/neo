@@ -4,8 +4,22 @@ import Markdown        from './mixins/Markdown.mjs';
 import GoogleAnalytics from './mixins/GoogleAnalytics.mjs';
 import Hljs            from './mixins/Hljs.mjs';
 import Observable      from '../core/Observable.mjs';
-import Siesta          from './mixins/Siesta.mjs';
 import Stylesheet      from './mixins/Stylesheet.mjs';
+
+const mixins = [
+    DeltaUpdates,
+    GoogleAnalytics,
+    Hljs,
+    Markdown,
+    Observable,
+    Stylesheet
+];
+
+(async () => {
+    if (Neo.config.isInsideSiesta) {
+        mixins.push(await import(/* webpackChunkName: 'src/main/mixins/Siesta' */ './mixins/Siesta.mjs'));
+    }
+})();
 
 /**
  * @class Neo.main.DomAccess
@@ -29,17 +43,10 @@ class DomAccess extends Base {
          */
         singleton: true,
         /**
+         * Can be a subset depending on the Neo.config values
          * @member {Array} mixins=[DeltaUpdates, GoogleAnalytics, Hljs, Markdown, Observable, Siesta, Stylesheet]
          */
-        mixins: [
-            DeltaUpdates,
-            GoogleAnalytics,
-            Hljs,
-            Markdown,
-            Observable,
-            Siesta,
-            Stylesheet
-        ],
+        mixins: mixins,
         /**
          * Remote method access for other workers
          * @member {Object} remote={app: [//...]}
