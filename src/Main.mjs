@@ -2,8 +2,15 @@ import Neo                        from './Neo.mjs';
 import * as core                  from './core/_export.mjs';
 import DomAccess                  from './main/DomAccess.mjs';
 import DomEvents                  from './main/DomEvents.mjs';
-import LocalStorage               from './main/mixins/LocalStorage.mjs';
 import {default as WorkerManager} from './worker/Manager.mjs';
+
+const mixins = [];
+
+(async () => {
+    if (Neo.config.useLocalStorage) {
+        mixins.push(await import(/* webpackChunkName: 'src/main/mixins/LocalStorage' */ './main/mixins/LocalStorage.mjs'));
+    }
+})();
 
 /**
  * @class Neo.Main
@@ -41,9 +48,10 @@ class Main extends core.Base {
          */
         logAnimationFrames: true,
         /**
-         * @member {Array} mixins=[LocalStorage]
+         * Optionally includes main/mixins/LocalStorage => Neo.config.useLocalStorage
+         * @member {Array} mixins=[]
          */
-        mixins: [LocalStorage],
+        mixins: mixins,
         /**
          * @member {String} mode='read'
          * @private
