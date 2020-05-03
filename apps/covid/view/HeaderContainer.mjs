@@ -116,7 +116,7 @@ class HeaderContainer extends Container {
                     }
                 }]
             }, {
-                ntype: 'container',
+                ntype : 'container',
                 layout: {ntype: 'hbox'},
 
                 itemDefaults: {

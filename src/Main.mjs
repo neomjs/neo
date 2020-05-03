@@ -3,7 +3,6 @@ import * as core                  from './core/_export.mjs';
 import DomAccess                  from './main/DomAccess.mjs';
 import DomEvents                  from './main/DomEvents.mjs';
 import LocalStorage               from './main/mixins/LocalStorage.mjs';
-import MapboxGL                   from './main/lib/MapboxGL.mjs';
 import {default as WorkerManager} from './worker/Manager.mjs';
 
 /**
@@ -167,11 +166,12 @@ class Main extends core.Base {
             DomAccess.adjustSiestaEnvironment();
         }
 
-        // we can not use dynamic imports until webpack is ready to support it.
-        // using a static import for now. see:
-        // https://github.com/neomjs/neo/issues/393
         if (Neo.config.useAmCharts) {
             await import(/* webpackChunkName: 'src/main/lib/AmCharts' */ './main/lib/AmCharts.mjs');
+        }
+
+        if (Neo.config.useMapboxGL) {
+            await import(/* webpackChunkName: 'src/main/lib/MapboxGL' */ './main/lib/MapboxGL.mjs');
         }
 
         if (Neo.config.useGoogleAnalytics) {
