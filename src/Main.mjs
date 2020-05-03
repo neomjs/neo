@@ -148,7 +148,8 @@ class Main extends core.Base {
      *
      */
     async onDomContentLoaded() {
-        let me = this;
+        let me      = this,
+            imports = [];
 
         me.isReady = true;
 
@@ -167,12 +168,14 @@ class Main extends core.Base {
         }
 
         if (Neo.config.useAmCharts) {
-            await import(/* webpackChunkName: 'src/main/lib/AmCharts' */ './main/lib/AmCharts.mjs');
+            imports.push(import(/* webpackChunkName: 'src/main/lib/AmCharts' */ './main/lib/AmCharts.mjs'));
         }
 
         if (Neo.config.useMapboxGL) {
-            await import(/* webpackChunkName: 'src/main/lib/MapboxGL' */ './main/lib/MapboxGL.mjs');
+            imports.push(import(/* webpackChunkName: 'src/main/lib/MapboxGL' */ './main/lib/MapboxGL.mjs'));
         }
+
+        await Promise.all(imports);
 
         if (Neo.config.useGoogleAnalytics) {
             DomAccess.insertGoogleAnalyticsScript();
