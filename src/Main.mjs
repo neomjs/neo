@@ -175,11 +175,11 @@ class Main extends core.Base {
             imports.push(import(/* webpackChunkName: 'src/main/lib/MapboxGL' */ './main/lib/MapboxGL.mjs'));
         }
 
-        await Promise.all(imports);
-
         if (Neo.config.useGoogleAnalytics) {
             DomAccess.insertGoogleAnalyticsScript();
         }
+
+        await Promise.all(imports);
 
         // not in use right now
         // window.addEventListener('resize', me['globalResizeListener'].bind(me));
