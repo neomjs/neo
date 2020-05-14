@@ -21,6 +21,7 @@ class Stylesheet extends Base {
              */
             remote: {
                 app: [
+                    'createStyleSheet',
                     'swapStyleSheet'
                 ]
             },

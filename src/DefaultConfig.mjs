@@ -36,7 +36,7 @@ const DefaultConfig = {
     basePath: './',
     /**
      * Path to the neo.mjs theme css files
-     * See main.mixins.Stylesheet => createStyleSheet()
+     * See main.addon.Stylesheet => createStyleSheet()
      * @default Neo.config.basePath + 'build/' + Neo.config.environment
      * @memberOf! module:Neo
      * @name [config.cssPath]
