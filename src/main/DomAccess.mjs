@@ -74,17 +74,23 @@ class DomAccess extends Base {
     constructor(config) {
         super(config);
 
-        let me = this;
+        let me      = this,
+            imports = [];
 
         if (me.logDeltaUpdates) {
             me.countDeltas  = 0;
             me.countUpdates = 0;
         }
 
-        Promise.all([
-            import(/* webpackChunkName: 'src/main/addon/Siesta' */     './addon/Siesta.mjs'),
-            import(/* webpackChunkName: 'src/main/addon/Stylesheet' */ './addon/Stylesheet.mjs')
-        ]).then(modules => {
+        if (Neo.config.isInsideSiesta) {
+            imports.push(import(/* webpackChunkName: 'src/main/addon/Siesta' */     './addon/Siesta.mjs'));
+        }
+
+        if (Neo.config.themes.length > 0 || Neo.config.useFontAwesome) {
+            imports.push(import(/* webpackChunkName: 'src/main/addon/Stylesheet' */ './addon/Stylesheet.mjs'));
+        }
+
+        Promise.all(imports).then(modules => {
             me.onAddonsLoaded(modules);
         });
     }
@@ -292,7 +298,7 @@ class DomAccess extends Base {
     /**
      * @param {Array} modules
      */
-    onAddonsLoaded(modules) {console.log(modules);
+    onAddonsLoaded(modules) {
         let me = this;
 
         me.addon = {};
@@ -301,7 +307,15 @@ class DomAccess extends Base {
             me.addon[module.default.constructor.name] = module.default;
         });
 
-        if (Neo.config.isInsideSiesta) {
+        if (me.addon.Stylesheet) {
+            if (Neo.config.useFontAwesome) {
+                me.addon.Stylesheet.createStyleSheet(null, null, Neo.config.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css');
+            }
+
+            me.addon.Stylesheet.insertTheme();
+        }
+
+        if (me.addon.Siesta) {
             me.addon.Siesta.adjustSiestaEnvironment();
         }
 

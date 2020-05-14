@@ -159,13 +159,6 @@ class Main extends core.Base {
 
     onAddonsLoaded() {
         this.addonsLoaded = true;
-
-        if (Neo.config.useFontAwesome) {
-            DomAccess.addon.Stylesheet.createStyleSheet(null, null, Neo.config.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css');
-        }
-
-        DomAccess.addon.Stylesheet.insertTheme();
-
         this.onReady();
     }
 
