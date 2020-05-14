@@ -45,9 +45,7 @@ class Markdown extends Base {
      *
      */
     onDomContentLoaded() {
-        DomAccess.addScript({
-            src: this.showdownPath
-        });
+        DomAccess.addScript({src: this.showdownPath});
     }
 
     /**

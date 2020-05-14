@@ -1,4 +1,5 @@
-import Base from '../../core/Base.mjs';
+import Base      from '../../core/Base.mjs';
+import DomAccess from '../DomAccess.mjs';
 
 /**
  * Required for the docs app which uses highlight.js for the source views
@@ -14,6 +15,16 @@ class HighlightJS extends Base {
              * @private
              */
             className: 'Neo.main.addon.HighlightJS',
+            /**
+             * @member {String} highlightJsPath='./resources/highlight/highlight.pack.js'
+             * @private
+             */
+            highlightJsPath: './resources/highlight/highlight.pack.js',
+            /**
+             * @member {String} highlightJsLineNumbersPath=Neo.config.basePath + 'node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js'
+             * @private
+             */
+            highlightJsLineNumbersPath: Neo.config.basePath + 'node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js',
             /**
              * Remote method access for other workers
              * @member {Object} remote={app: [//...]}
@@ -38,7 +49,8 @@ class HighlightJS extends Base {
      *
      */
     onDomContentLoaded() {
-        console.log('onDomContentLoaded HighlightJS');
+        DomAccess.addScript({src: this.highlightJsPath});
+        DomAccess.addScript({src: this.highlightJsLineNumbersPath});
     }
 
     /**
