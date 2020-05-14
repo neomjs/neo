@@ -2,7 +2,7 @@ import Base from '../../core/Base.mjs';
 
 /**
  * Required when running Neo Apps inside the Siesta browser harness (iframe)
- * @class Neo.main.mixins.Siesta
+ * @class Neo.main.mixin.Siesta
  * @extends Neo.core.Base
  * @singleton
  */
@@ -10,10 +10,10 @@ class Siesta extends Base {
     static getConfig() {
         return {
             /**
-             * @member {String} className='Neo.main.mixins.Siesta'
+             * @member {String} className='Neo.main.mixin.Siesta'
              * @private
              */
-            className: 'Neo.main.mixins.Siesta'
+            className: 'Neo.main.mixin.Siesta'
         }
     }
 

@@ -536,7 +536,7 @@ class MainContainerController extends ComponentController {
                 text   : buttonText
             });
         } else {
-            Neo.main.DomAccess.swapStyleSheet({
+            Neo.main.addon.Stylesheet.swapStyleSheet({
                 href: href,
                 id  : 'neo-theme'
             }).then(data => {

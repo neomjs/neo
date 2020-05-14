@@ -1,6 +1,6 @@
 import Base           from '../core/Base.mjs';
 import Observable     from '../core/Observable.mjs';
-import TouchDomEvents from './mixins/TouchDomEvents.mjs';
+import TouchDomEvents from './mixin/TouchDomEvents.mjs';
 
 const globalDomEvents = [
     {name: 'change',      handler: 'onChange'},

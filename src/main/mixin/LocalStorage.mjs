@@ -2,7 +2,7 @@ import Base from '../../core/Base.mjs';
 
 /**
  * Basic CRUD support for window.localStorage
- * @class Neo.main.mixins.LocalStorage
+ * @class Neo.main.mixin.LocalStorage
  * @extends Neo.core.Base
  * @singleton
  */
@@ -10,10 +10,10 @@ class LocalStorage extends Base {
     static getConfig() {
         return {
             /**
-             * @member {String} className='Neo.main.mixins.LocalStorage'
+             * @member {String} className='Neo.main.mixin.LocalStorage'
              * @private
              */
-            className: 'Neo.main.mixins.LocalStorage'
+            className: 'Neo.main.mixin.LocalStorage'
         }
     }
 

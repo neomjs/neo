@@ -2,7 +2,7 @@ import Neo                        from './Neo.mjs';
 import * as core                  from './core/_export.mjs';
 import DomAccess                  from './main/DomAccess.mjs';
 import DomEvents                  from './main/DomEvents.mjs';
-import LocalStorage               from './main/mixins/LocalStorage.mjs';
+import LocalStorage               from './main/mixin/LocalStorage.mjs';
 import {default as WorkerManager} from './worker/Manager.mjs';
 
 /**
@@ -27,10 +27,17 @@ class Main extends core.Base {
          */
         className: 'Neo.Main',
         /**
-         * @member {Boolean} singleton=true
+         * True once the DomAccess addons (dynamic imports) are loaded
+         * @member {Boolean} addonsLoaded=false
          * @private
          */
-        singleton: true,
+        addonsLoaded: false,
+        /**
+         * True once the dynamic imports are loaded
+         * @member {Boolean} importsLoaded=false
+         * @private
+         */
+        importsLoaded: false,
         /**
          * @member {Boolean} isReady=false
          * @private
@@ -79,6 +86,11 @@ class Main extends core.Base {
          */
         showFps: false,
         /**
+         * @member {Boolean} singleton=true
+         * @private
+         */
+        singleton: true,
+        /**
          * @member {Number} timeLimit=15
          */
         timeLimit: 15,
@@ -109,6 +121,7 @@ class Main extends core.Base {
 
         let me = this;
 
+        DomAccess.on('addonsLoaded',     me.onAddonsLoaded,     me);
         DomEvents.on('domContentLoaded', me.onDomContentLoaded, me);
 
         WorkerManager.on({
@@ -144,6 +157,18 @@ class Main extends core.Base {
         window.location.hash = hashArr.join('&');
     }
 
+    onAddonsLoaded() {
+        this.addonsLoaded = true;
+
+        if (Neo.config.useFontAwesome) {
+            DomAccess.addon.Stylesheet.createStyleSheet(null, null, Neo.config.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css');
+        }
+
+        DomAccess.addon.Stylesheet.insertTheme();
+
+        this.onReady();
+    }
+
     /**
      *
      */
@@ -153,15 +178,12 @@ class Main extends core.Base {
 
         me.isReady = true;
 
+        // not in use right now
+        // window.addEventListener('resize', me['globalResizeListener'].bind(me));
+
         if (Neo.config.applyBodyCls) {
             DomAccess.applyBodyCls({cls: ['neo-body']});
         }
-
-        if (Neo.config.useFontAwesome) {
-            DomAccess.createStyleSheet(null, null, Neo.config.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css');
-        }
-
-        DomAccess.insertTheme();
 
         if (Neo.config.isInsideSiesta) {
             DomAccess.adjustSiestaEnvironment();
@@ -181,12 +203,9 @@ class Main extends core.Base {
 
         await Promise.all(imports);
 
-        // not in use right now
-        // window.addEventListener('resize', me['globalResizeListener'].bind(me));
+        me.importsLoaded = true;
 
-        WorkerManager.onWorkerConstructed({
-            origin: 'main'
-        });
+        me.onReady();
     }
 
     // todo: https://developer.mozilla.org/en-US/docs/Web/Events/resize
@@ -206,6 +225,17 @@ class Main extends core.Base {
             replyId: data.id,
             success: true
         });
+    }
+
+    /**
+     *
+     */
+    onReady() {
+        if (this.addonsLoaded && this.importsLoaded) {
+            WorkerManager.onWorkerConstructed({
+                origin: 'main'
+            });
+        }
     }
 
     /**

@@ -2,7 +2,7 @@ import Base from '../../core/Base.mjs';
 
 /**
  * Logic to work with stylesheets, e.g. apply & switch Neo based themes
- * @class Neo.main.mixins.Stylesheet
+ * @class Neo.main.addon.Stylesheet
  * @extends Neo.core.Base
  * @singleton
  */
@@ -10,10 +10,25 @@ class Stylesheet extends Base {
     static getConfig() {
         return {
             /**
-             * @member {String} className='Neo.main.mixins.Stylesheet'
+             * @member {String} className='Neo.main.addon.Stylesheet'
              * @private
              */
-            className: 'Neo.main.mixins.Stylesheet'
+            className: 'Neo.main.addon.Stylesheet',
+            /**
+             * Remote method access for other workers
+             * @member {Object} remote={app: [//...]}
+             * @private
+             */
+            remote: {
+                app: [
+                    'swapStyleSheet'
+                ]
+            },
+            /**
+             * @member {boolean} singleton=true
+             * @private
+             */
+            singleton: true
         }
     }
 
@@ -196,4 +211,8 @@ class Stylesheet extends Base {
 
 Neo.applyClassConfig(Stylesheet);
 
-export {Stylesheet as default};
+let instance = Neo.create(Stylesheet);
+
+Neo.applyToGlobalNs(instance);
+
+export default instance;

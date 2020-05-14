@@ -2,7 +2,7 @@ import Base from '../../core/Base.mjs';
 
 /**
  * Required for the docs app which uses highlight.js for the source views
- * @class Neo.main.mixins.Hljs
+ * @class Neo.main.mixin.Hljs
  * @extends Neo.core.Base
  * @singleton
  */
@@ -10,10 +10,10 @@ class Hljs extends Base {
     static getConfig() {
         return {
             /**
-             * @member {String} className='Neo.main.mixins.Hljs'
+             * @member {String} className='Neo.main.mixin.Hljs'
              * @private
              */
-            className: 'Neo.main.mixins.Hljs'
+            className: 'Neo.main.mixin.Hljs'
         }
     }
 

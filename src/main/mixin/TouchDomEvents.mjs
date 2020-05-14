@@ -2,7 +2,7 @@ import Base from '../../core/Base.mjs';
 
 /**
  * Will get imported in case Neo.config.useTouchEvents === true
- * @class Neo.main.mixins.TouchDomEvents
+ * @class Neo.main.mixin.TouchDomEvents
  * @extends Neo.core.Base
  * @singleton
  */
@@ -10,10 +10,10 @@ class TouchDomEvents extends Base {
     static getConfig() {
         return {
             /**
-             * @member {String} className='Neo.main.mixins.TouchDomEvents'
+             * @member {String} className='Neo.main.mixin.TouchDomEvents'
              * @private
              */
-            className: 'Neo.main.mixins.TouchDomEvents'
+            className: 'Neo.main.mixin.TouchDomEvents'
         }
     }
 

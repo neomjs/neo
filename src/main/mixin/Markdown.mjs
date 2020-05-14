@@ -5,7 +5,7 @@ import Base from '../../core/Base.mjs';
  * https://github.com/showdownjs/showdown
  * script tag with the markdown lib has to be added before the Main.mjs script tag in the index.html
  * <script src="https://cdn.jsdelivr.net/npm/showdown@1.9.1/dist/showdown.min.js"></script>
- * @class Neo.main.mixins.Markdown
+ * @class Neo.main.mixin.Markdown
  * @extends Neo.core.Base
  * @singleton
  */
@@ -13,10 +13,10 @@ class Markdown extends Base {
     static getConfig() {
         return {
             /**
-             * @member {String} className='Neo.main.mixins.Markdown'
+             * @member {String} className='Neo.main.mixin.Markdown'
              * @private
              */
-            className: 'Neo.main.mixins.Markdown'
+            className: 'Neo.main.mixin.Markdown'
         }
     }
 
