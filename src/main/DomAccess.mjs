@@ -17,6 +17,16 @@ class DomAccess extends Base {
          */
         className: 'Neo.main.DomAccess',
         /**
+         * @member {Boolean} addonsLoaded=false
+         * @private
+         */
+        addonsLoaded: false,
+        /**
+         * @member {boolean} singleton=true
+         * @private
+         */
+        domContentLoaded: false,
+        /**
          * @member {boolean} logDeltaUpdates=true
          */
         logDeltaUpdates: true,
@@ -73,6 +83,8 @@ class DomAccess extends Base {
 
         let me      = this,
             imports = [];
+
+        me.on('domContentLoaded', me.onDomContentLoaded, me);
 
         if (me.logDeltaUpdates) {
             me.countDeltas  = 0;
@@ -302,25 +314,51 @@ class DomAccess extends Base {
     onAddonsLoaded(modules) {
         let me = this;
 
-        me.addon = {};
+        me.addonsLoaded = true;
+        me.addon        = {};
 
         modules.forEach(module => {
             me.addon[module.default.constructor.name] = module.default;
         });
 
-        if (me.addon.Stylesheet) {
-            if (Neo.config.useFontAwesome) {
-                me.addon.Stylesheet.createStyleSheet(null, null, Neo.config.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css');
+        me.onReady();
+    }
+
+    /**
+     *
+     */
+    onDomContentLoaded() {
+        this.domContentLoaded = true;
+        this.onReady();
+    }
+
+    /**
+     *
+     */
+    onReady() {
+        let me = this;
+
+        if (me.addonsLoaded && me.domContentLoaded) {
+            Object.entries(me.addon).forEach(([key, value]) => {
+                if (value.onDomContentLoaded) {
+                    value.onDomContentLoaded();
+                }
+            });
+
+            if (me.addon.Stylesheet) {
+                if (Neo.config.useFontAwesome) {
+                    me.addon.Stylesheet.createStyleSheet(null, null, Neo.config.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css');
+                }
+
+                me.addon.Stylesheet.insertTheme();
             }
 
-            me.addon.Stylesheet.insertTheme();
-        }
+            if (me.addon.Siesta) {
+                me.addon.Siesta.adjustSiestaEnvironment();
+            }
 
-        if (me.addon.Siesta) {
-            me.addon.Siesta.adjustSiestaEnvironment();
+            me.fire('ready');
         }
-
-        me.fire('addonsLoaded');
     }
 
     /**

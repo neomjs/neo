@@ -31,7 +31,7 @@ class Main extends core.Base {
          * @member {Boolean} addonsLoaded=false
          * @private
          */
-        addonsLoaded: false,
+        domAccessReady: false,
         /**
          * True once the dynamic imports are loaded
          * @member {Boolean} importsLoaded=false
@@ -121,8 +121,8 @@ class Main extends core.Base {
 
         let me = this;
 
-        DomAccess.on('addonsLoaded',     me.onAddonsLoaded,     me);
         DomEvents.on('domContentLoaded', me.onDomContentLoaded, me);
+        DomAccess.on('ready',            me.onDomAccessReady,   me);
 
         WorkerManager.on({
             'automount'        : me.onRender,
@@ -157,8 +157,8 @@ class Main extends core.Base {
         window.location.hash = hashArr.join('&');
     }
 
-    onAddonsLoaded() {
-        this.addonsLoaded = true;
+    onDomAccessReady() {
+        this.domAccessReady = true;
         this.onReady();
     }
 
@@ -170,6 +170,8 @@ class Main extends core.Base {
             imports = [];
 
         me.isReady = true;
+
+        DomAccess.fire('domContentLoaded');
 
         // not in use right now
         // window.addEventListener('resize', me['globalResizeListener'].bind(me));
@@ -220,7 +222,7 @@ class Main extends core.Base {
      *
      */
     onReady() {
-        if (this.addonsLoaded && this.importsLoaded) {
+        if (this.domAccessReady && this.importsLoaded) {
             WorkerManager.onWorkerConstructed({
                 origin: 'main'
             });
