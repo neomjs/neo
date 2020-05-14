@@ -81,9 +81,7 @@ class TutorialComponent extends Component {
      *
      */
     static syntaxHighlight() {
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'syntaxHighlightInit'
-        });
+        Neo.main.addon.HighlightJS.syntaxHighlightInit();
     }
 }
 

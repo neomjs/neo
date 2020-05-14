@@ -69,7 +69,8 @@
             "indexPath": "docs/index.ejs",
             "input": "docs/app.mjs",
             "output": "/docs/",
-            "title" : "Neo Docs"
+            "title" : "Neo Docs",
+            "useHighlightJS": true
         },
         "emailfield": {
             "input": "examples/form/field/Email.mjs",

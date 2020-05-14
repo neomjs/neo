@@ -2,38 +2,56 @@ import Base from '../../core/Base.mjs';
 
 /**
  * Required for the docs app which uses highlight.js for the source views
- * @class Neo.main.mixin.Hljs
+ * @class Neo.main.addon.HighlightJS
  * @extends Neo.core.Base
  * @singleton
  */
-class Hljs extends Base {
+class HighlightJS extends Base {
     static getConfig() {
         return {
             /**
-             * @member {String} className='Neo.main.mixin.Hljs'
+             * @member {String} className='Neo.main.addon.HighlightJS'
              * @private
              */
-            className: 'Neo.main.mixin.Hljs'
+            className: 'Neo.main.addon.HighlightJS',
+            /**
+             * Remote method access for other workers
+             * @member {Object} remote={app: [//...]}
+             * @private
+             */
+            remote: {
+                app: [
+                    'syntaxHighlight',
+                    'syntaxHighlightInit',
+                    'syntaxHighlightLine'
+                ]
+            },
+            /**
+             * @member {Boolean} singleton=true
+             * @private
+             */
+            singleton: true
         }
     }
 
     /**
      *
-     * @param {Object} data
-     * @private
      */
-    onSyntaxHighlight(data) {
+    onDomContentLoaded() {
+        console.log('onDomContentLoaded HighlightJS');
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.vnodeId
+     */
+    syntaxHighlight(data) {
         if (hljs) {
             let node = document.getElementById(data.vnodeId);
 
             hljs.highlightBlock(node);
             hljs.lineNumbersBlock(node);
-
-            Neo.worker.Manager.sendMessage(data.origin || 'app', {
-                action : 'reply',
-                replyId: data.id,
-                success: true
-            });
         } else {
             console.error('highlight.js is not included inside the main thread.');
         }
@@ -42,18 +60,11 @@ class Hljs extends Base {
     /**
      *
      * @param {Object} data
-     * @private
      */
-    onSyntaxHighlightInit(data) {
+    syntaxHighlightInit(data) {
         if (hljs) {
             let blocks = document.querySelectorAll('pre code:not(.hljs)');
             Array.prototype.forEach.call(blocks, hljs.highlightBlock);
-
-            Neo.worker.Manager.sendMessage(data.origin || 'app', {
-                action : 'reply',
-                replyId: data.id,
-                success: true
-            });
         } else {
             console.error('highlight.js is not included inside the main thread.');
         }
@@ -62,14 +73,16 @@ class Hljs extends Base {
     /**
      *
      * @param {Object} data
-     * @private
+     * @param {Number} data.addLine
+     * @param {String} data.vnodeId
+     * @param {Number} data.removeLine
      */
-    onSyntaxHighlightLine(data) {
+    syntaxHighlightLine(data) {
         let parentEl = document.getElementById(data.vnodeId),
             cls      = 'neo-highlighted-line',
             el;
 
-        if (data.addLine) {
+        if (Neo.isNumber(data.addLine)) {
             el = parentEl.querySelector('[data-line-number="' + data.addLine + '"]');
 
             if (el) {
@@ -83,7 +96,7 @@ class Hljs extends Base {
             }
         }
 
-        if (data.removeLine) {
+        if (Neo.isNumber(data.removeLine)) {
             el = parentEl.querySelector('[data-line-number="' + data.removeLine + '"]');
 
             if (el) {
@@ -93,6 +106,10 @@ class Hljs extends Base {
     }
 }
 
-Neo.applyClassConfig(Hljs);
+Neo.applyClassConfig(HighlightJS);
 
-export {Hljs as default};
+let instance = Neo.create(HighlightJS);
+
+Neo.applyToGlobalNs(instance);
+
+export default instance;

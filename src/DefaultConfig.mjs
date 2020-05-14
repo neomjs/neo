@@ -138,6 +138,14 @@ const DefaultConfig = {
      */
     useGoogleAnalytics: false,
     /**
+     * True will use highlight js (docs app)
+     * @default true
+     * @memberOf! module:Neo
+     * @name config.useHighlightJS
+     * @type Boolean
+     */
+    useHighlightJS: false,
+    /**
      * Flag to only include Neo.main.mixins.LocalStorage if needed
      * @default true
      * @memberOf! module:Neo

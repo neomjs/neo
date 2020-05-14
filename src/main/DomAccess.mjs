@@ -1,7 +1,6 @@
 import Base            from '../core/Base.mjs';
 import DeltaUpdates    from './mixin/DeltaUpdates.mjs';
 import GoogleAnalytics from './mixin/GoogleAnalytics.mjs';
-import Hljs            from './mixin/Hljs.mjs';
 import Observable      from '../core/Observable.mjs';
 
 /**
@@ -31,12 +30,11 @@ class DomAccess extends Base {
          */
         logDeltaUpdates: true,
         /**
-         * @member {Array} mixins=[DeltaUpdates, GoogleAnalytics, Hljs, Observable]
+         * @member {Array} mixins=[DeltaUpdates, GoogleAnalytics, Observable]
          */
         mixins: [
             DeltaUpdates,
             GoogleAnalytics,
-            Hljs,
             Observable
         ],
         /**
@@ -91,16 +89,20 @@ class DomAccess extends Base {
             me.countUpdates = 0;
         }
 
+        if (Neo.config.useHighlightJS) {
+            imports.push(import(/* webpackChunkName: 'src/main/addon/HighlightJS' */ './addon/HighlightJS.mjs'));
+        }
+
         if (Neo.config.useMarkdownConverter) {
-            imports.push(import(/* webpackChunkName: 'src/main/addon/Markdown' */   './addon/Markdown.mjs'));
+            imports.push(import(/* webpackChunkName: 'src/main/addon/Markdown' */    './addon/Markdown.mjs'));
         }
 
         if (Neo.config.isInsideSiesta) {
-            imports.push(import(/* webpackChunkName: 'src/main/addon/Siesta' */     './addon/Siesta.mjs'));
+            imports.push(import(/* webpackChunkName: 'src/main/addon/Siesta' */      './addon/Siesta.mjs'));
         }
 
         if (Neo.config.themes.length > 0 || Neo.config.useFontAwesome) {
-            imports.push(import(/* webpackChunkName: 'src/main/addon/Stylesheet' */ './addon/Stylesheet.mjs'));
+            imports.push(import(/* webpackChunkName: 'src/main/addon/Stylesheet' */  './addon/Stylesheet.mjs'));
         }
 
         Promise.all(imports).then(modules => {
