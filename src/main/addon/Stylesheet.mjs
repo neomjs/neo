@@ -126,7 +126,9 @@ class Stylesheet extends Base {
             themes = [themes];
         }
 
-        document.body.classList.add(themes[0]);
+        if (themes[0]) {
+            document.body.classList.add(themes[0]);
+        }
 
         if (Neo.config.useCss4) {
             me.removeStyleSheets({
