@@ -88,7 +88,7 @@ class HeaderContainer extends Container {
                     flex: 1
                 }, {
                     style: {padding: '10px'},
-                    width: 110,
+                    width: 115,
                     vdom : {
                         cn: [{
                             tag              : 'a',
@@ -116,7 +116,7 @@ class HeaderContainer extends Container {
                     }
                 }]
             }, {
-                ntype: 'container',
+                ntype : 'container',
                 layout: {ntype: 'hbox'},
 
                 itemDefaults: {

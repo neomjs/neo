@@ -301,7 +301,6 @@ class MainContainerController extends ComponentController {
         }, 2000);
     }
 
-
     /**
      *
      */
@@ -457,7 +456,7 @@ class MainContainerController extends ComponentController {
         me.getReference('gallery').on('select', me.updateCountryField, me);
         me.getReference('helix')  .on('select', me.updateCountryField, me);
 
-        me.getReference('table')  .on({
+        me.getReference('table').on({
             deselect: me.clearCountryField,
             select  : me.updateCountryField,
             scope   : me
@@ -536,7 +535,7 @@ class MainContainerController extends ComponentController {
                 text   : buttonText
             });
         } else {
-            Neo.main.DomAccess.swapStyleSheet({
+            Neo.main.addon.Stylesheet.swapStyleSheet({
                 href: href,
                 id  : 'neo-theme'
             }).then(data => {

@@ -2,7 +2,7 @@ import Base from '../../core/Base.mjs';
 
 /**
  * Required for the online version of the examples & docs app
- * @class Neo.main.mixins.GoogleAnalytics
+ * @class Neo.main.mixin.GoogleAnalytics
  * @extends Neo.core.Base
  * @singleton
  */
@@ -10,10 +10,10 @@ class GoogleAnalytics extends Base {
     static getConfig() {
         return {
             /**
-             * @member {String} className='Neo.main.mixins.GoogleAnalytics'
+             * @member {String} className='Neo.main.mixin.GoogleAnalytics'
              * @private
              */
-            className: 'Neo.main.mixins.GoogleAnalytics'
+            className: 'Neo.main.mixin.GoogleAnalytics'
         }
     }
 

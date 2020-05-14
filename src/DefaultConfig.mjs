@@ -36,7 +36,7 @@ const DefaultConfig = {
     basePath: './',
     /**
      * Path to the neo.mjs theme css files
-     * See main.mixins.Stylesheet => createStyleSheet()
+     * See main.addon.Stylesheet => createStyleSheet()
      * @default Neo.config.basePath + 'build/' + Neo.config.environment
      * @memberOf! module:Neo
      * @name [config.cssPath]
@@ -137,6 +137,14 @@ const DefaultConfig = {
      * @type Boolean
      */
     useGoogleAnalytics: false,
+    /**
+     * Flag to only include Neo.main.mixins.LocalStorage if needed
+     * @default true
+     * @memberOf! module:Neo
+     * @name config.useLocalStorage
+     * @type Boolean
+     */
+    useLocalStorage: true,
     /**
      * Flag if you want to load the files needed for working with Mapbox GL
      * https://docs.mapbox.com/mapbox-gl-js/overview/

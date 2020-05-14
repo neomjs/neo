@@ -1,11 +1,10 @@
 import Base            from '../core/Base.mjs';
-import DeltaUpdates    from './mixins/DeltaUpdates.mjs';
-import Markdown        from './mixins/Markdown.mjs';
-import GoogleAnalytics from './mixins/GoogleAnalytics.mjs';
-import Hljs            from './mixins/Hljs.mjs';
+import DeltaUpdates    from './mixin/DeltaUpdates.mjs';
+import Markdown        from './mixin/Markdown.mjs';
+import GoogleAnalytics from './mixin/GoogleAnalytics.mjs';
+import Hljs            from './mixin/Hljs.mjs';
 import Observable      from '../core/Observable.mjs';
-import Siesta          from './mixins/Siesta.mjs';
-import Stylesheet      from './mixins/Stylesheet.mjs';
+import Siesta          from './mixin/Siesta.mjs';
 
 /**
  * @class Neo.main.DomAccess
@@ -24,11 +23,6 @@ class DomAccess extends Base {
          */
         logDeltaUpdates: true,
         /**
-         * @member {boolean} singleton=true
-         * @private
-         */
-        singleton: true,
-        /**
          * @member {Array} mixins=[DeltaUpdates, GoogleAnalytics, Hljs, Markdown, Observable, Siesta, Stylesheet]
          */
         mixins: [
@@ -37,8 +31,7 @@ class DomAccess extends Base {
             Hljs,
             Markdown,
             Observable,
-            Siesta,
-            Stylesheet
+            Siesta
         ],
         /**
          * Remote method access for other workers
@@ -57,10 +50,14 @@ class DomAccess extends Base {
                 'scrollIntoView',
                 'scrollToTableRow',
                 'selectNode',
-                'swapStyleSheet',
                 'windowScrollTo'
             ]
         },
+        /**
+         * @member {boolean} singleton=true
+         * @private
+         */
+        singleton: true,
         /**
          * Void attributes inside html tags
          * @member {String[]} voidAttributes
@@ -85,6 +82,18 @@ class DomAccess extends Base {
             me.countDeltas  = 0;
             me.countUpdates = 0;
         }
+
+        Promise.all([
+            import(/* webpackChunkName: 'src/main/addon/Stylesheet' */ './addon/Stylesheet.mjs')
+        ]).then(modules => {
+            me.addon = {};
+
+            modules.forEach(module => {
+                me.addon[module.default.constructor.name] = module.default;
+            });
+
+            me.fire('addonsLoaded');
+        });
     }
 
     /**

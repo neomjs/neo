@@ -2,7 +2,7 @@ import Base from '../../core/Base.mjs';
 
 /**
  * Logic to work with stylesheets, e.g. apply & switch Neo based themes
- * @class Neo.main.mixins.Stylesheet
+ * @class Neo.main.addon.Stylesheet
  * @extends Neo.core.Base
  * @singleton
  */
@@ -10,10 +10,27 @@ class Stylesheet extends Base {
     static getConfig() {
         return {
             /**
-             * @member {String} className='Neo.main.mixins.Stylesheet'
+             * @member {String} className='Neo.main.addon.Stylesheet'
              * @private
              */
-            className: 'Neo.main.mixins.Stylesheet'
+            className: 'Neo.main.addon.Stylesheet',
+            /**
+             * Remote method access for other workers
+             * @member {Object} remote={app: [//...]}
+             * @private
+             */
+            remote: {
+                app: [
+                    'createStyleSheet',
+                    'insertCssRules',
+                    'swapStyleSheet'
+                ]
+            },
+            /**
+             * @member {boolean} singleton=true
+             * @private
+             */
+            singleton: true
         }
     }
 
@@ -89,13 +106,6 @@ class Stylesheet extends Base {
         for (; i < len; i++) {
             styleSheet.insertRule(data.rules[i], styleSheet.cssRules.length);
         }
-
-        Neo.worker.Manager.sendMessage(data.origin, {
-            action : 'reply',
-            data   : data,
-            replyId: data.id,
-            success: true
-        });
     }
 
     /**
@@ -110,7 +120,9 @@ class Stylesheet extends Base {
             themes = [themes];
         }
 
-        document.body.classList.add(themes[0]);
+        if (themes[0]) {
+            document.body.classList.add(themes[0]);
+        }
 
         if (Neo.config.useCss4) {
             me.removeStyleSheets({
@@ -196,4 +208,8 @@ class Stylesheet extends Base {
 
 Neo.applyClassConfig(Stylesheet);
 
-export {Stylesheet as default};
+let instance = Neo.create(Stylesheet);
+
+Neo.applyToGlobalNs(instance);
+
+export default instance;

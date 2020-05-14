@@ -140,26 +140,6 @@ Neo = self.Neo = Object.assign({
     },
 
     /**
-     * Maps a class to the global Neo or App namespace.
-     * Can get called for classes and singleton instances
-     * @memberOf module:Neo
-     * @param {Neo.core.Base} cls
-     */
-    applyToGlobalNs(cls) {
-        let proto = typeof cls === 'function' ? cls.prototype: cls,
-            className, nsArray, key, ns;
-
-        if (proto.constructor.registerToGlobalNs === true) {
-            className = proto.isClass ? proto.config.className : proto.className;
-
-            nsArray = className.split('.');
-            key     = nsArray.pop();
-            ns      = Neo.ns(nsArray, true);
-            ns[key] = cls;
-        }
-    },
-
-    /**
      * Maps methods from one namespace to another one
      * @example
      * // aliases
@@ -196,6 +176,26 @@ Neo = self.Neo = Object.assign({
         }
 
         return target;
+    },
+
+    /**
+     * Maps a class to the global Neo or App namespace.
+     * Can get called for classes and singleton instances
+     * @memberOf module:Neo
+     * @param {Neo.core.Base} cls
+     */
+    applyToGlobalNs(cls) {
+        let proto = typeof cls === 'function' ? cls.prototype: cls,
+            className, nsArray, key, ns;
+
+        if (proto.constructor.registerToGlobalNs === true) {
+            className = proto.isClass ? proto.config.className : proto.className;
+
+            nsArray = className.split('.');
+            key     = nsArray.pop();
+            ns      = Neo.ns(nsArray, true);
+            ns[key] = cls;
+        }
     },
 
     /**
@@ -419,63 +419,6 @@ const ignoreMixin = [
 ];
 
 /**
- * Checks if the class name exists inside the Neo or app namespace
- * @param {String} className
- * @returns {Boolean}
- * @private
- */
-function exists(className) {
-    try {
-        return !!className.split('.').reduce((prev, current) => {
-            return prev[current];
-        }, self);
-    } catch(e) {
-        return false;
-    }
-}
-
-function mixReduce(mixinCls) {
-    return (prev, current, idx, arr) => {
-        return prev[current] = idx !== arr.length -1 ? prev[current] || {} : mixinCls;
-    };
-}
-
-/**
- *
- * @param {Neo.core.Base} proto
- * @param {Neo.core.Base} mixinProto
- * @returns {Function}
- * @private
- */
-function mixinProperty(proto, mixinProto) {
-    return function(key) {
-        if (~ignoreMixin.indexOf(key)) {
-            return;
-        }
-        if (proto[key] && proto[key]._from) {
-            if (mixinProto.className === proto[key]._from) {
-                console.warn('Mixin set multiple times or already defined on a Base Class', proto.className, mixinProto.className, key);
-                return;
-            }
-            throw new Error(
-                proto.className + ': Multiple mixins defining same property (' +
-                mixinProto.className + ', ' +
-                proto[key]._from + ') => ' +
-                key
-            );
-        }
-
-        proto[key] = mixinProto[key];
-
-        Object.getOwnPropertyDescriptor(proto, key)._from = mixinProto.className;
-
-        if (typeof proto[key] === 'function') {
-            proto[key]._name = key;
-        }
-    };
-}
-
-/**
  *
  * @param {Neo.core.Base} cls
  * @param {Array} mixins
@@ -511,28 +454,6 @@ function applyMixins(cls, mixins) {
     }
 
     cls.prototype.mixins = mixinClasses; // todo: we should do a deep merge
-}
-
-/**
- * Checks if there is a set method for a given property key inside the prototype chain
- * @param {Neo.core.Base} proto The top level prototype of a class
- * @param {String} key the property key to test
- * @returns {Boolean}
- * @private
- */
-function hasPropertySetter(proto, key) {
-    let descriptor;
-
-    while (proto.__proto__) {
-        descriptor = Object.getOwnPropertyDescriptor(proto, key);
-
-        if (typeof descriptor === 'object' && typeof descriptor.set === 'function') {
-            return true;
-        }
-        proto = proto.__proto__;
-    }
-
-    return false;
 }
 
 /**
@@ -618,6 +539,91 @@ function autoGenerateGetSet(proto, key) {
     }
 
     Object.defineProperty(proto, key, Neo[getSetCache][key]);
+}
+
+/**
+ * Checks if the class name exists inside the Neo or app namespace
+ * @param {String} className
+ * @returns {Boolean}
+ * @private
+ */
+function exists(className) {
+    try {
+        return !!className.split('.').reduce((prev, current) => {
+            return prev[current];
+        }, self);
+    } catch(e) {
+        return false;
+    }
+}
+
+/**
+ * Checks if there is a set method for a given property key inside the prototype chain
+ * @param {Neo.core.Base} proto The top level prototype of a class
+ * @param {String} key the property key to test
+ * @returns {Boolean}
+ * @private
+ */
+function hasPropertySetter(proto, key) {
+    let descriptor;
+
+    while (proto.__proto__) {
+        descriptor = Object.getOwnPropertyDescriptor(proto, key);
+
+        if (typeof descriptor === 'object' && typeof descriptor.set === 'function') {
+            return true;
+        }
+        proto = proto.__proto__;
+    }
+
+    return false;
+}
+
+/**
+ *
+ * @param {Neo.core.Base} proto
+ * @param {Neo.core.Base} mixinProto
+ * @returns {Function}
+ * @private
+ */
+function mixinProperty(proto, mixinProto) {
+    return function(key) {
+        if (~ignoreMixin.indexOf(key)) {
+            return;
+        }
+        if (proto[key] && proto[key]._from) {
+            if (mixinProto.className === proto[key]._from) {
+                console.warn('Mixin set multiple times or already defined on a Base Class', proto.className, mixinProto.className, key);
+                return;
+            }
+            throw new Error(
+                proto.className + ': Multiple mixins defining same property (' +
+                mixinProto.className + ', ' +
+                proto[key]._from + ') => ' +
+                key
+            );
+        }
+
+        proto[key] = mixinProto[key];
+
+        Object.getOwnPropertyDescriptor(proto, key)._from = mixinProto.className;
+
+        if (typeof proto[key] === 'function') {
+            proto[key]._name = key;
+        }
+    };
+}
+
+/**
+ *
+ * @param mixinCls
+ * @returns {Function}
+ * @private
+ */
+function mixReduce(mixinCls) {
+    return (prev, current, idx, arr) => {
+        return prev[current] = idx !== arr.length -1 ? prev[current] || {} : mixinCls;
+    };
 }
 
 Neo.config = Neo.config || {};

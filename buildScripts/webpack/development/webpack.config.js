@@ -2,7 +2,6 @@ const fs                     = require('fs-extra'),
       path                   = require('path'),
       { CleanWebpackPlugin } = require('clean-webpack-plugin'),
       HtmlWebpackPlugin      = require('html-webpack-plugin'),
-      NodeExternals          = require('webpack-node-externals'),
       WebpackShellPlugin     = require('webpack-shell-plugin'),
       processRoot            = process.cwd(),
       packageJson            = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
@@ -63,8 +62,7 @@ module.exports = {
     //devtool: 'cheap-module-eval-source-map',
 
     entry,
-    externals: [NodeExternals()], // in order to ignore all modules in node_modules folder
-    target   : 'node',            // in order to ignore built-in modules like path, fs, etc.
+    target: 'webworker',
 
     plugins: [
         new CleanWebpackPlugin({

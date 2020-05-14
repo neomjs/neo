@@ -56,10 +56,9 @@ if (config.examples) {
 }
 
 module.exports = {
-    mode     : 'production',
-    entry    : entry,
-    externals: [NodeExternals()], // in order to ignore all modules in node_modules folder
-    target   : 'node',            // in order to ignore built-in modules like path, fs, etc.
+    mode  : 'production',
+    entry,
+    target: 'webworker',
 
     plugins: [
         new CleanWebpackPlugin({

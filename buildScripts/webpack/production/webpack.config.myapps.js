@@ -2,7 +2,6 @@ const fs                = require('fs'),
       inquirer          = require('inquirer'),
       path              = require('path'),
       HtmlWebpackPlugin = require('html-webpack-plugin'),
-      NodeExternals     = require('webpack-node-externals'),
       processRoot       = process.cwd(),
       configPath        = path.resolve(processRoot, 'buildScripts/myApps.json'),
       packageJson       = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
@@ -111,11 +110,10 @@ module.exports = env => {
     }
 
     return {
-        mode     : 'production',
+        mode  : 'production',
         entry,
-        externals: [NodeExternals()], // in order to ignore all modules in node_modules folder
         plugins,
-        target   : 'node',            // in order to ignore built-in modules like path, fs, etc.
+        target: 'webworker',
 
         output: {
             chunkFilename: '[name].js', // would default to '[id].js': src/main/lib/AmCharts => 1.js
