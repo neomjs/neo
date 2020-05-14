@@ -18,12 +18,8 @@ class Css extends Base {
      * @param {Array} rules
      */
     static insertRules(rules) {
-        let me = this;
-
-        Neo.worker.App.promiseMessage('main', {
-            action : 'insertCssRules',
-            appName: me.appName,
-            rules  : rules
+        Neo.main.addon.Stylesheet.insertCssRules({
+            rules: rules
         }).then(function(data) {
             // console.log('inserted CSS rules', data);
         }).catch(function(err) {

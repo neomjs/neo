@@ -22,6 +22,7 @@ class Stylesheet extends Base {
             remote: {
                 app: [
                     'createStyleSheet',
+                    'insertCssRules',
                     'swapStyleSheet'
                 ]
             },
@@ -105,13 +106,6 @@ class Stylesheet extends Base {
         for (; i < len; i++) {
             styleSheet.insertRule(data.rules[i], styleSheet.cssRules.length);
         }
-
-        Neo.worker.Manager.sendMessage(data.origin, {
-            action : 'reply',
-            data   : data,
-            replyId: data.id,
-            success: true
-        });
     }
 
     /**
