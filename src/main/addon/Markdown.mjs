@@ -1,4 +1,5 @@
-import Base from '../../core/Base.mjs';
+import Base      from '../../core/Base.mjs';
+import DomAccess from '../DomAccess.mjs';
 
 /**
  * A markdown mixin to convert markdown to html by using showdown.js
@@ -28,7 +29,12 @@ class Markdown extends Base {
                 ]
             },
             /**
-             * @member {boolean} singleton=true
+             * @member {String} showdownPath='https://cdn.jsdelivr.net/npm/showdown@1.9.1/dist/showdown.min.js'
+             * @private
+             */
+            showdownPath: 'https://cdn.jsdelivr.net/npm/showdown@1.9.1/dist/showdown.min.js',
+            /**
+             * @member {Boolean} singleton=true
              * @private
              */
             singleton: true
@@ -39,7 +45,9 @@ class Markdown extends Base {
      *
      */
     onDomContentLoaded() {
-        console.log('Neo.main.addon.Markdown onDomContentLoaded');
+        DomAccess.addScript({
+            src: this.showdownPath
+        });
     }
 
     /**

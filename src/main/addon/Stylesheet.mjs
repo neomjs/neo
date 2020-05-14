@@ -27,7 +27,7 @@ class Stylesheet extends Base {
                 ]
             },
             /**
-             * @member {boolean} singleton=true
+             * @member {Boolean} singleton=true
              * @private
              */
             singleton: true

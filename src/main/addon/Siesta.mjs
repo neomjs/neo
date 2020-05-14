@@ -15,7 +15,7 @@ class Siesta extends Base {
              */
             className: 'Neo.main.addon.Siesta',
             /**
-             * @member {boolean} singleton=true
+             * @member {Boolean} singleton=true
              * @private
              */
             singleton: true

@@ -59,7 +59,7 @@ class DomAccess extends Base {
             ]
         },
         /**
-         * @member {boolean} singleton=true
+         * @member {Boolean} singleton=true
          * @private
          */
         singleton: true,
@@ -112,11 +112,15 @@ class DomAccess extends Base {
      *
      * @param {Object} data
      * @param {Boolean} data.async
-     * @param {Boolean} data.defer
-     * @param {String} data.src
+     * @param {Boolean} [data.defer=false]
+     * @param {String} [data.src=true]
      */
     addScript(data) {
         const script = document.createElement('script');
+
+        if (!data.hasOwnProperty('async')) {
+            data.async = true;
+        }
 
         Object.assign(script, data);
 
