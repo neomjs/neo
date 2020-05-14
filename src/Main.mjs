@@ -185,10 +185,6 @@ class Main extends core.Base {
             DomAccess.applyBodyCls({cls: ['neo-body']});
         }
 
-        if (Neo.config.isInsideSiesta) {
-            DomAccess.adjustSiestaEnvironment();
-        }
-
         if (Neo.config.useAmCharts) {
             imports.push(import(/* webpackChunkName: 'src/main/lib/AmCharts' */ './main/lib/AmCharts.mjs'));
         }

@@ -4,7 +4,6 @@ import Markdown        from './mixin/Markdown.mjs';
 import GoogleAnalytics from './mixin/GoogleAnalytics.mjs';
 import Hljs            from './mixin/Hljs.mjs';
 import Observable      from '../core/Observable.mjs';
-import Siesta          from './mixin/Siesta.mjs';
 
 /**
  * @class Neo.main.DomAccess
@@ -23,15 +22,14 @@ class DomAccess extends Base {
          */
         logDeltaUpdates: true,
         /**
-         * @member {Array} mixins=[DeltaUpdates, GoogleAnalytics, Hljs, Markdown, Observable, Siesta, Stylesheet]
+         * @member {Array} mixins=[DeltaUpdates, GoogleAnalytics, Hljs, Markdown, Observable]
          */
         mixins: [
             DeltaUpdates,
             GoogleAnalytics,
             Hljs,
             Markdown,
-            Observable,
-            Siesta
+            Observable
         ],
         /**
          * Remote method access for other workers
@@ -84,15 +82,10 @@ class DomAccess extends Base {
         }
 
         Promise.all([
+            import(/* webpackChunkName: 'src/main/addon/Siesta' */     './addon/Siesta.mjs'),
             import(/* webpackChunkName: 'src/main/addon/Stylesheet' */ './addon/Stylesheet.mjs')
         ]).then(modules => {
-            me.addon = {};
-
-            modules.forEach(module => {
-                me.addon[module.default.constructor.name] = module.default;
-            });
-
-            me.fire('addonsLoaded');
+            me.onAddonsLoaded(modules);
         });
     }
 
@@ -294,6 +287,25 @@ class DomAccess extends Base {
 
             document.head.appendChild(link);
         });
+    }
+
+    /**
+     * @param {Array} modules
+     */
+    onAddonsLoaded(modules) {console.log(modules);
+        let me = this;
+
+        me.addon = {};
+
+        modules.forEach(module => {
+            me.addon[module.default.constructor.name] = module.default;
+        });
+
+        if (Neo.config.isInsideSiesta) {
+            me.addon.Siesta.adjustSiestaEnvironment();
+        }
+
+        me.fire('addonsLoaded');
     }
 
     /**
