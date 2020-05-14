@@ -357,10 +357,6 @@ class DomAccess extends Base {
                 me.addon.Stylesheet.insertTheme();
             }
 
-            if (me.addon.Siesta) {
-                me.addon.Siesta.adjustSiestaEnvironment();
-            }
-
             me.fire('ready');
         }
     }

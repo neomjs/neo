@@ -40,6 +40,13 @@ class Siesta extends Base {
             }
         }
     }
+
+    /**
+     *
+     */
+    onDomContentLoaded() {
+        this.adjustSiestaEnvironment();
+    }
 }
 
 Neo.applyClassConfig(Siesta);
