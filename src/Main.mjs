@@ -176,10 +176,6 @@ class Main extends core.Base {
         // not in use right now
         // window.addEventListener('resize', me['globalResizeListener'].bind(me));
 
-        if (Neo.config.applyBodyCls) {
-            DomAccess.applyBodyCls({cls: ['neo-body']});
-        }
-
         if (Neo.config.useAmCharts) {
             imports.push(import(/* webpackChunkName: 'src/main/lib/AmCharts' */ './main/lib/AmCharts.mjs'));
         }

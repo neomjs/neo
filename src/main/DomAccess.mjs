@@ -333,6 +333,11 @@ class DomAccess extends Base {
      */
     onDomContentLoaded() {
         this.domContentLoaded = true;
+
+        if (Neo.config.applyBodyCls) {
+            this.applyBodyCls({cls: ['neo-body']});
+        }
+
         this.onReady();
     }
 
