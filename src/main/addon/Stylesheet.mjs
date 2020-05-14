@@ -156,6 +156,17 @@ class Stylesheet extends Base {
 
     /**
      *
+     */
+    onDomContentLoaded() {
+        if (Neo.config.useFontAwesome) {
+            this.createStyleSheet(null, null, Neo.config.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css');
+        }
+
+        this.insertTheme();
+    }
+
+    /**
+     *
      * @param {Object} opts
      * @param {String[]} opts.included
      * @param {String[]} opts.excluded

@@ -349,14 +349,6 @@ class DomAccess extends Base {
                 }
             });
 
-            if (me.addon.Stylesheet) {
-                if (Neo.config.useFontAwesome) {
-                    me.addon.Stylesheet.createStyleSheet(null, null, Neo.config.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css');
-                }
-
-                me.addon.Stylesheet.insertTheme();
-            }
-
             me.fire('ready');
         }
     }
