@@ -107,9 +107,6 @@ class Manager extends Base {
             'message:readDom'              : {fn: DomAccess.onReadDom,             scope: DomAccess},
             'message:registerRemote'       : {fn: me.onRegisterRemote,             scope: me},
             'message:scrollIntoView'       : {fn: DomAccess.onScrollIntoView,      scope: DomAccess},
-            'message:syntaxHighlight'      : {fn: DomAccess.onSyntaxHighlight,     scope: DomAccess},
-            'message:syntaxHighlightInit'  : {fn: DomAccess.onSyntaxHighlightInit, scope: DomAccess},
-            'message:syntaxHighlightLine'  : {fn: DomAccess.onSyntaxHighlightLine, scope: DomAccess},
             'message:workerConstructed'    : {fn: me.onWorkerConstructed,          scope: me}
         });
     }
