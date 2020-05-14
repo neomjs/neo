@@ -101,11 +101,10 @@ class Manager extends Base {
         me.promises = {};
 
         me.on({
-            'message:addDomListener'       : {fn: DomEvents.addDomListener,        scope: DomEvents},
-            'message:addGlobalDomListeners': {fn: DomEvents.addGlobalDomListeners, scope: DomEvents},
-            'message:readDom'              : {fn: DomAccess.onReadDom,             scope: DomAccess},
-            'message:registerRemote'       : {fn: me.onRegisterRemote,             scope: me},
-            'message:workerConstructed'    : {fn: me.onWorkerConstructed,          scope: me}
+            'message:addDomListener'   : {fn: DomEvents.addDomListener,        scope: DomEvents},
+            'message:readDom'          : {fn: DomAccess.onReadDom,             scope: DomAccess},
+            'message:registerRemote'   : {fn: me.onRegisterRemote,             scope: me},
+            'message:workerConstructed': {fn: me.onWorkerConstructed,          scope: me}
         });
     }
 
