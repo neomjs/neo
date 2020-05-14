@@ -155,6 +155,15 @@ const DefaultConfig = {
      */
     useMapboxGL: false,
     /**
+     * Flag if you want to load the files needed for working with showdown
+     * Neo.main.addon.Markdown
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.useMarkdownConverter
+     * @type Boolean
+     */
+    useMarkdownConverter: false,
+    /**
      * Adds global dom event listeners for mobile related events like rotate, swipe, tap
      * @default true
      * @memberOf! module:Neo

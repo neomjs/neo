@@ -320,10 +320,11 @@ class Component extends BaseComponent {
      */
     afterSetBody(value, oldValue) {
         const me = this;
-        let vdom = me.vdom;
 
         if (value) {
-            Neo.main.DomAccess.markdownToHtml(value).then(html => {
+            Neo.main.addon.Markdown.markdownToHtml(value).then(html => {
+                let vdom = me.vdom;
+
                 VDomUtil.getByFlag(vdom, 'body').cn[0] = {
                     cn: [{
                         tag : 'p',

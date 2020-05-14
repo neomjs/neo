@@ -1,6 +1,5 @@
 import Base            from '../core/Base.mjs';
 import DeltaUpdates    from './mixin/DeltaUpdates.mjs';
-import Markdown        from './mixin/Markdown.mjs';
 import GoogleAnalytics from './mixin/GoogleAnalytics.mjs';
 import Hljs            from './mixin/Hljs.mjs';
 import Observable      from '../core/Observable.mjs';
@@ -22,13 +21,12 @@ class DomAccess extends Base {
          */
         logDeltaUpdates: true,
         /**
-         * @member {Array} mixins=[DeltaUpdates, GoogleAnalytics, Hljs, Markdown, Observable]
+         * @member {Array} mixins=[DeltaUpdates, GoogleAnalytics, Hljs, Observable]
          */
         mixins: [
             DeltaUpdates,
             GoogleAnalytics,
             Hljs,
-            Markdown,
             Observable
         ],
         /**
@@ -44,7 +42,6 @@ class DomAccess extends Base {
                 'focus',
                 'getAttributes',
                 'getBoundingClientRect',
-                'markdownToHtml',
                 'scrollIntoView',
                 'scrollToTableRow',
                 'selectNode',
@@ -80,6 +77,10 @@ class DomAccess extends Base {
         if (me.logDeltaUpdates) {
             me.countDeltas  = 0;
             me.countUpdates = 0;
+        }
+
+        if (Neo.config.useMarkdownConverter) {
+            imports.push(import(/* webpackChunkName: 'src/main/addon/Markdown' */   './addon/Markdown.mjs'));
         }
 
         if (Neo.config.isInsideSiesta) {
