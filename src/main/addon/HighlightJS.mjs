@@ -32,6 +32,7 @@ class HighlightJS extends Base {
              */
             remote: {
                 app: [
+                    'scrollIntoView',
                     'syntaxHighlight',
                     'syntaxHighlightInit',
                     'syntaxHighlightLine'
@@ -51,6 +52,26 @@ class HighlightJS extends Base {
     onDomContentLoaded() {
         DomAccess.addScript({src: this.highlightJsPath});
         DomAccess.addScript({src: this.highlightJsLineNumbersPath});
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.text
+     * @param {String} data.vnodeId
+     * @private
+     */
+    scrollIntoView(data) {
+        let parentEl = DomAccess.getElement(data.vnodeId),
+            el       = parentEl.querySelector('[data-list-header="' + data.text + '"]');
+
+        if (el) {
+            el.previousSibling.scrollIntoView({
+                behavior: 'smooth',
+                block   : 'start',
+                inline  : 'nearest'
+            });
+        }
     }
 
     /**

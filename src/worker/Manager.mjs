@@ -106,7 +106,6 @@ class Manager extends Base {
             'message:insertCssRules'       : {fn: DomAccess.insertCssRules,        scope: DomAccess},
             'message:readDom'              : {fn: DomAccess.onReadDom,             scope: DomAccess},
             'message:registerRemote'       : {fn: me.onRegisterRemote,             scope: me},
-            'message:scrollIntoView'       : {fn: DomAccess.onScrollIntoView,      scope: DomAccess},
             'message:workerConstructed'    : {fn: me.onWorkerConstructed,          scope: me}
         });
     }

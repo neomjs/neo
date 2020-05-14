@@ -431,24 +431,6 @@ class DomAccess extends Base {
      * @param {Object} data
      * @private
      */
-    onScrollIntoView(data) {
-        let parentEl = this.getElement(data.vnodeId),
-            el       = parentEl.querySelector('[data-list-header="' + data.text + '"]');
-
-        if (el) {
-            el.previousSibling.scrollIntoView({
-                behavior: 'smooth',
-                block   : 'start',
-                inline  : 'nearest'
-            });
-        }
-    }
-
-    /**
-     *
-     * @param {Object} data
-     * @private
-     */
     read(data) {
         if (typeof data === 'function') {
             data();
