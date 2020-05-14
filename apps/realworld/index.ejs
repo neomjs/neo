@@ -14,12 +14,13 @@
             Neo = self.Neo || {}; Neo.config = Neo.config || {};
 
             Object.assign(Neo.config, {
-                appPath       : '<%= appPath %>',
-                basePath      : '<%= basePath %>',
-                environment   : '<%= environment %>',
-                themes        : [],
-                useFontAwesome: false,
-                workerBasePath: '<%= workerBasePath %>'
+                appPath             : '<%= appPath %>',
+                basePath            : '<%= basePath %>',
+                environment         : '<%= environment %>',
+                themes              : [],
+                useFontAwesome      : false,
+                useMarkdownConverter: <%= useMarkdownConverter %>,
+                workerBasePath      : '<%= workerBasePath %>'
             });
         </script>
 

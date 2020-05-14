@@ -22,7 +22,7 @@
             "themes": "'neo-theme-dark', 'neo-theme-light'",
             "title": "COVID-19 IN NUMBERS",
             "useAmCharts": true,
-            "useOpenStreetMaps": true
+            "useMapboxGL": true
         },
         "RealWorld": {
             "indexPath": "apps/realworld/index.ejs",

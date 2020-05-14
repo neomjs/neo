@@ -36,6 +36,15 @@ class Markdown extends Base {
     }
 
     /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        console.log('Neo.main.addon.Markdown');
+    }
+    /**
      * Markdown to HTML converter
      * @param {String} markdown string to convert
      * @private

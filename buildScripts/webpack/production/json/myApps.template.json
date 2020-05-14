@@ -29,7 +29,8 @@
             "input": "myApps/RealWorld.mjs",
             "output": "/apps/realworld/",
             "themes": "",
-            "title": "RealWorld"
+            "title": "RealWorld",
+            "useMarkdownConverter": true
         },
         "RealWorld2": {
             "input": "myApps/RealWorld2.mjs",
