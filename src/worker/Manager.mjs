@@ -101,10 +101,10 @@ class Manager extends Base {
         me.promises = {};
 
         me.on({
-            'message:addDomListener'   : {fn: DomEvents.addDomListener,        scope: DomEvents},
-            'message:readDom'          : {fn: DomAccess.onReadDom,             scope: DomAccess},
-            'message:registerRemote'   : {fn: me.onRegisterRemote,             scope: me},
-            'message:workerConstructed': {fn: me.onWorkerConstructed,          scope: me}
+            'message:addDomListener'   : {fn: DomEvents.addDomListener, scope: DomEvents},
+            'message:readDom'          : {fn: DomAccess.onReadDom,      scope: DomAccess},
+            'message:registerRemote'   : {fn: me.onRegisterRemote,      scope: me},
+            'message:workerConstructed': {fn: me.onWorkerConstructed,   scope: me}
         });
     }
 
@@ -311,8 +311,6 @@ class Manager extends Base {
             let promise = this.promises[replyId];
 
             if (promise) {
-                // console.log('resolveDomOperationPromise', replyId);
-
                 promise.resolve(promise.data);
                 delete this.promises[replyId];
             }
@@ -340,7 +338,6 @@ class Manager extends Base {
             opts.destination = dest;
 
             const message = new Message(opts);
-            // console.log('Main: Sending Worker message: ', message);
 
             worker.postMessage(message, transfer);
             return message;
