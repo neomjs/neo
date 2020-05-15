@@ -21,6 +21,6 @@ module.exports = {
         },
 
         path      : path.resolve(processRoot, config.buildFolder),
-        publicPath: '../../'
+        publicPath: '../'
     }
 };
