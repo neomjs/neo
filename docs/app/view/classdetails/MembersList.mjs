@@ -334,9 +334,7 @@ class MembersList extends Base {
 
         if (hasExamples) {
             setTimeout(() => {
-                Neo.currentWorker.promiseMessage('main', {
-                    action: 'syntaxHighlightInit'
-                });
+                Neo.main.addon.HighlightJS.syntaxHighlightInit();
             }, 100);
         }
     }

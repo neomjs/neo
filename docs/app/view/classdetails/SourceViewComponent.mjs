@@ -86,8 +86,7 @@ class SourceViewComponent extends Component {
             let me = this;
 
             setTimeout(() => {
-                Neo.currentWorker.promiseMessage('main', {
-                    action    : 'syntaxHighlightLine',
+                Neo.main.addon.HighlightJS.syntaxHighlightLine({
                     addLine   : me.line,
                     removeLine: me.previousLine,
                     vnodeId   : me.vdom.cn[0].id
@@ -138,9 +137,8 @@ class SourceViewComponent extends Component {
     syntaxHighlight(vnodeId) {
         let me = this;
 
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'syntaxHighlight',
-            vnodeId: vnodeId
+        Neo.main.addon.HighlightJS.syntaxHighlight({
+            vnodeId: me.vdom.cn[0].id
         }).then(() => {
             me.isHighlighted = true;
         });

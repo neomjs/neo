@@ -2,6 +2,7 @@ import Base from '../../core/Base.mjs';
 
 /**
  * Logic to work with stylesheets, e.g. apply & switch Neo based themes
+ * main.addon.HighlightJS requires this file
  * @class Neo.main.addon.Stylesheet
  * @extends Neo.core.Base
  * @singleton
@@ -27,7 +28,7 @@ class Stylesheet extends Base {
                 ]
             },
             /**
-             * @member {boolean} singleton=true
+             * @member {Boolean} singleton=true
              * @private
              */
             singleton: true
@@ -152,6 +153,17 @@ class Stylesheet extends Base {
                 me.createStyleSheet(themes[0] + '-no-css4.css', 'neo-theme');
             }
         }
+    }
+
+    /**
+     *
+     */
+    onDomContentLoaded() {
+        if (Neo.config.useFontAwesome) {
+            this.createStyleSheet(null, null, Neo.config.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css');
+        }
+
+        this.insertTheme();
     }
 
     /**

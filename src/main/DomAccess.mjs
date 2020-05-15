@@ -1,10 +1,6 @@
-import Base            from '../core/Base.mjs';
-import DeltaUpdates    from './mixin/DeltaUpdates.mjs';
-import Markdown        from './mixin/Markdown.mjs';
-import GoogleAnalytics from './mixin/GoogleAnalytics.mjs';
-import Hljs            from './mixin/Hljs.mjs';
-import Observable      from '../core/Observable.mjs';
-import Siesta          from './mixin/Siesta.mjs';
+import Base         from '../core/Base.mjs';
+import DeltaUpdates from './mixin/DeltaUpdates.mjs';
+import Observable   from '../core/Observable.mjs';
 
 /**
  * @class Neo.main.DomAccess
@@ -19,19 +15,25 @@ class DomAccess extends Base {
          */
         className: 'Neo.main.DomAccess',
         /**
+         * @member {Boolean} addonsLoaded=false
+         * @private
+         */
+        addonsLoaded: false,
+        /**
+         * @member {boolean} singleton=true
+         * @private
+         */
+        domContentLoaded: false,
+        /**
          * @member {boolean} logDeltaUpdates=true
          */
         logDeltaUpdates: true,
         /**
-         * @member {Array} mixins=[DeltaUpdates, GoogleAnalytics, Hljs, Markdown, Observable, Siesta, Stylesheet]
+         * @member {Array} mixins=[DeltaUpdates, Observable]
          */
         mixins: [
             DeltaUpdates,
-            GoogleAnalytics,
-            Hljs,
-            Markdown,
-            Observable,
-            Siesta
+            Observable
         ],
         /**
          * Remote method access for other workers
@@ -46,7 +48,6 @@ class DomAccess extends Base {
                 'focus',
                 'getAttributes',
                 'getBoundingClientRect',
-                'markdownToHtml',
                 'scrollIntoView',
                 'scrollToTableRow',
                 'selectNode',
@@ -54,7 +55,7 @@ class DomAccess extends Base {
             ]
         },
         /**
-         * @member {boolean} singleton=true
+         * @member {Boolean} singleton=true
          * @private
          */
         singleton: true,
@@ -76,23 +77,38 @@ class DomAccess extends Base {
     constructor(config) {
         super(config);
 
-        let me = this;
+        let me      = this,
+            imports = [];
+
+        me.on('domContentLoaded', me.onDomContentLoaded, me);
 
         if (me.logDeltaUpdates) {
             me.countDeltas  = 0;
             me.countUpdates = 0;
         }
 
-        Promise.all([
-            import(/* webpackChunkName: 'src/main/addon/Stylesheet' */ './addon/Stylesheet.mjs')
-        ]).then(modules => {
-            me.addon = {};
+        if (Neo.config.useGoogleAnalytics) {
+            imports.push(import(/* webpackChunkName: 'src/main/addon/GoogleAnalytics' */ './addon/GoogleAnalytics.mjs'));
+        }
 
-            modules.forEach(module => {
-                me.addon[module.default.constructor.name] = module.default;
-            });
+        if (Neo.config.useHighlightJS) {
+            imports.push(import(/* webpackChunkName: 'src/main/addon/HighlightJS' */    './addon/HighlightJS.mjs'));
+        }
 
-            me.fire('addonsLoaded');
+        if (Neo.config.useMarkdownConverter) {
+            imports.push(import(/* webpackChunkName: 'src/main/addon/Markdown' */       './addon/Markdown.mjs'));
+        }
+
+        if (Neo.config.isInsideSiesta) {
+            imports.push(import(/* webpackChunkName: 'src/main/addon/Siesta' */         './addon/Siesta.mjs'));
+        }
+
+        if (Neo.config.themes.length > 0 || Neo.config.useFontAwesome) {
+            imports.push(import(/* webpackChunkName: 'src/main/addon/Stylesheet' */     './addon/Stylesheet.mjs'));
+        }
+
+        Promise.all(imports).then(modules => {
+            me.onAddonsLoaded(modules);
         });
     }
 
@@ -100,11 +116,15 @@ class DomAccess extends Base {
      *
      * @param {Object} data
      * @param {Boolean} data.async
-     * @param {Boolean} data.defer
-     * @param {String} data.src
+     * @param {Boolean} [data.defer=false]
+     * @param {String} [data.src=true]
      */
     addScript(data) {
         const script = document.createElement('script');
+
+        if (!data.hasOwnProperty('async')) {
+            data.async = true;
+        }
 
         Object.assign(script, data);
 
@@ -297,6 +317,52 @@ class DomAccess extends Base {
     }
 
     /**
+     * @param {Array} modules
+     */
+    onAddonsLoaded(modules) {
+        let me = this;
+
+        me.addonsLoaded = true;
+        me.addon        = {};
+
+        modules.forEach(module => {
+            me.addon[module.default.constructor.name] = module.default;
+        });
+
+        me.onReady();
+    }
+
+    /**
+     *
+     */
+    onDomContentLoaded() {
+        this.domContentLoaded = true;
+
+        if (Neo.config.applyBodyCls) {
+            this.applyBodyCls({cls: ['neo-body']});
+        }
+
+        this.onReady();
+    }
+
+    /**
+     *
+     */
+    onReady() {
+        let me = this;
+
+        if (me.addonsLoaded && me.domContentLoaded) {
+            Object.entries(me.addon).forEach(([key, value]) => {
+                if (value.onDomContentLoaded) {
+                    value.onDomContentLoaded();
+                }
+            });
+
+            me.fire('ready');
+        }
+    }
+
+    /**
      *
      * @param {Object} data
      * @param {String[]} data.attributes
@@ -360,24 +426,6 @@ class DomAccess extends Base {
             replyId: data.id,
             success: true
         });
-    }
-
-    /**
-     *
-     * @param {Object} data
-     * @private
-     */
-    onScrollIntoView(data) {
-        let parentEl = this.getElement(data.vnodeId),
-            el       = parentEl.querySelector('[data-list-header="' + data.text + '"]');
-
-        if (el) {
-            el.previousSibling.scrollIntoView({
-                behavior: 'smooth',
-                block   : 'start',
-                inline  : 'nearest'
-            });
-        }
     }
 
     /**

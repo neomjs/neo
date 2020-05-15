@@ -87,8 +87,7 @@ class MainContainerController extends Component {
         let me     = this,
             button = Neo.getComponent(data.target.id);
 
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'scrollIntoView',
+        Neo.main.addon.HighlightJS.scrollIntoView({
             text   : button.reference.substr(4),
             vnodeId: me.view.vdom.id
         });

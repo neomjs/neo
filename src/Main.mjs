@@ -31,7 +31,7 @@ class Main extends core.Base {
          * @member {Boolean} addonsLoaded=false
          * @private
          */
-        addonsLoaded: false,
+        domAccessReady: false,
         /**
          * True once the dynamic imports are loaded
          * @member {Boolean} importsLoaded=false
@@ -121,8 +121,8 @@ class Main extends core.Base {
 
         let me = this;
 
-        DomAccess.on('addonsLoaded',     me.onAddonsLoaded,     me);
         DomEvents.on('domContentLoaded', me.onDomContentLoaded, me);
+        DomAccess.on('ready',            me.onDomAccessReady,   me);
 
         WorkerManager.on({
             'automount'        : me.onRender,
@@ -157,15 +157,8 @@ class Main extends core.Base {
         window.location.hash = hashArr.join('&');
     }
 
-    onAddonsLoaded() {
-        this.addonsLoaded = true;
-
-        if (Neo.config.useFontAwesome) {
-            DomAccess.addon.Stylesheet.createStyleSheet(null, null, Neo.config.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css');
-        }
-
-        DomAccess.addon.Stylesheet.insertTheme();
-
+    onDomAccessReady() {
+        this.domAccessReady = true;
         this.onReady();
     }
 
@@ -178,16 +171,10 @@ class Main extends core.Base {
 
         me.isReady = true;
 
+        DomAccess.fire('domContentLoaded');
+
         // not in use right now
         // window.addEventListener('resize', me['globalResizeListener'].bind(me));
-
-        if (Neo.config.applyBodyCls) {
-            DomAccess.applyBodyCls({cls: ['neo-body']});
-        }
-
-        if (Neo.config.isInsideSiesta) {
-            DomAccess.adjustSiestaEnvironment();
-        }
 
         if (Neo.config.useAmCharts) {
             imports.push(import(/* webpackChunkName: 'src/main/lib/AmCharts' */ './main/lib/AmCharts.mjs'));
@@ -195,10 +182,6 @@ class Main extends core.Base {
 
         if (Neo.config.useMapboxGL) {
             imports.push(import(/* webpackChunkName: 'src/main/lib/MapboxGL' */ './main/lib/MapboxGL.mjs'));
-        }
-
-        if (Neo.config.useGoogleAnalytics) {
-            DomAccess.insertGoogleAnalyticsScript();
         }
 
         await Promise.all(imports);
@@ -231,7 +214,7 @@ class Main extends core.Base {
      *
      */
     onReady() {
-        if (this.addonsLoaded && this.importsLoaded) {
+        if (this.domAccessReady && this.importsLoaded) {
             WorkerManager.onWorkerConstructed({
                 origin: 'main'
             });

@@ -2,7 +2,7 @@ import Base from '../../core/Base.mjs';
 
 /**
  * Required for the online version of the examples & docs app
- * @class Neo.main.mixin.GoogleAnalytics
+ * @class Neo.main.addon.GoogleAnalytics
  * @extends Neo.core.Base
  * @singleton
  */
@@ -10,10 +10,15 @@ class GoogleAnalytics extends Base {
     static getConfig() {
         return {
             /**
-             * @member {String} className='Neo.main.mixin.GoogleAnalytics'
+             * @member {String} className='Neo.main.addon.GoogleAnalytics'
              * @private
              */
-            className: 'Neo.main.mixin.GoogleAnalytics'
+            className: 'Neo.main.addon.GoogleAnalytics',
+            /**
+             * @member {Boolean} singleton=true
+             * @private
+             */
+            singleton: true
         }
     }
 
@@ -40,8 +45,19 @@ class GoogleAnalytics extends Base {
 
         document.head.appendChild(script);
     }
+
+    /**
+     *
+     */
+    onDomContentLoaded() {
+        this.insertGoogleAnalyticsScript();
+    }
 }
 
 Neo.applyClassConfig(GoogleAnalytics);
 
-export {GoogleAnalytics as default};
+let instance = Neo.create(GoogleAnalytics);
+
+Neo.applyToGlobalNs(instance);
+
+export default instance;
