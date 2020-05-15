@@ -48,7 +48,7 @@ if (config.examples) {
                 themes              : value.themes || "'neo-theme-light', 'neo-theme-dark'", // arrays are not supported as templateParameters
                 title               : value.title,
                 useAmCharts         : value.hasOwnProperty('useAmCharts')          ? value.useAmCharts          : false,
-                useHighlightJS      : value.hasOwnProperty('useHighlightJS')       ? value.useAmCharts          : false,
+                useHighlightJS      : value.hasOwnProperty('useHighlightJS')       ? value.useHighlightJS       : false,
                 useMapboxGL         : value.hasOwnProperty('useMapboxGL')          ? value.useMapboxGL          : false,
                 useMarkdownConverter: value.hasOwnProperty('useMarkdownConverter') ? value.useMarkdownConverter : false,
                 workerBasePath
