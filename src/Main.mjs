@@ -184,10 +184,6 @@ class Main extends core.Base {
             imports.push(import(/* webpackChunkName: 'src/main/lib/MapboxGL' */ './main/lib/MapboxGL.mjs'));
         }
 
-        if (Neo.config.useGoogleAnalytics) {
-            DomAccess.insertGoogleAnalyticsScript();
-        }
-
         await Promise.all(imports);
 
         me.importsLoaded = true;
