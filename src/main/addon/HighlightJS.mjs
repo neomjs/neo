@@ -1,5 +1,6 @@
-import Base      from '../../core/Base.mjs';
-import DomAccess from '../DomAccess.mjs';
+import Base       from '../../core/Base.mjs';
+import DomAccess  from '../DomAccess.mjs';
+import Stylesheet from './Stylesheet.mjs'
 
 /**
  * Required for the docs app which uses highlight.js for the source views
@@ -42,7 +43,12 @@ class HighlightJS extends Base {
              * @member {Boolean} singleton=true
              * @private
              */
-            singleton: true
+            singleton: true,
+            /**
+             * @member {String} themePath='./resources/highlightjs-custom-github-theme.css'
+             * @private
+             */
+            themePath: './resources/highlightjs-custom-github-theme.css'
         }
     }
 
@@ -50,8 +56,11 @@ class HighlightJS extends Base {
      *
      */
     onDomContentLoaded() {
-        DomAccess.addScript({src: this.highlightJsPath});
-        DomAccess.addScript({src: this.highlightJsLineNumbersPath});
+        let me = this;
+
+        DomAccess.addScript({src: me.highlightJsPath});
+        DomAccess.addScript({src: me.highlightJsLineNumbersPath});
+        Stylesheet.createStyleSheet(null, 'hljs-theme', me.themePath);
     }
 
     /**

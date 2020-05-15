@@ -2,6 +2,7 @@ import Base from '../../core/Base.mjs';
 
 /**
  * Logic to work with stylesheets, e.g. apply & switch Neo based themes
+ * main.addon.HighlightJS requires this file
  * @class Neo.main.addon.Stylesheet
  * @extends Neo.core.Base
  * @singleton
