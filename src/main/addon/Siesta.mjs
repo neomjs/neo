@@ -1,4 +1,5 @@
 import Base from '../../core/Base.mjs';
+import DomAccess from "src/main/DomAccess";
 
 /**
  * Required when running Neo Apps inside the Siesta browser harness (iframe)
@@ -23,6 +24,14 @@ class Siesta extends Base {
     }
 
     /**
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+        this.adjustSiestaEnvironment();
+    }
+
+    /**
      *
      * @private
      */
@@ -39,13 +48,6 @@ class Siesta extends Base {
                 sheet.ownerNode.id = 'hljs-theme';
             }
         }
-    }
-
-    /**
-     *
-     */
-    onDomContentLoaded() {
-        this.adjustSiestaEnvironment();
     }
 }
 

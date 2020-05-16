@@ -1,5 +1,6 @@
 import Base      from '../../core/Base.mjs';
 import DomAccess from '../DomAccess.mjs';
+import Stylesheet from "src/main/addon/Stylesheet";
 
 /**
  * A markdown mixin to convert markdown to html by using showdown.js
@@ -42,9 +43,10 @@ class Markdown extends Base {
     }
 
     /**
-     *
+     * @param {Object} config
      */
-    onDomContentLoaded() {
+    constructor(config) {
+        super(config);
         DomAccess.addScript({src: this.showdownPath});
     }
 

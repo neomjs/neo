@@ -96,7 +96,7 @@ class WorldMapComponent extends AmChartComponent {
             });
         });
 
-        Neo.main.lib.AmCharts.updateData({
+        Neo.main.addon.AmCharts.updateData({
             data    : chartData,
             dataPath: this.dataPath,
             id      : this.id

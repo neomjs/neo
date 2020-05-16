@@ -6,17 +6,17 @@ import DomAccess from '../DomAccess.mjs';
  * See: https://docs.mapbox.com/mapbox-gl-js/api/
  * In case you need more API methods to get exposed to the App worker,
  * please open issues inside the tracker and / or submit PRs.
- * @class Neo.main.lib.MapboxGL
+ * @class Neo.main.addon.MapboxGL
  * @extends Neo.core.Base
  * @singleton
  */
 class MapboxGL extends Base {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.main.lib.MapboxGL'
+         * @member {String} className='Neo.main.addon.MapboxGL'
          * @private
          */
-        className: 'Neo.main.lib.MapboxGL',
+        className: 'Neo.main.addon.MapboxGL',
         /**
          * Stores all map data inside an object until mounting. key => map id
          * No array since in case a map gets loaded multiple times, we only want to apply the last data on mount.
@@ -112,10 +112,7 @@ class MapboxGL extends Base {
      */
     constructor(config) {
         super(config);
-
-        if (Neo.config.useMapboxGL) {
-            this.insertMapboxGLScripts();
-        }
+        this.insertMapboxGLScripts();
     }
 
     /**

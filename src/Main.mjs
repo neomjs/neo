@@ -27,23 +27,6 @@ class Main extends core.Base {
          */
         className: 'Neo.Main',
         /**
-         * True once the DomAccess addons (dynamic imports) are loaded
-         * @member {Boolean} addonsLoaded=false
-         * @private
-         */
-        domAccessReady: false,
-        /**
-         * True once the dynamic imports are loaded
-         * @member {Boolean} importsLoaded=false
-         * @private
-         */
-        importsLoaded: false,
-        /**
-         * @member {Boolean} isReady=false
-         * @private
-         */
-        isReady: false,
-        /**
          * @member {boolean} logAnimationFrames=true
          */
         logAnimationFrames: true,
@@ -122,7 +105,6 @@ class Main extends core.Base {
         let me = this;
 
         DomEvents.on('domContentLoaded', me.onDomContentLoaded, me);
-        DomAccess.on('ready',            me.onDomAccessReady,   me);
 
         WorkerManager.on({
             'automount'        : me.onRender,
@@ -157,11 +139,6 @@ class Main extends core.Base {
         window.location.hash = hashArr.join('&');
     }
 
-    onDomAccessReady() {
-        this.domAccessReady = true;
-        this.onReady();
-    }
-
     /**
      *
      */
@@ -169,26 +146,58 @@ class Main extends core.Base {
         let me      = this,
             imports = [];
 
-        me.isReady = true;
-
-        DomAccess.fire('domContentLoaded');
+        DomAccess.onDomContentLoaded();
 
         // not in use right now
         // window.addEventListener('resize', me['globalResizeListener'].bind(me));
 
-        if (Neo.config.useAmCharts) {
-            imports.push(import(/* webpackChunkName: 'src/main/lib/AmCharts' */ './main/lib/AmCharts.mjs'));
+        // we need different publicPath values for the main thread inside the webpack based dist envs,
+        // depending on the hierarchy level of the app entry point
+        if (window.webpackJsonp) {
+            __webpack_require__.p = Neo.config.basePath.substring(6);
         }
 
-        if (Neo.config.useMapboxGL) {
-            imports.push(import(/* webpackChunkName: 'src/main/lib/MapboxGL' */ './main/lib/MapboxGL.mjs'));
+        // We can not use Neo.config.mainThreadAddons.forEach() since webpack has no chance to handle it
+
+        if (Neo.config.mainThreadAddons.includes('AmCharts')) {
+            imports.push(import(/* webpackChunkName: 'src/main.addon/AmCharts' */        './main/addon/AmCharts.mjs'));
         }
 
-        await Promise.all(imports);
+        if (Neo.config.mainThreadAddons.includes('GoogleAnalytics')) {
+            imports.push(import(/* webpackChunkName: 'src/main/addon/GoogleAnalytics' */ './main/addon/GoogleAnalytics.mjs'));
+        }
 
-        me.importsLoaded = true;
+        if (Neo.config.mainThreadAddons.includes('HighlightJS')) {
+            imports.push(import(/* webpackChunkName: 'src/main/addon/HighlightJS' */     './main/addon/HighlightJS.mjs'));
+        }
 
-        me.onReady();
+        if (Neo.config.mainThreadAddons.includes('Markdown')) {
+            imports.push(import(/* webpackChunkName: 'src/main/addon/Markdown' */        './main/addon/Markdown.mjs'));
+        }
+
+        if (Neo.config.mainThreadAddons.includes('MapboxGL')) {
+            imports.push(import(/* webpackChunkName: 'src/main.addon/MapboxGL' */        './main/addon/MapboxGL.mjs'));
+        }
+
+        if (Neo.config.mainThreadAddons.includes('Siesta')) {
+            imports.push(import(/* webpackChunkName: 'src/main/addon/Siesta' */          './main/addon/Siesta.mjs'));
+        }
+
+        if (Neo.config.mainThreadAddons.includes('Stylesheet')) {
+            imports.push(import(/* webpackChunkName: 'src/main/addon/Stylesheet' */      './main/addon/Stylesheet.mjs'));
+        }
+
+        const modules = await Promise.all(imports);
+
+        me.addon = {};
+
+        modules.forEach(module => {
+            me.addon[module.default.constructor.name] = module.default;
+        });
+
+        WorkerManager.onWorkerConstructed({
+            origin: 'main'
+        });
     }
 
     // todo: https://developer.mozilla.org/en-US/docs/Web/Events/resize
@@ -208,17 +217,6 @@ class Main extends core.Base {
             replyId: data.id,
             success: true
         });
-    }
-
-    /**
-     *
-     */
-    onReady() {
-        if (this.domAccessReady && this.importsLoaded) {
-            WorkerManager.onWorkerConstructed({
-                origin: 'main'
-            });
-        }
     }
 
     /**

@@ -53,9 +53,11 @@ class HighlightJS extends Base {
     }
 
     /**
-     *
+     * @param {Object} config
      */
-    onDomContentLoaded() {
+    constructor(config) {
+        super(config);
+
         let me = this;
 
         DomAccess.addScript({src: me.highlightJsPath});
