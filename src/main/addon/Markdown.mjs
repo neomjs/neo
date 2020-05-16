@@ -42,9 +42,10 @@ class Markdown extends Base {
     }
 
     /**
-     *
+     * @param {Object} config
      */
-    onDomContentLoaded() {
+    constructor(config) {
+        super(config);
         DomAccess.addScript({src: this.showdownPath});
     }
 

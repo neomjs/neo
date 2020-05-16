@@ -23,6 +23,14 @@ class GoogleAnalytics extends Base {
     }
 
     /**
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+        this.insertGoogleAnalyticsScript();
+    }
+
+    /**
      *
      * @private
      */
@@ -44,13 +52,6 @@ class GoogleAnalytics extends Base {
         });
 
         document.head.appendChild(script);
-    }
-
-    /**
-     *
-     */
-    onDomContentLoaded() {
-        this.insertGoogleAnalyticsScript();
     }
 }
 

@@ -10,13 +10,12 @@
         Neo = self.Neo || {}; Neo.config = Neo.config || {};
 
         Object.assign(Neo.config, {
-            appPath       : 'apps/covid/app.mjs',
-            basePath      : '../../',
-            environment   : 'development',
-            isExperimental: true,
-            themes        : ['neo-theme-dark', 'neo-theme-light'],
-            useAmCharts   : true,
-            useMapboxGL   : true
+            appPath         : 'apps/covid/app.mjs',
+            basePath        : '../../',
+            environment     : 'development',
+            isExperimental  : true,
+            mainThreadAddons: ['AmCharts', 'GoogleAnalytics', 'MapboxGL', 'Stylesheet'],
+            themes          : ['neo-theme-dark', 'neo-theme-light']
         });
     </script>
 

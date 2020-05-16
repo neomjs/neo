@@ -221,7 +221,7 @@ class TableContainerController extends ComponentController {
             logCheckbox.disabled = false;
         }
 
-        Neo.main.lib.AmCharts.setProperties({
+        Neo.main.addon.AmCharts.setProperties({
             id        : chartId,
             properties: {
                 'series.values.0.dataFields.valueY' : value ? 'dailyActive'    : 'active',
@@ -231,7 +231,7 @@ class TableContainerController extends ComponentController {
             }
         });
 
-        Neo.main.lib.AmCharts.callMethod({
+        Neo.main.addon.AmCharts.callMethod({
             id  : chartId,
             path: 'invalidateData'
         });
@@ -241,7 +241,7 @@ class TableContainerController extends ComponentController {
      * {Object} data
      */
     onLogarithmicScaleChange(data) {
-        Neo.main.lib.AmCharts.setProperty({
+        Neo.main.addon.AmCharts.setProperty({
             id   : this.getReference('line-chart').id,
             path : 'yAxes.values.0.logarithmic',
             value: data.value
@@ -291,7 +291,7 @@ class TableContainerController extends ComponentController {
             });
         }
 
-        Neo.main.lib.AmCharts.updateData({
+        Neo.main.addon.AmCharts.updateData({
             data    : dataArray,
             dataPath: chart.dataPath,
             id      : chart.id

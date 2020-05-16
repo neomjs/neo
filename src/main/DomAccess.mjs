@@ -15,16 +15,6 @@ class DomAccess extends Base {
          */
         className: 'Neo.main.DomAccess',
         /**
-         * @member {Boolean} addonsLoaded=false
-         * @private
-         */
-        addonsLoaded: false,
-        /**
-         * @member {boolean} singleton=true
-         * @private
-         */
-        domContentLoaded: false,
-        /**
          * @member {boolean} logDeltaUpdates=true
          */
         logDeltaUpdates: true,
@@ -77,43 +67,12 @@ class DomAccess extends Base {
     constructor(config) {
         super(config);
 
-        let me      = this,
-            imports = [];
-
-        me.on('domContentLoaded', me.onDomContentLoaded, me);
+        let me = this;
 
         if (me.logDeltaUpdates) {
             me.countDeltas  = 0;
             me.countUpdates = 0;
         }
-
-        if (window.webpackJsonp) {
-            __webpack_require__.p = Neo.config.basePath.substring(6);
-        }
-
-        if (Neo.config.mainThreadAddons.includes('GoogleAnalytics')) {
-            imports.push(import(/* webpackChunkName: 'src/main/addon/GoogleAnalytics' */ './addon/GoogleAnalytics.mjs'));
-        }
-
-        if (Neo.config.mainThreadAddons.includes('HighlightJS')) {
-            imports.push(import(/* webpackChunkName: 'src/main/addon/HighlightJS' */    './addon/HighlightJS.mjs'));
-        }
-
-        if (Neo.config.mainThreadAddons.includes('Markdown')) {
-            imports.push(import(/* webpackChunkName: 'src/main/addon/Markdown' */       './addon/Markdown.mjs'));
-        }
-
-        if (Neo.config.mainThreadAddons.includes('Siesta')) {
-            imports.push(import(/* webpackChunkName: 'src/main/addon/Siesta' */         './addon/Siesta.mjs'));
-        }
-
-        if (Neo.config.mainThreadAddons.includes('Stylesheet')) {
-            imports.push(import(/* webpackChunkName: 'src/main/addon/Stylesheet' */     './addon/Stylesheet.mjs'));
-        }
-
-        Promise.all(imports).then(modules => {
-            me.onAddonsLoaded(modules);
-        });
     }
 
     /**
@@ -321,48 +280,11 @@ class DomAccess extends Base {
     }
 
     /**
-     * @param {Array} modules
-     */
-    onAddonsLoaded(modules) {
-        let me = this;
-
-        me.addonsLoaded = true;
-        me.addon        = {};
-
-        modules.forEach(module => {
-            me.addon[module.default.constructor.name] = module.default;
-        });
-
-        me.onReady();
-    }
-
-    /**
      *
      */
     onDomContentLoaded() {
-        this.domContentLoaded = true;
-
         if (Neo.config.applyBodyCls) {
             this.applyBodyCls({cls: ['neo-body']});
-        }
-
-        this.onReady();
-    }
-
-    /**
-     *
-     */
-    onReady() {
-        let me = this;
-
-        if (me.addonsLoaded && me.domContentLoaded) {
-            Object.entries(me.addon).forEach(([key, value]) => {
-                if (value.onDomContentLoaded) {
-                    value.onDomContentLoaded();
-                }
-            });
-
-            me.fire('ready');
         }
     }
 

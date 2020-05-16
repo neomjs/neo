@@ -36,6 +36,21 @@ class Stylesheet extends Base {
     }
 
     /**
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        if (Neo.config.useFontAwesome) {
+            this.createStyleSheet(null, null, Neo.config.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css');
+        }
+
+        if (Neo.config.themes.length > 0 && Neo.config.themes[0] !== '') {
+            this.insertTheme();
+        }
+    }
+
+    /**
      * Use either name for a neo theme (e.g. 'neo-theme-dark.css') or pass a href
      * @param {String} [name]
      * @param {String} [id]
@@ -152,19 +167,6 @@ class Stylesheet extends Base {
             if (themes.length > 0 && !me.hasStyleSheet(themes[0] + '-no-css4.css')) {
                 me.createStyleSheet(themes[0] + '-no-css4.css', 'neo-theme');
             }
-        }
-    }
-
-    /**
-     *
-     */
-    onDomContentLoaded() {
-        if (Neo.config.useFontAwesome) {
-            this.createStyleSheet(null, null, Neo.config.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css');
-        }
-
-        if (Neo.config.themes.length > 0 && Neo.config.themes[0] !== '') {
-            this.insertTheme();
         }
     }
 

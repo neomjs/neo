@@ -13,6 +13,12 @@ let questions = [{
     message: 'Please choose a theme for your neo app:',
     choices: ['neo-theme-dark', 'neo-theme-light', 'both'],
     default: 'both'
+}, {
+    type   : 'checkbox',
+    name   : 'mainThreadAddons',
+    message: 'Please choose your main thread addons:',
+    choices: ['AmCharts', 'GoogleAnalytics', 'HighlightJS', 'MapboxGL', 'Markdown', 'Siesta', 'Stylesheet'],
+    default: ['Stylesheet']
 }];
 
 console.log('Welcome to the neo app generator!');
@@ -56,10 +62,10 @@ inquirer.prompt(questions).then(answers => {
             "        Neo = self.Neo || {}; Neo.config = Neo.config || {};",
             "",
             "        Object.assign(Neo.config, {",
-            "            appPath       : '" + appPath + "app.mjs',",
-            "            basePath      : '../../',",
-            "            environment   : 'development',",
-            "            isExperimental: true",
+            "            appPath         : '" + appPath + "app.mjs',",
+            "            basePath        : '../../',",
+            "            environment     : 'development',",
+            "            isExperimental  : true",
             "        });",
             "    </script>",
             "",
@@ -68,10 +74,15 @@ inquirer.prompt(questions).then(answers => {
             "</html>",
         ];
 
-        if (answers['theme'] !== 'both') {
-            console.log('add theme');
+        if (answers['mainThreadAddons'] !== 'Stylesheet') {
             indexContent[15] += ',';
-            const themeContent = "            themes        : ['" + answers['theme'] + "']";
+            const themeContent = "            mainThreadAddons: [" + answers['mainThreadAddons'].map(e => "'" + e +"'").join(', ') + "]";
+            indexContent.splice(16, 0, themeContent);
+        }
+
+        if (answers['theme'] !== 'both') {
+            indexContent[15] += ',';
+            const themeContent = "            themes          : ['" + answers['theme'] + "']";
             indexContent.splice(16, 0, themeContent);
         }
 

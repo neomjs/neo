@@ -89,7 +89,7 @@ const DefaultConfig = {
     locale: 'default',
     /**
      * Add addons for the main thread
-     * Possible values: GoogleAnalytics, HighlightJS, Markdown, Siesta, Stylesheet
+     * Possible values: AmCharts, GoogleAnalytics, HighlightJS, MapboxGL, Markdown, Siesta, Stylesheet
      * (src/main/addon)
      * @default ['Stylesheet']
      * @memberOf! module:Neo
@@ -115,15 +115,6 @@ const DefaultConfig = {
      */
     unitTestMode: false,
     /**
-     * Flag if you want to load the files needed for working with amCharts
-     * https://www.amcharts.com/docs/v4/
-     * @default false
-     * @memberOf! module:Neo
-     * @name config.useAmCharts
-     * @type Boolean
-     */
-    useAmCharts: false,
-    /**
      * Flag if CSS4 stylesheets are in use (important for switching themes)
      * @default true
      * @memberOf! module:Neo
@@ -147,15 +138,6 @@ const DefaultConfig = {
      * @type Boolean
      */
     useLocalStorage: true,
-    /**
-     * Flag if you want to load the files needed for working with Mapbox GL
-     * https://docs.mapbox.com/mapbox-gl-js/overview/
-     * @default false
-     * @memberOf! module:Neo
-     * @name config.useMapboxGL
-     * @type Boolean
-     */
-    useMapboxGL: false,
     /**
      * Adds global dom event listeners for mobile related events like rotate, swipe, tap
      * @default true

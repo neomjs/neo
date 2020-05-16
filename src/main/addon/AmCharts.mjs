@@ -4,17 +4,17 @@ import DomAccess from '../DomAccess.mjs';
 /**
  * Helper class to include amCharts into your neo.mjs app
  * https://www.amcharts.com/docs/v4/
- * @class Neo.main.lib.AmCharts
+ * @class Neo.main.addon.AmCharts
  * @extends Neo.core.Base
  * @singleton
  */
 class AmCharts extends Base {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.main.lib.AmCharts'
+         * @member {String} className='Neo.main.addon.AmCharts'
          * @private
          */
-        className: 'Neo.main.lib.AmCharts',
+        className: 'Neo.main.addon.AmCharts',
         /**
          * Stores all chart ids inside an object
          * @member {Object} charts={}
@@ -77,9 +77,7 @@ class AmCharts extends Base {
     constructor(config) {
         super(config);
 
-        if (Neo.config.useAmCharts) {
-            this.insertAmChartsScripts();
-        }
+        this.insertAmChartsScripts();
     }
 
     /**

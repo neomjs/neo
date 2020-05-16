@@ -103,7 +103,7 @@ class MapboxGL extends Component {
         const me = this;
 
         me.on('mounted', () => {
-            Neo.main.lib.MapboxGL.create({
+            Neo.main.addon.MapboxGL.create({
                 accessToken: me.accessToken,
                 center     : me.center,
                 id         : me.id,
@@ -131,7 +131,7 @@ class MapboxGL extends Component {
      */
     afterSetData(value, oldValue) {
         if (value) {
-            Neo.main.lib.MapboxGL.updateData({
+            Neo.main.addon.MapboxGL.updateData({
                 data        : value,
                 dataSourceId: this.dataSourceId,
                 id          : this.id
@@ -147,7 +147,7 @@ class MapboxGL extends Component {
      */
     afterSetLayers(value, oldValue) {
         if (value) {
-            Neo.main.lib.MapboxGL.addLayers({
+            Neo.main.addon.MapboxGL.addLayers({
                 id    : this.id,
                 layers: value
             });
@@ -162,7 +162,7 @@ class MapboxGL extends Component {
      */
     afterSetMapboxStyle(value, oldValue) {
         if (this.mounted) {
-            Neo.main.lib.MapboxGL.setStyle({
+            Neo.main.addon.MapboxGL.setStyle({
                 accessToken: this.accessToken,
                 id         : this.id,
                 style      : value
@@ -178,7 +178,7 @@ class MapboxGL extends Component {
      */
     afterSetSources(value, oldValue) {
         if (value) {
-            Neo.main.lib.MapboxGL.addSources({
+            Neo.main.addon.MapboxGL.addSources({
                 id     : this.id,
                 sources: value
             });
@@ -193,7 +193,7 @@ class MapboxGL extends Component {
      */
     afterSetZoom(value, oldValue) {
         if (this.mounted) {
-            Neo.main.lib.MapboxGL.zoom({
+            Neo.main.addon.MapboxGL.zoom({
                 id  : this.id,
                 zoom: value
             });
@@ -204,7 +204,7 @@ class MapboxGL extends Component {
      *
      */
     autoResize() {
-        Neo.main.lib.MapboxGL.autoResize({
+        Neo.main.addon.MapboxGL.autoResize({
             id: this.id
         });
     }
@@ -247,7 +247,7 @@ class MapboxGL extends Component {
      * @private
      */
     centerMap(value, animate=false) {
-        Neo.main.lib.MapboxGL.center({
+        Neo.main.addon.MapboxGL.center({
             animate: animate,
             id     : this.id,
             lat    : value.lat,
@@ -322,7 +322,7 @@ class MapboxGL extends Component {
      * @param {Array} data.value
      */
     setFilter(data) {
-        Neo.main.lib.MapboxGL.setFilter({
+        Neo.main.addon.MapboxGL.setFilter({
             id     : this.id,
             layerId: data.layerId,
             options: data.options,
@@ -340,7 +340,7 @@ class MapboxGL extends Component {
      * @param {String} data.value
      */
     setLayoutProperty(data) {
-        Neo.main.lib.MapboxGL.setLayoutProperty({
+        Neo.main.addon.MapboxGL.setLayoutProperty({
             id     : this.id,
             key    : data.key,
             layerId: data.layerId,
@@ -359,7 +359,7 @@ class MapboxGL extends Component {
      * @param {String} data.value
      */
     setPaintProperty(data) {
-        Neo.main.lib.MapboxGL.setPaintProperty({
+        Neo.main.addon.MapboxGL.setPaintProperty({
             id     : this.id,
             key    : data.key,
             layerId: data.layerId,

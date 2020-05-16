@@ -91,7 +91,7 @@ class AmChart extends Component {
         me.parseChartConfig(me.chartConfig);
 
         me.on('mounted', () => {
-            Neo.main.lib.AmCharts.create({
+            Neo.main.addon.AmCharts.create({
                 combineSeriesTooltip: me.combineSeriesTooltip,
                 config              : me.chartConfig,
                 id                  : me.id,

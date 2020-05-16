@@ -23,6 +23,14 @@ class Siesta extends Base {
     }
 
     /**
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+        this.adjustSiestaEnvironment();
+    }
+
+    /**
      *
      * @private
      */
@@ -39,13 +47,6 @@ class Siesta extends Base {
                 sheet.ownerNode.id = 'hljs-theme';
             }
         }
-    }
-
-    /**
-     *
-     */
-    onDomContentLoaded() {
-        this.adjustSiestaEnvironment();
     }
 }
 
