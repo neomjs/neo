@@ -1,5 +1,4 @@
 import Base from '../../core/Base.mjs';
-import DomAccess from "src/main/DomAccess";
 
 /**
  * Required when running Neo Apps inside the Siesta browser harness (iframe)

@@ -1,6 +1,5 @@
 import Base      from '../../core/Base.mjs';
 import DomAccess from '../DomAccess.mjs';
-import Stylesheet from "src/main/addon/Stylesheet";
 
 /**
  * A markdown mixin to convert markdown to html by using showdown.js
