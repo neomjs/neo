@@ -87,6 +87,10 @@ class DomAccess extends Base {
             me.countUpdates = 0;
         }
 
+        if (window.webpackJsonp) {
+            __webpack_require__.p = Neo.config.basePath.substring(6);
+        }
+
         if (Neo.config.mainThreadAddons.includes('GoogleAnalytics')) {
             imports.push(import(/* webpackChunkName: 'src/main/addon/GoogleAnalytics' */ './addon/GoogleAnalytics.mjs'));
         }
