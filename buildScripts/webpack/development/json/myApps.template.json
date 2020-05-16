@@ -27,7 +27,7 @@
         "RealWorld": {
             "indexPath": "apps/realworld/index.ejs",
             "input": "myApps/RealWorld.mjs",
-            "mainThreadAddons": ["GoogleAnalytics", "Markdown", "Stylesheet"],
+            "mainThreadAddons": "'GoogleAnalytics', 'Markdown', 'Stylesheet'",
             "output": "/apps/realworld/",
             "themes": "",
             "title": "Conduit"
