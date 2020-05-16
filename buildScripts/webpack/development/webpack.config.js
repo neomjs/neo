@@ -39,17 +39,16 @@ if (config.examples) {
             filename: path.resolve(processRoot, config.buildFolder) + value.output + 'index.html',
             template: path.resolve(neoPath, value.indexPath || 'buildScripts/webpack/index.ejs'),
             templateParameters: {
-                appPath             : value.output + 'app.js',
-                bodyTag             : value.bodyTag || config.bodyTag,
+                appPath         : value.output + 'app.js',
+                bodyTag         : value.bodyTag || config.bodyTag,
                 basePath,
-                environment         : config.environment,
-                mainPath            : workerBasePath + 'main.js',
-                themes              : value.themes || "'neo-theme-light', 'neo-theme-dark'", // arrays are not supported as templateParameters
-                title               : value.title,
-                useAmCharts         : value.hasOwnProperty('useAmCharts')          ? value.useAmCharts          : false,
-                useHighlightJS      : value.hasOwnProperty('useHighlightJS')       ? value.useHighlightJS       : false,
-                useMapboxGL         : value.hasOwnProperty('useMapboxGL')          ? value.useMapboxGL          : false,
-                useMarkdownConverter: value.hasOwnProperty('useMarkdownConverter') ? value.useMarkdownConverter : false,
+                environment     : config.environment,
+                mainPath        : workerBasePath + 'main.js',
+                mainThreadAddons: value.mainThreadAddons || "'Stylesheet'",
+                themes          : value.themes           || "'neo-theme-light', 'neo-theme-dark'",
+                title           : value.title,
+                useAmCharts     : value.hasOwnProperty('useAmCharts') ? value.useAmCharts : false,
+                useMapboxGL     : value.hasOwnProperty('useMapboxGL') ? value.useMapboxGL : false,
                 workerBasePath
             }
         }));

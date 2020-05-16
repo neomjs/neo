@@ -10,15 +10,14 @@
         Neo = self.Neo || {}; Neo.config = Neo.config || {};
 
         Object.assign(Neo.config, {
-            appPath             : '<%= appPath %>',
-            basePath            : '<%= basePath %>',
-            environment         : '<%= environment %>',
-            themes              : [<%= themes %>],
-            useAmCharts         : <%= useAmCharts %>,
-            useHighlightJS      : <%= useHighlightJS %>,
-            useMapboxGL         : <%= useMapboxGL %>,
-            useMarkdownConverter: <%= useMarkdownConverter %>,
-            workerBasePath      : '<%= workerBasePath %>'
+            appPath         : '<%= appPath %>',
+            basePath        : '<%= basePath %>',
+            environment     : '<%= environment %>',
+            mainThreadAddons: [<%= mainThreadAddons %>],
+            themes          : [<%= themes %>],
+            useAmCharts     : <%= useAmCharts %>,
+            useMapboxGL     : <%= useMapboxGL %>,
+            workerBasePath  : '<%= workerBasePath %>'
         });
     </script>
     <script src="<%= mainPath %>"></script>

@@ -88,6 +88,16 @@ const DefaultConfig = {
      */
     locale: 'default',
     /**
+     * Add addons for the main thread
+     * Possible values: GoogleAnalytics, HighlightJS, Markdown, Siesta, Stylesheet
+     * (src/main/addon)
+     * @default ['Stylesheet']
+     * @memberOf! module:Neo
+     * @name config.mainThreadAddons
+     * @type String[]
+     */
+    mainThreadAddons: ['Stylesheet'],
+    /**
      * Add themes you want to use here. The first theme will get applied.
      * If config.useCss4 === true, other theme variables will get included as well
      * @default ['neo-theme-light', 'neo-theme-dark']
@@ -130,22 +140,6 @@ const DefaultConfig = {
      */
     useFontAwesome: true,
     /**
-     * Required for the online examples
-     * @default false
-     * @memberOf! module:Neo
-     * @name config.useGoogleAnalytics
-     * @type Boolean
-     */
-    useGoogleAnalytics: false,
-    /**
-     * True will use highlight js (docs app)
-     * @default true
-     * @memberOf! module:Neo
-     * @name config.useHighlightJS
-     * @type Boolean
-     */
-    useHighlightJS: false,
-    /**
      * Flag to only include Neo.main.mixins.LocalStorage if needed
      * @default true
      * @memberOf! module:Neo
@@ -162,15 +156,6 @@ const DefaultConfig = {
      * @type Boolean
      */
     useMapboxGL: false,
-    /**
-     * Flag if you want to load the files needed for working with showdown
-     * Neo.main.addon.Markdown
-     * @default false
-     * @memberOf! module:Neo
-     * @name config.useMarkdownConverter
-     * @type Boolean
-     */
-    useMarkdownConverter: false,
     /**
      * Adds global dom event listeners for mobile related events like rotate, swipe, tap
      * @default true

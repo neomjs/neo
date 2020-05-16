@@ -19,7 +19,6 @@ module.exports = {
             }
         },
 
-        path      : path.resolve(processRoot, config.buildFolder),
-        publicPath: '../'
+        path: path.resolve(processRoot, config.buildFolder)
     }
 };

@@ -163,7 +163,9 @@ class Stylesheet extends Base {
             this.createStyleSheet(null, null, Neo.config.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css');
         }
 
-        this.insertTheme();
+        if (Neo.config.themes.length > 0 && Neo.config.themes[0] !== '') {
+            this.insertTheme();
+        }
     }
 
     /**

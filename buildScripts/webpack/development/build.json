@@ -65,9 +65,9 @@
         },
         "docs": {
             "input": "docs/app.mjs",
+            "mainThreadAddons": "'GoogleAnalytics', 'HighlightJS', 'Stylesheet'",
             "output": "/docs/",
-            "title": "Neo Docs",
-            "useHighlightJS": true
+            "title": "Neo Docs"
         },
         "emailfield": {
             "input": "examples/form/field/Email.mjs",

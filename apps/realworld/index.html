@@ -14,13 +14,13 @@
             Neo = self.Neo || {}; Neo.config = Neo.config || {};
 
             Object.assign(Neo.config, {
-                appPath             : 'apps/realworld/app.mjs',
-                basePath            : '../../',
-                environment         : 'development',
-                isExperimental      : true,
-                themes              : [],
-                useFontAwesome      : false,
-                useMarkdownConverter: true
+                appPath         : 'apps/realworld/app.mjs',
+                basePath        : '../../',
+                environment     : 'development',
+                isExperimental  : true,
+                mainThreadAddons: ['GoogleAnalytics', 'Markdown', 'Stylesheet'],
+                themes          : [],
+                useFontAwesome  : false
             });
         </script>
 

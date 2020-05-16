@@ -27,10 +27,10 @@
         "RealWorld": {
             "indexPath": "apps/realworld/index.ejs",
             "input": "myApps/RealWorld.mjs",
+            "mainThreadAddons": "'GoogleAnalytics', 'Markdown', 'Stylesheet'",
             "output": "/apps/realworld/",
             "themes": "",
-            "title": "RealWorld",
-            "useMarkdownConverter": true
+            "title": "RealWorld"
         },
         "RealWorld2": {
             "input": "myApps/RealWorld2.mjs",

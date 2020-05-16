@@ -87,23 +87,27 @@ class DomAccess extends Base {
             me.countUpdates = 0;
         }
 
-        if (Neo.config.useGoogleAnalytics) {
+        if (window.webpackJsonp) {
+            __webpack_require__.p = Neo.config.basePath.substring(6);
+        }
+
+        if (Neo.config.mainThreadAddons.includes('GoogleAnalytics')) {
             imports.push(import(/* webpackChunkName: 'src/main/addon/GoogleAnalytics' */ './addon/GoogleAnalytics.mjs'));
         }
 
-        if (Neo.config.useHighlightJS) {
+        if (Neo.config.mainThreadAddons.includes('HighlightJS')) {
             imports.push(import(/* webpackChunkName: 'src/main/addon/HighlightJS' */    './addon/HighlightJS.mjs'));
         }
 
-        if (Neo.config.useMarkdownConverter) {
+        if (Neo.config.mainThreadAddons.includes('Markdown')) {
             imports.push(import(/* webpackChunkName: 'src/main/addon/Markdown' */       './addon/Markdown.mjs'));
         }
 
-        if (Neo.config.isInsideSiesta) {
+        if (Neo.config.mainThreadAddons.includes('Siesta')) {
             imports.push(import(/* webpackChunkName: 'src/main/addon/Siesta' */         './addon/Siesta.mjs'));
         }
 
-        if (Neo.config.themes.length > 0 || Neo.config.useFontAwesome) {
+        if (Neo.config.mainThreadAddons.includes('Stylesheet')) {
             imports.push(import(/* webpackChunkName: 'src/main/addon/Stylesheet' */     './addon/Stylesheet.mjs'));
         }
 
