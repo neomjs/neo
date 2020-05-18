@@ -149,7 +149,7 @@ class Main extends core.Base {
         DomAccess.onDomContentLoaded();
 
         // not in use right now
-        // window.addEventListener('resize', me['globalResizeListener'].bind(me));
+        // window.addEventListener('resize', me.globalResizeListener.bind(me));
 
         // we need different publicPath values for the main thread inside the webpack based dist envs,
         // depending on the hierarchy level of the app entry point
