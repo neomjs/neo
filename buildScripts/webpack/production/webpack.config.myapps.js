@@ -86,24 +86,22 @@ module.exports = env => {
 
                 indexPath = path.resolve(processRoot, config.buildFolder) + value.output + 'index.html';
 
-                if (!fs.existsSync(indexPath)) {
-                    plugins.push(new HtmlWebpackPlugin({
-                        chunks  : [],
-                        filename: indexPath,
-                        template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
-                        templateParameters: {
-                            appPath         : value.output + 'app.js',
-                            bodyTag         : value.bodyTag || config.bodyTag,
-                            basePath,
-                            environment     : 'production',
-                            mainPath        : workerBasePath + 'main.js',
-                            mainThreadAddons: value.mainThreadAddons || "'Stylesheet'",
-                            themes          : value.themes           || "'neo-theme-light', 'neo-theme-dark'",
-                            title           : value.title,
-                            workerBasePath
-                        }
-                    }));
-                }
+                plugins.push(new HtmlWebpackPlugin({
+                    chunks  : [],
+                    filename: indexPath,
+                    template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
+                    templateParameters: {
+                        appPath         : value.output + 'app.js',
+                        bodyTag         : value.bodyTag || config.bodyTag,
+                        basePath,
+                        environment     : 'production',
+                        mainPath        : workerBasePath + 'main.js',
+                        mainThreadAddons: value.mainThreadAddons || "'Stylesheet'",
+                        themes          : value.themes           || "'neo-theme-light', 'neo-theme-dark'",
+                        title           : value.title,
+                        workerBasePath
+                    }
+                }));
             }
         });
     }
