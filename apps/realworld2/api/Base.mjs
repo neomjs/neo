@@ -44,7 +44,7 @@ class Base extends CoreBase {
             Base.initialTokenRequestSent = true;
 
             setTimeout(() => {
-                Neo.Main.readLocalStorageItem({
+                Neo.main.addon.LocalStorage.readLocalStorageItem({
                     key: LOCAL_STORAGE_KEY
                 }).then(data => {
                     const token = data.value;
