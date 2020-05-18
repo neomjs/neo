@@ -2,7 +2,6 @@ import Neo                        from './Neo.mjs';
 import * as core                  from './core/_export.mjs';
 import DomAccess                  from './main/DomAccess.mjs';
 import DomEvents                  from './main/DomEvents.mjs';
-import LocalStorage               from './main/mixin/LocalStorage.mjs';
 import {default as WorkerManager} from './worker/Manager.mjs';
 
 /**
@@ -31,10 +30,6 @@ class Main extends core.Base {
          */
         logAnimationFrames: true,
         /**
-         * @member {Array} mixins=[LocalStorage]
-         */
-        mixins: [LocalStorage],
-        /**
          * @member {String} mode='read'
          * @private
          */
@@ -51,12 +46,8 @@ class Main extends core.Base {
          */
         remote: {
             app: [
-                'createLocalStorageItem',
-                'destroyLocalStorageItem',
                 'editRoute',
-                'readLocalStorageItem',
-                'setRoute',
-                'updateLocalStorageItem'
+                'setRoute'
             ]
         },
         /**
