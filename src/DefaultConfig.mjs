@@ -89,7 +89,7 @@ const DefaultConfig = {
     locale: 'default',
     /**
      * Add addons for the main thread
-     * Possible values: AmCharts, GoogleAnalytics, HighlightJS, MapboxGL, Markdown, Siesta, Stylesheet
+     * Possible values: AmCharts, GoogleAnalytics, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet
      * (src/main/addon)
      * @default ['Stylesheet']
      * @memberOf! module:Neo
@@ -130,14 +130,6 @@ const DefaultConfig = {
      * @type Boolean
      */
     useFontAwesome: true,
-    /**
-     * Flag to only include Neo.main.mixins.LocalStorage if needed
-     * @default true
-     * @memberOf! module:Neo
-     * @name config.useLocalStorage
-     * @type Boolean
-     */
-    useLocalStorage: true,
     /**
      * Adds global dom event listeners for mobile related events like rotate, swipe, tap
      * @default true

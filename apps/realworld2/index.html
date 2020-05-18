@@ -11,10 +11,11 @@
         Neo = self.Neo || {}; Neo.config = Neo.config || {};
 
         Object.assign(Neo.config, {
-            appPath       : 'apps/realworld2/app.mjs',
-            basePath      : '../../',
-            environment   : 'development',
-            isExperimental: true
+            appPath         : 'apps/realworld2/app.mjs',
+            basePath        : '../../',
+            environment     : 'development',
+            isExperimental  : true,
+            mainThreadAddons: ['GoogleAnalytics', 'LocalStorage', 'Markdown', 'Stylesheet']
         });
     </script>
 

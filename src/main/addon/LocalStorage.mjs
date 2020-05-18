@@ -2,7 +2,7 @@ import Base from '../../core/Base.mjs';
 
 /**
  * Basic CRUD support for window.localStorage
- * @class Neo.main.mixin.LocalStorage
+ * @class Neo.main.addon.LocalStorage
  * @extends Neo.core.Base
  * @singleton
  */
@@ -10,10 +10,28 @@ class LocalStorage extends Base {
     static getConfig() {
         return {
             /**
-             * @member {String} className='Neo.main.mixin.LocalStorage'
+             * @member {String} className='Neo.main.addon.LocalStorage'
              * @private
              */
-            className: 'Neo.main.mixin.LocalStorage'
+            className: 'Neo.main.addon.LocalStorage',
+            /**
+             * Remote method access for other workers
+             * @member {Object} remote={app: [//...]}
+             * @private
+             */
+            remote: {
+                app: [
+                    'createLocalStorageItem',
+                    'destroyLocalStorageItem',
+                    'readLocalStorageItem',
+                    'updateLocalStorageItem'
+                ]
+            },
+            /**
+             * @member {Boolean} singleton=true
+             * @private
+             */
+            singleton: true
         }
     }
 
@@ -62,4 +80,8 @@ class LocalStorage extends Base {
 
 Neo.applyClassConfig(LocalStorage);
 
-export {LocalStorage as default};
+let instance = Neo.create(LocalStorage);
+
+Neo.applyToGlobalNs(instance);
+
+export default instance;

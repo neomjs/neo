@@ -26,13 +26,14 @@
         "RealWorld": {
             "indexPath": "apps/realworld/index.ejs",
             "input": "myApps/RealWorld.mjs",
-            "mainThreadAddons": "'GoogleAnalytics', 'Markdown', 'Stylesheet'",
+            "mainThreadAddons": "'GoogleAnalytics', 'LocalStorage', 'Markdown', 'Stylesheet'",
             "output": "/apps/realworld/",
             "themes": "",
             "title": "Conduit"
         },
         "RealWorld2": {
             "input": "myApps/RealWorld2.mjs",
+            "mainThreadAddons": "'GoogleAnalytics', 'LocalStorage', 'Markdown', 'Stylesheet'",
             "output": "/apps/realworld2/",
             "title": "RealWorld2"
         }

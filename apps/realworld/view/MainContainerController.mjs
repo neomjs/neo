@@ -264,7 +264,7 @@ class MainContainerController extends ComponentController {
     login(userData) {
         this.currentUser = userData;
 
-        Neo.Main.createLocalStorageItem({
+        Neo.main.addon.LocalStorage.createLocalStorageItem({
             key  : LOCAL_STORAGE_KEY,
             value: userData.token
         }).then(() => {
@@ -283,7 +283,7 @@ class MainContainerController extends ComponentController {
     logout() {
         this.currentUser = null;
 
-        Neo.Main.destroyLocalStorageItem({
+        Neo.main.addon.LocalStorage.destroyLocalStorageItem({
             key: LOCAL_STORAGE_KEY
         }).then(() => {
             // wait until the header vdom-update is done to avoid showing sign up & sign in twice
