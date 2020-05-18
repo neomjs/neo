@@ -157,35 +157,9 @@ class Main extends core.Base {
             __webpack_require__.p = Neo.config.basePath.substring(6);
         }
 
-        // We can not use Neo.config.mainThreadAddons.forEach() since webpack has no chance to handle it
-
-        if (Neo.config.mainThreadAddons.includes('AmCharts')) {
-            imports.push(import(/* webpackChunkName: 'src/main.addon/AmCharts' */        './main/addon/AmCharts.mjs'));
-        }
-
-        if (Neo.config.mainThreadAddons.includes('GoogleAnalytics')) {
-            imports.push(import(/* webpackChunkName: 'src/main/addon/GoogleAnalytics' */ './main/addon/GoogleAnalytics.mjs'));
-        }
-
-        if (Neo.config.mainThreadAddons.includes('HighlightJS')) {
-            imports.push(import(/* webpackChunkName: 'src/main/addon/HighlightJS' */     './main/addon/HighlightJS.mjs'));
-        }
-
-        if (Neo.config.mainThreadAddons.includes('Markdown')) {
-            imports.push(import(/* webpackChunkName: 'src/main/addon/Markdown' */        './main/addon/Markdown.mjs'));
-        }
-
-        if (Neo.config.mainThreadAddons.includes('MapboxGL')) {
-            imports.push(import(/* webpackChunkName: 'src/main.addon/MapboxGL' */        './main/addon/MapboxGL.mjs'));
-        }
-
-        if (Neo.config.mainThreadAddons.includes('Siesta')) {
-            imports.push(import(/* webpackChunkName: 'src/main/addon/Siesta' */          './main/addon/Siesta.mjs'));
-        }
-
-        if (Neo.config.mainThreadAddons.includes('Stylesheet')) {
-            imports.push(import(/* webpackChunkName: 'src/main/addon/Stylesheet' */      './main/addon/Stylesheet.mjs'));
-        }
+        Neo.config.mainThreadAddons.forEach(addon => {
+            imports.push(import(/* webpackChunkName: 'src/main/addon/[request]' */ `./main/addon/${addon}.mjs`));
+        });
 
         const modules = await Promise.all(imports);
 
