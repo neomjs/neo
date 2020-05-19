@@ -23,14 +23,15 @@ project.plan(
                     "Neo = self.Neo || {};",
                     "Neo.config = Neo.config || {};",
                     "Object.assign(Neo.config, {",
-                        "appPath       : 'apps/realworld/app.mjs',",
-                        "basePath      : '../../../',",
-                        "environment   : 'development',",
-                        "isExperimental: true,",
-                        "isInsideSiesta: true,",
-                        "themes        : [],",
-                        "useFontAwesome: false,",
-                        "workerBasePath: '../../../src/worker/'",
+                        "appPath         : 'apps/realworld/app.mjs',",
+                        "basePath        : '../../../',",
+                        "environment     : 'development',",
+                        "isExperimental  : true,",
+                        "isInsideSiesta  : true,",
+                        "mainThreadAddons: ['LocalStorage', 'Markdown'],",
+                        "themes          : [],",
+                        "useFontAwesome  : false,",
+                        "workerBasePath  : '../../../src/worker/'",
                     "});"
                 ].join("")
             }
