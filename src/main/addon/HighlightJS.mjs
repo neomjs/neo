@@ -60,8 +60,10 @@ class HighlightJS extends Base {
 
         let me = this;
 
-        DomAccess.addScript({src: me.highlightJsPath});
-        DomAccess.addScript({src: me.highlightJsLineNumbersPath});
+        DomAccess.loadScript(me.highlightJsPath).then(() => {
+            DomAccess.addScript({src: me.highlightJsLineNumbersPath});
+        });
+
         Stylesheet.createStyleSheet(null, 'hljs-theme', me.themePath);
     }
 
