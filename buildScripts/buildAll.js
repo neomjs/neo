@@ -4,7 +4,8 @@ const cp          = require('child_process'),
       cpOpts      = { env: process.env, cwd: process.cwd(), stdio: 'inherit' },
       os          = require('os'),
       npmCmd      = os.platform().startsWith('win') ? 'npm.cmd' : 'npm', // npm binary based on OS
-      packageJson = require('../package.json'),
+      path        = require('path'),
+      packageJson = require(path.resolve(process.cwd(), 'package.json')),
       startDate   = new Date();
 
 // npm install
@@ -31,11 +32,11 @@ cp.spawnSync(npmCmd, ['run', 'prod-theme-light-no-css4'], cpOpts);
 // not included in all sub-repos, e.g.:
 // https://github.com/neomjs/covid-dashboard
 if (packageJson.scripts['build-development']) {
-      cp.spawnSync(npmCmd, ['run', 'build-development'],  cpOpts);
+    cp.spawnSync(npmCmd, ['run', 'build-development'],  cpOpts);
 }
 
 if (packageJson.scripts['build-production']) {
-      cp.spawnSync(npmCmd, ['run', 'build-production'],   cpOpts);
+    cp.spawnSync(npmCmd, ['run', 'build-production'],   cpOpts);
 }
 
 // neo dist versions => default apps (covid, rw1 & rw2)
