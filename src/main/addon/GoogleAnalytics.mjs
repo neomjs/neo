@@ -42,13 +42,13 @@ class GoogleAnalytics extends Base {
         }
 
         gtag('js', new Date());
-        gtag('config', 'UA-153734404-1');
+        gtag('config', Neo.config.gtagId);
 
         const script = document.createElement('script');
 
         Object.assign(script, {
             async: true,
-            src  : 'https://www.googletagmanager.com/gtag/js?id=UA-153734404-1'
+            src  : `https://www.googletagmanager.com/gtag/js?id=${Neo.config.gtagId}`
         });
 
         document.head.appendChild(script);
