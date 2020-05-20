@@ -131,6 +131,14 @@ const DefaultConfig = {
      */
     useFontAwesome: true,
     /**
+     * Intended for the online examples where we need an easy way to add GA to every generated app
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.useGoogleAnalytics
+     * @type Boolean
+     */
+    useGoogleAnalytics: false,
+    /**
      * Adds global dom event listeners for mobile related events like rotate, swipe, tap
      * @default true
      * @memberOf! module:Neo
