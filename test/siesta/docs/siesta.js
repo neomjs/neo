@@ -15,18 +15,18 @@ project.plan(
     {
         url    : 'tests/Main.mjs',
         preload: [
-            '../../../node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js',
             {
                 text: [
                     "Neo = self.Neo || {};",
                     "Neo.config = Neo.config || {};",
                     "Object.assign(Neo.config, {",
-                        "appPath       : 'docs/app.mjs',",
-                        "basePath      : '../../../',",
-                        "environment   : 'development',",
-                        "isExperimental: true,",
-                        "isInsideSiesta: true,",
-                        "workerBasePath: '../../../src/worker/'",
+                        "appPath         : 'docs/app.mjs',",
+                        "basePath        : '../../../',",
+                        "environment     : 'development',",
+                        "isExperimental  : true,",
+                        "isInsideSiesta  : true,",
+                        "mainThreadAddons: ['HighlightJS', 'Stylesheet'],",
+                        "workerBasePath  : '../../../src/worker/'",
                     "});"
                 ].join("")
             }
