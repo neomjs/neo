@@ -17,7 +17,7 @@ let questions = [{
     type   : 'checkbox',
     name   : 'mainThreadAddons',
     message: 'Please choose your main thread addons:',
-    choices: ['AmCharts', 'GoogleAnalytics', 'HighlightJS', 'MapboxGL', 'Markdown', 'Siesta', 'Stylesheet'],
+    choices: ['AmCharts', 'GoogleAnalytics', 'HighlightJS', 'LocalStorage', 'MapboxGL', 'Markdown', 'Siesta', 'Stylesheet'],
     default: ['Stylesheet']
 }];
 
