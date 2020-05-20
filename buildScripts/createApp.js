@@ -66,25 +66,26 @@ inquirer.prompt(questions).then(answers => {
             "            basePath        : '../../',",
             "            environment     : 'development',",
             "            isExperimental  : true",
+        ];
+
+        if (answers['mainThreadAddons'] !== 'Stylesheet') {
+            indexContent[indexContent.length] += ',';
+            indexContent.push("            mainThreadAddons: [" + answers['mainThreadAddons'].map(e => "'" + e +"'").join(', ') + "]");
+        }
+
+        if (answers['theme'] !== 'both') {
+            indexContent[indexContent.length] += ',';
+            indexContent.push("            themes          : ['" + answers['theme'] + "']");
+        }
+
+        indexContent.push(
             "        });",
             "    </script>",
             "",
             '    <script src="../../src/Main.mjs" type="module"></script>',
             "</body>",
             "</html>",
-        ];
-
-        if (answers['mainThreadAddons'] !== 'Stylesheet') {
-            indexContent[15] += ',';
-            const themeContent = "            mainThreadAddons: [" + answers['mainThreadAddons'].map(e => "'" + e +"'").join(', ') + "]";
-            indexContent.splice(16, 0, themeContent);
-        }
-
-        if (answers['theme'] !== 'both') {
-            indexContent[15] += ',';
-            const themeContent = "            themes          : ['" + answers['theme'] + "']";
-            indexContent.splice(16, 0, themeContent);
-        }
+        );
 
         fs.writeFileSync(folder + '/index.html', indexContent.join('\n'));
 
