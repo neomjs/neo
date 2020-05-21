@@ -5,14 +5,17 @@ const chalk        = require('chalk'),
       cp          = require('child_process'),
       cpOpts      = { env: process.env, cwd: process.cwd(), stdio: 'inherit' },
       envinfo     = require('envinfo'),
+      inquirer    = require('inquirer'),
       packageJson = require('../../package.json'),
       path        = './buildScripts/webpack/',
+      questions   = [],
       startDate   = new Date();
 
 const program = new commander.Command(packageJson.name + ' buildThreads')
     .version(packageJson.version)
     .option('-i, --info',           'print environment debug info')
     .option('-e, --env <name>',     '"all", "dev", "prod"')          // defaults to all
+    .option('-n, --noquestions')                                     // do not prompt questions
     .option('-t, --threads <name>', '"all", "data", "main", "vdom"') // defaults to all
     .allowUnknownOption()
     .on('--help', () => {
@@ -41,24 +44,48 @@ if (program.info) {
 
 console.log(chalk.green(packageJson.name + ' buildThreads'));
 
-const env     = program.env     || 'all',
-      threads = program.threads || 'all';
+if (!program.noquestions) {
+    if (!program.env) {
+        questions.push({
+            type   : 'list',
+            name   : 'env',
+            message: 'Please choose the environment:',
+            choices: ['all', 'dev', 'prod'],
+            default: 'both'
+        });
+    }
 
-// dist/development
-if (env === 'all' || env === 'dev') {
-    if (threads === 'all' || threads === 'main') {cp.spawnSync('webpack', ['--config', path + 'development/webpack.config.main.js'],                        cpOpts);}
-    if (threads === 'all' || threads === 'data') {cp.spawnSync('webpack', ['--config', path + 'development/webpack.config.worker.js', '--env.worker=data'], cpOpts);}
-    if (threads === 'all' || threads === 'vdom') {cp.spawnSync('webpack', ['--config', path + 'development/webpack.config.worker.js', '--env.worker=vdom'], cpOpts);}
+    if (!program.threads) {
+        questions.push({
+            type   : 'list',
+            name   : 'threads',
+            message: 'Please choose the threads to build:',
+            choices: ['all', 'data', 'main', 'vdom'],
+            default: 'all'
+        });
+    }
 }
 
-// dist/production
-if (env === 'all' || env === 'prod') {
-    if (threads === 'all' || threads === 'main') {cp.spawnSync('webpack', ['--config', path + 'production/webpack.config.main.js'],                         cpOpts);}
-    if (threads === 'all' || threads === 'data') {cp.spawnSync('webpack', ['--config', path + 'production/webpack.config.worker.js', '--env.worker=data'],  cpOpts);}
-    if (threads === 'all' || threads === 'vdom') {cp.spawnSync('webpack', ['--config', path + 'production/webpack.config.worker.js', '--env.worker=vdom'],  cpOpts);}
-}
+inquirer.prompt(questions).then(answers => {
+    const env     = program.env     || answers['env']     || 'all',
+          threads = program.threads || answers['threads'] || 'all';
 
-const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-console.log(`Total time: ${processTime}s`);
+    // dist/development
+    if (env === 'all' || env === 'dev') {
+        if (threads === 'all' || threads === 'main') {cp.spawnSync('webpack', ['--config', path + 'development/webpack.config.main.js'],                        cpOpts);}
+        if (threads === 'all' || threads === 'data') {cp.spawnSync('webpack', ['--config', path + 'development/webpack.config.worker.js', '--env.worker=data'], cpOpts);}
+        if (threads === 'all' || threads === 'vdom') {cp.spawnSync('webpack', ['--config', path + 'development/webpack.config.worker.js', '--env.worker=vdom'], cpOpts);}
+    }
 
-process.exit();
+    // dist/production
+    if (env === 'all' || env === 'prod') {
+        if (threads === 'all' || threads === 'main') {cp.spawnSync('webpack', ['--config', path + 'production/webpack.config.main.js'],                         cpOpts);}
+        if (threads === 'all' || threads === 'data') {cp.spawnSync('webpack', ['--config', path + 'production/webpack.config.worker.js', '--env.worker=data'],  cpOpts);}
+        if (threads === 'all' || threads === 'vdom') {cp.spawnSync('webpack', ['--config', path + 'production/webpack.config.worker.js', '--env.worker=vdom'],  cpOpts);}
+    }
+
+    const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
+    console.log(`Total time: ${processTime}s`);
+
+    process.exit();
+});
