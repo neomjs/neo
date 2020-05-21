@@ -67,8 +67,8 @@ if (!program.noquestions) {
 }
 
 inquirer.prompt(questions).then(answers => {
-    const env     = program.env     || answers['env']     || 'all',
-          threads = program.threads || answers['threads'] || 'all';
+    const env     = program.env     || answers.env     || 'all',
+          threads = program.threads || answers.threads || 'all';
 
     // dist/development
     if (env === 'all' || env === 'dev') {
