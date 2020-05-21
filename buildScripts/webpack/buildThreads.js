@@ -8,8 +8,7 @@ const chalk       = require('chalk'),
       inquirer    = require('inquirer'),
       packageJson = require('../../package.json'),
       path        = './buildScripts/webpack/',
-      questions   = [],
-      startDate   = new Date();
+      questions   = [];
 
 const program = new commander.Command(packageJson.name + ' buildThreads')
     .version(packageJson.version)
@@ -66,8 +65,9 @@ if (!program.noquestions) {
 }
 
 inquirer.prompt(questions).then(answers => {
-    const env     = program.env     || answers.env     || 'all',
-          threads = program.threads || answers.threads || 'all';
+    const env       = program.env     || answers.env     || 'all',
+          threads   = program.threads || answers.threads || 'all',
+          startDate = new Date();
 
     // dist/development
     if (env === 'all' || env === 'dev') {
@@ -84,7 +84,7 @@ inquirer.prompt(questions).then(answers => {
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-    console.log(`Total time: ${processTime}s`);
+    console.log(`\nTotal time: ${processTime}s`);
 
     process.exit();
 });
