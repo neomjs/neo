@@ -1,6 +1,6 @@
 'use strict';
 
-const chalk        = require('chalk'),
+const chalk       = require('chalk'),
       commander   = require('commander'),
       cp          = require('child_process'),
       cpOpts      = { env: process.env, cwd: process.cwd(), stdio: 'inherit' },
