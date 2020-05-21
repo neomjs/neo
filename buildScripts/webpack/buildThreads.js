@@ -10,7 +10,7 @@ const chalk       = require('chalk'),
       path        = './buildScripts/webpack/',
       questions   = [];
 
-const program = new commander.Command(packageJson.name + ' buildThreads')
+const program = new commander.Command(`${packageJson.name} buildThreads`)
     .version(packageJson.version)
     .option('-i, --info',           'print environment debug info')
     .option('-e, --env <name>',     '"all", "dev", "prod"')          // defaults to all
@@ -40,7 +40,7 @@ if (program.info) {
         .then(console.log);
 }
 
-console.log(chalk.green(packageJson.name + ' buildThreads'));
+console.log(chalk.green(`${packageJson.name} buildThreads`));
 
 if (!program.noquestions) {
     if (!program.env) {
@@ -71,16 +71,16 @@ inquirer.prompt(questions).then(answers => {
 
     // dist/development
     if (env === 'all' || env === 'dev') {
-        if (threads === 'all' || threads === 'main') {cp.spawnSync('webpack', ['--config', path + 'development/webpack.config.main.js'],                        cpOpts);}
-        if (threads === 'all' || threads === 'data') {cp.spawnSync('webpack', ['--config', path + 'development/webpack.config.worker.js', '--env.worker=data'], cpOpts);}
-        if (threads === 'all' || threads === 'vdom') {cp.spawnSync('webpack', ['--config', path + 'development/webpack.config.worker.js', '--env.worker=vdom'], cpOpts);}
+        if (threads === 'all' || threads === 'main') {cp.spawnSync('webpack', ['--config', `${path}development/webpack.config.main.js`],                        cpOpts);}
+        if (threads === 'all' || threads === 'data') {cp.spawnSync('webpack', ['--config', `${path}development/webpack.config.worker.js`, '--env.worker=data'], cpOpts);}
+        if (threads === 'all' || threads === 'vdom') {cp.spawnSync('webpack', ['--config', `${path}development/webpack.config.worker.js`, '--env.worker=vdom'], cpOpts);}
     }
 
     // dist/production
     if (env === 'all' || env === 'prod') {
-        if (threads === 'all' || threads === 'main') {cp.spawnSync('webpack', ['--config', path + 'production/webpack.config.main.js'],                         cpOpts);}
-        if (threads === 'all' || threads === 'data') {cp.spawnSync('webpack', ['--config', path + 'production/webpack.config.worker.js', '--env.worker=data'],  cpOpts);}
-        if (threads === 'all' || threads === 'vdom') {cp.spawnSync('webpack', ['--config', path + 'production/webpack.config.worker.js', '--env.worker=vdom'],  cpOpts);}
+        if (threads === 'all' || threads === 'main') {cp.spawnSync('webpack', ['--config', `${path}production/webpack.config.main.js`],                         cpOpts);}
+        if (threads === 'all' || threads === 'data') {cp.spawnSync('webpack', ['--config', `${path}production/webpack.config.worker.js`, '--env.worker=data'],  cpOpts);}
+        if (threads === 'all' || threads === 'vdom') {cp.spawnSync('webpack', ['--config', `${path}production/webpack.config.worker.js`, '--env.worker=vdom'],  cpOpts);}
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
