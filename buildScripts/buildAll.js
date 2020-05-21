@@ -32,20 +32,19 @@ cp.spawnSync(npmCmd, ['run', 'prod-theme-light-no-css4'], cpOpts);
 // not included in all sub-repos, e.g.:
 // https://github.com/neomjs/covid-dashboard
 if (packageJson.scripts['build-development']) {
-    cp.spawnSync(npmCmd, ['run', 'build-development'],  cpOpts);
+    cp.spawnSync(npmCmd, ['run', 'build-development'],    cpOpts);
 }
 
 if (packageJson.scripts['build-production']) {
-    cp.spawnSync(npmCmd, ['run', 'build-production'],   cpOpts);
+    cp.spawnSync(npmCmd, ['run', 'build-production'],     cpOpts);
 }
 
-// neo dist versions => default apps (covid, rw1 & rw2)
+// default apps (covid, rw1 & rw2)
 cp.spawnSync(npmCmd, ['run', 'dev-build-all-my-apps'],    cpOpts);
 cp.spawnSync(npmCmd, ['run', 'prod-build-all-my-apps'],   cpOpts);
 
-// neo dist versions => main thread
-cp.spawnSync(npmCmd, ['run', 'dev-build-main'],           cpOpts);
-cp.spawnSync(npmCmd, ['run', 'prod-build-main'],          cpOpts);
+// build threads: data, main, vdom => dev & prod
+cp.spawnSync('node', ['./buildScripts/webpack/buildThreads.js'], cpOpts);
 
 const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
 console.log(`Total time: ${processTime}s`);

@@ -115,7 +115,7 @@ module.exports = env => {
         output: {
             chunkFilename: '[name].js', // would default to '[id].js': src/main/lib/AmCharts => 1.js
 
-            filename: (chunkData) => {
+            filename: chunkData => {
                 let name = chunkData.chunk.name;
 
                 if (config.workers.hasOwnProperty(name)) {
@@ -126,7 +126,7 @@ module.exports = env => {
                     }
                 }
             },
-            path: path.resolve(processRoot, config.buildFolder)
+            path: path.resolve(processRoot, 'dist/production')
         }
     }
 };

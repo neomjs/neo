@@ -54,6 +54,15 @@ const DefaultConfig = {
      */
     environment: 'production',
     /**
+     * In case you are using the GoogleAnalytics mainThreadAddon or useGoogleAnalytics: true,
+     * you can change the gtag id here. Required for the online examples (gh pages)
+     * @default 'UA-153734404-1'
+     * @memberOf! module:Neo
+     * @name config.gtagId
+     * @type String
+     */
+    gtagId: 'UA-153734404-1',
+    /**
      * Flag if Neo is running without any JS builds
      * @default false
      * @memberOf! module:Neo

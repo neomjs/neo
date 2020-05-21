@@ -9,7 +9,7 @@ let questions = [{
     default: 'MyApp'
 }, {
     type   : 'list',
-    name   : 'theme',
+    name   : 'themes',
     message: 'Please choose a theme for your neo app:',
     choices: ['neo-theme-dark', 'neo-theme-light', 'both'],
     default: 'both'
@@ -17,18 +17,20 @@ let questions = [{
     type   : 'checkbox',
     name   : 'mainThreadAddons',
     message: 'Please choose your main thread addons:',
-    choices: ['AmCharts', 'GoogleAnalytics', 'HighlightJS', 'MapboxGL', 'Markdown', 'Siesta', 'Stylesheet'],
+    choices: ['AmCharts', 'GoogleAnalytics', 'HighlightJS', 'LocalStorage', 'MapboxGL', 'Markdown', 'Siesta', 'Stylesheet'],
     default: ['Stylesheet']
 }];
 
 console.log('Welcome to the neo app generator!');
 
 inquirer.prompt(questions).then(answers => {
-    const appName  = answers['appName'],
-          lAppName = appName.toLowerCase(),
-          appPath  = 'apps/' + lAppName + '/',
-          dir      = '../apps/' + lAppName,
-          folder   = path.resolve(__dirname, dir);
+    const appName           = answers['appName'],
+          lAppName          = appName.toLowerCase(),
+          appPath           = 'apps/' + lAppName + '/',
+          dir               = '../apps/' + lAppName,
+          folder            = path.resolve(__dirname, dir),
+          mainThreadAddons  = answers['mainThreadAddons'],
+          themes            = Array.isArray(answers['themes']) ? answers['themes'] : [answers['themes']];
 
     fs.mkdir(folder, { recursive: true }, (err) => {
         if (err) {
@@ -66,25 +68,26 @@ inquirer.prompt(questions).then(answers => {
             "            basePath        : '../../',",
             "            environment     : 'development',",
             "            isExperimental  : true",
+        ];
+
+        if (answers['mainThreadAddons'] !== 'Stylesheet') {
+            indexContent[indexContent.length] += ',';
+            indexContent.push("            mainThreadAddons: [" + mainThreadAddons.map(e => "'" + e +"'").join(', ') + "]");
+        }
+
+        if (answers['themes'] !== 'both') {
+            indexContent[indexContent.length] += ',';
+            indexContent.push("            themes          : [" + themes.map(e => "'" + e +"'").join(', ') + "]");
+        }
+
+        indexContent.push(
             "        });",
             "    </script>",
             "",
             '    <script src="../../src/Main.mjs" type="module"></script>',
             "</body>",
             "</html>",
-        ];
-
-        if (answers['mainThreadAddons'] !== 'Stylesheet') {
-            indexContent[15] += ',';
-            const themeContent = "            mainThreadAddons: [" + answers['mainThreadAddons'].map(e => "'" + e +"'").join(', ') + "]";
-            indexContent.splice(16, 0, themeContent);
-        }
-
-        if (answers['theme'] !== 'both') {
-            indexContent[15] += ',';
-            const themeContent = "            themes          : ['" + answers['theme'] + "']";
-            indexContent.splice(16, 0, themeContent);
-        }
+        );
 
         fs.writeFileSync(folder + '/index.html', indexContent.join('\n'));
 
@@ -156,6 +159,14 @@ inquirer.prompt(questions).then(answers => {
             title : appName
         };
 
+        if (!(mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 1)) {
+            appDevJson.apps[appName].mainThreadAddons = mainThreadAddons.map(e => "'" + e + "'").join(', ');
+        }
+
+        if (answers['themes'] !== 'both') {
+            appDevJson.apps[appName].themes = themes.map(e => "'" + e + "'").join(', ');
+        }
+
         fs.writeFileSync(appDevJsonPath, JSON.stringify(appDevJson, null, 4));
 
         let appJsonProdPath = path.resolve(__dirname, '../buildScripts/webpack/production/json/myApps.json'),
@@ -172,6 +183,14 @@ inquirer.prompt(questions).then(answers => {
             output: '/' + appPath,
             title : appName
         };
+
+        if (!(mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 1)) {
+            appProdJson.apps[appName].mainThreadAddons = mainThreadAddons.map(e => "'" + e + "'").join(', ');
+        }
+
+        if (answers['themes'] !== 'both') {
+            appProdJson.apps[appName].themes = themes.map(e => "'" + e + "'").join(', ');
+        }
 
         fs.writeFileSync(appJsonProdPath, JSON.stringify(appProdJson, null, 4));
 
