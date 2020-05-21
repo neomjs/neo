@@ -9,6 +9,7 @@
     "scripts": {
         "server-start": "webpack-dev-server --open",
         "build-all": "node ./buildScripts/buildAll.js",
+        "build-threads": "node ./buildScripts/webpack/buildThreads.js",
         "create-app": "node ./buildScripts/createApp.js",
         "dev-build-data": "webpack --config ./buildScripts/webpack/development/webpack.config.worker.js --env.worker=data",
         "dev-build-main": "webpack --config ./buildScripts/webpack/development/webpack.config.main.js",
