@@ -29,8 +29,8 @@ if (packageJson.scripts['build-production']) {
 }
 
 // default apps (covid, rw1 & rw2)
-cp.spawnSync(npmCmd, ['run', 'dev-build-all-my-apps'],  cpOpts);
-cp.spawnSync(npmCmd, ['run', 'prod-build-all-my-apps'], cpOpts);
+cp.spawnSync('webpack', ['--config', './buildScripts/webpack/development/webpack.config.myapps.js', '--env.build_all=true'], cpOpts);
+cp.spawnSync('webpack', ['--config', './buildScripts/webpack/production/webpack.config.myapps.js',  '--env.build_all=true'], cpOpts);
 
 // build threads: data, main, vdom => dev & prod
 cp.spawnSync('node', ['./buildScripts/webpack/buildThreads.js'], cpOpts);
