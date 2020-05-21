@@ -2,19 +2,18 @@
 
 const cp        = require('child_process'),
       cpOpts    = { env: process.env, cwd: process.cwd(), stdio: 'inherit' },
-      os        = require('os'),
-      npmCmd    = os.platform().startsWith('win') ? 'npm.cmd' : 'npm', // npm binary based on OS
+      path      = './buildScripts/webpack/',
       startDate = new Date();
 
 // dist/development
-cp.spawnSync(npmCmd, ['run', 'dev-build-data'],  cpOpts);
-cp.spawnSync(npmCmd, ['run', 'dev-build-main'],  cpOpts);
-cp.spawnSync(npmCmd, ['run', 'dev-build-vdom'],  cpOpts);
+cp.spawnSync('webpack', ['--config', path + 'development/webpack.config.main.js'],                        cpOpts);
+cp.spawnSync('webpack', ['--config', path + 'development/webpack.config.worker.js', '--env.worker=data'], cpOpts);
+cp.spawnSync('webpack', ['--config', path + 'development/webpack.config.worker.js', '--env.worker=vdom'], cpOpts);
 
 // dist/production
-cp.spawnSync(npmCmd, ['run', 'prod-build-data'], cpOpts);
-cp.spawnSync(npmCmd, ['run', 'prod-build-main'], cpOpts);
-cp.spawnSync(npmCmd, ['run', 'prod-build-vdom'], cpOpts);
+cp.spawnSync('webpack', ['--config', path + 'production/webpack.config.main.js'],                         cpOpts);
+cp.spawnSync('webpack', ['--config', path + 'production/webpack.config.worker.js', '--env.worker=data'],  cpOpts);
+cp.spawnSync('webpack', ['--config', path + 'production/webpack.config.worker.js', '--env.worker=vdom'],  cpOpts);
 
 const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
 console.log(`Total time: ${processTime}s`);
