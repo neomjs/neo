@@ -6,15 +6,15 @@ const fs          = require('fs'),
       config      = require(path.resolve(neoPath, 'buildScripts/webpack/development/build.json')),
       entry       = {};
 
-if (config.workers) {
-    Object.entries(config.workers).forEach(([key, value]) => {
-        if (key === 'vdom') {
-            entry[key] = path.resolve(neoPath, value.input);
-        }
-    });
-}
-
 module.exports = env => {
+    if (config.workers) {
+        Object.entries(config.workers).forEach(([key, value]) => {
+            if (key === env.worker) {
+                entry[key] = path.resolve(neoPath, value.input);
+            }
+        });
+    }
+
     return {
         mode: 'development',
 
