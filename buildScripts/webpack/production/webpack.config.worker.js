@@ -6,15 +6,15 @@ const fs          = require('fs'),
       config      = require(path.resolve(neoPath, 'buildScripts/webpack/production/build.json')),
       entry       = {};
 
-if (config.workers) {
-    Object.entries(config.workers).forEach(([key, value]) => {
-        if (key === 'data') {
-            entry[key] = path.resolve(neoPath, value.input);
-        }
-    });
-}
+module.exports = env => {
+    if (config.workers) {
+        Object.entries(config.workers).forEach(([key, value]) => {
+            if (key === env.worker) {
+                entry[key] = path.resolve(neoPath, value.input);
+            }
+        });
+    }
 
-module.exports = env => {console.log(env);
     return {
         mode: 'production',
         entry,
