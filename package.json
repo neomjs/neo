@@ -14,6 +14,7 @@
         "dev-build-vdom": "webpack --config ./buildScripts/webpack/development/webpack.config.vdom.js",
         "dev-build-my-apps": "webpack --config ./buildScripts/webpack/development/webpack.config.myapps.js",
         "prod-build-main": "webpack --config ./buildScripts/webpack/production/webpack.config.main.js",
+        "prod-build-vdom": "webpack --config ./buildScripts/webpack/production/webpack.config.vdom.js",
         "prod-build-my-apps": "webpack --config ./buildScripts/webpack/production/webpack.config.myapps.js",
         "generate-docs-json": "node ./buildScripts/docs/jsdocx.js",
         "build-development": "webpack --config ./buildScripts/webpack/development/webpack.config.js",
