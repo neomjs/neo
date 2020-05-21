@@ -9,6 +9,7 @@
     "scripts": {
         "server-start": "webpack-dev-server --open",
         "build-all": "node ./buildScripts/buildAll.js",
+        "build-themes": "node ./buildScripts/webpack/buildThemes.js",
         "build-threads": "node ./buildScripts/webpack/buildThreads.js",
         "create-app": "node ./buildScripts/createApp.js",
         "dev-build-my-apps": "webpack --config ./buildScripts/webpack/development/webpack.config.myapps.js",
