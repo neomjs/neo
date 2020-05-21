@@ -30,11 +30,10 @@ if (program.info) {
     console.log(`  running from ${__dirname}`);
     return envinfo
         .run({
-            System           : ['OS', 'CPU'],
-            Binaries         : ['Node', 'npm', 'Yarn'],
-            Browsers         : ['Chrome', 'Edge', 'Firefox', 'Safari'],
-            npmPackages      : ['neo.mjs'],
-            npmGlobalPackages: ['neo-app']
+            System     : ['OS', 'CPU'],
+            Binaries   : ['Node', 'npm', 'Yarn'],
+            Browsers   : ['Chrome', 'Edge', 'Firefox', 'Safari'],
+            npmPackages: ['neo.mjs']
         }, {
             duplicates  : true,
             showNotFound: true
