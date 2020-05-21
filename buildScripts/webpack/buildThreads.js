@@ -39,7 +39,7 @@ if (program.info) {
         .then(console.log);
 }
 
-console.log(chalk.green('neo.mjs buildThreads'));
+console.log(chalk.green(packageJson.name + ' buildThreads'));
 
 const env     = program.env     || 'all',
       threads = program.threads || 'all';
