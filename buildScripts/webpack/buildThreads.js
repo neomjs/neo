@@ -49,7 +49,7 @@ if (!program.noquestions) {
             name   : 'env',
             message: 'Please choose the environment:',
             choices: ['all', 'dev', 'prod'],
-            default: 'both'
+            default: 'all'
         });
     }
 
