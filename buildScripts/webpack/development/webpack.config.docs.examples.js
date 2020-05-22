@@ -59,9 +59,17 @@ module.exports = {
 
     plugins: [
         new CleanWebpackPlugin({
-            cleanOnceBeforeBuildPatterns: ['**/*.js', '**/*.mjs', '!apps/**/*.js', '!**/*highlight.pack.js', '!main.js'],
-            root                        : path.resolve(processRoot, config.buildFolder),
-            verbose                     : true
+            cleanOnceBeforeBuildPatterns: [
+                '**/*.js',
+                '**/*.mjs',
+                '!apps/**/*.js',
+                '!**/*highlight.pack.js',
+                '!main.js',
+                `!${config.workers.data.output}`,
+                `!${config.workers.vdom.output}`
+            ],
+            root   : path.resolve(processRoot, config.buildFolder),
+            verbose: true
         }),
         new WebpackShellPlugin({
             onBuildExit: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.js')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(processRoot, config.buildFolder, 'docs/resources')]
