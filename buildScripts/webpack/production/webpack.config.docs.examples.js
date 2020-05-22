@@ -30,7 +30,7 @@ if (config.examples) {
 
         plugins.push(new HtmlWebpackPlugin({
             chunks  : [],
-            filename: path.resolve(processRoot, config.buildFolder) + value.output + 'index.html',
+            filename: path.resolve(processRoot, buildTarget.folder) + value.output + 'index.html',
             template: path.resolve(neoPath, value.indexPath || 'buildScripts/webpack/index.ejs'),
             templateParameters: {
                 appPath         : value.output + 'app.js',
@@ -64,11 +64,11 @@ module.exports = {
                 `!${config.workers.data.output}`,
                 `!${config.workers.vdom.output}`
             ],
-            root   : path.resolve(processRoot, config.buildFolder),
+            root   : path.resolve(processRoot, buildTarget.folder),
             verbose: true
         }),
         new WebpackShellPlugin({
-            onBuildExit: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.js')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(processRoot, config.buildFolder, 'docs/resources')]
+            onBuildExit: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.js')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(processRoot, buildTarget.folder, 'docs/resources')]
         }),
         ...plugins
     ],

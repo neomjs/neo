@@ -23,8 +23,8 @@ if (fs.existsSync(configPath)) {
     }
 }
 
-if (!config.buildFolder) {
-    config.buildFolder = 'dist/production';
+if (!buildTarget.folder) {
+    buildTarget.folder = 'dist/production';
 }
 
 module.exports = env => {
@@ -78,7 +78,7 @@ module.exports = env => {
                     }
                 }
 
-                indexPath = path.resolve(processRoot, config.buildFolder) + value.output + 'index.html';
+                indexPath = path.resolve(processRoot, buildTarget.folder) + value.output + 'index.html';
 
                 plugins.push(new HtmlWebpackPlugin({
                     chunks  : [],

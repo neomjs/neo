@@ -11,12 +11,11 @@
         "build-all": "node ./buildScripts/buildAll.js",
         "build-themes": "node ./buildScripts/webpack/buildThemes.js",
         "build-threads": "node ./buildScripts/webpack/buildThreads.js",
+        "build-docs-examples": "node ./buildScripts/webpack/buildDocsExamples.js",
         "create-app": "node ./buildScripts/createApp.js",
         "dev-build-my-apps": "webpack --config ./buildScripts/webpack/development/webpack.config.myapps.js",
         "prod-build-my-apps": "webpack --config ./buildScripts/webpack/production/webpack.config.myapps.js",
         "generate-docs-json": "node ./buildScripts/docs/jsdocx.js",
-        "dev-build-docs-examples": "webpack --config ./buildScripts/webpack/development/webpack.config.docs.examples.js",
-        "prod-build-docs-examples": "webpack --config ./buildScripts/webpack/production/webpack.config.docs.examples.js",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "keywords": [
