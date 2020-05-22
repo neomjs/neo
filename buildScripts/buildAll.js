@@ -20,12 +20,12 @@ cp.spawnSync('node', ['./buildScripts/webpack/buildThemes.js', '-n'], cpOpts);
 // neo dist versions => examples, docs app
 // not included in all sub-repos, e.g.:
 // https://github.com/neomjs/covid-dashboard
-if (packageJson.scripts['build-development']) {
-    cp.spawnSync(npmCmd, ['run', 'build-development'], cpOpts);
+if (packageJson.scripts['dev-build-docs-examples']) {
+    cp.spawnSync(npmCmd, ['run', 'dev-build-docs-examples'], cpOpts);
 }
 
 if (packageJson.scripts['build-production']) {
-    cp.spawnSync(npmCmd, ['run', 'build-production'], cpOpts);
+    cp.spawnSync(npmCmd, ['run', 'prod-build-docs-examples'], cpOpts);
 }
 
 // default apps (covid, rw1 & rw2)

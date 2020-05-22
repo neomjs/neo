@@ -15,8 +15,8 @@
         "dev-build-my-apps": "webpack --config ./buildScripts/webpack/development/webpack.config.myapps.js",
         "prod-build-my-apps": "webpack --config ./buildScripts/webpack/production/webpack.config.myapps.js",
         "generate-docs-json": "node ./buildScripts/docs/jsdocx.js",
-        "build-development": "webpack --config ./buildScripts/webpack/development/webpack.config.js",
-        "build-production": "webpack --config ./buildScripts/webpack/production/webpack.config.js",
+        "dev-build-docs-examples": "webpack --config ./buildScripts/webpack/development/webpack.config.docs.examples.js",
+        "prod-build-docs-examples": "webpack --config ./buildScripts/webpack/production/webpack.config.docs.examples.js",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "keywords": [
