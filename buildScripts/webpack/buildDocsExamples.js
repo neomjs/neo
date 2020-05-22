@@ -8,9 +8,10 @@ const chalk       = require('chalk'),
       inquirer    = require('inquirer'),
       packageJson = require('../../package.json'),
       path        = './buildScripts/webpack/',
+      programName = `${packageJson.name} buildDocsExamples`,
       questions   = [];
 
-const program = new commander.Command(`${packageJson.name} buildDocsExamples`)
+const program = new commander.Command(programName)
     .version(packageJson.version)
     .option('-i, --info',           'print environment debug info')
     .option('-e, --env <name>',     '"all", "dev", "prod"') // defaults to all
@@ -39,7 +40,7 @@ if (program.info) {
         .then(console.log);
 }
 
-console.log(chalk.green(`${packageJson.name} buildDocsExamples`));
+console.log(chalk.green(programName));
 
 if (!program.noquestions) {
     if (!program.env) {
@@ -59,16 +60,18 @@ inquirer.prompt(questions).then(answers => {
 
     // dist/development
     if (env === 'all' || env === 'dev') {
+        console.log(chalk.blue(`${programName} starting dist/development`));
         cp.spawnSync('webpack', ['--config', `${path}development/webpack.config.docs.examples.js`], cpOpts);
     }
 
     // dist/production
     if (env === 'all' || env === 'prod') {
+        console.log(chalk.blue(`${programName} starting dist/production`));
         cp.spawnSync('webpack', ['--config', `${path}production/webpack.config.docs.examples.js`],  cpOpts);
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-    console.log(`\nTotal time: ${processTime}s`);
+    console.log(`\nTotal time ${programName}: ${processTime}s`);
 
     process.exit();
 });

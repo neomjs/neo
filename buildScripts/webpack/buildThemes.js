@@ -7,9 +7,10 @@ const chalk        = require('chalk'),
       envinfo     = require('envinfo'),
       inquirer    = require('inquirer'),
       packageJson = require('../../package.json'),
+      programName = `${packageJson.name} buildThemes`,
       questions   = [];
 
-const program = new commander.Command(`${packageJson.name} buildThemes`)
+const program = new commander.Command(programName)
     .version(packageJson.version)
     .option('-i, --info',          'print environment debug info')
     .option('-c, --css4 <name>',   '"all", "true", "false"') // defaults to all
@@ -41,7 +42,7 @@ if (program.info) {
         .then(console.log);
 }
 
-console.log(chalk.green(`${packageJson.name} buildThemes`));
+console.log(chalk.green(programName));
 
 if (!program.noquestions) {
     if (!program.themes) {
@@ -97,16 +98,18 @@ inquirer.prompt(questions).then(answers => {
 
     // dist/development
     if (env === 'all' || env === 'dev') {
+        console.log(chalk.blue(`${programName} starting dist/development`));
         buildEnv('./buildScripts/webpack/development/webpack.scss.config.js');
     }
 
     // dist/production
     if (env === 'all' || env === 'prod') {
+        console.log(chalk.blue(`${programName} starting dist/production`));
         buildEnv('./buildScripts/webpack/production/webpack.scss.config.js');
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-    console.log(`Total time: ${processTime}s`);
+    console.log(`\nTotal time ${programName}: ${processTime}s`);
 
     process.exit();
 });
