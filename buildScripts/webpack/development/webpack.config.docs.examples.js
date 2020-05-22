@@ -63,6 +63,7 @@ module.exports = {
                 '**/*.js',
                 '**/*.mjs',
                 '!apps/**/*.js',
+                '!src/**/*.js',
                 '!**/*highlight.pack.js',
                 '!main.js',
                 `!${config.workers.data.output}`,
