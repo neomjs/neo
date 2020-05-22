@@ -8,7 +8,7 @@ const fs                = require('fs'),
       neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
       plugins           = [];
 
-let basePath, config, entry, entryPath, i, indexPath, treeLevel, workerBasePath;
+let basePath, config, entryPath, i, indexPath, treeLevel, workerBasePath;
 
 if (fs.existsSync(configPath)) {
     config = require(configPath);
@@ -26,17 +26,10 @@ if (!config.buildFolder) {
     config.buildFolder = 'dist/production';
 }
 
-entry = {};
-
-if (config.workers) {
-    Object.entries(config.workers).forEach(([key, value]) => {
-        entry[key] = path.resolve(neoPath, value.input);
-    });
-}
-
 module.exports = env => {
     let buildAll = env && env.build_all,
         choices  = [],
+        entry    = {},
         inquirerAnswers;
 
     if (config.apps) {
@@ -92,8 +85,8 @@ module.exports = env => {
                     template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
                     templateParameters: {
                         appPath         : value.output + 'app.js',
-                        bodyTag         : value.bodyTag || config.bodyTag,
                         basePath,
+                        bodyTag         : value.bodyTag || config.bodyTag,
                         environment     : 'production',
                         mainPath        : workerBasePath + 'main.js',
                         mainThreadAddons: value.mainThreadAddons || "'Stylesheet'",
@@ -118,9 +111,7 @@ module.exports = env => {
             filename: chunkData => {
                 let name = chunkData.chunk.name;
 
-                if (config.workers.hasOwnProperty(name)) {
-                    return config.workers[name].output;
-                } else if (config.apps.hasOwnProperty(name)) {
+                if (config.apps.hasOwnProperty(name)) {
                     if (buildAll || choices.length < 2 || inquirerAnswers.apps.includes(name)) {
                         return config.apps[name].output + 'app.js';
                     }
