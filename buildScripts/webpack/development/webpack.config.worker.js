@@ -1,7 +1,7 @@
-const fs          = require('fs'),
-      path        = require('path'),
+const path        = require('path'),
+      buildTarget = require('./buildTarget.json'),
       processRoot = process.cwd(),
-      packageJson = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
+      packageJson = require(path.resolve(processRoot, 'package.json')),
       neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
       config      = require(path.resolve(neoPath, 'buildScripts/webpack/development/build.json')),
       entry       = {};
@@ -33,7 +33,7 @@ module.exports = env => {
                     return config.workers[name].output;
                 }
             },
-            path: path.resolve(processRoot, 'dist/development')
+            path: path.resolve(processRoot, buildTarget.folder)
         }
     }
 };

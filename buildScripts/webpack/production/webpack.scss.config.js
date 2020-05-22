@@ -1,12 +1,12 @@
-const fs                   = require('fs'),
-      path                 = require('path'),
+const path                 = require('path'),
+      buildTarget          = require('./buildTarget.json'),
       MiniCssExtractPlugin = require("mini-css-extract-plugin"),
       processRoot          = process.cwd(),
-      packageJson          = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
+      packageJson          = require(path.resolve(processRoot, 'package.json')),
       neoPath              = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/';
 
 module.exports = env => {
-    const config = JSON.parse(fs.readFileSync(path.resolve(neoPath, 'buildScripts/webpack/production/json/', env.json_file)), 'utf8');
+    const config = require(path.resolve(neoPath, 'buildScripts/webpack/production/json/', env.json_file));
 
     return {
         mode : 'production',
@@ -17,7 +17,7 @@ module.exports = env => {
         ],
 
         output: {
-            path    : path.resolve(processRoot, config.buildFolder),
+            path    : path.resolve(processRoot, buildTarget.folder),
             filename: 'tmpWebpackCss.js'
         },
 

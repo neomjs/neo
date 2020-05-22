@@ -1,22 +1,16 @@
-const fs                     = require('fs-extra'),
-      path                   = require('path'),
+const path                   = require('path'),
+      buildTarget            = require('./buildTarget.json'),
       { CleanWebpackPlugin } = require('clean-webpack-plugin'),
       HtmlWebpackPlugin      = require('html-webpack-plugin'),
       WebpackShellPlugin     = require('webpack-shell-plugin'),
       processRoot            = process.cwd(),
-      packageJson            = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
+      packageJson            = require(path.resolve(processRoot, 'package.json')),
       neoPath                = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      config                 = JSON.parse(fs.readFileSync(path.resolve(neoPath, 'buildScripts/webpack/production/build.json')), 'utf8'),
+      config                 = require(path.resolve(neoPath, 'buildScripts/webpack/production/build.json')),
       entry                  = {},
       plugins                = [];
 
 let basePath, i, treeLevel, workerBasePath;
-
-if (config.workers) {
-    Object.entries(config.workers).forEach(([key, value]) => {
-        entry[key] = path.resolve(neoPath, value.input);
-    });
-}
 
 if (config.examples) {
     Object.entries(config.examples).forEach(([key, value]) => {
@@ -36,12 +30,12 @@ if (config.examples) {
 
         plugins.push(new HtmlWebpackPlugin({
             chunks  : [],
-            filename: path.resolve(processRoot, config.buildFolder) + value.output + 'index.html',
+            filename: path.resolve(processRoot, buildTarget.folder) + value.output + 'index.html',
             template: path.resolve(neoPath, value.indexPath || 'buildScripts/webpack/index.ejs'),
             templateParameters: {
                 appPath         : value.output + 'app.js',
-                bodyTag         : value.bodyTag || config.bodyTag,
                 basePath,
+                bodyTag         : value.bodyTag || config.bodyTag,
                 environment     : config.environment,
                 mainPath        : workerBasePath + 'main.js',
                 mainThreadAddons: value.mainThreadAddons || "'Stylesheet'",
@@ -60,12 +54,21 @@ module.exports = {
 
     plugins: [
         new CleanWebpackPlugin({
-            cleanOnceBeforeBuildPatterns: ['**/*.js', '**/*.mjs', '!apps/**/*.js', '!**/*highlight.pack.js', '!main.js'],
-            root                        : path.resolve(processRoot, config.buildFolder),
-            verbose                     : true
+            cleanOnceBeforeBuildPatterns: [
+                '**/*.js',
+                '**/*.mjs',
+                '!apps/**/*.js',
+                '!src/**/*.js',
+                '!**/*highlight.pack.js',
+                '!main.js',
+                `!${config.workers.data.output}`,
+                `!${config.workers.vdom.output}`
+            ],
+            root   : path.resolve(processRoot, buildTarget.folder),
+            verbose: true
         }),
         new WebpackShellPlugin({
-            onBuildExit: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.js')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(processRoot, config.buildFolder, 'docs/resources')]
+            onBuildExit: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.js')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(processRoot, buildTarget.folder, 'docs/resources')]
         }),
         ...plugins
     ],
@@ -74,13 +77,11 @@ module.exports = {
         filename: (chunkData) => {
             let name = chunkData.chunk.name;
 
-            if (config.workers.hasOwnProperty(name)) {
-                return config.workers[name].output;
-            } else if (config.examples.hasOwnProperty(name)) {
+            if (config.examples.hasOwnProperty(name)) {
                 return config.examples[name].output + 'app.js';
             }
         },
-        path: path.resolve(processRoot, config.buildFolder)
+        path: path.resolve(processRoot, buildTarget.folder)
     }/*,
 
     optimization: {

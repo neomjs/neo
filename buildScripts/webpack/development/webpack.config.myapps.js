@@ -1,14 +1,15 @@
 const fs                = require('fs'),
       inquirer          = require('inquirer'),
+      buildTarget       = require('./buildTarget.json'),
       path              = require('path'),
       HtmlWebpackPlugin = require('html-webpack-plugin'),
       processRoot       = process.cwd(),
       configPath        = path.resolve(processRoot, 'buildScripts/myApps.json'),
-      packageJson       = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
+      packageJson       = require(path.resolve(processRoot, 'package.json')),
       neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
       plugins           = [];
 
-let basePath, config, entry, entryPath, i, indexPath, treeLevel, workerBasePath;
+let basePath, config, entryPath, i, indexPath, treeLevel, workerBasePath;
 
 if (fs.existsSync(configPath)) {
     config = require(configPath);
@@ -22,21 +23,14 @@ if (fs.existsSync(configPath)) {
     }
 }
 
-if (!config.buildFolder) {
-    config.buildFolder = 'dist/development';
-}
-
-entry = {};
-
-if (config.workers) {
-    Object.entries(config.workers).forEach(([key, value]) => {
-        entry[key] = path.resolve(neoPath, value.input);
-    });
+if (!buildTarget.folder) {
+    buildTarget.folder = 'dist/development';
 }
 
 module.exports = env => {
     let buildAll = env && env.build_all,
         choices  = [],
+        entry    = {},
         inquirerAnswers;
 
     if (config.apps) {
@@ -84,7 +78,7 @@ module.exports = env => {
                     }
                 }
 
-                indexPath = path.resolve(processRoot, config.buildFolder) + value.output + 'index.html';
+                indexPath = path.resolve(processRoot, buildTarget.folder) + value.output + 'index.html';
 
                 plugins.push(new HtmlWebpackPlugin({
                     chunks  : [],
@@ -92,8 +86,8 @@ module.exports = env => {
                     template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
                     templateParameters: {
                         appPath         : value.output + 'app.js',
-                        bodyTag         : value.bodyTag || config.bodyTag,
                         basePath,
+                        bodyTag         : value.bodyTag || config.bodyTag,
                         environment     : 'development',
                         mainPath        : workerBasePath + 'main.js',
                         mainThreadAddons: value.mainThreadAddons || "'Stylesheet'",
@@ -121,15 +115,13 @@ module.exports = env => {
             filename: (chunkData) => {
                 let name = chunkData.chunk.name;
 
-                if (config.workers.hasOwnProperty(name)) {
-                    return config.workers[name].output;
-                } else if (config.apps.hasOwnProperty(name)) {
+                if (config.apps.hasOwnProperty(name)) {
                     if (buildAll || choices.length < 2 || inquirerAnswers.apps.includes(name)) {
                         return config.apps[name].output + 'app.js';
                     }
                 }
             },
-            path: path.resolve(processRoot, config.buildFolder)
+            path: path.resolve(processRoot, buildTarget.folder)
         }
     }
 };

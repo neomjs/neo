@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "1.1.60",
+    "version": "1.1.63",
     "description": "The webworkers driven UI framework",
     "repository": {
         "type": "git",
@@ -9,25 +9,12 @@
     "scripts": {
         "server-start": "webpack-dev-server --open",
         "build-all": "node ./buildScripts/buildAll.js",
+        "build-my-apps": "node ./buildScripts/webpack/buildMyApps.js",
+        "build-themes": "node ./buildScripts/webpack/buildThemes.js",
         "build-threads": "node ./buildScripts/webpack/buildThreads.js",
+        "build-docs-examples": "node ./buildScripts/webpack/buildDocsExamples.js",
         "create-app": "node ./buildScripts/createApp.js",
-        "dev-build-my-apps": "webpack --config ./buildScripts/webpack/development/webpack.config.myapps.js",
-        "prod-build-my-apps": "webpack --config ./buildScripts/webpack/production/webpack.config.myapps.js",
         "generate-docs-json": "node ./buildScripts/docs/jsdocx.js",
-        "build-development": "webpack --config ./buildScripts/webpack/development/webpack.config.js",
-        "build-production": "webpack --config ./buildScripts/webpack/production/webpack.config.js",
-        "dev-css-structure": "webpack --config ./buildScripts/webpack/development/webpack.scss.config.js --env.json_file=neo.structure.json",
-        "dev-theme-dark": "webpack --config ./buildScripts/webpack/development/webpack.scss.config.js --env.json_file=theme.dark.json",
-        "dev-theme-light": "webpack --config ./buildScripts/webpack/development/webpack.scss.config.js --env.json_file=theme.light.json",
-        "prod-css-structure": "webpack --config ./buildScripts/webpack/production/webpack.scss.config.js --env.json_file=neo.structure.json",
-        "prod-theme-dark": "webpack --config ./buildScripts/webpack/production/webpack.scss.config.js --env.json_file=theme.dark.json",
-        "prod-theme-light": "webpack --config ./buildScripts/webpack/production/webpack.scss.config.js --env.json_file=theme.light.json",
-        "dev-theme-dark-no-css4": "webpack --config ./buildScripts/webpack/development/webpack.scss.config.js --env.json_file=theme.dark.noCss4.json",
-        "dev-theme-light-no-css4": "webpack --config ./buildScripts/webpack/development/webpack.scss.config.js --env.json_file=theme.light.noCss4.json",
-        "prod-theme-dark-no-css4": "webpack --config ./buildScripts/webpack/production/webpack.scss.config.js --env.json_file=theme.dark.noCss4.json",
-        "prod-theme-light-no-css4": "webpack --config ./buildScripts/webpack/production/webpack.scss.config.js --env.json_file=theme.light.noCss4.json",
-        "dev-build-all-my-apps": "webpack --config ./buildScripts/webpack/development/webpack.config.myapps.js --env.build_all=true",
-        "prod-build-all-my-apps": "webpack --config ./buildScripts/webpack/production/webpack.config.myapps.js --env.build_all=true",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "keywords": [

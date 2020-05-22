@@ -8,15 +8,14 @@ const chalk       = require('chalk'),
       inquirer    = require('inquirer'),
       packageJson = require('../../package.json'),
       path        = './buildScripts/webpack/',
-      programName = `${packageJson.name} buildThreads`,
+      programName = `${packageJson.name} buildMyApps`,
       questions   = [];
 
 const program = new commander.Command(programName)
     .version(packageJson.version)
     .option('-i, --info',           'print environment debug info')
-    .option('-e, --env <name>',     '"all", "dev", "prod"')          // defaults to all
-    .option('-n, --noquestions')                                     // do not prompt questions
-    .option('-t, --threads <name>', '"all", "data", "main", "vdom"') // defaults to all
+    .option('-e, --env <name>',     '"all", "dev", "prod"') // defaults to all
+    .option('-n, --noquestions')                            // do not prompt questions
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -44,16 +43,6 @@ if (program.info) {
 console.log(chalk.green(programName));
 
 if (!program.noquestions) {
-    if (!program.threads) {
-        questions.push({
-            type   : 'list',
-            name   : 'threads',
-            message: 'Please choose the threads to build:',
-            choices: ['all', 'data', 'main', 'vdom'],
-            default: 'all'
-        });
-    }
-
     if (!program.env) {
         questions.push({
             type   : 'list',
@@ -66,24 +55,19 @@ if (!program.noquestions) {
 }
 
 inquirer.prompt(questions).then(answers => {
-    const env       = program.env     || answers.env     || 'all',
-          threads   = program.threads || answers.threads || 'all',
+    const env       = program.env || answers.env || 'all',
           startDate = new Date();
 
     // dist/development
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
-        if (threads === 'all' || threads === 'main') {cp.spawnSync('webpack', ['--config', `${path}development/webpack.config.main.js`],                        cpOpts);}
-        if (threads === 'all' || threads === 'data') {cp.spawnSync('webpack', ['--config', `${path}development/webpack.config.worker.js`, '--env.worker=data'], cpOpts);}
-        if (threads === 'all' || threads === 'vdom') {cp.spawnSync('webpack', ['--config', `${path}development/webpack.config.worker.js`, '--env.worker=vdom'], cpOpts);}
+        cp.spawnSync('webpack', ['--config', `${path}development/webpack.config.myapps.js`], cpOpts);
     }
 
     // dist/production
     if (env === 'all' || env === 'prod') {
         console.log(chalk.blue(`${programName} starting dist/production`));
-        if (threads === 'all' || threads === 'main') {cp.spawnSync('webpack', ['--config', `${path}production/webpack.config.main.js`],                         cpOpts);}
-        if (threads === 'all' || threads === 'data') {cp.spawnSync('webpack', ['--config', `${path}production/webpack.config.worker.js`, '--env.worker=data'],  cpOpts);}
-        if (threads === 'all' || threads === 'vdom') {cp.spawnSync('webpack', ['--config', `${path}production/webpack.config.worker.js`, '--env.worker=vdom'],  cpOpts);}
+        cp.spawnSync('webpack', ['--config', `${path}production/webpack.config.myapps.js`],  cpOpts);
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
