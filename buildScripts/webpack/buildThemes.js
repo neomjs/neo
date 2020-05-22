@@ -7,8 +7,6 @@ const chalk        = require('chalk'),
       envinfo     = require('envinfo'),
       inquirer    = require('inquirer'),
       packageJson = require('../../package.json'),
-      devPath     = './buildScripts/webpack/development/webpack.scss.config.js',
-      prodPath    = './buildScripts/webpack/production/webpack.scss.config.js',
       questions   = [];
 
 const program = new commander.Command(`${packageJson.name} buildThemes`)
@@ -83,34 +81,28 @@ inquirer.prompt(questions).then(answers => {
           themes    = program.themes || answers.themes || 'all',
           startDate = new Date();
 
-    // dist/development
-    if (env === 'all' || env === 'dev') {
-        cp.spawnSync('webpack', ['--config', devPath, '--env.json_file=neo.structure.json'], cpOpts);
+    const buildEnv = path => {
+        cp.spawnSync('webpack', ['--config', path, '--env.json_file=neo.structure.json'], cpOpts);
 
         if (css4 === 'all' || css4 === 'yes') {
-            if (themes === 'all' || themes === 'dark')  {cp.spawnSync('webpack', ['--config', devPath, '--env.json_file=theme.dark.json'],         cpOpts);}
-            if (themes === 'all' || themes === 'light') {cp.spawnSync('webpack', ['--config', devPath, '--env.json_file=theme.light.json'],        cpOpts);}
+            if (themes === 'all' || themes === 'dark')  {cp.spawnSync('webpack', ['--config', path, '--env.json_file=theme.dark.json'],         cpOpts);}
+            if (themes === 'all' || themes === 'light') {cp.spawnSync('webpack', ['--config', path, '--env.json_file=theme.light.json'],        cpOpts);}
         }
 
         if (css4 === 'all' || css4 === 'no') {
-            if (themes === 'all' || themes === 'dark')  {cp.spawnSync('webpack', ['--config', devPath, '--env.json_file=theme.dark.noCss4.json'],  cpOpts);}
-            if (themes === 'all' || themes === 'light') {cp.spawnSync('webpack', ['--config', devPath, '--env.json_file=theme.light.noCss4.json'], cpOpts);}
+            if (themes === 'all' || themes === 'dark')  {cp.spawnSync('webpack', ['--config', path, '--env.json_file=theme.dark.noCss4.json'],  cpOpts);}
+            if (themes === 'all' || themes === 'light') {cp.spawnSync('webpack', ['--config', path, '--env.json_file=theme.light.noCss4.json'], cpOpts);}
         }
+    };
+
+    // dist/development
+    if (env === 'all' || env === 'dev') {
+        buildEnv('./buildScripts/webpack/development/webpack.scss.config.js');
     }
 
     // dist/production
     if (env === 'all' || env === 'prod') {
-        cp.spawnSync('webpack', ['--config', prodPath, '--env.json_file=neo.structure.json'], cpOpts);
-
-        if (css4 === 'all' || css4 === 'yes') {
-            if (themes === 'all' || themes === 'dark')  {cp.spawnSync('webpack', ['--config', prodPath, '--env.json_file=theme.dark.json'],          cpOpts);}
-            if (themes === 'all' || themes === 'light') {cp.spawnSync('webpack', ['--config', prodPath, '--env.json_file=theme.light.json'],         cpOpts);}
-        }
-
-        if (css4 === 'all' || css4 === 'no') {
-            if (themes === 'all' || themes === 'dark')  {cp.spawnSync('webpack', ['--config', prodPath, '--env.json_file=theme.dark.noCss4.json'],   cpOpts);}
-            if (themes === 'all' || themes === 'light') {cp.spawnSync('webpack', ['--config', prodPath, '--env.json_file=theme.light.noCss4.json'],  cpOpts);}
-        }
+        buildEnv('./buildScripts/webpack/production/webpack.scss.config.js');
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
