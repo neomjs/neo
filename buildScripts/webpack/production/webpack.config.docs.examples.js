@@ -1,5 +1,6 @@
 const fs                     = require('fs-extra'),
       path                   = require('path'),
+      buildTarget            = require('./buildTarget.json'),
       { CleanWebpackPlugin } = require('clean-webpack-plugin'),
       HtmlWebpackPlugin      = require('html-webpack-plugin'),
       WebpackShellPlugin     = require('webpack-shell-plugin'),
@@ -81,7 +82,7 @@ module.exports = {
                 return config.examples[name].output + 'app.js';
             }
         },
-        path: path.resolve(processRoot, config.buildFolder)
+        path: path.resolve(processRoot, buildTarget.folder)
     }/*,
 
     optimization: {

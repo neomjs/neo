@@ -1,5 +1,6 @@
 const fs          = require('fs'),
       path        = require('path'),
+      buildTarget = require('./buildTarget.json'),
       processRoot = process.cwd(),
       packageJson = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
       neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
@@ -33,7 +34,7 @@ module.exports = env => {
                     return config.workers[name].output;
                 }
             },
-            path: path.resolve(processRoot, 'dist/development')
+            path: path.resolve(processRoot, buildTarget.folder)
         }
     }
 };

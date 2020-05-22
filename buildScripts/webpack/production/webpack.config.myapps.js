@@ -1,6 +1,7 @@
 const fs                = require('fs'),
       inquirer          = require('inquirer'),
       path              = require('path'),
+      buildTarget       = require('./buildTarget.json'),
       HtmlWebpackPlugin = require('html-webpack-plugin'),
       processRoot       = process.cwd(),
       configPath        = path.resolve(processRoot, 'buildScripts/myApps.json'),
@@ -117,7 +118,7 @@ module.exports = env => {
                     }
                 }
             },
-            path: path.resolve(processRoot, 'dist/production')
+            path: path.resolve(processRoot, buildTarget.folder)
         }
     }
 };

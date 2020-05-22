@@ -1,5 +1,6 @@
 const fs                   = require('fs'),
       path                 = require('path'),
+      buildTarget          = require('./buildTarget.json'),
       MiniCssExtractPlugin = require("mini-css-extract-plugin"),
       processRoot          = process.cwd(),
       packageJson          = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
@@ -17,7 +18,7 @@ module.exports = env => {
         ],
 
         output: {
-            path    : path.resolve(processRoot, config.buildFolder),
+            path    : path.resolve(processRoot, buildTarget.folder),
             filename: 'tmpWebpackCss.js'
         },
 

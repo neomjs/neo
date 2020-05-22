@@ -1,5 +1,4 @@
 {
-    "buildFolder": "dist/development",
-    "entry"      : "./buildScripts/webpack/entrypoints/scss/theme_dark.scss.mjs",
-    "output"     : "neo-theme-dark.css"
+    "entry" : "./buildScripts/webpack/entrypoints/scss/theme_dark.scss.mjs",
+    "output": "neo-theme-dark.css"
 }

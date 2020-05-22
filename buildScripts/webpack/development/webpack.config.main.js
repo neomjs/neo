@@ -1,9 +1,9 @@
-const fs          = require('fs-extra'),
-      path        = require('path'),
+const path        = require('path'),
+      buildTarget = require('./buildTarget.json'),
       processRoot = process.cwd(),
-      packageJson = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
+      packageJson = require(path.resolve(processRoot, 'package.json')),
       neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      config      = JSON.parse(fs.readFileSync(path.resolve(neoPath, 'buildScripts/webpack/development/build.json')), 'utf8'),
+      config      = require(path.resolve(neoPath, 'buildScripts/webpack/development/build.json')),
       entry       = {main: path.resolve(neoPath, config.mainInput)};
 
 module.exports = {
@@ -19,6 +19,6 @@ module.exports = {
             }
         },
 
-        path: path.resolve(processRoot, config.buildFolder)
+        path: path.resolve(processRoot, buildTarget.folder)
     }
 };

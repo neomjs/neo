@@ -1,5 +1,6 @@
 const fs          = require('fs-extra'),
       path        = require('path'),
+      buildTarget = require('./buildTarget.json'),
       processRoot = process.cwd(),
       packageJson = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
       neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
@@ -20,6 +21,6 @@ module.exports = {
             }
         },
 
-        path: path.resolve(processRoot, config.buildFolder)
+        path: path.resolve(processRoot, buildTarget.folder)
     }
 };

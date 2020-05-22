@@ -1,5 +1,6 @@
 const fs                = require('fs'),
       inquirer          = require('inquirer'),
+      buildTarget       = require('./buildTarget.json'),
       path              = require('path'),
       HtmlWebpackPlugin = require('html-webpack-plugin'),
       processRoot       = process.cwd(),
@@ -120,7 +121,7 @@ module.exports = env => {
                     }
                 }
             },
-            path: path.resolve(processRoot, config.buildFolder)
+            path: path.resolve(processRoot, buildTarget.folder)
         }
     }
 };
