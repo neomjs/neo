@@ -43,22 +43,22 @@ if (program.info) {
 console.log(chalk.green(`${packageJson.name} buildThreads`));
 
 if (!program.noquestions) {
-    if (!program.env) {
-        questions.push({
-            type   : 'list',
-            name   : 'env',
-            message: 'Please choose the environment:',
-            choices: ['all', 'dev', 'prod'],
-            default: 'all'
-        });
-    }
-
     if (!program.threads) {
         questions.push({
             type   : 'list',
             name   : 'threads',
             message: 'Please choose the threads to build:',
             choices: ['all', 'data', 'main', 'vdom'],
+            default: 'all'
+        });
+    }
+
+    if (!program.env) {
+        questions.push({
+            type   : 'list',
+            name   : 'env',
+            message: 'Please choose the environment:',
+            choices: ['all', 'dev', 'prod'],
             default: 'all'
         });
     }
