@@ -12,12 +12,6 @@ const fs                     = require('fs-extra'),
 
 let basePath, i, treeLevel, workerBasePath;
 
-if (config.workers) {
-    Object.entries(config.workers).forEach(([key, value]) => {
-        entry[key] = path.resolve(neoPath, value.input);
-    });
-}
-
 if (config.examples) {
     Object.entries(config.examples).forEach(([key, value]) => {
         entry[key] = path.resolve(neoPath, 'buildScripts/webpack/entrypoints/' + value.input);
@@ -74,9 +68,7 @@ module.exports = {
         filename: (chunkData) => {
             let name = chunkData.chunk.name;
 
-            if (config.workers.hasOwnProperty(name)) {
-                return config.workers[name].output;
-            } else if (config.examples.hasOwnProperty(name)) {
+            if (config.examples.hasOwnProperty(name)) {
                 return config.examples[name].output + 'app.js';
             }
         },
