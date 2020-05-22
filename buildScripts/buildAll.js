@@ -15,7 +15,7 @@ cp.spawnSync(npmCmd, ['i'], cpOpts);
 cp.spawnSync(npmCmd, ['run', 'generate-docs-json'], cpOpts);
 
 // themes dev & prod
-cp.spawnSync('node', ['./buildScripts/webpack/buildThemes.js'], cpOpts);
+cp.spawnSync('node', ['./buildScripts/webpack/buildThemes.js', '-n'], cpOpts);
 
 // neo dist versions => examples, docs app
 // not included in all sub-repos, e.g.:
