@@ -1,7 +1,7 @@
 'use strict';
 
 const chalk       = require('chalk'),
-      commander   = require('commander'),
+      { program } = require('commander'),
       cp          = require('child_process'),
       cpOpts      = { env: process.env, cwd: process.cwd(), stdio: 'inherit' },
       envinfo     = require('envinfo'),
@@ -11,11 +11,12 @@ const chalk       = require('chalk'),
       programName = `${packageJson.name} buildDocsExamples`,
       questions   = [];
 
-const program = new commander.Command(programName)
+program
+    .name(programName)
     .version(packageJson.version)
     .option('-i, --info',           'print environment debug info')
-    .option('-e, --env <name>',     '"all", "dev", "prod"') // defaults to all
-    .option('-n, --noquestions')                            // do not prompt questions
+    .option('-e, --env <name>',     '"all", "dev", "prod"')
+    .option('-n, --noquestions')
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -71,7 +72,7 @@ inquirer.prompt(questions).then(answers => {
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-    console.log(`\nTotal time ${programName}: ${processTime}s`);
+    console.log(`\nTotal time for ${programName}: ${processTime}s`);
 
     process.exit();
 });

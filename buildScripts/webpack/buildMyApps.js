@@ -43,7 +43,7 @@ program
     .option('-i, --info',        'print environment debug info')
     .option('-a, --apps <name>', ['all'].concat(appChoices).map(e => `"${e}"`).join(', '))
     .option('-e, --env <name>',  '"all", "dev", "prod"')
-    .option('-n, --noquestions') // do not prompt questions
+    .option('-n, --noquestions')
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -109,7 +109,7 @@ inquirer.prompt(questions).then(answers => {
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-    console.log(`\nTotal time ${programName}: ${processTime}s`);
+    console.log(`\nTotal time for ${programName}: ${processTime}s`);
 
     process.exit();
 });
