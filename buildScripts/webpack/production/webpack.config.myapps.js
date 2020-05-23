@@ -1,5 +1,4 @@
 const fs                = require('fs'),
-      inquirer          = require('inquirer'),
       path              = require('path'),
       buildTarget       = require('./buildTarget.json'),
       HtmlWebpackPlugin = require('html-webpack-plugin'),
@@ -28,36 +27,18 @@ if (!buildTarget.folder) {
 }
 
 module.exports = env => {
-    let buildAll = env && env.build_all,
-        choices  = [],
-        entry    = {},
-        inquirerAnswers;
+    const apps     = env.apps.split(','),
+          buildAll = apps.includes('all'),
+          choices  = [],
+          entry    = {};
 
     if (config.apps) {
         Object.entries(config.apps).forEach(([key, value]) => {
             choices.push(key);
         });
 
-        if (!buildAll && choices.length > 1) {
-            let questions = [{
-                type   : 'checkbox',
-                name   : 'apps',
-                message: 'Please choose which apps you want to build:',
-                choices
-            }];
-
-            let done = false;
-
-            inquirer.prompt(questions).then(answers => {
-                inquirerAnswers = answers;
-                done            = true;
-            });
-
-            require('deasync').loopWhile(function(){return !done;});
-        }
-
         Object.entries(config.apps).forEach(([key, value]) => {
-            if (buildAll || choices.length < 2 || inquirerAnswers.apps.includes(key)) {
+            if (buildAll || choices.length < 2 || apps.includes(key)) {
                 entryPath = path.resolve(processRoot, value.input);
 
                 if (fs.existsSync(entryPath)) {
@@ -113,9 +94,7 @@ module.exports = env => {
                 let name = chunkData.chunk.name;
 
                 if (config.apps.hasOwnProperty(name)) {
-                    if (buildAll || choices.length < 2 || inquirerAnswers.apps.includes(name)) {
-                        return config.apps[name].output + 'app.js';
-                    }
+                    return config.apps[name].output + 'app.js';
                 }
             },
             path: path.resolve(processRoot, buildTarget.folder)

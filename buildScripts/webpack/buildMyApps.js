@@ -1,21 +1,49 @@
 'use strict';
 
 const chalk       = require('chalk'),
-      commander   = require('commander'),
+      { program } = require('commander'),
       cp          = require('child_process'),
       cpOpts      = { env: process.env, cwd: process.cwd(), stdio: 'inherit' },
       envinfo     = require('envinfo'),
+      fs          = require('fs'),
       inquirer    = require('inquirer'),
       packageJson = require('../../package.json'),
-      path        = './buildScripts/webpack/',
+      path        = require('path'),
+      processRoot = process.cwd(),
+      configPath  = path.resolve(processRoot, 'buildScripts/myApps.json'),
+      neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      webpackPath = './buildScripts/webpack/',
       programName = `${packageJson.name} buildMyApps`,
+      appChoices  = [],
       questions   = [];
 
-const program = new commander.Command(programName)
+let config;
+
+if (fs.existsSync(configPath)) {
+    config = require(configPath);
+} else {
+    const myAppsPath = path.resolve(neoPath, 'buildScripts/webpack/json/myApps.json');
+
+    if (fs.existsSync(myAppsPath)) {
+        config = require(myAppsPath);
+    } else {
+        config = require(path.resolve(neoPath, 'buildScripts/webpack/json/myApps.template.json'));
+    }
+}
+
+if (config.apps) {
+    Object.keys(config.apps).forEach(key => {
+        appChoices.push(key);
+    });
+}
+
+program
+    .name(programName)
     .version(packageJson.version)
-    .option('-i, --info',           'print environment debug info')
-    .option('-e, --env <name>',     '"all", "dev", "prod"') // defaults to all
-    .option('-n, --noquestions')                            // do not prompt questions
+    .option('-i, --info',        'print environment debug info')
+    .option('-a, --apps <name>', ['all'].concat(appChoices).map(e => `"${e}"`).join(', '))
+    .option('-e, --env <name>',  '"all", "dev", "prod"')
+    .option('-n, --noquestions') // do not prompt questions
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -52,22 +80,32 @@ if (!program.noquestions) {
             default: 'all'
         });
     }
+
+    if (!program.apps && appChoices.length > 1) {
+        questions.push({
+            type   : 'checkbox',
+            name   : 'apps',
+            message: 'Please choose which apps you want to build:',
+            choices: appChoices
+        });
+    }
 }
 
 inquirer.prompt(questions).then(answers => {
-    const env       = program.env || answers.env || 'all',
+    const apps      = program.apps || answers.apps || ['all'],
+          env       = program.env  || answers.env  || ['all'],
           startDate = new Date();
 
     // dist/development
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
-        cp.spawnSync('webpack', ['--config', `${path}development/webpack.config.myapps.js`], cpOpts);
+        cp.spawnSync('webpack', ['--config', `${webpackPath}development/webpack.config.myapps.js`, `--env.apps=${apps}`], cpOpts);
     }
 
     // dist/production
     if (env === 'all' || env === 'prod') {
         console.log(chalk.blue(`${programName} starting dist/production`));
-        cp.spawnSync('webpack', ['--config', `${path}production/webpack.config.myapps.js`],  cpOpts);
+        cp.spawnSync('webpack', ['--config', `${webpackPath}production/webpack.config.myapps.js`, `--env.apps=${apps}`],  cpOpts);
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
