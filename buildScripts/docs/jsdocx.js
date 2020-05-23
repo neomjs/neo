@@ -21,12 +21,12 @@ let appDevJsonPath = path.resolve(processRoot, 'buildScripts/myApps.json'),
 if (fs.existsSync(appDevJsonPath)) {
     appDevJson = require(appDevJsonPath);
 } else {
-    appDevJsonPath = path.resolve(__dirname, '../webpack/development/json/myApps.json');
+    appDevJsonPath = path.resolve(__dirname, '../webpack/json/myApps.json');
 
     if (fs.existsSync(appDevJsonPath)) {
         appDevJson = require(appDevJsonPath);
     } else {
-        appDevJson = require(path.resolve(__dirname, '../webpack/development/json/myApps.template.json'));
+        appDevJson = require(path.resolve(__dirname, '../webpack/json/myApps.template.json'));
     }
 }
 
