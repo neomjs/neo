@@ -86,7 +86,7 @@ You can find the code of the covid app <a href="https://github.com/neomjs/neo/tr
     </tr>
     <tr>
         <td>3.</td>
-        <td>... a framework was fully build on top of ES8, but can run inside multiple workers without any Javascript builds?</td>
+        <td>... a framework was fully built on top of ES8, but can run inside multiple workers without any Javascript builds?</td>
         <td>Your development speed will increase</td>
     </tr>
     <tr>
