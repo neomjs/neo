@@ -136,7 +136,7 @@ inquirer.prompt(questions).then(answers => {
           cpArgs     = ['-e', env],
           startDate  = new Date();
 
-    if (!program.noquestions) {
+    if (program.noquestions) {
         cpArgs.push('-n');
     }
 
