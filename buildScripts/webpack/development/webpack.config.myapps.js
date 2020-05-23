@@ -26,7 +26,7 @@ if (!buildTarget.folder) {
     buildTarget.folder = 'dist/development';
 }
 
-module.exports = env => {console.log(env);
+module.exports = env => {
     const apps     = env.apps.split(','),
           buildAll = apps.includes('all'),
           choices  = [],
