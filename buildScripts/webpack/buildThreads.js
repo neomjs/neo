@@ -67,8 +67,8 @@ if (!program.noquestions) {
 }
 
 inquirer.prompt(questions).then(answers => {
-    const env       = program.env     || answers.env     || 'all',
-          threads   = program.threads || answers.threads || 'all',
+    const env       = answers.env     || program.env     || 'all',
+          threads   = answers.threads || program.threads || 'all',
           startDate = new Date();
 
     // dist/development

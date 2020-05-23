@@ -56,7 +56,7 @@ if (!program.noquestions) {
 }
 
 inquirer.prompt(questions).then(answers => {
-    const env       = program.env || answers.env || 'all',
+    const env       = answers.env || program.env || 'all',
           startDate = new Date();
 
     // dist/development
