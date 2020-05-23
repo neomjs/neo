@@ -12,6 +12,16 @@ module.exports = {
     entry,
     target : 'web',
 
+    optimization: {
+        splitChunks: {
+            cacheGroups: {
+                vendors: {
+                    test: /[\\/]ignore_node_modules[\\/]/, // https://github.com/webpack/webpack/issues/10949
+                }
+            }
+        }
+    },
+
     output: {
         filename: (chunkData) => {
             if (chunkData.chunk.name === 'main') {
