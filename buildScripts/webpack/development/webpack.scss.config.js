@@ -6,7 +6,7 @@ const path                 = require('path'),
       neoPath              = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/';
 
 module.exports = env => {
-    const config = require(path.resolve(neoPath, 'buildScripts/webpack/development/json/', env.json_file));
+    const config = require(path.resolve(neoPath, 'buildScripts/webpack/json/', env.json_file));
 
     return {
         mode   : 'development',

@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "1.1.63",
+    "version": "1.1.64",
     "description": "The webworkers driven UI framework",
     "repository": {
         "type": "git",
@@ -8,7 +8,8 @@
     },
     "scripts": {
         "server-start": "webpack-dev-server --open",
-        "build-all": "node ./buildScripts/buildAll.js",
+        "build-all": "node ./buildScripts/buildAll.js -n",
+        "build-all-questions": "node ./buildScripts/buildAll.js",
         "build-my-apps": "node ./buildScripts/webpack/buildMyApps.js",
         "build-themes": "node ./buildScripts/webpack/buildThemes.js",
         "build-threads": "node ./buildScripts/webpack/buildThreads.js",
@@ -40,7 +41,6 @@
         "commander": "^5.1.0",
         "css-loader": "^3.5.3",
         "cssnano": "^4.1.10",
-        "deasync": "^0.1.20",
         "envinfo": "^7.5.1",
         "fs-extra": "^9.0.0",
         "highlightjs-line-numbers.js": "^2.7.0",

@@ -1,41 +1,171 @@
 'use strict';
 
-const cp          = require('child_process'),
+const chalk       = require('chalk'),
+      { program } = require('commander'),
+      cp          = require('child_process'),
       cpOpts      = { env: process.env, cwd: process.cwd(), stdio: 'inherit' },
+      envinfo     = require('envinfo'),
+      inquirer    = require('inquirer'),
       os          = require('os'),
       npmCmd      = os.platform().startsWith('win') ? 'npm.cmd' : 'npm', // npm binary based on OS
       path        = require('path'),
       packageJson = require(path.resolve(process.cwd(), 'package.json')),
-      startDate   = new Date();
+      programName = `${packageJson.name} buildAll`,
+      questions   = [];
 
-// npm install
-cp.spawnSync(npmCmd, ['i'], cpOpts);
+program
+    .name(programName)
+    .version(packageJson.version)
+    .option('-i, --info',              'print environment debug info')
+    .option('-a, --apps <name>',       '"yes", "no"')
+    .option('-d, --docs <name>',       '"yes", "no"')
+    .option('-e, --env <name>',        '"all", "dev", "prod"')
+    .option('-l, --npminstall <name>', '"yes", "no"')
+    .option('-n, --noquestions')
+    .option('-p, --parsedocs <name>',  '"yes", "no"')
+    .option('-t, --themes <name>',     '"yes", "no"')
+    .option('-w, --threads <name>',    '"yes", "no"')
+    .allowUnknownOption()
+    .on('--help', () => {
+        console.log('\nIn case you have any issues, please create a ticket here:');
+        console.log(chalk.cyan(packageJson.bugs.url));
+    })
+    .parse(process.argv);
 
-// docs
-cp.spawnSync(npmCmd, ['run', 'generate-docs-json'], cpOpts);
-
-// themes dev & prod
-cp.spawnSync('node', ['./buildScripts/webpack/buildThemes.js', '-n'], cpOpts);
-
-// neo dist versions => examples, docs app
-// not included in all sub-repos, e.g.:
-// https://github.com/neomjs/covid-dashboard
-if (packageJson.scripts['dev-build-docs-examples']) {
-    cp.spawnSync(npmCmd, ['run', 'dev-build-docs-examples'], cpOpts);
+if (program.info) {
+    console.log(chalk.bold('\nEnvironment Info:'));
+    console.log(`\n  current version of ${packageJson.name}: ${packageJson.version}`);
+    console.log(`  running from ${__dirname}`);
+    return envinfo
+        .run({
+            System     : ['OS', 'CPU'],
+            Binaries   : ['Node', 'npm', 'Yarn'],
+            Browsers   : ['Chrome', 'Edge', 'Firefox', 'Safari'],
+            npmPackages: ['neo.mjs']
+        }, {
+            duplicates  : true,
+            showNotFound: true
+        })
+        .then(console.log);
 }
 
-if (packageJson.scripts['build-production']) {
-    cp.spawnSync(npmCmd, ['run', 'prod-build-docs-examples'], cpOpts);
+console.log(chalk.green(programName));
+
+if (!program.noquestions) {
+    if (!program.npminstall) {
+        questions.push({
+            type   : 'list',
+            name   : 'npminstall',
+            message: 'Run npm install?:',
+            choices: ['yes', 'no'],
+            default: 'all'
+        });
+    }
+
+    if (!program.env) {
+        questions.push({
+            type   : 'list',
+            name   : 'env',
+            message: 'Please choose the environment:',
+            choices: ['all', 'dev', 'prod'],
+            default: 'all'
+        });
+    }
+
+    if (!program.npminstall) {
+        questions.push({
+            type   : 'list',
+            name   : 'themes',
+            message: 'Build the themes?',
+            choices: ['yes', 'no'],
+            default: 'yes'
+        });
+    }
+
+    if (!program.threads) {
+        questions.push({
+            type   : 'list',
+            name   : 'threads',
+            message: 'Build the threads?',
+            choices: ['yes', 'no'],
+            default: 'yes'
+        });
+    }
+
+    // not included in all sub-repos, e.g.:
+    // https://github.com/neomjs/covid-dashboard
+    if (!program.docs && packageJson.scripts['build-docs-examples']) {
+        questions.push({
+            type   : 'list',
+            name   : 'docs',
+            message: 'Build the docs & example apps?',
+            choices: ['yes', 'no'],
+            default: 'yes'
+        });
+    }
+
+    if (!program.apps) {
+        questions.push({
+            type   : 'list',
+            name   : 'apps',
+            message: 'Build your own & the default apps?',
+            choices: ['yes', 'no'],
+            default: 'yes'
+        });
+    }
+
+    if (!program.parsedocs) {
+        questions.push({
+            type   : 'list',
+            name   : 'parsedocs',
+            message: 'Trigger the jsdocx parsing? (This task can take several minutes)',
+            choices: ['yes', 'no'],
+            default: 'no'
+        });
+    }
 }
 
-// default apps (covid, rw1 & rw2)
-cp.spawnSync('webpack', ['--config', './buildScripts/webpack/development/webpack.config.myapps.js', '--env.build_all=true'], cpOpts);
-cp.spawnSync('webpack', ['--config', './buildScripts/webpack/production/webpack.config.myapps.js',  '--env.build_all=true'], cpOpts);
+inquirer.prompt(questions).then(answers => {
+    const apps       = program.apps       || answers.apps       || 'yes',
+          docs       = program.docs       || answers.docs       || 'yes',
+          env        = program.env        || answers.env        || 'all',
+          npminstall = program.npminstall || answers.npminstall || 'yes',
+          parsedocs  = program.parsedocs  || answers.parsedocs  || 'no',
+          themes     = program.themes     || answers.themes     || 'yes',
+          threads    = program.threads    || answers.threads    || 'yes',
+          cpArgs     = ['-e', env],
+          startDate  = new Date();
 
-// build threads: data, main, vdom => dev & prod
-cp.spawnSync('node', ['./buildScripts/webpack/buildThreads.js', '-n'], cpOpts);
+    if (!program.noquestions) {
+        cpArgs.push('-n');
+    }
 
-const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-console.log(`Total time: ${processTime}s`);
+    if (npminstall === 'yes') {
+        cp.spawnSync(npmCmd, ['i'], cpOpts);
+    }
 
-process.exit();
+    if (themes === 'yes') {
+        cp.spawnSync('node', ['./buildScripts/webpack/buildThemes.js'].concat(cpArgs), cpOpts);
+    }
+
+    if (threads === 'yes') {
+        cp.spawnSync('node', ['./buildScripts/webpack/buildThreads.js'].concat(cpArgs), cpOpts);
+    }
+
+    if (docs === 'yes' && packageJson.scripts['build-docs-examples']) {
+        cp.spawnSync('node', ['./buildScripts/webpack/buildDocsExamples.js'].concat(cpArgs), cpOpts);
+    }
+
+    if (apps === 'yes') {
+        cp.spawnSync('node', ['./buildScripts/webpack/buildMyApps.js'].concat(cpArgs), cpOpts);
+    }
+
+    if (parsedocs === 'yes') {
+        cp.spawnSync(npmCmd, ['run', 'generate-docs-json'], cpOpts);
+    }
+
+    const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
+    console.log(`\nTotal time for ${programName}: ${processTime}s`);
+
+    process.exit();
+});
