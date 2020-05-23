@@ -151,7 +151,7 @@ function generateStructure(target, parentId, docs) {
         // adjusted paths when running the script inside the neo.mjs node module
         const index = srcPath && srcPath.indexOf('node_modules/neo.mjs/') || -1;
         if (index > -1) {
-            srcPath = srcPath.substr(index);
+            srcPath = srcPath.substr(index + 21);
         }
 
         neoStructure.push({
