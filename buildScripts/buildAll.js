@@ -120,7 +120,7 @@ if (!program.noquestions) {
             name   : 'parsedocs',
             message: 'Trigger the jsdocx parsing? (This task can take several minutes)',
             choices: ['yes', 'no'],
-            default: 'no'
+            default: 'yes'
         });
     }
 }
