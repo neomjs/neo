@@ -162,7 +162,7 @@ class MainContainerController extends Component {
             href       = './resources/highlightjs-custom-dark-theme.css';
         }
 
-        Neo.main.DomAccess.swapStyleSheet({
+        Neo.main.addon.Stylesheet.swapStyleSheet({
             href: href,
             id  : 'hljs-theme'
         }).then(data => {
@@ -203,7 +203,7 @@ class MainContainerController extends Component {
 
             button.text = buttonText;
         } else {
-            Neo.main.DomAccess.swapStyleSheet({
+            Neo.main.addon.Stylesheet.swapStyleSheet({
                 href: href,
                 id  : 'neo-theme'
             }).then(data => {
