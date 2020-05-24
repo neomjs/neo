@@ -15,6 +15,22 @@ const fs          = require('fs-extra'),
           undocumented  : false
       };
 
+// Added an override for filter()
+// see: https://github.com/onury/jsdoc-x/issues/14
+// todo: remove once the ticket is resolved
+const tmpFilter = jsdocx.filter;
+
+jsdocx.filter = (docs, options, predicate) => {
+    if (!options.undocumented) {
+        docs = docs.filter(symbol => {
+            return !symbol.undocumented || jsdocx.utils.isConstructor(symbol)
+        });
+
+        return tmpFilter(docs, options, predicate);
+    }
+}
+// end todo
+
 let appDevJsonPath = path.resolve(processRoot, 'buildScripts/myApps.json'),
     appDevJson;
 
