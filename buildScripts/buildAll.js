@@ -118,7 +118,7 @@ if (!program.noquestions) {
         questions.push({
             type   : 'list',
             name   : 'parsedocs',
-            message: 'Trigger the jsdocx parsing? (This task can take several minutes)',
+            message: 'Trigger the jsdocx parsing?',
             choices: ['yes', 'no'],
             default: 'yes'
         });
