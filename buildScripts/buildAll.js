@@ -10,6 +10,7 @@ const chalk       = require('chalk'),
       npmCmd      = os.platform().startsWith('win') ? 'npm.cmd' : 'npm', // npm binary based on OS
       path        = require('path'),
       packageJson = require(path.resolve(process.cwd(), 'package.json')),
+      neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
       programName = `${packageJson.name} buildAll`,
       questions   = [];
 
@@ -145,19 +146,19 @@ inquirer.prompt(questions).then(answers => {
     }
 
     if (themes === 'yes') {
-        cp.spawnSync('node', ['./buildScripts/webpack/buildThemes.js'].concat(cpArgs), cpOpts);
+        cp.spawnSync('node', [path.resolve(neoPath, 'buildScripts/webpack/buildThemes.js')].concat(cpArgs), cpOpts);
     }
 
     if (threads === 'yes') {
-        cp.spawnSync('node', ['./buildScripts/webpack/buildThreads.js'].concat(cpArgs), cpOpts);
+        cp.spawnSync('node', [path.resolve(neoPath, 'buildScripts/webpack/buildThreads.js')].concat(cpArgs), cpOpts);
     }
 
     if (docs === 'yes' && packageJson.scripts['build-docs-examples']) {
-        cp.spawnSync('node', ['./buildScripts/webpack/buildDocsExamples.js'].concat(cpArgs), cpOpts);
+        cp.spawnSync('node', [path.resolve(neoPath, 'buildScripts/webpack/buildDocsExamples.js')].concat(cpArgs), cpOpts);
     }
 
     if (apps === 'yes') {
-        cp.spawnSync('node', ['./buildScripts/webpack/buildMyApps.js'].concat(cpArgs), cpOpts);
+        cp.spawnSync('node', [path.resolve(neoPath, 'buildScripts/webpack/buildMyApps.js')].concat(cpArgs), cpOpts);
     }
 
     if (parsedocs === 'yes') {
