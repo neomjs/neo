@@ -1,10 +1,12 @@
 const chalk       = require('chalk'),
       { program } = require('commander'),
+      cp          = require('child_process'),
       envinfo     = require('envinfo'),
       fs          = require('fs'),
       inquirer    = require('inquirer'),
       path        = require('path'),
       packageJson = require(path.resolve(process.cwd(), 'package.json')),
+      neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
       programName = `${packageJson.name} create-app`,
       questions   = [];
 
@@ -238,6 +240,16 @@ inquirer.prompt(questions).then(answers => {
         ].join('\n');
 
         fs.writeFileSync(path.resolve(__dirname, '../buildScripts/webpack/entrypoints/myApps/' + appName + '.mjs'), entryPoint);
+
+        if (mainThreadAddons.includes('HighlightJS')) {
+            cp.spawnSync('node', [
+                './buildScripts/copyFolder.js',
+                '-s',
+                path.resolve(neoPath, 'docs/resources'),
+                '-t',
+                path.resolve(folder, 'resources'),
+            ], { env: process.env, cwd: process.cwd(), stdio: 'inherit' });
+        }
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
         console.log(`\nTotal time for ${programName}: ${processTime}s`);
