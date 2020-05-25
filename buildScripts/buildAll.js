@@ -1,18 +1,19 @@
 'use strict';
 
-const chalk       = require('chalk'),
-      { program } = require('commander'),
-      cp          = require('child_process'),
-      cpOpts      = { env: process.env, cwd: process.cwd(), stdio: 'inherit' },
-      envinfo     = require('envinfo'),
-      inquirer    = require('inquirer'),
-      os          = require('os'),
-      npmCmd      = os.platform().startsWith('win') ? 'npm.cmd' : 'npm', // npm binary based on OS
-      path        = require('path'),
-      packageJson = require(path.resolve(process.cwd(), 'package.json')),
-      neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      programName = `${packageJson.name} buildAll`,
-      questions   = [];
+const chalk            = require('chalk'),
+      {program}        = require('commander'),
+      cp               = require('child_process'),
+      cpOpts           = {env: process.env, cwd: process.cwd(), stdio: 'inherit'},
+      envinfo          = require('envinfo'),
+      inquirer         = require('inquirer'),
+      os               = require('os'),
+      npmCmd           = os.platform().startsWith('win') ? 'npm.cmd' : 'npm', // npm binary based on OS
+      path             = require('path'),
+      packageJson      = require(path.resolve(process.cwd(), 'package.json')),
+      neoPath          = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      buildScriptsPath = path.resolve(neoPath, 'buildScripts'),
+      programName      = `${packageJson.name} buildAll`,
+      questions        = [];
 
 program
     .name(programName)
@@ -142,23 +143,23 @@ inquirer.prompt(questions).then(answers => {
     }
 
     if (npminstall === 'yes') {
-        cp.spawnSync(npmCmd, ['i'], cpOpts);
+        cp.spawnSync(npmCmd, ['i'], cpOpts);buildScriptsPath
     }
 
     if (themes === 'yes') {
-        cp.spawnSync('node', [path.resolve(neoPath, 'buildScripts/webpack/buildThemes.js')].concat(cpArgs), cpOpts);
+        cp.spawnSync('node', [`${buildScriptsPath}/webpack/buildThemes.js`].concat(cpArgs), cpOpts);
     }
 
     if (threads === 'yes') {
-        cp.spawnSync('node', [path.resolve(neoPath, 'buildScripts/webpack/buildThreads.js')].concat(cpArgs), cpOpts);
+        cp.spawnSync('node', [`${buildScriptsPath}/webpack/buildThreads.js`].concat(cpArgs), cpOpts);
     }
 
     if (docs === 'yes' && packageJson.scripts['build-docs-examples']) {
-        cp.spawnSync('node', [path.resolve(neoPath, 'buildScripts/webpack/buildDocsExamples.js')].concat(cpArgs), cpOpts);
+        cp.spawnSync('node', [`${buildScriptsPath}/webpack/buildDocsExamples.js`].concat(cpArgs), cpOpts);
     }
 
     if (apps === 'yes') {
-        cp.spawnSync('node', [path.resolve(neoPath, 'buildScripts/webpack/buildMyApps.js')].concat(cpArgs), cpOpts);
+        cp.spawnSync('node', [`${buildScriptsPath}/webpack/buildMyApps.js`].concat(cpArgs), cpOpts);
     }
 
     if (parsedocs === 'yes') {
