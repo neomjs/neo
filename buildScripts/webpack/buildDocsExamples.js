@@ -1,15 +1,17 @@
 'use strict';
 
-const chalk       = require('chalk'),
-      { program } = require('commander'),
-      cp          = require('child_process'),
-      cpOpts      = { env: process.env, cwd: process.cwd(), stdio: 'inherit' },
-      envinfo     = require('envinfo'),
-      inquirer    = require('inquirer'),
-      packageJson = require('../../package.json'),
-      path        = './buildScripts/webpack/',
-      programName = `${packageJson.name} buildDocsExamples`,
-      questions   = [];
+const chalk            = require('chalk'),
+      {program}        = require('commander'),
+      cp               = require('child_process'),
+      cpOpts           = {env: process.env, cwd: process.cwd(), stdio: 'inherit'},
+      envinfo          = require('envinfo'),
+      inquirer         = require('inquirer'),
+      path             = require('path'),
+      packageJson      = require('../../package.json'),
+      neoPath          = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      buildScriptsPath = path.resolve(neoPath, 'buildScripts'),
+      programName      = `${packageJson.name} buildDocsExamples`,
+      questions        = [];
 
 program
     .name(programName)
@@ -62,13 +64,13 @@ inquirer.prompt(questions).then(answers => {
     // dist/development
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
-        cp.spawnSync('webpack', ['--config', `${path}development/webpack.config.docs.examples.js`], cpOpts);
+        cp.spawnSync('webpack', ['--config', `${buildScriptsPath}/webpack/development/webpack.config.docs.examples.js`], cpOpts);
     }
 
     // dist/production
     if (env === 'all' || env === 'prod') {
         console.log(chalk.blue(`${programName} starting dist/production`));
-        cp.spawnSync('webpack', ['--config', `${path}production/webpack.config.docs.examples.js`],  cpOpts);
+        cp.spawnSync('webpack', ['--config', `${buildScriptsPath}/webpack/production/webpack.config.docs.examples.js`],  cpOpts);
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
