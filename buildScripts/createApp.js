@@ -1,36 +1,99 @@
-const fs       = require('fs'),
-      inquirer = require('inquirer'),
-      path     = require('path');
+const chalk       = require('chalk'),
+      { program } = require('commander'),
+      envinfo     = require('envinfo'),
+      fs          = require('fs'),
+      inquirer    = require('inquirer'),
+      path        = require('path'),
+      packageJson = require(path.resolve(process.cwd(), 'package.json')),
+      programName = `${packageJson.name} create-app`,
+      questions   = [];
 
-let questions = [{
-    type   : 'input',
-    name   : 'appName',
-    message: 'Please choose a name for your neo app:',
-    default: 'MyApp'
-}, {
-    type   : 'list',
-    name   : 'themes',
-    message: 'Please choose a theme for your neo app:',
-    choices: ['neo-theme-dark', 'neo-theme-light', 'both'],
-    default: 'both'
-}, {
-    type   : 'checkbox',
-    name   : 'mainThreadAddons',
-    message: 'Please choose your main thread addons:',
-    choices: ['AmCharts', 'GoogleAnalytics', 'HighlightJS', 'LocalStorage', 'MapboxGL', 'Markdown', 'Siesta', 'Stylesheet'],
-    default: ['Stylesheet']
-}];
+program
+    .name(programName)
+    .version(packageJson.version)
+    .option('-i, --info',                    'print environment debug info')
+    .option('-a, --appName <name>')
+    .option('-m, --mainThreadAddons <name>', 'Comma separated list of AmCharts, GoogleAnalytics, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet\n Defaults to Stylesheet')
+    .option('-t, --themes <name>',           '"all", "dark", "light"')
+    .allowUnknownOption()
+    .on('--help', () => {
+        console.log('\nIn case you have any issues, please create a ticket here:');
+        console.log(chalk.cyan(packageJson.bugs.url));
+    })
+    .parse(process.argv);
 
-console.log('Welcome to the neo app generator!');
+if (program.info) {
+    console.log(chalk.bold('\nEnvironment Info:'));
+    console.log(`\n  current version of ${packageJson.name}: ${packageJson.version}`);
+    console.log(`  running from ${__dirname}`);
+    return envinfo
+        .run({
+            System     : ['OS', 'CPU'],
+            Binaries   : ['Node', 'npm', 'Yarn'],
+            Browsers   : ['Chrome', 'Edge', 'Firefox', 'Safari'],
+            npmPackages: ['neo.mjs']
+        }, {
+            duplicates  : true,
+            showNotFound: true
+        })
+        .then(console.log);
+}
+
+console.log(chalk.green(programName));
+
+if (program.mainThreadAddons) {
+    program.mainThreadAddons = program.mainThreadAddons.split(',');
+}
+
+if (!program.appName) {
+    questions.push({
+        type   : 'input',
+        name   : 'appName',
+        message: 'Please choose a name for your neo app:',
+        default: 'MyApp'
+    });
+}
+
+if (!program.themes) {
+    questions.push({
+        type   : 'list',
+        name   : 'themes',
+        message: 'Please choose a theme for your neo app:',
+        choices: ['neo-theme-dark', 'neo-theme-light', 'both'],
+        default: 'both'
+    });
+}
+
+if (!program.mainThreadAddons) {
+    questions.push({
+        type   : 'checkbox',
+        name   : 'mainThreadAddons',
+        message: 'Please choose your main thread addons:',
+        choices: ['AmCharts', 'GoogleAnalytics', 'HighlightJS', 'LocalStorage', 'MapboxGL', 'Markdown', 'Siesta', 'Stylesheet'],
+        default: ['Stylesheet']
+    });
+}
 
 inquirer.prompt(questions).then(answers => {
-    const appName           = answers['appName'],
-          lAppName          = appName.toLowerCase(),
-          appPath           = 'apps/' + lAppName + '/',
-          dir               = '../apps/' + lAppName,
-          folder            = path.resolve(__dirname, dir),
-          mainThreadAddons  = answers['mainThreadAddons'],
-          themes            = Array.isArray(answers['themes']) ? answers['themes'] : [answers['themes']];
+    const appName          = answers.appName          || program['appName'],
+          mainThreadAddons = answers.mainThreadAddons || program['mainThreadAddons'],
+          lAppName         = appName.toLowerCase(),
+          appPath          = 'apps/' + lAppName + '/',
+          dir              = '../apps/' + lAppName,
+          folder           = path.resolve(__dirname, dir),
+          startDate        = new Date();
+
+    let themes = answers.themes || program['themes'];
+
+    if (!Array.isArray(themes)) {
+        themes = [themes];
+    }
+
+    if (themes.length > 0 && !mainThreadAddons.includes('Stylesheet')) {
+        console.error('ERROR! The Stylesheet mainThreadAddon is mandatory in case you are using themes');
+        console.log('Exiting with error.');
+        process.exit(1);
+    }
 
     fs.mkdir(folder, { recursive: true }, (err) => {
         if (err) {
@@ -71,12 +134,12 @@ inquirer.prompt(questions).then(answers => {
         ];
 
         if (answers['mainThreadAddons'] !== 'Stylesheet') {
-            indexContent[indexContent.length] += ',';
+            indexContent[indexContent.length -1] += ',';
             indexContent.push("            mainThreadAddons: [" + mainThreadAddons.map(e => "'" + e +"'").join(', ') + "]");
         }
 
         if (answers['themes'] !== 'both') {
-            indexContent[indexContent.length] += ',';
+            indexContent[indexContent.length -1] += ',';
             indexContent.push("            themes          : [" + themes.map(e => "'" + e +"'").join(', ') + "]");
         }
 
@@ -144,55 +207,30 @@ inquirer.prompt(questions).then(answers => {
 
         fs.writeFileSync(folder + '/MainContainer.mjs', mainContainerContent);
 
-        let appDevJsonPath = path.resolve(__dirname, '../buildScripts/webpack/development/json/myApps.json'),
-            appDevJson;
+        let appJsonPath = path.resolve(__dirname, '../buildScripts/webpack/json/myApps.json'),
+            appJson;
 
-        if (fs.existsSync(appDevJsonPath)) {
-            appDevJson = require(appDevJsonPath);
+        if (fs.existsSync(appJsonPath)) {
+            appJson = require(appJsonPath);
         } else {
-            appDevJson = require(path.resolve(__dirname, '../buildScripts/webpack/development/json/myApps.template.json'));
+            appJson = require(path.resolve(__dirname, '../buildScripts/webpack/json/myApps.template.json'));
         }
 
-        appDevJson.apps[appName] = {
+        appJson.apps[appName] = {
             input : 'myApps/' + appName + '.mjs',
             output: '/' + appPath,
             title : appName
         };
 
         if (!(mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 1)) {
-            appDevJson.apps[appName].mainThreadAddons = mainThreadAddons.map(e => "'" + e + "'").join(', ');
+            appJson.apps[appName].mainThreadAddons = mainThreadAddons.map(e => "'" + e + "'").join(', ');
         }
 
         if (answers['themes'] !== 'both') {
-            appDevJson.apps[appName].themes = themes.map(e => "'" + e + "'").join(', ');
+            appJson.apps[appName].themes = themes.map(e => "'" + e + "'").join(', ');
         }
 
-        fs.writeFileSync(appDevJsonPath, JSON.stringify(appDevJson, null, 4));
-
-        let appJsonProdPath = path.resolve(__dirname, '../buildScripts/webpack/production/json/myApps.json'),
-            appProdJson;
-
-        if (fs.existsSync(appJsonProdPath)) {
-            appProdJson = require(appJsonProdPath);
-        } else {
-            appProdJson = require(path.resolve(__dirname, '../buildScripts/webpack/production/json/myApps.template.json'));
-        }
-
-        appProdJson.apps[appName] = {
-            input : 'myApps/' + appName + '.mjs',
-            output: '/' + appPath,
-            title : appName
-        };
-
-        if (!(mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 1)) {
-            appProdJson.apps[appName].mainThreadAddons = mainThreadAddons.map(e => "'" + e + "'").join(', ');
-        }
-
-        if (answers['themes'] !== 'both') {
-            appProdJson.apps[appName].themes = themes.map(e => "'" + e + "'").join(', ');
-        }
-
-        fs.writeFileSync(appJsonProdPath, JSON.stringify(appProdJson, null, 4));
+        fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 4));
 
         const entryPoint = [
             "import '../../../../src/worker/App.mjs';",
@@ -200,5 +238,10 @@ inquirer.prompt(questions).then(answers => {
         ].join('\n');
 
         fs.writeFileSync(path.resolve(__dirname, '../buildScripts/webpack/entrypoints/myApps/' + appName + '.mjs'), entryPoint);
+
+        const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
+        console.log(`\nTotal time for ${programName}: ${processTime}s`);
+
+        process.exit();
     });
 });
