@@ -143,7 +143,7 @@ inquirer.prompt(questions).then(answers => {
     }
 
     if (npminstall === 'yes') {
-        cp.spawnSync(npmCmd, ['i'], cpOpts);buildScriptsPath
+        cp.spawnSync(npmCmd, ['i'], cpOpts);
     }
 
     if (themes === 'yes') {
