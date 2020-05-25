@@ -12,18 +12,19 @@ the following concepts will be addictive.
 
 ## Content
 1. <a href="#sponsors">Sponsors</a>
-2. <a href="#covid19-in-numbers-demo-app">COVID19 IN NUMBERS Demo App</a>
-3. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
-4. <a href="#want-to-learn-more">Want to learn more?</a>
-5. <a href="#impossible-pick-with-caution">Impossible? Pick with caution!</a>
-6. <a href="#online-examples">Online Examples</a>
-7. <a href="#online-docs">Online Docs</a>
-8. <a href="#ready-to-get-started">Ready to get started?</a>
-9. <a href="#project-history">Project History</a>
-10. <a href="#story--vision">Story & Vision</a>
-11. <a href="#sponsors">neo.mjs needs more sponsors!</a>
-12. <a href="#contributors">neo.mjs needs more contributors!</a>
-13. <a href="#slack-channel-for-questions--feedback">Slack Channel for questions & feedback</a>
+2. <a href="#sponsors">Blog</a>
+3. <a href="#covid19-in-numbers-demo-app">COVID19 IN NUMBERS Demo App</a>
+4. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
+5. <a href="#want-to-learn-more">Want to learn more?</a>
+6. <a href="#impossible-pick-with-caution">Impossible? Pick with caution!</a>
+7. <a href="#online-examples">Online Examples</a>
+8. <a href="#online-docs">Online Docs</a>
+9. <a href="#ready-to-get-started">Ready to get started?</a>
+10. <a href="#project-history">Project History</a>
+11. <a href="#story--vision">Story & Vision</a>
+12. <a href="#sponsors1">neo.mjs needs more sponsors!</a>
+13. <a href="#contributors">neo.mjs needs more contributors!</a>
+14. <a href="#slack-channel-for-questions--feedback">Slack Channel for questions & feedback</a>
 
 
 ## Sponsors
@@ -46,6 +47,10 @@ the following concepts will be addictive.
   </tbody>
 </table>
 <!--bronze end-->
+
+## Blog
+All Blog posts are stored here:</br>
+<a href="https://github.com/neomjs/neo/projects/14">neo/projects/14</a>.
 
 ## COVID19 IN NUMBERS Demo App
 The most compelling way to introduce a new framework might simply be to show what you can do with it.
@@ -169,7 +174,7 @@ the current state is just a fraction of a bigger picture.
 
 Take a look at the <a href=".github/STORY.md">Project Story</a> and <a href=".github/VISION.md">Vision</a>.
 
-<h2 id="sponsors">The neo.mjs project needs more sponsors!</h2>
+<h2 id="sponsors1">The neo.mjs project needs more sponsors!</h2>
 Is the current code base useful for you or could it be in the future?</br>
 Do you like the neo.mjs concepts?</br>
 So far the development was made possible with burning all of my (tobiu's) personal savings.</br>
