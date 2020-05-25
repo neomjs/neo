@@ -1,17 +1,17 @@
 'use strict';
 
-const chalk            = require('chalk'),
-      { program }      = require('commander'),
-      cp               = require('child_process'),
-      cpOpts           = {env: process.env, cwd: process.cwd(), stdio: 'inherit'},
-      envinfo          = require('envinfo'),
-      inquirer         = require('inquirer'),
-      packageJson      = require('../../package.json'),
-      path             = require('path'),
-      neoPath          = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      buildScriptsPath = path.resolve(neoPath, 'buildScripts'),
-      programName      = `${packageJson.name} buildThemes`,
-      questions        = [];
+const chalk       = require('chalk'),
+      { program } = require('commander'),
+      cp          = require('child_process'),
+      cpOpts      = {env: process.env, cwd: process.cwd(), stdio: 'inherit'},
+      envinfo     = require('envinfo'),
+      inquirer    = require('inquirer'),
+      packageJson = require('../../package.json'),
+      path        = require('path'),
+      neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      webpackPath = path.resolve(neoPath, 'buildScripts/webpack'),
+      programName = `${packageJson.name} buildThemes`,
+      questions   = [];
 
 program
     .name(programName)
@@ -103,13 +103,13 @@ inquirer.prompt(questions).then(answers => {
     // dist/development
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
-        buildEnv(`${buildScriptsPath}/webpack/development/webpack.scss.config.js`);
+        buildEnv(`${webpackPath}/development/webpack.scss.config.js`);
     }
 
     // dist/production
     if (env === 'all' || env === 'prod') {
         console.log(chalk.blue(`${programName} starting dist/production`));
-        buildEnv(`${buildScriptsPath}/webpack/production/webpack.scss.config.js`);
+        buildEnv(`${webpackPath}/production/webpack.scss.config.js`);
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
