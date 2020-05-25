@@ -3,13 +3,15 @@
 const chalk       = require('chalk'),
       { program } = require('commander'),
       cp          = require('child_process'),
-      cpOpts      = { env: process.env, cwd: process.cwd(), stdio: 'inherit' },
+      cpOpts      = {env: process.env, cwd: process.cwd(), stdio: 'inherit'},
       envinfo     = require('envinfo'),
       inquirer    = require('inquirer'),
       os          = require('os'),
       npmCmd      = os.platform().startsWith('win') ? 'npm.cmd' : 'npm', // npm binary based on OS
       path        = require('path'),
       packageJson = require(path.resolve(process.cwd(), 'package.json')),
+      neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      webpackPath = path.resolve(neoPath, 'buildScripts/webpack'),
       programName = `${packageJson.name} buildAll`,
       questions   = [];
 
@@ -145,19 +147,19 @@ inquirer.prompt(questions).then(answers => {
     }
 
     if (themes === 'yes') {
-        cp.spawnSync('node', ['./buildScripts/webpack/buildThemes.js'].concat(cpArgs), cpOpts);
+        cp.spawnSync('node', [`${webpackPath}/buildThemes.js`].concat(cpArgs), cpOpts);
     }
 
     if (threads === 'yes') {
-        cp.spawnSync('node', ['./buildScripts/webpack/buildThreads.js'].concat(cpArgs), cpOpts);
+        cp.spawnSync('node', [`${webpackPath}/buildThreads.js`].concat(cpArgs), cpOpts);
     }
 
     if (docs === 'yes' && packageJson.scripts['build-docs-examples']) {
-        cp.spawnSync('node', ['./buildScripts/webpack/buildDocsExamples.js'].concat(cpArgs), cpOpts);
+        cp.spawnSync('node', [`${webpackPath}/buildDocsExamples.js`].concat(cpArgs), cpOpts);
     }
 
     if (apps === 'yes') {
-        cp.spawnSync('node', ['./buildScripts/webpack/buildMyApps.js'].concat(cpArgs), cpOpts);
+        cp.spawnSync('node', [`${webpackPath}/buildMyApps.js`].concat(cpArgs), cpOpts);
     }
 
     if (parsedocs === 'yes') {
