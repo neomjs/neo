@@ -49,7 +49,7 @@ the following concepts will be addictive.
 <!--bronze end-->
 
 ## Blog
-All Blog posts are stored here:</br>
+All Blog posts are stored here:
 <a href="https://github.com/neomjs/neo/projects/14">neo/projects/14</a>.
 
 ## COVID19 IN NUMBERS Demo App
