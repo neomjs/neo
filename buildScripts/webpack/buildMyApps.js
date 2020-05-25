@@ -1,21 +1,21 @@
 'use strict';
 
-const chalk            = require('chalk'),
-      { program }      = require('commander'),
-      cp               = require('child_process'),
-      cpOpts           = {env: process.env, cwd: process.cwd(), stdio: 'inherit'},
-      envinfo          = require('envinfo'),
-      fs               = require('fs'),
-      inquirer         = require('inquirer'),
-      packageJson      = require('../../package.json'),
-      path             = require('path'),
-      processRoot      = process.cwd(),
-      configPath       = path.resolve(processRoot, 'buildScripts/myApps.json'),
-      neoPath          = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      buildScriptsPath = path.resolve(neoPath, 'buildScripts'),
-      programName      = `${packageJson.name} buildMyApps`,
-      appChoices       = [],
-      questions        = [];
+const chalk       = require('chalk'),
+      { program } = require('commander'),
+      cp          = require('child_process'),
+      cpOpts      = {env: process.env, cwd: process.cwd(), stdio: 'inherit'},
+      envinfo     = require('envinfo'),
+      fs          = require('fs'),
+      inquirer    = require('inquirer'),
+      packageJson = require('../../package.json'),
+      path        = require('path'),
+      processRoot = process.cwd(),
+      configPath  = path.resolve(processRoot, 'buildScripts/myApps.json'),
+      neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      webpackPath = path.resolve(neoPath, 'buildScripts/webpack'),
+      programName = `${packageJson.name} buildMyApps`,
+      appChoices  = [],
+      questions   = [];
 
 let config;
 
@@ -99,13 +99,13 @@ inquirer.prompt(questions).then(answers => {
     // dist/development
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
-        cp.spawnSync('webpack', ['--config', `${buildScriptsPath}/webpack/development/webpack.config.myapps.js`, `--env.apps=${apps}`], cpOpts);
+        cp.spawnSync('webpack', ['--config', `${webpackPath}/development/webpack.config.myapps.js`, `--env.apps=${apps}`], cpOpts);
     }
 
     // dist/production
     if (env === 'all' || env === 'prod') {
         console.log(chalk.blue(`${programName} starting dist/production`));
-        cp.spawnSync('webpack', ['--config', `${buildScriptsPath}/webpack/production/webpack.config.myapps.js`, `--env.apps=${apps}`], cpOpts);
+        cp.spawnSync('webpack', ['--config', `${webpackPath}/production/webpack.config.myapps.js`, `--env.apps=${apps}`], cpOpts);
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
