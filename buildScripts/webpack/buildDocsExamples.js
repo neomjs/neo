@@ -1,7 +1,7 @@
 'use strict';
 
 const chalk            = require('chalk'),
-      {program}        = require('commander'),
+      { program }      = require('commander'),
       cp               = require('child_process'),
       cpOpts           = {env: process.env, cwd: process.cwd(), stdio: 'inherit'},
       envinfo          = require('envinfo'),
