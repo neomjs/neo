@@ -78,9 +78,9 @@ if (!program.noquestions) {
 }
 
 inquirer.prompt(questions).then(answers => {
-    const css4      = program.css4   || answers.css4   || 'all',
-          env       = program.env    || answers.env    || 'all',
-          themes    = program.themes || answers.themes || 'all',
+    const css4      = answers.css4   || program.css4   || 'all',
+          env       = answers.env    || program.env    || 'all',
+          themes    = answers.themes || program.themes || 'all',
           startDate = new Date();
 
     const buildEnv = path => {

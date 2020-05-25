@@ -92,8 +92,8 @@ if (!program.noquestions) {
 }
 
 inquirer.prompt(questions).then(answers => {
-    const apps      = program.apps || answers.apps || ['all'],
-          env       = program.env  || answers.env  || ['all'],
+    const apps      = answers.apps || program.apps || ['all'],
+          env       = answers.env  || program.env  || ['all'],
           startDate = new Date();
 
     // dist/development

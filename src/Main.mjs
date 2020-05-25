@@ -154,7 +154,8 @@ class Main extends core.Base {
 
         // intended for the online examples where we need an easy way to add GA to every generated app
         if (!Neo.config.mainThreadAddons.GoogleAnalytics && Neo.config.useGoogleAnalytics) {
-            imports.push(import(/* webpackChunkName: 'src/main/addon/[request]' */ './main/addon/GoogleAnalytics.mjs'));
+            // for this use case webpack creates a chunk called "[request]" if not named manually.
+            imports.push(import(/* webpackChunkName: 'src/main/addon/GoogleAnalytics-mjs.js' */ './main/addon/GoogleAnalytics.mjs'));
         }
 
         const modules = await Promise.all(imports);

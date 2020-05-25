@@ -118,21 +118,21 @@ if (!program.noquestions) {
         questions.push({
             type   : 'list',
             name   : 'parsedocs',
-            message: 'Trigger the jsdocx parsing? (This task can take several minutes)',
+            message: 'Trigger the jsdocx parsing?',
             choices: ['yes', 'no'],
-            default: 'no'
+            default: 'yes'
         });
     }
 }
 
 inquirer.prompt(questions).then(answers => {
-    const apps       = program.apps       || answers.apps       || 'yes',
-          docs       = program.docs       || answers.docs       || 'yes',
-          env        = program.env        || answers.env        || 'all',
-          npminstall = program.npminstall || answers.npminstall || 'yes',
-          parsedocs  = program.parsedocs  || answers.parsedocs  || 'no',
-          themes     = program.themes     || answers.themes     || 'yes',
-          threads    = program.threads    || answers.threads    || 'yes',
+    const apps       = answers.apps       || program.apps       || 'yes',
+          docs       = answers.docs       || program.docs       || 'yes',
+          env        = answers.env        || program.env        || 'all',
+          npminstall = answers.npminstall || program.npminstall || 'yes',
+          parsedocs  = answers.parsedocs  || program.parsedocs  || 'yes',
+          themes     = answers.themes     || program.themes     || 'yes',
+          threads    = answers.threads    || program.threads    || 'yes',
           cpArgs     = ['-e', env],
           startDate  = new Date();
 
