@@ -22,8 +22,8 @@ the following concepts will be addictive.
 9. <a href="#ready-to-get-started">Ready to get started?</a>
 10. <a href="#project-history">Project History</a>
 11. <a href="#story--vision">Story & Vision</a>
-12. <a href="#sponsors1">neo.mjs needs more sponsors!</a>
-13. <a href="#contributors">neo.mjs needs more contributors!</a>
+12. <a href="#sponsors1">neo.mjs is in need for more sponsors!</a>
+13. <a href="#contributors">neo.mjs is in need for more contributors!</a>
 14. <a href="#slack-channel-for-questions--feedback">Slack Channel for questions & feedback</a>
 
 
@@ -174,7 +174,7 @@ the current state is just a fraction of a bigger picture.
 
 Take a look at the <a href=".github/STORY.md">Project Story</a> and <a href=".github/VISION.md">Vision</a>.
 
-<h2 id="sponsors1">neo.mjs needs more sponsors!</h2>
+<h2 id="sponsors1">neo.mjs is in need for more sponsors!</h2>
 Is the current code base useful for you or could it be in the future?</br>
 Do you like the neo.mjs concepts?</br>
 So far the development was made possible with burning all of my (tobiu's) personal savings.</br>
@@ -184,7 +184,7 @@ The benefit of doing so is to get results delivered faster.
 
 Here you go: <a href="./BACKERS.md">Sponsors & Backers</a>
 
-<h2 id="contributors">neo.mjs needs more contributors!</h2>
+<h2 id="contributors">neo.mjs is in need for more contributors!</h2>
 Another way to fasten up the neo.mjs development speed is to actively jump in.</br>
 As the shiny "PRs welcome" badge suggests: open source is intended to be improved by anyone who is up for the challenge.
 
