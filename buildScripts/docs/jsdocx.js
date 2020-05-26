@@ -4,7 +4,8 @@ const fs          = require('fs-extra'),
       processRoot = process.cwd(),
       helper      = require(path.join(processRoot, 'node_modules/jsdoc-x/src/lib/helper.js')),
       packageJson = require(path.resolve(process.cwd(), 'package.json')),
-      neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      insideNeo   = packageJson.name === 'neo.mjs',
+      neoPath     = insideNeo ? './' : './node_modules/neo.mjs/',
       appNames    = [],
       options = {
           access        : 'all',
@@ -135,12 +136,47 @@ function generateStructure(target, parentId, docs) {
                 docItem = docs[i];
 
                 if ((docItem.$kind === 'class' || docItem.$kind === 'module') && docItem.neoClassName === className) {
-                    if (docItem.meta.path.indexOf('neoteric/') > -1) {
-                        srcPath = docItem.meta.path.substr(docItem.meta.path.indexOf('neoteric/') + 9) + '/' + docItem.meta.filename;
-                    } else if (docItem.meta.path.substr(docItem.meta.path.indexOf('neomjs/') > -1)) {
-                        srcPath = docItem.meta.path.substr(docItem.meta.path.indexOf('neomjs/') + 7) + '/' + docItem.meta.filename;
-                    } else {
-                        srcPath = docItem.meta.path.substr(docItem.meta.path.indexOf('neo/') + 4) + '/' + docItem.meta.filename;
+                    let i = docItem.meta.path.indexOf('neomjs/'),
+                        m = false;
+
+                    if (i > -1) {
+                        srcPath = docItem.meta.path.substr(i + 7) + '/' + docItem.meta.filename;
+                        m = true;
+                    }
+
+                    if (!m) {
+                        i = docItem.meta.path.indexOf('neo.mjs/');
+
+                        if (i > -1) {
+                            srcPath = docItem.meta.path.substr(i + 8) + '/' + docItem.meta.filename;
+                            m = true;
+                        }
+                    }
+
+                    if (!m) {
+                        i = docItem.meta.path.indexOf('neo/');
+
+                        if (i > -1) {
+                            srcPath = docItem.meta.path.substr(i + 4) + '/' + docItem.meta.filename;
+                            m = true;
+                        }
+                    }
+
+                    if (!m) {
+                        i = docItem.meta.path.indexOf('/apps/');
+
+                        if (i > -1) {
+                            srcPath = docItem.meta.path.substr(i + 1) + '/' + docItem.meta.filename;
+                            m = true;
+                        }
+                    }
+
+                    if (!m) {
+                        i = docItem.meta.path.indexOf('/docs/');
+
+                        if (i > -1) {
+                            srcPath = docItem.meta.path.substr(i + 1) + '/' + docItem.meta.filename;
+                        }
                     }
 
                     if (docItem.tags) {
@@ -169,6 +205,12 @@ function generateStructure(target, parentId, docs) {
         if (index > -1) {
             srcPath = srcPath.substr(index + 21);
         }
+
+        if (!insideNeo && srcPath && !srcPath.includes('apps/') && !srcPath.includes('docs/')) {
+            srcPath = 'node_modules/neo.mjs/' + srcPath;
+        }
+
+        // console.log(srcPath);
 
         neoStructure.push({
             className: className,
