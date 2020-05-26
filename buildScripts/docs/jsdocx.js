@@ -227,7 +227,7 @@ jsdocx.parse(options)
 
                     if (index > -1) {
                         for (j=0; j < appNames.length; j++) {
-                            pathLen = path.indexOf(appNames[j].toLowerCase());
+                            pathLen = path.lastIndexOf(appNames[j].toLowerCase());
 
                             if (pathLen !== -1) {
                                 // top level files
