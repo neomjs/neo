@@ -3,7 +3,7 @@ const fs          = require('fs-extra'),
       path        = require('path'),
       processRoot = process.cwd(),
       helper      = require(path.join(processRoot, 'node_modules/jsdoc-x/src/lib/helper.js')),
-      packageJson = JSON.parse(fs.readFileSync(path.resolve(processRoot, 'package.json'), 'utf8')),
+      packageJson = require(path.resolve(process.cwd(), 'package.json')),
       neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
       appNames    = [],
       options = {
@@ -227,7 +227,7 @@ jsdocx.parse(options)
 
                     if (index > -1) {
                         for (j=0; j < appNames.length; j++) {
-                            pathLen = path.indexOf(appNames[j].toLowerCase());
+                            pathLen = path.lastIndexOf(appNames[j].toLowerCase());
 
                             if (pathLen !== -1) {
                                 // top level files
