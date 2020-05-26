@@ -25,8 +25,10 @@ In case you want to create a neo.mjs App, you have 3 different options:
    (See the <a href="../docs/tutorials/10_BuildScripts.md">Build Scripts Guide</a> for further details.)
 
 4. Make sure to use a local WebServer!
-   * Use a local webserver of your choice
-   * OR `npm run server-start`
+   * Use a local webserver of your choice (E.g. Webstorm)
+   * OR `npm run server-start` 
+     1. the dev server will throw 2 errors which you can ignore
+     2. a browser tab showing your app opens automatically.
 
    (JS module imports can not work on the local file system (security).)
    
@@ -38,7 +40,7 @@ In case you want to create a neo.mjs App, you have 3 different options:
 > localhost/neo/examples/component/helix/
 
 ### You can run the dist version examples like this:
-These versions also work in Firefox & Safari and do not require the Chrome flag
+These versions also work in Firefox & Safari
 
 > localhost/neo/dist/development/examples/component/helix/
 >
