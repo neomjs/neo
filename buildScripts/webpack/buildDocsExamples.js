@@ -3,12 +3,14 @@
 const chalk       = require('chalk'),
       { program } = require('commander'),
       cp          = require('child_process'),
-      cpOpts      = {env: process.env, cwd: process.cwd(), stdio: 'inherit'},
+      cwd         = process.cwd(),
+      cpOpts      = {env: process.env, cwd: cwd, stdio: 'inherit', shell: true},
       envinfo     = require('envinfo'),
       inquirer    = require('inquirer'),
       path        = require('path'),
-      packageJson = require(path.resolve(process.cwd(), 'package.json')),
+      packageJson = require(path.resolve(cwd, 'package.json')),
       neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      webpack     = './node_modules/.bin/webpack',
       webpackPath = path.resolve(neoPath, 'buildScripts/webpack'),
       programName = `${packageJson.name} buildDocsExamples`,
       questions   = [];
@@ -64,13 +66,13 @@ inquirer.prompt(questions).then(answers => {
     // dist/development
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
-        cp.spawnSync('webpack', ['--config', `${webpackPath}/development/webpack.config.docs.examples.js`], cpOpts);
+        cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.docs.examples.js`], cpOpts);
     }
 
     // dist/production
     if (env === 'all' || env === 'prod') {
         console.log(chalk.blue(`${programName} starting dist/production`));
-        cp.spawnSync('webpack', ['--config', `${webpackPath}/production/webpack.config.docs.examples.js`],  cpOpts);
+        cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.docs.examples.js`],  cpOpts);
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
