@@ -64,7 +64,7 @@
         },
         "docs": {
             "input": "docs/app.mjs",
-            "mainThreadAddons": "'GoogleAnalytics', 'HighlightJS', 'Stylesheet'",
+            "mainThreadAddons": "'HighlightJS', 'Stylesheet'",
             "output": "/docs/",
             "title": "Neo Docs"
         },
