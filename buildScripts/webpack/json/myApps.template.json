@@ -16,7 +16,7 @@
     "apps": {
         "Covid": {
             "input": "myApps/Covid.mjs",
-            "mainThreadAddons": "'AmCharts', 'GoogleAnalytics', 'MapboxGL', 'Stylesheet'",
+            "mainThreadAddons": "'AmCharts', 'MapboxGL', 'Stylesheet'",
             "output": "/apps/covid/",
             "themes": "'neo-theme-dark', 'neo-theme-light'",
             "title": "COVID-19 IN NUMBERS"
@@ -24,14 +24,14 @@
         "RealWorld": {
             "indexPath": "apps/realworld/index.ejs",
             "input": "myApps/RealWorld.mjs",
-            "mainThreadAddons": "'GoogleAnalytics', 'LocalStorage', 'Markdown'",
+            "mainThreadAddons": "'LocalStorage', 'Markdown'",
             "output": "/apps/realworld/",
             "themes": "",
             "title": "Conduit"
         },
         "RealWorld2": {
             "input": "myApps/RealWorld2.mjs",
-            "mainThreadAddons": "'GoogleAnalytics', 'LocalStorage', 'Markdown', 'Stylesheet'",
+            "mainThreadAddons": "'LocalStorage', 'Markdown', 'Stylesheet'",
             "output": "/apps/realworld2/",
             "title": "RealWorld2"
         }
