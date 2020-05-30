@@ -50,7 +50,8 @@ the following concepts will be addictive.
 
 ## Blog
 All Blog posts are stored here:
-<a href="https://github.com/neomjs/neo/projects/14">neo/projects/14</a>.
+<a href="https://github.com/neomjs/neo/projects/14">neo/projects/14</a>.</br>
+Latest article: How to create a webworkers driven multithreading App — Part 1
 
 ## COVID19 IN NUMBERS Demo App
 The most compelling way to introduce a new framework might simply be to show what you can do with it.
