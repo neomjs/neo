@@ -15,7 +15,7 @@ program
     .version(packageJson.version)
     .option('-i, --info',                    'print environment debug info')
     .option('-a, --appName <name>')
-    .option('-m, --mainThreadAddons <name>', 'Comma separated list of AmCharts, GoogleAnalytics, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet\n Defaults to Stylesheet')
+    .option('-m, --mainThreadAddons <name>', 'Comma separated list of AmCharts, AnalyticsByGoogle, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet\n Defaults to Stylesheet')
     .option('-t, --themes <name>',           '"all", "dark", "light"')
     .allowUnknownOption()
     .on('--help', () => {
@@ -71,7 +71,7 @@ if (!program.mainThreadAddons) {
         type   : 'checkbox',
         name   : 'mainThreadAddons',
         message: 'Please choose your main thread addons:',
-        choices: ['AmCharts', 'GoogleAnalytics', 'HighlightJS', 'LocalStorage', 'MapboxGL', 'Markdown', 'Siesta', 'Stylesheet'],
+        choices: ['AmCharts', 'AnalyticsByGoogle', 'HighlightJS', 'LocalStorage', 'MapboxGL', 'Markdown', 'Siesta', 'Stylesheet'],
         default: ['Stylesheet']
     });
 }

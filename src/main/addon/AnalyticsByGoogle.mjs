@@ -3,6 +3,7 @@ import Base from '../../core/Base.mjs';
 /**
  * Required for the online version of the examples & docs app
  * We can not name the file GoogleAnalytics, since it does break when using uBlock origin for dist versions.
+ * See: https://github.com/neomjs/neo/issues/651
  * @class Neo.main.addon.AnalyticsByGoogle
  * @extends Neo.core.Base
  * @singleton
