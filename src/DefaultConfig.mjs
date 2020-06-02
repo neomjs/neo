@@ -98,7 +98,7 @@ const DefaultConfig = {
     locale: 'default',
     /**
      * Add addons for the main thread
-     * Possible values: AmCharts, GoogleAnalytics, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet
+     * Possible values: AmCharts, AnalyticsByGoogle, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet
      * (src/main/addon)
      * @default ['Stylesheet']
      * @memberOf! module:Neo

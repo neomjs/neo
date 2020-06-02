@@ -2,18 +2,19 @@ import Base from '../../core/Base.mjs';
 
 /**
  * Required for the online version of the examples & docs app
- * @class Neo.main.addon.GoogleAnalytics
+ * We can not name the file GoogleAnalytics, since it does break when using uBlock origin for dist versions.
+ * @class Neo.main.addon.AnalyticsByGoogle
  * @extends Neo.core.Base
  * @singleton
  */
-class GoogleAnalytics extends Base {
+class AnalyticsByGoogle extends Base {
     static getConfig() {
         return {
             /**
-             * @member {String} className='Neo.main.addon.GoogleAnalytics'
+             * @member {String} className='Neo.main.addon.AnalyticsByGoogle'
              * @private
              */
-            className: 'Neo.main.addon.GoogleAnalytics',
+            className: 'Neo.main.addon.AnalyticsByGoogle',
             /**
              * @member {Boolean} singleton=true
              * @private
@@ -55,9 +56,9 @@ class GoogleAnalytics extends Base {
     }
 }
 
-Neo.applyClassConfig(GoogleAnalytics);
+Neo.applyClassConfig(AnalyticsByGoogle);
 
-let instance = Neo.create(GoogleAnalytics);
+let instance = Neo.create(AnalyticsByGoogle);
 
 Neo.applyToGlobalNs(instance);
 
