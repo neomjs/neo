@@ -13,18 +13,18 @@ the following concepts will be addictive.
 ## Content
 1. <a href="#sponsors">Sponsors</a>
 2. <a href="#blog">Blog</a>
-3. <a href="#covid19-in-numbers-demo-app">COVID19 IN NUMBERS Demo App</a>
+3. <a href="#covid19-app">COVID19 IN NUMBERS Demo App</a>
 4. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
-5. <a href="#want-to-learn-more">Want to learn more?</a>
-6. <a href="#impossible-pick-with-caution">Impossible? Pick with caution!</a>
+5. <a href="#learn-more">Want to learn more?</a>
+6. <a href="#impossible">Impossible? Pick with caution!</a>
 7. <a href="#online-examples">Online Examples</a>
 8. <a href="#online-docs">Online Docs</a>
-9. <a href="#ready-to-get-started">Ready to get started?</a>
+9. <a href="#get-started">Ready to get started?</a>
 10. <a href="#project-history">Project History</a>
 11. <a href="#story--vision">Story & Vision</a>
 12. <a href="#sponsors1">neo.mjs is in need for more sponsors!</a>
 13. <a href="#contributors">neo.mjs is in need for more contributors!</a>
-14. <a href="#slack-channel-for-questions--feedback">Slack Channel for questions & feedback</a>
+14. <a href="#slack-channel">Slack Channel for questions & feedback</a>
 
 <!-- Sponsors -->
 <h2 id="sponsors">Sponsors</h2>
@@ -57,7 +57,7 @@ Latest article:
 > How to create a webworkers driven multithreading App — Part 1
 
 <!-- COVID19 IN NUMBERS Demo App -->
-<h2 id="covid19-in-numbers-demo-app">COVID19 IN NUMBERS Demo App</h2>
+<h2 id="covid19-app">COVID19 IN NUMBERS Demo App</h2>
 
 The most compelling way to introduce a new framework might simply be to show what you can do with it.
 
@@ -142,12 +142,12 @@ You can find the code of the covid app <a href="https://github.com/neomjs/neo/tr
 </table>
 
 <!-- Want to learn more? -->
-<h2 id="want-to-learn-more">Want to learn more?</h2>
+<h2 id="learn-more">Want to learn more?</h2>
 
 <a href=".github/CONCEPT.md">neo.mjs Concepts</a>
 
 <!-- Impossible? Pick with caution! -->
-<h2 id="impossible-pick-with-caution">Impossible? Pick with caution!</h2>
+<h2 id="impossible">Impossible? Pick with caution!</h2>
 
 <a href="https://en.wikipedia.org/wiki/Red_pill_and_blue_pill"><img alt="blue or red pill" src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/redorbluepill.png"></a>
 
@@ -176,7 +176,7 @@ Hint: As soon as you create your own apps, you want to use the docs app locally,
 since this will include the documentation for your own apps.
 
 <!-- Ready to get started? -->
-<h2 id="ready-to-get-started">Ready to get started?</h2>
+<h2 id="get-started">Ready to get started?</h2>
 
 There are 3 different ways on how you can get the basics running locally.</br>
 Please take a look at the <a href=".github/GETTING_STARTED.md">Getting Started Guide</a>.
@@ -219,7 +219,7 @@ You can also write a guide in case you learned something new using neo.mjs or ju
 Either way, here are more infos: <a href="./CONTRIBUTING.md">Contributing</a>
 
 <!-- Slack Channel for questions & feedback -->
-<h2 id="slack-channel-for-questions--feedback">Slack Channel for questions & feedback</h2>
+<h2 id="slack-channel">Slack Channel for questions & feedback</h2>
 
 There are some Javascript legends hiding in the shadows and waiting to be discovered.</br>
 Join our community:
