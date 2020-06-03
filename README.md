@@ -12,7 +12,7 @@ the following concepts will be addictive.
 
 ## Content
 1. <a href="#sponsors">Sponsors</a>
-2. <a href="#sponsors">Blog</a>
+2. <a href="#blog">Blog</a>
 3. <a href="#covid19-in-numbers-demo-app">COVID19 IN NUMBERS Demo App</a>
 4. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
 5. <a href="#want-to-learn-more">Want to learn more?</a>
@@ -26,8 +26,8 @@ the following concepts will be addictive.
 13. <a href="#contributors">neo.mjs is in need for more contributors!</a>
 14. <a href="#slack-channel-for-questions--feedback">Slack Channel for questions & feedback</a>
 
-
-## Sponsors
+<!-- Sponsors -->
+<h2 id="sponsors">Sponsors</h2>
 <h3 align="center">Bronze Sponsors</h3>
 <!--bronze start-->
 <table>
@@ -48,13 +48,15 @@ the following concepts will be addictive.
 </table>
 <!--bronze end-->
 
-## Blog
+<!-- Blog -->
+<h2 id="blog">Blog</h2>
 All Blog posts are stored here:
 <a href="https://github.com/neomjs/neo/projects/14">neo/projects/14</a>.</br>
 Latest article:
 > How to create a webworkers driven multithreading App — Part 1
 
-## COVID19 IN NUMBERS Demo App
+<!-- COVID19 IN NUMBERS Demo App -->
+<h2 id="covid19-in-numbers-demo-app">COVID19 IN NUMBERS Demo App</h2>
 The most compelling way to introduce a new framework might simply be to show what you can do with it.
 
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/covid/index.html#mainview=table">Live Demo: COIN App dist/production</a></br>
@@ -73,6 +75,7 @@ You can find the code of the covid app <a href="https://github.com/neomjs/neo/tr
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v2/world.png">
 
+<!-- What If -->
 <h2 id="what-if-">Short overview of the concept & design goals</h2>
 <table>
     <tr>
@@ -135,21 +138,25 @@ You can find the code of the covid app <a href="https://github.com/neomjs/neo/tr
     </tr>
 </table>
 
-## Want to learn more?
+<!-- Want to learn more? -->
+<h2 id="want-to-learn-more">Want to learn more?</h2>
 <a href=".github/CONCEPT.md">neo.mjs Concepts</a>
 
-## Impossible? Pick with caution!
+<!-- Impossible? Pick with caution! -->
+<h2 id="impossible-pick-with-caution">Impossible? Pick with caution!</h2>
 <a href="https://en.wikipedia.org/wiki/Red_pill_and_blue_pill"><img alt="blue or red pill" src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/redorbluepill.png"></a>
 
 Still here? Welcome to neo.mjs - The webworkers driven UI framework
 
-## Online Examples
+<!-- Online Examples -->
+<h2 id="online-examples">Online Examples</h2>
 You can find a full list of (desktop based) online examples here:</br>
 <a href="https://neomjs.github.io/pages/">Online Examples</a>
 
 You can pick between the 3 modes (development, dist/development, dist/production) for each one.
 
-## Online Docs
+<!-- Online Docs -->
+<h2 id="online-docs">Online Docs</h2>
 The Online Docs are also included inside the Online Examples.
 
 dist/production does not support lazy loading the examples yet, but works in every browser:</br>
@@ -161,21 +168,25 @@ The development mode only works on Chrome 80+, but does lazy load the example ap
 Hint: As soon as you create your own apps, you want to use the docs app locally,</br>
 since this will include the documentation for your own apps.
 
-## Ready to get started?
+<!-- Ready to get started? -->
+<h2 id="ready-to-get-started">Ready to get started?</h2>
 There are 3 different ways on how you can get the basics running locally.</br>
 Please take a look at the <a href=".github/GETTING_STARTED.md">Getting Started Guide</a>.
 
-## Project History
+<!-- Project History -->
+<h2 id="project-history">Project History</h2>
 neo.mjs got released to the public on November 23, 2019.</br>
 Before this point, the project was already at 3720 commits.<br>
 Find out more about the start of it inside the <a href=".github/NEOMJS_HISTORY.md">Project History</a> file.
 
-## Story & Vision
+<!-- Story & Vision -->
+<h2 id="story--vision">Story & Vision</h2>
 Although neo.mjs is ready to craft beautiful & blazing fast UIs,</br>
 the current state is just a fraction of a bigger picture.
 
 Take a look at the <a href=".github/STORY.md">Project Story</a> and <a href=".github/VISION.md">Vision</a>.
 
+<!-- neo.mjs is in need for more sponsors! -->
 <h2 id="sponsors1">neo.mjs is in need for more sponsors!</h2>
 Is the current code base useful for you or could it be in the future?</br>
 Do you like the neo.mjs concepts?</br>
@@ -186,6 +197,7 @@ The benefit of doing so is to get results delivered faster.
 
 Here you go: <a href="./BACKERS.md">Sponsors & Backers</a>
 
+<!-- neo.mjs is in need for more contributors! -->
 <h2 id="contributors">neo.mjs is in need for more contributors!</h2>
 Another way to fasten up the neo.mjs development speed is to actively jump in.</br>
 As the shiny "PRs welcome" badge suggests: open source is intended to be improved by anyone who is up for the challenge.
@@ -194,7 +206,8 @@ You can also write a guide in case you learned something new using neo.mjs or ju
 
 Either way, here are more infos: <a href="./CONTRIBUTING.md">Contributing</a>
 
-## Slack Channel for questions & feedback
+<!-- Slack Channel for questions & feedback -->
+<h2 id="slack-channel-for-questions--feedback">Slack Channel for questions & feedback</h2>
 There are some Javascript legends hiding in the shadows and waiting to be discovered.</br>
 Join our community:
 <a href="https://join.slack.com/t/neotericjs/shared_invite/enQtNDk2NjEwMTIxODQ2LWRjNGQ3ZTMzODRmZGM2NDM2NzZmZTMzZmE2YjEwNDM4NDhjZDllNWY2ZDkwOWQ5N2JmZWViYjYzZTg5YjdiMDc">Slack Channel Invite Link</a>
