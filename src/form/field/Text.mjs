@@ -116,9 +116,11 @@ class Text extends Base {
         let me           = this,
             domListeners = Neo.clone(me.domListeners, true, true),
             vdom         = me.vdom,
-            inputEl      = me.getInputEl();
+            inputEl      = me.getInputEl(),
+            labelEl      = me.getLabelEl();
 
-        inputEl.id = me.id + '-input';
+        inputEl.id = labelEl.for = me.id + '-input';
+
         me.vdom = vdom;
 
         domListeners.push({
