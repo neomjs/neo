@@ -8,7 +8,7 @@ import Viewport                  from '../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className: 'SharedCovid.MainContainer',
+        className: 'Covid.MainContainer',
         ntype    : 'main-container',
 
         autoMount: true,
