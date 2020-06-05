@@ -147,12 +147,12 @@ inquirer.prompt(questions).then(answers => {
             "            isExperimental  : true",
         ];
 
-        if (answers['mainThreadAddons'] !== 'Stylesheet') {
+        if (!(mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 1)) {
             indexContent[indexContent.length -1] += ',';
             indexContent.push("            mainThreadAddons: [" + mainThreadAddons.map(e => "'" + e +"'").join(', ') + "]");
         }
 
-        if (answers['themes'] !== 'both') {
+        if (!themes.includes('both')) {
             indexContent[indexContent.length -1] += ',';
             indexContent.push("            themes          : [" + themes.map(e => "'" + e +"'").join(', ') + "]");
         }
@@ -245,7 +245,7 @@ inquirer.prompt(questions).then(answers => {
             appJson.apps[appName].mainThreadAddons = mainThreadAddons.map(e => "'" + e + "'").join(', ');
         }
 
-        if (answers['themes'] !== 'both') {
+        if (!themes.includes('both')) {
             appJson.apps[appName].themes = themes.map(e => "'" + e + "'").join(', ');
         }
 
