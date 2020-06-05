@@ -34,6 +34,13 @@
             "mainThreadAddons": "'LocalStorage', 'Markdown', 'Stylesheet'",
             "output": "/apps/realworld2/",
             "title": "RealWorld2"
+        },
+        "SharedCovid": {
+            "input": "myApps/SharedCovid.mjs",
+            "output": "/apps/sharedcovid/",
+            "title": "SharedCovid",
+            "mainThreadAddons": "'AmCharts', 'MapboxGL', 'Stylesheet'",
+            "useSharedWorkers": true
         }
     }
 }
