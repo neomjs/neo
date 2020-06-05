@@ -45,7 +45,19 @@ class Base extends CoreBase {
 
         me.promises = {};
 
-        self.addEventListener('message', me.onMessage.bind(me), false);
+        // todo: Neo.config.useSharedWorkers is not available at this point
+        // hack: self.onconnect === null for SharedWorkers, undefined for Workers
+
+        if (self.onconnect === null) {
+            self.onconnect = e => {
+                // todo: create a map for new ports
+                this.port = e.ports[0];
+
+                this.port.onmessage = me.onMessage.bind(me);
+            };
+        } else {
+            self.addEventListener('message', me.onMessage.bind(me), false);
+        }
 
         Neo.workerId      = me.workerId;
         Neo.currentWorker = me;
