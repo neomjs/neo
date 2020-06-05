@@ -15,6 +15,7 @@
 !/buildScripts/webpack/entrypoints/myApps/Covid.mjs
 !/buildScripts/webpack/entrypoints/myApps/RealWorld.mjs
 !/buildScripts/webpack/entrypoints/myApps/RealWorld2.mjs
+!/buildScripts/webpack/entrypoints/myApps/SharedCovid.mjs
 /buildScripts/webpack/json/myApps.json
 
 /dist

@@ -223,27 +223,25 @@ class Base {
      * Remote method access via promises
      */
     initRemote() {
-        let me        = this,
-            remote    = me.remote,
-            className = me.className,
-            origin;
+        let me            = this,
+            remote        = me.remote,
+            className     = me.className,
+            currentWorker = Neo.currentWorker,
+            listenerId;
 
         if (!me.singleton) {
             throw new Error('Remote method access only functional for Singleton classes ' + className);
         }
 
         if (!Neo.config.unitTestMode && Neo.isObject(remote)) {
-            Object.entries(remote).forEach(([worker, methods]) => {
-                if (Neo.workerId !== worker) {
-                    origin = Neo.workerId === 'main' ? Neo.worker.Manager : Neo.currentWorker;
-
-                    origin.sendMessage(worker, {
-                        action   : 'registerRemote',
-                        methods  : methods,
-                        className: className
-                    });
-                }
-            });
+            if (Neo.workerId !== 'main' && currentWorker.isSharedWorker && !currentWorker.isConnected) {
+                listenerId = currentWorker.on('connected', () => {
+                    currentWorker.un('connected', listenerId);
+                    Base.sendRemotes(className, remote);
+                });
+            } else {
+                Base.sendRemotes(className, remote);
+            }
         }
     }
 
@@ -266,6 +264,22 @@ class Base {
         }
 
         return {...ctor.config, ...config};
+    }
+
+    static sendRemotes(className, remote) {
+        let origin;
+
+        Object.entries(remote).forEach(([worker, methods]) => {
+            if (Neo.workerId !== worker) {
+                origin = Neo.workerId === 'main' ? Neo.worker.Manager : Neo.currentWorker;
+
+                origin.sendMessage(worker, {
+                    action   : 'registerRemote',
+                    methods  : methods,
+                    className: className
+                });
+            }
+        });
     }
 
     /**

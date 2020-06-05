@@ -109,29 +109,13 @@ class Manager extends Base {
     }
 
     /**
-     *
+     * Sends a message to each worker defined inside the this.workers config.
+     * @param msg
      */
-    detectFeatures() {
-        const me = this;
-
-        if (window.Worker) {
-            me.webWorkersEnabled = true;
-        } else {
-            throw new Error('Your browser does not support Web Workers');
-        }
-
-        if (window.SharedWorker) {
-            me.sharedWorkersEnabled = true;
-        }
-    }
-
-    /**
-     *
-     * @param {String|Worker} name
-     * @returns {Worker}
-     */
-    getWorker(name) {
-        return name instanceof Worker ? name : this.workers[name].worker;
+    broadcast(msg) {
+        Object.entries(this.workers).forEach(name => {
+            this.sendMessage(name, msg);
+        });
     }
 
     /**
@@ -142,7 +126,7 @@ class Manager extends Base {
     createWorker(opts) {
         const me       = this,
               filePath = (opts.basePath || me.basePath) + opts.fileName,
-              s        = Neo.config.useSharedWorkers,
+              s        = me.sharedWorkersEnabled && Neo.config.useSharedWorkers,
               worker   = !Neo.config.isExperimental  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
                   ? new (s ? SharedWorker : Worker)(filePath)
                   : new (s ? SharedWorker : Worker)(filePath, {type: 'module'});
@@ -181,6 +165,44 @@ class Manager extends Base {
                 data  : Neo.config
             });
         }
+    }
+
+    /**
+     *
+     */
+    detectFeatures() {
+        const me = this;
+
+        if (window.Worker) {
+            me.webWorkersEnabled = true;
+        } else {
+            throw new Error('Your browser does not support Web Workers');
+        }
+
+        if (window.SharedWorker) {
+            me.sharedWorkersEnabled = true;
+        }
+    }
+
+    /**
+     *
+     * @param {String|Worker} name
+     * @returns {Worker}
+     */
+    getWorker(name) {
+        return name instanceof Worker ? name : this.workers[name].worker;
+    }
+
+    /**
+     *
+     * @param {String} path
+     */
+    loadApplication(path) {
+        this.sendMessage('app', {
+            action       : 'loadApplication',
+            path         : path,
+            resourcesPath: Neo.config.resourcesPath
+        });
     }
 
     /**
@@ -282,23 +304,24 @@ class Manager extends Base {
 
     /**
      *
-     * @param {String} path
+     * @param {String} dest app, data or vdom
+     * @param {Object} opts configs for Neo.worker.Message
+     * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.
+     * If the ownership of an object is transferred, it becomes unusable (neutered) in the context it was sent from
+     * and becomes available only to the worker it was sent to.
+     * @returns {Promise<any>}
      */
-    loadApplication(path) {
-        this.sendMessage('app', {
-            action       : 'loadApplication',
-            path         : path,
-            resourcesPath: Neo.config.resourcesPath
-        });
-    }
+    promiseMessage(dest, opts, transfer) {
+        const me = this;
 
-    /**
-     * Sends a message to each worker defined inside the this.workers config.
-     * @param msg
-     */
-    broadcast(msg) {
-        Object.entries(this.workers).forEach(name => {
-            this.sendMessage(name, msg);
+        return new Promise((resolve, reject) => {
+            let message = me.sendMessage(dest, opts, transfer),
+                msgId   = message.id;
+
+            me.promises[msgId] = {
+                reject : reject,
+                resolve: resolve
+            };
         });
     }
 
@@ -328,8 +351,10 @@ class Manager extends Base {
      * @private
      */
     sendMessage(dest, opts, transfer) {
-        if (!this.stopCommunication) {
-            const worker = this.getWorker(dest);
+        const me = this;
+
+        if (!me.stopCommunication) {
+            const worker = me.getWorker(dest);
 
             if (!worker) {
                 throw new Error('Called sendMessage for a worker that does not exist: ' + dest);
@@ -339,32 +364,9 @@ class Manager extends Base {
 
             const message = new Message(opts);
 
-            (Neo.config.useSharedWorkers ? worker.port : worker).postMessage(message, transfer);
+            (me.sharedWorkersEnabled && Neo.config.useSharedWorkers ? worker.port : worker).postMessage(message, transfer);
             return message;
         }
-    }
-
-    /**
-     *
-     * @param {String} dest app, data or vdom
-     * @param {Object} opts configs for Neo.worker.Message
-     * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.
-     * If the ownership of an object is transferred, it becomes unusable (neutered) in the context it was sent from
-     * and becomes available only to the worker it was sent to.
-     * @returns {Promise<any>}
-     */
-    promiseMessage(dest, opts, transfer) {
-        const me = this;
-
-        return new Promise((resolve, reject) => {
-            let message = me.sendMessage(dest, opts, transfer),
-                msgId   = message.id;
-
-            me.promises[msgId] = {
-                reject : reject,
-                resolve: resolve
-            };
-        });
     }
 }
 

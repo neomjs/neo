@@ -22,6 +22,12 @@ class Base extends CoreBase {
          */
         ntype: 'worker',
         /**
+         * Only needed for SharedWorkers
+         * @member {Boolean} isConnected=false
+         * @private
+         */
+        isConnected: false,
+        /**
          * @member {Boolean} isSharedWorker=false
          * @private
          */
@@ -49,16 +55,8 @@ class Base extends CoreBase {
         me.isSharedWorker = self.toString() === '[object SharedWorkerGlobalScope]'
         me.promises       = {};
 
-        // todo: Neo.config.useSharedWorkers is not available at this point
         if (me.isSharedWorker) {
-            self.onconnect = e => {
-                // todo: create a map for new ports
-                this.port = e.ports[0];
-
-                this.port.onmessage = me.onMessage.bind(me);
-
-                this.sendMessage('main', {action: 'workerConstructed'});
-            };
+            self.onconnect = me.onConnected.bind(me);
         } else {
             self.onmessage = me.onMessage.bind(me);
         }
@@ -76,6 +74,26 @@ class Base extends CoreBase {
         if (!this.isSharedWorker) {
             this.sendMessage('main', {action: 'workerConstructed'});
         }
+    }
+
+    /**
+     * Only relevant for SharedWorkers
+     * @param {Object} e
+     */
+    onConnected(e) {
+        let me = this;
+
+        me.isConnected = true;
+        me.port        = e.ports[0]; // todo: create a map for new ports
+
+        me.port.onmessage = me.onMessage.bind(me);
+
+        me.fire('connected');
+
+        // todo: find a better way to ensure the remotes are registered before triggering workerConstructed
+        setTimeout(() => {
+            me.sendMessage('main', {action: 'workerConstructed'});
+        }, 100);
     }
 
     /**
