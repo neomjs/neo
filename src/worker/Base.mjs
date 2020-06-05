@@ -55,7 +55,6 @@ class Base extends CoreBase {
         me.isSharedWorker = self.toString() === '[object SharedWorkerGlobalScope]'
         me.promises       = {};
 
-        // todo: Neo.config.useSharedWorkers is not available at this point
         if (me.isSharedWorker) {
             self.onconnect = me.onConnected.bind(me);
         } else {

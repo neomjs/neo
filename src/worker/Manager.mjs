@@ -142,7 +142,7 @@ class Manager extends Base {
     createWorker(opts) {
         const me       = this,
               filePath = (opts.basePath || me.basePath) + opts.fileName,
-              s        = Neo.config.useSharedWorkers,
+              s        = me.sharedWorkersEnabled && Neo.config.useSharedWorkers,
               worker   = !Neo.config.isExperimental  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
                   ? new (s ? SharedWorker : Worker)(filePath)
                   : new (s ? SharedWorker : Worker)(filePath, {type: 'module'});
@@ -328,8 +328,10 @@ class Manager extends Base {
      * @private
      */
     sendMessage(dest, opts, transfer) {
-        if (!this.stopCommunication) {
-            const worker = this.getWorker(dest);
+        const me = this;
+
+        if (!me.stopCommunication) {
+            const worker = me.getWorker(dest);
 
             if (!worker) {
                 throw new Error('Called sendMessage for a worker that does not exist: ' + dest);
@@ -339,7 +341,7 @@ class Manager extends Base {
 
             const message = new Message(opts);
 
-            (Neo.config.useSharedWorkers ? worker.port : worker).postMessage(message, transfer);
+            (me.sharedWorkersEnabled && Neo.config.useSharedWorkers ? worker.port : worker).postMessage(message, transfer);
             return message;
         }
     }
