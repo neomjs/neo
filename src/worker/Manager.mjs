@@ -339,7 +339,7 @@ class Manager extends Base {
 
             const message = new Message(opts);
 
-            worker.postMessage(message, transfer);
+            (Neo.config.useSharedWorkers ? worker.port : worker).postMessage(message, transfer);
             return message;
         }
     }
