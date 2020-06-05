@@ -142,9 +142,9 @@ class Manager extends Base {
     createWorker(opts) {
         const me       = this,
               filePath = (opts.basePath || me.basePath) + opts.fileName,
-              worker   = !Neo.config.isExperimental ? // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
-                  new Worker(filePath) :
-                  new Worker(filePath, {type: 'module'});
+              worker   = !Neo.config.isExperimental  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
+                  ? new (Neo.config.useSharedWorkers ? SharedWorker : Worker)(filePath)
+                  : new (Neo.config.useSharedWorkers ? SharedWorker : Worker)(filePath, {type: 'module'});
 
         worker.addEventListener('message', me.onWorkerMessage.bind(me));
         worker.addEventListener('error', me.onWorkerError.bind(me));
