@@ -142,12 +142,13 @@ class Manager extends Base {
     createWorker(opts) {
         const me       = this,
               filePath = (opts.basePath || me.basePath) + opts.fileName,
-              worker   = !Neo.config.isExperimental ? // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
-                  new Worker(filePath) :
-                  new Worker(filePath, {type: 'module'});
+              s        = Neo.config.useSharedWorkers,
+              worker   = !Neo.config.isExperimental  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
+                  ? new (s ? SharedWorker : Worker)(filePath)
+                  : new (s ? SharedWorker : Worker)(filePath, {type: 'module'});
 
-        worker.addEventListener('message', me.onWorkerMessage.bind(me));
-        worker.addEventListener('error', me.onWorkerError.bind(me));
+        (s ? worker.port : worker).onmessage = me.onWorkerMessage.bind(me);
+        (s ? worker.port : worker).onerror   = me.onWorkerError.bind(me);
 
         return worker;
     }
@@ -156,9 +157,8 @@ class Manager extends Base {
      * Calls createWorker for each worker inside the this.workers config.
      */
     createWorkers() {
-        let me      = this,
-            hash    = location.hash,
-            workers = Object.entries(me.workers),
+        let me   = this,
+            hash = location.hash,
             key, value;
 
         // pass the initial hash value as Neo.configs
@@ -167,7 +167,7 @@ class Manager extends Base {
             Neo.config.hashString = hash.substr(1);
         }
 
-        for ([key, value] of workers) {
+        for ([key, value] of Object.entries(me.workers)) {
             try {
                 value.worker = me.createWorker(value);
             } catch (e) {
@@ -339,7 +339,7 @@ class Manager extends Base {
 
             const message = new Message(opts);
 
-            worker.postMessage(message, transfer);
+            (Neo.config.useSharedWorkers ? worker.port : worker).postMessage(message, transfer);
             return message;
         }
     }

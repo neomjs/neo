@@ -17,6 +17,7 @@ program
     .option('-a, --appName <name>')
     .option('-m, --mainThreadAddons <name>', 'Comma separated list of AmCharts, AnalyticsByGoogle, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet\n Defaults to Stylesheet')
     .option('-t, --themes <name>',           '"all", "dark", "light"')
+    .option('-u, --useSharedWorkers <name>', '"yes", "no"')
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -76,9 +77,20 @@ if (!program.mainThreadAddons) {
     });
 }
 
+if (!program.useSharedWorkers) {
+    questions.push({
+        type   : 'list',
+        name   : 'useSharedWorkers',
+        message: 'Do you want to use SharedWorkers? Pick yes for multiple main threads (Browser Windows):',
+        choices: ['yes', 'no'],
+        default: 'no'
+    });
+}
+
 inquirer.prompt(questions).then(answers => {
     const appName          = answers.appName          || program['appName'],
           mainThreadAddons = answers.mainThreadAddons || program['mainThreadAddons'],
+          useSharedWorkers = answers.useSharedWorkers || program['useSharedWorkers'],
           lAppName         = appName.toLowerCase(),
           appPath          = 'apps/' + lAppName + '/',
           dir              = '../apps/' + lAppName,
@@ -135,14 +147,19 @@ inquirer.prompt(questions).then(answers => {
             "            isExperimental  : true",
         ];
 
-        if (answers['mainThreadAddons'] !== 'Stylesheet') {
+        if (!(mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 1)) {
             indexContent[indexContent.length -1] += ',';
             indexContent.push("            mainThreadAddons: [" + mainThreadAddons.map(e => "'" + e +"'").join(', ') + "]");
         }
 
-        if (answers['themes'] !== 'both') {
+        if (!themes.includes('both')) {
             indexContent[indexContent.length -1] += ',';
             indexContent.push("            themes          : [" + themes.map(e => "'" + e +"'").join(', ') + "]");
+        }
+
+        if (useSharedWorkers !== 'no') {
+            indexContent[indexContent.length -1] += ',';
+            indexContent.push("            useSharedWorkers: true");
         }
 
         indexContent.push(
@@ -228,8 +245,12 @@ inquirer.prompt(questions).then(answers => {
             appJson.apps[appName].mainThreadAddons = mainThreadAddons.map(e => "'" + e + "'").join(', ');
         }
 
-        if (answers['themes'] !== 'both') {
+        if (!themes.includes('both')) {
             appJson.apps[appName].themes = themes.map(e => "'" + e + "'").join(', ');
+        }
+
+        if (useSharedWorkers !== 'no') {
+            appJson.apps[appName].useSharedWorkers = true;
         }
 
         fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 4));
