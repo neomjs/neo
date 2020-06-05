@@ -74,6 +74,7 @@ module.exports = env => {
                         mainThreadAddons: value.mainThreadAddons || "'Stylesheet'",
                         themes          : value.themes           || "'neo-theme-light', 'neo-theme-dark'",
                         title           : value.title,
+                        useSharedWorkers: value.useSharedWorkers || false,
                         workerBasePath
                     }
                 }));
