@@ -77,7 +77,8 @@ class Base extends CoreBase {
     }
 
     /**
-     *
+     * Only relevant for SharedWorkers
+     * @param {Object} e
      */
     onConnected(e) {
         let me = this;
