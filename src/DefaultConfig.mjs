@@ -148,6 +148,15 @@ const DefaultConfig = {
      */
     useGoogleAnalytics: false,
     /**
+     * Creates App, Data & VDom as SharedWorkers.
+     * Set this one to true in case you want to connect multiple main threads.
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.useSharedWorkers
+     * @type Boolean
+     */
+    useSharedWorkers: false,
+    /**
      * Adds global dom event listeners for mobile related events like rotate, swipe, tap
      * @default true
      * @memberOf! module:Neo
