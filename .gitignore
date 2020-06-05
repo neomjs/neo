@@ -8,6 +8,8 @@
 !/apps/realworld/**/*.mjs
 !/apps/realworld2/index.html
 !/apps/realworld2/**/*.mjs
+!/apps/sharedcovid/index.html
+!/apps/sharedcovid/**/*.mjs
 
 /buildScripts/webpack/entrypoints/myApps/**/*.mjs
 !/buildScripts/webpack/entrypoints/myApps/Covid.mjs
