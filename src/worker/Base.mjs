@@ -22,6 +22,11 @@ class Base extends CoreBase {
          */
         ntype: 'worker',
         /**
+         * @member {Boolean} isSharedWorker=false
+         * @private
+         */
+        isSharedWorker: false,
+        /**
          * @member {String[]|Neo.core.Base[]|null} mixins=[Observable, RemoteMethodAccess]
          */
         mixins: [Observable, RemoteMethodAccess],
@@ -34,21 +39,19 @@ class Base extends CoreBase {
 
     /**
      *
-     * @param {Object} config
+     * @param {Object} config={}
      */
-    constructor(config) {
-        config = config || {};
-
+    constructor(config={}) {
         super(config);
 
         let me = this;
 
-        me.promises = {};
+        me.isSharedWorker = self.toString() === '[object SharedWorkerGlobalScope]'
+        me.promises       = {};
 
         // todo: Neo.config.useSharedWorkers is not available at this point
-        // hack: self.onconnect === null for SharedWorkers, undefined for Workers
 
-        if (self.onconnect === null) {
+        if (me.isSharedWorker) {
             self.onconnect = e => {
                 // todo: create a map for new ports
                 this.port = e.ports[0];
@@ -163,7 +166,7 @@ class Base extends CoreBase {
 
         let message = new Message(opts);
 
-        self.postMessage(message, transfer);
+        (this.isSharedWorker ? this.port : self).postMessage(message, transfer);
         return message;
     }
 }
