@@ -57,12 +57,10 @@ class Base extends CoreBase {
 
                 this.port.onmessage = me.onMessage.bind(me);
 
-                setTimeout(() => {console.log('test');
-                    this.sendMessage('main', {action: 'workerConstructed'});
-                }, 50);
+                this.sendMessage('main', {action: 'workerConstructed'});
             };
         } else {
-            self.addEventListener('message', me.onMessage.bind(me), false);
+            self.onmessage = me.onMessage.bind(me);
         }
 
         Neo.workerId      = me.workerId;

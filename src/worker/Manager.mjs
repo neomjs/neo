@@ -147,8 +147,8 @@ class Manager extends Base {
                   ? new (s ? SharedWorker : Worker)(filePath)
                   : new (s ? SharedWorker : Worker)(filePath, {type: 'module'});
 
-        (s ? worker.port : worker).addEventListener('message', me.onWorkerMessage.bind(me));
-        (s ? worker.port : worker).addEventListener('error',   me.onWorkerError.bind(me));
+        (s ? worker.port : worker).onmessage = me.onWorkerMessage.bind(me);
+        (s ? worker.port : worker).onerror   = me.onWorkerError.bind(me);
 
         return worker;
     }
