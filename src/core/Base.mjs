@@ -266,6 +266,11 @@ class Base {
         return {...ctor.config, ...config};
     }
 
+    /**
+     *
+     * @param {String} className
+     * @param {Object} remote
+     */
     static sendRemotes(className, remote) {
         let origin;
 
