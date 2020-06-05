@@ -50,13 +50,16 @@ class Base extends CoreBase {
         me.promises       = {};
 
         // todo: Neo.config.useSharedWorkers is not available at this point
-
         if (me.isSharedWorker) {
             self.onconnect = e => {
                 // todo: create a map for new ports
                 this.port = e.ports[0];
 
                 this.port.onmessage = me.onMessage.bind(me);
+
+                setTimeout(() => {console.log('test');
+                    this.sendMessage('main', {action: 'workerConstructed'});
+                }, 50);
             };
         } else {
             self.addEventListener('message', me.onMessage.bind(me), false);
@@ -71,7 +74,10 @@ class Base extends CoreBase {
      */
     onConstructed() {
         super.onConstructed();
-        this.sendMessage('main', {action: 'workerConstructed'});
+
+        if (!this.isSharedWorker) {
+            this.sendMessage('main', {action: 'workerConstructed'});
+        }
     }
 
     /**
