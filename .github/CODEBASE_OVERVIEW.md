@@ -4,7 +4,7 @@ Neo.mjs uses a mono-repo structure and the the folders should be mostly self exp
 
 ## apps
 
-This contains demo apps created with the <a href="../buildScripts/createApp.js" target="_blank">createApp</a> build script. Demo apps are created together in this repo, to allow for work on the framework source in parallel. (Note: The createApp build script creates a neo.mjs app shell within this repository's app folder.) Once a demo app is done, `npx neo-app` will create a new shell and move it into the <a href="https://github.com/neomjs/" rel="_blank">neo namespace</a>.
+This contains demo apps created with the <a href="../buildScripts/createApp.js" target="_blank">createApp</a> build script. Demo apps are created together in this repo, to allow for work on the framework source in parallel. (Note: The createApp build script creates a neo.mjs app shell within this repository's app folder.) Once a demo app is done, we usually use `npx neo-app` to create a new shell and move it into the <a href="https://github.com/neomjs/" rel="_blank">neo namespace</a>.
 
 ## buildScripts
 
@@ -16,7 +16,7 @@ This should NOT be checked into version control. It will get generated from buil
 
 ## docs
 
-This contains the codebase for the documentation site and the docs output (generated with the geneate-docs-json script). The documentation app is build using neo.mjs. Take a look at the API section of the <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/docs/index.html" rel="_blank">online version</a> of the online version for Chrome v80+ to get an idea about the class heirarchy of neo.mjs.
+This contains the codebase for the documentation site and the docs output (generated with the geneate-docs-json script). The documentation app is built using neo.mjs. Take a look at the API section of the <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/docs/index.html" rel="_blank">online version</a> of the online version for Chrome v80+ to get an idea about the class heirarchy of neo.mjs.
 
 ## examples
 
