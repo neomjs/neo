@@ -4,11 +4,11 @@ Neo.mjs uses a mono-repo structure and the the folders should be mostly self exp
 
 ## apps
 
-This contains demo apps created with the <a href="https://github.com/neomjs/create-app" rel="_blank">create-app</a> script. Demo apps are created together in this repo, to allow for work on the framework source in parallel. Once a demo app is done, `npx neo-app` will createa a new shell and move it into the <a href="https://github.com/neomjs/" rel="_blank">neo namespace</a>.
+This contains demo apps created with the <a href="../buildScripts/createApp.js" target="_blank">createApp</a> build script. Demo apps are created together in this repo, to allow for work on the framework source in parallel. (Note: The createApp build script creates a neo.mjs app shell within this repository's app folder.) Once a demo app is done, `npx neo-app` will create a new shell and move it into the <a href="https://github.com/neomjs/" rel="_blank">neo namespace</a>.
 
 ## buildScripts
 
-This contains the nodejs based programs as well as <a href="https://github.com/neomjs/create-app" rel="_blank">create-app</a>. The tooling (webpack) to create the dist versions, themes & docs output.
+This contains the nodejs based programs such as <a href="../buildScripts/createApp.js" rel="_blank">createApp</a>. The tooling (webpack) to create the dist versions, themes & docs output.
 
 ## dist
 
@@ -25,6 +25,9 @@ This contains examples of various UI elements. Many of the UI elements get added
 ## node_modules
 
 This should NOT be checked into version control. Please do not remove from `.gitignore`.
+
+## src
+This contains the bulk of the framework code. You will spend most of your time working here.
 
 ## resources
 
