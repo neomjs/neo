@@ -97,6 +97,13 @@ class Base extends CoreBase {
     }
 
     /**
+     * Only relevant for SharedWorkers
+     */
+    onDisconnect() {
+        console.log('worker.Base: onDisconnect');
+    }
+
+    /**
      *
      * @param {Object} e
      */
