@@ -102,6 +102,10 @@ class DomEvents extends Base {
 
         document.addEventListener('DOMContentLoaded', me.onDomContentLoaded.bind(me));
         window  .addEventListener('hashchange',       me.onHashChange      .bind(me));
+
+        if (Neo.config.useSharedWorkers) {
+            window.addEventListener('beforeunload', me.onBeforeUnload.bind(me));
+        }
     }
 
     /**
@@ -291,6 +295,18 @@ class DomEvents extends Base {
             tabIndex         : node.tabIndex,
             tagName          : node.tagName && node.tagName.toLowerCase()
         };
+    }
+
+    /**
+     * Only in use if Neo.config.useSharedWorkers = true
+     * @param {Object} event
+     */
+    onBeforeUnload(event) {
+        console.log('onBeforeUnload', event);
+
+        Neo.worker.Manager.broadcast({
+            action : 'beforeUnload'
+        });
     }
 
     /**
