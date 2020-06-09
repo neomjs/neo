@@ -41,8 +41,7 @@ The first 4 Bronze, and the first 4 Silver tier sponsors will get kept on the ma
 after the day the 4th sponsor does sign up (*).
 By default, the main Readme will only include sponsors starting at the Gold tier.
 
-(*) You will get removed from the main Readme file, in case you end the sponsorship prior to the end of
-the time interval.
+(*) Only valid as long as the sponsorship stays active.
 
 # What will I sponsor?
 Obviously the continuing of the development for the neo.mjs framework.
