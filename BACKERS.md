@@ -36,6 +36,14 @@ This is something I would love to share with you!
 </table>
 <!--bronze end-->
 
+## Special Offer
+The first 4 Bronze, and the first 4 Silver tier sponsors will get kept on the main Readme file for an additional year,
+after the day the 4th sponsor does sign up (*).
+By default, the main Readme will only include sponsors starting at the Gold tier.
+
+(*) You will get removed from the main Readme file, in case you end the sponsorship prior to the end of
+the time interval.
+
 # What will I sponsor?
 Obviously the continuing of the development for the neo.mjs framework.
 To get the idea of what this means in detail, please take a look at the: <a href=".github/VISION.md">Project Vision</a>.
@@ -55,15 +63,15 @@ my motivation for sure.
 
 # For companies:
 Starting at the bronze tier, you will be able to place your company logo on the main repository landing page (Readme.md).
-Especially in the early days, this will have an high impact on the neo.mjs community and make it easier for you
+Especially in the early days, this will have a high impact on the neo.mjs community and make it easier for you
 to find neo.mjs developers in the future.
 
-Obviously, sponsoring open source projects in general will increase your company reputation.
+Obviously, sponsoring open source projects in general will increase your companies reputation.
 
 As soon as the neo.mjs community grows, it will also increase your company visibility in a good way.
 
 Please make sure to create a feature request ticket inside the neo.mjs <a href="../../issues">Issues Tracker</a>
-after signing a sponsors program to provide your company logo!
+after signing a sponsor program to provide your company logo!
 
 ### Thanks a lot for your support of the neo.mjs project!<br/>
 <a href="https://github.com/sponsors/tobiu">Sponsor Tobias Uhlig</a>
