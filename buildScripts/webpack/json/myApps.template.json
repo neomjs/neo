@@ -42,6 +42,14 @@
             "title": "SharedCovid",
             "mainThreadAddons": "'AmCharts', 'MapboxGL', 'Stylesheet'",
             "useSharedWorkers": true
+        },
+        "SharedCovid2": {
+            "input": "myApps/SharedCovid2.mjs",
+            "output": "/apps/sharedcovid2/",
+            "themes": "'neo-theme-dark', 'neo-theme-light'",
+            "title": "SharedCovid2",
+            "mainThreadAddons": "'AmCharts', 'MapboxGL', 'Stylesheet'",
+            "useSharedWorkers": true
         }
     }
 }
