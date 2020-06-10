@@ -53,18 +53,23 @@ class RemoteMethodAccess extends Base {
         if (remote.destination === Neo.workerId) {
             let me        = this,
                 className = remote.className,
+                exists    = false,
                 methods   = remote.methods,
                 pkg       = Neo.ns(className, true);
 
             methods.forEach(function(method) {
-                if (pkg[method]) {
+                if (remote.origin !== 'main' && pkg[method]) {
                     throw new Error('Duplicate remote method definition ' + className + '.' + method);
                 }
 
-                pkg[method] = me.generateRemote(remote, method);
+                if (!pkg[method] ) {
+                    pkg[method] = me.generateRemote(remote, method);
+                } else {
+                    exists = true;
+                }
             });
 
-            if (Neo.workerId !== 'main') {
+            if (!exists && Neo.workerId !== 'main') {
                 me.fire('remoteregistered', remote);
             }
         }
