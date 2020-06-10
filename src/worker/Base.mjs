@@ -88,13 +88,20 @@ class Base extends CoreBase {
      * Only relevant for SharedWorkers
      * @param {Object} e
      */
-    onConnected(e) {console.log('onConnected', e);
-        let me = this;
+    onConnected(e) {console.log('onConnected');
+        let me = this,
+            id = Neo.getId('port');
 
         me.isConnected = true;
-        me.port        = e.ports[0]; // todo: create a map for new ports
 
-        me.port.onmessage = me.onMessage.bind(me);
+        me.ports[id] = {
+            app : null,
+            port: e.ports[0]
+        };
+
+        me.port = e.ports[0]; // todo: create a map for new ports
+
+        me.ports[id].port.onmessage = me.onMessage.bind(me);
 
         me.fire('connected');
 
@@ -187,6 +194,22 @@ class Base extends CoreBase {
                 reject : reject
             };
         });
+    }
+
+    /**
+     * Only needed for SharedWorkers
+     * @param {String} name
+     */
+    registerApp(name) {
+        let me = this;
+
+        Object.keys(me.ports).forEach(port => {
+            if (!me.ports[port].app) {
+                me.ports[port].app = name;
+            }
+        });
+
+        console.log(me.ports);
     }
 
     /**

@@ -48,6 +48,8 @@ class Application extends Base {
 
         Neo.apps[me.name] = me;
 
+        Neo.currentWorker.registerApp(me.name);
+
         if (me.createMainView) {
             me.renderMainView(config);
         }
