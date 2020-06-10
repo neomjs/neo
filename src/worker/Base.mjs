@@ -203,9 +203,13 @@ class Base extends CoreBase {
     registerApp(name) {
         let me = this;
 
-        Object.keys(me.ports).forEach(port => {
-            if (!me.ports[port].app) {
-                me.ports[port].app = name;
+        Object.entries(me.ports).forEach(([key, value]) => {
+            if (!value.app) {
+                me.ports[key].app = name;
+            } else if (Neo.apps[value.app]) {
+                if (Neo.apps[value.app].mainViewInstance) {
+                    Neo.apps[value.app].mainViewInstance.fire('connect', name);
+                }
             }
         });
 

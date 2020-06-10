@@ -82,7 +82,11 @@ class MainContainerController extends ComponentController {
         me.loadData();
         me.loadSummaryData();
 
-        me.view.on('mounted', me.onMainViewMounted, me);
+        me.view.on({
+            connect: me.onAppConnect,
+            mounted: me.onMainViewMounted,
+            scope  : me
+        });
     }
 
     /**
@@ -299,6 +303,10 @@ class MainContainerController extends ComponentController {
                 me.onLoadSummaryDataFail();
             }
         }, 2000);
+    }
+
+    onAppConnect(name) {
+        console.log('onAppConnect', name);
     }
 
     /**
