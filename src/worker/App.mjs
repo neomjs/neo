@@ -43,18 +43,6 @@ class App extends Base {
     }}
 
     /**
-     *
-     * @param {Object} config
-     */
-    constructor(config) {
-        super(config);
-
-        const me = this;
-
-        me.on('remoteregistered', me.onRemoteRegistered, me);
-    }
-
-    /**
      * Every dom event will get forwarded as a worker message from main and ends up here first
      * @param {Object} data useful event properties, differs for different event types. See Neo.main.DomEvents.
      */
@@ -100,14 +88,6 @@ class App extends Base {
                 }
             );
         }
-    }
-
-    /**
-     * Keeping this one for debugging reasons
-     * @param {Object} remote
-     */
-    onRemoteRegistered(remote) {
-        // console.log('app worker onRemoteRegistered');
     }
 }
 
