@@ -7,7 +7,6 @@ import Viewport from '../../src/container/Viewport.mjs';
 class MainContainer extends Viewport {
     static getConfig() {return {
         className: 'Covid2.MainContainer',
-        ntype    : 'main-container',
 
         autoMount: true,
         layout   : {ntype: 'fit'}

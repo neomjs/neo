@@ -37,6 +37,11 @@ class Base extends CoreBase {
          */
         mixins: [Observable, RemoteMethodAccess],
         /**
+         * Only needed for SharedWorkers
+         * @member {Object|null} ports=null
+         */
+        ports : null,
+        /**
          * @member {String|null} workerId=null
          * @private
          */
@@ -52,8 +57,11 @@ class Base extends CoreBase {
 
         let me = this;
 
-        me.isSharedWorker = self.toString() === '[object SharedWorkerGlobalScope]'
-        me.promises       = {};
+        Object.assign(me, {
+            isSharedWorker: self.toString() === '[object SharedWorkerGlobalScope]',
+            ports         : {},
+            promises      : {}
+        });
 
         if (me.isSharedWorker) {
             self.onconnect = me.onConnected.bind(me);
@@ -80,7 +88,7 @@ class Base extends CoreBase {
      * Only relevant for SharedWorkers
      * @param {Object} e
      */
-    onConnected(e) {
+    onConnected(e) {console.log('onConnected', e);
         let me = this;
 
         me.isConnected = true;
