@@ -1248,7 +1248,8 @@ class Base extends CoreBase {
      */
     updateCls(cls, oldCls) {
         let me    = this,
-            vnode = me.vnode;
+            vnode = me.vnode,
+            opts;
 
         if (!NeoArray.isEqual(cls, oldCls)) {
             if (vnode) {
@@ -1256,7 +1257,7 @@ class Base extends CoreBase {
                 me.vnode = vnode;
             }
 
-            Neo.currentWorker.promiseMessage('main', {
+            opts = {
                 action: 'updateDom',
                 deltas: [{
                     id : me.id,
@@ -1265,7 +1266,13 @@ class Base extends CoreBase {
                         remove: Neo.util.Array.difference(oldCls, cls)
                     }
                 }]
-            }).then(() => {
+            };
+
+            if (Neo.currentWorker.isSharedWorker) {
+                opts.appName = me.appName;
+            }
+
+            Neo.currentWorker.promiseMessage('main', opts).then(() => {
                 //console.log(me.vnode);
             }).catch(err => {
                 console.log('Error attempting to update Component cls', err, me);
@@ -1282,7 +1289,8 @@ class Base extends CoreBase {
     updateStyle(newValue, oldValue) {
         let me    = this,
             delta = Style.compareStyles(newValue, oldValue),
-            vnode = me.vnode;
+            vnode = me.vnode,
+            opts;
 
         if (delta) {
             // console.log('updateStyle', 'new', newValue, 'old', oldValue, 'delta', delta);
@@ -1291,13 +1299,19 @@ class Base extends CoreBase {
                 me.vnode = vnode;
             }
 
-            Neo.currentWorker.promiseMessage('main', {
+            opts = {
                 action: 'updateDom',
                 deltas: [{
                     id   : me.id,
                     style: delta
                 }]
-            }).then(() => {
+            };
+
+            if (Neo.currentWorker.isSharedWorker) {
+                opts.appName = me.appName;
+            }
+
+            Neo.currentWorker.promiseMessage('main', opts).then(() => {
                 // console.log('Component style updated');
             }).catch(err => {
                 console.log('Error attempting to update component style', err, me);
@@ -1314,7 +1328,8 @@ class Base extends CoreBase {
      * @private
      */
     updateVdom(vdom, vnode, resolve, reject) {
-        let me = this;
+        let me = this,
+            opts;
 
         // console.log('updateVdom', me.id, Neo.clone(vdom, true), Neo.clone(vnode, true));
         // console.log('updateVdom', me.isVdomUpdating);
@@ -1324,11 +1339,17 @@ class Base extends CoreBase {
         } else {
             me.isVdomUpdating = true;
 
-            Neo.vdom.Helper.update({
+            opts = {
                 appName: me.appName,
                 vdom   : vdom,
                 vnode  : vnode
-            }).then(data => {
+            };
+
+            if (Neo.currentWorker.isSharedWorker) {
+                opts.appName = me.appName;
+            }
+
+            Neo.vdom.Helper.update(opts).then(data => {
                 // console.log('Component vnode updated', data.vnode);
                 me.vnode          = data.vnode;
                 me.isVdomUpdating = false;
