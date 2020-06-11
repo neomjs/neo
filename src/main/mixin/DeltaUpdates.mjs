@@ -107,7 +107,7 @@ class DeltaUpdates extends Base {
      * @param {Object} delta
      * @param {String} delta.id
      */
-    du_removeNode(delta) {console.log('du_removeNode', delta);
+    du_removeNode(delta) {
         let node = this.getElement(delta.id);
 
         if (!node) {

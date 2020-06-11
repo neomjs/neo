@@ -17,7 +17,7 @@ class DomAccess extends Base {
         /**
          * @member {boolean} logDeltaUpdates=true
          */
-        logDeltaUpdates: false,
+        logDeltaUpdates: true,
         /**
          * @member {Array} mixins=[DeltaUpdates, Observable]
          */

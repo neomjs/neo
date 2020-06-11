@@ -317,11 +317,11 @@ class MainContainerController extends ComponentController {
 
                 Neo.getComponent(view.parentId).remove(view, false);
 
-                setTimeout(() => { // todo: on rendered
-                    Neo.apps[name].mainViewInstance.add(view);
-
-                    console.log(view.appName);
-                }, 1000);
+                Neo.apps[name].on('render', () => {
+                    setTimeout(() => {
+                        Neo.apps[name].mainViewInstance.add(view);
+                    }, 100);
+                });
         }
     }
 
