@@ -63,6 +63,8 @@ class Application extends Base {
             autoRender: true,
             parentId  : me.parentId
         });
+
+        Neo.currentWorker.registerMainView(me.name);
     }
 }
 

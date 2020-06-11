@@ -306,7 +306,24 @@ class MainContainerController extends ComponentController {
     }
 
     onAppConnect(name) {
+        let me = this,
+            view;
+
         console.log('onAppConnect', name);
+
+        switch (name) {
+            case 'Covid2':
+                view = me.getReference('controls-panel');
+
+                Neo.getComponent(view.parentId).remove(view, false);
+
+                setTimeout(() => {
+                    Neo.apps[name].mainViewInstance.add(view);
+
+                    console.log(view.appName);
+                }, 1000);
+
+        }
     }
 
     /**

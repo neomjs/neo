@@ -310,6 +310,8 @@ class Base extends Component {
                 };
 
                 item = Neo[item.className ? 'create' : 'ntype'](item);
+            } else {
+                item.appName = me.appName;
             }
 
             me.layout.applyChildAttributes(item, index);

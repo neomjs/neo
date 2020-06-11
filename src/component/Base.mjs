@@ -1324,8 +1324,9 @@ class Base extends CoreBase {
             me.isVdomUpdating = true;
 
             Neo.vdom.Helper.update({
-                vdom : vdom,
-                vnode: vnode
+                appName: me.appName,
+                vdom   : vdom,
+                vnode  : vnode
             }).then(data => {
                 // console.log('Component vnode updated', data.vnode);
                 me.vnode          = data.vnode;
