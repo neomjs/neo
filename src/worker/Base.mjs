@@ -79,10 +79,12 @@ class Base extends CoreBase {
      * @return {Object|null}
      */
     getPort(opts) {
-        let hasMatch   = true,
-            returnPort = null;
+        let returnPort = null,
+            hasMatch;
 
         this.ports.forEach(port => {
+            hasMatch = true;
+
             Object.entries(opts).forEach(([key, value]) => {
                 if (value !== port[key]) {
                     hasMatch = false;
@@ -258,6 +260,8 @@ class Base extends CoreBase {
             port = self;
         } else {
             if (opts.port) {
+                console.log(opts.port);
+                console.log([...me.ports]);
                 port = me.getPort({id: opts.port}).port;
             } else if (opts.appName) {
                 portObject = me.getPort({appName: opts.appName});
