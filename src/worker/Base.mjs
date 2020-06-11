@@ -38,7 +38,7 @@ class Base extends CoreBase {
         mixins: [Observable, RemoteMethodAccess],
         /**
          * Only needed for SharedWorkers
-         * @member {Object|null} ports=null
+         * @member {Array|null} ports=null
          */
         ports : null,
         /**
@@ -59,7 +59,7 @@ class Base extends CoreBase {
 
         Object.assign(me, {
             isSharedWorker: self.toString() === '[object SharedWorkerGlobalScope]',
-            ports         : {},
+            ports         : [],
             promises      : {}
         });
 
@@ -75,17 +75,26 @@ class Base extends CoreBase {
 
     /**
      *
-     * @param {String} appName
-     * @return {MessagePort|null}
+     * @param {Object} opts
+     * @return {Object|null}
      */
-    getPort(appName) {
-        Object.entries(this.ports).forEach(([key, value]) => {
-            if (value.appName === appName) {
-                return value.port;
+    getPort(opts) {
+        let hasMatch   = true,
+            returnPort = null;
+
+        this.ports.forEach(port => {
+            Object.entries(opts).forEach(([key, value]) => {
+                if (value !== port[key]) {
+                    hasMatch = false;
+                }
+            });
+
+            if (hasMatch) {
+                returnPort = port;
             }
         });
 
-        return null;
+        return returnPort;
     }
 
     /**
@@ -109,12 +118,13 @@ class Base extends CoreBase {
 
         me.isConnected = true;
 
-        me.ports[id] = {
+        me.ports.push({
             app : null,
+            id  : id,
             port: e.ports[0]
-        };
+        });
 
-        me.ports[id].port.onmessage = me.onMessage.bind(me);
+        me.ports[me.ports.length - 1].port.onmessage = me.onMessage.bind(me);
 
         me.fire('connected');
 
@@ -214,17 +224,17 @@ class Base extends CoreBase {
      * @param {String} name
      */
     registerApp(name) {
-        Object.entries(this.ports).forEach(([key, value]) => {
-            if (!value.app) {
-                this.ports[key].app = name;
+        this.ports.forEach(port => {
+            if (!port.app) {
+                port.app = name;
             }
         });
     }
 
     registerMainView(name) {
-        Object.entries(this.ports).forEach(([key, value]) => {
-            if (value.app !== name) {
-                Neo.apps[value.app].mainViewInstance.fire('connect', name);
+        this.ports.forEach(port => {
+            if (port.app !== name) {
+                Neo.apps[port.app].mainViewInstance.fire('connect', name);
             }
         });
     }
@@ -242,18 +252,20 @@ class Base extends CoreBase {
         opts.destination = dest;
 
         let me = this,
-            message, port;
+            message, port, portObject;
 
         if (!me.isSharedWorker) {
             port = self;
         } else {
             if (opts.port) {
-                port = me.ports[opts.port].port;
+                port = me.getPort({id: opts.port}).port;
             } else if (opts.appName) {
-                port = me.getPort(opts.appName);
-                // todo: add the port id to opts
+                portObject = me.getPort({appName: opts.appName});
+                port       = portObject.port;
+
+                opts.port = portObject.id;
             } else {
-                port = me.ports[Object.keys(me.ports)[0]].port;
+                port = me.ports[0].port;
             }
         }
 
