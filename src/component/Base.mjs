@@ -1110,6 +1110,7 @@ class Base extends CoreBase {
 
         if (me.vdom) {
             Neo.vdom.Helper.create({
+                appName    : me.appName,
                 autoMount  : autoMount,
                 cls        : me.cls,
                 parentId   : autoMount ? me.parentId    : undefined,

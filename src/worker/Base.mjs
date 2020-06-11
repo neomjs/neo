@@ -121,9 +121,9 @@ class Base extends CoreBase {
         me.isConnected = true;
 
         me.ports.push({
-            app : null,
-            id  : id,
-            port: e.ports[0]
+            appName: null,
+            id     : id,
+            port   : e.ports[0]
         });
 
         me.ports[me.ports.length - 1].port.onmessage = me.onMessage.bind(me);
@@ -227,16 +227,16 @@ class Base extends CoreBase {
      */
     registerApp(name) {
         this.ports.forEach(port => {
-            if (!port.app) {
-                port.app = name;
+            if (!port.appName) {
+                port.appName = name;
             }
         });
     }
 
     registerMainView(name) {
         this.ports.forEach(port => {
-            if (port.app !== name) {
-                Neo.apps[port.app].mainViewInstance.fire('connect', name);
+            if (port.appName !== name) {
+                Neo.apps[port.appName].mainViewInstance.fire('connect', name);
             }
         });
     }
@@ -260,8 +260,6 @@ class Base extends CoreBase {
             port = self;
         } else {
             if (opts.port) {
-                console.log(opts.port);
-                console.log([...me.ports]);
                 port = me.getPort({id: opts.port}).port;
             } else if (opts.appName) {
                 portObject = me.getPort({appName: opts.appName});

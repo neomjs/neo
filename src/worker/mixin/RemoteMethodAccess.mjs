@@ -41,6 +41,12 @@ class RemoteMethodAccess extends Base {
                 remoteClassName: remote.className,
                 remoteMethod   : method
             };
+
+            if (me.isSharedWorker) {
+                opts.appName = opts.appName || data.appName;
+                opts.port    = opts.port    || data.port;
+            }
+
             return me.promiseMessage(origin, opts, buffer);
         };
     }
@@ -118,12 +124,19 @@ class RemoteMethodAccess extends Base {
      * @param {Object} data
      */
     reject(msg, data) {
-        this.sendMessage(msg.origin, {
+        let opts = {
             action : 'reply',
             data   : data,
             reject : true,
             replyId: msg.id
-        });
+        };
+
+        if (this.isSharedWorker) {
+            opts.appName = msg.appName;
+            opts.port    = msg.port;
+        }
+
+        this.sendMessage(msg.origin, opts);
     }
 
     /**
@@ -132,11 +145,18 @@ class RemoteMethodAccess extends Base {
      * @param {Object} data
      */
     resolve(msg, data) {
-        this.sendMessage(msg.origin, {
+        let opts = {
             action : 'reply',
             data   : data,
             replyId: msg.id
-        });
+        };
+
+        if (this.isSharedWorker) {
+            opts.appName = msg.appName;
+            opts.port    = msg.port;
+        }
+
+        this.sendMessage(msg.origin, opts);
     }
 }
 

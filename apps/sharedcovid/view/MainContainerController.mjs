@@ -321,7 +321,7 @@ class MainContainerController extends ComponentController {
                     Neo.apps[name].mainViewInstance.add(view);
 
                     console.log(view.appName);
-                }, 1000);
+                }, 4000);
         }
     }
 
