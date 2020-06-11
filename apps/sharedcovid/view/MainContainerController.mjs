@@ -322,7 +322,6 @@ class MainContainerController extends ComponentController {
 
                     console.log(view.appName);
                 }, 1000);
-
         }
     }
 

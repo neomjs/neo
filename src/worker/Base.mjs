@@ -249,7 +249,7 @@ class Base extends CoreBase {
         } else {
             if (opts.port) {
                 port = me.ports[opts.port].port;
-            }else if (opts.appName) {
+            } else if (opts.appName) {
                 port = me.getPort(opts.appName);
                 // todo: add the port id to opts
             } else {
