@@ -1,16 +1,16 @@
 import Base from '../../core/Base.mjs';
 
 /**
- * @class Neo.worker.mixins.RemoteMethodAccess
+ * @class Neo.worker.mixin.RemoteMethodAccess
  * @extends Neo.core.Base
  */
 class RemoteMethodAccess extends Base {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.worker.mixins.RemoteMethodAccess'
+         * @member {String} className='Neo.worker.mixin.RemoteMethodAccess'
          * @private
          */
-        className: 'Neo.worker.mixins.RemoteMethodAccess',
+        className: 'Neo.worker.mixin.RemoteMethodAccess',
         /**
          * @member {String} ntype='mixin-remote-method-access'
          * @private
