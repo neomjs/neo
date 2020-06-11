@@ -107,10 +107,10 @@ class RemoteMethodAccess extends Base {
         }
 
         if (out instanceof Promise) {
-            out.then(function(data) {
+            out.then(data => {
                 me.resolve(msg, data);
             })
-            .catch(function(err) {
+            .catch(err => {
                 me.reject(msg, err);
             });
         } else {
