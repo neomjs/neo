@@ -483,8 +483,10 @@ class Container extends BaseContainer {
     /**
      *
      * @param {Number} index
+     * @param {Boolean} [destroyItem=true]
+     * @param {Boolean} [silent=false]
      */
-    removeAt(index) {
+    removeAt(index, destroyItem=true, silent=false) {
         let me            = this,
             activeIndex   = me.activeIndex,
             cardContainer = me.getCardContainer(),
@@ -497,8 +499,8 @@ class Container extends BaseContainer {
             me.activeIndex = activeIndex - 1;
         }
 
-        cardContainer.removeAt(index);
-        tabBar       .removeAt(index);
+        cardContainer.removeAt(index, destroyItem, silent);
+        tabBar       .removeAt(index, destroyItem, silent);
 
         // todo: non index based matching of tab buttons and cards
         i   = index;
