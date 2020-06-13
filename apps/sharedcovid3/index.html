@@ -1,0 +1,25 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <title>SharedCovid3</title>
+</head>
+<body>
+    <script>
+        Neo = self.Neo || {}; Neo.config = Neo.config || {};
+
+        Object.assign(Neo.config, {
+            appPath         : 'apps/sharedcovid3/app.mjs',
+            basePath        : '../../',
+            environment     : 'development',
+            isExperimental  : true,
+            mainThreadAddons: ['AmCharts', 'MapboxGL', 'Stylesheet'],
+            themes          : ['neo-theme-dark', 'neo-theme-light'],
+            useSharedWorkers: true
+        });
+    </script>
+
+    <script src="../../src/Main.mjs" type="module"></script>
+</body>
+</html>
