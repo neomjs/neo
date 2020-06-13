@@ -1,5 +1,4 @@
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
-import {default as ComponentManager}    from '../../../src/manager/Component.mjs';
 import NeoArray                         from '../../../src/util/Array.mjs';
 import Util                             from '../Util.mjs';
 
@@ -321,10 +320,6 @@ class MainContainerController extends ComponentController {
                 Neo.apps[name].on('render', () => {
                     setTimeout(() => {
                         Neo.apps[name].mainViewInstance.add(view);
-
-                        ComponentManager.getChildren(view).forEach(component => {
-                            console.log(component.appName);
-                        })
                     }, 100);
                 });
         }

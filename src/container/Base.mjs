@@ -128,6 +128,22 @@ class Base extends Component {
     }
 
     /**
+     * Triggered after the appName config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @private
+     */
+    afterSetAppName(value, oldValue) {
+        if (value) {
+            this.items.forEach(item => {
+                if (Neo.isObject(item)) {
+                    item.appName = value;
+                }
+            });
+        }
+    }
+
+    /**
      *
      * @param {Neo.layout.Base} value
      * @param {Neo.layout.Base} oldValue

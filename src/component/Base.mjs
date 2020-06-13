@@ -36,6 +36,11 @@ class Base extends CoreBase {
          */
         ntype: 'component',
         /**
+         * The name of the App this component belongs to
+         * @member {String|null} appName_=null
+         */
+        appName_: null,
+        /**
          * True automatically mounts a component after being rendered.
          * Use this for the top level component of your app.
          * @member {Boolean} autoMount=false
