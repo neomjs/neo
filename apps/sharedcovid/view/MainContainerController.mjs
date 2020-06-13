@@ -314,14 +314,21 @@ class MainContainerController extends ComponentController {
         switch (name) {
             case 'Covid2':
                 view = me.getReference('controls-panel');
+                break;
+            case 'Covid3':
+                view = me.getReference('helix-container');
+                break;
+        }
 
-                Neo.getComponent(view.parentId).remove(view, false);
+        if (view) {
+            Neo.getComponent(view.parentId).remove(view, false);
 
-                Neo.apps[name].on('render', () => {
-                    setTimeout(() => {
-                        Neo.apps[name].mainViewInstance.add(view);
-                    }, 100);
-                });
+            Neo.apps[name].on('render', () => {
+                setTimeout(() => {
+                    Neo.apps[name].mainViewInstance.add(view);
+                }, 100);
+            });
+
         }
     }
 

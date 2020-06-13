@@ -411,11 +411,11 @@ class Base extends Component {
      * @param {Boolean} [silent=false]
      */
     remove(component, destroyItem=true, silent=false) {
-        let items = this.items,
+        let items = [...this.items],
             i     = 0,
             len   = items.length;
 
-        for (; i < len; i++) {
+        for (; i < len; i++) {console.log(this.id, items[i]);
             if (items[i].id === component.id) {
                 this.removeAt(i, destroyItem, silent);
             }

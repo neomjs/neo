@@ -84,6 +84,7 @@ class MainContainer extends Viewport {
                 }
             }, {
                 module         : HelixContainer,
+                reference      : 'helix-container',
                 tabButtonConfig: {
                     iconCls: 'fa fa-dna',
                     route  : 'mainview=helix',
