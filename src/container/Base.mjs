@@ -134,7 +134,7 @@ class Base extends Component {
      * @private
      */
     afterSetAppName(value, oldValue) {
-        if (value) {
+        if (value && this.items) {
             this.items.forEach(item => {
                 if (Neo.isObject(item)) {
                     item.appName = value;
