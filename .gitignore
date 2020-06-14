@@ -14,6 +14,8 @@
 !/apps/sharedcovid2/**/*.mjs
 !/apps/sharedcovid3/index.html
 !/apps/sharedcovid3/**/*.mjs
+!/apps/sharedcovid_map/index.html
+!/apps/sharedcovid_map/**/*.mjs
 
 /buildScripts/webpack/entrypoints/myApps/**/*.mjs
 !/buildScripts/webpack/entrypoints/myApps/Covid.mjs
@@ -22,6 +24,7 @@
 !/buildScripts/webpack/entrypoints/myApps/SharedCovid.mjs
 !/buildScripts/webpack/entrypoints/myApps/SharedCovid2.mjs
 !/buildScripts/webpack/entrypoints/myApps/SharedCovid3.mjs
+!/buildScripts/webpack/entrypoints/myApps/SharedCovidMap.mjs
 /buildScripts/webpack/json/myApps.json
 
 /dist
