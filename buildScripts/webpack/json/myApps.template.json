@@ -48,7 +48,7 @@
             "output": "/apps/sharedcovid_chart/",
             "themes": "'neo-theme-dark', 'neo-theme-light'",
             "title": "SharedCovid Country Chart / Table",
-            "mainThreadAddons": "'AmCharts', 'MapboxGL', 'Stylesheet'",
+            "mainThreadAddons": "'AmCharts', 'Stylesheet'",
             "useSharedWorkers": true
         },
         "SharedCovidHelix": {
@@ -56,7 +56,7 @@
             "output": "/apps/sharedcovid_helix/",
             "themes": "'neo-theme-dark', 'neo-theme-light'",
             "title": "SharedCovid CountryHelix",
-            "mainThreadAddons": "'AmCharts', 'MapboxGL', 'Stylesheet'",
+            "mainThreadAddons": "'Stylesheet'",
             "useSharedWorkers": true
         },
         "SharedCovidMap": {
@@ -64,7 +64,7 @@
             "output": "/apps/sharedcovid_map/",
             "themes": "'neo-theme-dark', 'neo-theme-light'",
             "title": "SharedCovid MapboxGL Map",
-            "mainThreadAddons": "'AmCharts', 'MapboxGL', 'Stylesheet'",
+            "mainThreadAddons": "'MapboxGL', 'Stylesheet'",
             "useSharedWorkers": true
         }
     }
