@@ -590,35 +590,14 @@ class Base extends CoreBase {
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetMounted(value, oldValue) {
         let me = this;
 
         if (value) {
             me.hasBeenMounted = true;
-        }
 
-        if (value || (!value && oldValue)) {
-            let childIds = ComponentManager.getChildIds(me.vnode),
-                i        = 0,
-                len      = childIds.length,
-                child;
-
-            for (; i < len; i++) {
-                child = Neo.getComponent(childIds[i]);
-
-                if (child) {
-                    child.mounted = value; // silent update
-
-                    if (value) {
-                        child.hasBeenMounted = true;
-                    }
-                }
-            }
-        }
-
-        if (value) {
             if (me.domListeners && me.domListeners.length > 0) {
                 // todo: the main thread reply of mount arrives after pushing the task into the queue which does not ensure the dom is mounted
                 setTimeout(() => {

@@ -95,7 +95,7 @@ class AmChart extends Component {
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetMounted(value, oldValue) {
         let me = this;

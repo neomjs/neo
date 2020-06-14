@@ -164,6 +164,26 @@ class Base extends Component {
     }
 
     /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        if (oldValue !== undefined) {
+            let items = this.items,
+                i     = 0,
+                len   = items.length;
+
+            for (; i < len; i++) {
+                items[i].mounted = value;
+            }
+        }
+    }
+
+    /**
      *
      * @param {Object|String} value
      * @returns {Neo.layout.Base}
