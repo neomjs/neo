@@ -314,7 +314,7 @@ class MapboxGL extends Base {
      * @param {Object} event
      * @param {Object} event.target map instance
      */
-    onMapLoaded(data, event) {console.log('*** onMapLoaded', data.sources);
+    onMapLoaded(data, event) {
         const me    = this,
               mapId = data.id;
 
