@@ -63,6 +63,7 @@ class AmCharts extends Base {
             app: [
                 'callMethod',
                 'create',
+                'destroy',
                 'setProperties',
                 'setProperty',
                 'updateData'
@@ -149,6 +150,7 @@ class AmCharts extends Base {
      * @param {Object} data
      * @param {Boolean} data.combineSeriesTooltip
      * @param {Object} data.config
+     * @param {String} data.data
      * @param {String} data.id
      * @param {String} data.package
      * @param {String} data.type='XYChart'
@@ -173,6 +175,16 @@ class AmCharts extends Base {
                 delete me.dataMap[data.id];
             }
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    destroy(data) {console.log('dispose');
+        this.charts[data.id].dispose();
+        delete this.charts[data.id];
     }
 
     /**
