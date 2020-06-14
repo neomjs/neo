@@ -133,7 +133,7 @@ class AmChart extends Component {
         super.afterSetMounted(value, oldValue);
 
         if (value) {
-            Neo.main.addon.AmCharts.create({
+            const opts = {
                 appName             : me.appName,
                 combineSeriesTooltip: me.combineSeriesTooltip,
                 config              : me.chartConfig,
@@ -141,7 +141,14 @@ class AmChart extends Component {
                 id                  : me.id,
                 package             : me.package,
                 type                : me.chartType
-            }).then(me.onChartMounted);
+            };
+
+            if (me.data) {
+                opts.data     = me.data;
+                opts.dataPath = me.dataPath;
+            }
+
+            Neo.main.addon.AmCharts.create(opts).then(me.onChartMounted);
         }
     }
 

@@ -147,13 +147,14 @@ class AmCharts extends Base {
 
     /**
      *
-     * @param {Object} data
+     * @param {Object}  data
      * @param {Boolean} data.combineSeriesTooltip
-     * @param {Object} data.config
-     * @param {String} data.data
-     * @param {String} data.id
-     * @param {String} data.package
-     * @param {String} data.type='XYChart'
+     * @param {Object}  data.config
+     * @param {Array}   [data.data]
+     * @param {String}  [data.dataPath]
+     * @param {String}  data.id
+     * @param {String}  data.package
+     * @param {String}  data.type='XYChart'
      */
     create(data) {
         const me = this;
@@ -173,6 +174,12 @@ class AmCharts extends Base {
             if (me.dataMap[data.id]) {
                 me.updateData(me.dataMap[data.id]);
                 delete me.dataMap[data.id];
+            } else if (data.data) {
+                me.updateData({
+                    data    : data.data,
+                    dataPath: data.dataPath,
+                    id      : data.id
+                });
             }
         }
     }
