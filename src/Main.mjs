@@ -47,6 +47,7 @@ class Main extends core.Base {
         remote: {
             app: [
                 'editRoute',
+                'getWindowScreen',
                 'setRoute',
                 'windowOpen'
             ]
@@ -129,6 +130,26 @@ class Main extends core.Base {
         });
 
         window.location.hash = hashArr.join('&');
+    }
+
+    /**
+     * window.screen is not spreadable
+     * @returns {Object}
+     */
+    getWindowScreen() {
+        const screen = window.screen;
+
+        return {
+            availHeight: screen.availHeight,
+            availLeft  : screen.availLeft,
+            availTop   : screen.availTop,
+            availWidth : screen.availWidth,
+            colorDepth : screen.colorDepth,
+            height     : screen.height,
+            orientation: {angle: screen.orientation.angle, type: screen.orientation.type},
+            pixelDepth : screen.pixelDepth,
+            width      : screen.width
+        };
     }
 
     /**
