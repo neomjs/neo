@@ -467,10 +467,10 @@ class Base extends Component {
 
             cn.splice(index, 1);
 
-            me[silent ? '_vdom' : 'vdom'] = vdom;
+            me[silent && !destroyItem ? '_vdom' : 'vdom'] = vdom;
 
             if (destroyItem) {
-                item.destroy();
+                item.destroy(true);
             } else {
                 item.mounted = false;
             }

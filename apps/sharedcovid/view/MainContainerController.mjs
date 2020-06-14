@@ -338,7 +338,7 @@ class MainContainerController extends ComponentController {
 
     onAppConnect(name) {
         let me = this,
-            view;
+            parentView, view;
 
         console.log('onAppConnect', name);
 
@@ -355,7 +355,9 @@ class MainContainerController extends ComponentController {
         }
 
         if (view) {
-            Neo.getComponent(view.parentId).remove(view, false);
+            console.log(view);
+            parentView = view.isTab ? view.up('tab-container') : Neo.getComponent(view.parentId);
+            parentView.remove(view, false);
 
             Neo.apps[name].on('render', () => {
                 setTimeout(() => {

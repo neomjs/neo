@@ -217,8 +217,8 @@ class Container extends BaseContainer {
             tabButtons.push(me.getTabButtonConfig(item.tabButtonConfig, index));
             delete item.tabButtonConfig;
 
-            if (item instanceof Neo.component.Base !== true) {
-                item = {...me.itemDefaults, flex: 1, ...item};
+            if (!(item instanceof Neo.component.Base)) {
+                item = {...me.itemDefaults, flex: 1, isTab:true, ...item};
             }
 
             tabComponents.push(item);
@@ -481,6 +481,24 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Removes a container item by reference
+     * @param {Neo.component.Base} component
+     * @param {Boolean} [destroyItem=true]
+     * @param {Boolean} [silent=false]
+     */
+    remove(component, destroyItem=true, silent=false) {
+        let items = [...this.getCardContainer().items],
+            i     = 0,
+            len   = items.length;
+
+        for (; i < len; i++) {
+            if (items[i].id === component.id) {
+                this.removeAt(i, destroyItem, silent);
+            }
+        }
+    }
+
+    /**
      *
      * @param {Number} index
      * @param {Boolean} [destroyItem=true]
@@ -493,14 +511,14 @@ class Container extends BaseContainer {
             tabBar        = me.getTabBar(),
             i, len;
 
+        cardContainer.removeAt(index, destroyItem, silent);
+        tabBar       .removeAt(index, true,        false);
+
         if (index < activeIndex) {
             me._activeIndex = activeIndex - 1; // silent update
         } else if (index === activeIndex) {
             me.activeIndex = activeIndex - 1;
         }
-
-        cardContainer.removeAt(index, destroyItem, silent);
-        tabBar       .removeAt(index, destroyItem, silent);
 
         // todo: non index based matching of tab buttons and cards
         i   = index;

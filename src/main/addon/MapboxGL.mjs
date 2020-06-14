@@ -479,9 +479,6 @@ class MapboxGL extends Base {
             const map    = me.maps[data.id],
                   source = map.getSource(data.dataSourceId);
 
-            console.log('updateData', source, data);
-            console.log('map', map);
-
             if (source) {
                 source.setData(data.data);
             }
