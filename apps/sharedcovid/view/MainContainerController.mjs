@@ -342,16 +342,21 @@ class MainContainerController extends ComponentController {
     onChartWindowMaximizeButtonClick(data) {
         let me = this;
 
-        Neo.main.DomAccess.getBoundingClientRect({
-            id: [me.getReference('controls-panel').id]
-        }).then(data => {
-            const {height, left, top, width} = data[0];
-            console.log(`height=${height},left=${left},top=${top},width=${width}`);
+        Neo.Main.getWindowData().then(winData => {
+            Neo.main.DomAccess.getBoundingClientRect({
+                id: [me.getReference('controls-panel').id]
+            }).then(data => {
+                let {height, left, top, width} = data[0];
 
-            Neo.Main.windowOpen({
-                url           : '../sharedCovid2/index.html',
-                windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
-                windowName    : 'Covid2'
+                height -= 50; // popup header in Chrome
+                left   += winData.screenLeft;
+                top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
+
+                Neo.Main.windowOpen({
+                    url           : '../sharedCovid2/index.html',
+                    windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+                    windowName    : 'Covid2'
+                });
             });
         });
     }

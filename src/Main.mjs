@@ -47,7 +47,7 @@ class Main extends core.Base {
         remote: {
             app: [
                 'editRoute',
-                'getWindowScreen',
+                'getWindowData',
                 'setRoute',
                 'windowOpen'
             ]
@@ -136,19 +136,28 @@ class Main extends core.Base {
      * window.screen is not spreadable
      * @returns {Object}
      */
-    getWindowScreen() {
-        const screen = window.screen;
+    getWindowData() {
+        const win    = window,
+              screen = win.screen;
 
         return {
-            availHeight: screen.availHeight,
-            availLeft  : screen.availLeft,
-            availTop   : screen.availTop,
-            availWidth : screen.availWidth,
-            colorDepth : screen.colorDepth,
-            height     : screen.height,
-            orientation: {angle: screen.orientation.angle, type: screen.orientation.type},
-            pixelDepth : screen.pixelDepth,
-            width      : screen.width
+            innerHeight: win.innerHeight,
+            innerWidth : win.innerWidth,
+            outerHeight: win.outerHeight,
+            outerWidth : win.outerWidth,
+            screen: {
+                availHeight: screen.availHeight,
+                availLeft  : screen.availLeft,
+                availTop   : screen.availTop,
+                availWidth : screen.availWidth,
+                colorDepth : screen.colorDepth,
+                height     : screen.height,
+                orientation: {angle: screen.orientation.angle, type: screen.orientation.type},
+                pixelDepth : screen.pixelDepth,
+                width      : screen.width
+            },
+            screenLeft: win.screenLeft,
+            screenTop : win.screenTop,
         };
     }
 
