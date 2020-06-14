@@ -70,6 +70,10 @@ class HelixContainer extends Container {
                 }, {
                     ntype: 'label',
                     text : 'Helix Controls'
+                }, '->', {
+                    ntype  : 'button',
+                    handler: 'onWindowHelixMaximizeButtonClick',
+                    iconCls: 'far fa-window-maximize'
                 }]
             }],
 

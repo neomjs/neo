@@ -184,6 +184,33 @@ class MainContainerController extends ComponentController {
     }
 
     /**
+     * @param {String} containerReference
+     * @param {String} url
+     * @param {String} windowName
+     */
+    createPopupWindow(containerReference, url, windowName) {
+        let me = this;
+
+        Neo.Main.getWindowData().then(winData => {
+            Neo.main.DomAccess.getBoundingClientRect({
+                id: [me.getReference(containerReference).id]
+            }).then(data => {
+                let {height, left, top, width} = data[0];
+
+                height -= 50; // popup header in Chrome
+                left   += winData.screenLeft;
+                top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
+
+                Neo.Main.windowOpen({
+                    url           : `../${url}/index.html`,
+                    windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+                    windowName    : windowName
+                });
+            });
+        });
+    }
+
+    /**
      *
      * @param {String} name
      * @return {String} url
@@ -334,31 +361,6 @@ class MainContainerController extends ComponentController {
             });
 
         }
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onChartWindowMaximizeButtonClick(data) {
-        let me = this;
-
-        Neo.Main.getWindowData().then(winData => {
-            Neo.main.DomAccess.getBoundingClientRect({
-                id: [me.getReference('controls-panel').id]
-            }).then(data => {
-                let {height, left, top, width} = data[0];
-
-                height -= 50; // popup header in Chrome
-                left   += winData.screenLeft;
-                top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
-
-                Neo.Main.windowOpen({
-                    url           : '../sharedCovid2/index.html',
-                    windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
-                    windowName    : 'Covid2'
-                });
-            });
-        });
     }
 
     /**
@@ -604,6 +606,20 @@ class MainContainerController extends ComponentController {
         }
 
         mapView.mapboxStyle = mapViewStyle;
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onWindowChartMaximizeButtonClick(data) {
+        this.createPopupWindow('controls-panel', 'sharedcovid2', 'Covid2');
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onWindowHelixMaximizeButtonClick(data) {
+        this.createPopupWindow('helix-container', 'sharedcovid3', 'Covid3');
     }
 
     /**

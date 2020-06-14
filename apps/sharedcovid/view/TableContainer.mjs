@@ -86,7 +86,7 @@ class TableContainer extends Container {
                     text   : '800px'
                 }, {
                     ntype  : 'button',
-                    handler: 'onChartWindowMaximizeButtonClick',
+                    handler: 'onWindowChartMaximizeButtonClick',
                     iconCls: 'far fa-window-maximize'
                 }]
             }],
