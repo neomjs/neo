@@ -34,6 +34,11 @@ class AmChart extends Component {
          */
         combineSeriesTooltip: false,
         /**
+         * Stores the chart data
+         * @member {Array|null} data_=null
+         */
+        data_: null,
+        /**
          * Charts & maps can have different targets to apply the data to. E.g.:
          * myChart.data = data; // => ''
          * myChart.series.values[0].data = data; // => 'series.values.0'
@@ -89,6 +94,24 @@ class AmChart extends Component {
         }
 
         me.parseChartConfig(me.chartConfig);
+    }
+
+    /**
+     * Triggered after the data config got changed
+     * @param {Array|null} value
+     * @param {Array|null} oldValue
+     * @protected
+     */
+    afterSetData(value, oldValue) {
+        let me = this;
+
+        if (value) {
+            Neo.main.addon.AmCharts.updateData({
+                data    : value,
+                dataPath: me.dataPath,
+                id      : me.id
+            });
+        }
     }
 
     /**
