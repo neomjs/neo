@@ -77,11 +77,17 @@ class TableContainer extends Container {
                 }, '->', {
                     ntype  : 'button',
                     handler: 'on520pxButtonClick',
+                    height : 24,
                     text   : '520px'
                 }, {
                     ntype  : 'button',
                     handler: 'on800pxButtonClick',
+                    height : 24,
                     text   : '800px'
+                }, {
+                    ntype  : 'button',
+                    handler: 'onChartWindowMaximizeButtonClick',
+                    iconCls: 'far fa-window-maximize'
                 }]
             }],
 

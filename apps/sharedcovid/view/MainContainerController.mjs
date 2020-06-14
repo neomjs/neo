@@ -333,6 +333,13 @@ class MainContainerController extends ComponentController {
     }
 
     /**
+     * @param {Object} data
+     */
+    onChartWindowMaximizeButtonClick(data) {
+        console.log('onChartWindowMaximizeButtonClick');
+    }
+
+    /**
      *
      */
     onCountryFieldClear() {
