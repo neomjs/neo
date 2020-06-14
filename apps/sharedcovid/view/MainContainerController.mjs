@@ -355,7 +355,6 @@ class MainContainerController extends ComponentController {
         }
 
         if (view) {
-            console.log(view);
             parentView = view.isTab ? view.up('tab-container') : Neo.getComponent(view.parentId);
             parentView.remove(view, false);
 
