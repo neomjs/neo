@@ -89,8 +89,24 @@ class AmChart extends Component {
         }
 
         me.parseChartConfig(me.chartConfig);
+    }
 
-        me.on('mounted', () => {
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @private
+     */
+    afterSetMounted(value, oldValue) {
+        let me = this;
+
+        if (oldValue !== undefined) {
+            console.log('afterSetMounted', me.id, value);
+        }
+
+        super.afterSetMounted(value, oldValue);
+
+        if (value) {
             Neo.main.addon.AmCharts.create({
                 combineSeriesTooltip: me.combineSeriesTooltip,
                 config              : me.chartConfig,
@@ -98,7 +114,7 @@ class AmChart extends Component {
                 package             : me.package,
                 type                : me.chartType
             }).then(me.onChartMounted);
-        });
+        }
     }
 
     /**
