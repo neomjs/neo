@@ -77,6 +77,7 @@ class MapboxGL extends Base {
                 'autoResize',
                 'center',
                 'create',
+                'destroy',
                 'setFilter',
                 'setLayoutProperty',
                 'setPaintProperty',
@@ -268,8 +269,18 @@ class MapboxGL extends Base {
                 zoom     : zoom
             });
 
-            me.maps[data.id].on('load', me.onMapLoaded.bind(me, data.id));
+            me.maps[data.id].on('load', me.onMapLoaded.bind(me, data));
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    destroy(data) {
+        this.maps[data.id].destroy();
+        delete this.maps[data.id];
     }
 
     /**
@@ -295,12 +306,13 @@ class MapboxGL extends Base {
 
     /**
      *
-     * @param {String} mapId
+     * @param {Object} data
      * @param {Object} event
      * @param {Object} event.target map instance
      */
-    onMapLoaded(mapId, event) {
-        const me = this;
+    onMapLoaded(data, event) {
+        const me    = this,
+              mapId = data.id;
 
         if (me.sources[mapId]) {
             me.addSources(me.sources[mapId]);
@@ -318,22 +330,28 @@ class MapboxGL extends Base {
         if (event.target.loaded()) {
             me.onMapReallyLoaded(mapId, event);
         } else {
-            event.target.once('idle', me.onMapReallyLoaded.bind(me, mapId));
+            event.target.once('idle', me.onMapReallyLoaded.bind(me, data));
         }
     }
 
     /**
      *
-     * @param {String} mapId
+     * @param {Object} data
      * @param {Object} event
      * @param {Object} event.target map instance
      */
-    onMapReallyLoaded(mapId, event) {
+    onMapReallyLoaded(data, event) {
         const me = this;
 
-        if (me.dataMap[mapId]) {
-            me.updateData(me.dataMap[mapId]);
-            delete me.dataMap[mapId];
+        if (data.data) {
+            me.updateData({
+                data        : data.data,
+                dataSourceId: data.dataSourceId,
+                id          : data.id
+            })
+        } else if (me.dataMap[data.id]) {
+            me.updateData(me.dataMap[data.id]);
+            delete me.dataMap[data.id];
         }
     }
 

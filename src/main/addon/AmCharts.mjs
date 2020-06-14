@@ -171,15 +171,15 @@ class AmCharts extends Base {
             }
 
             // in case data has arrived before the chart got created, apply it now
-            if (me.dataMap[data.id]) {
-                me.updateData(me.dataMap[data.id]);
-                delete me.dataMap[data.id];
-            } else if (data.data) {
+            if (data.data) {
                 me.updateData({
                     data    : data.data,
                     dataPath: data.dataPath,
                     id      : data.id
                 });
+            } else if (me.dataMap[data.id]) {
+                me.updateData(me.dataMap[data.id]);
+                delete me.dataMap[data.id];
             }
         }
     }
@@ -189,7 +189,7 @@ class AmCharts extends Base {
      * @param {Object} data
      * @param {String} data.id
      */
-    destroy(data) {console.log('dispose');
+    destroy(data) {
         this.charts[data.id].dispose();
         delete this.charts[data.id];
     }
