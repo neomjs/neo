@@ -240,12 +240,16 @@ class MapboxGL extends Base {
 
     /**
      *
-     * @param {Object} data
-     * @param {String} data.accessToken
-     * @param {Object} data.center
-     * @param {String} data.id
-     * @param {String} data.mapboxStyle
-     * @param {String} data.zoom
+     * @param {Object}   data
+     * @param {String}   data.accessToken
+     * @param {Object}   data.center
+     * @param {Object}   [data.data]
+     * @param {String}   [data.dataSourceId]
+     * @param {String}   data.id
+     * @param {Object[]} [data.layers]
+     * @param {String}   data.mapboxStyle
+     * @param {Object[]} [data.sources]
+     * @param {String}   data.zoom
      */
     create(data) {
         const me = this;
@@ -279,7 +283,7 @@ class MapboxGL extends Base {
      * @param {String} data.id
      */
     destroy(data) {
-        this.maps[data.id].destroy();
+        this.maps[data.id].remove();
         delete this.maps[data.id];
     }
 
@@ -310,16 +314,26 @@ class MapboxGL extends Base {
      * @param {Object} event
      * @param {Object} event.target map instance
      */
-    onMapLoaded(data, event) {
+    onMapLoaded(data, event) {console.log('*** onMapLoaded', data.sources);
         const me    = this,
               mapId = data.id;
 
-        if (me.sources[mapId]) {
+        if (data.sources) {
+            me.addSources({
+                id     : data.id,
+                sources: data.sources
+            });
+        } else if (me.sources[mapId]) {
             me.addSources(me.sources[mapId]);
             delete me.sources[mapId];
         }
 
-        if (me.layers[mapId]) {
+        if (data.layers) {
+            me.addLayers({
+                id    : data.id,
+                layers: data.layers
+            });
+        } else if (me.layers[mapId]) {
             me.addLayers(me.layers[mapId]);
             delete me.layers[mapId];
         }
@@ -328,7 +342,7 @@ class MapboxGL extends Base {
         // in case we do add layers / sources
         // the "idle" event seems to be the best fit
         if (event.target.loaded()) {
-            me.onMapReallyLoaded(mapId, event);
+            me.onMapReallyLoaded(data, event);
         } else {
             event.target.once('idle', me.onMapReallyLoaded.bind(me, data));
         }
@@ -343,16 +357,18 @@ class MapboxGL extends Base {
     onMapReallyLoaded(data, event) {
         const me = this;
 
-        if (data.data) {
-            me.updateData({
-                data        : data.data,
-                dataSourceId: data.dataSourceId,
-                id          : data.id
-            })
-        } else if (me.dataMap[data.id]) {
-            me.updateData(me.dataMap[data.id]);
-            delete me.dataMap[data.id];
-        }
+        setTimeout(() => {
+            if (data.data) {
+                me.updateData({
+                    data        : data.data,
+                    dataSourceId: data.dataSourceId,
+                    id          : data.id
+                })
+            } else if (me.dataMap[data.id]) {
+                me.updateData(me.dataMap[data.id]);
+                delete me.dataMap[data.id];
+            }
+        }, 100);
     }
 
     /**
@@ -462,6 +478,9 @@ class MapboxGL extends Base {
         } else {
             const map    = me.maps[data.id],
                   source = map.getSource(data.dataSourceId);
+
+            console.log('updateData', source, data);
+            console.log('map', map);
 
             if (source) {
                 source.setData(data.data);

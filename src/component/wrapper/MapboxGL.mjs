@@ -191,6 +191,14 @@ class MapboxGL extends Component {
                 opts.dataSourceId = me.dataSourceId;
             }
 
+            if (me.layers) {
+                opts.layers = me.layers;
+            }
+
+            if (me.sources) {
+                opts.sources = me.sources;
+            }
+
             Neo.main.addon.MapboxGL.create(opts).then(me.onMapMounted);
         }
     }
