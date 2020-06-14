@@ -39,7 +39,7 @@
             "input": "myApps/SharedCovid.mjs",
             "output": "/apps/sharedcovid/",
             "themes": "'neo-theme-dark', 'neo-theme-light'",
-            "title": "SharedCovid",
+            "title": "SharedCovid MainWindow",
             "mainThreadAddons": "'AmCharts', 'MapboxGL', 'Stylesheet'",
             "useSharedWorkers": true
         },
