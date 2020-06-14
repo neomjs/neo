@@ -342,10 +342,17 @@ class MainContainerController extends ComponentController {
     onChartWindowMaximizeButtonClick(data) {
         let me = this;
 
-        Neo.Main.windowOpen({
-            url           : '../sharedCovid2/index.html',
-            windowFeatures: 'resizable',
-            windowName    : 'Covid2'
+        Neo.main.DomAccess.getBoundingClientRect({
+            id: [me.getReference('controls-panel').id]
+        }).then(data => {
+            const {height, left, top, width} = data[0];
+            console.log(`height=${height},left=${left},top=${top},width=${width}`);
+
+            Neo.Main.windowOpen({
+                url           : '../sharedCovid2/index.html',
+                windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+                windowName    : 'Covid2'
+            });
         });
     }
 
