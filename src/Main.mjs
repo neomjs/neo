@@ -47,7 +47,8 @@ class Main extends core.Base {
         remote: {
             app: [
                 'editRoute',
-                'setRoute'
+                'setRoute',
+                'windowOpen'
             ]
         },
         /**
@@ -334,6 +335,17 @@ class Main extends core.Base {
      */
     setRoute(data) {
         window.location.hash = data.value;
+    }
+
+    /**
+     * Open a new popup window
+     * @param {Object} data
+     * @param {String} data.url
+     * @param {String} data.windowFeatures
+     * @param {String} data.windowName
+     */
+    windowOpen(data) {
+        window.open(data.url, data.windowName, data.windowFeatures);
     }
 }
 

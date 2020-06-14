@@ -68,7 +68,11 @@ class MainContainerController extends ComponentController {
          * @member {Boolean} worldMapHasData=false
          * @private
          */
-        worldMapHasData: false
+        worldMapHasData: false,
+        /**
+         * @member {Object} windowChart=null
+         */
+        windowChart: null,
     }}
 
     /**
@@ -336,7 +340,13 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onChartWindowMaximizeButtonClick(data) {
-        console.log('onChartWindowMaximizeButtonClick');
+        let me = this;
+
+        Neo.Main.windowOpen({
+            url           : '../sharedCovid2/index.html',
+            windowFeatures: 'resizable',
+            windowName    : 'Covid2'
+        });
     }
 
     /**
