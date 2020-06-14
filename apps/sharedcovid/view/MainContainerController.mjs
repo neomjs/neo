@@ -348,9 +348,11 @@ class MainContainerController extends ComponentController {
                 break;
             case 'Covid3':
                 view = me.getReference('helix-container');
+                NeoArray.remove(me.mainTabs, 'helix');
                 break;
             case 'Covid4':
                 view = me.getReference('mapbox-gl-container');
+                NeoArray.remove(me.mainTabs, 'mapboxglmap');
                 break;
         }
 

@@ -515,7 +515,9 @@ class Container extends BaseContainer {
         tabBar       .removeAt(index, true,        false);
 
         if (index < activeIndex) {
-            me._activeIndex = activeIndex - 1; // silent update
+            // silent updates
+            me._activeIndex = activeIndex - 1;
+            cardContainer.layout._activeIndex = activeIndex - 1;
         } else if (index === activeIndex) {
             me.activeIndex = activeIndex - 1;
         }
