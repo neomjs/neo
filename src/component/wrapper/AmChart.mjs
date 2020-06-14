@@ -107,6 +107,7 @@ class AmChart extends Component {
 
         if (value) {
             Neo.main.addon.AmCharts.updateData({
+                appName : me.appName,
                 data    : value,
                 dataPath: me.dataPath,
                 id      : me.id
