@@ -471,6 +471,8 @@ class Base extends Component {
 
             if (destroyItem) {
                 item.destroy();
+            } else {
+                item.mounted = false;
             }
         }
     }
