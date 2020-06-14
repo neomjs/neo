@@ -46,8 +46,8 @@ class Container extends BaseContainer {
                 dock: 'top',
                 items: [{
                     ntype  : 'button',
-                    handler: 'onHideMapControlsButtonClick',
-                    text   : 'X'
+                    handler: 'onWindowMapMaximizeButtonClick',
+                    iconCls: 'far fa-window-maximize'
                 }, {
                     ntype: 'label',
                     text : 'Map Controls'

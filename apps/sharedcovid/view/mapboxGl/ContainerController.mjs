@@ -54,14 +54,6 @@ class ContainerController extends ComponentController {
      *
      * @param {Object} data
      */
-    onHideMapControlsButtonClick(data) {
-        console.log('onHideMapControlsButtonClick', data);
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
     onTerrainChange(data) {
         this.changeLayerVisibility('hillshading', data.value ? 'visible' : 'none');
     }
