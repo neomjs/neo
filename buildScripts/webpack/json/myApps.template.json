@@ -43,19 +43,27 @@
             "mainThreadAddons": "'AmCharts', 'MapboxGL', 'Stylesheet'",
             "useSharedWorkers": true
         },
-        "SharedCovid2": {
-            "input": "myApps/SharedCovid2.mjs",
-            "output": "/apps/sharedcovid2/",
+        "SharedCovidChart": {
+            "input": "myApps/SharedCovidChart.mjs",
+            "output": "/apps/sharedcovid_chart/",
             "themes": "'neo-theme-dark', 'neo-theme-light'",
-            "title": "SharedCovid2",
+            "title": "SharedCovid Country Chart / Table",
             "mainThreadAddons": "'AmCharts', 'MapboxGL', 'Stylesheet'",
             "useSharedWorkers": true
         },
-        "SharedCovid3": {
-            "input": "myApps/SharedCovid3.mjs",
-            "output": "/apps/sharedcovid3/",
+        "SharedCovidHelix": {
+            "input": "myApps/SharedCovidHelix.mjs",
+            "output": "/apps/sharedcovid_helix/",
             "themes": "'neo-theme-dark', 'neo-theme-light'",
-            "title": "SharedCovid3",
+            "title": "SharedCovid CountryHelix",
+            "mainThreadAddons": "'AmCharts', 'MapboxGL', 'Stylesheet'",
+            "useSharedWorkers": true
+        },
+        "SharedCovidMap": {
+            "input": "myApps/SharedCovidMap.mjs",
+            "output": "/apps/sharedcovid_map/",
+            "themes": "'neo-theme-dark', 'neo-theme-light'",
+            "title": "SharedCovid MapboxGL Map",
             "mainThreadAddons": "'AmCharts', 'MapboxGL', 'Stylesheet'",
             "useSharedWorkers": true
         }

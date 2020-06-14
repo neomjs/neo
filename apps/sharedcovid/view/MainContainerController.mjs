@@ -349,6 +349,9 @@ class MainContainerController extends ComponentController {
             case 'Covid3':
                 view = me.getReference('helix-container');
                 break;
+            case 'Covid4':
+                view = me.getReference('mapbox-gl-container');
+                break;
         }
 
         if (view) {
@@ -612,14 +615,21 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onWindowChartMaximizeButtonClick(data) {
-        this.createPopupWindow('controls-panel', 'sharedcovid2', 'Covid2');
+        this.createPopupWindow('controls-panel', 'sharedcovid_chart', 'Covid2');
     }
 
     /**
      * @param {Object} data
      */
     onWindowHelixMaximizeButtonClick(data) {
-        this.createPopupWindow('helix-container', 'sharedcovid3', 'Covid3');
+        this.createPopupWindow('helix-container', 'sharedcovid_helix', 'Covid3');
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onWindowMapMaximizeButtonClick(data) {
+        this.createPopupWindow('mapbox-gl-container', 'sharedcovid_map', 'Covid4');
     }
 
     /**

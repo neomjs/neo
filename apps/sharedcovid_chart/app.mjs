@@ -1,7 +1,7 @@
 import MainContainer from './MainContainer.mjs';
 
 Neo.onStart = () => Neo.app({
-    appPath : 'apps/sharedcovid3/',
+    appPath : 'apps/sharedcovid_chart/',
     mainView: MainContainer,
-    name    : 'Covid3'
+    name    : 'Covid2'
 });

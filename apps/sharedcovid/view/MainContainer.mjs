@@ -63,6 +63,7 @@ class MainContainer extends Viewport {
                 }
             }, {
                 module         : MapboxGlContainer,
+                reference      : 'mapbox-gl-container',
                 tabButtonConfig: {
                     iconCls: 'fa fa-globe-americas',
                     route  : 'mainview=mapboxglmap',
