@@ -139,8 +139,8 @@ class Base extends CoreBase {
     /**
      * Only relevant for SharedWorkers
      */
-    onDisconnect() {
-        console.log('worker.Base: onDisconnect');
+    onDisconnect(data) {
+        console.log('worker.Base: onDisconnect', data);
     }
 
     /**
@@ -229,6 +229,11 @@ class Base extends CoreBase {
         this.ports.forEach(port => {
             if (!port.appName) {
                 port.appName = name;
+
+                this.sendMessage('main', {
+                    action :'registerAppName',
+                    appName: name
+                });
             }
         });
     }

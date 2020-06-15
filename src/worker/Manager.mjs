@@ -30,6 +30,11 @@ class Manager extends Base {
          */
         singleton: true,
         /**
+         * @member {String|null} appName=null
+         * @private
+         */
+        appName: null,
+        /**
          * The base path for the worker file URLs, can e.g. get set inside the index.html.
          * @member {String|null} basePath=Neo.config.workerBasePath || 'worker/'
          * @private
@@ -295,6 +300,11 @@ class Manager extends Base {
                     error  : err.message
                 });
             });
+        }
+
+        // only needed for SharedWorkers
+        else if (dest === 'main' && action === 'registerAppName') {
+            me.appName = data.appName;
         }
 
         else if (dest === 'main' && action === 'remoteMethod') {
