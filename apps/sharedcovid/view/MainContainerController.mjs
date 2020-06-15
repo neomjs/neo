@@ -87,9 +87,10 @@ class MainContainerController extends ComponentController {
         me.loadSummaryData();
 
         me.view.on({
-            connect: me.onAppConnect,
-            mounted: me.onMainViewMounted,
-            scope  : me
+            connect   : me.onAppConnect,
+            disconnect: me.onAppDisconnect,
+            mounted   : me.onMainViewMounted,
+            scope     : me
         });
     }
 
@@ -336,6 +337,10 @@ class MainContainerController extends ComponentController {
         }, 2000);
     }
 
+    /**
+     *
+     * @param {String} name
+     */
     onAppConnect(name) {
         let me = this,
             parentView, view;
@@ -367,6 +372,14 @@ class MainContainerController extends ComponentController {
             });
 
         }
+    }
+
+    /**
+     *
+     * @param {String} name
+     */
+    onAppDisconnect(name) {
+        console.log('onAppDisconnect', name);
     }
 
     /**
