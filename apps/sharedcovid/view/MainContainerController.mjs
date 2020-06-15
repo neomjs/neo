@@ -290,6 +290,19 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @param {String} [appName]
+     * @returns {Neo.component.Base}
+     */
+    getMainView(appName) {
+        if (!appName || appName === 'Covid') {
+            return this.view;
+        }
+
+        return Neo.apps[appName].mainViewInstance;
+    }
+
+    /**
+     *
      * @param {Object} hashObject
      * @param {String} hashObject.mainview
      * @return {Number}
@@ -373,7 +386,7 @@ class MainContainerController extends ComponentController {
 
             Neo.apps[name].on('render', () => {
                 setTimeout(() => {
-                    Neo.apps[name].mainViewInstance.add(view);
+                    me.getMainView(name).add(view);
                 }, 100);
             });
 
@@ -386,7 +399,7 @@ class MainContainerController extends ComponentController {
      */
     onAppDisconnect(name) {
         let me         = this,
-            parentView = Neo.apps[name].mainViewInstance,
+            parentView = me.getMainView(name),
             view       = parentView.items[0],
             index;
 
@@ -622,7 +635,7 @@ class MainContainerController extends ComponentController {
             buttonText, cls, href, iconCls, mapView, mapViewStyle, theme;
 
         if (me.connectedApps.includes('Covid4')) {
-            mapView = Neo.apps['Covid4'].mainViewInstance.items[0].items[0];
+            mapView = me.getMainView('Covid4').items[0].items[0];
         } else {
             mapView = me.getReference('mapboxglmap');
         }
@@ -647,7 +660,7 @@ class MainContainerController extends ComponentController {
 
         if (Neo.config.useCss4) {
             [view.appName, ...me.connectedApps].forEach(appName => {
-                view = Neo.apps[appName].mainViewInstance;
+                view = me.getMainView(appName);
 
                 cls = [...view.cls];
 
