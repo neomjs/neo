@@ -342,10 +342,10 @@ class MainContainerController extends ComponentController {
      * @param {String} name
      */
     onAppConnect(name) {
+        console.log('onAppConnect', name);
+
         let me = this,
             parentView, view;
-
-        console.log('onAppConnect', name);
 
         switch (name) {
             case 'Covid2':
@@ -379,7 +379,30 @@ class MainContainerController extends ComponentController {
      * @param {String} name
      */
     onAppDisconnect(name) {
+        let me         = this,
+            parentView = Neo.apps[name].mainViewInstance,
+            view       = parentView.items[0];
+
         console.log('onAppDisconnect', name);
+
+        switch (name) {
+            case 'Covid2':
+            case 'Covid3':
+            case 'Covid4':
+                view = parentView.items[0];
+                break;
+        }
+
+        if (view) {
+            parentView.remove(view, false);
+
+            switch (name) {
+                case 'Covid2':
+                    me.getReference('table-container').add(view);
+                    break;
+            }
+
+        }
     }
 
     /**
