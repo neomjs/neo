@@ -424,7 +424,6 @@ class Container extends BaseContainer {
             }
 
             tabBar.insert(index, me.getTabButtonConfig(tabButtonConfig, index));
-            console.log(tabButtonConfig, me.getTabButtonConfig(tabButtonConfig, index));
 
             // todo: non index based matching of tab buttons and cards
             i   = index + 1;
