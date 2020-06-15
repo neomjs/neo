@@ -615,12 +615,13 @@ class MainContainerController extends ComponentController {
     onSwitchThemeButtonClick(data) {
         let me       = this,
             button   = data.component,
+            i        = 0,
             logo     = me.getReference('logo'),
             logoPath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
             mapView  = me.getReference('mapboxglmap'),
             vdom     = logo.vdom,
             view     = me.view,
-            buttonText, cls, href, iconCls, mapViewStyle, theme;
+            buttonText, cls, href, iconCls, len, mapViewStyle, theme;
 
         if (button.text === 'Theme Light') {
             buttonText   = 'Theme Dark';
@@ -641,29 +642,39 @@ class MainContainerController extends ComponentController {
 
 
         if (Neo.config.useCss4) {
-            cls = [...view.cls];
+            [view.appName, ...me.connectedApps].forEach(appName => {
+                view = Neo.apps[appName].mainViewInstance;
 
-            view.cls.forEach(item => {
-                if (item.includes('neo-theme')) {
-                    NeoArray.remove(cls, item);
-                }
+                cls = [...view.cls];
+
+                view.cls.forEach(item => {
+                    if (item.includes('neo-theme')) {
+                        NeoArray.remove(cls, item);
+                    }
+                });
+
+                NeoArray.add(cls, theme);
+                view.cls = cls;
             });
-
-            NeoArray.add(cls, theme);
-            view.cls = cls;
 
             button.set({
                 iconCls: iconCls,
                 text   : buttonText
             });
         } else {
-            Neo.main.addon.Stylesheet.swapStyleSheet({
-                href: href,
-                id  : 'neo-theme'
-            }).then(data => {
-                button.text = buttonText;
+            [view.appName, ...me.connectedApps].forEach(appName => {
+                Neo.main.addon.Stylesheet.swapStyleSheet({
+                    appName: appName,
+                    href   : href,
+                    id     : 'neo-theme'
+                });
             });
         }
+
+        button.set({
+            iconCls: iconCls,
+            text   : buttonText
+        });
 
         mapView.mapboxStyle = mapViewStyle;
     }
