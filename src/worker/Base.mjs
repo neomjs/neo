@@ -111,19 +111,6 @@ class Base extends CoreBase {
     }
 
     /**
-     * Only needed for the SharedWorkers context
-     * @param {String} appName
-     * @param {String} eventName
-     */
-    fireMainViewsEvent(appName, eventName) {
-        this.ports.forEach(port => {
-            if (port.appName !== appName) {
-                Neo.apps[port.appName].mainViewInstance.fire(eventName, appName);
-            }
-        });
-    }
-
-    /**
      * Only relevant for SharedWorkers
      * @param {Object} e
      */
@@ -152,9 +139,7 @@ class Base extends CoreBase {
     /**
      * Only relevant for SharedWorkers
      */
-    onDisconnect(data) {
-        this.fireMainViewsEvent(data.appName, 'disconnect');
-    }
+    onDisconnect(data) {}
 
     /**
      *
@@ -249,14 +234,6 @@ class Base extends CoreBase {
                 });
             }
         });
-    }
-
-    /**
-     *
-     * @param {String} name
-     */
-    registerMainView(name) {
-        this.fireMainViewsEvent(name, 'connect');
     }
 
     /**
