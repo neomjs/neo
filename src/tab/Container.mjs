@@ -215,7 +215,6 @@ class Container extends BaseContainer {
 
         items.forEach((item, index) => {
             tabButtons.push(me.getTabButtonConfig(item.tabButtonConfig, index));
-            delete item.tabButtonConfig;
 
             if (!(item instanceof Neo.component.Base)) {
                 item = {...me.itemDefaults, flex: 1, isTab:true, ...item};
@@ -410,34 +409,32 @@ class Container extends BaseContainer {
                     break;
                 }
             }
-
-            if (!hasItem && item instanceof Neo.component.Base !== true) {
-                tabButtonConfig = item.tabButtonConfig;
-
-                if (me.activateInsertedTabs) {
-                    tabButtonConfig.listeners = tabButtonConfig.listeners || {};
-
-                    tabButtonConfig.listeners.mounted = {
-                        fn   : me.onTabButtonMounted,
-                        scope: me
-                    };
-                }
-
-                tabBar.insert(index, me.getTabButtonConfig(tabButtonConfig, index));
-                delete item.tabButtonConfig;
-
-                // todo: non index based matching of tab buttons and cards
-                i   = index + 1;
-                len = tabBar.items.length;
-
-                for (; i < len; i++) {
-                    tabBar.items[i].index = i;
-
-                }
-            }
         }
 
         if (!hasItem) {
+            tabButtonConfig = item.tabButtonConfig;
+
+            if (me.activateInsertedTabs) {
+                tabButtonConfig.listeners = tabButtonConfig.listeners || {};
+
+                tabButtonConfig.listeners.mounted = {
+                    fn   : me.onTabButtonMounted,
+                    scope: me
+                };
+            }
+
+            tabBar.insert(index, me.getTabButtonConfig(tabButtonConfig, index));
+            console.log(tabButtonConfig, me.getTabButtonConfig(tabButtonConfig, index));
+
+            // todo: non index based matching of tab buttons and cards
+            i   = index + 1;
+            len = tabBar.items.length;
+
+            for (; i < len; i++) {
+                tabBar.items[i].index = i;
+
+            }
+
             item.flex = 1;
             superItem = cardContainer.insert(index, item);
         }
