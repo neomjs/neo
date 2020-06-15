@@ -406,6 +406,11 @@ class MainContainerController extends ComponentController {
         console.log('onAppDisconnect', name);
 
         switch (name) {
+            case 'Covid':
+                Neo.Main.windowClose({
+                    names: me.connectedApps,
+                });
+                break;
             case 'Covid2':
             case 'Covid3':
             case 'Covid4':

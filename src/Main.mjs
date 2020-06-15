@@ -35,6 +35,11 @@ class Main extends core.Base {
          */
         mode: 'read',
         /**
+         * @member {Object} openWindows={}
+         * @private
+         */
+        openWindows: {},
+        /**
          * @member {Array} readQueue=[]
          * @private
          */
@@ -49,6 +54,7 @@ class Main extends core.Base {
                 'editRoute',
                 'getWindowData',
                 'setRoute',
+                'windowClose',
                 'windowOpen'
             ]
         },
@@ -368,6 +374,22 @@ class Main extends core.Base {
     }
 
     /**
+     * Closes popup windows
+     * @param {Object} data
+     * @param {Array|String} data.names
+     */
+    windowClose(data) {
+        if (!Array.isArray(data.names)) {
+            data.names = [data.names];
+        }
+
+        data.names.forEach(name => {
+            this.openWindows[name].close();
+            delete this.openWindows[name];
+        })
+    }
+
+    /**
      * Open a new popup window
      * @param {Object} data
      * @param {String} data.url
@@ -375,7 +397,7 @@ class Main extends core.Base {
      * @param {String} data.windowName
      */
     windowOpen(data) {
-        window.open(data.url, data.windowName, data.windowFeatures);
+        this.openWindows[data.windowName] = window.open(data.url, data.windowName, data.windowFeatures);
     }
 }
 
