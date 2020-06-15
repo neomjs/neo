@@ -615,13 +615,12 @@ class MainContainerController extends ComponentController {
     onSwitchThemeButtonClick(data) {
         let me       = this,
             button   = data.component,
-            i        = 0,
             logo     = me.getReference('logo'),
             logoPath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
             mapView  = me.getReference('mapboxglmap'),
             vdom     = logo.vdom,
             view     = me.view,
-            buttonText, cls, href, iconCls, len, mapViewStyle, theme;
+            buttonText, cls, href, iconCls, mapViewStyle, theme;
 
         if (button.text === 'Theme Light') {
             buttonText   = 'Theme Dark';
