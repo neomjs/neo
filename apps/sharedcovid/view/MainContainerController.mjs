@@ -617,10 +617,15 @@ class MainContainerController extends ComponentController {
             button   = data.component,
             logo     = me.getReference('logo'),
             logoPath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
-            mapView  = me.getReference('mapboxglmap'),
             vdom     = logo.vdom,
             view     = me.view,
-            buttonText, cls, href, iconCls, mapViewStyle, theme;
+            buttonText, cls, href, iconCls, mapView, mapViewStyle, theme;
+
+        if (me.connectedApps.includes('Covid4')) {
+            mapView = Neo.apps['Covid4'].mainViewInstance.items[0].items[0];
+        } else {
+            mapView = me.getReference('mapboxglmap');
+        }
 
         if (button.text === 'Theme Light') {
             buttonText   = 'Theme Dark';
