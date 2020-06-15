@@ -49,9 +49,7 @@ class App extends Base {
      */
     fireMainViewsEvent(appName, eventName) {
         this.ports.forEach(port => {
-            if (port.appName !== appName) {
-                Neo.apps[port.appName].mainViewInstance.fire(eventName, appName);
-            }
+            Neo.apps[port.appName].mainViewInstance.fire(eventName, appName);
         });
     }
 
