@@ -41,6 +41,10 @@ class MainContainerController extends ComponentController {
          */
         apiSummaryUrl: 'https://corona.lmao.ninja/v2/all',
         /**
+         * @member {String[]} connectedApps=[]
+         */
+        connectedApps: [],
+        /**
          * @member {Object|null} countryRecord=null
          */
         countryRecord: null,
@@ -362,6 +366,8 @@ class MainContainerController extends ComponentController {
         }
 
         if (view) {
+            NeoArray.add(me.connectedApps, name);
+
             parentView = view.isTab ? view.up('tab-container') : Neo.getComponent(view.parentId);
             parentView.remove(view, false);
 
@@ -381,7 +387,8 @@ class MainContainerController extends ComponentController {
     onAppDisconnect(name) {
         let me         = this,
             parentView = Neo.apps[name].mainViewInstance,
-            view       = parentView.items[0];
+            view       = parentView.items[0],
+            index;
 
         console.log('onAppDisconnect', name);
 
@@ -394,11 +401,22 @@ class MainContainerController extends ComponentController {
         }
 
         if (view) {
+            NeoArray.remove(me.connectedApps, name);
+
             parentView.remove(view, false);
 
             switch (name) {
                 case 'Covid2':
                     me.getReference('table-container').add(view);
+                    break;
+                case 'Covid3':
+                    index = me.connectedApps.includes('Covid4') ? 4 : 3;
+                    me.getReference('tab-container').insert(index, view);
+                    me.mainTabs.splice(index, 0, 'helix');
+                    break;
+                case 'Covid4':
+                    me.getReference('tab-container').insert(1, view);
+                    me.mainTabs.splice(1, 0, 'mapboxglmap');
                     break;
             }
 
