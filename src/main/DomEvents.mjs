@@ -302,8 +302,6 @@ class DomEvents extends Base {
      * @param {Object} event
      */
     onBeforeUnload(event) {
-        console.log('onBeforeUnload', event);
-
         Neo.worker.Manager.broadcast({
             action: 'disconnect'
         });

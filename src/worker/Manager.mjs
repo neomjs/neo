@@ -113,7 +113,7 @@ class Manager extends Base {
      * @param msg
      */
     broadcast(msg) {
-        Object.entries(this.workers).forEach(name => {
+        Object.keys(this.workers).forEach(name => {
             this.sendMessage(name, msg);
         });
     }
