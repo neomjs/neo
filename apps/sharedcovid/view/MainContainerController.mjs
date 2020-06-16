@@ -377,18 +377,24 @@ class MainContainerController extends ComponentController {
             parentView, view;
 
         switch (name) {
-            case 'Covid2':
+            case 'CovidChart':
                 view = me.getReference('controls-panel');
                 parentView = Neo.getComponent(view.parentId);
                 parentView.storeReferences();
                 break;
-            case 'Covid3':
+            case 'CovidGallery':
+                view = me.getReference('gallery-container');
+                NeoArray.remove(me.mainTabs, 'gallery');
+                me.activeMainTabIndex--;
+                Neo.Main.editRoute({mainview: me.mainTabs[me.activeMainTabIndex]});
+                break;
+            case 'CovidHelix':
                 view = me.getReference('helix-container');
                 NeoArray.remove(me.mainTabs, 'helix');
                 me.activeMainTabIndex--;
                 Neo.Main.editRoute({mainview: me.mainTabs[me.activeMainTabIndex]});
                 break;
-            case 'Covid4':
+            case 'CovidGallery':
                 view = me.getReference('mapbox-gl-container');
                 NeoArray.remove(me.mainTabs, 'mapboxglmap');
                 me.activeMainTabIndex--;
@@ -429,9 +435,9 @@ class MainContainerController extends ComponentController {
                     names: me.connectedApps,
                 });
                 break;
-            case 'Covid2':
-            case 'Covid3':
-            case 'Covid4':
+            case 'CovidChart':
+            case 'CovidHelix':
+            case 'CovidGallery':
                 view = parentView.items[0];
                 break;
         }
@@ -442,15 +448,15 @@ class MainContainerController extends ComponentController {
             parentView.remove(view, false);
 
             switch (name) {
-                case 'Covid2':
+                case 'CovidChart':
                     me.getReference('table-container').add(view);
                     break;
-                case 'Covid3':
-                    index = me.connectedApps.includes('Covid4') ? 4 : 3;
+                case 'CovidHelix':
+                    index = me.connectedApps.includes('CovidGallery') ? 4 : 3;
                     me.getReference('tab-container').insert(index, view);
                     me.mainTabs.splice(index, 0, 'helix');
                     break;
-                case 'Covid4':
+                case 'CovidGallery':
                     me.getReference('tab-container').insert(1, view);
                     me.mainTabs.splice(1, 0, 'mapboxglmap');
                     break;
@@ -542,14 +548,14 @@ class MainContainerController extends ComponentController {
                         }
                     }
 
-                    if (activeView.ntype === 'helix' || me.connectedApps.includes('Covid3')) {
+                    if (activeView.ntype === 'helix' || me.connectedApps.includes('CovidHelix')) {
                         if (!me.helixView.selectionModel.isSelected(country)) {
                             me.helixView.selectionModel.select(country, false);
                             me.helixView.onKeyDownSpace(null);
                         }
                     }
 
-                    if ((activeView.ntype === 'mapboxgl' || me.connectedApps.includes('Covid4')) && me.data) {
+                    if ((activeView.ntype === 'mapboxgl' || me.connectedApps.includes('CovidMap')) && me.data) {
                         if (!me.mapboxglMapHasData) {
                             me.mapBoxView.data = me.data;
                             me.mapboxglMapHasData = true;
@@ -661,8 +667,8 @@ class MainContainerController extends ComponentController {
             view     = me.view,
             buttonText, cls, href, iconCls, mapView, mapViewStyle, theme;
 
-        if (me.connectedApps.includes('Covid4')) {
-            mapView = me.getMainView('Covid4').items[0].items[0];
+        if (me.connectedApps.includes('CovidMap')) {
+            mapView = me.getMainView('CovidMap').items[0].items[0];
         } else {
             mapView = me.getReference('mapboxglmap');
         }
@@ -727,21 +733,28 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onWindowChartMaximizeButtonClick(data) {
-        this.createPopupWindow('controls-panel', 'sharedcovid_chart', 'Covid2');
+        this.createPopupWindow('controls-panel', 'sharedcovid_chart', 'CovidChart');
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onWindowGalleryMaximizeButtonClick(data) {
+        this.createPopupWindow('gallery-container', 'sharedcovid_gallery', 'CovidGallery');
     }
 
     /**
      * @param {Object} data
      */
     onWindowHelixMaximizeButtonClick(data) {
-        this.createPopupWindow('helix-container', 'sharedcovid_helix', 'Covid3');
+        this.createPopupWindow('helix-container', 'sharedcovid_helix', 'CovidHelix');
     }
 
     /**
      * @param {Object} data
      */
     onWindowMapMaximizeButtonClick(data) {
-        this.createPopupWindow('mapbox-gl-container', 'sharedcovid_map', 'Covid4');
+        this.createPopupWindow('mapbox-gl-container', 'sharedcovid_map', 'CovidMap');
     }
 
     /**

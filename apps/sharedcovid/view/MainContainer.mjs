@@ -78,6 +78,7 @@ class MainContainer extends Viewport {
                 }
             }, {
                 module         : GalleryContainer,
+                reference      : 'gallery-container',
                 tabButtonConfig: {
                     iconCls: 'fa fa-images',
                     route  : 'mainview=gallery',
