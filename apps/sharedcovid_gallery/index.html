@@ -3,18 +3,18 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="UTF-8">
-    <title>SharedCovid Gallery</title>
+    <title>SharedCovid MapboxGL Map</title>
 </head>
 <body>
     <script>
         Neo = self.Neo || {}; Neo.config = Neo.config || {};
 
         Object.assign(Neo.config, {
-            appPath         : 'apps/sharedcovid_gallery/app.mjs',
+            appPath         : 'apps/sharedcovid_map/app.mjs',
             basePath        : '../../',
             environment     : 'development',
             isExperimental  : true,
-            mainThreadAddons: ['Stylesheet'],
+            mainThreadAddons: ['MapboxGL', 'Stylesheet'],
             themes          : ['neo-theme-dark', 'neo-theme-light'],
             useSharedWorkers: true
         });

@@ -1,12 +1,12 @@
 import Viewport from '../../src/container/Viewport.mjs';
 
 /**
- * @class CovidGallery.MainContainer
+ * @class Covid4.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className: 'CovidGallery.MainContainer',
+        className: 'Covid4.MainContainer',
 
         autoMount: true,
         layout   : {ntype: 'fit'}

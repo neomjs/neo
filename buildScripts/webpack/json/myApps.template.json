@@ -51,6 +51,14 @@
             "mainThreadAddons": "'AmCharts', 'Stylesheet'",
             "useSharedWorkers": true
         },
+        "SharedCovidGallery": {
+            "input": "myApps/SharedCovidGallery.mjs",
+            "output": "/apps/sharedcovid_gallery/",
+            "themes": "'neo-theme-dark', 'neo-theme-light'",
+            "title": "SharedCovid CountryGallery",
+            "mainThreadAddons": "'Stylesheet'",
+            "useSharedWorkers": true
+        },
         "SharedCovidHelix": {
             "input": "myApps/SharedCovidHelix.mjs",
             "output": "/apps/sharedcovid_helix/",
