@@ -59,12 +59,16 @@ class Application extends Base {
         let me = this;
 
         me.mainViewInstance = Neo.create(me.mainView, {
-            appName   : me.name,
-            autoRender: true,
-            parentId  : me.parentId
+            appName : me.name,
+            parentId: me.parentId
         });
 
         Neo.currentWorker.registerMainView(me.name);
+
+        // short delay to ensure changes from onHashChange() got applied
+        setTimeout(() => {
+            me.mainViewInstance.render(true);
+        }, 10)
     }
 }
 

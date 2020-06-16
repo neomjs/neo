@@ -59,7 +59,7 @@ class Card extends Base {
             sCfg      = me.getStaticConfig(),
             isActiveIndex, cls, items;
 
-        if (container && container.rendered) {
+        if (container) {
             items = container.items;
 
             if (!items[value]) {

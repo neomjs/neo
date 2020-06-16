@@ -120,7 +120,7 @@ class Container extends BaseContainer {
         let me            = this,
             cardContainer = Neo.getComponent(me.cardContainerId);
 
-        if (me.rendered && value > -1) {
+        if (cardContainer && value > -1) {
             me.updateTabButtons();
 
             cardContainer.layout.activeIndex = value;

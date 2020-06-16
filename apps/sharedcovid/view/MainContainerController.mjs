@@ -101,6 +101,11 @@ class MainContainerController extends ComponentController {
             mounted   : me.onMainViewMounted,
             scope     : me
         });
+
+        setTimeout(() => {
+            me.helixView  = me.getReference('helix');
+            me.mapBoxView = me.getReference('mapboxglmap');
+        }, 1);
     }
 
     /**
@@ -442,7 +447,6 @@ class MainContainerController extends ComponentController {
                     me.mainTabs.splice(1, 0, 'mapboxglmap');
                     break;
             }
-
         }
     }
 
@@ -508,60 +512,60 @@ class MainContainerController extends ComponentController {
                 delaySelection = 2000;
             }
 
-            if (activeView.ntype === 'mapboxgl' && me.data) {
+            if ((activeView.ntype === 'mapboxgl' || me.connectedApps.includes('Covid4')) && me.data) {
                 if (!me.mapboxglMapHasData) {
-                    activeView.data = me.data;
+                    me.mapBoxView.data = me.data;
                     me.mapboxglMapHasData = true;
                 }
 
                 // console.log(countryField.getRecord());
 
                 if (me.countryRecord) {
-                    MainContainerController.selectMapboxGlCountry(activeView, me.countryRecord);
+                    MainContainerController.selectMapboxGlCountry(me.mapBoxView, me.countryRecord);
                 }
 
-                activeView.autoResize();
+                me.mapBoxView.autoResize();
             } else if (activeView.ntype === 'covid-world-map' && me.data) {
                 if (!me.worldMapHasData) {
                     activeView.loadData(me.data);
                     me.worldMapHasData = true;
                 }
-            } else {
-                // todo: instead of a timeout this should add a store load listener (single: true)
-                setTimeout(() => {
-                    if (me.data) {
-                        if (country) {
-                            countryField.value = country;
-                        } else {
-                            value.country = 'all';
-                        }
+            }
 
-                        switch(activeView.ntype) {
-                            case 'gallery':
-                                if (!selectionModel.isSelected(country)) {
-                                    selectionModel.select(country, false);
-                                }
-                                break;
-                            case 'helix':
-                                if (!selectionModel.isSelected(country)) {
-                                    selectionModel.select(country, false);
-                                    activeView.onKeyDownSpace(null);
-                                }
-                                break;
-                            case 'table-container':
-                                id = selectionModel.getRowId(activeView.store.indexOf(country));
+            // todo: instead of a timeout this should add a store load listener (single: true)
+            setTimeout(() => {
+                if (me.data) {
+                    if (country) {
+                        countryField.value = country;
+                    } else {
+                        value.country = 'all';
+                    }
 
-                                me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(country)});
-
-                                if (!selectionModel.isSelected(id)) {
-                                    selectionModel.select(id);
-                                    Neo.main.DomAccess.scrollToTableRow({id: id});
-                                }
-                                break;
+                    if (activeView.ntype === 'gallery') {
+                        if (!selectionModel.isSelected(country)) {
+                            selectionModel.select(country, false);
                         }
                     }
-                }, delaySelection);
-            }
+
+                    if (activeView.ntype === 'helix' || me.connectedApps.includes('Covid3')) {
+                        if (!selectionModel.isSelected(country)) {
+                            selectionModel.select(country, false);
+                            activeView.onKeyDownSpace(null);
+                        }
+                    }
+
+                    if (activeView.ntype === 'table-container') {
+                        id = selectionModel.getRowId(activeView.store.indexOf(country));
+
+                        me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(country)});
+
+                        if (!selectionModel.isSelected(id)) {
+                            selectionModel.select(id);
+                            Neo.main.DomAccess.scrollToTableRow({id: id});
+                        }
+                    }
+                }
+            }, delaySelection);
         }
 
         me.firstHashChange = false;
