@@ -53,6 +53,11 @@ class MainContainerController extends ComponentController {
          */
         data: null,
         /**
+         * Internal flag to prevent non main windows from triggering their initial route as a change
+         * @member {Boolean} firstHashChange=true
+         */
+        firstHashChange: true,
+        /**
          * @member {String[]} mainTabs=['table', 'mapboxglmap', 'worldmap', 'gallery', 'helix', 'attribution']
          * @private
          */
@@ -480,81 +485,86 @@ class MainContainerController extends ComponentController {
             delaySelection    = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
             id;
 
-        tabContainer.activeIndex = activeIndex;
-        me.activeMainTabIndex    = activeIndex;
+        if (me.firstHashChange || value.appName) {console.log('onHashChange', value);
 
-        if (activeView.ntype === 'helix') {
-            activeView.getOffsetValues();
-        }
+            tabContainer.activeIndex = activeIndex;
+            me.activeMainTabIndex    = activeIndex;
 
-        // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
-
-        if (me.data && activeView.store && activeView.store.getCount() < 1) {
-            activeView.store.data = me.data;
-            delaySelection = 500;
-        }
-
-        // todo: https://github.com/neomjs/neo/issues/483
-        // quick hack. selectionModels update the vdom of the table.Container.
-        // if table.View is vdom updating, this can result in a 2x rendering of all rows.
-        if (delaySelection === 1000 && activeView.ntype === 'table-container') {
-            delaySelection = 2000;
-        }
-
-        if (activeView.ntype === 'mapboxgl' && me.data) {
-            if (!me.mapboxglMapHasData) {
-                activeView.data = me.data;
-                me.mapboxglMapHasData = true;
+            if (activeView.ntype === 'helix') {
+                activeView.getOffsetValues();
             }
 
-            // console.log(countryField.getRecord());
+            // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
 
-            if (me.countryRecord) {
-                MainContainerController.selectMapboxGlCountry(activeView, me.countryRecord);
+            if (me.data && activeView.store && activeView.store.getCount() < 1) {
+                activeView.store.data = me.data;
+                delaySelection = 500;
             }
 
-            activeView.autoResize();
-        } else if (activeView.ntype === 'covid-world-map' && me.data) {
-            if (!me.worldMapHasData) {
-                activeView.loadData(me.data);
-                me.worldMapHasData = true;
+            // todo: https://github.com/neomjs/neo/issues/483
+            // quick hack. selectionModels update the vdom of the table.Container.
+            // if table.View is vdom updating, this can result in a 2x rendering of all rows.
+            if (delaySelection === 1000 && activeView.ntype === 'table-container') {
+                delaySelection = 2000;
             }
-        } else {
-            // todo: instead of a timeout this should add a store load listener (single: true)
-            setTimeout(() => {
-                if (me.data) {
-                    if (country) {
-                        countryField.value = country;
-                    } else {
-                        value.country = 'all';
-                    }
 
-                    switch(activeView.ntype) {
-                        case 'gallery':
-                            if (!selectionModel.isSelected(country)) {
-                                selectionModel.select(country, false);
-                            }
-                            break;
-                        case 'helix':
-                            if (!selectionModel.isSelected(country)) {
-                                selectionModel.select(country, false);
-                                activeView.onKeyDownSpace(null);
-                            }
-                            break;
-                        case 'table-container':
-                            id = selectionModel.getRowId(activeView.store.indexOf(country));
-
-                            me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(country)});
-
-                            if (!selectionModel.isSelected(id)) {
-                                selectionModel.select(id);
-                                Neo.main.DomAccess.scrollToTableRow({id: id});
-                            }
-                            break;
-                    }
+            if (activeView.ntype === 'mapboxgl' && me.data) {
+                if (!me.mapboxglMapHasData) {
+                    activeView.data = me.data;
+                    me.mapboxglMapHasData = true;
                 }
-            }, delaySelection);
+
+                // console.log(countryField.getRecord());
+
+                if (me.countryRecord) {
+                    MainContainerController.selectMapboxGlCountry(activeView, me.countryRecord);
+                }
+
+                activeView.autoResize();
+            } else if (activeView.ntype === 'covid-world-map' && me.data) {
+                if (!me.worldMapHasData) {
+                    activeView.loadData(me.data);
+                    me.worldMapHasData = true;
+                }
+            } else {
+                // todo: instead of a timeout this should add a store load listener (single: true)
+                setTimeout(() => {
+                    if (me.data) {
+                        if (country) {
+                            countryField.value = country;
+                        } else {
+                            value.country = 'all';
+                        }
+
+                        switch(activeView.ntype) {
+                            case 'gallery':
+                                if (!selectionModel.isSelected(country)) {
+                                    selectionModel.select(country, false);
+                                }
+                                break;
+                            case 'helix':
+                                if (!selectionModel.isSelected(country)) {
+                                    selectionModel.select(country, false);
+                                    activeView.onKeyDownSpace(null);
+                                }
+                                break;
+                            case 'table-container':
+                                id = selectionModel.getRowId(activeView.store.indexOf(country));
+
+                                me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(country)});
+
+                                if (!selectionModel.isSelected(id)) {
+                                    selectionModel.select(id);
+                                    Neo.main.DomAccess.scrollToTableRow({id: id});
+                                }
+                                break;
+                        }
+                    }
+                }, delaySelection);
+            }
         }
+
+        me.firstHashChange = false;
     }
 
     /**
