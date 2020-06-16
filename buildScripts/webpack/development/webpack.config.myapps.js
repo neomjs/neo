@@ -33,7 +33,7 @@ module.exports = env => {
           entry    = {};
 
     if (config.apps) {
-        Object.entries(config.apps).forEach(([key, value]) => {
+        Object.keys(config.apps).forEach(key => {
             choices.push(key);
         });
 
