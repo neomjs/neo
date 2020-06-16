@@ -217,11 +217,6 @@ class Gallery extends Component {
         });
 
         me.domListeners = domListeners;
-
-        me.on({
-            mounted: me.onMounted,
-            scope  : me
-        });
     }
 
     /**
@@ -237,7 +232,7 @@ class Gallery extends Component {
         }
 
         // load data for the example collection
-        if (me.store instanceof Store !== true) {
+        if (!(me.store instanceof Store)) {
             Neo.Xhr.promiseJson({
                 insideNeo: true,
                 url      : '../../resources/examples/data/ai_contacts.json'
@@ -282,6 +277,44 @@ class Gallery extends Component {
                 me.createItems(oldValue);
             }
         }
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @private
+     */
+    afterSetMounted(value, oldValue) {
+        let me = this;
+
+        setTimeout(() => {
+            Neo.currentWorker.promiseMessage('main', {
+                action    : 'readDom',
+                appName   : me.appName,
+                vnodeId   : me.id,
+                attributes: [
+                    'offsetHeight',
+                    'offsetWidth'
+                ]
+            }).then(data => {
+                me.offsetHeight = data.attributes.offsetHeight;
+                me.offsetWidth  = data.attributes.offsetWidth;
+
+                if (me.selectOnMount) {
+                    let selection = me.selectionModel.getSelection(),
+                        key       = selection.length > 0 && selection[0];
+
+                    if (!key) {
+                        let index = parseInt(Math.min(me.maxItems, me.store.getCount()) / me.amountRows);
+
+                        key = me.store.getKeyAt(index);
+                    }
+
+                    me.selectionModel.select(key);
+                }
+            });
+        }, 200);
     }
 
     /**
@@ -607,42 +640,6 @@ class Gallery extends Component {
             me.fire('changeTranslateX', me._translateX);
             me.fire('changeTranslateZ', me._translateZ);
         }
-    }
-
-    /**
-     *
-     */
-    onMounted() {
-        let me = this;
-
-        // todo: mount event
-        setTimeout(() => {
-            Neo.currentWorker.promiseMessage('main', {
-                action    : 'readDom',
-                appName   : me.appName,
-                vnodeId   : me.id,
-                attributes: [
-                    'offsetHeight',
-                    'offsetWidth'
-                ]
-            }).then(data => {
-                me.offsetHeight = data.attributes.offsetHeight;
-                me.offsetWidth  = data.attributes.offsetWidth;
-
-                if (me.selectOnMount) {
-                    let selection = me.selectionModel.getSelection(),
-                        key       = selection.length > 0 && selection[0];
-
-                    if (!key) {
-                        let index = parseInt(Math.min(me.maxItems, me.store.getCount()) / me.amountRows);
-
-                        key = me.store.getKeyAt(index);
-                    }
-
-                    me.selectionModel.select(key);
-                }
-            });
-        }, 200);
     }
 
     /**

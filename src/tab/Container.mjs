@@ -358,6 +358,7 @@ class Container extends BaseContainer {
                     click: {
                         fn: function(data) {
                             me.activeIndex = Neo.getComponent(data.target.id).index;
+                            console.log(me.activeIndex);
                         },
                         scope: me
                     }
@@ -426,7 +427,7 @@ class Container extends BaseContainer {
             tabBar.insert(index, me.getTabButtonConfig(tabButtonConfig, index));
 
             // todo: non index based matching of tab buttons and cards
-            i   = index + 1;
+            i   = 0;
             len = tabBar.items.length;
 
             for (; i < len; i++) {
@@ -519,7 +520,7 @@ class Container extends BaseContainer {
         }
 
         // todo: non index based matching of tab buttons and cards
-        i   = index;
+        i   = 0;
         len = tabBar.items.length;
 
         for (; i < len; i++) {

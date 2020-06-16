@@ -104,9 +104,10 @@ class MainContainerController extends ComponentController {
 
         setTimeout(() => {
             Object.assign(me, {
-                helixView : me.getReference('helix'),
-                mapBoxView: me.getReference('mapboxglmap'),
-                tableView : me.getReference('table')
+                galleryView: me.getReference('gallery'),
+                helixView  : me.getReference('helix'),
+                mapBoxView : me.getReference('mapboxglmap'),
+                tableView  : me.getReference('table')
             });
         }, 1);
     }
@@ -436,8 +437,9 @@ class MainContainerController extends ComponentController {
                 });
                 break;
             case 'CovidChart':
-            case 'CovidHelix':
             case 'CovidGallery':
+            case 'CovidHelix':
+            case 'CovidMap':
                 view = parentView.items[0];
                 break;
         }
@@ -549,9 +551,9 @@ class MainContainerController extends ComponentController {
                         value.country = 'all';
                     }
 
-                    if (activeView.ntype === 'gallery') {
-                        if (!selectionModel.isSelected(country)) {
-                            selectionModel.select(country, false);
+                    if (activeView.ntype === 'gallery' || me.connectedApps.includes('CovidGallery')) {
+                        if (!me.galleryView.selectionModel.isSelected(country)) {
+                            me.galleryView.selectionModel.select(country, false);
                         }
                     }
 
