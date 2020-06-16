@@ -103,8 +103,11 @@ class MainContainerController extends ComponentController {
         });
 
         setTimeout(() => {
-            me.helixView  = me.getReference('helix');
-            me.mapBoxView = me.getReference('mapboxglmap');
+            Object.assign(me, {
+                helixView: me.getReference('helix'),
+                mapBoxView: me.getReference('mapboxglmap'),
+                tableView: me.getReference('table')
+            });
         }, 1);
     }
 
@@ -122,7 +125,6 @@ class MainContainerController extends ComponentController {
         // might get removed by the NovelCovid API
         if (data[0] && data[0].country === 'World') {
             const worldData = data.shift();
-            console.log(worldData);
         }
 
         data.forEach(item => {
@@ -471,7 +473,7 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} data
      */
-    onCountryFieldSelect(data) {
+    onCountryFieldSelect(data) {console.log('onCountryFieldSelect', data);
         this.countryRecord = data.record;
 
         Neo.Main.editRoute({
@@ -495,8 +497,6 @@ class MainContainerController extends ComponentController {
             id, selectionModel;
 
         if (me.firstHashChange || value.appName) {console.log('onHashChange', value);
-            console.log('####', activeIndex, activeView);
-
             selectionModel = activeView.selectionModel;
 
             tabContainer.activeIndex = activeIndex;
@@ -519,21 +519,8 @@ class MainContainerController extends ComponentController {
             if (delaySelection === 1000 && activeView.ntype === 'table-container') {
                 delaySelection = 2000;
             }
-console.log(me.connectedApps.includes('Covid4'), me.data);
-            if ((activeView.ntype === 'mapboxgl' || me.connectedApps.includes('Covid4')) && me.data) {
-                if (!me.mapboxglMapHasData) {
-                    me.mapBoxView.data = me.data;
-                    me.mapboxglMapHasData = true;
-                }
 
-                console.log(me.countryRecord, countryField.getRecord());
-
-                if (me.countryRecord) {
-                    MainContainerController.selectMapboxGlCountry(me.mapBoxView, me.countryRecord);
-                }
-
-                me.mapBoxView.autoResize();
-            } else if (activeView.ntype === 'covid-world-map' && me.data) {
+            if (activeView.ntype === 'covid-world-map' && me.data) {
                 if (!me.worldMapHasData) {
                     activeView.loadData(me.data);
                     me.worldMapHasData = true;
@@ -560,6 +547,19 @@ console.log(me.connectedApps.includes('Covid4'), me.data);
                             me.helixView.selectionModel.select(country, false);
                             me.helixView.onKeyDownSpace(null);
                         }
+                    }
+
+                    if ((activeView.ntype === 'mapboxgl' || me.connectedApps.includes('Covid4')) && me.data) {
+                        if (!me.mapboxglMapHasData) {
+                            me.mapBoxView.data = me.data;
+                            me.mapboxglMapHasData = true;
+                        }
+
+                        if (me.countryRecord) {
+                            MainContainerController.selectMapboxGlCountry(me.mapBoxView, me.tableView.store.get(country));
+                        }
+
+                        me.mapBoxView.autoResize();
                     }
 
                     if (activeView.ntype === 'table-container') {
