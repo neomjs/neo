@@ -358,7 +358,6 @@ class Container extends BaseContainer {
                     click: {
                         fn: function(data) {
                             me.activeIndex = Neo.getComponent(data.target.id).index;
-                            console.log(me.activeIndex);
                         },
                         scope: me
                     }

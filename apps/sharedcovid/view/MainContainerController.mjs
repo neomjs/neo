@@ -454,9 +454,9 @@ class MainContainerController extends ComponentController {
                     me.getReference('table-container').add(view);
                     break;
                 case 'CovidGallery':
-                    index = me.connectedApps.includes('CovidMap') ? 3 : 2;
+                    index = me.connectedApps.includes('CovidMap') ? 2 : 3;
                     me.getReference('tab-container').insert(index, view);
-                    me.mainTabs.splice(1, 0, 'gallery');
+                    me.mainTabs.splice(index, 0, 'gallery');
                     break;
                 case 'CovidHelix':
                     index = 4;
