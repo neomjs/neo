@@ -32,6 +32,11 @@ class HashHistory extends Base {
          */
         singleton: true,
         /**
+         * @member {Number} maxItems=50
+         * @private
+         */
+        maxItems: 50,
+        /**
          * @member {Array} stack=[]
          * @private
          */
@@ -65,6 +70,11 @@ class HashHistory extends Base {
         let me = this;
 
         me.stack.unshift(data);
+
+        if (me.stack.length > me.maxItems) {
+            me.stack.length = me.maxItems;
+        }
+
         me.fire('change', data, me.stack[1]);
     }
 }
