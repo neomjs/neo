@@ -326,18 +326,6 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @param {Object} data
-     */
-    onCountryFieldSelect(data) {
-        this.countryRecord = data.record;
-
-        Neo.Main.editRoute({
-            country: data.value
-        });
-    }
-
-    /**
-     *
      * @param {Object} value
      * @param {Object} oldValue
      */
