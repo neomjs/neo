@@ -391,10 +391,12 @@ class DomEvents extends Base {
               hashString = location.hash.substr(1);
 
         Manager.sendMessage('app', {
-            action    : 'hashChange',
-            appName   : Manager.appName,
-            hash      : this.parseHash(hashString),
-            hashString: hashString
+            action: 'hashChange',
+            data  : {
+                appName   : Manager.appName,
+                hash      : this.parseHash(hashString),
+                hashString: hashString
+            }
         });
     }
 

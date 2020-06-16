@@ -468,11 +468,11 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} value
      * @param {Object} oldValue
-     * @param {String} hashString
      */
-    onHashChange(value, oldValue, hashString) {
+    onHashChange(value, oldValue) {
         let me                = this,
-            activeIndex       = me.getTabIndex(value),
+            activeIndex       = me.getTabIndex(value.hash),
+            country           = value.hash && value.hash.country,
             countryField      = me.getReference('country-field'),
             tabContainer      = me.getReference('tab-container'),
             activeView        = me.getView(activeIndex),
@@ -523,28 +523,28 @@ class MainContainerController extends ComponentController {
             // todo: instead of a timeout this should add a store load listener (single: true)
             setTimeout(() => {
                 if (me.data) {
-                    if (value.country) {
-                        countryField.value = value.country;
+                    if (country) {
+                        countryField.value = country;
                     } else {
                         value.country = 'all';
                     }
 
                     switch(activeView.ntype) {
                         case 'gallery':
-                            if (!selectionModel.isSelected(value.country)) {
-                                selectionModel.select(value.country, false);
+                            if (!selectionModel.isSelected(country)) {
+                                selectionModel.select(country, false);
                             }
                             break;
                         case 'helix':
-                            if (!selectionModel.isSelected(value.country)) {
-                                selectionModel.select(value.country, false);
+                            if (!selectionModel.isSelected(country)) {
+                                selectionModel.select(country, false);
                                 activeView.onKeyDownSpace(null);
                             }
                             break;
                         case 'table-container':
-                            id = selectionModel.getRowId(activeView.store.indexOf(value.country));
+                            id = selectionModel.getRowId(activeView.store.indexOf(country));
 
-                            me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(value.country)});
+                            me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(country)});
 
                             if (!selectionModel.isSelected(id)) {
                                 selectionModel.select(id);
