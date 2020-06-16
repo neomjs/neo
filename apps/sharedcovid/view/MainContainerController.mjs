@@ -377,21 +377,27 @@ class MainContainerController extends ComponentController {
         switch (name) {
             case 'Covid2':
                 view = me.getReference('controls-panel');
+                parentView = Neo.getComponent(view.parentId);
+                parentView.storeReferences();
                 break;
             case 'Covid3':
                 view = me.getReference('helix-container');
                 NeoArray.remove(me.mainTabs, 'helix');
+                me.activeMainTabIndex--;
+                Neo.Main.editRoute({mainview: me.mainTabs[me.activeMainTabIndex]});
                 break;
             case 'Covid4':
                 view = me.getReference('mapbox-gl-container');
                 NeoArray.remove(me.mainTabs, 'mapboxglmap');
+                me.activeMainTabIndex--;
+                Neo.Main.editRoute({mainview: me.mainTabs[me.activeMainTabIndex]});
                 break;
         }
 
         if (view) {
             NeoArray.add(me.connectedApps, name);
 
-            parentView = view.isTab ? view.up('tab-container') : Neo.getComponent(view.parentId);
+            parentView = parentView ? parentView : view.isTab ? view.up('tab-container') : Neo.getComponent(view.parentId);
             parentView.remove(view, false);
 
             Neo.apps[name].on('render', () => {
@@ -485,11 +491,13 @@ class MainContainerController extends ComponentController {
             countryField      = me.getReference('country-field'),
             tabContainer      = me.getReference('tab-container'),
             activeView        = me.getView(activeIndex),
-            selectionModel    = activeView.selectionModel,
             delaySelection    = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
-            id;
+            id, selectionModel;
 
         if (me.firstHashChange || value.appName) {console.log('onHashChange', value);
+            console.log('####', activeIndex, activeView);
+
+            selectionModel = activeView.selectionModel;
 
             tabContainer.activeIndex = activeIndex;
             me.activeMainTabIndex    = activeIndex;
@@ -511,14 +519,14 @@ class MainContainerController extends ComponentController {
             if (delaySelection === 1000 && activeView.ntype === 'table-container') {
                 delaySelection = 2000;
             }
-
+console.log(me.connectedApps.includes('Covid4'), me.data);
             if ((activeView.ntype === 'mapboxgl' || me.connectedApps.includes('Covid4')) && me.data) {
                 if (!me.mapboxglMapHasData) {
                     me.mapBoxView.data = me.data;
                     me.mapboxglMapHasData = true;
                 }
 
-                // console.log(countryField.getRecord());
+                console.log(me.countryRecord, countryField.getRecord());
 
                 if (me.countryRecord) {
                     MainContainerController.selectMapboxGlCountry(me.mapBoxView, me.countryRecord);
@@ -548,9 +556,9 @@ class MainContainerController extends ComponentController {
                     }
 
                     if (activeView.ntype === 'helix' || me.connectedApps.includes('Covid3')) {
-                        if (!selectionModel.isSelected(country)) {
-                            selectionModel.select(country, false);
-                            activeView.onKeyDownSpace(null);
+                        if (!me.helixView.selectionModel.isSelected(country)) {
+                            me.helixView.selectionModel.select(country, false);
+                            me.helixView.onKeyDownSpace(null);
                         }
                     }
 

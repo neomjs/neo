@@ -164,6 +164,13 @@ class TableContainer extends Container {
 
         me.items[0].items.push(me.table);
     }
+
+    /**
+     *
+     */
+    storeReferences() {
+        this.controller.storeReferences();
+    }
 }
 
 Neo.applyClassConfig(TableContainer);
