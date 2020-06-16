@@ -366,7 +366,6 @@ class MapboxGL extends Base {
                 })
             } else if (me.dataMap[data.id]) {
                 me.updateData(me.dataMap[data.id]);
-                delete me.dataMap[data.id];
             }
         }, 100);
     }
@@ -481,6 +480,9 @@ class MapboxGL extends Base {
 
             if (source) {
                 source.setData(data.data);
+                delete me.dataMap[data.id];
+            } else {
+                me.dataMap[data.id] = data;
             }
         }
     }
