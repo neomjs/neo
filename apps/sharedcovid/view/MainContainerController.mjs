@@ -104,9 +104,9 @@ class MainContainerController extends ComponentController {
 
         setTimeout(() => {
             Object.assign(me, {
-                helixView: me.getReference('helix'),
+                helixView : me.getReference('helix'),
                 mapBoxView: me.getReference('mapboxglmap'),
-                tableView: me.getReference('table')
+                tableView : me.getReference('table')
             });
         }, 1);
     }
