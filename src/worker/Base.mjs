@@ -1,7 +1,7 @@
 import {default as CoreBase} from '../core/Base.mjs';
 import Observable            from '../core/Observable.mjs';
 import Message               from './Message.mjs';
-import RemoteMethodAccess    from './mixins/RemoteMethodAccess.mjs';
+import RemoteMethodAccess    from './mixin/RemoteMethodAccess.mjs';
 
 /**
  * The abstract base class for the App, Data & VDom worker
@@ -37,6 +37,11 @@ class Base extends CoreBase {
          */
         mixins: [Observable, RemoteMethodAccess],
         /**
+         * Only needed for SharedWorkers
+         * @member {Array|null} ports=null
+         */
+        ports : null,
+        /**
          * @member {String|null} workerId=null
          * @private
          */
@@ -52,8 +57,11 @@ class Base extends CoreBase {
 
         let me = this;
 
-        me.isSharedWorker = self.toString() === '[object SharedWorkerGlobalScope]'
-        me.promises       = {};
+        Object.assign(me, {
+            isSharedWorker: self.toString() === '[object SharedWorkerGlobalScope]',
+            ports         : [],
+            promises      : {}
+        });
 
         if (me.isSharedWorker) {
             self.onconnect = me.onConnected.bind(me);
@@ -63,6 +71,32 @@ class Base extends CoreBase {
 
         Neo.workerId      = me.workerId;
         Neo.currentWorker = me;
+    }
+
+    /**
+     *
+     * @param {Object} opts
+     * @return {Object|null}
+     */
+    getPort(opts) {
+        let returnPort = null,
+            hasMatch;
+
+        this.ports.forEach(port => {
+            hasMatch = true;
+
+            Object.entries(opts).forEach(([key, value]) => {
+                if (value !== port[key]) {
+                    hasMatch = false;
+                }
+            });
+
+            if (hasMatch) {
+                returnPort = port;
+            }
+        });
+
+        return returnPort;
     }
 
     /**
@@ -81,20 +115,31 @@ class Base extends CoreBase {
      * @param {Object} e
      */
     onConnected(e) {
-        let me = this;
+        let me = this,
+            id = Neo.getId('port');
 
         me.isConnected = true;
-        me.port        = e.ports[0]; // todo: create a map for new ports
 
-        me.port.onmessage = me.onMessage.bind(me);
+        me.ports.push({
+            appName: null,
+            id     : id,
+            port   : e.ports[0]
+        });
+
+        me.ports[me.ports.length - 1].port.onmessage = me.onMessage.bind(me);
 
         me.fire('connected');
 
         // todo: find a better way to ensure the remotes are registered before triggering workerConstructed
         setTimeout(() => {
-            me.sendMessage('main', {action: 'workerConstructed'});
+            me.sendMessage('main', {action: 'workerConstructed', port: id});
         }, 100);
     }
+
+    /**
+     * Only relevant for SharedWorkers
+     */
+    onDisconnect(data) {}
 
     /**
      *
@@ -175,6 +220,23 @@ class Base extends CoreBase {
     }
 
     /**
+     * Only needed for SharedWorkers
+     * @param {String} name
+     */
+    registerApp(name) {
+        this.ports.forEach(port => {
+            if (!port.appName) {
+                port.appName = name;
+
+                this.sendMessage('main', {
+                    action :'registerAppName',
+                    appName: name
+                });
+            }
+        });
+    }
+
+    /**
      * @param {String} dest app, data, main or vdom (excluding the current worker)
      * @param {Object} opts configs for Neo.worker.Message
      * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.
@@ -186,9 +248,27 @@ class Base extends CoreBase {
     sendMessage(dest, opts, transfer) {
         opts.destination = dest;
 
-        let message = new Message(opts);
+        let me = this,
+            message, port, portObject;
 
-        (this.isSharedWorker ? this.port : self).postMessage(message, transfer);
+        if (!me.isSharedWorker) {
+            port = self;
+        } else {
+            if (opts.port) {
+                port = me.getPort({id: opts.port}).port;
+            } else if (opts.appName) {
+                portObject = me.getPort({appName: opts.appName});
+                port       = portObject.port;
+
+                opts.port = portObject.id;
+            } else {
+                port = me.ports[0].port;
+            }
+        }
+
+        message = new Message(opts);
+
+        port.postMessage(message, transfer);
         return message;
     }
 }

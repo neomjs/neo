@@ -63,6 +63,7 @@ class AmCharts extends Base {
             app: [
                 'callMethod',
                 'create',
+                'destroy',
                 'setProperties',
                 'setProperty',
                 'updateData'
@@ -146,12 +147,14 @@ class AmCharts extends Base {
 
     /**
      *
-     * @param {Object} data
+     * @param {Object}  data
      * @param {Boolean} data.combineSeriesTooltip
-     * @param {Object} data.config
-     * @param {String} data.id
-     * @param {String} data.package
-     * @param {String} data.type='XYChart'
+     * @param {Object}  data.config
+     * @param {Array}   [data.data]
+     * @param {String}  [data.dataPath]
+     * @param {String}  data.id
+     * @param {String}  data.package
+     * @param {String}  data.type='XYChart'
      */
     create(data) {
         const me = this;
@@ -168,11 +171,27 @@ class AmCharts extends Base {
             }
 
             // in case data has arrived before the chart got created, apply it now
-            if (me.dataMap[data.id]) {
+            if (data.data) {
+                me.updateData({
+                    data    : data.data,
+                    dataPath: data.dataPath,
+                    id      : data.id
+                });
+            } else if (me.dataMap[data.id]) {
                 me.updateData(me.dataMap[data.id]);
                 delete me.dataMap[data.id];
             }
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    destroy(data) {
+        this.charts[data.id].dispose();
+        delete this.charts[data.id];
     }
 
     /**

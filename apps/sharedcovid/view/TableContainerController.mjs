@@ -222,6 +222,7 @@ class TableContainerController extends ComponentController {
         }
 
         Neo.main.addon.AmCharts.setProperties({
+            appName   : this.view.appName,
             id        : chartId,
             properties: {
                 'series.values.0.dataFields.valueY' : value ? 'dailyActive'    : 'active',
@@ -232,8 +233,9 @@ class TableContainerController extends ComponentController {
         });
 
         Neo.main.addon.AmCharts.callMethod({
-            id  : chartId,
-            path: 'invalidateData'
+            appName: logCheckbox.appName,
+            id     : chartId,
+            path   : 'invalidateData'
         });
     }
 
@@ -241,10 +243,13 @@ class TableContainerController extends ComponentController {
      * {Object} data
      */
     onLogarithmicScaleChange(data) {
+        const lineChart = this.getReference('line-chart');
+
         Neo.main.addon.AmCharts.setProperty({
-            id   : this.getReference('line-chart').id,
-            path : 'yAxes.values.0.logarithmic',
-            value: data.value
+            appName: lineChart.appName,
+            id     : lineChart.id,
+            path   : 'yAxes.values.0.logarithmic',
+            value  : data.value
         });
     }
 
@@ -266,6 +271,14 @@ class TableContainerController extends ComponentController {
         me.loadHistoricalData(record && record.countryInfo && record.countryInfo.iso2 || 'all');
 
         me.getReference('historical-data-label').html = 'Historical Data (' + (record && record.country || 'World') + ')';
+    }
+
+    /**
+     *
+     */
+    storeReferences() {
+        this.getReference('line-chart');
+        this.getReference('logarithmic-scale-checkbox');
     }
 
     /**
@@ -291,11 +304,7 @@ class TableContainerController extends ComponentController {
             });
         }
 
-        Neo.main.addon.AmCharts.updateData({
-            data    : dataArray,
-            dataPath: chart.dataPath,
-            id      : chart.id
-        });
+        chart.data = dataArray;
     }
 }
 

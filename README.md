@@ -54,7 +54,7 @@ the following concepts will be addictive.
 All Blog posts are stored here:
 <a href="https://github.com/neomjs/neo/projects/14">neo/projects/14</a>.</br>
 Latest article:
-> How to create a webworkers driven multithreading App — Part 1
+> neo.mjs v1.2.5 → Support for SharedWorkers including Firefox
 
 <!-- COVID19 IN NUMBERS Demo App -->
 <h2 id="covid19-app">COVID19 IN NUMBERS Demo App</h2>

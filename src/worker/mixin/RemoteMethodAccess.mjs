@@ -1,16 +1,16 @@
 import Base from '../../core/Base.mjs';
 
 /**
- * @class Neo.worker.mixins.RemoteMethodAccess
+ * @class Neo.worker.mixin.RemoteMethodAccess
  * @extends Neo.core.Base
  */
 class RemoteMethodAccess extends Base {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.worker.mixins.RemoteMethodAccess'
+         * @member {String} className='Neo.worker.mixin.RemoteMethodAccess'
          * @private
          */
-        className: 'Neo.worker.mixins.RemoteMethodAccess',
+        className: 'Neo.worker.mixin.RemoteMethodAccess',
         /**
          * @member {String} ntype='mixin-remote-method-access'
          * @private
@@ -41,6 +41,12 @@ class RemoteMethodAccess extends Base {
                 remoteClassName: remote.className,
                 remoteMethod   : method
             };
+
+            if (me.isSharedWorker) {
+                opts.appName = opts.appName || data && data.appName;
+                opts.port    = opts.port    || data && data.port;
+            }
+
             return me.promiseMessage(origin, opts, buffer);
         };
     }
@@ -53,18 +59,23 @@ class RemoteMethodAccess extends Base {
         if (remote.destination === Neo.workerId) {
             let me        = this,
                 className = remote.className,
+                exists    = false,
                 methods   = remote.methods,
                 pkg       = Neo.ns(className, true);
 
             methods.forEach(function(method) {
-                if (pkg[method]) {
+                if (remote.origin !== 'main' && pkg[method]) {
                     throw new Error('Duplicate remote method definition ' + className + '.' + method);
                 }
 
-                pkg[method] = me.generateRemote(remote, method);
+                if (!pkg[method] ) {
+                    pkg[method] = me.generateRemote(remote, method);
+                } else {
+                    exists = true;
+                }
             });
 
-            if (Neo.workerId !== 'main') {
+            if (!exists && Neo.workerId !== 'main') {
                 me.fire('remoteregistered', remote);
             }
         }
@@ -96,10 +107,10 @@ class RemoteMethodAccess extends Base {
         }
 
         if (out instanceof Promise) {
-            out.then(function(data) {
+            out.then(data => {
                 me.resolve(msg, data);
             })
-            .catch(function(err) {
+            .catch(err => {
                 me.reject(msg, err);
             });
         } else {
@@ -113,12 +124,19 @@ class RemoteMethodAccess extends Base {
      * @param {Object} data
      */
     reject(msg, data) {
-        this.sendMessage(msg.origin, {
+        let opts = {
             action : 'reply',
             data   : data,
             reject : true,
             replyId: msg.id
-        });
+        };
+
+        if (this.isSharedWorker) {
+            opts.appName = msg.appName;
+            opts.port    = msg.port;
+        }
+
+        this.sendMessage(msg.origin, opts);
     }
 
     /**
@@ -127,11 +145,18 @@ class RemoteMethodAccess extends Base {
      * @param {Object} data
      */
     resolve(msg, data) {
-        this.sendMessage(msg.origin, {
+        let opts = {
             action : 'reply',
             data   : data,
             replyId: msg.id
-        });
+        };
+
+        if (this.isSharedWorker) {
+            opts.appName = msg.appName;
+            opts.port    = msg.port;
+        }
+
+        this.sendMessage(msg.origin, opts);
     }
 }
 

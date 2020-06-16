@@ -43,15 +43,22 @@ class App extends Base {
     }}
 
     /**
-     *
-     * @param {Object} config
+     * Only needed for the SharedWorkers context
+     * @param {String} appName
+     * @param {String} eventName
      */
-    constructor(config) {
-        super(config);
+    fireMainViewsEvent(appName, eventName) {
+        this.ports.forEach(port => {
+            Neo.apps[port.appName].mainViewInstance.fire(eventName, appName);
+        });
+    }
 
-        const me = this;
-
-        me.on('remoteregistered', me.onRemoteRegistered, me);
+    /**
+     * Only relevant for SharedWorkers
+     */
+    onDisconnect(data) {
+        super.onDisconnect(data);
+        this.fireMainViewsEvent(data.appName, 'disconnect');
     }
 
     /**
@@ -67,7 +74,7 @@ class App extends Base {
      * @param {Object} data parsed key-value pairs for each hash value
      */
     onHashChange(data) {
-        HashHistory.push(data.hash, data.hashString);
+        HashHistory.push(data.data);
     }
 
     /**
@@ -86,7 +93,7 @@ class App extends Base {
             Neo.onStart();
 
             if (Neo.config.hash) {
-                HashHistory.push(Neo.config.hash, Neo.config.hashString);
+                setTimeout(() => {HashHistory.push(Neo.config.hash);}, 5);
             }
         } else {
             import(
@@ -95,7 +102,8 @@ class App extends Base {
                     Neo.onStart();
 
                     if (Neo.config.hash) {
-                        HashHistory.push(Neo.config.hash, Neo.config.hashString);
+                        // short delay to ensure Component Controllers are ready
+                        setTimeout(() => {HashHistory.push(Neo.config.hash);}, 5);
                     }
                 }
             );
@@ -103,11 +111,11 @@ class App extends Base {
     }
 
     /**
-     * Keeping this one for debugging reasons
-     * @param {Object} remote
+     *
+     * @param {String} name
      */
-    onRemoteRegistered(remote) {
-        // console.log('app worker onRemoteRegistered');
+    registerMainView(name) {
+        this.fireMainViewsEvent(name, 'connect');
     }
 }
 

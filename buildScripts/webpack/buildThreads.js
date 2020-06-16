@@ -21,7 +21,7 @@ program
     .option('-i, --info',           'print environment debug info')
     .option('-e, --env <name>',     '"all", "dev", "prod"')
     .option('-n, --noquestions')
-    .option('-t, --threads <name>', '"all", "data", "main", "vdom"')
+    .option('-t, --threads <name>', '"all", "app", "data", "main", "vdom"')
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -54,7 +54,7 @@ if (!program.noquestions) {
             type   : 'list',
             name   : 'threads',
             message: 'Please choose the threads to build:',
-            choices: ['all', 'data', 'main', 'vdom'],
+            choices: ['all', 'app', 'data', 'main', 'vdom'],
             default: 'all'
         });
     }
@@ -79,6 +79,7 @@ inquirer.prompt(questions).then(answers => {
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
         if (threads === 'all' || threads === 'main') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.main.js`],                        cpOpts);}
+        if (threads === 'all' || threads === 'app')  {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`, '--env.worker=app'],  cpOpts);}
         if (threads === 'all' || threads === 'data') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`, '--env.worker=data'], cpOpts);}
         if (threads === 'all' || threads === 'vdom') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`, '--env.worker=vdom'], cpOpts);}
     }
@@ -87,6 +88,7 @@ inquirer.prompt(questions).then(answers => {
     if (env === 'all' || env === 'prod') {
         console.log(chalk.blue(`${programName} starting dist/production`));
         if (threads === 'all' || threads === 'main') {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.main.js`],                         cpOpts);}
+        if (threads === 'all' || threads === 'app')  {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.worker.js`, '--env.worker=app'],   cpOpts);}
         if (threads === 'all' || threads === 'data') {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.worker.js`, '--env.worker=data'],  cpOpts);}
         if (threads === 'all' || threads === 'vdom') {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.worker.js`, '--env.worker=vdom'],  cpOpts);}
     }

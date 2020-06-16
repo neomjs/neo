@@ -35,6 +35,11 @@ class Main extends core.Base {
          */
         mode: 'read',
         /**
+         * @member {Object} openWindows={}
+         * @private
+         */
+        openWindows: {},
+        /**
          * @member {Array} readQueue=[]
          * @private
          */
@@ -47,7 +52,10 @@ class Main extends core.Base {
         remote: {
             app: [
                 'editRoute',
-                'setRoute'
+                'getWindowData',
+                'setRoute',
+                'windowClose',
+                'windowOpen'
             ]
         },
         /**
@@ -128,6 +136,35 @@ class Main extends core.Base {
         });
 
         window.location.hash = hashArr.join('&');
+    }
+
+    /**
+     * window.screen is not spreadable
+     * @returns {Object}
+     */
+    getWindowData() {
+        const win    = window,
+              screen = win.screen;
+
+        return {
+            innerHeight: win.innerHeight,
+            innerWidth : win.innerWidth,
+            outerHeight: win.outerHeight,
+            outerWidth : win.outerWidth,
+            screen: {
+                availHeight: screen.availHeight,
+                availLeft  : screen.availLeft,
+                availTop   : screen.availTop,
+                availWidth : screen.availWidth,
+                colorDepth : screen.colorDepth,
+                height     : screen.height,
+                orientation: {angle: screen.orientation.angle, type: screen.orientation.type},
+                pixelDepth : screen.pixelDepth,
+                width      : screen.width
+            },
+            screenLeft: win.screenLeft,
+            screenTop : win.screenTop,
+        };
     }
 
     /**
@@ -334,6 +371,33 @@ class Main extends core.Base {
      */
     setRoute(data) {
         window.location.hash = data.value;
+    }
+
+    /**
+     * Closes popup windows
+     * @param {Object} data
+     * @param {Array|String} data.names
+     */
+    windowClose(data) {
+        if (!Array.isArray(data.names)) {
+            data.names = [data.names];
+        }
+
+        data.names.forEach(name => {
+            this.openWindows[name].close();
+            delete this.openWindows[name];
+        })
+    }
+
+    /**
+     * Open a new popup window
+     * @param {Object} data
+     * @param {String} data.url
+     * @param {String} data.windowFeatures
+     * @param {String} data.windowName
+     */
+    windowOpen(data) {
+        this.openWindows[data.windowName] = window.open(data.url, data.windowName, data.windowFeatures);
     }
 }
 

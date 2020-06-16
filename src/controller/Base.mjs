@@ -41,9 +41,8 @@ class Base extends CoreBase {
      * Placeholder method which gets triggered when the hash inside the browser url changes
      * @param {Object} value
      * @param {Object} oldValue
-     * @param {String} hashString
      */
-    onHashChange(value, oldValue, hashString) {
+    onHashChange(value, oldValue) {
 
     }
 }

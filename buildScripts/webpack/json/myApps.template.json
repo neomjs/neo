@@ -39,8 +39,40 @@
             "input": "myApps/SharedCovid.mjs",
             "output": "/apps/sharedcovid/",
             "themes": "'neo-theme-dark', 'neo-theme-light'",
-            "title": "SharedCovid",
+            "title": "SharedCovid MainWindow",
             "mainThreadAddons": "'AmCharts', 'MapboxGL', 'Stylesheet'",
+            "useSharedWorkers": true
+        },
+        "SharedCovidChart": {
+            "input": "myApps/SharedCovidChart.mjs",
+            "output": "/apps/sharedcovid_chart/",
+            "themes": "'neo-theme-dark', 'neo-theme-light'",
+            "title": "SharedCovid Country Chart / Table",
+            "mainThreadAddons": "'AmCharts', 'Stylesheet'",
+            "useSharedWorkers": true
+        },
+        "SharedCovidGallery": {
+            "input": "myApps/SharedCovidGallery.mjs",
+            "output": "/apps/sharedcovid_gallery/",
+            "themes": "'neo-theme-dark', 'neo-theme-light'",
+            "title": "SharedCovid CountryGallery",
+            "mainThreadAddons": "'Stylesheet'",
+            "useSharedWorkers": true
+        },
+        "SharedCovidHelix": {
+            "input": "myApps/SharedCovidHelix.mjs",
+            "output": "/apps/sharedcovid_helix/",
+            "themes": "'neo-theme-dark', 'neo-theme-light'",
+            "title": "SharedCovid CountryHelix",
+            "mainThreadAddons": "'Stylesheet'",
+            "useSharedWorkers": true
+        },
+        "SharedCovidMap": {
+            "input": "myApps/SharedCovidMap.mjs",
+            "output": "/apps/sharedcovid_map/",
+            "themes": "'neo-theme-dark', 'neo-theme-light'",
+            "title": "SharedCovid MapboxGL Map",
+            "mainThreadAddons": "'MapboxGL', 'Stylesheet'",
             "useSharedWorkers": true
         }
     }

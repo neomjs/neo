@@ -41,6 +41,10 @@ class MainContainerController extends ComponentController {
          */
         apiSummaryUrl: 'https://corona.lmao.ninja/v2/all',
         /**
+         * @member {String[]} connectedApps=[]
+         */
+        connectedApps: [],
+        /**
          * @member {Object|null} countryRecord=null
          */
         countryRecord: null,
@@ -48,6 +52,11 @@ class MainContainerController extends ComponentController {
          * @member {Object[]|null} data=null
          */
         data: null,
+        /**
+         * Internal flag to prevent non main windows from triggering their initial route as a change
+         * @member {Boolean} firstHashChange=true
+         */
+        firstHashChange: true,
         /**
          * @member {String[]} mainTabs=['table', 'mapboxglmap', 'worldmap', 'gallery', 'helix', 'attribution']
          * @private
@@ -68,7 +77,11 @@ class MainContainerController extends ComponentController {
          * @member {Boolean} worldMapHasData=false
          * @private
          */
-        worldMapHasData: false
+        worldMapHasData: false,
+        /**
+         * @member {Object} windowChart=null
+         */
+        windowChart: null,
     }}
 
     /**
@@ -82,7 +95,21 @@ class MainContainerController extends ComponentController {
         me.loadData();
         me.loadSummaryData();
 
-        me.view.on('mounted', me.onMainViewMounted, me);
+        me.view.on({
+            connect   : me.onAppConnect,
+            disconnect: me.onAppDisconnect,
+            mounted   : me.onMainViewMounted,
+            scope     : me
+        });
+
+        setTimeout(() => {
+            Object.assign(me, {
+                galleryView: me.getReference('gallery'),
+                helixView  : me.getReference('helix'),
+                mapBoxView : me.getReference('mapboxglmap'),
+                tableView  : me.getReference('table')
+            });
+        }, 1);
     }
 
     /**
@@ -99,7 +126,6 @@ class MainContainerController extends ComponentController {
         // might get removed by the NovelCovid API
         if (data[0] && data[0].country === 'World') {
             const worldData = data.shift();
-            console.log(worldData);
         }
 
         data.forEach(item => {
@@ -173,6 +199,33 @@ class MainContainerController extends ComponentController {
      */
     clearCountryField(record) {
         this.getReference('country-field').clear();
+    }
+
+    /**
+     * @param {String} containerReference
+     * @param {String} url
+     * @param {String} windowName
+     */
+    createPopupWindow(containerReference, url, windowName) {
+        let me = this;
+
+        Neo.Main.getWindowData().then(winData => {
+            Neo.main.DomAccess.getBoundingClientRect({
+                id: [me.getReference(containerReference).id]
+            }).then(data => {
+                let {height, left, top, width} = data[0];
+
+                height -= 50; // popup header in Chrome
+                left   += winData.screenLeft;
+                top    += (winData.outerHeight - winData.innerHeight + winData.screenTop);
+
+                Neo.Main.windowOpen({
+                    url           : `../${url}/index.html`,
+                    windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+                    windowName    : windowName
+                });
+            });
+        });
     }
 
     /**
@@ -250,6 +303,19 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @param {String} [appName]
+     * @returns {Neo.component.Base}
+     */
+    getMainView(appName) {
+        if (!appName || appName === 'Covid') {
+            return this.view;
+        }
+
+        return Neo.apps[appName].mainViewInstance;
+    }
+
+    /**
+     *
      * @param {Object} hashObject
      * @param {String} hashObject.mainview
      * @return {Number}
@@ -303,6 +369,112 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @param {String} name
+     */
+    onAppConnect(name) {
+        console.log('onAppConnect', name);
+
+        let me = this,
+            parentView, view;
+
+        switch (name) {
+            case 'CovidChart':
+                view = me.getReference('controls-panel');
+                parentView = Neo.getComponent(view.parentId);
+                parentView.storeReferences();
+                break;
+            case 'CovidGallery':
+                view = me.getReference('gallery-container');
+                NeoArray.remove(me.mainTabs, 'gallery');
+                me.activeMainTabIndex--;
+                Neo.Main.editRoute({mainview: me.mainTabs[me.activeMainTabIndex]});
+                break;
+            case 'CovidHelix':
+                view = me.getReference('helix-container');
+                NeoArray.remove(me.mainTabs, 'helix');
+                me.activeMainTabIndex--;
+                Neo.Main.editRoute({mainview: me.mainTabs[me.activeMainTabIndex]});
+                break;
+            case 'CovidMap':
+                view = me.getReference('mapbox-gl-container');
+                NeoArray.remove(me.mainTabs, 'mapboxglmap');
+                me.activeMainTabIndex--;
+                Neo.Main.editRoute({mainview: me.mainTabs[me.activeMainTabIndex]});
+                break;
+        }
+
+        if (view) {
+            NeoArray.add(me.connectedApps, name);
+
+            parentView = parentView ? parentView : view.isTab ? view.up('tab-container') : Neo.getComponent(view.parentId);
+            parentView.remove(view, false);
+
+            Neo.apps[name].on('render', () => {
+                setTimeout(() => {
+                    me.getMainView(name).add(view);
+                }, 100);
+            });
+
+        }
+    }
+
+    /**
+     *
+     * @param {String} name
+     */
+    onAppDisconnect(name) {
+        let me         = this,
+            parentView = me.getMainView(name),
+            view       = parentView.items[0],
+            index;
+
+        console.log('onAppDisconnect', name);
+
+        switch (name) {
+            case 'Covid':
+                Neo.Main.windowClose({
+                    names: me.connectedApps,
+                });
+                break;
+            case 'CovidChart':
+            case 'CovidGallery':
+            case 'CovidHelix':
+            case 'CovidMap':
+                view = parentView.items[0];
+                break;
+        }
+
+        if (view) {
+            NeoArray.remove(me.connectedApps, name);
+
+            parentView.remove(view, false);
+
+            switch (name) {
+                case 'CovidChart':
+                    me.getReference('table-container').add(view);
+                    break;
+                case 'CovidGallery':
+                    index = me.connectedApps.includes('CovidMap') ? 2 : 3;
+                    me.getReference('tab-container').insert(index, view);
+                    me.mainTabs.splice(index, 0, 'gallery');
+                    break;
+                case 'CovidHelix':
+                    index = 4;
+                    index = me.connectedApps.includes('CovidGallery') ? index : index - 1;
+                    index = me.connectedApps.includes('CovidMap')     ? index : index - 1;
+                    me.getReference('tab-container').insert(index, view);
+                    me.mainTabs.splice(index, 0, 'helix');
+                    break;
+                case 'CovidMap':
+                    me.getReference('tab-container').insert(1, view);
+                    me.mainTabs.splice(1, 0, 'mapboxglmap');
+                    break;
+            }
+        }
+    }
+
+    /**
+     *
      */
     onCountryFieldClear() {
         this.countryRecord = null;
@@ -316,7 +488,7 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} data
      */
-    onCountryFieldSelect(data) {
+    onCountryFieldSelect(data) {console.log('onCountryFieldSelect', data);
         this.countryRecord = data.record;
 
         Neo.Main.editRoute({
@@ -328,93 +500,98 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} value
      * @param {Object} oldValue
-     * @param {String} hashString
      */
-    onHashChange(value, oldValue, hashString) {
+    onHashChange(value, oldValue) {
         let me                = this,
-            activeIndex       = me.getTabIndex(value),
+            activeIndex       = me.getTabIndex(value.hash),
+            country           = value.hash && value.hash.country,
             countryField      = me.getReference('country-field'),
             tabContainer      = me.getReference('tab-container'),
             activeView        = me.getView(activeIndex),
-            selectionModel    = activeView.selectionModel,
             delaySelection    = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
-            id;
+            id, selectionModel;
 
-        tabContainer.activeIndex = activeIndex;
-        me.activeMainTabIndex    = activeIndex;
+        if (me.firstHashChange || value.appName) {console.log('onHashChange', value);
+            selectionModel = activeView.selectionModel;
 
-        if (activeView.ntype === 'helix') {
-            activeView.getOffsetValues();
-        }
+            tabContainer.activeIndex = activeIndex;
+            me.activeMainTabIndex    = activeIndex;
 
-        // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
-
-        if (me.data && activeView.store && activeView.store.getCount() < 1) {
-            activeView.store.data = me.data;
-            delaySelection = 500;
-        }
-
-        // todo: https://github.com/neomjs/neo/issues/483
-        // quick hack. selectionModels update the vdom of the table.Container.
-        // if table.View is vdom updating, this can result in a 2x rendering of all rows.
-        if (delaySelection === 1000 && activeView.ntype === 'table-container') {
-            delaySelection = 2000;
-        }
-
-        if (activeView.ntype === 'mapboxgl' && me.data) {
-            if (!me.mapboxglMapHasData) {
-                activeView.data = me.data;
-                me.mapboxglMapHasData = true;
+            if (activeView.ntype === 'helix') {
+                activeView.getOffsetValues();
             }
 
-            // console.log(countryField.getRecord());
+            // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
 
-            if (me.countryRecord) {
-                MainContainerController.selectMapboxGlCountry(activeView, me.countryRecord);
+            if (me.data && activeView.store && activeView.store.getCount() < 1) {
+                activeView.store.data = me.data;
+                delaySelection = 500;
             }
 
-            activeView.autoResize();
-        } else if (activeView.ntype === 'covid-world-map' && me.data) {
-            if (!me.worldMapHasData) {
-                activeView.loadData(me.data);
-                me.worldMapHasData = true;
+            // todo: https://github.com/neomjs/neo/issues/483
+            // quick hack. selectionModels update the vdom of the table.Container.
+            // if table.View is vdom updating, this can result in a 2x rendering of all rows.
+            if (delaySelection === 1000 && activeView.ntype === 'table-container') {
+                delaySelection = 2000;
             }
-        } else {
+
+            if (activeView.ntype === 'covid-world-map' && me.data) {
+                if (!me.worldMapHasData) {
+                    activeView.loadData(me.data);
+                    me.worldMapHasData = true;
+                }
+            }
+
             // todo: instead of a timeout this should add a store load listener (single: true)
             setTimeout(() => {
                 if (me.data) {
-                    if (value.country) {
-                        countryField.value = value.country;
+                    if (country) {
+                        countryField.value = country;
                     } else {
                         value.country = 'all';
                     }
 
-                    switch(activeView.ntype) {
-                        case 'gallery':
-                            if (!selectionModel.isSelected(value.country)) {
-                                selectionModel.select(value.country, false);
-                            }
-                            break;
-                        case 'helix':
-                            if (!selectionModel.isSelected(value.country)) {
-                                selectionModel.select(value.country, false);
-                                activeView.onKeyDownSpace(null);
-                            }
-                            break;
-                        case 'table-container':
-                            id = selectionModel.getRowId(activeView.store.indexOf(value.country));
+                    if (activeView.ntype === 'gallery' || me.connectedApps.includes('CovidGallery')) {
+                        if (!me.galleryView.selectionModel.isSelected(country)) {
+                            me.galleryView.selectionModel.select(country, false);
+                        }
+                    }
 
-                            me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(value.country)});
+                    if (activeView.ntype === 'helix' || me.connectedApps.includes('CovidHelix')) {
+                        if (!me.helixView.selectionModel.isSelected(country)) {
+                            me.helixView.selectionModel.select(country, false);
+                            me.helixView.onKeyDownSpace(null);
+                        }
+                    }
 
-                            if (!selectionModel.isSelected(id)) {
-                                selectionModel.select(id);
-                                Neo.main.DomAccess.scrollToTableRow({id: id});
-                            }
-                            break;
+                    if ((activeView.ntype === 'mapboxgl' || me.connectedApps.includes('CovidMap')) && me.data) {
+                        if (!me.mapboxglMapHasData) {
+                            me.mapBoxView.data = me.data;
+                            me.mapboxglMapHasData = true;
+                        }
+
+                        if (me.countryRecord) {
+                            MainContainerController.selectMapboxGlCountry(me.mapBoxView, me.tableView.store.get(country));
+                        }
+
+                        me.mapBoxView.autoResize();
+                    }
+
+                    if (activeView.ntype === 'table-container') {
+                        id = selectionModel.getRowId(activeView.store.indexOf(country));
+
+                        me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(country)});
+
+                        if (!selectionModel.isSelected(id)) {
+                            selectionModel.select(id);
+                            Neo.main.DomAccess.scrollToTableRow({id: id});
+                        }
                     }
                 }
             }, delaySelection);
         }
+
+        me.firstHashChange = false;
     }
 
     /**
@@ -495,10 +672,15 @@ class MainContainerController extends ComponentController {
             button   = data.component,
             logo     = me.getReference('logo'),
             logoPath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
-            mapView  = me.getReference('mapboxglmap'),
             vdom     = logo.vdom,
             view     = me.view,
-            buttonText, cls, href, iconCls, mapViewStyle, theme;
+            buttonText, cls, href, iconCls, mapView, mapViewStyle, theme;
+
+        if (me.connectedApps.includes('CovidMap')) {
+            mapView = me.getMainView('CovidMap').items[0].items[0];
+        } else {
+            mapView = me.getReference('mapboxglmap');
+        }
 
         if (button.text === 'Theme Light') {
             buttonText   = 'Theme Dark';
@@ -519,31 +701,69 @@ class MainContainerController extends ComponentController {
 
 
         if (Neo.config.useCss4) {
-            cls = [...view.cls];
+            [view.appName, ...me.connectedApps].forEach(appName => {
+                view = me.getMainView(appName);
 
-            view.cls.forEach(item => {
-                if (item.includes('neo-theme')) {
-                    NeoArray.remove(cls, item);
-                }
+                cls = [...view.cls];
+
+                view.cls.forEach(item => {
+                    if (item.includes('neo-theme')) {
+                        NeoArray.remove(cls, item);
+                    }
+                });
+
+                NeoArray.add(cls, theme);
+                view.cls = cls;
             });
-
-            NeoArray.add(cls, theme);
-            view.cls = cls;
 
             button.set({
                 iconCls: iconCls,
                 text   : buttonText
             });
         } else {
-            Neo.main.addon.Stylesheet.swapStyleSheet({
-                href: href,
-                id  : 'neo-theme'
-            }).then(data => {
-                button.text = buttonText;
+            [view.appName, ...me.connectedApps].forEach(appName => {
+                Neo.main.addon.Stylesheet.swapStyleSheet({
+                    appName: appName,
+                    href   : href,
+                    id     : 'neo-theme'
+                });
             });
         }
 
+        button.set({
+            iconCls: iconCls,
+            text   : buttonText
+        });
+
         mapView.mapboxStyle = mapViewStyle;
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onWindowChartMaximizeButtonClick(data) {
+        this.createPopupWindow('controls-panel', 'sharedcovid_chart', 'CovidChart');
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onWindowGalleryMaximizeButtonClick(data) {
+        this.createPopupWindow('gallery-container', 'sharedcovid_gallery', 'CovidGallery');
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onWindowHelixMaximizeButtonClick(data) {
+        this.createPopupWindow('helix-container', 'sharedcovid_helix', 'CovidHelix');
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onWindowMapMaximizeButtonClick(data) {
+        this.createPopupWindow('mapbox-gl-container', 'sharedcovid_map', 'CovidMap');
     }
 
     /**

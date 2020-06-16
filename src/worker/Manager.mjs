@@ -3,7 +3,7 @@ import DomAccess          from '../main/DomAccess.mjs';
 import DomEvents          from '../main/DomEvents.mjs';
 import Message            from './Message.mjs';
 import Observable         from '../core/Observable.mjs';
-import RemoteMethodAccess from './mixins/RemoteMethodAccess.mjs';
+import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
 
 /**
  * The worker manager lives inside the main thread and creates the App, Data & VDom worker.
@@ -29,6 +29,11 @@ class Manager extends Base {
          * @private
          */
         singleton: true,
+        /**
+         * @member {String|null} appName=null
+         * @private
+         */
+        appName: null,
         /**
          * The base path for the worker file URLs, can e.g. get set inside the index.html.
          * @member {String|null} basePath=Neo.config.workerBasePath || 'worker/'
@@ -113,7 +118,7 @@ class Manager extends Base {
      * @param msg
      */
     broadcast(msg) {
-        Object.entries(this.workers).forEach(name => {
+        Object.keys(this.workers).forEach(name => {
             this.sendMessage(name, msg);
         });
     }
@@ -147,8 +152,11 @@ class Manager extends Base {
 
         // pass the initial hash value as Neo.configs
         if (hash) {
-            Neo.config.hash       = DomEvents.parseHash(hash.substr(1));
-            Neo.config.hashString = hash.substr(1);
+            Neo.config.hash = {
+                appName   : me.appName, // null at this point
+                hash      : DomEvents.parseHash(hash.substr(1)),
+                hashString: hash.substr(1)
+            }
         }
 
         for ([key, value] of Object.entries(me.workers)) {
@@ -295,6 +303,11 @@ class Manager extends Base {
                     error  : err.message
                 });
             });
+        }
+
+        // only needed for SharedWorkers
+        else if (dest === 'main' && action === 'registerAppName') {
+            me.appName = data.appName;
         }
 
         else if (dest === 'main' && action === 'remoteMethod') {

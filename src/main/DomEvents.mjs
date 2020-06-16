@@ -102,6 +102,10 @@ class DomEvents extends Base {
 
         document.addEventListener('DOMContentLoaded', me.onDomContentLoaded.bind(me));
         window  .addEventListener('hashchange',       me.onHashChange      .bind(me));
+
+        if (Neo.config.useSharedWorkers) {
+            window.addEventListener('beforeunload', me.onBeforeUnload.bind(me));
+        }
     }
 
     /**
@@ -294,6 +298,19 @@ class DomEvents extends Base {
     }
 
     /**
+     * Only in use if Neo.config.useSharedWorkers = true
+     * @param {Object} event
+     */
+    onBeforeUnload(event) {
+        const M = Neo.worker.Manager;
+
+        M.broadcast({
+            action : 'disconnect',
+            appName: M.appName
+        });
+    }
+
+    /**
      *
      * @param {Object} event
      */
@@ -370,12 +387,16 @@ class DomEvents extends Base {
      *
      */
     onHashChange() {
-        const hashString = location.hash.substr(1);
+        const Manager    = Neo.worker.Manager,
+              hashString = location.hash.substr(1);
 
-        Neo.worker.Manager.sendMessage('app', {
-            action    : 'hashChange',
-            hash      : this.parseHash(hashString),
-            hashString: hashString
+        Manager.sendMessage('app', {
+            action: 'hashChange',
+            data  : {
+                appName   : Manager.appName,
+                hash      : this.parseHash(hashString),
+                hashString: hashString
+            }
         });
     }
 

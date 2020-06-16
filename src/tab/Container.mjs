@@ -120,7 +120,7 @@ class Container extends BaseContainer {
         let me            = this,
             cardContainer = Neo.getComponent(me.cardContainerId);
 
-        if (me.rendered && value > -1) {
+        if (cardContainer && value > -1) {
             me.updateTabButtons();
 
             cardContainer.layout.activeIndex = value;
@@ -215,10 +215,9 @@ class Container extends BaseContainer {
 
         items.forEach((item, index) => {
             tabButtons.push(me.getTabButtonConfig(item.tabButtonConfig, index));
-            delete item.tabButtonConfig;
 
-            if (item instanceof Neo.component.Base !== true) {
-                item = {...me.itemDefaults, flex: 1, ...item};
+            if (!(item instanceof Neo.component.Base)) {
+                item = {...me.itemDefaults, flex: 1, isTab:true, ...item};
             }
 
             tabComponents.push(item);
@@ -410,34 +409,31 @@ class Container extends BaseContainer {
                     break;
                 }
             }
-
-            if (!hasItem && item instanceof Neo.component.Base !== true) {
-                tabButtonConfig = item.tabButtonConfig;
-
-                if (me.activateInsertedTabs) {
-                    tabButtonConfig.listeners = tabButtonConfig.listeners || {};
-
-                    tabButtonConfig.listeners.mounted = {
-                        fn   : me.onTabButtonMounted,
-                        scope: me
-                    };
-                }
-
-                tabBar.insert(index, me.getTabButtonConfig(tabButtonConfig, index));
-                delete item.tabButtonConfig;
-
-                // todo: non index based matching of tab buttons and cards
-                i   = index + 1;
-                len = tabBar.items.length;
-
-                for (; i < len; i++) {
-                    tabBar.items[i].index = i;
-
-                }
-            }
         }
 
         if (!hasItem) {
+            tabButtonConfig = item.tabButtonConfig;
+
+            if (me.activateInsertedTabs) {
+                tabButtonConfig.listeners = tabButtonConfig.listeners || {};
+
+                tabButtonConfig.listeners.mounted = {
+                    fn   : me.onTabButtonMounted,
+                    scope: me
+                };
+            }
+
+            tabBar.insert(index, me.getTabButtonConfig(tabButtonConfig, index));
+
+            // todo: non index based matching of tab buttons and cards
+            i   = 0;
+            len = tabBar.items.length;
+
+            for (; i < len; i++) {
+                tabBar.items[i].index = i;
+
+            }
+
             item.flex = 1;
             superItem = cardContainer.insert(index, item);
         }
@@ -481,27 +477,49 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Removes a container item by reference
+     * @param {Neo.component.Base} component
+     * @param {Boolean} [destroyItem=true]
+     * @param {Boolean} [silent=false]
+     */
+    remove(component, destroyItem=true, silent=false) {
+        let items = [...this.getCardContainer().items],
+            i     = 0,
+            len   = items.length;
+
+        for (; i < len; i++) {
+            if (items[i].id === component.id) {
+                this.removeAt(i, destroyItem, silent);
+            }
+        }
+    }
+
+    /**
      *
      * @param {Number} index
+     * @param {Boolean} [destroyItem=true]
+     * @param {Boolean} [silent=false]
      */
-    removeAt(index) {
+    removeAt(index, destroyItem=true, silent=false) {
         let me            = this,
             activeIndex   = me.activeIndex,
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
             i, len;
 
+        cardContainer.removeAt(index, destroyItem, silent);
+        tabBar       .removeAt(index, true,        false);
+
         if (index < activeIndex) {
-            me._activeIndex = activeIndex - 1; // silent update
+            // silent updates
+            me._activeIndex = activeIndex - 1;
+            cardContainer.layout._activeIndex = activeIndex - 1;
         } else if (index === activeIndex) {
             me.activeIndex = activeIndex - 1;
         }
 
-        cardContainer.removeAt(index);
-        tabBar       .removeAt(index);
-
         // todo: non index based matching of tab buttons and cards
-        i   = index;
+        i   = 0;
         len = tabBar.items.length;
 
         for (; i < len; i++) {

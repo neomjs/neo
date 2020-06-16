@@ -1,0 +1,25 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <title>SharedCovid Country Chart / Table</title>
+</head>
+<body>
+    <script>
+        Neo = self.Neo || {}; Neo.config = Neo.config || {};
+
+        Object.assign(Neo.config, {
+            appPath         : 'apps/sharedcovid_chart/app.mjs',
+            basePath        : '../../',
+            environment     : 'development',
+            isExperimental  : true,
+            mainThreadAddons: ['AmCharts', 'Stylesheet'],
+            themes          : ['neo-theme-dark', 'neo-theme-light'],
+            useSharedWorkers: true
+        });
+    </script>
+
+    <script src="../../src/Main.mjs" type="module"></script>
+</body>
+</html>

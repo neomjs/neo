@@ -4,6 +4,10 @@
     "mainInput": "./src/Main.mjs",
     "mainOutput": "main.js",
     "workers": {
+        "app": {
+            "input": "./src/worker/App.mjs",
+            "output": "appworker.js"
+        },
         "data": {
             "input": "./src/worker/Data.mjs",
             "output": "dataworker.js"

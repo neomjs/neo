@@ -353,8 +353,9 @@ class Helix extends Component {
 
         if (me.mounted) {
             Neo.currentWorker.promiseMessage('main', {
-                action: 'updateDom',
-                deltas: {
+                action : 'updateDom',
+                appName: me.appName,
+                deltas : {
                     id   : me.vdom.id,
                     style: {
                         perspective: value + 'px'
@@ -413,8 +414,9 @@ class Helix extends Component {
 
         if (me.mounted) {
             Neo.currentWorker.promiseMessage('main', {
-                action: 'updateDom',
-                deltas: {
+                action : 'updateDom',
+                appName: me.appName,
+                deltas : {
                     id : me.id,
                     cls: {
                         add   : [cls],
@@ -428,8 +430,9 @@ class Helix extends Component {
                     NeoArray.remove(me.transitionTimeouts, timeoutId);
 
                     Neo.currentWorker.promiseMessage('main', {
-                        action: 'updateDom',
-                        deltas: {
+                        action : 'updateDom',
+                        appName: me.appName,
+                        deltas : {
                             id : me.id,
                             cls: {
                                 add   : [],
@@ -674,13 +677,15 @@ class Helix extends Component {
             me.clonedItems = [];
 
             Neo.currentWorker.promiseMessage('main', {
-                action: 'updateDom',
-                deltas: deltas
+                action : 'updateDom',
+                appName: me.appName,
+                deltas : deltas
             }).then(data => {
                 setTimeout(() => {
                     Neo.currentWorker.promiseMessage('main', {
-                        action: 'updateDom',
-                        deltas: removeDeltas
+                        action : 'updateDom',
+                        appName: me.appName,
+                        deltas : removeDeltas
                     });
                 }, 650);
             });
@@ -742,8 +747,9 @@ class Helix extends Component {
 
                 setTimeout(() => {
                     Neo.currentWorker.promiseMessage('main', {
-                        action: 'updateDom',
-                        deltas: [{
+                        action : 'updateDom',
+                        appName: me.appName,
+                        deltas : [{
                             id   : itemVdom.id,
                             style: {
                                 opacity  : 1,
@@ -804,6 +810,7 @@ class Helix extends Component {
         setTimeout(() => {
             Neo.currentWorker.promiseMessage('main', {
                 action    : 'readDom',
+                appName   : me.appName,
                 vnodeId   : me.id,
                 attributes: [
                     'offsetHeight',
@@ -1009,8 +1016,9 @@ class Helix extends Component {
         }
 
         Neo.currentWorker.promiseMessage('main', {
-            action: 'updateDom',
-            deltas: deltas
+            action : 'updateDom',
+            appName: me.appName,
+            deltas : deltas
         });
     }
 
@@ -1043,8 +1051,9 @@ class Helix extends Component {
         }
 
         Neo.currentWorker.promiseMessage('main', {
-            action: 'updateDom',
-            deltas: deltas
+            action : 'updateDom',
+            appName: me.appName,
+            deltas : deltas
         }).then(() => {
             me.refresh();
         });
@@ -1088,15 +1097,17 @@ class Helix extends Component {
             });
 
             Neo.currentWorker.promiseMessage('main', {
-                action: 'updateDom',
-                deltas: deltas
+                action : 'updateDom',
+                appName: me.appName,
+                deltas : deltas
             }).then(() => {
                 timeoutId = setTimeout(() => {
                     NeoArray.remove(me.transitionTimeouts, timeoutId);
 
                     Neo.currentWorker.promiseMessage('main', {
-                        action: 'updateDom',
-                        deltas: afterDeltas
+                        action : 'updateDom',
+                        appName: me.appName,
+                        deltas : afterDeltas
                     });
                 }, 200);
 

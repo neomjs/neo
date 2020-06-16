@@ -291,11 +291,7 @@ class TableContainerController extends ComponentController {
             });
         }
 
-        Neo.main.addon.AmCharts.updateData({
-            data    : dataArray,
-            dataPath: chart.dataPath,
-            id      : chart.id
-        });
+        chart.data = dataArray;
     }
 }
 

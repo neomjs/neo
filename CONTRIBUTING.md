@@ -30,6 +30,7 @@ No worries, you don't need to be a guru, ninja or rockstar to support the projec
 5. Please do not copy code from other frameworks / libraries. So far, the entire neo.mjs code base is written from scratch.
     1. It is simply impossible to verify if contributed code is self-written.
     2. Adding new npm packages => dependencies / devDependencies is fine, in case there are no licensing conflicts.
+6. Refer to the <a href="./.github/CODEBASE_OVERVIEW.md">codebase overview</a> to understand how our repository is structured.
 
 ### 4.  In case you created a nice app or component using neo.mjs, please let us know about it.
 1.  We are always interested to feature client projects in blog posts or on social media.

@@ -117,13 +117,11 @@ inquirer.prompt(questions).then(answers => {
         const appContent = [
             "import MainContainer from './MainContainer.mjs';",
             "",
-            "Neo.onStart = function() {",
-            "    Neo.app({",
-            "        appPath : '" + appPath + "',",
-            "        mainView: MainContainer,",
-            "        name    : '" + appName + "'",
-            "    });",
-            "};"
+            "Neo.onStart = () => Neo.app({",
+            "    appPath : '" + appPath + "',",
+            "    mainView: MainContainer,",
+            "    name    : '" + appName + "'",
+            "});",
         ].join('\n');
 
         fs.writeFileSync(folder + '/app.mjs', appContent);

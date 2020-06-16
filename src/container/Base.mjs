@@ -128,6 +128,22 @@ class Base extends Component {
     }
 
     /**
+     * Triggered after the appName config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @private
+     */
+    afterSetAppName(value, oldValue) {
+        if (value && this.items) {
+            this.items.forEach(item => {
+                if (Neo.isObject(item)) {
+                    item.appName = value;
+                }
+            });
+        }
+    }
+
+    /**
      *
      * @param {Neo.layout.Base} value
      * @param {Neo.layout.Base} oldValue
@@ -144,6 +160,26 @@ class Base extends Component {
                 oldValue.removeChildAttributes(item, index);
                 value.applyChildAttributes(item, index);
             });
+        }
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        if (oldValue !== undefined) {
+            let items = this.items,
+                i     = 0,
+                len   = items.length;
+
+            for (; i < len; i++) {
+                items[i].mounted = value;
+            }
         }
     }
 
@@ -310,6 +346,8 @@ class Base extends Component {
                 };
 
                 item = Neo[item.className ? 'create' : 'ntype'](item);
+            } else {
+                item.appName = me.appName;
             }
 
             me.layout.applyChildAttributes(item, index);
@@ -393,7 +431,7 @@ class Base extends Component {
      * @param {Boolean} [silent=false]
      */
     remove(component, destroyItem=true, silent=false) {
-        let items = this.items,
+        let items = [...this.items],
             i     = 0,
             len   = items.length;
 
@@ -429,10 +467,12 @@ class Base extends Component {
 
             cn.splice(index, 1);
 
-            me[silent ? '_vdom' : 'vdom'] = vdom;
+            me[silent && !destroyItem ? '_vdom' : 'vdom'] = vdom;
 
             if (destroyItem) {
-                item.destroy();
+                item.destroy(true);
+            } else {
+                item.mounted = false;
             }
         }
     }
