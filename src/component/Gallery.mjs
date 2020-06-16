@@ -619,6 +619,7 @@ class Gallery extends Component {
         setTimeout(() => {
             Neo.currentWorker.promiseMessage('main', {
                 action    : 'readDom',
+                appName   : me.appName,
                 vnodeId   : me.id,
                 attributes: [
                     'offsetHeight',
@@ -668,8 +669,9 @@ class Gallery extends Component {
         me.transitionTimeouts.splice(0, me.transitionTimeouts.length);
 
         Neo.currentWorker.promiseMessage('main', {
-            action: 'updateDom',
-            deltas: {
+            action : 'updateDom',
+            appName: me.appName,
+            deltas : {
                 id   : me.id + '__' + 'dolly',
                 style: {
                     transform: me.translate3d(...dollyTransform)
@@ -678,6 +680,7 @@ class Gallery extends Component {
         }).then(() => {
             Neo.currentWorker.promiseMessage('main', {
                 action    : 'readDom',
+                appName   : me.appName,
                 vnodeId   : me.id,
                 functions : [
                     {

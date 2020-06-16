@@ -53,8 +53,9 @@ class GalleryModel extends Model {
         me.items.splice(0, me.items.length);
 
         Neo.currentWorker.promiseMessage('main', {
-            action: 'updateDom',
-            deltas: deltas
+            action : 'updateDom',
+            appName: view.appName,
+            deltas : deltas
         }).then(() => {
             me.fire('selectionChange', me.items, oldItems);
         });
@@ -267,8 +268,9 @@ class GalleryModel extends Model {
         NeoArray[isSelected ? 'remove' : 'add'](me.items, itemId);
 
         Neo.currentWorker.promiseMessage('main', {
-            action: 'updateDom',
-            deltas: deltas
+            action : 'updateDom',
+            appName: view.appName,
+            deltas : deltas
         }).then(() => {
             me.fire('selectionChange', me.items, oldItems);
         });
