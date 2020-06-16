@@ -394,7 +394,7 @@ class MainContainerController extends ComponentController {
                 me.activeMainTabIndex--;
                 Neo.Main.editRoute({mainview: me.mainTabs[me.activeMainTabIndex]});
                 break;
-            case 'CovidGallery':
+            case 'CovidMap':
                 view = me.getReference('mapbox-gl-container');
                 NeoArray.remove(me.mainTabs, 'mapboxglmap');
                 me.activeMainTabIndex--;
@@ -451,12 +451,19 @@ class MainContainerController extends ComponentController {
                 case 'CovidChart':
                     me.getReference('table-container').add(view);
                     break;
+                case 'CovidGallery':
+                    index = me.connectedApps.includes('CovidMap') ? 3 : 2;
+                    me.getReference('tab-container').insert(index, view);
+                    me.mainTabs.splice(1, 0, 'gallery');
+                    break;
                 case 'CovidHelix':
-                    index = me.connectedApps.includes('CovidGallery') ? 4 : 3;
+                    index = 4;
+                    index = me.connectedApps.includes('CovidGallery') ? index : index - 1;
+                    index = me.connectedApps.includes('CovidMap')     ? index : index - 1;
                     me.getReference('tab-container').insert(index, view);
                     me.mainTabs.splice(index, 0, 'helix');
                     break;
-                case 'CovidGallery':
+                case 'CovidMap':
                     me.getReference('tab-container').insert(1, view);
                     me.mainTabs.splice(1, 0, 'mapboxglmap');
                     break;
