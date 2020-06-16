@@ -93,7 +93,7 @@ class App extends Base {
             Neo.onStart();
 
             if (Neo.config.hash) {
-                HashHistory.push(Neo.config.hash, Neo.config.hashString);
+                HashHistory.push(Neo.config.hash);
             }
         } else {
             import(
@@ -102,7 +102,7 @@ class App extends Base {
                     Neo.onStart();
 
                     if (Neo.config.hash) {
-                        HashHistory.push(Neo.config.hash, Neo.config.hashString);
+                        HashHistory.push(Neo.config.hash);
                     }
                 }
             );

@@ -152,8 +152,11 @@ class Manager extends Base {
 
         // pass the initial hash value as Neo.configs
         if (hash) {
-            Neo.config.hash       = DomEvents.parseHash(hash.substr(1));
-            Neo.config.hashString = hash.substr(1);
+            Neo.config.hash = {
+                appName   : me.appName, // null at this point
+                hash      : DomEvents.parseHash(hash.substr(1)),
+                hashString: hash.substr(1)
+            }
         }
 
         for ([key, value] of Object.entries(me.workers)) {
