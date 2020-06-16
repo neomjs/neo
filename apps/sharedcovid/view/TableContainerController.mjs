@@ -13,9 +13,9 @@ class TableContainerController extends ComponentController {
          */
         className: 'Covid.view.TableContainerController',
         /**
-         * @member {String} apiBaseUrl='https://corona.lmao.ninja/'
+         * @member {String} apiBaseUrl='https://disease.sh/'
          */
-        apiBaseUrl: 'https://corona.lmao.ninja/',
+        apiBaseUrl: 'https://disease.sh/',
         /**
          * @member {String} apiHistoricalDataEndpoint='historical'
          */

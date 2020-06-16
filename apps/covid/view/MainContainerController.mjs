@@ -33,13 +33,13 @@ class MainContainerController extends ComponentController {
          */
         activeMainTabIndex: 0,
         /**
-         * @member {String} apiUrl='https://corona.lmao.ninja/v2/countries'
+         * @member {String} apiUrl='https://disease.sh/v2/countries'
          */
-        apiUrl: 'https://corona.lmao.ninja/v2/countries',
+        apiUrl: 'https://disease.sh/v2/countries',
         /**
-         * @member {String} apiSummaryUrl='https://corona.lmao.ninja/v2/all'
+         * @member {String} apiSummaryUrl='https://disease.sh/v2/all'
          */
-        apiSummaryUrl: 'https://corona.lmao.ninja/v2/all',
+        apiSummaryUrl: 'https://disease.sh/v2/all',
         /**
          * @member {Object|null} countryRecord=null
          */
@@ -430,7 +430,7 @@ class MainContainerController extends ComponentController {
             html : [
                 'Summary data did not arrive after 2s.</br>',
                 'Please double-check if the API is offline:</br></br>',
-                '<a target="_blank" href="https://corona.lmao.ninja/all">NovelCOVID/API all endpoint</a></br></br>',
+                '<a target="_blank" href="https://disease.sh/all">NovelCOVID/API all endpoint</a></br></br>',
                 'and if so please try again later.'
             ].join(''),
             style: {
