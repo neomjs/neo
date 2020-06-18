@@ -6,25 +6,27 @@
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-green.svg" alt="PRs Welcome"></a>
 </p>
 
-# Welcome to neo.mjs! (Beta Version)
-This is a new paradigm. If you want to enter a new era of making better Web Based User Interfaces,
-the following concepts will be addictive.
+# Welcome to neo.mjs!
+neo.mjs enables you to create scalable & high performant Apps using more than just one CPU,
+without the need to take care of a workers setup or the cross channel communication on your own.
 
 ## Content
 1. <a href="#sponsors">Sponsors</a>
 2. <a href="#blog">Blog</a>
-3. <a href="#covid19-app">COVID19 IN NUMBERS Demo App</a>
-4. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
-5. <a href="#learn-more">Want to learn more?</a>
-6. <a href="#impossible">Impossible? Pick with caution!</a>
-7. <a href="#online-examples">Online Examples</a>
-8. <a href="#online-docs">Online Docs</a>
-9. <a href="#get-started">Ready to get started?</a>
-10. <a href="#project-history">Project History</a>
-11. <a href="#story--vision">Story & Vision</a>
-12. <a href="#sponsors1">neo.mjs is in need for more sponsors!</a>
-13. <a href="#contributors">neo.mjs is in need for more contributors!</a>
-14. <a href="#slack-channel">Slack Channel for questions & feedback</a>
+3. <a href="#architectures">Scalable frontend architectures</a>
+4. <a href="#covid19-app">COVID19 IN NUMBERS Demo App</a>
+5. <a href="#sw-covid19-app">Multi Window COVID19 IN NUMBERS Demo App</a>
+6. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
+7. <a href="#learn-more">Want to learn more?</a>
+8. <a href="#impossible">Impossible? Pick with caution!</a>
+9. <a href="#online-examples">Online Examples</a>
+10. <a href="#online-docs">Online Docs</a>
+11. <a href="#get-started">Ready to get started?</a>
+12. <a href="#project-history">Project History</a>
+13. <a href="#story--vision">Story & Vision</a>
+14. <a href="#contributors">neo.mjs is in need of more contributors!</a>
+15. <a href="#sponsors1">neo.mjs is in need of more sponsors!</a>
+16. <a href="#slack-channel">Slack Channel for questions & feedback</a>
 
 <!-- Sponsors -->
 <h2 id="sponsors">Sponsors</h2>
@@ -53,8 +55,12 @@ the following concepts will be addictive.
 
 All Blog posts are stored here:
 <a href="https://github.com/neomjs/neo/projects/14">neo/projects/14</a>.</br>
-Latest article:
-> neo.mjs v1.2.5 → Support for SharedWorkers including Firefox
+The latest article:
+> Expanding Single Page Apps into multiple Browser Windows
+
+<!-- Scalable frontend architectures -->
+<h2 id="architectures">Scalable frontend architectures</h2>
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/workers_setup.png">
 
 <!-- COVID19 IN NUMBERS Demo App -->
 <h2 id="covid19-app">COVID19 IN NUMBERS Demo App</h2>
@@ -64,18 +70,33 @@ The most compelling way to introduce a new framework might simply be to show wha
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/covid/index.html#mainview=table">Live Demo: COIN App dist/production</a></br>
 Desktop only => support for mobile devices is on the roadmap.
 
-<a href="https://www.youtube.com/watch?v=8lqNVaoGNdU">Demo Video on YouTube</a></br>
-Just clicking around randomly, but might give you an idea on you to navigate inside the helix and gallery.
+Demo Video on YouTube:</br>
+<a href="https://www.youtube.com/watch?v=8lqNVaoGNdU"><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covid_app_vid.png"></a></br>
 
 You can find the code of the covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/covid">here</a>.
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v2/table.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/table.png">
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v2/gallery.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/gallery.png">
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v2/helix.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/helix.png">
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v2/world.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/world.png">
+
+<!-- COVID19 IN NUMBERS Demo App -->
+<h2 id="covid19-app">Multi Browser Window COVID19 IN NUMBERS Demo App</h2>
+Blog post: <a href="https://medium.com/swlh/expanding-single-page-apps-into-multiple-browser-windows-e6d9bd155d59?source=friends_link&sk=bbfe1dada95c5674669e463f93360822">Expanding Single Page Apps into multiple Browser Windows</a></br>
+</br>
+<a href="https://neomjs.github.io/pages/node_modules/neo.mjs/apps/sharedcovid/index.html#mainview=table">Live Demo: COIN App (Multi Window)</a></br>
+Chrome v83+ only (until adjusting the build processes).</br>
+Desktop only.
+
+Demo Video on YouTube:</br>
+<a href="https://youtu.be/n7m7ZT1kXQk"><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/expanding_spa_vid.png"></a></br>
+
+You can find the code of the multi window covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/sharedcovid">here</a>.
+
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/sw_covid.png">
 
 <!-- What If -->
 <h2 id="what-if-">Short overview of the concept & design goals</h2>
@@ -196,7 +217,17 @@ the current state is just a fraction of a bigger picture.
 
 Take a look at the <a href=".github/STORY.md">Project Story</a> and <a href=".github/VISION.md">Vision</a>.
 
-<!-- neo.mjs is in need for more sponsors! -->
+<!-- neo.mjs is in need of more contributors! -->
+<h2 id="contributors">neo.mjs is in need for more contributors!</h2>
+
+Another way to fasten up the neo.mjs development speed is to actively jump in.</br>
+As the shiny "PRs welcome" badge suggests: open source is intended to be improved by anyone who is up for the challenge.
+
+You can also write a guide in case you learned something new using neo.mjs or just help to get more eyes on this project.
+
+Either way, here are more infos: <a href="./CONTRIBUTING.md">Contributing</a>
+
+<!-- neo.mjs is in need of more sponsors! -->
 <h2 id="sponsors1">neo.mjs is in need for more sponsors!</h2>
 
 Is the current code base useful for you or could it be in the future?</br>
@@ -207,16 +238,6 @@ This is obviously not sustainable, so to enable me to keep pushing like this, pl
 The benefit of doing so is to get results delivered faster.
 
 Here you go: <a href="./BACKERS.md">Sponsors & Backers</a>
-
-<!-- neo.mjs is in need for more contributors! -->
-<h2 id="contributors">neo.mjs is in need for more contributors!</h2>
-
-Another way to fasten up the neo.mjs development speed is to actively jump in.</br>
-As the shiny "PRs welcome" badge suggests: open source is intended to be improved by anyone who is up for the challenge.
-
-You can also write a guide in case you learned something new using neo.mjs or just help to get more eyes on this project.
-
-Either way, here are more infos: <a href="./CONTRIBUTING.md">Contributing</a>
 
 <!-- Slack Channel for questions & feedback -->
 <h2 id="slack-channel">Slack Channel for questions & feedback</h2>
