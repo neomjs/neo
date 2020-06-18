@@ -15,17 +15,18 @@ the following concepts will be addictive.
 2. <a href="#blog">Blog</a>
 3. <a href="#architectures">Scalable frontend architectures</a>
 4. <a href="#covid19-app">COVID19 IN NUMBERS Demo App</a>
-5. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
-6. <a href="#learn-more">Want to learn more?</a>
-7. <a href="#impossible">Impossible? Pick with caution!</a>
-8. <a href="#online-examples">Online Examples</a>
-9. <a href="#online-docs">Online Docs</a>
-10. <a href="#get-started">Ready to get started?</a>
-11. <a href="#project-history">Project History</a>
-12. <a href="#story--vision">Story & Vision</a>
-13. <a href="#sponsors1">neo.mjs is in need for more sponsors!</a>
-14. <a href="#contributors">neo.mjs is in need for more contributors!</a>
-15. <a href="#slack-channel">Slack Channel for questions & feedback</a>
+5. <a href="#sw-covid19-app">COVID19 IN NUMBERS Demo App (Multi Window)</a> <span color="red">(new)</span>
+6. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
+7. <a href="#learn-more">Want to learn more?</a>
+8. <a href="#impossible">Impossible? Pick with caution!</a>
+9. <a href="#online-examples">Online Examples</a>
+10. <a href="#online-docs">Online Docs</a>
+11. <a href="#get-started">Ready to get started?</a>
+12. <a href="#project-history">Project History</a>
+13. <a href="#story--vision">Story & Vision</a>
+14. <a href="#sponsors1">neo.mjs is in need for more sponsors!</a>
+15. <a href="#contributors">neo.mjs is in need for more contributors!</a>
+16. <a href="#slack-channel">Slack Channel for questions & feedback</a>
 
 <!-- Sponsors -->
 <h2 id="sponsors">Sponsors</h2>
@@ -81,6 +82,20 @@ You can find the code of the covid app <a href="https://github.com/neomjs/neo/tr
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/helix.png">
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/world.png">
+
+<!-- COVID19 IN NUMBERS Demo App -->
+<h2 id="covid19-app">COVID19 IN NUMBERS Demo App (Multi Window) <span color="red">(new)</span></h2>
+
+<a href="https://neomjs.github.io/pages/node_modules/neo.mjs/apps/sharedcovid/index.html#mainview=table">Live Demo: COIN App (Multi Window)</a></br>
+<span color="red">Chrome v83+ only</span></br>
+Desktop only.
+
+Demo Video on YouTube:</br>
+<a href="https://youtu.be/n7m7ZT1kXQk"><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/expanding_spa_vid.png"></a></br>
+
+You can find the code of the multi window covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/sharedcovid">here</a>.
+
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/table.png">
 
 <!-- What If -->
 <h2 id="what-if-">Short overview of the concept & design goals</h2>
