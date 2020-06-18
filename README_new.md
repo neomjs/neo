@@ -7,8 +7,8 @@
 </p>
 
 # Welcome to neo.mjs!
-This is a new paradigm. If you want to enter a new era of making better Web Based User Interfaces,
-the following concepts will be addictive.
+neo.mjs enables you to create scalable & high performant Apps using more than just one CPU,
+without the need to take care of a workers setup or the cross channel communication on your own.
 
 ## Content
 1. <a href="#sponsors">Sponsors</a>
