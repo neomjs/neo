@@ -15,7 +15,7 @@ the following concepts will be addictive.
 2. <a href="#blog">Blog</a>
 3. <a href="#architectures">Scalable frontend architectures</a>
 4. <a href="#covid19-app">COVID19 IN NUMBERS Demo App</a>
-5. <a href="#sw-covid19-app">COVID19 IN NUMBERS Demo App (Multi Window)</a> <span style="color:red;">(new)</span>
+5. <a href="#sw-covid19-app">COVID19 IN NUMBERS Demo App (Multi Window)</a>
 6. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
 7. <a href="#learn-more">Want to learn more?</a>
 8. <a href="#impossible">Impossible? Pick with caution!</a>
@@ -84,10 +84,10 @@ You can find the code of the covid app <a href="https://github.com/neomjs/neo/tr
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/world.png">
 
 <!-- COVID19 IN NUMBERS Demo App -->
-<h2 id="covid19-app">COVID19 IN NUMBERS Demo App (Multi Window) ```diff - (new)```</h2>
+<h2 id="covid19-app">Multi Browser Window COVID19 IN NUMBERS Demo App</h2>
 
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/apps/sharedcovid/index.html#mainview=table">Live Demo: COIN App (Multi Window)</a></br>
-<span color="red">Chrome v83+ only</span></br>
+Chrome v83+ only. (until adjusting the build processes)</br>
 Desktop only.
 
 Demo Video on YouTube:</br>
@@ -95,7 +95,7 @@ Demo Video on YouTube:</br>
 
 You can find the code of the multi window covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/sharedcovid">here</a>.
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/table.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/sw_covid.png">
 
 <!-- What If -->
 <h2 id="what-if-">Short overview of the concept & design goals</h2>
