@@ -13,18 +13,19 @@ the following concepts will be addictive.
 ## Content
 1. <a href="#sponsors">Sponsors</a>
 2. <a href="#blog">Blog</a>
-3. <a href="#covid19-app">COVID19 IN NUMBERS Demo App</a>
-4. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
-5. <a href="#learn-more">Want to learn more?</a>
-6. <a href="#impossible">Impossible? Pick with caution!</a>
-7. <a href="#online-examples">Online Examples</a>
-8. <a href="#online-docs">Online Docs</a>
-9. <a href="#get-started">Ready to get started?</a>
-10. <a href="#project-history">Project History</a>
-11. <a href="#story--vision">Story & Vision</a>
-12. <a href="#sponsors1">neo.mjs is in need for more sponsors!</a>
-13. <a href="#contributors">neo.mjs is in need for more contributors!</a>
-14. <a href="#slack-channel">Slack Channel for questions & feedback</a>
+3. <a href="#architectures">Scalable frontend architectures</a>
+4. <a href="#covid19-app">COVID19 IN NUMBERS Demo App</a>
+5. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
+6. <a href="#learn-more">Want to learn more?</a>
+7. <a href="#impossible">Impossible? Pick with caution!</a>
+8. <a href="#online-examples">Online Examples</a>
+9. <a href="#online-docs">Online Docs</a>
+10. <a href="#get-started">Ready to get started?</a>
+11. <a href="#project-history">Project History</a>
+12. <a href="#story--vision">Story & Vision</a>
+13. <a href="#sponsors1">neo.mjs is in need for more sponsors!</a>
+14. <a href="#contributors">neo.mjs is in need for more contributors!</a>
+15. <a href="#slack-channel">Slack Channel for questions & feedback</a>
 
 <!-- Sponsors -->
 <h2 id="sponsors">Sponsors</h2>
@@ -55,6 +56,10 @@ All Blog posts are stored here:
 <a href="https://github.com/neomjs/neo/projects/14">neo/projects/14</a>.</br>
 Latest article:
 > Expanding Single Page Apps into multiple Browser Windows
+
+<!-- Scalable frontend architectures -->
+<h2 id="architectures">Scalable frontend architectures</h2>
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/workers_setup.png">
 
 <!-- COVID19 IN NUMBERS Demo App -->
 <h2 id="covid19-app">COVID19 IN NUMBERS Demo App</h2>
