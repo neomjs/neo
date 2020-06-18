@@ -12,7 +12,13 @@ class Base extends CoreBase {
          * @member {Boolean} observable=true
          * @static
          */
-        observable: true
+        observable: true,
+        /**
+         * @member {String|null} token=null
+         * @private
+         * @static
+         */
+        token: null
     }}
 
     static getConfig() {return {
@@ -69,12 +75,14 @@ class Base extends CoreBase {
     onAppRendered() {
         const me = this;
 
-        if (!Base.initialTokenRequestSent) {
+        if (Base.token) {
+            me.onReady(Base.token);
+        } else if (!Base.initialTokenRequestSent) {
             Base.initialTokenRequestSent = true;
 
             Neo.main.addon.LocalStorage.readLocalStorageItem({
                 key: LOCAL_STORAGE_KEY
-            }).then(data => {
+            }).then(data => {console.log('token', data.value);
                 const token = data.value;
 
                 if (token) {
@@ -82,6 +90,7 @@ class Base extends CoreBase {
                 }
 
                 me.onReady(token);
+                Base.isReady = true;
                 Base.fire('ready', token);
             });
         } else {
