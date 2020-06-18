@@ -15,7 +15,7 @@ the following concepts will be addictive.
 2. <a href="#blog">Blog</a>
 3. <a href="#architectures">Scalable frontend architectures</a>
 4. <a href="#covid19-app">COVID19 IN NUMBERS Demo App</a>
-5. <a href="#sw-covid19-app">COVID19 IN NUMBERS Demo App (Multi Window)</a> <span color="red">(new)</span>
+5. <a href="#sw-covid19-app">COVID19 IN NUMBERS Demo App (Multi Window)</a> <span style="color:red;">(new)</span>
 6. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
 7. <a href="#learn-more">Want to learn more?</a>
 8. <a href="#impossible">Impossible? Pick with caution!</a>
