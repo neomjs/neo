@@ -82,7 +82,7 @@ class Base extends CoreBase {
 
             Neo.main.addon.LocalStorage.readLocalStorageItem({
                 key: LOCAL_STORAGE_KEY
-            }).then(data => {console.log('token', data.value);
+            }).then(data => {
                 const token = data.value;
 
                 if (token) {
