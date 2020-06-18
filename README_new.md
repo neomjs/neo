@@ -55,7 +55,7 @@ the following concepts will be addictive.
 
 All Blog posts are stored here:
 <a href="https://github.com/neomjs/neo/projects/14">neo/projects/14</a>.</br>
-Latest article:
+The latest article:
 > Expanding Single Page Apps into multiple Browser Windows
 
 <!-- Scalable frontend architectures -->
@@ -86,7 +86,7 @@ You can find the code of the covid app <a href="https://github.com/neomjs/neo/tr
 <!-- COVID19 IN NUMBERS Demo App -->
 <h2 id="covid19-app">Multi Browser Window COVID19 IN NUMBERS Demo App</h2>
 Blog post: <a href="https://medium.com/swlh/expanding-single-page-apps-into-multiple-browser-windows-e6d9bd155d59?source=friends_link&sk=bbfe1dada95c5674669e463f93360822">Expanding Single Page Apps into multiple Browser Windows</a></br>
-
+</br>
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/apps/sharedcovid/index.html#mainview=table">Live Demo: COIN App (Multi Window)</a></br>
 Chrome v83+ only (until adjusting the build processes).</br>
 Desktop only.
