@@ -89,8 +89,8 @@ Blog post: <a href="https://medium.com/swlh/expanding-single-page-apps-into-mult
 </br>
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/apps/sharedcovid/index.html#mainview=table">Live Demo: COIN App (Multi Window)</a></br>
 Chrome v83+ only (until adjusting the build processes).</br>
-Desktop only.
-
+Desktop only.</br>
+</br>
 Demo Video on YouTube:</br>
 <a href="https://youtu.be/n7m7ZT1kXQk"><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/expanding_spa_vid.png"></a></br>
 
