@@ -24,8 +24,8 @@ the following concepts will be addictive.
 11. <a href="#get-started">Ready to get started?</a>
 12. <a href="#project-history">Project History</a>
 13. <a href="#story--vision">Story & Vision</a>
-14. <a href="#sponsors1">neo.mjs is in need for more sponsors!</a>
-15. <a href="#contributors">neo.mjs is in need for more contributors!</a>
+14. <a href="#contributors">neo.mjs is in need of more contributors!</a>
+15. <a href="#sponsors1">neo.mjs is in need of more sponsors!</a>
 16. <a href="#slack-channel">Slack Channel for questions & feedback</a>
 
 <!-- Sponsors -->
@@ -217,7 +217,17 @@ the current state is just a fraction of a bigger picture.
 
 Take a look at the <a href=".github/STORY.md">Project Story</a> and <a href=".github/VISION.md">Vision</a>.
 
-<!-- neo.mjs is in need for more sponsors! -->
+<!-- neo.mjs is in need of more contributors! -->
+<h2 id="contributors">neo.mjs is in need for more contributors!</h2>
+
+Another way to fasten up the neo.mjs development speed is to actively jump in.</br>
+As the shiny "PRs welcome" badge suggests: open source is intended to be improved by anyone who is up for the challenge.
+
+You can also write a guide in case you learned something new using neo.mjs or just help to get more eyes on this project.
+
+Either way, here are more infos: <a href="./CONTRIBUTING.md">Contributing</a>
+
+<!-- neo.mjs is in need of more sponsors! -->
 <h2 id="sponsors1">neo.mjs is in need for more sponsors!</h2>
 
 Is the current code base useful for you or could it be in the future?</br>
@@ -228,16 +238,6 @@ This is obviously not sustainable, so to enable me to keep pushing like this, pl
 The benefit of doing so is to get results delivered faster.
 
 Here you go: <a href="./BACKERS.md">Sponsors & Backers</a>
-
-<!-- neo.mjs is in need for more contributors! -->
-<h2 id="contributors">neo.mjs is in need for more contributors!</h2>
-
-Another way to fasten up the neo.mjs development speed is to actively jump in.</br>
-As the shiny "PRs welcome" badge suggests: open source is intended to be improved by anyone who is up for the challenge.
-
-You can also write a guide in case you learned something new using neo.mjs or just help to get more eyes on this project.
-
-Either way, here are more infos: <a href="./CONTRIBUTING.md">Contributing</a>
 
 <!-- Slack Channel for questions & feedback -->
 <h2 id="slack-channel">Slack Channel for questions & feedback</h2>
