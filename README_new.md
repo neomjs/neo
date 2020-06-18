@@ -84,7 +84,7 @@ You can find the code of the covid app <a href="https://github.com/neomjs/neo/tr
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/world.png">
 
 <!-- COVID19 IN NUMBERS Demo App -->
-<h2 id="covid19-app">COVID19 IN NUMBERS Demo App (Multi Window) <span color="red">(new)</span></h2>
+<h2 id="covid19-app">COVID19 IN NUMBERS Demo App (Multi Window) ```diff - (new)```</h2>
 
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/apps/sharedcovid/index.html#mainview=table">Live Demo: COIN App (Multi Window)</a></br>
 <span color="red">Chrome v83+ only</span></br>
