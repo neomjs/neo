@@ -74,13 +74,13 @@ Demo Video on YouTube:</br>
 
 You can find the code of the covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/covid">here</a>.
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v2/table.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/table.png">
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v2/gallery.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/gallery.png">
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v2/helix.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/helix.png">
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v2/world.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/world.png">
 
 <!-- What If -->
 <h2 id="what-if-">Short overview of the concept & design goals</h2>
