@@ -92,6 +92,13 @@ class MainContainer extends Container {
                         checked  : true,
                         handler  : 'onToggleMembers',
                         iconCls  : 'fa fa-check-square',
+                        reference: 'showProtectedMembers',
+                        style    : {marginRight: '5px'},
+                        text     : 'Protected',
+                    }, {
+                        checked  : true,
+                        handler  : 'onToggleMembers',
+                        iconCls  : 'fa fa-check-square',
                         reference: 'showStaticMembers',
                         text     : 'Static'
                     }]

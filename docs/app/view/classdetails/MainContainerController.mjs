@@ -47,12 +47,13 @@ class MainContainerController extends Component {
      * @param {Neo.collection.Base} store
      */
     onMutateItems(store) {
-        let me            = this,
-            countConfigs  = 0,
-            countEvents   = 0,
-            countMethods  = 0,
-            countPrivates = 0,
-            countStatics  = 0;
+        let me              = this,
+            countConfigs    = 0,
+            countEvents     = 0,
+            countMethods    = 0,
+            countPrivates   = 0,
+            countProtecteds = 0,
+            countStatics    = 0;
 
         store.items.forEach(item => {
             if (item.kind === 'function') {
@@ -65,6 +66,8 @@ class MainContainerController extends Component {
 
             if (item.access === 'private') {
                 countPrivates++;
+            } else if (item.access === 'protected') {
+                countPrivates++;
             }
 
             if (item.scope === 'static') {
@@ -72,11 +75,12 @@ class MainContainerController extends Component {
             }
         });
 
-        me.getReference('showConfigs')       .text = 'Configs ' + countConfigs;
-        me.getReference('showMethods')       .text = 'Methods ' + countMethods;
-        me.getReference('showEvents')        .text = 'Events '  + countEvents;
-        me.getReference('showPrivateMembers').text = 'Private ' + countPrivates;
-        me.getReference('showStaticMembers') .text = 'Static '  + countStatics;
+        me.getReference('showConfigs')         .text = 'Configs '   + countConfigs;
+        me.getReference('showMethods')         .text = 'Methods '   + countMethods;
+        me.getReference('showEvents')          .text = 'Events '    + countEvents;
+        me.getReference('showPrivateMembers')  .text = 'Private '   + countPrivates;
+        me.getReference('showProtectedMembers').text = 'Protected ' + countProtecteds;
+        me.getReference('showStaticMembers')   .text = 'Static '    + countStatics;
     }
 
     /**
@@ -107,12 +111,12 @@ class MainContainerController extends Component {
      */
     onToggleMembers(data) {
         let button      = Neo.getComponent(data.target.id),
-            memberslist = this.getReference('classdetails-memberslist');
+            membersList = this.getReference('classdetails-memberslist');
 
         button.iconCls = button.checked ? 'fa fa-square' : 'fa fa-check-square';
         button.checked = !button.checked;
 
-        memberslist[button.reference] = button.checked;
+        membersList[button.reference] = button.checked;
     }
 }
 
