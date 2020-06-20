@@ -9,12 +9,12 @@ class Floating extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.util.Floating'
-         * @private
+         * @protected
          */
         className: 'Neo.util.Floating',
         /**
          * @member {String} ntype='mixin-floating'
-         * @private
+         * @protected
          */
         ntype: 'mixin-floating',
         /**

@@ -1,12 +1,12 @@
 import Viewport from '../../src/container/Viewport.mjs';
 
 /**
- * @class CovidChart.MainContainer
+ * @class SharedCovidChart.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className: 'CovidChart.MainContainer',
+        className: 'SharedCovidChart.MainContainer',
 
         autoMount: true,
         layout   : {ntype: 'fit'}

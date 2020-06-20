@@ -9,17 +9,17 @@ class Base extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.Base'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.Base',
         /**
          * @member {String} ntype='basefield'
-         * @private
+         * @protected
          */
         ntype: 'basefield',
         /**
          * @member {*} value_=null
-         * @private
+         * @protected
          */
         value_: null
     }}

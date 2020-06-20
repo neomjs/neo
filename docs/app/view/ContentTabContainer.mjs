@@ -9,12 +9,12 @@ class ContentTabContainer extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='Docs.app.view.ContentTabContainer'
-         * @private
+         * @protected
          */
         className: 'Docs.app.view.ContentTabContainer',
         /**
          * @member {String} ntype='docs-content-tabcontainer'
-         * @private
+         * @protected
          */
         ntype: 'docs-content-tabcontainer',
         /**
@@ -75,7 +75,7 @@ class ContentTabContainer extends Container {
      * @param {Object} config
      * @param {Number} index
      * @returns {Object} The merged config
-     * @private
+     * @protected
      * @override
      */
     getTabButtonConfig(config, index) {

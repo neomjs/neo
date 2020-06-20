@@ -8,7 +8,7 @@ class Css extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.util.Css'
-         * @private
+         * @protected
          */
         className: 'Neo.util.Css'
     }}

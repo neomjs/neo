@@ -8,16 +8,16 @@ import Table                     from './country/Table.mjs';
 import TableContainerController  from './TableContainerController.mjs';
 
 /**
- * @class Covid.view.TableContainer
+ * @class SharedCovid.view.TableContainer
  * @extends Neo.container.Base
  */
 class TableContainer extends Container {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.TableContainer'
-         * @private
+         * @member {String} className='SharedCovid.view.TableContainer'
+         * @protected
          */
-        className: 'Covid.view.TableContainer',
+        className: 'SharedCovid.view.TableContainer',
         /**
          * @member {Boolean} autoMount=true
          */
@@ -28,7 +28,7 @@ class TableContainer extends Container {
         controller: TableContainerController,
         /**
          * @member {Number} historyPanelWidth=520
-         * @private
+         * @protected
          */
         historyPanelWidth: 520,
         /**

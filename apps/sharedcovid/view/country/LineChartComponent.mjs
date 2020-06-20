@@ -1,16 +1,16 @@
 import {default as AmChartComponent} from '../../../../src/component/wrapper/AmChart.mjs';
 
 /**
- * @class Covid.view.country.LineChartComponent
+ * @class SharedCovid.view.country.LineChartComponent
  * @extends Neo.component.wrapper.AmChart
  */
 class LineChartComponent extends AmChartComponent {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.country.LineChartComponent'
-         * @private
+         * @member {String} className='SharedCovid.view.country.LineChartComponent'
+         * @protected
          */
-        className: 'Covid.view.country.LineChartComponent',
+        className: 'SharedCovid.view.country.LineChartComponent',
         /**
          * @member {String[]} cls=['covid-line-chart']
          */

@@ -17,7 +17,7 @@ class TagListComponent extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.view.article.TagListComponent'
-         * @private
+         * @protected
          */
         className: 'RealWorld.view.article.TagListComponent',
         /**
@@ -78,7 +78,7 @@ class TagListComponent extends Component {
      * Triggered after the activeTag config got changed
      * @param {String[]|null} value
      * @param {String[]|null} oldValue
-     * @private
+     * @protected
      */
     afterSetActiveTag(value, oldValue) {
         if (oldValue !== undefined) {
@@ -93,7 +93,7 @@ class TagListComponent extends Component {
      * Triggered after the tags config got changed
      * @param {String[]|null} value
      * @param {String[]|null} oldValue
-     * @private
+     * @protected
      */
     afterSetTags(value, oldValue) {
         let me   = this,

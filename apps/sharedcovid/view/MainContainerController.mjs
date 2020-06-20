@@ -3,7 +3,7 @@ import NeoArray                         from '../../../src/util/Array.mjs';
 import Util                             from '../Util.mjs';
 
 /**
- * @class Covid.view.MainContainerController
+ * @class SharedCovid.view.MainContainerController
  * @extends Neo.controller.Component
  */
 class MainContainerController extends ComponentController {
@@ -11,7 +11,7 @@ class MainContainerController extends ComponentController {
         /**
          * A regex to replace blank chars
          * @member {RegExp} flagRegEx=/ /gi
-         * @private
+         * @protected
          * @static
          */
         flagRegEx: / /gi
@@ -19,13 +19,13 @@ class MainContainerController extends ComponentController {
 
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.MainContainerController'
-         * @private
+         * @member {String} className='SharedCovid.view.MainContainerController'
+         * @protected
          */
-        className: 'Covid.view.MainContainerController',
+        className: 'SharedCovid.view.MainContainerController',
         /**
          * @member {String} ntype='maincontainer-controller'
-         * @private
+         * @protected
          */
         ntype: 'maincontainer-controller',
         /**
@@ -59,13 +59,13 @@ class MainContainerController extends ComponentController {
         firstHashChange: true,
         /**
          * @member {String[]} mainTabs=['table', 'mapboxglmap', 'worldmap', 'gallery', 'helix', 'attribution']
-         * @private
+         * @protected
          */
         mainTabs: ['table','mapboxglmap', 'worldmap', 'gallery', 'helix', 'attribution'],
         /**
          * Flag to only load the map once onHashChange, but always on reload button click
          * @member {Boolean} mapboxglMapHasData=false
-         * @private
+         * @protected
          */
         mapboxglMapHasData: false,
         /**
@@ -75,7 +75,7 @@ class MainContainerController extends ComponentController {
         /**
          * Flag to only load the map once onHashChange, but always on reload button click
          * @member {Boolean} worldMapHasData=false
-         * @private
+         * @protected
          */
         worldMapHasData: false,
         /**
@@ -378,24 +378,24 @@ class MainContainerController extends ComponentController {
             parentView, view;
 
         switch (name) {
-            case 'CovidChart':
+            case 'SharedCovidChart':
                 view = me.getReference('controls-panel');
                 parentView = Neo.getComponent(view.parentId);
                 parentView.storeReferences();
                 break;
-            case 'CovidGallery':
+            case 'SharedCovidGallery':
                 view = me.getReference('gallery-container');
                 NeoArray.remove(me.mainTabs, 'gallery');
                 me.activeMainTabIndex--;
                 Neo.Main.editRoute({mainview: me.mainTabs[me.activeMainTabIndex]});
                 break;
-            case 'CovidHelix':
+            case 'SharedCovidHelix':
                 view = me.getReference('helix-container');
                 NeoArray.remove(me.mainTabs, 'helix');
                 me.activeMainTabIndex--;
                 Neo.Main.editRoute({mainview: me.mainTabs[me.activeMainTabIndex]});
                 break;
-            case 'CovidMap':
+            case 'SharedCovidMap':
                 view = me.getReference('mapbox-gl-container');
                 NeoArray.remove(me.mainTabs, 'mapboxglmap');
                 me.activeMainTabIndex--;
@@ -431,15 +431,15 @@ class MainContainerController extends ComponentController {
         console.log('onAppDisconnect', name);
 
         switch (name) {
-            case 'Covid':
+            case 'SharedCovid':
                 Neo.Main.windowClose({
                     names: me.connectedApps,
                 });
                 break;
-            case 'CovidChart':
-            case 'CovidGallery':
-            case 'CovidHelix':
-            case 'CovidMap':
+            case 'SharedCovidChart':
+            case 'SharedCovidGallery':
+            case 'SharedCovidHelix':
+            case 'SharedCovidMap':
                 view = parentView.items[0];
                 break;
         }
@@ -450,22 +450,22 @@ class MainContainerController extends ComponentController {
             parentView.remove(view, false);
 
             switch (name) {
-                case 'CovidChart':
+                case 'SharedCovidChart':
                     me.getReference('table-container').add(view);
                     break;
-                case 'CovidGallery':
-                    index = me.connectedApps.includes('CovidMap') ? 2 : 3;
+                case 'SharedCovidGallery':
+                    index = me.connectedApps.includes('SharedCovidMap') ? 2 : 3;
                     me.getReference('tab-container').insert(index, view);
                     me.mainTabs.splice(index, 0, 'gallery');
                     break;
-                case 'CovidHelix':
+                case 'SharedCovidHelix':
                     index = 4;
-                    index = me.connectedApps.includes('CovidGallery') ? index : index - 1;
-                    index = me.connectedApps.includes('CovidMap')     ? index : index - 1;
+                    index = me.connectedApps.includes('SharedCovidGallery') ? index - 1 : index;
+                    index = me.connectedApps.includes('SharedCovidMap')     ? index - 1 : index;
                     me.getReference('tab-container').insert(index, view);
                     me.mainTabs.splice(index, 0, 'helix');
                     break;
-                case 'CovidMap':
+                case 'SharedCovidMap':
                     me.getReference('tab-container').insert(1, view);
                     me.mainTabs.splice(1, 0, 'mapboxglmap');
                     break;
@@ -551,20 +551,20 @@ class MainContainerController extends ComponentController {
                         value.country = 'all';
                     }
 
-                    if (activeView.ntype === 'gallery' || me.connectedApps.includes('CovidGallery')) {
+                    if (activeView.ntype === 'gallery' || me.connectedApps.includes('SharedCovidGallery')) {
                         if (!me.galleryView.selectionModel.isSelected(country)) {
                             me.galleryView.selectionModel.select(country, false);
                         }
                     }
 
-                    if (activeView.ntype === 'helix' || me.connectedApps.includes('CovidHelix')) {
+                    if (activeView.ntype === 'helix' || me.connectedApps.includes('SharedCovidHelix')) {
                         if (!me.helixView.selectionModel.isSelected(country)) {
                             me.helixView.selectionModel.select(country, false);
                             me.helixView.onKeyDownSpace(null);
                         }
                     }
 
-                    if ((activeView.ntype === 'mapboxgl' || me.connectedApps.includes('CovidMap')) && me.data) {
+                    if ((activeView.ntype === 'mapboxgl' || me.connectedApps.includes('SharedCovidMap')) && me.data) {
                         if (!me.mapboxglMapHasData) {
                             me.mapBoxView.data = me.data;
                             me.mapboxglMapHasData = true;
@@ -676,8 +676,8 @@ class MainContainerController extends ComponentController {
             view     = me.view,
             buttonText, cls, href, iconCls, mapView, mapViewStyle, theme;
 
-        if (me.connectedApps.includes('CovidMap')) {
-            mapView = me.getMainView('CovidMap').items[0].items[0];
+        if (me.connectedApps.includes('SharedCovidMap')) {
+            mapView = me.getMainView('SharedCovidMap').items[0].items[0];
         } else {
             mapView = me.getReference('mapboxglmap');
         }
@@ -742,28 +742,28 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onWindowChartMaximizeButtonClick(data) {
-        this.createPopupWindow('controls-panel', 'sharedcovid_chart', 'CovidChart');
+        this.createPopupWindow('controls-panel', 'sharedcovidchart', 'SharedCovidChart');
     }
 
     /**
      * @param {Object} data
      */
     onWindowGalleryMaximizeButtonClick(data) {
-        this.createPopupWindow('gallery-container', 'sharedcovid_gallery', 'CovidGallery');
+        this.createPopupWindow('gallery-container', 'sharedcovidgallery', 'SharedCovidGallery');
     }
 
     /**
      * @param {Object} data
      */
     onWindowHelixMaximizeButtonClick(data) {
-        this.createPopupWindow('helix-container', 'sharedcovid_helix', 'CovidHelix');
+        this.createPopupWindow('helix-container', 'sharedcovidhelix', 'SharedCovidHelix');
     }
 
     /**
      * @param {Object} data
      */
     onWindowMapMaximizeButtonClick(data) {
-        this.createPopupWindow('mapbox-gl-container', 'sharedcovid_map', 'CovidMap');
+        this.createPopupWindow('mapbox-gl-container', 'sharedcovidmap', 'SharedCovidMap');
     }
 
     /**

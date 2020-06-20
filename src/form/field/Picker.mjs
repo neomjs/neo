@@ -14,18 +14,18 @@ class Picker extends Text {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.Picker'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.Picker',
         /**
          * @member {String} ntype='pickerfield'
-         * @private
+         * @protected
          */
         ntype: 'pickerfield',
         /**
          * Stores the data from the getBoundingClientRect() call (picker & body DomRects)
          * @member {Array} clientRects=null
-         * @private
+         * @protected
          */
         clientRects: null,
         /**
@@ -46,7 +46,7 @@ class Picker extends Text {
         matchPickerWidth: true,
         /**
          * @member {Object|null} picker=null
-         * @private
+         * @protected
          */
         picker: null,
         /**
@@ -61,7 +61,7 @@ class Picker extends Text {
         pickerHeight: 100,
         /**
          * @member {Boolean} pickerIsMounted=false
-         * @private
+         * @protected
          */
         pickerIsMounted: false,
         /**
@@ -76,7 +76,7 @@ class Picker extends Text {
         pickerWidth: 100,
         /**
          * @member {Object|Object[]} triggers=[]
-         * @private
+         * @protected
          */
         triggers: [{
             module: PickerTrigger
@@ -87,7 +87,7 @@ class Picker extends Text {
      * Triggered after the hideLabel config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetHideLabel(value, oldValue) {
         super.afterSetHideLabel(value, oldValue);
@@ -98,7 +98,7 @@ class Picker extends Text {
      * Triggered after the labelWidth config got changed
      * @param {Number|String} value
      * @param {Number|String} oldValue
-     * @private
+     * @protected
      */
     afterSetLabelWidth(value, oldValue) {
         super.afterSetLabelWidth(value, oldValue);
@@ -109,7 +109,7 @@ class Picker extends Text {
      * Triggered after the width config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetWidth(value, oldValue) {
         super.afterSetWidth(value, oldValue);
@@ -226,7 +226,7 @@ class Picker extends Text {
     /**
      *
      * @param {Array} data
-     * @private
+     * @protected
      */
     onFocusLeave(data) {
         let me = this;
@@ -246,7 +246,7 @@ class Picker extends Text {
      * @param {Object} data
      * @param {Function} [callback]
      * @param {Function} [callbackScope]
-     * @private
+     * @protected
      */
     onKeyDownEnter(data, callback, callbackScope) {
         if (!this.pickerIsMounted) {
@@ -257,7 +257,7 @@ class Picker extends Text {
     /**
      *
      * @param {Object} data
-     * @private
+     * @protected
      */
     onKeyDownEscape(data) {
         if (this.pickerIsMounted) {
@@ -267,7 +267,7 @@ class Picker extends Text {
 
     /**
      * Called by form.field.trigger.Picker
-     * @private
+     * @protected
      */
     onPickerTriggerClick() {
         let me = this;

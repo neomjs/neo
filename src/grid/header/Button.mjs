@@ -8,12 +8,12 @@ class Button extends BaseButton {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.grid.header.Button'
-         * @private
+         * @protected
          */
         className: 'Neo.grid.header.Button',
         /**
          * @member {String} ntype='grid-header-button'
-         * @private
+         * @protected
          */
         ntype: 'grid-header-button',
         /**

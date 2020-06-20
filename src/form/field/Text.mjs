@@ -14,7 +14,7 @@ class Text extends Base {
         /**
          * Valid values for labelPosition
          * @member {String[]} labelPositions=['bottom', 'inline', 'left', 'right', 'top']
-         * @private
+         * @protected
          * @static
          */
         labelPositions: ['bottom', 'inline', 'left', 'right', 'top']
@@ -23,19 +23,19 @@ class Text extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.Text'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.Text',
         /**
          * @member {String} ntype='textfield'
-         * @private
+         * @protected
          */
         ntype: 'textfield',
         /**
          * Internal variable to store the actual width for the label centerBorderEl
          * (only needed for labelPosition: 'inline')
          * @member {Number|null} centerBorderElWidth=null
-         * @private
+         * @protected
          */
         centerBorderElWidth: null,
         /**
@@ -154,7 +154,7 @@ class Text extends Base {
      * Triggered after the clearable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetClearable(value, oldValue) {
         let me = this,
@@ -173,7 +173,7 @@ class Text extends Base {
      * Triggered after the clearToOriginalValue config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetClearToOriginalValue(value, oldValue) {
         this.fire('changeClearToOriginalValue', {
@@ -186,7 +186,7 @@ class Text extends Base {
      * Triggered after the hideLabel config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetHideLabel(value, oldValue) {
         let me   = this,
@@ -202,7 +202,7 @@ class Text extends Base {
      * Triggered after the inputType config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetInputType(value, oldValue) {
         this.changeInputElKey('type', value);
@@ -212,7 +212,7 @@ class Text extends Base {
      * Triggered after the labelPosition config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetLabelPosition(value, oldValue) {
         let me  = this,
@@ -270,7 +270,7 @@ class Text extends Base {
      * Triggered after the labelText config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetLabelText(value, oldValue) {
         let me      = this,
@@ -300,7 +300,7 @@ class Text extends Base {
      * Triggered after the labelWidth config got changed
      * @param {Number|String} value
      * @param {Number|String} oldValue
-     * @private
+     * @protected
      */
     afterSetLabelWidth(value, oldValue) {
         if (this.labelPosition !== 'inline') {
@@ -322,7 +322,7 @@ class Text extends Base {
      * Triggered after the placeholderText config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
-     * @private
+     * @protected
      */
     afterSetPlaceholderText(value, oldValue) {
         this.changeInputElKey('placeholder', value === '' ? null : value);
@@ -332,7 +332,7 @@ class Text extends Base {
      * Triggered after the required config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetRequired(value, oldValue) {
         this.changeInputElKey('required', value);
@@ -342,7 +342,7 @@ class Text extends Base {
      * Triggered after the triggers config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
-     * @private
+     * @protected
      */
     afterSetTriggers(value, oldValue) {
         let me           = this,
@@ -409,7 +409,7 @@ class Text extends Base {
      * todo: add validation logic
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetValue(value, oldValue) {
         let me   = this,
@@ -432,7 +432,7 @@ class Text extends Base {
      * Triggered after the width config got changed
      * @param {Number|String} value
      * @param {Number|String} oldValue
-     * @private
+     * @protected
      */
     afterSetWidth(value, oldValue) {
         super.afterSetWidth(value, oldValue);
@@ -442,7 +442,7 @@ class Text extends Base {
     /**
      * Return a shallow copy of the triggers config
      * @param {Array|null} value
-     * @private
+     * @protected
      */
     beforeGetTriggers(value) {
         if (Array.isArray(value)) {
@@ -456,7 +456,7 @@ class Text extends Base {
      * Triggered before the labelPosition config gets changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     beforeSetLabelPosition(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'labelPosition');
@@ -467,7 +467,7 @@ class Text extends Base {
      * @param {Object|Object[]} value
      * @param {Object[]} oldValue
      * @returns {Object[]} the parsed triggers config
-     * @private
+     * @protected
      */
     beforeSetTriggers(value, oldValue) {
         if (!value) {
@@ -627,7 +627,7 @@ class Text extends Base {
     /**
      *
      * @param {String} type
-     * @private
+     * @protected
      * @returns {String} The trigger node id
      */
     getTriggerId(type) {
@@ -678,7 +678,7 @@ class Text extends Base {
     /**
      *
      * @param {Array} path
-     * @private
+     * @protected
      */
     onFocusEnter(path) {
         let me  = this,
@@ -702,7 +702,7 @@ class Text extends Base {
     /**
      *
      * @param {Array} path
-     * @private
+     * @protected
      */
     onFocusLeave(path) {
         let me             = this,
@@ -724,7 +724,7 @@ class Text extends Base {
 
     /**
      * @param {Object} data
-     * @private
+     * @protected
      */
     onInputValueChange(data) {
         let me       = this,
@@ -777,7 +777,7 @@ class Text extends Base {
     /**
      * Used for labelPosition: 'inline' to adjust the top border matching to the length of the label
      * @param {Boolean} silent true to get the value, but not apply it to the DOM
-     * @private
+     * @protected
      */
     updateCenterBorderElWidth(silent) {
         let me = this;
@@ -800,7 +800,7 @@ class Text extends Base {
 
     /**
      * Calculates the new inputWidth based on the labelWidth & total width
-     * @private
+     * @protected
      */
     updateInputWidth() {
         let me         = this,

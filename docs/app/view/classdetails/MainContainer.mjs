@@ -14,12 +14,12 @@ class MainContainer extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='Docs.app.view.classdetails.MainContainer'
-         * @private
+         * @protected
          */
         className: 'Docs.app.view.classdetails.MainContainer',
         /**
          * @member {String} ntype='classdetails-maincontainer'
-         * @private
+         * @protected
          */
         ntype: 'classdetails-maincontainer',
         /**
@@ -88,6 +88,13 @@ class MainContainer extends Container {
                         reference: 'showPrivateMembers',
                         style    : {marginRight: '5px'},
                         text     : 'Private',
+                    }, {
+                        checked  : true,
+                        handler  : 'onToggleMembers',
+                        iconCls  : 'fa fa-check-square',
+                        reference: 'showProtectedMembers',
+                        style    : {marginRight: '5px'},
+                        text     : 'Protected',
                     }, {
                         checked  : true,
                         handler  : 'onToggleMembers',

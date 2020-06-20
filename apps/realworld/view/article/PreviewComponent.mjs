@@ -10,7 +10,7 @@ class PreviewComponent extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.view.article.PreviewComponent'
-         * @private
+         * @protected
          */
         className: 'RealWorld.view.article.PreviewComponent',
         /**
@@ -116,7 +116,7 @@ class PreviewComponent extends Component {
      * Triggered after the author config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetAuthor(value, oldValue) {
         let vdom = this.vdom,
@@ -135,7 +135,7 @@ class PreviewComponent extends Component {
      * Triggered after the createdAt config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetCreatedAt(value, oldValue) {
         let vdom = this.vdom;
@@ -153,7 +153,7 @@ class PreviewComponent extends Component {
      * Triggered after the description config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetDescription(value, oldValue) {
         let vdom = this.vdom;
@@ -166,7 +166,7 @@ class PreviewComponent extends Component {
      * Triggered after the favorited config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetFavorited(value, oldValue) {
         let me     = this,
@@ -188,7 +188,7 @@ class PreviewComponent extends Component {
      * Triggered after the favoritesCount config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetFavoritesCount(value, oldValue) {
         let vdom = this.vdom;
@@ -201,7 +201,7 @@ class PreviewComponent extends Component {
      * Triggered after the slug config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetSlug(value, oldValue) {
         let vdom = this.vdom;
@@ -214,7 +214,7 @@ class PreviewComponent extends Component {
      * Triggered after the tagList config got changed
      * @param {Array} value
      * @param {Array} oldValue
-     * @private
+     * @protected
      */
     afterSetTagList(value, oldValue) {
         let me   = this,
@@ -251,7 +251,7 @@ class PreviewComponent extends Component {
      * Triggered after the title config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetTitle(value, oldValue) {
         let vdom = this.vdom;
@@ -264,7 +264,7 @@ class PreviewComponent extends Component {
      * Triggered after the userImage config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetUserImage(value, oldValue) {
         let vdom = this.vdom;

@@ -12,18 +12,18 @@ class Helper extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.vdom.Helper'
-         * @private
+         * @protected
          */
         className: 'Neo.vdom.Helper',
         /**
          * @member {String} ntype='vdom-helper'
-         * @private
+         * @protected
          */
         ntype: 'vdom-helper',
         /**
          * Remote method access for other workers
          * @member {Object} remote={app: ['create', 'update']}
-         * @private
+         * @protected
          */
         remote: {
             app: ['create', 'update']
@@ -34,13 +34,13 @@ class Helper extends Base {
         returnChildNodeOuterHtml: false,
         /**
          * @member {Boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true,
         /**
          * Void attributes inside html tags
          * @member {String[]} voidAttributes
-         * @private
+         * @protected
          */
         voidAttributes: [
             'checked',
@@ -49,7 +49,7 @@ class Helper extends Base {
         /**
          * Void html tags
          * @member {String[]} voidElements
-         * @private
+         * @protected
          */
         voidElements: [
             'area',
@@ -145,7 +145,7 @@ class Helper extends Base {
 
     /**
      * @param {Object} vnode
-     * @private
+     * @protected
      */
     createOpenTag(vnode) {
         let string     = '<' + vnode.nodeName,
@@ -190,7 +190,7 @@ class Helper extends Base {
 
     /**
      * @param {Object} vnode
-     * @private
+     * @protected
      */
     createTagContent(vnode) {
         if (vnode.innerHTML) {
@@ -221,7 +221,7 @@ class Helper extends Base {
 
     /**
      * @param {Object} vnode
-     * @private
+     * @protected
      */
     createCloseTag(vnode) {
         return this.voidElements.indexOf(vnode.nodeName) > -1 ? '' : '</' + vnode.nodeName + '>';

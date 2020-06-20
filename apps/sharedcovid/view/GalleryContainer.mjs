@@ -6,16 +6,16 @@ import Panel                      from '../../../src/container/Panel.mjs';
 import {default as RangeField}    from '../../../src/form/field/Range.mjs';
 
 /**
- * @class Covid.view.GalleryContainer
+ * @class SharedCovid.view.GalleryContainer
  * @extends Neo.container.Base
  */
 class GalleryContainer extends Container {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.GalleryContainer'
-         * @private
+         * @member {String} className='SharedCovid.view.GalleryContainer'
+         * @protected
          */
-        className: 'Covid.view.GalleryContainer',
+        className: 'SharedCovid.view.GalleryContainer',
         /**
          * @member {Boolean} autoMount=true
          */

@@ -15,22 +15,22 @@ class Data extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.worker.Data'
-         * @private
+         * @protected
          */
         className: 'Neo.worker.Data',
         /**
          * @member {String} ntype='data-worker'
-         * @private
+         * @protected
          */
         ntype: 'data-worker',
         /**
          * @member {Boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true,
         /**
          * @member {String} workerId='data'
-         * @private
+         * @protected
          */
         workerId: 'data'
     }}

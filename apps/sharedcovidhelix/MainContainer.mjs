@@ -1,12 +1,12 @@
 import Viewport from '../../src/container/Viewport.mjs';
 
 /**
- * @class CovidHelix.MainContainer
+ * @class SharedCovidHelix.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className: 'CovidHelix.MainContainer',
+        className: 'SharedCovidHelix.MainContainer',
 
         autoMount: true,
         layout   : {ntype: 'fit'}

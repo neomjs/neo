@@ -9,7 +9,7 @@ class Helix extends BaseHelix {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld2.view.article.Helix'
-         * @private
+         * @protected
          */
         className: 'RealWorld2.view.article.Helix',
         /**

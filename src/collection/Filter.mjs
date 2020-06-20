@@ -17,7 +17,7 @@ class Filter extends Base {
          * Valid values for the operator config:<br>
          * ['==', '===', '!=', '!==', '<', '<=', '>', '>=', 'excluded', 'included', 'isDefined', 'isUndefined', 'like']
          * @member {String[]} operators
-         * @private
+         * @protected
          * @static
          */
         operators: ['==', '===', '!=', '!==', '<', '<=', '>', '>=', 'excluded', 'included', 'isDefined', 'isUndefined', 'like']
@@ -26,12 +26,12 @@ class Filter extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.collection.Filter'
-         * @private
+         * @protected
          */
         className: 'Neo.collection.Filter',
         /**
          * @member {String} ntype='filter'
-         * @private
+         * @protected
          */
         ntype: 'filter',
         /**
@@ -58,7 +58,7 @@ class Filter extends Base {
         /**
          * The owner util.Collection needs to apply an onChange listener once
          * @member {Boolean} listenerApplied=false
-         * @private
+         * @protected
          */
         listenerApplied: false,
         /**
@@ -136,7 +136,7 @@ class Filter extends Base {
      * @param {String|null} value
      * @param {String} oldValue
      * @returns {String}
-     * @private
+     * @protected
      */
     beforeSetOperator(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'operator');

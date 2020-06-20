@@ -26,14 +26,14 @@ Neo = self.Neo = Object.assign({
     /**
      * A map containing ntypes as key and Neo classes or singletons as values
      * @memberOf! module:Neo
-     * @private
+     * @protected
      * @type Object
      */
     ntypeMap: {},
     /**
      * Needed for Neo.create. False for the main thread, true for the App, Data & Vdom worker
      * @memberOf! module:Neo
-     * @private
+     * @protected
      * @type Boolean
      */
     insideWorker: typeof DedicatedWorkerGlobalScope !== 'undefined' || typeof WorkerGlobalScope !== 'undefined',
@@ -42,7 +42,7 @@ Neo = self.Neo = Object.assign({
      * Internally used at the end of each class / module definition
      * @memberOf module:Neo
      * @param {Neo.core.Base} cls The Neo class to apply configs to
-     * @private
+     * @protected
      * @tutorial 02_ClassSystem
      */
     applyClassConfig(cls) {

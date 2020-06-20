@@ -1,12 +1,12 @@
 import Model  from '../../../src/data/Model.mjs';
 
 /**
- * @class Covid.model.HistoricalData
+ * @class SharedCovid.model.HistoricalData
  * @extends Neo.data.Model
  */
 class HistoricalData extends Model {
     static getConfig() {return {
-        className: 'Covid.model.HistoricalData',
+        className: 'SharedCovid.model.HistoricalData',
 
         fields: [{
             name: 'active', // does not exist in the api => cases - deaths - recovered

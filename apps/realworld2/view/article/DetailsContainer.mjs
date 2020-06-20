@@ -8,7 +8,7 @@ class DetailsContainer extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld2.view.article.DetailsContainer'
-         * @private
+         * @protected
          */
         className: 'RealWorld2.view.article.DetailsContainer',
         /**

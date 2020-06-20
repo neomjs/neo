@@ -13,23 +13,23 @@ class Base extends CoreBase {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.worker.Worker'
-         * @private
+         * @protected
          */
         className: 'Neo.worker.Worker',
         /**
          * @member {String} ntype='worker'
-         * @private
+         * @protected
          */
         ntype: 'worker',
         /**
          * Only needed for SharedWorkers
          * @member {Boolean} isConnected=false
-         * @private
+         * @protected
          */
         isConnected: false,
         /**
          * @member {Boolean} isSharedWorker=false
-         * @private
+         * @protected
          */
         isSharedWorker: false,
         /**
@@ -43,7 +43,7 @@ class Base extends CoreBase {
         ports : null,
         /**
          * @member {String|null} workerId=null
-         * @private
+         * @protected
          */
         workerId: null
     }}
@@ -243,7 +243,7 @@ class Base extends CoreBase {
      * If the ownership of an object is transferred, it becomes unusable (neutered) in the context it was sent from
      * and becomes available only to the worker it was sent to.
      * @returns {Neo.worker.Message}
-     * @private
+     * @protected
      */
     sendMessage(dest, opts, transfer) {
         opts.destination = dest;

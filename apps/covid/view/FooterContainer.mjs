@@ -8,7 +8,7 @@ class FooterContainer extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.FooterContainer'
-         * @private
+         * @protected
          */
         className: 'Covid.view.FooterContainer',
         /**

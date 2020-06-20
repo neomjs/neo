@@ -9,7 +9,7 @@ class CommentComponent extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.view.article.CommentComponent'
-         * @private
+         * @protected
          */
         className: 'RealWorld.view.article.CommentComponent',
         /**
@@ -116,7 +116,7 @@ class CommentComponent extends Component {
      * Triggered after the author config got changed
      * @param {Object|null} value
      * @param {Object|null} oldValue
-     * @private
+     * @protected
      */
     afterSetAuthor(value, oldValue) {
         if (value) {
@@ -136,7 +136,7 @@ class CommentComponent extends Component {
      * Triggered after the body config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
-     * @private
+     * @protected
      */
     afterSetBody(value, oldValue) {
         if (value) {
@@ -151,7 +151,7 @@ class CommentComponent extends Component {
      * Triggered after the createdAt config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
-     * @private
+     * @protected
      */
     afterSetCreatedAt(value, oldValue) {
         if (value) {

@@ -8,7 +8,7 @@ class Style extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.util.Style'
-         * @private
+         * @protected
          */
         className: 'Neo.util.Style'
     }}

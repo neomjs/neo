@@ -18,18 +18,18 @@ class Sorter extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.collection.Sorter'
-         * @private
+         * @protected
          */
         className: 'Neo.collection.Sorter',
         /**
          * @member {String} ntype='sorter'
-         * @private
+         * @protected
          */
         ntype: 'sorter',
         /**
          * Internal config which mapps the direction ASC to 1, -1 otherwise
          * @member {Number} directionMultiplier=1
-         * @private
+         * @protected
          */
         directionMultiplier: 1,
         /**
@@ -40,7 +40,7 @@ class Sorter extends Base {
         /**
          * The owner util.Collection needs to apply an onChange listener once
          * @member {boolean} listenerApplied=false
-         * @private
+         * @protected
          */
         listenerApplied: false,
         /**
@@ -57,7 +57,7 @@ class Sorter extends Base {
         /**
          * True to use the transformValue method for each item (the method can get overridden)
          * @member {Boolean} useTransformValue=true
-         * @private
+         * @protected
          */
         useTransformValue: true
     }}

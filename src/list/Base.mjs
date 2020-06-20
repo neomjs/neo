@@ -13,12 +13,12 @@ class Base extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.list.Base'
-         * @private
+         * @protected
          */
         className: 'Neo.list.Base',
         /**
          * @member {String} ntype='list'
-         * @private
+         * @protected
          */
         ntype: 'list',
         /**
@@ -110,7 +110,7 @@ class Base extends Component {
      * Triggered after the disableSelection config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetDisableSelection(value, oldValue) {
         let me = this;
@@ -124,7 +124,7 @@ class Base extends Component {
      * Triggered after the selectionModel config got changed
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
-     * @private
+     * @protected
      */
     afterSetSelectionModel(value, oldValue) {
         if (this.rendered) {
@@ -136,7 +136,7 @@ class Base extends Component {
      * Triggered after the store config got changed
      * @param {Neo.data.Store} value
      * @param {Neo.data.Store} oldValue
-     * @private
+     * @protected
      */
     afterSetStore(value, oldValue) {
         let me = this;
@@ -159,7 +159,7 @@ class Base extends Component {
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
      * @returns {Neo.selection.Model}
-     * @private
+     * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
         if (oldValue) {
@@ -174,7 +174,7 @@ class Base extends Component {
      * @param {Object|Neo.data.Store} value
      * @param {Object|Neo.data.Store} oldValue
      * @returns {Neo.data.Store}
-     * @private
+     * @protected
      */
     beforeSetStore(value, oldValue) {
         if (oldValue) {
@@ -188,7 +188,7 @@ class Base extends Component {
      * Triggered after the useCheckBoxes config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetUseCheckBoxes(value, oldValue) {
         let me  = this,

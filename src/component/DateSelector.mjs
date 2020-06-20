@@ -22,14 +22,14 @@ class DateSelector extends Component {
         /**
          * Valid values for dayNameFormat
          * @member {String[]} dayNameFormats=['narrow', 'short', 'long']
-         * @private
+         * @protected
          * @static
          */
         dayNameFormats: ['narrow', 'short', 'long'],
         /**
          * Valid values for dayNameFormat
          * @member {Number[]} weekStartDays=[0, 1, 2, 3, 4, 5, 6]
-         * @private
+         * @protected
          * @static
          */
         weekStartDays: [0, 1, 2, 3, 4, 5, 6]
@@ -38,18 +38,18 @@ class DateSelector extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.component.DateSelector'
-         * @private
+         * @protected
          */
         className: 'Neo.component.DateSelector',
         /**
          * @member {String} ntype='dateselector'
-         * @private
+         * @protected
          */
         ntype: 'dateselector',
         /**
          * Stores the last date change which got triggered while a month / Year transition was running
          * @member {Object|null} cachedUpdate=null
-         * @private
+         * @protected
          */
         cachedUpdate: null,
         /**
@@ -59,7 +59,7 @@ class DateSelector extends Component {
         /**
          * Date object created on the value config
          * @member {Date|null} currentDate_=null
-         * @private
+         * @protected
          */
         currentDate_: null,
         /**
@@ -75,7 +75,7 @@ class DateSelector extends Component {
         /**
          * Internal flag to prevent changing the date while change animations are still running
          * @member {Boolean} isUpdating_=false
-         * @private
+         * @protected
          */
         isUpdating_: false,
         /**
@@ -180,7 +180,7 @@ class DateSelector extends Component {
      * Triggered after the currentDate config got changed
      * @param {Date} value
      * @param {Date} oldValue
-     * @private
+     * @protected
      */
     afterSetCurrentDate(value, oldValue) {
         let me = this,
@@ -219,7 +219,7 @@ class DateSelector extends Component {
      * Triggered after the dayNameFormat config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetDayNameFormat(value, oldValue) {
         if (this.rendered) {
@@ -231,7 +231,7 @@ class DateSelector extends Component {
      * Triggered after the showCellBorders config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetShowCellBorders(value, oldValue) {
         let me  = this,
@@ -245,7 +245,7 @@ class DateSelector extends Component {
      * Triggered after the isUpdating config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetIsUpdating(value, oldValue) {
         if (value === false) {
@@ -263,7 +263,7 @@ class DateSelector extends Component {
      * Triggered after the showDisabledDays config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetShowDisabledDays(value, oldValue) {
         if (this.rendered) {
@@ -275,7 +275,7 @@ class DateSelector extends Component {
      * Triggered after the selectionModel config got changed
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
-     * @private
+     * @protected
      */
     afterSetSelectionModel(value, oldValue) {
         if (this.rendered) {
@@ -287,7 +287,7 @@ class DateSelector extends Component {
      * Triggered after the value config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetValue(value, oldValue) {
         let me = this;
@@ -308,7 +308,7 @@ class DateSelector extends Component {
      * Triggered after the weekStartDay config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetWeekStartDay(value, oldValue) {
         if (this.rendered) {
@@ -320,7 +320,7 @@ class DateSelector extends Component {
      * Triggered before the dayNameFormat config gets changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     beforeSetDayNameFormat(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'dayNameFormat');
@@ -330,7 +330,7 @@ class DateSelector extends Component {
      * Triggered before the selectionModel config gets changed.
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
-     * @private
+     * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
         if (oldValue) {
@@ -344,7 +344,7 @@ class DateSelector extends Component {
      * Triggered before the weekStartDay config gets changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     beforeSetWeekStartDay(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'weekStartDay');
@@ -353,7 +353,7 @@ class DateSelector extends Component {
     /**
      * Stores the last date change which could not get applied while a transition was running
      * @param {Date} [date=this.currentDate]
-     * @private
+     * @protected
      */
     cacheUpdate(date=this.currentDate) {
         this.cachedUpdate = date;
@@ -430,7 +430,7 @@ class DateSelector extends Component {
      * @param {Object} opts
      * @param {Object} opts.data
      * @param {String} opts.slideDirection
-     * @private
+     * @protected
      */
     changeMonthTransitionCallback(opts) {
         let me   = this,
@@ -446,7 +446,7 @@ class DateSelector extends Component {
     /**
      * Replaces the wrapper div with the target month
      * @param {String} slideDirection
-     * @private
+     * @protected
      */
     changeMonthWrapperCallback(slideDirection) {
         let me   = this,
@@ -731,7 +731,7 @@ class DateSelector extends Component {
      * @param {Number} monthIncrement
      * @param {Number} yearIncrement
      * @param {Boolean} [silent=false]
-     * @private
+     * @protected
      */
     recreateContent(monthIncrement, yearIncrement, silent=false) {
         let me = this;
@@ -753,7 +753,7 @@ class DateSelector extends Component {
      * Recreates the current centerEl
      * @param {Boolean} [silent=false]
      * @param {Boolean} [syncIds=true]
-     * @private
+     * @protected
      */
     recreateDayViewContent(silent=false, syncIds=true) {
         let me = this;
@@ -771,7 +771,7 @@ class DateSelector extends Component {
     /**
      * Triggers a vdom update & sets isUpdating
      * @param {Boolean} [silent=false]
-     * @private
+     * @protected
      */
     triggerVdomUpdate(silent=false) {
         let me = this;
@@ -854,7 +854,7 @@ class DateSelector extends Component {
      * @param {Object} opts.headerCenterEl
      * @param {Number} opts.increment
      * @param {Number} opts.yearIncrement
-     * @private
+     * @protected
      */
     updateHeaderMonthTransitionCallback(opts) {
         let {data, headerCenterEl, increment, yearIncrement} = opts,
@@ -874,7 +874,7 @@ class DateSelector extends Component {
      * @param {Object} opts.headerCenterEl
      * @param {Number} opts.increment
      * @param {Number} opts.yearIncrement
-     * @private
+     * @protected
      */
     updateHeaderMonthWrapperCallback(opts) {
         let {headerCenterEl, increment, yearIncrement} = opts,

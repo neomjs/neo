@@ -9,12 +9,12 @@ class Time extends Picker {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.trigger.Time'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.trigger.Time',
         /**
          * @member {String} ntype='trigger-time'
-         * @private
+         * @protected
          */
         ntype: 'trigger-time',
         /**

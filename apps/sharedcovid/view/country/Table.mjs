@@ -3,16 +3,16 @@ import CountryStore from '../../store/Countries.mjs';
 import Util         from '../../Util.mjs';
 
 /**
- * @class Covid.view.country.Table
+ * @class SharedCovid.view.country.Table
  * @extends Neo.table.Container
  */
 class Table extends Container {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.country.Table'
-         * @private
+         * @member {String} className='SharedCovid.view.country.Table'
+         * @protected
          */
-        className: 'Covid.view.country.Table',
+        className: 'SharedCovid.view.country.Table',
         /**
          * @member {String[]} cls=['covid-country-table', 'neo-table-container']
          */

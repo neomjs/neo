@@ -9,7 +9,7 @@ class SignUpComponent extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.view.user.SignUpComponent'
-         * @private
+         * @protected
          */
         className: 'RealWorld.view.user.SignUpComponent',
         /**
@@ -36,7 +36,7 @@ class SignUpComponent extends Component {
         },
         /**
          * @member {String} mode_='signup'
-         * @private
+         * @protected
          */
         mode_: 'signup',
         /**
@@ -101,7 +101,7 @@ class SignUpComponent extends Component {
      * Triggered after the errors config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
-     * @private
+     * @protected
      */
     afterSetErrors(value, oldValue) {
         let me   = this,
@@ -124,7 +124,7 @@ class SignUpComponent extends Component {
      * Triggered after the fieldsets config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetFieldsets(value, oldValue) {
         let me   = this,
@@ -154,7 +154,7 @@ class SignUpComponent extends Component {
      * Triggered after the mode config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetMode(value, oldValue) {
         let me         = this,

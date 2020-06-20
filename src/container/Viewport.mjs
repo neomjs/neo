@@ -8,12 +8,12 @@ class Viewport extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.container.Viewport'
-         * @private
+         * @protected
          */
         className: 'Neo.container.Viewport',
         /**
          * @member {String} ntype='viewport'
-         * @private
+         * @protected
          */
         ntype: 'viewport',
         /**

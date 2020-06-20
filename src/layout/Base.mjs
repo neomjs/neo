@@ -10,24 +10,24 @@ class Base extends CoreBase {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.layout.Base'
-         * @private
+         * @protected
          */
         className: 'Neo.layout.Base',
         /**
          * @member {String} ntype='layout-base'
-         * @private
+         * @protected
          */
         ntype: 'layout-base',
         /**
          * The Id of the Container instance this layout is bound to
          * @member {?String} containerId=null
-         * @private
+         * @protected
          */
         containerId: null,
         /**
          * Identifier for all classes that extend layout.Base
          * @member {Boolean} isLayout=true
-         * @private
+         * @protected
          */
         isLayout: true
     }}
@@ -35,26 +35,26 @@ class Base extends CoreBase {
     /**
      * Placeholder Method
      * @param {Neo.component.Base} item
-     * @private
+     * @protected
      */
     applyChildAttributes(item) {}
 
     /**
      * Placeholder Method
-     * @private
+     * @protected
      */
     applyRenderAttributes() {}
 
     /**
      * Placeholder Method
      * @param {Neo.component.Base} item
-     * @private
+     * @protected
      */
     removeChildAttributes(item) {}
 
     /**
      * Placeholder Method
-     * @private
+     * @protected
      */
     removeRenderAttributes() {}
 }

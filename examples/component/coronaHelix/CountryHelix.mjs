@@ -10,7 +10,7 @@ class CountryHelix extends Helix {
         /**
          * A regex to replace blank chars
          * @member {RegExp} flagRegEx=/ /gi
-         * @private
+         * @protected
          * @static
          */
         flagRegEx: / /gi
@@ -19,7 +19,7 @@ class CountryHelix extends Helix {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.examples.component.coronaHelix.CountryHelix'
-         * @private
+         * @protected
          */
         className: 'Neo.examples.component.coronaHelix.CountryHelix',
         /**

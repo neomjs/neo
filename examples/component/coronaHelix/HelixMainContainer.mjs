@@ -11,7 +11,7 @@ class HelixMainContainer extends Viewport {
     static getConfig() {return {
         /**
          * @member {String} className='TestApp.HelixMainContainer'
-         * @private
+         * @protected
          */
         className: 'TestApp.HelixMainContainer',
         /**

@@ -10,27 +10,27 @@ class Store extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.manager.Store'
-         * @private
+         * @protected
          */
         className: 'Neo.manager.Store',
         /**
          * @member {String} ntype='store-manager'
-         * @private
+         * @protected
          */
         ntype: 'store-manager',
         /**
          * @member {Boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true,
         /**
          * @member {Object} listeners={}
-         * @private
+         * @protected
          */
         listeners: {},
         /**
          * @member {Object} remote={app: ['createRandomData', 'filter', 'load', 'sort']}
-         * @private
+         * @protected
          */
         remote: {
             app: ['createRandomData', 'filter', 'load', 'sort']

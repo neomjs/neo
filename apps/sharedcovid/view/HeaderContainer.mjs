@@ -3,16 +3,16 @@ import CountryStore             from '../store/Countries.mjs';
 import {default as SelectField} from '../../../src/form/field/Select.mjs';
 
 /**
- * @class Covid.view.HeaderContainer
+ * @class SharedCovid.view.HeaderContainer
  * @extends Neo.container.Base
  */
 class HeaderContainer extends Container {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.HeaderContainer'
-         * @private
+         * @member {String} className='SharedCovid.view.HeaderContainer'
+         * @protected
          */
-        className: 'Covid.view.HeaderContainer',
+        className: 'SharedCovid.view.HeaderContainer',
         /**
          * @member {String[]} cls=['covid-header-container']
          */

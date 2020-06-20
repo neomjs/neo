@@ -10,7 +10,7 @@ class HelixContainer extends HelixMainContainer {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld2.view.article.HelixContainer'
-         * @private
+         * @protected
          */
         className: 'RealWorld2.view.article.HelixContainer',
         /**

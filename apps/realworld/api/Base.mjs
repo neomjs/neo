@@ -15,7 +15,7 @@ class Base extends CoreBase {
         observable: true,
         /**
          * @member {String|null} token=null
-         * @private
+         * @protected
          * @static
          */
         token: null
@@ -24,7 +24,7 @@ class Base extends CoreBase {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.api.Base'
-         * @private
+         * @protected
          */
         className: 'RealWorld.api.Base',
         /**

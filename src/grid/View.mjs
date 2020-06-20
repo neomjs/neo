@@ -8,12 +8,12 @@ class View extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.grid.View'
-         * @private
+         * @protected
          */
         className: 'Neo.grid.View',
         /**
          * @member {String} ntype='grid-view'
-         * @private
+         * @protected
          */
         ntype: 'grid-view',
         /**

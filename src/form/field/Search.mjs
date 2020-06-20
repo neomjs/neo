@@ -8,12 +8,12 @@ class Search extends Text {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.Search'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.Search',
         /**
          * @member {String} ntype='searchfield'
-         * @private
+         * @protected
          */
         ntype: 'searchfield',
         /**

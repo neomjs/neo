@@ -13,7 +13,7 @@ class Container extends BaseContainer {
         /**
          * Valid values for tabBarPosition
          * @member {String[]} tabBarPositions=['top', 'right', 'bottom', 'left']
-         * @private
+         * @protected
          * @static
          */
         tabBarPositions: ['top', 'right', 'bottom', 'left']
@@ -22,12 +22,12 @@ class Container extends BaseContainer {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.tab.Container'
-         * @private
+         * @protected
          */
         className: 'Neo.tab.Container',
         /**
          * @member {String} ntype='tab-container'
-         * @private
+         * @protected
          */
         ntype: 'tab-container',
         /**
@@ -50,7 +50,7 @@ class Container extends BaseContainer {
         /**
          * adds baseCls + '-plain' is case plain is set to true
          * @member {Array} cls=['neo-tab-container'],
-         * @private
+         * @protected
          */
         cls: ['neo-tab-container'],
         /**
@@ -114,7 +114,7 @@ class Container extends BaseContainer {
      * Triggered after the activeIndex config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetActiveIndex(value, oldValue) {
         let me            = this,
@@ -136,7 +136,7 @@ class Container extends BaseContainer {
      * Triggered after the plain config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetPlain(value, oldValue) {
         let me      = this,
@@ -151,7 +151,7 @@ class Container extends BaseContainer {
      * Triggered after the tabBarPosition config got changed
      * @param {String} value 'top', 'right', 'bottom', 'left'
      * @param {String} oldValue 'top', 'right', 'bottom', 'left'
-     * @private
+     * @protected
      */
     afterSetTabBarPosition(value, oldValue) {
         let me  = this,
@@ -177,7 +177,7 @@ class Container extends BaseContainer {
      * Triggered after the useActiveTabIndicator config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetUseActiveTabIndicator(value, oldValue) {
         if (Neo.isDefined(oldValue)) {
@@ -190,7 +190,7 @@ class Container extends BaseContainer {
      * Triggered before the tabBarPosition config gets changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      * @returns {String} value
      */
     beforeSetTabBarPosition(value, oldValue) {
@@ -199,7 +199,7 @@ class Container extends BaseContainer {
 
     /**
      *
-     * @private
+     * @protected
      */
     createItems() {
         let me            = this,
@@ -290,7 +290,7 @@ class Container extends BaseContainer {
     /**
      *
      * @returns {Object} layoutConfig
-     * @private
+     * @protected
      */
     getLayoutConfig() {
         let me           = this,
@@ -344,7 +344,7 @@ class Container extends BaseContainer {
      * @param {Object} config
      * @param {Number} index
      * @returns {Object} The merged config
-     * @private
+     * @protected
      */
     getTabButtonConfig(config, index) {
         let me = this,
@@ -445,7 +445,7 @@ class Container extends BaseContainer {
      * Gets triggered once a dynamically added tabheader button gets mounted
      * in case activateInsertedTabs is set to true
      * @param {String} buttonId
-     * @private
+     * @protected
      */
     onTabButtonMounted(buttonId) {
         let me            = this,
@@ -529,7 +529,7 @@ class Container extends BaseContainer {
 
     /**
      *
-     * @private
+     * @protected
      */
     updateTabButtons() {
         let me          = this,

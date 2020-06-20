@@ -11,7 +11,7 @@ class CreateComponent extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.view.article.CreateComponent'
-         * @private
+         * @protected
          */
         className: 'RealWorld.view.article.CreateComponent',
         /**
@@ -158,7 +158,7 @@ class CreateComponent extends Component {
      * Triggered after the body config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetBody(value, oldValue) {
         let vdom = this.vdom;
@@ -171,7 +171,7 @@ class CreateComponent extends Component {
      * Triggered after the description config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetDescription(value, oldValue) {
         let vdom = this.vdom;
@@ -184,7 +184,7 @@ class CreateComponent extends Component {
      * Triggered after the errors config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
-     * @private
+     * @protected
      */
     afterSetErrors(value, oldValue) {
         let me   = this,
@@ -240,7 +240,7 @@ class CreateComponent extends Component {
      * Triggered after the title config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetTitle(value, oldValue) {
         let vdom = this.vdom;

@@ -13,12 +13,12 @@ class RecordFactory extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.data.RecordFactory'
-         * @private
+         * @protected
          */
         className: 'Neo.data.RecordFactory',
         /**
          * @member {Boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true,
         /**

@@ -11,22 +11,22 @@ class CellRowModel extends CellModel {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.selection.table.CellRowModel'
-         * @private
+         * @protected
          */
         className: 'Neo.selection.table.CellRowModel',
         /**
          * @member {String} ntype='selection-table-cellrowmodel'
-         * @private
+         * @protected
          */
         ntype: 'selection-table-cellrowmodel',
         /**
          * @member {String} cls='neo-selection-cellrowmodel'
-         * @private
+         * @protected
          */
         cls: 'neo-selection-cellrowmodel',
         /**
          * @member {Array|null} selectedRowIds=null
-         * @private
+         * @protected
          */
         selectedRowIds: null
     }}

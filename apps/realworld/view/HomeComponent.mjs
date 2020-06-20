@@ -12,7 +12,7 @@ class HomeComponent extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.view.HomeComponent'
-         * @private
+         * @protected
          */
         className: 'RealWorld.view.HomeComponent',
         /**
@@ -159,7 +159,7 @@ class HomeComponent extends Component {
      * Triggered after the articlePreviews config got changed
      * @param {Object[]|null} value
      * @param {Object[]|null} oldValue
-     * @private
+     * @protected
      */
     afterSetArticlePreviews(value, oldValue) {
         let me        = this,
@@ -207,7 +207,7 @@ class HomeComponent extends Component {
      * Triggered after the countArticles config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetCountArticles(value, oldValue) {
         let me          = this,
@@ -252,7 +252,7 @@ class HomeComponent extends Component {
      * Triggered after the currentPage config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetCurrentPage(value, oldValue) {
         let me   = this,
@@ -279,7 +279,7 @@ class HomeComponent extends Component {
      * Triggered after the feeds config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
-     * @private
+     * @protected
      */
     afterSetFeeds(value, oldValue) {
         let me         = this,
@@ -314,7 +314,7 @@ class HomeComponent extends Component {
      * Triggered after the loggedIn config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetLoggedIn(value, oldValue) {
         let me      = this,
@@ -330,7 +330,7 @@ class HomeComponent extends Component {
      * Triggered after the pageSize config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetPageSize(value, oldValue) {
         let me = this,

@@ -9,12 +9,12 @@ class BoxLabel extends Label {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.component.BoxLabel'
-         * @private
+         * @protected
          */
         className: 'Neo.component.BoxLabel',
         /**
          * @member {String} ntype='box-label'
-         * @private
+         * @protected
          */
         ntype: 'box-label',
         /**

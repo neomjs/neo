@@ -22,13 +22,13 @@ class MainContainerController extends ComponentController {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld2.view.MainContainerController'
-         * @private
+         * @protected
          */
         className: 'RealWorld2.view.MainContainerController',
         /**
          * Stores the current user data after logging in
          * @member {Object|null} currentUser_=null
-         * @private
+         * @protected
          */
         currentUser_: null,
         /**
@@ -54,7 +54,7 @@ class MainContainerController extends ComponentController {
      * Triggered after the articlesOffset config got changed
      * @param {Object} value
      * @param {Object} oldValue
-     * @private
+     * @protected
      */
     afterSetArticlesOffset(value, oldValue) {
         // ignore the initial config setter call
@@ -67,7 +67,7 @@ class MainContainerController extends ComponentController {
      * Triggered after the currentUser config got changed
      * @param {Object} value
      * @param {Object} oldValue
-     * @private
+     * @protected
      */
     afterSetCurrentUser(value, oldValue) {
         if (typeof oldValue === 'object') {

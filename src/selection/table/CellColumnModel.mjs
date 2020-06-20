@@ -10,27 +10,27 @@ class CellColumnModel extends CellModel {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.selection.table.CellColumnModel'
-         * @private
+         * @protected
          */
         className: 'Neo.selection.table.CellColumnModel',
         /**
          * @member {String} ntype='selection-table-cellcolumnmodel'
-         * @private
+         * @protected
          */
         ntype: 'selection-table-cellcolumnmodel',
         /**
          * @member {String} cls='neo-selection-cellcolumnmodel'
-         * @private
+         * @protected
          */
         cls: 'neo-selection-cellcolumnmodel',
         /**
          * @member {String} selectedColumnCellCls='selected-column-cell'
-         * @private
+         * @protected
          */
         selectedColumnCellCls: 'selected-column-cell',
         /**
          * @member {Array|null} selectedColumnCellIds=null
-         * @private
+         * @protected
          */
         selectedColumnCellIds: null
     }}

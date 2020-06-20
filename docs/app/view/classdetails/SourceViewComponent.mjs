@@ -8,32 +8,32 @@ class SourceViewComponent extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Docs.app.view.classdetails.SourceViewComponent'
-         * @private
+         * @protected
          */
         className: 'Docs.app.view.classdetails.SourceViewComponent',
         /**
          * @member {String} ntype='classdetails-sourceviewcomponent'
-         * @private
+         * @protected
          */
         ntype: 'classdetails-sourceviewcomponent',
         /**
          * @member {Boolean} isHighlighted_=false
-         * @private
+         * @protected
          */
         isHighlighted_: false,
         /**
          * @member {Number|null} line_=null
-         * @private
+         * @protected
          */
         line_: null,
         /**
          * @member {Number|null} previousLine=null
-         * @private
+         * @protected
          */
         previousLine: null,
         /**
          * @member {Object|null} structureData=null
-         * @private
+         * @protected
          */
         structureData: null,
         /**
@@ -79,7 +79,7 @@ class SourceViewComponent extends Component {
      * Triggered after the isHighlighted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetIsHighlighted(value, oldValue) {
         if (value) {
@@ -99,7 +99,7 @@ class SourceViewComponent extends Component {
      * Triggered after the line config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetLine(value, oldValue) {
         let me = this;

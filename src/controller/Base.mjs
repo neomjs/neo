@@ -17,12 +17,12 @@ class Base extends CoreBase {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.controller.Base'
-         * @private
+         * @protected
          */
         className: 'Neo.controller.Base',
         /**
          * @member {String} ntype='controller'
-         * @private
+         * @protected
          */
         ntype: 'controller'
     }}

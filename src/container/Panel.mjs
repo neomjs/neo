@@ -10,12 +10,12 @@ class Panel extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.container.Panel'
-         * @private
+         * @protected
          */
         className: 'Neo.container.Panel',
         /**
          * @member {String} ntype='panel'
-         * @private
+         * @protected
          */
         ntype: 'panel',
         /**

@@ -11,12 +11,12 @@ class Date extends Picker {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.Date'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.Date',
         /**
          * @member {String} ntype='datefield'
-         * @private
+         * @protected
          */
         ntype: 'datefield',
         /**
@@ -25,7 +25,7 @@ class Date extends Picker {
         cls: ['neo-datefield', 'neo-pickerfield', 'neo-textfield'],
         /**
          * @member {Neo.component.DateSelector} dateSelector=null
-         * @private
+         * @protected
          */
         dateSelector: null,
         /**
@@ -51,7 +51,7 @@ class Date extends Picker {
         pickerWidth: 200,
         /**
          * @member {Object|Object[]} triggers=[{module: DateTrigger}]
-         * @private
+         * @protected
          */
         triggers: [{
             module: DateTrigger
@@ -93,7 +93,7 @@ class Date extends Picker {
 
     /**
      * @param {Object} data
-     * @private
+     * @protected
      */
     onContainerKeyDownEscape() {
         let me = this;
@@ -124,7 +124,7 @@ class Date extends Picker {
     /**
      *
      * @param {Object} data
-     * @private
+     * @protected
      */
     onKeyDownEnter(data) {
         let me = this;
@@ -139,7 +139,7 @@ class Date extends Picker {
 
     /**
      * @param {Object} data
-     * @private
+     * @protected
      */
     onInputValueChange(data) {
         let me       = this,

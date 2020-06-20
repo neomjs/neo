@@ -9,12 +9,12 @@ class HierarchyTreeList extends TreeList {
     static getConfig() {return {
         /**
          * @member {String} className='Docs.app.view.classdetails.HierarchyTreeList'
-         * @private
+         * @protected
          */
         className: 'Docs.app.view.classdetails.HierarchyTreeList',
         /**
          * @member {String} ntype='classdetails-treelist'
-         * @private
+         * @protected
          */
         ntype: 'classhierarchy-treelist',
         /**

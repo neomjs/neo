@@ -11,7 +11,7 @@ class DomAccess extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.main.DomAccess'
-         * @private
+         * @protected
          */
         className: 'Neo.main.DomAccess',
         /**
@@ -28,7 +28,7 @@ class DomAccess extends Base {
         /**
          * Remote method access for other workers
          * @member {Object} remote={app: [//...]}
-         * @private
+         * @protected
          */
         remote: {
             app: [
@@ -46,13 +46,13 @@ class DomAccess extends Base {
         },
         /**
          * @member {Boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true,
         /**
          * Void attributes inside html tags
          * @member {String[]} voidAttributes
-         * @private
+         * @protected
          */
         voidAttributes: [
             'checked',
@@ -213,7 +213,7 @@ class DomAccess extends Base {
      *
      * @param {String} nodeId
      * @return {HTMLElement}
-     * @private
+     * @protected
      */
     getElement(nodeId) {
         return document.getElementById(nodeId);
@@ -223,7 +223,7 @@ class DomAccess extends Base {
      *
      * @param {String} [nodeId='body']
      * @return {HTMLElement}
-     * @private
+     * @protected
      */
     getElementOrBody(nodeId) {
         if (!nodeId || nodeId === 'body' || nodeId === 'document.body') {
@@ -295,7 +295,7 @@ class DomAccess extends Base {
      * @param {Array} data.functions An array containing strings and/or objects
      * @param {String[]} data.styles
      * @param {String} data.vnodeId
-     * @private
+     * @protected
      */
     onReadDom(data) {
         let attributes    = data.attributes || [],
@@ -357,7 +357,7 @@ class DomAccess extends Base {
     /**
      *
      * @param {Object} data
-     * @private
+     * @protected
      */
     read(data) {
         if (typeof data === 'function') {
@@ -453,7 +453,7 @@ class DomAccess extends Base {
     /**
      *
      * @param {Object} data
-     * @private
+     * @protected
      */
     write(data) {
         let container   = this.getElementOrBody(data.parentId),

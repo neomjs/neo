@@ -1,19 +1,19 @@
 import {default as AmChartComponent} from '../../../src/component/wrapper/AmChart.mjs';
 
 /**
- * @class Covid.view.WorldMapComponent
+ * @class SharedCovid.view.WorldMapComponent
  * @extends Neo.component.wrapper.AmChart
  */
 class WorldMapComponent extends AmChartComponent {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.WorldMapComponent'
-         * @private
+         * @member {String} className='SharedCovid.view.WorldMapComponent'
+         * @protected
          */
-        className: 'Covid.view.WorldMapComponent',
+        className: 'SharedCovid.view.WorldMapComponent',
         /**
          * @member {String} ntype='covid-world-map'
-         * @private
+         * @protected
          */
         ntype: 'covid-world-map',
         /**

@@ -10,12 +10,12 @@ class MembersList extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Docs.app.view.classdetails.MembersList'
-         * @private
+         * @protected
          */
         className: 'Docs.app.view.classdetails.MembersList',
         /**
          * @member {String} ntype='classdetails-memberslist'
-         * @private
+         * @protected
          */
         ntype: 'classdetails-memberslist',
         /**
@@ -24,13 +24,17 @@ class MembersList extends Base {
         cls: ['docs-classhierarchy-memberslist'],
         /**
          * @member {String} filterMembersQuery_=''
-         * @private
+         * @protected
          */
         filterMembersQuery_: '',
         /**
          * @member {Boolean} showPrivateMembers_=true
          */
         showPrivateMembers_: true,
+        /**
+         * @member {Boolean} showProtectedMembers_=true
+         */
+        showProtectedMembers_: true,
         /**
          * @member {Boolean} showStaticMembers_=true
          */
@@ -78,9 +82,21 @@ class MembersList extends Base {
      * Triggered after the filterMembersQuery config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetFilterMembersQuery(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.onRefreshClassMembers();
+        }
+    }
+
+    /**
+     * Triggered after the showProtectedMembers config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowProtectedMembers(value, oldValue) {
         if (oldValue !== undefined) {
             this.onRefreshClassMembers();
         }
@@ -90,7 +106,7 @@ class MembersList extends Base {
      * Triggered after the showPrivateMembers config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetShowPrivateMembers(value, oldValue) {
         if (oldValue !== undefined) {
@@ -102,7 +118,7 @@ class MembersList extends Base {
      * Triggered after the showStaticMembers config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetShowStaticMembers(value, oldValue) {
         if (oldValue !== undefined) {
@@ -216,8 +232,8 @@ class MembersList extends Base {
                 itemAttributes.push('inherited');
             }
 
-            if (item.access === 'private') {
-                itemAttributes.push('private');
+            if (item.access === 'private' || item.access === 'protected') {
+                itemAttributes.push(item.access);
             }
 
             if (item.scope === 'static') {
@@ -513,6 +529,14 @@ class MembersList extends Base {
                 operator: '!==',
                 property: 'access',
                 value   : 'private'
+            });
+        }
+
+        if (!me.showProtectedMembers) {
+            filters.push({
+                operator: '!==',
+                property: 'access',
+                value   : 'protected'
             });
         }
 

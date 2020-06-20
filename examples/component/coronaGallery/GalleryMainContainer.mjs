@@ -11,7 +11,7 @@ class GalleryMainContainer extends Viewport {
     static getConfig() {return {
         /**
          * @member {String} className='TestApp.GalleryMainContainer'
-         * @private
+         * @protected
          */
         className: 'TestApp.MainContainer',
         /**

@@ -8,7 +8,7 @@ class ClassSystem extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.util.ClassSystem'
-         * @private
+         * @protected
          */
         className: 'Neo.util.ClassSystem'
     }}

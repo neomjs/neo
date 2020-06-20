@@ -30,12 +30,12 @@ class Card extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.layout.Card'
-         * @private
+         * @protected
          */
         className: 'Neo.layout.Card',
         /**
          * @member {String} ntype='layout-card'
-         * @private
+         * @protected
          */
         ntype: 'layout-card',
         /*
@@ -51,7 +51,7 @@ class Card extends Base {
      * Automatically gets triggered after changing the value of activeIndex.
      * @param value
      * @param oldValue
-     * @private
+     * @protected
      */
     afterSetActiveIndex(value, oldValue) {
         let me        = this,

@@ -8,12 +8,12 @@ class View extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.table.View'
-         * @private
+         * @protected
          */
         className: 'Neo.table.View',
         /**
          * @member {String} ntype='table-view'
-         * @private
+         * @protected
          */
         ntype: 'table-view',
         /**
@@ -22,7 +22,7 @@ class View extends Component {
         cls: ['neo-table-view'],
         /**
          * @member {String|null} containerId=null
-         * @private
+         * @protected
          */
         containerId: null,
         /**

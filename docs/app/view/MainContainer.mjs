@@ -18,12 +18,12 @@ class MainContainer extends Viewport {
     static getConfig() {return {
         /**
          * @member {String} className='Docs.app.view.MainContainer'
-         * @private
+         * @protected
          */
         className: 'Docs.app.view.MainContainer',
         /**
          * @member {String} ntype='main-container'
-         * @private
+         * @protected
          */
         ntype: 'main-container',
         /**

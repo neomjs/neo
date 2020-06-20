@@ -11,17 +11,17 @@ class Component extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.manager.Component'
-         * @private
+         * @protected
          */
         className: 'Neo.manager.Component',
         /**
          * @member {String} ntype='component-manager'
-         * @private
+         * @protected
          */
         ntype: 'component-manager',
         /**
          * @member {Boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true
     }}

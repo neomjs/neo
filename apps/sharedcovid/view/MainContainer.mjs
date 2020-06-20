@@ -11,16 +11,16 @@ import Viewport                       from '../../../src/container/Viewport.mjs'
 import WorldMapContainer              from './WorldMapContainer.mjs';
 
 /**
- * @class Covid.view.MainContainer
+ * @class SharedCovid.view.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.MainContainer'
-         * @private
+         * @member {String} className='SharedCovid.view.MainContainer'
+         * @protected
          */
-        className: 'Covid.view.MainContainer',
+        className: 'SharedCovid.view.MainContainer',
         /**
          * @member {Boolean} autoMount=true
          */

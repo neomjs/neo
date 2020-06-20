@@ -15,12 +15,12 @@ class Container extends BaseContainer {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.table.Container'
-         * @private
+         * @protected
          */
         className: 'Neo.table.Container',
         /**
          * @member {String} ntype='table-container'
-         * @private
+         * @protected
          */
         ntype: 'table-container',
         /**
@@ -66,7 +66,7 @@ class Container extends BaseContainer {
         layout: 'base',
         /**
          * @member {Boolean} scrollbarsCssApplied=false
-         * @private
+         * @protected
          */
         scrollbarsCssApplied: false,
         /**
@@ -89,12 +89,12 @@ class Container extends BaseContainer {
         viewConfig: null,
         /**
          * @member {String|null} viewId_=null
-         * @private
+         * @protected
          */
         viewId_: null,
         /**
          * @member {Array|null} items=null
-         * @private
+         * @protected
          */
         items: null,
         /**
@@ -162,7 +162,7 @@ class Container extends BaseContainer {
      * Triggered after the selectionModel config got changed
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
-     * @private
+     * @protected
      */
     afterSetSelectionModel(value, oldValue) {
         if (this.rendered) {
@@ -174,7 +174,7 @@ class Container extends BaseContainer {
      * Triggered after the useCustomScrollbars config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetUseCustomScrollbars(value, oldValue) {
         if (value === true) {
@@ -183,7 +183,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @private
+     * @protected
      */
     applyCustomScrollbarsCss() {
         let me       = this,
@@ -207,7 +207,7 @@ class Container extends BaseContainer {
      * Triggered before the columns config gets changed.
      * @param {Array} value
      * @param {Array} oldValue
-     * @private
+     * @protected
      */
     beforeSetColumns(value, oldValue) {
         if (this.configsApplied) {
@@ -221,7 +221,7 @@ class Container extends BaseContainer {
      * Triggered before the headerToolbarId config gets changed.
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     beforeSetHeaderToolbarId(value, oldValue) {
         return value ? value : oldValue;
@@ -231,7 +231,7 @@ class Container extends BaseContainer {
      * Triggered before the selectionModel config gets changed.
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
-     * @private
+     * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
         if (oldValue) {
@@ -245,7 +245,7 @@ class Container extends BaseContainer {
      * Triggered before the store config gets changed.
      * @param {Neo.data.Store} value
      * @param {Neo.data.Store} oldValue
-     * @private
+     * @protected
      */
     beforeSetStore(value, oldValue) {
         if (oldValue) {
@@ -274,7 +274,7 @@ class Container extends BaseContainer {
      * Triggered before the viewId config gets changed.
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     beforeSetViewId(value, oldValue) {
         return value ? value : oldValue;
@@ -381,7 +381,7 @@ class Container extends BaseContainer {
      * @param {Object} opts
      * @param {String} opts.direction
      * @param {String} opts.property
-     * @private
+     * @protected
      */
     onSortColumn(opts) {
         let me = this;
@@ -394,7 +394,7 @@ class Container extends BaseContainer {
     /**
      *
      * @param {Array} data
-     * @private
+     * @protected
      */
     onStoreLoad(data) {
         let me = this,
@@ -433,7 +433,7 @@ class Container extends BaseContainer {
     /**
      *
      * @param {Array} items
-     * @private
+     * @protected
      */
     onToolbarItemsCreated(items) {
         this.columns = items;
@@ -442,7 +442,7 @@ class Container extends BaseContainer {
     /**
      *
      * @param {String} dataField
-     * @private
+     * @protected
      */
     removeSortingCss(dataField) {
         this.items[0].items.forEach(column => {

@@ -9,22 +9,22 @@ class Window extends Panel {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.container.Window'
-         * @private
+         * @protected
          */
         className: 'Neo.container.Window',
         /**
          * @member {String} ntype='window'
-         * @private
+         * @protected
          */
         ntype: 'window',
         /**
          * @member {Boolean} autoMount=true
-         * @private
+         * @protected
          */
         autoMount: true,
         /**
          * @member {String[]} cls=['neo-window','neo-panel','neo-container']
-         * @private
+         * @protected
          */
         cls: ['neo-window', 'neo-panel', 'neo-container'],
         /**
@@ -33,12 +33,12 @@ class Window extends Panel {
         draggable_: true,
         /**
          * @member {Array} mixins
-         * @private
+         * @protected
          */
         mixins: [Floating],
         /**
          * @member {Array} headers
-         * @private
+         * @protected
          */
         headers: [
             {

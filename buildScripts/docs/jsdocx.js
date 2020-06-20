@@ -32,23 +32,23 @@ jsdocx.filter = (docs, options, predicate) => {
 }
 // end todo
 
-let appDevJsonPath = path.resolve(processRoot, 'buildScripts/myApps.json'),
-    appDevJson;
+let appJsonPath = path.resolve(processRoot, 'buildScripts/myApps.json'),
+    appJson;
 
-if (fs.existsSync(appDevJsonPath)) {
-    appDevJson = require(appDevJsonPath);
+if (fs.existsSync(appJsonPath)) {
+    appJson = require(appJsonPath);
 } else {
-    appDevJsonPath = path.resolve(__dirname, '../webpack/json/myApps.json');
+    appJsonPath = path.resolve(__dirname, '../webpack/json/myApps.json');
 
-    if (fs.existsSync(appDevJsonPath)) {
-        appDevJson = require(appDevJsonPath);
+    if (fs.existsSync(appJsonPath)) {
+        appJson = require(appJsonPath);
     } else {
-        appDevJson = require(path.resolve(__dirname, '../webpack/json/myApps.template.json'));
+        appJson = require(path.resolve(__dirname, '../webpack/json/myApps.template.json'));
     }
 }
 
-if (appDevJson) {
-    Object.entries(appDevJson.apps).forEach(([key, value]) => {
+if (appJson) {
+    Object.entries(appJson.apps).forEach(([key, value]) => {
         if (key !== 'Docs') { // the docs app is automatically included
             appNames.push(key);
             options.files.push('.' + value.output + '**/*.mjs');
@@ -95,7 +95,9 @@ function generateStructure(target, parentId, docs) {
         len       = docs.length,
         className, docItem, i, id, j, hasMatch, isLeaf, path, singleton, srcPath, tagLength;
 
-    // console.log(target);
+    if (!namespace) {
+        console.log(target);
+    }
 
     Object.entries(namespace).forEach(([key, value]) => {
         id        = ++neoStructureId;
@@ -242,7 +244,7 @@ jsdocx.parse(options)
         let i         = 0,
             len       = docs.length,
             structure = {},
-            defaultValue, filename, hasMatch, index, item, j, namespace, path, pathLen, type;
+            defaultValue, filename, hasMatch, index, item, j, lAppName, namespace, path, pathLen, type;
 
         for (; i < len; i++) {
             item = docs[i];
@@ -269,15 +271,16 @@ jsdocx.parse(options)
 
                     if (index > -1) {
                         for (j=0; j < appNames.length; j++) {
-                            pathLen = path.lastIndexOf(appNames[j].toLowerCase());
+                            lAppName = appNames[j].toLowerCase();
+                            pathLen  = path.lastIndexOf('/' + lAppName);
 
                             if (pathLen !== -1) {
                                 // top level files
-                                if (pathLen === path.length - appNames[j].length) {
+                                if (pathLen === path.length - appNames[j].length - 1) {
                                     path = appNames[j] + path.substr(index + appNames[j].length + 6) + '.';
                                     break;
                                 } else {
-                                    pathLen = path.indexOf(appNames[j].toLowerCase() + '/');
+                                    pathLen = path.indexOf(lAppName + '/');
 
                                     if (pathLen > -1) {
                                         path = appNames[j] + path.substr(index + appNames[j].length + 6) + '.';
@@ -306,6 +309,7 @@ jsdocx.parse(options)
 
             for (j=0; j < appNames.length; j++) {
                 if (path.indexOf(appNames[j] + '.') === 0) {
+                    // console.log('NS', appNames[j] + 'Empty.' + filename);
                     ns(appNames[j] + 'Empty.' + filename, true);
                     item.neoClassName = filename;
                     // console.log(item.neoClassName);

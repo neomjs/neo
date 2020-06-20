@@ -8,7 +8,7 @@ class Favorite extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.api.Favorite'
-         * @private
+         * @protected
          */
         className: 'RealWorld.api.Favorite'
     }}

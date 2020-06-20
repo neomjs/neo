@@ -10,12 +10,12 @@ class HeaderContainer extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='Docs.app.view.HeaderContainer'
-         * @private
+         * @protected
          */
         className: 'Docs.app.view.HeaderContainer',
         /**
          * @member {String} ntype='header-container'
-         * @private
+         * @protected
          */
         ntype: 'neo-docs-header-container',
         /**

@@ -8,12 +8,12 @@ class TutorialComponent extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Docs.app.view.classdetails.TutorialComponent'
-         * @private
+         * @protected
          */
         className: 'Docs.app.view.classdetails.TutorialComponent',
         /**
          * @member {String} ntype='classdetails-tutorialcomponent'
-         * @private
+         * @protected
          */
         ntype: 'classdetails-tutorialcomponent',
         /**

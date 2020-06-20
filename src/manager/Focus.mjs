@@ -10,17 +10,17 @@ class Focus extends CoreBase {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.manager.Focus'
-         * @private
+         * @protected
          */
         className: 'Neo.manager.Focus',
         /**
          * @member {String} ntype='focus-manager'
-         * @private
+         * @protected
          */
         ntype: 'focus-manager',
         /**
          * @member {Boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true,
         /**
@@ -33,13 +33,13 @@ class Focus extends CoreBase {
         /**
          * The Date object when the last focusin event has occured
          * @member {Date|null} lastFocusInDate=null
-         * @private
+         * @protected
          */
         lastFocusInDate: null,
         /**
          * The Date object when the last focusout event has occured
          * @member {Date|null} lastFocusInDate=null
-         * @private
+         * @protected
          */
         lastFocusOutDate: null,
         /**
@@ -60,7 +60,7 @@ class Focus extends CoreBase {
      * @param {Object} opts
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
-     * @private
+     * @protected
      */
     addToHistory(opts) {
         let history = this.history;
@@ -77,7 +77,7 @@ class Focus extends CoreBase {
      * @param {Object} opts
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
-     * @private
+     * @protected
      */
     focusEnter(opts) {
         this.setComponentFocus(opts, true);
@@ -89,7 +89,7 @@ class Focus extends CoreBase {
      * @param {Object} opts
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
-     * @private
+     * @protected
      */
     focusLeave(opts) {
         this.setComponentFocus(opts, false);
@@ -100,7 +100,7 @@ class Focus extends CoreBase {
      * @param {Object} opts
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
-     * @private
+     * @protected
      */
     focusMove(opts) {
         let me               = this,
@@ -140,7 +140,7 @@ class Focus extends CoreBase {
      * @param {Object} opts
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
-     * @private
+     * @protected
      */
     onFocusin(opts) {
         let me = this;
@@ -159,7 +159,7 @@ class Focus extends CoreBase {
      * @param {Object} opts
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
-     * @private
+     * @protected
      */
     onFocusout(opts) {
         let me = this;
@@ -179,7 +179,7 @@ class Focus extends CoreBase {
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
      * @param {Boolean} containsFocus
-     * @private
+     * @protected
      */
     setComponentFocus(opts, containsFocus) {
         let component, handler;

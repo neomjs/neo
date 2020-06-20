@@ -13,7 +13,7 @@ class HelixContainer extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.HelixContainer'
-         * @private
+         * @protected
          */
         className: 'Covid.view.HelixContainer',
         /**

@@ -10,7 +10,7 @@ class CountryGallery extends Gallery {
         /**
          * A regex to replace blank chars
          * @member {RegExp} flagRegEx=/ /gi
-         * @private
+         * @protected
          * @static
          */
         flagRegEx: / /gi
@@ -19,7 +19,7 @@ class CountryGallery extends Gallery {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.examples.component.coronaGallery.CountryGallery'
-         * @private
+         * @protected
          */
         className: 'Neo.examples.component.coronaGallery.CountryGallery',
         /**

@@ -9,12 +9,12 @@ class Fit extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.layout.Fit'
-         * @private
+         * @protected
          */
         className: 'Neo.layout.Fit',
         /**
          * @member {String} ntype='layout-fit'
-         * @private
+         * @protected
          */
         ntype: 'layout-fit'
     }}

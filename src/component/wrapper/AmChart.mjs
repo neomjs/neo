@@ -11,12 +11,12 @@ class AmChart extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.component.wrapper.AmChart'
-         * @private
+         * @protected
          */
         className: 'Neo.component.wrapper.AmChart',
         /**
          * @member {String} ntype='am-chart'
-         * @private
+         * @protected
          */
         ntype: 'am-chart',
         /**

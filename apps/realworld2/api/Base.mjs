@@ -18,7 +18,7 @@ class Base extends CoreBase {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld2.api.Base'
-         * @private
+         * @protected
          */
         className: 'RealWorld2.api.Base',
         /**

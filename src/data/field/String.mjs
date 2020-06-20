@@ -8,12 +8,12 @@ class StringField extends Field {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.data.field.String'
-         * @private
+         * @protected
          */
         className : 'Neo.data.field.String',
         /**
          * @member {String} ntype='data-field-string'
-         * @private
+         * @protected
          */
         ntype: 'data-field-string',
         /**
@@ -27,7 +27,7 @@ class StringField extends Field {
      * @param {String|null} value
      * @param {String|null} oldValue
      * @returns {String}
-     * @private
+     * @protected
      */
     beforeSetValue(value, oldValue) {
         let me           = this,

@@ -20,12 +20,12 @@ class MainContainerController extends ComponentController {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.view.MainContainerController'
-         * @private
+         * @protected
          */
         className: 'RealWorld.view.MainContainerController',
         /**
          * @member {RealWorld.view.article.Component|null} articleComponent=null
-         * @private
+         * @protected
          */
         articleComponent: null,
         /**
@@ -34,13 +34,13 @@ class MainContainerController extends ComponentController {
         articlesOffset_: 0,
         /**
          * @member {RealWorld.view.article.CreateComponent|null} createComponent=null
-         * @private
+         * @protected
          */
         createComponent: null,
         /**
          * Stores the current user data after logging in
          * @member {Object|null} currentUser_=null
-         * @private
+         * @protected
          */
         currentUser_: null,
         /**
@@ -49,22 +49,22 @@ class MainContainerController extends ComponentController {
         hashString: null,
         /**
          * @member {RealWorld.view.HomeComponent|null} homeComponent=null
-         * @private
+         * @protected
          */
         homeComponent: null,
         /**
          * @member {RealWorld.view.user.ProfileComponent|null} profileComponent=null
-         * @private
+         * @protected
          */
         profileComponent: null,
         /**
          * @member {RealWorld.view.user.SettingsComponent|null} settingsComponent=null
-         * @private
+         * @protected
          */
         settingsComponent: null,
         /**
          * @member {RealWorld.view.user.SignUpComponent|null} signUpComponent=null
-         * @private
+         * @protected
          */
         signUpComponent: null
     }}
@@ -90,7 +90,7 @@ class MainContainerController extends ComponentController {
      * Triggered after the articlesOffset config got changed
      * @param {Object} value
      * @param {Object} oldValue
-     * @private
+     * @protected
      */
     afterSetArticlesOffset(value, oldValue) {
         // ignore the initial config setter call
@@ -103,7 +103,7 @@ class MainContainerController extends ComponentController {
      * Triggered after the currentUser config got changed
      * @param {Object} value
      * @param {Object} oldValue
-     * @private
+     * @protected
      */
     afterSetCurrentUser(value, oldValue) {
         if (typeof oldValue === 'object') {

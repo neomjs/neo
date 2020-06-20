@@ -9,12 +9,12 @@ class Logger extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.core.Logger'
-         * @private
+         * @protected
          */
         className: 'Neo.core.Logger',
         /**
          * @member {String} ntype='logger'
-         * @private
+         * @protected
          */
         ntype: 'logger',
         /**
@@ -24,12 +24,12 @@ class Logger extends Base {
         enableLogs: true,
         /**
          * @member {String} level='log'
-         * @private
+         * @protected
          */
         level: 'log',
         /**
          * @member {boolean} enableLogs=true
-         * @private
+         * @protected
          */
         singleton: true
     }}
@@ -98,7 +98,7 @@ class Logger extends Base {
     /**
      *
      * @param args
-     * @private
+     * @protected
      */
     write(...args) {
         if (this.enableLogs === true) {

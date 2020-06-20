@@ -9,12 +9,12 @@ class DateSelectorModel extends Model {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.selection.DateSelectorModel'
-         * @private
+         * @protected
          */
         className: 'Neo.selection.DateSelectorModel',
         /**
          * @member {String} ntype='selection-dateselectormodel'
-         * @private
+         * @protected
          */
         ntype: 'selection-dateselectormodel',
         /**

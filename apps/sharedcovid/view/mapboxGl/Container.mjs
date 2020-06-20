@@ -5,19 +5,19 @@ import ContainerController        from './ContainerController.mjs';
 import Panel                      from '../../../../src/container/Panel.mjs';
 
 /**
- * @class Covid.view.mapboxGl.Container
+ * @class SharedCovid.view.mapboxGl.Container
  * @extends Neo.container.Base
  */
 class Container extends BaseContainer {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.mapboxGl.Container'
-         * @private
+         * @member {String} className='SharedCovid.view.mapboxGl.Container'
+         * @protected
          */
-        className: 'Covid.view.mapboxGl.Container',
+        className: 'SharedCovid.view.mapboxGl.Container',
         /**
          * @member {String} ntype='covid-mapboxgl-container'
-         * @private
+         * @protected
          */
         ntype: 'covid-mapboxgl-container',
         /**

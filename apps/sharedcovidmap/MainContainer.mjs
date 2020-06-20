@@ -6,7 +6,7 @@ import Viewport from '../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className: 'CovidMap.MainContainer',
+        className: 'SharedCovidMap.MainContainer',
 
         autoMount: true,
         layout   : {ntype: 'fit'}

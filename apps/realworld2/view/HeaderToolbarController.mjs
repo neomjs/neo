@@ -8,7 +8,7 @@ class HeaderToolbarController extends ComponentController {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld2.view.HeaderToolbarController'
-         * @private
+         * @protected
          */
         className: 'RealWorld2.view.HeaderToolbarController'
     }}

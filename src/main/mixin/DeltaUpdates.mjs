@@ -10,7 +10,7 @@ class DeltaUpdates extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.main.mixin.DeltaUpdates'
-         * @private
+         * @protected
          */
         className: 'Neo.main.mixin.DeltaUpdates'
     }}

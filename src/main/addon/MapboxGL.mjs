@@ -14,61 +14,61 @@ class MapboxGL extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.main.addon.MapboxGL'
-         * @private
+         * @protected
          */
         className: 'Neo.main.addon.MapboxGL',
         /**
          * Stores all map data inside an object until mounting. key => map id
          * No array since in case a map gets loaded multiple times, we only want to apply the last data on mount.
          * @member {Object} dataMap={}
-         * @private
+         * @protected
          */
         dataMap: {},
         /**
          * @member {String} downloadPath='https://api.mapbox.com/mapbox-gl-js/'
-         * @private
+         * @protected
          */
         downloadPath: 'https://api.mapbox.com/mapbox-gl-js/',
         /**
          * Stores all extra map sources layers an object.
          * key => map id, value => {Array} layers
          * @member {Object} layers={}
-         * @private
+         * @protected
          */
         layers: {},
         /**
          * Stores all map ids inside an object
          * @member {Object} maps={}
-         * @private
+         * @protected
          */
         maps: {},
         /**
          * Stores all map config objects which arrived before the map lib scripts got loaded
          * @member {Object[]} mapsToCreate=[]
-         * @private
+         * @protected
          */
         mapsToCreate: [],
         /**
          * @member {Boolean} scriptsLoaded_=true
-         * @private
+         * @protected
          */
         scriptsLoaded_: false,
         /**
          * @member {Boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true,
         /**
          * Stores all map sources inside an object.
          * key => map id, value => {Array} sources
          * @member {Object} sources={}
-         * @private
+         * @protected
          */
         sources: {},
         /**
          * Remote method access for other workers
          * @member {Object} remote
-         * @private
+         * @protected
          */
         remote: {
             app: [
@@ -90,19 +90,19 @@ class MapboxGL extends Base {
          * Stores all map style objects inside an objects to prevent reloads when switching themes multiple times.
          * key => style name (url)
          * @member {Object} styleMap={}
-         * @private
+         * @protected
          */
         styleMap: {},
         /**
          * @member {String} version='v1.9.1'
-         * @private
+         * @protected
          */
         version: 'v1.9.1',
         /**
          * Stores all map zoom values inside an object until mounting. key => map id
          * No array since in case a map gets zoomed multiple times, we only want to apply the last value on mount.
          * @member {Object} zoomMap={}
-         * @private
+         * @protected
          */
         zoomMap: {}
     }}
@@ -168,7 +168,7 @@ class MapboxGL extends Base {
      * Triggered after the scriptsLoaded config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetScriptsLoaded(value, oldValue) {
         if (value) {

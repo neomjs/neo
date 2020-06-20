@@ -8,12 +8,12 @@ class Strip extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.tab.Strip'
-         * @private
+         * @protected
          */
         className: 'Neo.tab.Strip',
         /**
          * @member {String} ntype='tab-strip'
-         * @private
+         * @protected
          */
         ntype: 'tab-strip',
         /**
@@ -57,7 +57,7 @@ class Strip extends Component {
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
@@ -74,7 +74,7 @@ class Strip extends Component {
      * Triggered after the useActiveTabIndicator config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetUseActiveTabIndicator(value, oldValue) {
         let me   = this,

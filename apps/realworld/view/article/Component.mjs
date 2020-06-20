@@ -12,7 +12,7 @@ class Component extends BaseComponent {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.view.article.Component'
-         * @private
+         * @protected
          */
         className: 'RealWorld.view.article.Component',
         /**
@@ -281,7 +281,7 @@ class Component extends BaseComponent {
      * Triggered after the author config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetAuthor(value, oldValue) {
         if (value) {
@@ -316,7 +316,7 @@ class Component extends BaseComponent {
      * Triggered after the body config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetBody(value, oldValue) {
         const me = this;
@@ -341,7 +341,7 @@ class Component extends BaseComponent {
      * Triggered after the comments config got changed
      * @param {Object[]|null} value
      * @param {Object[]|null} oldValue
-     * @private
+     * @protected
      */
     afterSetComments(value, oldValue) {
         if (Array.isArray(value)) {
@@ -382,7 +382,7 @@ class Component extends BaseComponent {
      * Triggered after the createdAt config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetCreatedAt(value, oldValue) {
         if (value) {
@@ -402,7 +402,7 @@ class Component extends BaseComponent {
      * Triggered after the favorited config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetFavorited(value, oldValue) {
         let me   = this,
@@ -429,7 +429,7 @@ class Component extends BaseComponent {
      * Triggered after the favoritesCount config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetFavoritesCount(value, oldValue) {
         if (Neo.isNumber(value)) {
@@ -447,7 +447,7 @@ class Component extends BaseComponent {
      * Triggered after the tagList config got changed
      * @param {Array} value
      * @param {Array} oldValue
-     * @private
+     * @protected
      */
     afterSetTagList(value, oldValue) {
         let me   = this,
@@ -484,7 +484,7 @@ class Component extends BaseComponent {
      * Triggered after the title config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetTitle(value, oldValue) {
         let vdom = this.vdom;

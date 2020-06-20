@@ -8,12 +8,12 @@ class Container extends BaseContainer {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.grid.Container'
-         * @private
+         * @protected
          */
         className: 'Neo.grid.Container',
         /**
          * @member {String} ntype='grid-container'
-         * @private
+         * @protected
          */
         ntype: 'grid-container',
         /**

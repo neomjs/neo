@@ -15,12 +15,12 @@ class Base extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.container.Base'
-         * @private
+         * @protected
          */
         className: 'Neo.container.Base',
         /**
          * @member {String} ntype='container'
-         * @private
+         * @protected
          */
         ntype: 'container',
         /**
@@ -131,7 +131,7 @@ class Base extends Component {
      * Triggered after the appName config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
-     * @private
+     * @protected
      */
     afterSetAppName(value, oldValue) {
         if (value && this.items) {
@@ -147,7 +147,7 @@ class Base extends Component {
      *
      * @param {Neo.layout.Base} value
      * @param {Neo.layout.Base} oldValue
-     * @private
+     * @protected
      */
     afterSetLayout(value, oldValue) {
         let me = this;
@@ -187,7 +187,7 @@ class Base extends Component {
      *
      * @param {Object|String} value
      * @returns {Neo.layout.Base}
-     * @private
+     * @protected
      */
     beforeSetLayout(value) {
         return this.createLayout(value);
@@ -195,7 +195,7 @@ class Base extends Component {
 
     /**
      *
-     * @private
+     * @protected
      */
     createItems() {
         let me       = this,
@@ -253,7 +253,7 @@ class Base extends Component {
     /**
      *
      * @param {Object|String|Neo.layout.Base} value
-     * @private
+     * @protected
      * @returns {Neo.layout.Base}
      */
     createLayout(value) {
@@ -402,7 +402,7 @@ class Base extends Component {
     /**
      *
      * @param {Object|String} config
-     * @private
+     * @protected
      * @returns {Object} layoutConfig
      */
     parseLayoutClass(config) {

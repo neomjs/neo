@@ -8,12 +8,12 @@ class ExamplesTreeList extends TreeList {
     static getConfig() {return {
         /**
          * @member {String} className='Docs.app.view.ExamplesTreeList'
-         * @private
+         * @protected
          */
         className: 'Docs.app.view.ExamplesTreeList',
         /**
          * @member {String} ntype='examples-treelist'
-         * @private
+         * @protected
          */
         ntype: 'examples-treelist',
         /**

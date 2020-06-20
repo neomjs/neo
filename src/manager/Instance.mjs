@@ -10,17 +10,17 @@ class Instance extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.manager.Instance'
-         * @private
+         * @protected
          */
         className: 'Neo.manager.Instance',
         /**
          * @member {String} ntype='instance-manager'
-         * @private
+         * @protected
          */
         ntype: 'instance-manager',
         /**
          * @member {Boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true
     }}
@@ -43,7 +43,7 @@ class Instance extends Base {
 
     /**
      * Register all ids which got applied to the Neo namespace before this instance got created
-     * @private
+     * @protected
      */
     consumeNeoIdMap() {
         if (Neo.idMap) {

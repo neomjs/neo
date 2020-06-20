@@ -8,12 +8,12 @@ class ListModel extends Model {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.selection.ListModel'
-         * @private
+         * @protected
          */
         className: 'Neo.selection.ListModel',
         /**
          * @member {String} ntype='selection-listmodel'
-         * @private
+         * @protected
          */
         ntype: 'selection-listmodel',
         /**

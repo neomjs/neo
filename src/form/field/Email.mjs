@@ -8,12 +8,12 @@ class Email extends Text {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.Email'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.Email',
         /**
          * @member {String} ntype='emailfield'
-         * @private
+         * @protected
          */
         ntype: 'emailfield',
         /**

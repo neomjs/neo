@@ -10,7 +10,7 @@ class IdGenerator {
          * Set this one to false in case you don't want to stick
          * to the "anti-pattern" to apply classes to the global Neo or App namespace
          * @member {Boolean} registerToGlobalNs=true
-         * @private
+         * @protected
          * @static
          */
         registerToGlobalNs: true
@@ -19,12 +19,12 @@ class IdGenerator {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.core.IdGenerator'
-         * @private
+         * @protected
          */
         className: 'Neo.core.IdGenerator',
         /**
          * @member {String} ntype='id-generator'
-         * @private
+         * @protected
          */
         ntype: 'id-generator',
         /**
@@ -34,7 +34,7 @@ class IdGenerator {
         base: 'neo-',
         /**
          * @member {Boolean} singleton='true
-         * @private
+         * @protected
          */
         singleton: true
     }}

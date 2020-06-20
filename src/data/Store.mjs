@@ -21,12 +21,12 @@ class Store extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.data.Store'
-         * @private
+         * @protected
          */
         className: 'Neo.data.Store',
         /**
          * @member {String} ntype='store'
-         * @private
+         * @protected
          */
         ntype: 'store',
         /**
@@ -112,7 +112,7 @@ class Store extends Base {
      *
      * @param value
      * @param oldValue
-     * @private
+     * @protected
      */
     afterSetData(value, oldValue) {
         let me = this;
@@ -134,7 +134,7 @@ class Store extends Base {
      *
      * @param value
      * @param oldValue
-     * @private
+     * @protected
      */
     afterSetInitialData(value, oldValue) {
         // console.log('afterSetInitialData', value, oldValue);
@@ -144,7 +144,7 @@ class Store extends Base {
      *
      * @param value
      * @param oldValue
-     * @private
+     * @protected
      */
     afterSetModel(value, oldValue) {
         if (value) {
@@ -156,7 +156,7 @@ class Store extends Base {
      *
      * @param value
      * @param oldValue
-     * @private
+     * @protected
      * @returns {*}
      */
     beforeSetData(value, oldValue) {
@@ -186,7 +186,7 @@ class Store extends Base {
      *
      * @param value
      * @param oldValue
-     * @private
+     * @protected
      * @returns {*}
      */
     beforeSetInitialData(value, oldValue) {
@@ -201,7 +201,7 @@ class Store extends Base {
      *
      * @param {Neo.data.Model} value
      * @param {Neo.data.Model} oldValue
-     * @private
+     * @protected
      * @returns {Neo.data.Model}
      */
     beforeSetModel(value, oldValue) {

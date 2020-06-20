@@ -9,12 +9,12 @@ class CheckBox extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.CheckBox'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.CheckBox',
         /**
          * @member {String} ntype='checkboxfield'
-         * @private
+         * @protected
          */
         ntype: 'checkboxfield',
         /**
@@ -100,7 +100,7 @@ class CheckBox extends Base {
      *
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetChecked(value, oldValue) {
         let me   = this,
@@ -121,7 +121,7 @@ class CheckBox extends Base {
      *
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetHideLabel(value, oldValue) {
         let vdom = this.vdom;
@@ -134,7 +134,7 @@ class CheckBox extends Base {
      *
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetHideValueLabel(value, oldValue) {
         let vdom = this.vdom;
@@ -147,7 +147,7 @@ class CheckBox extends Base {
      *
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetInputType(value, oldValue) {
         let vdom = this.vdom;
@@ -160,7 +160,7 @@ class CheckBox extends Base {
      *
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetLabelText(value, oldValue) {
         let vdom = this.vdom;
@@ -173,7 +173,7 @@ class CheckBox extends Base {
      *
      * @param {Number|String} value
      * @param {Number|String} oldValue
-     * @private
+     * @protected
      */
     afterSetLabelWidth(value, oldValue) {
         let me   = this,
@@ -189,7 +189,7 @@ class CheckBox extends Base {
      *
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetName(value, oldValue) {
         let vdom = this.vdom;
@@ -202,7 +202,7 @@ class CheckBox extends Base {
      *
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetValue(value, oldValue) {
         if (value) {
@@ -219,7 +219,7 @@ class CheckBox extends Base {
      *
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetValueLabelText(value, oldValue) {
         let me   = this,

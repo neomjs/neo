@@ -1,16 +1,16 @@
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
 
 /**
- * @class Covid.view.WorldMapContainerController
+ * @class SharedCovid.view.WorldMapContainerController
  * @extends Neo.controller.Component
  */
 class WorldMapContainerController extends ComponentController {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.WorldMapContainerController'
-         * @private
+         * @member {String} className='SharedCovid.view.WorldMapContainerController'
+         * @protected
          */
-        className: 'Covid.view.WorldMapContainerController',
+        className: 'SharedCovid.view.WorldMapContainerController',
         /**
          * @member {Number} heatRuleChangeDelay=150
          */

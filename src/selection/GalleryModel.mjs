@@ -10,12 +10,12 @@ class GalleryModel extends Model {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.selection.GalleryModel'
-         * @private
+         * @protected
          */
         className: 'Neo.selection.GalleryModel',
         /**
          * @member {String} ntype='selection-gallerymodel'
-         * @private
+         * @protected
          */
         ntype: 'selection-gallerymodel',
         /**

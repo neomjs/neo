@@ -13,12 +13,12 @@ class Time extends Picker {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.Time'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.Time',
         /**
          * @member {String} ntype='timefield'
-         * @private
+         * @protected
          */
         ntype: 'timefield',
         /**
@@ -43,7 +43,7 @@ class Time extends Picker {
         },
         /**
          * @member {Neo.list.Base} list=null
-         * @private
+         * @protected
          */
         list: null,
         /**
@@ -65,7 +65,7 @@ class Time extends Picker {
         stepSize_: 60*5, // 5min
         /**
          * @member {Object|Object[]} triggers=[{module: TimeTrigger}]
-         * @private
+         * @protected
          */
         triggers: [{
             module: TimeTrigger
@@ -109,7 +109,7 @@ class Time extends Picker {
     /**
      * @param {Text} value
      * @param {Text} oldValue
-     * @private
+     * @protected
      */
     afterSetMaxValue(value, oldValue) {
         this.changeInputElKey('max', value);
@@ -118,7 +118,7 @@ class Time extends Picker {
     /**
      * @param {Text} value
      * @param {Text} oldValue
-     * @private
+     * @protected
      */
     afterSetMinValue(value, oldValue) {
         this.changeInputElKey('min', value);
@@ -127,7 +127,7 @@ class Time extends Picker {
     /**
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetStepSize(value, oldValue) {
         this.changeInputElKey('step', value);
@@ -140,7 +140,7 @@ class Time extends Picker {
      * @param {String|null} value
      * @param {String|null} oldValue
      * @param {Boolean} [preventListSelect=false]
-     * @private
+     * @protected
      */
     afterSetValue(value, oldValue, preventListSelect=false) {
         super.afterSetValue(value, oldValue);
@@ -154,7 +154,7 @@ class Time extends Picker {
      * Triggered before the maxValue config gets changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     beforeSetMaxValue(value, oldValue) {
         // todo: check format => '08:00'
@@ -165,7 +165,7 @@ class Time extends Picker {
      * Triggered before the minValue config gets changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     beforeSetMinValue(value, oldValue) {
         // todo: check format => '08:00'
@@ -233,7 +233,7 @@ class Time extends Picker {
 
     /**
      * @param {Object} data
-     * @private
+     * @protected
      */
     onContainerKeyDownEnter() {
         this.hidePicker();
@@ -241,7 +241,7 @@ class Time extends Picker {
 
     /**
      * @param {Object} data
-     * @private
+     * @protected
      */
     onContainerKeyDownEscape() {
         this.focusInputEl(this.hidePicker);
@@ -250,7 +250,7 @@ class Time extends Picker {
     /**
      *
      * @param {Object} data
-     * @private
+     * @protected
      */
     onKeyDownEnter(data) {
         let me = this;

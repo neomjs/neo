@@ -9,7 +9,7 @@ class HeaderToolbar extends Toolbar {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld2.view.HeaderToolbar'
-         * @private
+         * @protected
          */
         className: 'RealWorld2.view.HeaderToolbar',
         /**

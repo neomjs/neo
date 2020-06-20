@@ -8,7 +8,7 @@ class CreateCommentComponent extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.view.article.CreateCommentComponent'
-         * @private
+         * @protected
          */
         className: 'RealWorld.view.article.CreateCommentComponent',
         /**
@@ -92,7 +92,7 @@ class CreateCommentComponent extends Component {
      * Triggered after the userImage config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetUserImage(value, oldValue) {
         if (value) {
@@ -107,7 +107,7 @@ class CreateCommentComponent extends Component {
      * Triggered after the userName config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetUserName(value, oldValue) {
         if (value) {

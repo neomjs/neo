@@ -65,7 +65,7 @@ class DomEvents extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.main.DomEvents'
-         * @private
+         * @protected
          */
         className: 'Neo.main.DomEvents',
         /**
@@ -75,13 +75,13 @@ class DomEvents extends Base {
         mixins: [TouchDomEvents],
         /**
          * @member {boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true,
         /**
          * Remote method access for other workers
          * @member {Object} remote={app: ['addDomListener']}
-         * @private
+         * @protected
          */
         remote: {
             app: [
@@ -523,7 +523,7 @@ class DomEvents extends Base {
      * used by parseHash to convert tokens into boolean or number types if needed
      * @param {String} value
      * @returns {Boolean|Number|String}
-     * @private
+     * @protected
      */
     parseValue(value) {
         if (value == parseInt(value)) {
@@ -569,7 +569,7 @@ class DomEvents extends Base {
     /**
      * Sends the parsed event data to the app worker
      * @param {Object} data
-     * @private
+     * @protected
      */
     sendMessageToApp(data) {
         Neo.worker.Manager.sendMessage('app', {

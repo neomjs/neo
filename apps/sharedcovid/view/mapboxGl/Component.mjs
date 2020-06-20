@@ -1,16 +1,16 @@
 import {default as BaseComponent} from '../../../../src/component/wrapper/MapboxGL.mjs';
 
 /**
- * @class Covid.view.mapboxGl.Component
+ * @class SharedCovid.view.mapboxGl.Component
  * @extends Neo.component.wrapper.MapboxGL
  */
 class Component extends BaseComponent {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.mapboxGl.Component'
-         * @private
+         * @member {String} className='SharedCovid.view.mapboxGl.Component'
+         * @protected
          */
-        className: 'Covid.view.mapboxGl.Component',
+        className: 'SharedCovid.view.mapboxGl.Component',
         /**
          * @member {String|null} accessToken
          */

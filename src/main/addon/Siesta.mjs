@@ -11,12 +11,12 @@ class Siesta extends Base {
         return {
             /**
              * @member {String} className='Neo.main.addon.Siesta'
-             * @private
+             * @protected
              */
             className: 'Neo.main.addon.Siesta',
             /**
              * @member {Boolean} singleton=true
-             * @private
+             * @protected
              */
             singleton: true
         }
@@ -32,7 +32,7 @@ class Siesta extends Base {
 
     /**
      *
-     * @private
+     * @protected
      */
     adjustSiestaEnvironment() {
         let i   = 0,

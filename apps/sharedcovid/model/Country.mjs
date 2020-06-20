@@ -1,12 +1,12 @@
 import Model  from '../../../src/data/Model.mjs';
 
 /**
- * @class Covid.model.Country
+ * @class SharedCovid.model.Country
  * @extends Neo.data.Model
  */
 class Country extends Model {
     static getConfig() {return {
-        className: 'Covid.model.Country',
+        className: 'SharedCovid.model.Country',
 
         fields: [{
             name: 'active',

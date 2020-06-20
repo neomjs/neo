@@ -8,7 +8,7 @@ class FooterComponent extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.view.FooterComponent'
-         * @private
+         * @protected
          */
         className: 'RealWorld.view.FooterComponent',
         /**

@@ -11,13 +11,13 @@ class LocalStorage extends Base {
         return {
             /**
              * @member {String} className='Neo.main.addon.LocalStorage'
-             * @private
+             * @protected
              */
             className: 'Neo.main.addon.LocalStorage',
             /**
              * Remote method access for other workers
              * @member {Object} remote={app: [//...]}
-             * @private
+             * @protected
              */
             remote: {
                 app: [
@@ -29,7 +29,7 @@ class LocalStorage extends Base {
             },
             /**
              * @member {Boolean} singleton=true
-             * @private
+             * @protected
              */
             singleton: true
         }

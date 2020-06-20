@@ -10,12 +10,12 @@ class MapboxGL extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.component.wrapper.MapboxGL'
-         * @private
+         * @protected
          */
         className: 'Neo.component.wrapper.MapboxGL',
         /**
          * @member {String} ntype='mapboxgl'
-         * @private
+         * @protected
          */
         ntype: 'mapboxgl',
         /**
@@ -29,7 +29,7 @@ class MapboxGL extends Component {
         center_: {lat: 0, lng: 0},
         /**
          * @member {Boolean} convertDataToGeoJson=true
-         * @private
+         * @protected
          */
         convertDataToGeoJson: true,
         /**
@@ -98,7 +98,7 @@ class MapboxGL extends Component {
      * Triggered after the center config got changed
      * @param {Object} value
      * @param {Object} oldValue
-     * @private
+     * @protected
      */
     afterSetCenter(value, oldValue) {
         this.centerMap(value);
@@ -108,7 +108,7 @@ class MapboxGL extends Component {
      * Triggered after the data config got changed
      * @param {Array|null} value
      * @param {Array|null} oldValue
-     * @private
+     * @protected
      */
     afterSetData(value, oldValue) {
         let me = this;
@@ -127,7 +127,7 @@ class MapboxGL extends Component {
      * Triggered after the layers config got changed
      * @param {Object[]|null} value
      * @param {Object[]|null} oldValue
-     * @private
+     * @protected
      */
     afterSetLayers(value, oldValue) {
         if (value) {
@@ -143,7 +143,7 @@ class MapboxGL extends Component {
      * Triggered after the mapboxStyle config got changed
      * @param {Object|String} value
      * @param {Object|String} oldValue
-     * @private
+     * @protected
      */
     afterSetMapboxStyle(value, oldValue) {
         let me = this;
@@ -207,7 +207,7 @@ class MapboxGL extends Component {
      * Triggered after the sources config got changed
      * @param {Object[]|null} value
      * @param {Object[]|null} oldValue
-     * @private
+     * @protected
      */
     afterSetSources(value, oldValue) {
         if (value) {
@@ -223,7 +223,7 @@ class MapboxGL extends Component {
      * Triggered after the zoom config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetZoom(value, oldValue) {
         let me = this;
@@ -251,7 +251,7 @@ class MapboxGL extends Component {
      * Triggered before the center config gets changed.
      * @param {Object} value
      * @param {Object} oldValue
-     * @private
+     * @protected
      */
     beforeSetCenter(value, oldValue) {
         if (value && value.long) {
@@ -266,7 +266,7 @@ class MapboxGL extends Component {
      * Triggered before the data config gets changed.
      * @param {Array|null} value
      * @param {Array|null} oldValue
-     * @private
+     * @protected
      */
     beforeSetData(value, oldValue) {
         if (value && this.convertDataToGeoJson) {
@@ -282,7 +282,7 @@ class MapboxGL extends Component {
      * @param {Number} value.lat
      * @param {Number} value.lng
      * @param {Boolean} animate=false
-     * @private
+     * @protected
      */
     centerMap(value, animate=false) {
         Neo.main.addon.MapboxGL.center({

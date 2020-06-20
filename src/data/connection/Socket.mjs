@@ -8,12 +8,12 @@ class Socket extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.data.connection.Socket'
-         * @private
+         * @protected
          */
         className: 'Neo.data.connection.Socket',
         /**
          * @member {String} ntype='socket-connection'
-         * @private
+         * @protected
          */
         ntype: 'socket-connection'
     }}

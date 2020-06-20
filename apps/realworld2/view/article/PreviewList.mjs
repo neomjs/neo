@@ -10,7 +10,7 @@ class PreviewList extends List {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld2.view.article.PreviewList'
-         * @private
+         * @protected
          */
         className: 'RealWorld2.view.article.PreviewList',
         /**

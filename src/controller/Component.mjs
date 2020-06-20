@@ -12,22 +12,22 @@ class Component extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.controller.Component'
-         * @private
+         * @protected
          */
         className: 'Neo.controller.Component',
         /**
          * @member {String} ntype='view-controller'
-         * @private
+         * @protected
          */
         ntype: 'component-controller',
         /**
          * @member {Object} references=null
-         * @private
+         * @protected
          */
         references: null,
         /**
          * @member {Object} view_=null
-         * @private
+         * @protected
          */
         view_: null
     }}
@@ -46,7 +46,7 @@ class Component extends Base {
      * Triggered when accessing the view config
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     beforeGetView(value, oldValue) {
         return Neo.get(value);
@@ -56,7 +56,7 @@ class Component extends Base {
      * Triggered before the view config gets changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     beforeSetView(value, oldValue) {
         return value.id;

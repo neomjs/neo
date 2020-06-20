@@ -10,12 +10,12 @@ class Clear extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.trigger.Clear'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.trigger.Clear',
         /**
          * @member {String} ntype='trigger-clear'
-         * @private
+         * @protected
          */
         ntype: 'trigger-clear',
         /**
@@ -29,7 +29,7 @@ class Clear extends Base {
         /**
          * Internal flag used by field.getTrigger()
          * @member {String} type='clear'
-         * @private
+         * @protected
          */
         type: 'clear',
         /**
@@ -59,7 +59,7 @@ class Clear extends Base {
      * Triggered after the hidden config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetHidden(value, oldValue) {
         let cls = this.cls;
