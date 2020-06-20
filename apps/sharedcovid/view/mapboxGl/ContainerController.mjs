@@ -1,16 +1,16 @@
 import {default as ComponentController} from '../../../../src/controller/Component.mjs';
 
 /**
- * @class Covid.view.mapboxGl.ContainerController
+ * @class SharedCovid.view.mapboxGl.ContainerController
  * @extends Neo.controller.Component
  */
 class ContainerController extends ComponentController {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.mapboxGl.ContainerController'
+         * @member {String} className='SharedCovid.view.mapboxGl.ContainerController'
          * @protected
          */
-        className: 'Covid.view.mapboxGl.ContainerController',
+        className: 'SharedCovid.view.mapboxGl.ContainerController',
         /**
          * @member {String} ntype='mapboxgl-container-controller'
          * @protected

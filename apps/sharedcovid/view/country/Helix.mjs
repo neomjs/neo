@@ -3,16 +3,16 @@ import Helix        from '../../../../src/component/Helix.mjs';
 import Util         from '../../Util.mjs';
 
 /**
- * @class Covid.view.country.Helix
+ * @class SharedCovid.view.country.Helix
  * @extends Neo.component.Helix
  */
 class CountryHelix extends Helix {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.country.Helix'
+         * @member {String} className='SharedCovid.view.country.Helix'
          * @protected
          */
-        className: 'Covid.view.country.Helix',
+        className: 'SharedCovid.view.country.Helix',
         /**
          * @member {String[]} cls=['covid-country-helix', 'neo-helix']
          */

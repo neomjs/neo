@@ -1,16 +1,16 @@
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
 
 /**
- * @class Covid.view.HelixContainerController
+ * @class SharedCovid.view.HelixContainerController
  * @extends Neo.controller.Component
  */
 class HelixContainerController extends ComponentController {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.HelixContainerController'
+         * @member {String} className='SharedCovid.view.HelixContainerController'
          * @protected
          */
-        className: 'Covid.view.HelixContainerController',
+        className: 'SharedCovid.view.HelixContainerController',
         /**
          * @member {Neo.component.Helix|null} helix_=null
          * @protected

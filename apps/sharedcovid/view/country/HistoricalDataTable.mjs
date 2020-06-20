@@ -3,16 +3,16 @@ import HistoricalData from '../../store/HistoricalData.mjs';
 import Util           from '../../Util.mjs';
 
 /**
- * @class Covid.view.country.HistoricalDataTable
+ * @class SharedCovid.view.country.HistoricalDataTable
  * @extends Neo.table.Container
  */
 class HistoricalDataTable extends Container {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.country.HistoricalDataTable'
+         * @member {String} className='SharedCovid.view.country.HistoricalDataTable'
          * @protected
          */
-        className: 'Covid.view.country.HistoricalDataTable',
+        className: 'SharedCovid.view.country.HistoricalDataTable',
         /**
          * @member {String[]} cls=['covid-historical-data-table', 'neo-table-container']
          */

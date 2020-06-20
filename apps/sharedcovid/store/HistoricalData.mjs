@@ -2,12 +2,12 @@ import {default as HistoricalDataModel} from '../model/HistoricalData.mjs';
 import Store                            from '../../../src/data/Store.mjs';
 
 /**
- * @class Covid.store.HistoricalData
+ * @class SharedCovid.store.HistoricalData
  * @extends Neo.data.Store
  */
 class HistoricalData extends Store {
     static getConfig() {return {
-        className: 'Covid.store.HistoricalData',
+        className: 'SharedCovid.store.HistoricalData',
 
         keyProperty: 'date',
         model      : HistoricalDataModel,

@@ -1,16 +1,16 @@
 import {default as Component}   from '../../../src/component/Base.mjs';
 
 /**
- * @class Covid.view.AttributionComponent
+ * @class SharedCovid.view.AttributionComponent
  * @extends Neo.component.Base
  */
 class AttributionComponent extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.AttributionComponent'
+         * @member {String} className='SharedCovid.view.AttributionComponent'
          * @protected
          */
-        className: 'Covid.view.AttributionComponent',
+        className: 'SharedCovid.view.AttributionComponent',
         /**
          * @member {String[]} cls=['covid-attribution-component']
          * @protected

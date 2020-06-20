@@ -5,16 +5,16 @@ import WorldMapComponent           from './WorldMapComponent.mjs';
 import WorldMapContainerController from './WorldMapContainerController.mjs';
 
 /**
- * @class Covid.view.WorldMapContainer
+ * @class SharedCovid.view.WorldMapContainer
  * @extends Neo.container.Base
  */
 class WorldMapContainer extends Container {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.WorldMapContainer'
+         * @member {String} className='SharedCovid.view.WorldMapContainer'
          * @protected
          */
-        className: 'Covid.view.WorldMapContainer',
+        className: 'SharedCovid.view.WorldMapContainer',
         /**
          * @member {Neo.controller.Component} controller=WorldMapContainerController
          */

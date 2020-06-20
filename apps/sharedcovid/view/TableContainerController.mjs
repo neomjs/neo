@@ -2,16 +2,16 @@ import {default as ComponentController} from '../../../src/controller/Component.
 import NeoArray                         from '../../../src/util/Array.mjs';
 
 /**
- * @class Covid.view.TableContainerController
+ * @class SharedCovid.view.TableContainerController
  * @extends Neo.controller.Component
  */
 class TableContainerController extends ComponentController {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.TableContainerController'
+         * @member {String} className='SharedCovid.view.TableContainerController'
          * @protected
          */
-        className: 'Covid.view.TableContainerController',
+        className: 'SharedCovid.view.TableContainerController',
         /**
          * @member {String} apiBaseUrl='https://disease.sh/'
          */

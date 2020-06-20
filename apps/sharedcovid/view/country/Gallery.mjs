@@ -3,16 +3,16 @@ import Gallery      from '../../../../src/component/Gallery.mjs';
 import Util         from '../../Util.mjs';
 
 /**
- * @class Covid.view.country.Gallery
+ * @class SharedCovid.view.country.Gallery
  * @extends Neo.component.Gallery
  */
 class CountryGallery extends Gallery {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.country.Gallery'
+         * @member {String} className='SharedCovid.view.country.Gallery'
          * @protected
          */
-        className: 'Covid.view.country.Gallery',
+        className: 'SharedCovid.view.country.Gallery',
         /**
          * @member {String[]} cls=['covid-country-gallery', 'neo-gallery', 'page', 'view']
          */

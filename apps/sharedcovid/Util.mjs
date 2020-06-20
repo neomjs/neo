@@ -2,7 +2,7 @@ import Base from '../../src/core/Base.mjs';
 
 /**
  * Static utility class
- * @class Covid.Util
+ * @class SharedCovid.Util
  * @extends Neo.core.Base
  */
 class Util extends Base {
@@ -19,10 +19,10 @@ class Util extends Base {
 
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.Util'
+         * @member {String} className='SharedCovid.Util'
          * @protected
          */
-        className: 'Covid.Util'
+        className: 'SharedCovid.Util'
     }}
 
     /**

@@ -95,7 +95,7 @@ function generateStructure(target, parentId, docs) {
         len       = docs.length,
         className, docItem, i, id, j, hasMatch, isLeaf, path, singleton, srcPath, tagLength;
 
-    // console.log(target);
+    console.log(target);
 
     Object.entries(namespace).forEach(([key, value]) => {
         id        = ++neoStructureId;

@@ -6,16 +6,16 @@ import {default as RangeField}  from '../../../src/form/field/Range.mjs';
 import {default as Container}   from '../../../src/container/Base.mjs';
 
 /**
- * @class Covid.view.HelixContainer
+ * @class SharedCovid.view.HelixContainer
  * @extends Neo.container.Base
  */
 class HelixContainer extends Container {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.HelixContainer'
+         * @member {String} className='SharedCovid.view.HelixContainer'
          * @protected
          */
-        className: 'Covid.view.HelixContainer',
+        className: 'SharedCovid.view.HelixContainer',
         /**
          * @member {Boolean} autoMount=true
          */

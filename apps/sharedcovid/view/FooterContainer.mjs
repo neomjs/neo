@@ -1,16 +1,16 @@
 import {default as Container}   from '../../../src/container/Base.mjs';
 
 /**
- * @class Covid.view.FooterContainer
+ * @class SharedCovid.view.FooterContainer
  * @extends Neo.container.Base
  */
 class FooterContainer extends Container {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.FooterContainer'
+         * @member {String} className='SharedCovid.view.FooterContainer'
          * @protected
          */
-        className: 'Covid.view.FooterContainer',
+        className: 'SharedCovid.view.FooterContainer',
         /**
          * @member {Number} height=20
          */

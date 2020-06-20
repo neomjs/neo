@@ -1,16 +1,16 @@
 import {default as ComponentController} from '../../../src/controller/Component.mjs';
 
 /**
- * @class Covid.view.GalleryContainerController
+ * @class SharedCovid.view.GalleryContainerController
  * @extends Neo.controller.Component
  */
 class GalleryContainerController extends ComponentController {
     static getConfig() {return {
         /**
-         * @member {String} className='Covid.view.GalleryContainerController'
+         * @member {String} className='SharedCovid.view.GalleryContainerController'
          * @protected
          */
-        className: 'Covid.view.GalleryContainerController',
+        className: 'SharedCovid.view.GalleryContainerController',
         /**
          * @member {Neo.component.Gallery|null} gallery_=null
          * @protected
