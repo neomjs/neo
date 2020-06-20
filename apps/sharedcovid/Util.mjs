@@ -11,7 +11,7 @@ class Util extends Base {
          * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/toLocaleString
          * Change this config to enforce a county specific formatting (e.g. 'de-DE')
          * @member {String} locales='default'
-         * @private
+         * @protected
          * @static
          */
         locales: 'default'
@@ -20,7 +20,7 @@ class Util extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.Util'
-         * @private
+         * @protected
          */
         className: 'Covid.Util'
     }}

@@ -10,12 +10,12 @@ class HelixModel extends Model {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.selection.HelixModel'
-         * @private
+         * @protected
          */
         className: 'Neo.selection.HelixModel',
         /**
          * @member {String} ntype='selection-helixmodel'
-         * @private
+         * @protected
          */
         ntype: 'selection-helixmodel',
         /**

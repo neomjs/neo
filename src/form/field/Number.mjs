@@ -13,7 +13,7 @@ class Number extends Text {
         /**
          * Valid values for triggerPosition
          * @member {String[]} triggerPositions=['right', 'sides']
-         * @private
+         * @protected
          * @static
          */
         triggerPositions: ['right', 'sides']
@@ -22,12 +22,12 @@ class Number extends Text {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.Number'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.Number',
         /**
          * @member {String} ntype='numberfield'
-         * @private
+         * @protected
          */
         ntype: 'numberfield',
         /**
@@ -73,7 +73,7 @@ class Number extends Text {
     /**
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetMaxValue(value, oldValue) {
         this.changeInputElKey('max', value);
@@ -82,7 +82,7 @@ class Number extends Text {
     /**
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetMinValue(value, oldValue) {
         this.changeInputElKey('min', value);
@@ -91,7 +91,7 @@ class Number extends Text {
     /**
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetStepSize(value, oldValue) {
         let me  = this,
@@ -118,7 +118,7 @@ class Number extends Text {
     /**
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetTriggerPosition(value, oldValue) {
         if (oldValue) {
@@ -129,7 +129,7 @@ class Number extends Text {
     /**
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetUseSpinButtons(value, oldValue) {
         if (typeof oldValue === 'boolean') {
@@ -141,7 +141,7 @@ class Number extends Text {
      * Triggered before the triggerPosition config gets changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     beforeSetTriggerPosition(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'triggerPosition');
@@ -176,7 +176,7 @@ class Number extends Text {
     }
 
     /**
-     * @private
+     * @protected
      */
     onSpinButtonClick(value, oldValue) {
         this.fire('change', {
@@ -186,7 +186,7 @@ class Number extends Text {
     }
 
     /**
-     * @private
+     * @protected
      */
     onSpinButtonDownClick() {
         let me       = this,
@@ -200,7 +200,7 @@ class Number extends Text {
     }
 
     /**
-     * @private
+     * @protected
      */
     onSpinButtonUpClick() {
         let me       = this,

@@ -15,12 +15,12 @@ class Gallery extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.component.Gallery'
-         * @private
+         * @protected
          */
         className: 'Neo.component.Gallery',
         /**
          * @member {String} ntype='gallery'
-         * @private
+         * @protected
          */
         ntype: 'gallery',
         /**
@@ -98,14 +98,14 @@ class Gallery extends Component {
          * The DOM element offsetHeight of the top level div.
          * Gets fetched after the gallery got mounted.
          * @member {Number|null} offsetHeight=null
-         * @private
+         * @protected
          */
         offsetHeight: null,
         /**
          * The DOM element offsetWidth of the top level div.
          * Gets fetched after the gallery got mounted.
          * @member {Number|null} offsetWidth=null
-         * @private
+         * @protected
          */
         offsetWidth: null,
         /**
@@ -136,7 +136,7 @@ class Gallery extends Component {
         /**
          * The setTimeout() ids for calls which can get cancelled
          * @member {Array} transitionTimeouts=[]
-         * @private
+         * @protected
          */
         transitionTimeouts: [],
         /**
@@ -251,7 +251,7 @@ class Gallery extends Component {
      * Triggered after the amountRows config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetAmountRows(value, oldValue) {
         if (Neo.isNumber(oldValue)) {
@@ -265,7 +265,7 @@ class Gallery extends Component {
      * Triggered after the maxItem config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetMaxItems(value, oldValue) {
         let me = this;
@@ -283,7 +283,7 @@ class Gallery extends Component {
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetMounted(value, oldValue) {
         let me = this;
@@ -321,7 +321,7 @@ class Gallery extends Component {
      * Triggered after the orderByRow config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetOrderByRow(value, oldValue) {
         if (Neo.isBoolean(oldValue)) {
@@ -357,7 +357,7 @@ class Gallery extends Component {
      * Triggered after the selectionModel config got changed
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
-     * @private
+     * @protected
      */
     afterSetSelectionModel(value, oldValue) {
         if (this.rendered) {
@@ -373,7 +373,7 @@ class Gallery extends Component {
      * Triggered before the store config gets changed.
      * @param {Neo.data.Store|null} value
      * @param {Neo.data.Store|null} oldValue
-     * @private
+     * @protected
      */
     beforeSetStore(value, oldValue) {
         let me = this;
@@ -418,7 +418,7 @@ class Gallery extends Component {
      * Triggered before the selectionModel config gets changed.
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
-     * @private
+     * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
         if (oldValue) {
@@ -457,7 +457,7 @@ class Gallery extends Component {
     /**
      * @param {Number} [startIndex] the start index for creating items,
      * e.g. increasing maxItems only needs to create the new ones
-     * @private
+     * @protected
      */
     createItems(startIndex) {
         let me               = this,

@@ -9,12 +9,12 @@ class Chip extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.list.Chip'
-         * @private
+         * @protected
          */
         className: 'Neo.list.Chip',
         /**
          * @member {String} ntype='chiplist'
-         * @private
+         * @protected
          */
         ntype: 'chiplist',
         /**
@@ -46,7 +46,7 @@ class Chip extends Base {
      * Triggered after the stacked config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetStacked(value, oldValue) {
         if (oldValue !== undefined) {

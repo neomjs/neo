@@ -9,17 +9,17 @@ class ColumnModel extends Model {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.selection.table.ColumnModel'
-         * @private
+         * @protected
          */
         className: 'Neo.selection.table.ColumnModel',
         /**
          * @member {String} ntype='selection-table-columnmodel'
-         * @private
+         * @protected
          */
         ntype: 'selection-table-columnmodel',
         /**
          * @member {String} cls='selection-columnmodel'
-         * @private
+         * @protected
          */
         cls: 'neo-selection-columnmodel'
     }}

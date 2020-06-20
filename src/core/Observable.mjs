@@ -8,17 +8,17 @@ class Observable extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.core.Observable'
-         * @private
+         * @protected
          */
         className: 'Neo.core.Observable',
         /**
          * @member {String} ntype='mixin-observable'
-         * @private
+         * @protected
          */
         ntype: 'mixin-observable',
         /**
          * @member {Boolean} mixin=true
-         * @private
+         * @protected
          */
         mixin: true
     }}

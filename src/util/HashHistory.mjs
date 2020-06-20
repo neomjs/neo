@@ -18,27 +18,27 @@ class HashHistory extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.util.ClassSystem'
-         * @private
+         * @protected
          */
         className: 'Neo.util.HashHistory',
         /**
          * @member {String} ntype='hash-history'
-         * @private
+         * @protected
          */
         ntype: 'hash-history',
         /**
          * @member {Boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true,
         /**
          * @member {Number} maxItems=50
-         * @private
+         * @protected
          */
         maxItems: 50,
         /**
          * @member {Array} stack=[]
-         * @private
+         * @protected
          */
         stack: []
     }}

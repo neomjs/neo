@@ -22,7 +22,7 @@ class Main extends core.Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.Main'
-         * @private
+         * @protected
          */
         className: 'Neo.Main',
         /**
@@ -31,23 +31,23 @@ class Main extends core.Base {
         logAnimationFrames: true,
         /**
          * @member {String} mode='read'
-         * @private
+         * @protected
          */
         mode: 'read',
         /**
          * @member {Object} openWindows={}
-         * @private
+         * @protected
          */
         openWindows: {},
         /**
          * @member {Array} readQueue=[]
-         * @private
+         * @protected
          */
         readQueue: [],
         /**
          * Remote method access for other workers
          * @member {Object} remote={app: [//...]}
-         * @private
+         * @protected
          */
         remote: {
             app: [
@@ -60,7 +60,7 @@ class Main extends core.Base {
         },
         /**
          * @member {Boolean} running=false
-         * @private
+         * @protected
          */
         running: false,
         /**
@@ -69,7 +69,7 @@ class Main extends core.Base {
         showFps: false,
         /**
          * @member {Boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true,
         /**
@@ -79,17 +79,17 @@ class Main extends core.Base {
         /**
          * should be dev only
          * @member {Number} totalFrameCount=0
-         * @private
+         * @protected
          */
         totalFrameCount: 0,
         /**
          * @member {Array} updateQueue=[]
-         * @private
+         * @protected
          */
         updateQueue: [],
         /**
          * @member {Array} writeQueue=[]
-         * @private
+         * @protected
          */
         writeQueue: []
     }}
@@ -260,7 +260,7 @@ class Main extends core.Base {
      * @param queue
      * @param start
      * @returns {number}
-     * @private
+     * @protected
      */
     processQueue(queue, start) {
         let me    = this,
@@ -281,7 +281,7 @@ class Main extends core.Base {
     /**
      *
      * @param data
-     * @private
+     * @protected
      */
     queueRead(data) {
         let me = this;
@@ -296,7 +296,7 @@ class Main extends core.Base {
     /**
      *
      * @param data
-     * @private
+     * @protected
      */
     queueUpdate(data) {
         let me = this;
@@ -311,7 +311,7 @@ class Main extends core.Base {
     /**
      *
      * @param data
-     * @private
+     * @protected
      */
     queueWrite(data) {
         let me = this;
@@ -325,7 +325,7 @@ class Main extends core.Base {
 
     /**
      * Triggers the different DOM operation queues
-     * @private
+     * @protected
      */
     renderFrame() {
         let me      = this,

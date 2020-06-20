@@ -14,12 +14,12 @@ class MainContainer extends Viewport {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld2.view.MainContainer'
-         * @private
+         * @protected
          */
         className: 'RealWorld2.view.MainContainer',
         /**
          * @member {Boolean} autoMount=true
-         * @private
+         * @protected
          */
         autoMount: true,
         /**

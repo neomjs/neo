@@ -8,7 +8,7 @@ class VNode extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.util.VNode'
-         * @private
+         * @protected
          */
         className: 'Neo.util.VNode'
     }}

@@ -13,7 +13,7 @@ class GalleryContainer extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.GalleryContainer'
-         * @private
+         * @protected
          */
         className: 'Covid.view.GalleryContainer',
         /**

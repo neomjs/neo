@@ -8,7 +8,7 @@ class WorldMapContainerController extends ComponentController {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.WorldMapContainerController'
-         * @private
+         * @protected
          */
         className: 'Covid.view.WorldMapContainerController',
         /**

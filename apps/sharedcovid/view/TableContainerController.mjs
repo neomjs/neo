@@ -9,7 +9,7 @@ class TableContainerController extends ComponentController {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.TableContainerController'
-         * @private
+         * @protected
          */
         className: 'Covid.view.TableContainerController',
         /**
@@ -36,7 +36,7 @@ class TableContainerController extends ComponentController {
         selectedRecord: null,
         /**
          * @member {Neo.table.Container|null} table_=null
-         * @private
+         * @protected
          */
         table_: null
     }}
@@ -135,7 +135,7 @@ class TableContainerController extends ComponentController {
     /**
      *
      * @param {Object} record
-     * @private
+     * @protected
      * @return {Object}
      */
     static assignFieldsOrNull(record) {
@@ -154,7 +154,7 @@ class TableContainerController extends ComponentController {
     /**
      * Triggered when accessing the table config
      * @param {Neo.table.Container|null} value
-     * @private
+     * @protected
      */
     beforeGetTable(value) {
         if (!value) {

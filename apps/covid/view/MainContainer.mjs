@@ -18,7 +18,7 @@ class MainContainer extends Viewport {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.MainContainer'
-         * @private
+         * @protected
          */
         className: 'Covid.view.MainContainer',
         /**

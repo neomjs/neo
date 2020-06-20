@@ -9,12 +9,12 @@ class SpinDown extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.trigger.SpinUp'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.trigger.SpinDown',
         /**
          * @member {String} ntype='trigger-spindown'
-         * @private
+         * @protected
          */
         ntype: 'trigger-spindown',
         /**
@@ -28,7 +28,7 @@ class SpinDown extends Base {
         /**
          * Internal flag used by field.getTrigger()
          * @member {String} type='spindown'
-         * @private
+         * @protected
          */
         type: 'spindown'
     }}

@@ -16,33 +16,33 @@ class Manager extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.worker.Manager'
-         * @private
+         * @protected
          */
         className: 'Neo.worker.Manager',
         /**
          * @member {String} ntype='worker-manager'
-         * @private
+         * @protected
          */
         ntype: 'worker-manager',
         /**
          * @member {boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true,
         /**
          * @member {String|null} appName=null
-         * @private
+         * @protected
          */
         appName: null,
         /**
          * The base path for the worker file URLs, can e.g. get set inside the index.html.
          * @member {String|null} basePath=Neo.config.workerBasePath || 'worker/'
-         * @private
+         * @protected
          */
         basePath: Neo.config.workerBasePath || 'worker/',
         /**
          * @member {Number} constructedThreads=0
-         * @private
+         * @protected
          */
         constructedThreads: 0,
         /**
@@ -52,26 +52,26 @@ class Manager extends Base {
         /**
          * True in case the current browser supports window.SharedWorker.
          * @member {Boolean} sharedWorkersEnabled=false
-         * @private
+         * @protected
          */
         sharedWorkersEnabled: false,
         /**
          * Internal flag to stop the worker communication in case their creation fails
          * @member {Boolean} stopCommunication=false
-         * @private
+         * @protected
          */
         stopCommunication: false,
         /**
          * True in case the current browser supports window.Worker.
          * The neo.mjs framework is not able to run without web workers.
          * @member {Boolean} sharedWorkersEnabled=false
-         * @private
+         * @protected
          */
         webWorkersEnabled: false,
         /**
          * Contains the fileNames for the App, Data & Vdom workers
          * @member {Object} workers
-         * @private
+         * @protected
          */
         workers: {
             app: {
@@ -361,7 +361,7 @@ class Manager extends Base {
      * If the ownership of an object is transferred, it becomes unusable (neutered) in the context it was sent from
      * and becomes available only to the worker it was sent to.
      * @returns {Neo.worker.Message}
-     * @private
+     * @protected
      */
     sendMessage(dest, opts, transfer) {
         const me = this;

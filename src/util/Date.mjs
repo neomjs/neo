@@ -8,7 +8,7 @@ class DateUtil extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.util.Date'
-         * @private
+         * @protected
          */
         className: 'Neo.util.Date'
     }}

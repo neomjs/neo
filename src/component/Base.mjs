@@ -27,12 +27,12 @@ class Base extends CoreBase {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.component.Base'
-         * @private
+         * @protected
          */
         className: 'Neo.component.Base',
         /**
          * @member {String} ntype='component'
-         * @private
+         * @protected
          */
         ntype: 'component',
         /**
@@ -58,7 +58,7 @@ class Base extends CoreBase {
         /**
          * manager.Focus will change this flag on focusin & out dom events
          * @member {Boolean} containsFocus_=false
-         * @private
+         * @protected
          */
         containsFocus_: false,
         /**
@@ -96,14 +96,14 @@ class Base extends CoreBase {
         /**
          * Internal flag which will get set to true on mount
          * @member {Boolean} hasBeenMounted=false
-         * @private
+         * @protected
          */
         hasBeenMounted: false,
         /**
          * Internal flag for vdom changes after a component got unmounted
          * (delta updates can no longer get applied & a new render call is required before re-mounting)
          * @member {Boolean} hasUnmountedVdomChanges_=false
-         * @private
+         * @protected
          */
         hasUnmountedVdomChanges_: false,
         /**
@@ -124,7 +124,7 @@ class Base extends CoreBase {
         /**
          * Internal flag which will get set to true while an update request (worker messages) is in progress
          * @member {Boolean} isVdomUpdating=false
-         * @private
+         * @protected
          */
         isVdomUpdating: false,
         /**
@@ -156,19 +156,19 @@ class Base extends CoreBase {
         /**
          * True in case the component is mounted to the DOM
          * @member {Boolean} mounted_=false
-         * @private
+         * @protected
          */
         mounted_: false,
         /**
          * Internal flag which will get set to true in case an update call arrives while another update is running
          * @member {Boolean} needsVdomUpdate=false
-         * @private
+         * @protected
          */
         needsVdomUpdate: false,
         /**
          * True in case the component is rendering the vnode
          * @member {Boolean} rendering_=false
-         * @private
+         * @protected
          */
         rendering: false,
         /**
@@ -191,7 +191,7 @@ class Base extends CoreBase {
         /**
          * The component vnode tree. Available after the component got rendered.
          * @member {Object} vnode_=null
-         * @private
+         * @protected
          */
         vnode_: null,
         /**
@@ -342,7 +342,7 @@ class Base extends CoreBase {
     /**
      * True after the component render() method was called. Also fires the rendered event.
      * @member {Boolean} rendered=false
-     * @private
+     * @protected
      */
     get rendered() {
         return this._rendered || false;
@@ -473,7 +473,7 @@ class Base extends CoreBase {
      * Triggered after the disabled config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetDisabled(value, oldValue) {
         let me  = this,
@@ -487,7 +487,7 @@ class Base extends CoreBase {
      * Registers the domListeners inside the Neo.manager.DomEvent
      * @param {Array} value
      * @param {Array} oldValue
-     * @private
+     * @protected
      */
     afterSetDomListeners(value, oldValue) {
         DomEventManager.updateDomListeners(this, value, oldValue);
@@ -497,7 +497,7 @@ class Base extends CoreBase {
      * Triggered after the hasUnmountedVdomChanges config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetHasUnmountedVdomChanges(value, oldValue) {
         if (value || (!value && oldValue)) {
@@ -520,7 +520,7 @@ class Base extends CoreBase {
      * Triggered after the height config got changed
      * @param {Number|String|null} value
      * @param {Number|String|null} oldValue
-     * @private
+     * @protected
      */
     afterSetHeight(value, oldValue) {
         this.changeVdomRootKey('height', value);
@@ -530,7 +530,7 @@ class Base extends CoreBase {
      * Triggered after the html config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
-     * @private
+     * @protected
      */
     afterSetHtml(value, oldValue) {
         this.changeVdomRootKey('html', value);
@@ -540,7 +540,7 @@ class Base extends CoreBase {
      * Triggered after the id config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
-     * @private
+     * @protected
      */
     afterSetId(value, oldValue) {
         this.changeVdomRootKey('id', value);
@@ -550,7 +550,7 @@ class Base extends CoreBase {
      * Triggered after the maxHeight config got changed
      * @param {Number|String|null} value
      * @param {Number|String|null} oldValue
-     * @private
+     * @protected
      */
     afterSetMaxHeight(value, oldValue) {
         this.changeVdomRootKey('maxHeight', value);
@@ -560,7 +560,7 @@ class Base extends CoreBase {
      * Triggered after the maxWidth config got changed
      * @param {Number|String|null} value
      * @param {Number|String|null} oldValue
-     * @private
+     * @protected
      */
     afterSetMaxWidth(value, oldValue) {
         this.changeVdomRootKey('maxWidth', value);
@@ -570,7 +570,7 @@ class Base extends CoreBase {
      * Triggered after the minHeight config got changed
      * @param {Number|String|null} value
      * @param {Number|String|null} oldValue
-     * @private
+     * @protected
      */
     afterSetMinHeight(value, oldValue) {
         this.changeVdomRootKey('minHeight', value);
@@ -580,7 +580,7 @@ class Base extends CoreBase {
      * Triggered after the minWidth config got changed
      * @param {Number|String|null} value
      * @param {Number|String|null} oldValue
-     * @private
+     * @protected
      */
     afterSetMinWidth(value, oldValue) {
         this.changeVdomRootKey('minWidth', value);
@@ -613,7 +613,7 @@ class Base extends CoreBase {
      * Triggered after the tooltips config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetTooltips(value, oldValue) {
         if (value) {
@@ -635,7 +635,7 @@ class Base extends CoreBase {
      * Triggered after the vnode config got changed
      * @param {Object} value
      * @param {Object|null} oldValue
-     * @private
+     * @protected
      */
     afterSetVnode(value, oldValue) {
         if (value) {
@@ -647,7 +647,7 @@ class Base extends CoreBase {
      * Triggered after the width config got changed
      * @param {Number|String|null} value
      * @param {Number|String|null} oldValue
-     * @private
+     * @protected
      */
     afterSetWidth(value, oldValue) {
         this.changeVdomRootKey('width', value);
@@ -657,7 +657,7 @@ class Base extends CoreBase {
      * Triggered after the wrapperStyle config got changed
      * @param {Object} value
      * @param {Object} oldValue
-     * @private
+     * @protected
      */
     afterSetWrapperStyle(value, oldValue) {
         if (value && !Neo.isEmpty(value)) {
@@ -672,7 +672,7 @@ class Base extends CoreBase {
     /**
      * Triggered when accessing the controller config
      * @param {Object} value
-     * @private
+     * @protected
      */
     beforeGetController(value) {
         return value && Neo.get(value);
@@ -682,7 +682,7 @@ class Base extends CoreBase {
      * Triggered before the controller config gets changed. Creates a ComponentController instance if needed.
      * @param {Object} value
      * @param {Object} oldValue
-     * @private
+     * @protected
      */
     beforeSetController(value, oldValue) {
         let me = this;
@@ -714,7 +714,7 @@ class Base extends CoreBase {
      * Triggered before the domListeners config gets changed.
      * @param {Object} value
      * @param {Object} oldValue
-     * @private
+     * @protected
      */
     beforeSetDomListeners(value, oldValue) {
         if (Neo.isObject(value)) {
@@ -728,7 +728,7 @@ class Base extends CoreBase {
      * Triggered before the keys config gets changed. Creates a KeyNavigation instance if needed.
      * @param {Object} value
      * @param {Object} oldValue
-     * @private
+     * @protected
      */
     beforeSetKeys(value, oldValue) {
         if (oldValue) {
@@ -771,7 +771,7 @@ class Base extends CoreBase {
     /**
      * Creates the tooltip instances
      * @param {Array|Object} value
-     * @private
+     * @protected
      */
     createTooltips(value) {
         if (!Array.isArray(value)) {
@@ -976,7 +976,7 @@ class Base extends CoreBase {
      * Gets called from the render() promise success handler
      * @param {Object} data
      * @param {Boolean} autoMount Mount the DOM after the vnode got created
-     * @private
+     * @protected
      */
     onRender(data, autoMount) {
         let me  = this,
@@ -1228,7 +1228,7 @@ class Base extends CoreBase {
      * Delta updates for the cls config. Gets called after the cls config gets changed in case the component is mounted.
      * @param {Array} cls
      * @param {Array} oldCls
-     * @private
+     * @protected
      */
     updateCls(cls, oldCls) {
         let me    = this,
@@ -1268,7 +1268,7 @@ class Base extends CoreBase {
      * Creates the style deltas for newValue & oldValue and applies them directly to the DOM.
      * @param newValue
      * @param oldValue
-     * @private
+     * @protected
      */
     updateStyle(newValue, oldValue) {
         let me    = this,
@@ -1309,7 +1309,7 @@ class Base extends CoreBase {
      * @param {Neo.vdom.VNode} vnode
      * @param {function} [resolve] used by promiseVdomUpdate()
      * @param {function} [reject] used by promiseVdomUpdate()
-     * @private
+     * @protected
      */
     updateVdom(vdom, vnode, resolve, reject) {
         let me = this,

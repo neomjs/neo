@@ -11,7 +11,7 @@ class TouchDomEvents extends Base {
         return {
             /**
              * @member {String} className='Neo.main.mixin.TouchDomEvents'
-             * @private
+             * @protected
              */
             className: 'Neo.main.mixin.TouchDomEvents'
         }

@@ -8,12 +8,12 @@ class AttributionComponent extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.AttributionComponent'
-         * @private
+         * @protected
          */
         className: 'Covid.view.AttributionComponent',
         /**
          * @member {String[]} cls=['covid-attribution-component']
-         * @private
+         * @protected
          */
         cls: ['covid-attribution-component'],
         /**

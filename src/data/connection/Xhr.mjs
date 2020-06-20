@@ -8,12 +8,12 @@ class Xhr extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.data.connection.Xhr'
-         * @private
+         * @protected
          */
         className: 'Neo.data.connection.Xhr',
         /**
          * @member {String} ntype='xhr'
-         * @private
+         * @protected
          */
         ntype: 'xhr-connection',
         /**
@@ -47,7 +47,7 @@ class Xhr extends Base {
      * @param {Object} opts.scope
      * @param {String} opts.url
      * @returns {XMLHttpRequest}
-     * @private
+     * @protected
      */
     request(opts) {
         let me      = this,

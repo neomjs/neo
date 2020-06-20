@@ -12,7 +12,7 @@ class MainContainer extends Viewport {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.view.MainContainer'
-         * @private
+         * @protected
          */
         className: 'RealWorld.view.MainContainer',
         /**

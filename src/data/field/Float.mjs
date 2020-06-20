@@ -8,12 +8,12 @@ class FloatField extends Field {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.data.field.Field'
-         * @private
+         * @protected
          */
         className: 'Neo.data.field.Float',
         /**
          * @member {String} ntype='data-field-float'
-         * @private
+         * @protected
          */
         ntype: 'data-field-float',
         /**
@@ -27,7 +27,7 @@ class FloatField extends Field {
      * @param {Number|null} value
      * @param {Number|null} oldValue
      * @returns {Number}
-     * @private
+     * @protected
      */
     beforeSetValue(value, oldValue) {
         let me           = this,

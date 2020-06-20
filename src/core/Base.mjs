@@ -12,6 +12,7 @@ class Base {
     /**
      * The return value will get applied to the class constructor
      * @returns {Object} staticConfig
+     * @static
      * @tutorial 02_ClassSystem
      */
     static getStaticConfig() {return {
@@ -19,7 +20,7 @@ class Base {
          * Set this one to false in case you don't want to stick
          * to the "anti-pattern" to apply classes to the global Neo or App namespace
          * @member {Boolean} registerToGlobalNs=true
-         * @private
+         * @protected
          * @static
          */
         registerToGlobalNs: true
@@ -34,13 +35,13 @@ class Base {
         /**
          * The class name which will get mapped into the Neo or app namespace
          * @member {String} className='Neo.core.Base'
-         * @private
+         * @protected
          */
         className: 'Neo.core.Base',
         /**
          * The class shortcut-name to use for e.g. creating child components inside a JSON-format
          * @member {String} ntype='base'
-         * @private
+         * @protected
          */
         ntype: 'base',
         /**

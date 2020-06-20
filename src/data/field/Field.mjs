@@ -8,12 +8,12 @@ class Field extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.data.field.Field'
-         * @private
+         * @protected
          */
         className: 'Neo.data.field.Field',
         /**
          * @member {String} ntype='data-field'
-         * @private
+         * @protected
          */
         ntype: 'data-field',
         /**
@@ -22,12 +22,12 @@ class Field extends Base {
         defaultValue: null,
         /**
          * @member {*|null} nullableValue=true
-         * @private
+         * @protected
          */
         nullableValue: true,
         /**
          * @member {*|null} value_=null
-         * @private
+         * @protected
          */
         value_: null
     }}
@@ -36,7 +36,7 @@ class Field extends Base {
      * Triggered after the value config got changed
      * @param {*|null} value
      * @param {*|null} oldValue
-     * @private
+     * @protected
      */
     afterSetValue(value, oldValue) {
         console.log('afterSetValue', value, oldValue);

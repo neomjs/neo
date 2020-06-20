@@ -9,12 +9,12 @@ class Base extends CollectionBase{
     static getConfig() {return {
         /**
          * @member {String} className='Neo.manager.Base'
-         * @private
+         * @protected
          */
         className: 'Neo.manager.Base',
         /**
          * @member {String} ntype='base-manager'
-         * @private
+         * @protected
          */
         ntype: 'base-manager'
     }}

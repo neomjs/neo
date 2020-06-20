@@ -9,7 +9,7 @@ class Gallery extends BaseGallery {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld2.view.article.Gallery'
-         * @private
+         * @protected
          */
         className: 'RealWorld2.view.article.Gallery',
         /**

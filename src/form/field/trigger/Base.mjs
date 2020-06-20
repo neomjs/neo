@@ -11,7 +11,7 @@ class Base extends Component {
         /**
          * Valid values for align
          * @member {String[]} alignValues=['end', 'start']
-         * @private
+         * @protected
          * @static
          */
         alignValues: ['end', 'start']
@@ -20,12 +20,12 @@ class Base extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.trigger.Base'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.trigger.Base',
         /**
          * @member {String} ntype='trigger'
-         * @private
+         * @protected
          */
         ntype: 'trigger',
         /**
@@ -60,7 +60,7 @@ class Base extends Component {
         /**
          * Internal flag used by field.getTrigger()
          * @member {String} type='base'
-         * @private
+         * @protected
          */
         type: 'base',
         /**
@@ -121,7 +121,7 @@ class Base extends Component {
      * Triggered after the align config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetAlign(value, oldValue) {
         let cls = this.cls;
@@ -134,7 +134,7 @@ class Base extends Component {
      * Triggered after the hidden config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetHidden(value, oldValue) {
         let vdom  = this.vdom,
@@ -148,7 +148,7 @@ class Base extends Component {
      * Triggered after the iconCls config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetIconCls(value, oldValue) {
         let cls = this.cls;
@@ -166,7 +166,7 @@ class Base extends Component {
      * Triggered before the align config gets changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     beforeSetAlign(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'align', 'alignValues');
@@ -197,7 +197,7 @@ class Base extends Component {
     /**
      * click domEvent listener
      * @param {Object} data
-     * @private
+     * @protected
      */
     onTriggerClick(data) {
         let me    = this,

@@ -15,7 +15,7 @@ class TableContainer extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.TableContainer'
-         * @private
+         * @protected
          */
         className: 'Covid.view.TableContainer',
         /**
@@ -28,7 +28,7 @@ class TableContainer extends Container {
         controller: TableContainerController,
         /**
          * @member {Number} historyPanelWidth=520
-         * @private
+         * @protected
          */
         historyPanelWidth: 520,
         /**

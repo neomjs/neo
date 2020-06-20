@@ -16,22 +16,22 @@ class VDom extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.worker.VDom'
-         * @private
+         * @protected
          */
         className: 'Neo.worker.VDom',
         /**
          * @member {String} ntype='vdom-worker'
-         * @private
+         * @protected
          */
         ntype: 'vdom-worker',
         /**
          * @member {Boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true,
         /**
          * @member {String} workerId='vdom'
-         * @private
+         * @protected
          */
         workerId: 'vdom'
     }}

@@ -10,28 +10,28 @@ class Flexbox extends Base {
         /**
          * Valid values for align
          * @member {String[]} alignValues=['center', 'end', 'start', 'stretch', null]
-         * @private
+         * @protected
          * @static
          */
         alignValues: ['center', 'end', 'start', 'stretch', null],
         /**
          * Valid values for direction
          * @member {String[]} directionValues=['column', 'column-reverse', 'row', 'row-reverse', null]
-         * @private
+         * @protected
          * @static
          */
         directionValues: ['column', 'column-reverse', 'row', 'row-reverse', null],
         /**
          * Valid values for pack
          * @member {String[]} packValues=['center', 'end', 'start', null]
-         * @private
+         * @protected
          * @static
          */
         packValues: ['center', 'end', 'start', null],
         /**
          * Valid values for wrap
          * @member {String[]} wrapValues=['nowrap', 'wrap', 'wrap-reverse']
-         * @private
+         * @protected
          * @static
          */
         wrapValues: ['nowrap', 'wrap', 'wrap-reverse'],
@@ -40,12 +40,12 @@ class Flexbox extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.layout.Flexbox'
-         * @private
+         * @protected
          */
         className: 'Neo.layout.Flexbox',
         /**
          * @member {String} ntype='layout-flexbox'
-         * @private
+         * @protected
          */
         ntype: 'layout-flexbox',
         /**
@@ -79,7 +79,7 @@ class Flexbox extends Base {
      * Updates the Container CSS cls after "align" gets changed
      * @param {String|null} value
      * @param {String|null} oldValue
-     * @private
+     * @protected
      */
     afterSetAlign(value, oldValue) {
         this.updateInputValue(value, oldValue, 'align');
@@ -89,7 +89,7 @@ class Flexbox extends Base {
      * Updates the Container CSS cls after "direction" gets changed
      * @param {String|null} value
      * @param {String|null} oldValue
-     * @private
+     * @protected
      */
     afterSetDirection(value, oldValue) {
         this.updateInputValue(value, oldValue, 'direction');
@@ -99,7 +99,7 @@ class Flexbox extends Base {
      * Updates the Container CSS cls after "pack" gets changed
      * @param {String|null} value
      * @param {String|null} oldValue
-     * @private
+     * @protected
      */
     afterSetPack(value, oldValue) {
         this.updateInputValue(value, oldValue, 'pack');
@@ -109,7 +109,7 @@ class Flexbox extends Base {
      * Updates the Container CSS cls after "wrap" gets changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetWrap(value, oldValue) {
         this.updateInputValue(value, oldValue, 'wrap');
@@ -161,7 +161,7 @@ class Flexbox extends Base {
      * Checks if the new value for "align" is valid
      * @param {String|null} value
      * @param {String|null} oldValue
-     * @private
+     * @protected
      * @returns {String|null} value
      */
     beforeSetAlign(value, oldValue) {
@@ -172,7 +172,7 @@ class Flexbox extends Base {
      * Checks if the new value for "direction" is valid
      * @param {String|null} value
      * @param {String|null} oldValue
-     * @private
+     * @protected
      * @returns {String|null} value
      */
     beforeSetDirection(value, oldValue) {
@@ -183,7 +183,7 @@ class Flexbox extends Base {
      * Checks if the new value for "pack" is valid
      * @param {String|null} value
      * @param {String|null} oldValue
-     * @private
+     * @protected
      * @returns {String|null} value
      */
     beforeSetPack(value, oldValue) {
@@ -194,7 +194,7 @@ class Flexbox extends Base {
      * Checks if the new value for "wrap" is valid
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      * @returns {String} value
      */
     beforeSetWrap(value, oldValue) {
@@ -205,7 +205,7 @@ class Flexbox extends Base {
      * Removes all CSS rules from an container item this layout is bound to.
      * Gets called when switching to a different layout.
      * @param item
-     * @private
+     * @protected
      */
     removeChildAttributes(item) {
         let style = item.style || {};
@@ -217,7 +217,7 @@ class Flexbox extends Base {
     /**
      * Removes all CSS rules from the container this layout is bound to.
      * Gets called when switching to a different layout.
-     * @private
+     * @protected
      */
     removeRenderAttributes() {
         let me        = this,
@@ -253,7 +253,7 @@ class Flexbox extends Base {
      * @param {String|null} oldValue
      * @param {String} validValuesName
      * @param {String} propertyName
-     * @private
+     * @protected
      * @returns {String|null} value
      */
     testInputValue(value, oldValue, validValuesName, propertyName) {
@@ -272,7 +272,7 @@ class Flexbox extends Base {
      * @param {String|null} value
      * @param {String|null} oldValue
      * @param {String} propertyName
-     * @private
+     * @protected
      */
     updateInputValue(value, oldValue, propertyName) {
         let me        = this,

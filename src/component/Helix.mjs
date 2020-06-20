@@ -17,12 +17,12 @@ class Helix extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.component.Helix'
-         * @private
+         * @protected
          */
         className: 'Neo.component.Helix',
         /**
          * @member {String} ntype='helix'
-         * @private
+         * @protected
          */
         ntype: 'helix',
         /**
@@ -38,7 +38,7 @@ class Helix extends Component {
         /**
          * The ids of expanded items will get stored here
          * @member {Array} clonedItems=[]
-         * @private
+         * @protected
          */
         clonedItems: [],
         /**
@@ -121,7 +121,7 @@ class Helix extends Component {
         /**
          * We store one instance of the matrix here to avoid creating new ones on each refresh operation
          * @member {Neo.util.Matrix|null} matrix=null
-         * @private
+         * @protected
          */
         matrix: null,
         /**
@@ -158,14 +158,14 @@ class Helix extends Component {
          * The DOM element offsetHeight of the top level div.
          * Gets fetched after the helix got mounted.
          * @member {Boolean} mouseWheelEnabled=true
-         * @private
+         * @protected
          */
         offsetHeight: null,
         /**
          * The DOM element offsetWidth of the top level div.
          * Gets fetched after the helix got mounted.
          * @member {Boolean} mouseWheelEnabled=true
-         * @private
+         * @protected
          */
         offsetWidth: null,
         /**
@@ -186,7 +186,7 @@ class Helix extends Component {
         /**
          * We store one instance of the rotation matrix here to avoid creating new ones on each refresh operation
          * @member {Neo.util.Matrix|null} rotationMatrix=null
-         * @private
+         * @protected
          */
         rotationMatrix: null,
         /**
@@ -212,7 +212,7 @@ class Helix extends Component {
         /**
          * The setTimeout() ids for calls which can get cancelled
          * @member {Array} transitionTimeouts=[]
-         * @private
+         * @protected
          */
         transitionTimeouts: [],
         /**
@@ -304,7 +304,7 @@ class Helix extends Component {
      * Triggered after the flipped config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetFlipped(value, oldValue) {
         this.applyItemTransitions(this.refresh, 1000);
@@ -314,7 +314,7 @@ class Helix extends Component {
      * Triggered after the maxItem config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetMaxItems(value, oldValue) {
         let me = this;
@@ -332,7 +332,7 @@ class Helix extends Component {
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
@@ -346,7 +346,7 @@ class Helix extends Component {
      * Triggered after the perspective config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetPerspective(value, oldValue) {
         let me = this;
@@ -371,7 +371,7 @@ class Helix extends Component {
      * Triggered after the selectionModel config got changed
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
-     * @private
+     * @protected
      */
     afterSetSelectionModel(value, oldValue) {
         if (this.rendered) {
@@ -383,7 +383,7 @@ class Helix extends Component {
      * Triggered after the url config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetUrl(value, oldValue) {
         let me = this;
@@ -399,7 +399,7 @@ class Helix extends Component {
      * @param callback
      * @param animationTime
      * @param callbackParam
-     * @private
+     * @protected
      */
     applyItemTransitions(callback, animationTime, callbackParam) {
         let me  = this,
@@ -459,7 +459,7 @@ class Helix extends Component {
      * Triggered before the selectionModel config gets changed.
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
-     * @private
+     * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
         if (oldValue) {
@@ -478,7 +478,7 @@ class Helix extends Component {
      * Triggered before the store config gets changed.
      * @param {Neo.data.Store|null} value
      * @param {Neo.data.Store|null} oldValue
-     * @private
+     * @protected
      */
     beforeSetStore(value, oldValue) {
         let me = this;
@@ -562,7 +562,7 @@ class Helix extends Component {
     /**
      * @param {Number} [startIndex] the start index for creating items,
      * e.g. increasing maxItems only needs to create the new ones
-     * @private
+     * @protected
      */
     createItems(startIndex) {
         let me            = this,
@@ -644,7 +644,7 @@ class Helix extends Component {
     }
 
     /**
-     * @private
+     * @protected
      */
     destroyClones() {
         let me           = this,
@@ -913,7 +913,7 @@ class Helix extends Component {
     }
 
     /**
-     * @private
+     * @protected
      */
     onSort() {
         const me = this;
@@ -933,7 +933,7 @@ class Helix extends Component {
     }
 
     /**
-     * @private
+     * @protected
      */
     refresh() {
         let me             = this,
@@ -1023,7 +1023,7 @@ class Helix extends Component {
     }
 
     /**
-     * @private
+     * @protected
      */
     refreshIfMounted() {
         if (this.mounted) {
@@ -1060,7 +1060,7 @@ class Helix extends Component {
     }
 
     /**
-     * @private
+     * @protected
      */
     updateCloneTranslate() {
         let me           = this,

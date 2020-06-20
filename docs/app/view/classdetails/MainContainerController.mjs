@@ -9,12 +9,12 @@ class MainContainerController extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Docs.app.view.classdetails.MainContainerController'
-         * @private
+         * @protected
          */
         className: 'Docs.app.view.classdetails.MainContainerController',
         /**
          * @member {String} ntype='docs-classdetails-maincontainer-controller'
-         * @private
+         * @protected
          */
         ntype: 'docs-classdetails-maincontainer-controller'
     }}

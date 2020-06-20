@@ -13,23 +13,23 @@ class HighlightJS extends Base {
         return {
             /**
              * @member {String} className='Neo.main.addon.HighlightJS'
-             * @private
+             * @protected
              */
             className: 'Neo.main.addon.HighlightJS',
             /**
              * @member {String} highlightJsPath='./resources/highlight/highlight.pack.js'
-             * @private
+             * @protected
              */
             highlightJsPath: './resources/highlight/highlight.pack.js',
             /**
              * @member {String} highlightJsLineNumbersPath=Neo.config.basePath + 'node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js'
-             * @private
+             * @protected
              */
             highlightJsLineNumbersPath: Neo.config.basePath + 'node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js',
             /**
              * Remote method access for other workers
              * @member {Object} remote={app: [//...]}
-             * @private
+             * @protected
              */
             remote: {
                 app: [
@@ -41,12 +41,12 @@ class HighlightJS extends Base {
             },
             /**
              * @member {Boolean} singleton=true
-             * @private
+             * @protected
              */
             singleton: true,
             /**
              * @member {String} themePath='./resources/highlightjs-custom-github-theme.css'
-             * @private
+             * @protected
              */
             themePath: './resources/highlightjs-custom-github-theme.css'
         }
@@ -72,7 +72,7 @@ class HighlightJS extends Base {
      * @param {Object} data
      * @param {String} data.text
      * @param {String} data.vnodeId
-     * @private
+     * @protected
      */
     scrollIntoView(data) {
         let parentEl = DomAccess.getElement(data.vnodeId),

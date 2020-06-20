@@ -9,17 +9,17 @@ class RowModel extends Model {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.selection.table.RowModel'
-         * @private
+         * @protected
          */
         className: 'Neo.selection.table.RowModel',
         /**
          * @member {String} ntype='selection-table-rowmodel'
-         * @private
+         * @protected
          */
         ntype: 'selection-table-rowmodel',
         /**
          * @member {String} cls='selection-rowmodel'
-         * @private
+         * @protected
          */
         cls: 'neo-selection-rowmodel'
     }}
@@ -58,7 +58,7 @@ class RowModel extends Model {
      * Finds the matching table row for a given event path
      * @param {Object} path The event path
      * @returns {Object|null} The node containing the table row class or null
-     * @private
+     * @protected
      */
     static getRowNode(path) {
         let i    = 0,

@@ -10,7 +10,7 @@ class Button extends BaseButton {
         /**
          * Valid values for align
          * @member {String[]} alignValues: ['left', 'center', 'right']
-         * @private
+         * @protected
          * @static
          */
         alignValues: ['left', 'center', 'right']
@@ -19,12 +19,12 @@ class Button extends BaseButton {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.table.header.Button'
-         * @private
+         * @protected
          */
         className: 'Neo.table.header.Button',
         /**
          * @member {String} ntype='table-header-button'
-         * @private
+         * @protected
          */
         ntype: 'table-header-button',
         /**
@@ -56,7 +56,7 @@ class Button extends BaseButton {
         /**
          * 'ASC', 'DESC' or null
          * @member {String|null} isSorted_=null
-         * @private
+         * @protected
          */
         isSorted_: null,
         /**
@@ -132,7 +132,7 @@ class Button extends BaseButton {
      * Triggered after the draggable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetDraggable(value, oldValue) {
         let me   = this,
@@ -151,7 +151,7 @@ class Button extends BaseButton {
      * Triggered after the isSorted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetIsSorted(value, oldValue) {
         let me        = this,
@@ -193,14 +193,14 @@ class Button extends BaseButton {
      * Triggered before the align config gets changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     beforeSetAlign(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'align', 'alignValues');
     }
 
     /**
-     * @private
+     * @protected
      */
     onButtonClick() {
         let me = this,
@@ -224,7 +224,7 @@ class Button extends BaseButton {
     }
 
     /**
-     * @private
+     * @protected
      */
     onDragEnd() {
         let me    = this,
@@ -235,7 +235,7 @@ class Button extends BaseButton {
     }
 
     /**
-     * @private
+     * @protected
      */
     onDragEnter() {
         let me  = this,
@@ -246,7 +246,7 @@ class Button extends BaseButton {
     }
 
     /**
-     * @private
+     * @protected
      */
     onDragLeave() {
         let me  = this,
@@ -265,7 +265,7 @@ class Button extends BaseButton {
     }
 
     /**
-     * @private
+     * @protected
      */
     onDragStart() {
         let me    = this,
@@ -291,7 +291,7 @@ class Button extends BaseButton {
     }
 
     /**
-     * @private
+     * @protected
      */
     removeSortingCss() {
         let me  = this,

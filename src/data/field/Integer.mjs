@@ -8,12 +8,12 @@ class IntegerField extends Field {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.data.field.Integer'
-         * @private
+         * @protected
          */
         className: 'Neo.data.field.Integer',
         /**
          * @member {String} ntype='data-field-integer'
-         * @private
+         * @protected
          */
         ntype: 'data-field-integer',
         /**
@@ -27,7 +27,7 @@ class IntegerField extends Field {
      * @param {Number|null} value
      * @param {Number|null} oldValue
      * @returns {Number}
-     * @private
+     * @protected
      */
     beforeSetValue(value, oldValue) {
         let me           = this,

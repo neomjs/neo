@@ -8,12 +8,12 @@ class Range extends Number {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.Range'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.Range',
         /**
          * @member {String} ntype='rangefield'
-         * @private
+         * @protected
          */
         ntype: 'rangefield',
         /**
@@ -75,7 +75,7 @@ class Range extends Number {
      *
      * @param {Array} value
      * @param {Array} oldValue
-     * @private
+     * @protected
      */
     afterSetTickmarks(value, oldValue) {
         //console.log('updateTickmarks');

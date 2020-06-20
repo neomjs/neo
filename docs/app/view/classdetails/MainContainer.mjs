@@ -14,12 +14,12 @@ class MainContainer extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='Docs.app.view.classdetails.MainContainer'
-         * @private
+         * @protected
          */
         className: 'Docs.app.view.classdetails.MainContainer',
         /**
          * @member {String} ntype='classdetails-maincontainer'
-         * @private
+         * @protected
          */
         ntype: 'classdetails-maincontainer',
         /**

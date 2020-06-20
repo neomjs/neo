@@ -13,12 +13,12 @@ class AnalyticsByGoogle extends Base {
         return {
             /**
              * @member {String} className='Neo.main.addon.AnalyticsByGoogle'
-             * @private
+             * @protected
              */
             className: 'Neo.main.addon.AnalyticsByGoogle',
             /**
              * @member {Boolean} singleton=true
-             * @private
+             * @protected
              */
             singleton: true
         }
@@ -34,7 +34,7 @@ class AnalyticsByGoogle extends Base {
 
     /**
      *
-     * @private
+     * @protected
      */
     insertGoogleAnalyticsScript() {
         window.dataLayer = window.dataLayer || [];

@@ -10,7 +10,7 @@ class HistoricalDataTable extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.country.HistoricalDataTable'
-         * @private
+         * @protected
          */
         className: 'Covid.view.country.HistoricalDataTable',
         /**

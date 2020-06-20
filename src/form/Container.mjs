@@ -10,17 +10,17 @@ class Container extends BaseContainer {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.Container'
-         * @private
+         * @protected
          */
         className: 'Neo.form.Container',
         /**
          * @member {String} ntype='form-container'
-         * @private
+         * @protected
          */
         ntype: 'form-container',
         /**
          * @member {Array} cls=['neo-form-container'],
-         * @private
+         * @protected
          */
         cls: ['neo-form-container'],
         /**

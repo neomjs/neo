@@ -11,7 +11,7 @@ class TextArea extends Text {
         /**
          * Valid values for wrap
          * @member {String[]} wrapValues=['hard', 'off', 'soft', null]
-         * @private
+         * @protected
          * @static
          */
         wrapValues: ['hard', 'off', 'soft', null]
@@ -20,12 +20,12 @@ class TextArea extends Text {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.TextArea'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.TextArea',
         /**
          * @member {String} ntype='textarea'
-         * @private
+         * @protected
          */
         ntype: 'textarea',
         /**
@@ -46,7 +46,7 @@ class TextArea extends Text {
         /**
          * Disabling to set a type for the textarea tag
          * @member {String|null} inputType=null
-         * @private
+         * @protected
          */
         inputType: null,
         /**
@@ -72,7 +72,7 @@ class TextArea extends Text {
      * Triggered after the cols config got changed
      * @param {Number|null} value
      * @param {Number|null} oldValue
-     * @private
+     * @protected
      */
     afterSetCols(value, oldValue) {
         this.changeInputElKey('cols', value);
@@ -82,7 +82,7 @@ class TextArea extends Text {
      * Triggered after the inputTag config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetInputTag(value, oldValue) {
         this.changeInputElKey('tag', value);
@@ -92,7 +92,7 @@ class TextArea extends Text {
      * Triggered after the resizable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetResizable(value, oldValue) {
         let me    = this,
@@ -107,7 +107,7 @@ class TextArea extends Text {
      * Triggered after the rows config got changed
      * @param {Number|null} value
      * @param {Number|null} oldValue
-     * @private
+     * @protected
      */
     afterSetRows(value, oldValue) {
         this.changeInputElKey('rows', value);
@@ -117,7 +117,7 @@ class TextArea extends Text {
      * Triggered after the wrap config got changed
      * @param {Number|null} value
      * @param {Number|null} oldValue
-     * @private
+     * @protected
      */
     afterSetWrap(value, oldValue) {
         this.changeInputElKey('wrap', value);
@@ -128,7 +128,7 @@ class TextArea extends Text {
      * @param {String} value
      * @param {String} oldValue
      * @returns {String} value
-     * @private
+     * @protected
      */
     beforeSetWrap(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'wrap', 'wrapValues');

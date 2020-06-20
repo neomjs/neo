@@ -11,7 +11,7 @@ class ProfileComponent extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.view.user.ProfileComponent'
-         * @private
+         * @protected
          */
         className: 'RealWorld.view.user.ProfileComponent',
         /**
@@ -173,7 +173,7 @@ class ProfileComponent extends Component {
      * Triggered after the articlePreviews config got changed
      * @param {Object[]|null} value
      * @param {Object[]|null} oldValue
-     * @private
+     * @protected
      */
     afterSetArticlePreviews(value, oldValue) {
         let me        = this,
@@ -218,7 +218,7 @@ class ProfileComponent extends Component {
      * Triggered after the bio config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetBio(value, oldValue) {
         if (value) {
@@ -233,7 +233,7 @@ class ProfileComponent extends Component {
      * Triggered after the following config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetFollowing(value, oldValue) {
         if (Neo.isBoolean(value)) {
@@ -254,7 +254,7 @@ class ProfileComponent extends Component {
      * Triggered after the image config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetImage(value, oldValue) {
         let vdom = this.vdom;
@@ -267,7 +267,7 @@ class ProfileComponent extends Component {
      * Triggered after the myProfile config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetMyProfile(value, oldValue) {console.log('afterSetMyProfile', value);
         if (Neo.isBoolean(oldValue)) {
@@ -283,7 +283,7 @@ class ProfileComponent extends Component {
      * Triggered after the username config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetUsername(value, oldValue) {
         let vdom = this.vdom;

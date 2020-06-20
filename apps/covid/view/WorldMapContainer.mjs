@@ -12,7 +12,7 @@ class WorldMapContainer extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.WorldMapContainer'
-         * @private
+         * @protected
          */
         className: 'Covid.view.WorldMapContainer',
         /**

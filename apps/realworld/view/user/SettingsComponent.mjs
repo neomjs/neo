@@ -9,7 +9,7 @@ class SettingsComponent extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.view.user.SettingsComponent'
-         * @private
+         * @protected
          */
         className: 'RealWorld.view.user.SettingsComponent',
         /**
@@ -155,7 +155,7 @@ class SettingsComponent extends Component {
      * Triggered after the bio config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetBio(value, oldValue) {
         let vdom = this.vdom;
@@ -168,7 +168,7 @@ class SettingsComponent extends Component {
      * Triggered after the email config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetEmail(value, oldValue) {
         let vdom = this.vdom;
@@ -181,7 +181,7 @@ class SettingsComponent extends Component {
      * Triggered after the errors config got changed
      * @param {Object[]} value=[]
      * @param {Object[]} oldValue
-     * @private
+     * @protected
      */
     afterSetErrors(value=[], oldValue) {
         let me   = this,
@@ -205,7 +205,7 @@ class SettingsComponent extends Component {
      * Triggered after the image config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetImage(value, oldValue) {
         let vdom = this.vdom;
@@ -218,7 +218,7 @@ class SettingsComponent extends Component {
      * Triggered after the userName config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetUserName(value, oldValue) {
         let vdom = this.vdom;

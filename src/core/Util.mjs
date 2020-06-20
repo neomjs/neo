@@ -9,7 +9,7 @@ class Util extends Base {
         /**
          * A regex to remove camel case syntax
          * @member {RegExp} decamelRegEx=/([a-z])([A-Z])/g
-         * @private
+         * @protected
          * @static
          */
         decamelRegEx: /([a-z])([A-Z])/g
@@ -18,12 +18,12 @@ class Util extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.core.Util'
-         * @private
+         * @protected
          */
         className: 'Neo.core.Util',
         /**
          * @member {String} ntype='core-util'
-         * @private
+         * @protected
          */
         ntype: 'core-util',
     }}

@@ -8,12 +8,12 @@ class WorldMapComponent extends AmChartComponent {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.WorldMapComponent'
-         * @private
+         * @protected
          */
         className: 'Covid.view.WorldMapComponent',
         /**
          * @member {String} ntype='covid-world-map'
-         * @private
+         * @protected
          */
         ntype: 'covid-world-map',
         /**

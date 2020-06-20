@@ -15,13 +15,13 @@ class Markdown extends Base {
         return {
             /**
              * @member {String} className='Neo.main.addon.Markdown'
-             * @private
+             * @protected
              */
             className: 'Neo.main.addon.Markdown',
             /**
              * Remote method access for other workers
              * @member {Object} remote={app: [//...]}
-             * @private
+             * @protected
              */
             remote: {
                 app: [
@@ -30,12 +30,12 @@ class Markdown extends Base {
             },
             /**
              * @member {String} showdownPath='https://cdn.jsdelivr.net/npm/showdown@1.9.1/dist/showdown.min.js'
-             * @private
+             * @protected
              */
             showdownPath: 'https://cdn.jsdelivr.net/npm/showdown@1.9.1/dist/showdown.min.js',
             /**
              * @member {Boolean} singleton=true
-             * @private
+             * @protected
              */
             singleton: true
         }
@@ -52,7 +52,7 @@ class Markdown extends Base {
     /**
      * Markdown to HTML converter
      * @param {String} markdown string to convert
-     * @private
+     * @protected
      */
     markdownToHtml(markdown) {
         let converter = new showdown.Converter();

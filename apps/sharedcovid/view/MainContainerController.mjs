@@ -11,7 +11,7 @@ class MainContainerController extends ComponentController {
         /**
          * A regex to replace blank chars
          * @member {RegExp} flagRegEx=/ /gi
-         * @private
+         * @protected
          * @static
          */
         flagRegEx: / /gi
@@ -20,12 +20,12 @@ class MainContainerController extends ComponentController {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.MainContainerController'
-         * @private
+         * @protected
          */
         className: 'Covid.view.MainContainerController',
         /**
          * @member {String} ntype='maincontainer-controller'
-         * @private
+         * @protected
          */
         ntype: 'maincontainer-controller',
         /**
@@ -59,13 +59,13 @@ class MainContainerController extends ComponentController {
         firstHashChange: true,
         /**
          * @member {String[]} mainTabs=['table', 'mapboxglmap', 'worldmap', 'gallery', 'helix', 'attribution']
-         * @private
+         * @protected
          */
         mainTabs: ['table','mapboxglmap', 'worldmap', 'gallery', 'helix', 'attribution'],
         /**
          * Flag to only load the map once onHashChange, but always on reload button click
          * @member {Boolean} mapboxglMapHasData=false
-         * @private
+         * @protected
          */
         mapboxglMapHasData: false,
         /**
@@ -75,7 +75,7 @@ class MainContainerController extends ComponentController {
         /**
          * Flag to only load the map once onHashChange, but always on reload button click
          * @member {Boolean} worldMapHasData=false
-         * @private
+         * @protected
          */
         worldMapHasData: false,
         /**

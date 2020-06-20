@@ -8,12 +8,12 @@ class Toolbar extends BaseToolbar {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.tab.header.Toolbar'
-         * @private
+         * @protected
          */
         className: 'Neo.tab.header.Toolbar',
         /**
          * @member {String} ntype='tab-header-toolbar'
-         * @private
+         * @protected
          */
         ntype: 'tab-header-toolbar',
         /**
@@ -30,7 +30,7 @@ class Toolbar extends BaseToolbar {
      * Triggered after the useActiveTabIndicator config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetUseActiveTabIndicator(value, oldValue) {
         if (Neo.isDefined(oldValue)) {
@@ -49,7 +49,7 @@ class Toolbar extends BaseToolbar {
 
     /**
      *
-     * @private
+     * @protected
      */
     createItems() {
         let me       = this,
@@ -64,7 +64,7 @@ class Toolbar extends BaseToolbar {
     /**
      * Returns the layout config matching to the dock position
      * @returns {Object} layoutConfig
-     * @private
+     * @protected
      */
     getLayoutConfig() {
         let layoutConfig;

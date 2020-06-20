@@ -8,12 +8,12 @@ class Password extends Text {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.Password'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.Password',
         /**
          * @member {String} ntype='passwordfield'
-         * @private
+         * @protected
          */
         ntype: 'passwordfield',
         /**

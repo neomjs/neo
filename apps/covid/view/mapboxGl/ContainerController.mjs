@@ -8,12 +8,12 @@ class ContainerController extends ComponentController {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.mapboxGl.ContainerController'
-         * @private
+         * @protected
          */
         className: 'Covid.view.mapboxGl.ContainerController',
         /**
          * @member {String} ntype='mapboxgl-container-controller'
-         * @private
+         * @protected
          */
         ntype: 'mapboxgl-container-controller'
     }}

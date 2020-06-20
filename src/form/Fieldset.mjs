@@ -8,17 +8,17 @@ class Fieldset extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.Fieldset'
-         * @private
+         * @protected
          */
         className: 'Neo.form.Fieldset',
         /**
          * @member {String} ntype='fieldset'
-         * @private
+         * @protected
          */
         ntype: 'fieldset',
         /**
          * @member {Array} cls=['neo-fieldset'],
-         * @private
+         * @protected
          */
         cls: ['neo-fieldset'],
         /**

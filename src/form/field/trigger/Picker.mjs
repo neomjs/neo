@@ -9,12 +9,12 @@ class Picker extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.trigger.Picker'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.trigger.Picker',
         /**
          * @member {String} ntype='trigger-picker'
-         * @private
+         * @protected
          */
         ntype: 'trigger-picker',
         /**
@@ -24,7 +24,7 @@ class Picker extends Base {
         /**
          * Internal flag used by field.getTrigger()
          * @member {String} type='spinup'
-         * @private
+         * @protected
          */
         type: 'picker'
     }}

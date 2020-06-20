@@ -8,17 +8,17 @@ class RemoteMethodAccess extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.worker.mixin.RemoteMethodAccess'
-         * @private
+         * @protected
          */
         className: 'Neo.worker.mixin.RemoteMethodAccess',
         /**
          * @member {String} ntype='mixin-remote-method-access'
-         * @private
+         * @protected
          */
         ntype: 'mixin-remote-method-access',
         /**
          * @member {Boolean} mixin=true
-         * @private
+         * @protected
          */
         mixin: true
     }}

@@ -10,7 +10,7 @@ class SettingsFormContainer extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld2.view.user.SettingsFormContainer'
-         * @private
+         * @protected
          */
         className: 'RealWorld2.view.user.SettingsFormContainer',
         /**

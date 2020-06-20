@@ -9,12 +9,12 @@ class Matrix extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.util.Matrix'
-         * @private
+         * @protected
          */
         className: 'Neo.util.Matrix',
         /**
          * @member {Array|null} items_=null
-         * @private
+         * @protected
          */
         items_: null
     }}

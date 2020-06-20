@@ -13,12 +13,12 @@ class Circle extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.component.Circle'
-         * @private
+         * @protected
          */
         className: 'Neo.component.Circle',
         /**
          * @member {String} ntype='circle'
-         * @private
+         * @protected
          */
         ntype: 'circle',
         /**
@@ -28,7 +28,7 @@ class Circle extends Component {
         backsideIconPath: null,
         /**
          * @member {Boolean} circleCenterHasTransitionCls=true
-         * @private
+         * @protected
          */
         circleCenterHasTransitionCls: true,
         /**
@@ -210,7 +210,7 @@ class Circle extends Component {
      * Triggered after the innerRadius config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetInnerRadius(value, oldValue) {
         if (oldValue) {
@@ -226,7 +226,7 @@ class Circle extends Component {
      * Triggered after the maxItems config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetMaxItems(value, oldValue) {
         if (oldValue && this.rendered) {
@@ -266,7 +266,7 @@ class Circle extends Component {
      * Triggered after the itemSize config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetItemSize(value, oldValue) {
         let me = this;
@@ -284,7 +284,7 @@ class Circle extends Component {
      * Triggered after the rotateX config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetRotateX(value, oldValue) {
         if (oldValue && this.rendered) {
@@ -296,7 +296,7 @@ class Circle extends Component {
      * Triggered after the rotateY config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetRotateY(value, oldValue) {
         if (oldValue && this.rendered) {
@@ -308,7 +308,7 @@ class Circle extends Component {
      * Triggered after the rotateZ config got changed
      * @param {Number} value
      * @param {Number} oldValue
-     * @private
+     * @protected
      */
     afterSetRotateZ(value, oldValue) {
         if (oldValue && this.rendered) {
@@ -320,7 +320,7 @@ class Circle extends Component {
      * Triggered after the selectionModel config got changed
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
-     * @private
+     * @protected
      */
     afterSetSelectionModel(value, oldValue) {
         if (this.rendered) {
@@ -332,7 +332,7 @@ class Circle extends Component {
      * Triggered after the title config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetTitle(value, oldValue) {
         if (oldValue) {
@@ -344,7 +344,7 @@ class Circle extends Component {
      * Triggered before the selectionModel config gets changed.
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
-     * @private
+     * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
         if (oldValue) {

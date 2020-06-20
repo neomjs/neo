@@ -10,12 +10,12 @@ class MembersList extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Docs.app.view.classdetails.MembersList'
-         * @private
+         * @protected
          */
         className: 'Docs.app.view.classdetails.MembersList',
         /**
          * @member {String} ntype='classdetails-memberslist'
-         * @private
+         * @protected
          */
         ntype: 'classdetails-memberslist',
         /**
@@ -24,7 +24,7 @@ class MembersList extends Base {
         cls: ['docs-classhierarchy-memberslist'],
         /**
          * @member {String} filterMembersQuery_=''
-         * @private
+         * @protected
          */
         filterMembersQuery_: '',
         /**
@@ -78,7 +78,7 @@ class MembersList extends Base {
      * Triggered after the filterMembersQuery config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetFilterMembersQuery(value, oldValue) {
         if (oldValue !== undefined) {
@@ -90,7 +90,7 @@ class MembersList extends Base {
      * Triggered after the showPrivateMembers config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetShowPrivateMembers(value, oldValue) {
         if (oldValue !== undefined) {
@@ -102,7 +102,7 @@ class MembersList extends Base {
      * Triggered after the showStaticMembers config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetShowStaticMembers(value, oldValue) {
         if (oldValue !== undefined) {

@@ -8,7 +8,7 @@ class VDom extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.util.VDom'
-         * @private
+         * @protected
          */
         className: 'Neo.util.VDom'
     }}

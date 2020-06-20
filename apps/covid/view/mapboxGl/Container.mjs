@@ -12,12 +12,12 @@ class Container extends BaseContainer {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.mapboxGl.Container'
-         * @private
+         * @protected
          */
         className: 'Covid.view.mapboxGl.Container',
         /**
          * @member {String} ntype='covid-mapboxgl-container'
-         * @private
+         * @protected
          */
         ntype: 'covid-mapboxgl-container',
         /**

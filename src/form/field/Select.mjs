@@ -12,12 +12,12 @@ class Select extends Picker {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.Select'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.Select',
         /**
          * @member {String} ntype='selectfield'
-         * @private
+         * @protected
          */
         ntype: 'selectfield',
         /**
@@ -45,12 +45,12 @@ class Select extends Picker {
         },
         /**
          * @member {String|null} lastManualInput=null
-         * @private
+         * @protected
          */
         lastManualInput: null,
         /**
          * @member {Neo.list.Base} list=null
-         * @private
+         * @protected
          */
         list: null,
         /**
@@ -114,7 +114,7 @@ class Select extends Picker {
      * Triggered after the store config got changed
      * @param {Neo.data.Store} value
      * @param {Neo.data.Store} oldValue
-     * @private
+     * @protected
      */
     afterSetStore(value, oldValue) {
         let me = this,
@@ -138,7 +138,7 @@ class Select extends Picker {
      * Triggered after the typeAhead config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetTypeAhead(value, oldValue) {
         if (this.rendered) {
@@ -151,7 +151,7 @@ class Select extends Picker {
      * @param {String|null} value
      * @param {String|null} oldValue
      * @param {Boolean} [preventFilter=false]
-     * @private
+     * @protected
      */
     afterSetValue(value, oldValue, preventFilter=false) {
         super.afterSetValue(value, oldValue);
@@ -166,7 +166,7 @@ class Select extends Picker {
      * @param {Object|Neo.data.Store|null} value
      * @param {Neo.data.Store} oldValue
      * @returns {Neo.data.Store}
-     * @private
+     * @protected
      */
     beforeSetStore(value, oldValue) {
         if (oldValue) {
@@ -233,7 +233,7 @@ class Select extends Picker {
 
     /**
      * @param {Object} data
-     * @private
+     * @protected
      */
     onContainerKeyDownEnter(data) {
         this.hidePicker();
@@ -241,7 +241,7 @@ class Select extends Picker {
 
     /**
      * @param {Object} data
-     * @private
+     * @protected
      */
     onContainerKeyDownEscape(data) {
         this.focusInputEl(this.hidePicker);
@@ -249,7 +249,7 @@ class Select extends Picker {
 
     /**
      * @param {Object} data
-     * @private
+     * @protected
      */
     onInputValueChange(data) {
         super.onInputValueChange(data);
@@ -259,7 +259,7 @@ class Select extends Picker {
     /**
      *
      * @param {Object} data
-     * @private
+     * @protected
      */
     onKeyDownDown(data) {
         this.onKeyDownEnter(data);
@@ -268,7 +268,7 @@ class Select extends Picker {
     /**
      *
      * @param {Object} data
-     * @private
+     * @protected
      */
     onKeyDownEnter(data) {
         let me    = this;
@@ -284,7 +284,7 @@ class Select extends Picker {
     /**
      *
      * @param {Object} data
-     * @private
+     * @protected
      */
     onKeyDownRight(data) {
         let me = this;
@@ -297,7 +297,7 @@ class Select extends Picker {
     /**
      *
      * @param {Object} data
-     * @private
+     * @protected
      */
     onKeyDownUp(data) {
         let me = this;
@@ -314,7 +314,7 @@ class Select extends Picker {
      * List items got created or updated
      * Since the list & inputHint update would run in parallel => before getting the new vnode back
      * this could cause invalid states, so we delay updateTypeAheadValue() until the list is done.
-     * @private
+     * @protected
      */
     onListCreateItems() {
         let me = this;
@@ -391,7 +391,7 @@ class Select extends Picker {
     /**
      *
      * @param {Boolean} [silent=false]
-     * @private
+     * @protected
      */
     updateTypeAhead(silent=false) {
         let me      = this,
@@ -422,7 +422,7 @@ class Select extends Picker {
      *
      * @param {String|null} [value]
      * @param {Boolean} [silent=false]
-     * @private
+     * @protected
      */
     updateTypeAheadValue(value, silent=false) {
         let me          = this,
@@ -464,7 +464,7 @@ class Select extends Picker {
 
     /**
      *
-     * @private
+     * @protected
      */
     updateValue() {
         let me    = this,

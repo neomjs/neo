@@ -11,7 +11,7 @@ class HomeContainer extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld2.view.HomeContainer'
-         * @private
+         * @protected
          */
         className: 'RealWorld2.view.HomeContainer',
         /**

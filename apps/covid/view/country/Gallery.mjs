@@ -10,7 +10,7 @@ class CountryGallery extends Gallery {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.country.Gallery'
-         * @private
+         * @protected
          */
         className: 'Covid.view.country.Gallery',
         /**

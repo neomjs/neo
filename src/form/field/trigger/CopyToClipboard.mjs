@@ -10,12 +10,12 @@ class CopyToClipboard extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.trigger.CopyToClipboard'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.trigger.CopyToClipboard',
         /**
          * @member {String} ntype='trigger-copytoclipboard'
-         * @private
+         * @protected
          */
         ntype: 'trigger-copytoclipboard',
         /**
@@ -33,7 +33,7 @@ class CopyToClipboard extends Base {
         /**
          * Internal flag used by field.getTrigger()
          * @member {String} type='copytoclipboard'
-         * @private
+         * @protected
          */
         type: 'copyToClipboard',
         /**
@@ -63,7 +63,7 @@ class CopyToClipboard extends Base {
      * Triggered after the hidden config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetHidden(value) {
         let cls = this.cls;

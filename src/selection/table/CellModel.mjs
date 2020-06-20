@@ -8,17 +8,17 @@ class CellModel extends Model {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.selection.table.CellModel'
-         * @private
+         * @protected
          */
         className: 'Neo.selection.table.CellModel',
         /**
          * @member {String} ntype='selection-table-cellmodel'
-         * @private
+         * @protected
          */
         ntype: 'selection-table-cellmodel',
         /**
          * @member {String} cls='selection-cellmodel'
-         * @private
+         * @protected
          */
         cls: 'neo-selection-cellmodel'
     }}

@@ -21,12 +21,12 @@ class Toolbar extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.container.Toolbar'
-         * @private
+         * @protected
          */
         className: 'Neo.container.Toolbar',
         /**
          * @member {String} ntype='toolbar'
-         * @private
+         * @protected
          */
         ntype: 'toolbar',
         /**
@@ -94,7 +94,7 @@ class Toolbar extends Container {
      * Triggered after the dock config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetDock(value, oldValue) {
         let me            = this,
@@ -114,7 +114,7 @@ class Toolbar extends Container {
      * @param {String} value
      * @param {String} oldValue
      * @returns {String} value
-     * @private
+     * @protected
      */
     beforeSetDock(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'dock', 'dockPositions');

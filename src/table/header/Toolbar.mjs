@@ -8,12 +8,12 @@ class Toolbar extends BaseToolbar {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.table.header.Toolbar'
-         * @private
+         * @protected
          */
         className: 'Neo.table.header.Toolbar',
         /**
          * @member {String} ntype='table-header-toolbar'
-         * @private
+         * @protected
          */
         ntype: 'table-header-toolbar',
         /**

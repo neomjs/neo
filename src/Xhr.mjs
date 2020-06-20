@@ -9,24 +9,24 @@ class Xhr extends XhrConnection {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.Xhr'
-         * @private
+         * @protected
          */
         className: 'Neo.Xhr',
         /**
          * @member {String} ntype='xhr'
-         * @private
+         * @protected
          */
         ntype: 'xhr',
         /**
          * @member {Object} remote={app:['promiseRequest','promiseJson']}
-         * @private
+         * @protected
          */
         remote: {
             app: ['promiseRequest', 'promiseJson']
         },
         /**
          * @member {boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true
     }}

@@ -12,52 +12,52 @@ class AmCharts extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.main.addon.AmCharts'
-         * @private
+         * @protected
          */
         className: 'Neo.main.addon.AmCharts',
         /**
          * Stores all chart ids inside an object
          * @member {Object} charts={}
-         * @private
+         * @protected
          */
         charts: {},
         /**
          * Stores all chart config objects which arrived before the chart lib scripts got loaded
          * @member {Object[]} chartsToCreate=[]
-         * @private
+         * @protected
          */
         chartsToCreate: [],
         /**
          * Stores all chart data inside an object. key => chart id
          * No array since in case a chart gets loaded multiple times, we only want to apply the last data on mount.
          * @member {Object} dataMap={}
-         * @private
+         * @protected
          */
         dataMap: {},
         /**
          * @member {String} downloadPath='https//www.amcharts.com/lib/4/'
-         * @private
+         * @protected
          */
         downloadPath: 'https://www.amcharts.com/lib/4/',
         /**
          * @member {String} fallbackPath='https://neomjs.github.io/pages/resources/amCharts/'
-         * @private
+         * @protected
          */
         fallbackPath: 'https://neomjs.github.io/pages/resources/amCharts/',
         /**
          * @member {Boolean} scriptsLoaded_=true
-         * @private
+         * @protected
          */
         scriptsLoaded_: false,
         /**
          * @member {Boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true,
         /**
          * Remote method access for other workers
          * @member {Object} remote={app: [//...]}
-         * @private
+         * @protected
          */
         remote: {
             app: [
@@ -85,7 +85,7 @@ class AmCharts extends Base {
      * Triggered after the scriptsLoaded config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetScriptsLoaded(value, oldValue) {
         if (value) {

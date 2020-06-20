@@ -10,7 +10,7 @@ class HeaderContainer extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.HeaderContainer'
-         * @private
+         * @protected
          */
         className: 'Covid.view.HeaderContainer',
         /**

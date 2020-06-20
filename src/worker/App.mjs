@@ -17,27 +17,27 @@ class App extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.worker.App'
-         * @private
+         * @protected
          */
         className: 'Neo.worker.App',
         /**
          * @member {String} ntype='app-worker'
-         * @private
+         * @protected
          */
         ntype: 'app-worker',
         /**
          * @member {Object|null} data=null
-         * @private
+         * @protected
          */
         data: null,
         /**
          * @member {Boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true,
         /**
          * @member {String} workerId='app'
-         * @private
+         * @protected
          */
         workerId: 'app'
     }}

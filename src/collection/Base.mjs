@@ -30,19 +30,19 @@ class Base extends CoreBase {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.collection.Base'
-         * @private
+         * @protected
          */
         className: 'Neo.collection.Base',
         /**
          * @member {String} ntype='collection'
-         * @private
+         * @protected
          */
         ntype: 'collection',
         /**
          * When filtering the collection for the first time, allItems will become a new collection for the unfiltered
          * state, using this id as the sourceCollectionId
          * @member {Neo.collection.Base|null} allItems
-         * @private
+         * @protected
          */
         allItems: null,
         /**
@@ -79,13 +79,13 @@ class Base extends CoreBase {
         /**
          * An internal Array of the sort directions for faster access
          * @member {Array} sortDirections=null
-         * @private
+         * @protected
          */
         sortDirections: null,
         /**
          * An internal Array of the sort properties for faster access
          * @member {Array} sortProperties=null
-         * @private
+         * @protected
          */
         sortProperties: null,
         /**
@@ -139,7 +139,7 @@ class Base extends CoreBase {
      *
      * @param {Array} value
      * @param {Array} oldValue
-     * @private
+     * @protected
      */
     afterSetFilters(value, oldValue) {
         let me = this;
@@ -160,7 +160,7 @@ class Base extends CoreBase {
      *
      * @param {Array} value
      * @param {Array} oldValue
-     * @private
+     * @protected
      */
     afterSetItems(value, oldValue) {
         let me          = this,
@@ -179,7 +179,7 @@ class Base extends CoreBase {
      *
      * @param {Array} value
      * @param {Array} oldValue
-     * @private
+     * @protected
      */
     afterSetSorters(value, oldValue) {
         let me = this;
@@ -202,7 +202,7 @@ class Base extends CoreBase {
      *
      * @param {Number|String} value
      * @param {Number|String} oldValue
-     * @private
+     * @protected
      */
     afterSetSourceId(value, oldValue) {
         if (value) {
@@ -230,7 +230,7 @@ class Base extends CoreBase {
 
     /**
      * Saves the sort property & direction multiplier of each sorter inside 2 arrays for faster access when sorting
-     * @private
+     * @protected
      */
     applySorterConfigs() {
         let me = this;
@@ -248,7 +248,7 @@ class Base extends CoreBase {
      *
      * @param {Map|null} value
      * @param {Map|null} oldValue
-     * @private
+     * @protected
      */
     beforeSetMap(value, oldValue) {
         return !value ? new Map() : value;
@@ -258,7 +258,7 @@ class Base extends CoreBase {
      *
      * @param {Array} value
      * @param {Array} oldValue
-     * @private
+     * @protected
      */
     beforeSetFilters(value, oldValue) {
         if (!Array.isArray(value)) {
@@ -307,7 +307,7 @@ class Base extends CoreBase {
      *
      * @param {Array} value
      * @param {Array} oldValue
-     * @private
+     * @protected
      */
     beforeSetSorters(value, oldValue) {
         if (!Array.isArray(value)) {
@@ -352,7 +352,7 @@ class Base extends CoreBase {
     /**
      *
      * @param opts
-     * @private
+     * @protected
      */
     cacheUpdate(opts) {
         console.log('cacheUpdate', opts, this[toAddArray]);return;
@@ -458,7 +458,7 @@ class Base extends CoreBase {
     }
 
     /**
-     * @private
+     * @protected
      */
     doSort() {
         let me                = this,
@@ -580,7 +580,7 @@ class Base extends CoreBase {
     }
 
     /**
-     * @private
+     * @protected
      */
     filter() {
         let me              = this,
@@ -893,7 +893,7 @@ class Base extends CoreBase {
      *
      * @param {Object} item
      * @returns {boolean}
-     * @private
+     * @protected
      */
     isFilteredItem(item) {
         let me         = this,
@@ -931,7 +931,7 @@ class Base extends CoreBase {
     /**
      *
      * @param {Object} opts
-     * @private
+     * @protected
      */
     onFilterChange(opts) {
         this.filter();
@@ -940,7 +940,7 @@ class Base extends CoreBase {
     /**
      *
      * @param {Object} opts
-     * @private
+     * @protected
      */
     onMutate(opts) {
         let me = this;
@@ -957,7 +957,7 @@ class Base extends CoreBase {
     /**
      *
      * @param {Object} opts
-     * @private
+     * @protected
      */
     onSorterChange(opts) {
         this.applySorterConfigs();

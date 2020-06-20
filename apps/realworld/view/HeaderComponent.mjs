@@ -9,7 +9,7 @@ class HeaderComponent extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.view.HeaderComponent'
-         * @private
+         * @protected
          */
         className: 'RealWorld.view.HeaderComponent',
         /**
@@ -133,7 +133,7 @@ class HeaderComponent extends Component {
      * Triggered after the activeItem config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetActiveItem(value, oldValue) {
         let me   = this,
@@ -152,7 +152,7 @@ class HeaderComponent extends Component {
      * Triggered after the loggedIn config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetLoggedIn(value, oldValue) {
         if (Neo.isBoolean(oldValue)) {
@@ -174,7 +174,7 @@ class HeaderComponent extends Component {
      * Triggered after the userImage config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetUserImage(value, oldValue) {
         let me          = this,
@@ -191,7 +191,7 @@ class HeaderComponent extends Component {
      * Triggered after the userName config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetUserName(value, oldValue) {
         if (value) {

@@ -8,7 +8,7 @@ class Application extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.controller.Application'
-         * @private
+         * @protected
          */
         className: 'Neo.controller.Application',
         /**
@@ -29,12 +29,12 @@ class Application extends Base {
         parentId: 'document.body',
         /**
          * @member {Boolean} rendered=false
-         * @private
+         * @protected
          */
         rendered: false,
         /**
          * @member {Boolean} rendering=false
-         * @private
+         * @protected
          */
         rendering: false
     }}

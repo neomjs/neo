@@ -8,7 +8,7 @@ class Component extends BaseComponent {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.mapboxGl.Component'
-         * @private
+         * @protected
          */
         className: 'Covid.view.mapboxGl.Component',
         /**

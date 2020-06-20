@@ -8,12 +8,12 @@ class CircleModel extends Model {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.selection.CircleModel'
-         * @private
+         * @protected
          */
         className: 'Neo.selection.CircleModel',
         /**
          * @member {String} ntype='selection-circlemodel'
-         * @private
+         * @protected
          */
         ntype: 'selection-circlemodel'
     }}

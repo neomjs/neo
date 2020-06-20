@@ -10,12 +10,12 @@ class TreeList extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.list.TreeList'
-         * @private
+         * @protected
          */
         className: 'Neo.list.TreeList',
         /**
          * @member {String} ntype='treelist'
-         * @private
+         * @protected
          */
         ntype: 'treelist',
         /**
@@ -76,7 +76,7 @@ class TreeList extends Base {
      * @param {Object|Neo.data.Store} value
      * @param {Object|Neo.data.Store} oldValue
      * @returns {Neo.data.Store}
-     * @private
+     * @protected
      */
     beforeSetStore(value) {
         if (!value) {
@@ -125,7 +125,7 @@ class TreeList extends Base {
      * @param {Object} [vdomRoot] The vdom template root for the current sub tree
      * @param {Number} level The hierarchy level of the tree
      * @returns {Object} vdomRoot
-     * @private
+     * @protected
      */
     createItems(parentId, vdomRoot, level) {
         let me    = this,
@@ -356,7 +356,7 @@ class TreeList extends Base {
     /**
      * Gets triggered by clicks on the collapse or expand all icons
      * @param {Array} cls
-     * @private
+     * @protected
      */
     onMenuItemClick(cls) {
         if (cls.includes('neo-treelist-collapse-all-icon')) {

@@ -9,12 +9,12 @@ class Chip extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.component.Chip'
-         * @private
+         * @protected
          */
         className: 'Neo.component.Chip',
         /**
          * @member {String} ntype='chip'
-         * @private
+         * @protected
          */
         ntype: 'chip',
         /**
@@ -91,7 +91,7 @@ class Chip extends Component {
      * Triggered after the closable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetClosable(value, oldValue) {
         let me   = this,
@@ -105,7 +105,7 @@ class Chip extends Component {
      * Triggered after the display config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetDisplay(value, oldValue) {
         let style = this.style;
@@ -117,7 +117,7 @@ class Chip extends Component {
      * Triggered after the iconCls config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetIconCls(value, oldValue) {
         let me       = this,
@@ -140,7 +140,7 @@ class Chip extends Component {
      * Triggered after the text config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetText(value, oldValue) {
         let me       = this,

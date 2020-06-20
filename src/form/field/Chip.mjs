@@ -8,12 +8,12 @@ class Chip extends Select {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.Chip'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.Chip',
         /**
          * @member {String} ntype='chipfield'
-         * @private
+         * @protected
          */
         ntype: 'chipfield',
         /**

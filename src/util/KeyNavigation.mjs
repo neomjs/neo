@@ -10,12 +10,12 @@ class KeyNavigation extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.util.KeyNavigation'
-         * @private
+         * @protected
          */
         className: 'Neo.util.KeyNavigation',
         /**
          * @member {String} ntype='keynav'
-         * @private
+         * @protected
          */
         ntype: 'keynav',
         /**
@@ -40,7 +40,7 @@ class KeyNavigation extends Base {
 
     /**
      *
-     * @private
+     * @protected
      * @returns {Neo.component.Base}
      */
     beforeGetComponent() {
@@ -50,7 +50,7 @@ class KeyNavigation extends Base {
     /**
      *
      * @param {Neo.component.Base} value
-     * @private
+     * @protected
      * @returns {String} the component id
      */
     beforeSetComponent(value) {
@@ -121,7 +121,7 @@ class KeyNavigation extends Base {
     /**
      * Replaces specific key names, e.g. " " => SPACE
      * @param {String} key
-     * @private
+     * @protected
      * @returns {String}
      */
     parseUpperCaseKey(key) {

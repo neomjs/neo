@@ -36,27 +36,27 @@ class DomEvent extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.manager.DomEvent'
-         * @private
+         * @protected
          */
         className: 'Neo.manager.DomEvent',
         /**
          * @member {String} ntype='dom-event-manager'
-         * @private
+         * @protected
          */
         ntype: 'dom-event-manager',
         /**
          * @member {Object} listeners={}
-         * @private
+         * @protected
          */
         items: {},
         /**
          * @member {Object} map={}
-         * @private
+         * @protected
          */
         map: {},
         /**
          * @member {Boolean} singleton=true
-         * @private
+         * @protected
          */
         singleton: true
     }}
@@ -64,7 +64,7 @@ class DomEvent extends Base {
     /**
      *
      * @param {Object} event
-     * @private
+     * @protected
      */
     fire(event) {
         let me         = this,
@@ -201,7 +201,7 @@ class DomEvent extends Base {
     /**
      * Mounts local domEvent listeners for a given component
      * @param {Neo.component.Base} component
-     * @private
+     * @protected
      */
     mountDomListeners(component) {
         let listeners   = component.domListeners,

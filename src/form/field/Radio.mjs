@@ -9,12 +9,12 @@ class Radio extends CheckBox {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.Radio'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.Radio',
         /**
          * @member {String} ntype='radiofield'
-         * @private
+         * @protected
          */
         ntype: 'radiofield',
         /**
@@ -46,7 +46,7 @@ class Radio extends CheckBox {
      *
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetChecked(value, oldValue) {
         super.afterSetChecked(value, oldValue);

@@ -8,12 +8,12 @@ class Button extends BaseButton {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.tab.header.Button'
-         * @private
+         * @protected
          */
         className: 'Neo.tab.header.Button',
         /**
          * @member {String} ntype='tab-header-button'
-         * @private
+         * @protected
          */
         ntype: 'tab-header-button',
         /**
@@ -45,7 +45,7 @@ class Button extends BaseButton {
      * Triggered after the useActiveTabIndicator config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetUseActiveTabIndicator(value, oldValue) {
         this.updateUseActiveTabIndicator();

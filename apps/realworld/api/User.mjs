@@ -8,7 +8,7 @@ class User extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld.api.User'
-         * @private
+         * @protected
          */
         className: 'RealWorld.api.User',
         /**

@@ -8,7 +8,7 @@ class NeoArray extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.util.Array'
-         * @private
+         * @protected
          */
         className: 'Neo.util.Array'
     }}

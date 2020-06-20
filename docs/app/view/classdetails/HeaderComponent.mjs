@@ -9,12 +9,12 @@ class HeaderComponent extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Docs.app.view.classdetails.HeaderComponent'
-         * @private
+         * @protected
          */
         className: 'Docs.app.view.classdetails.HeaderComponent',
         /**
          * @member {String} ntype='classdetails-headercomponent'
-         * @private
+         * @protected
          */
         ntype: 'classdetails-headercomponent',
         /**

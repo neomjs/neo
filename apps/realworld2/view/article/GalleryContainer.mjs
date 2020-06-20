@@ -10,7 +10,7 @@ class GalleryContainer extends GalleryMainContainer {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld2.view.article.GalleryContainer'
-         * @private
+         * @protected
          */
         className: 'RealWorld2.view.article.GalleryContainer',
         /**

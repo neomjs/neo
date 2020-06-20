@@ -8,7 +8,7 @@ class NeoObject extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.util.Object'
-         * @private
+         * @protected
          */
         className: 'Neo.util.Object'
     }}

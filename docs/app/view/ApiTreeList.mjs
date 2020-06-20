@@ -8,12 +8,12 @@ class ApiTreeList extends TreeList {
     static getConfig() {return {
         /**
          * @member {String} className='Docs.app.view.ApiTreeList'
-         * @private
+         * @protected
          */
         className: 'Docs.app.view.ApiTreeList',
         /**
          * @member {String} ntype='api-treelist'
-         * @private
+         * @protected
          */
         ntype: 'api-treelist'
     }}

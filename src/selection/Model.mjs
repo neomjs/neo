@@ -19,23 +19,23 @@ class Model extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.selection.Model'
-         * @private
+         * @protected
          */
         className: 'Neo.selection.Model',
         /**
          * @member {String} ntype='selection-model'
-         * @private
+         * @protected
          */
         ntype: 'selection-model',
         /**
          * Placeholder for extended classes to add a custom css rule to this owner component
          * @member {String|null} cls=null
-         * @private
+         * @protected
          */
         cls: null,
         /**
          * @member {Array} items=[]
-         * @private
+         * @protected
          */
         items: [],
         /**
@@ -49,7 +49,7 @@ class Model extends Base {
         /**
          * Internally saves the view id, but the getter will return the matching instance
          * @member {Object} view_=null
-         * @private
+         * @protected
          */
         view_: null
     }}

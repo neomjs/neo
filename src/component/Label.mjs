@@ -9,12 +9,12 @@ class Label extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.component.Label'
-         * @private
+         * @protected
          */
         className: 'Neo.component.Label',
         /**
          * @member {String} ntype='label'
-         * @private
+         * @protected
          */
         ntype: 'label',
         /**
@@ -37,7 +37,7 @@ class Label extends Component {
      * Triggered after the text config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetText(value, oldValue) {
         let vdom = this.vdom;

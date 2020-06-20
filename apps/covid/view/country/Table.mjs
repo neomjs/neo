@@ -10,7 +10,7 @@ class Table extends Container {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.country.Table'
-         * @private
+         * @protected
          */
         className: 'Covid.view.country.Table',
         /**

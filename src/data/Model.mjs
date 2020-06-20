@@ -8,27 +8,27 @@ class Model extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.data.Model'
-         * @private
+         * @protected
          */
         className: 'Neo.data.Model',
         /**
          * @member {String} ntype='model'
-         * @private
+         * @protected
          */
         ntype: 'model',
         /**
          * @member {Array} fields_=[]
-         * @private
+         * @protected
          */
         fields_: [],
         /**
          * @member {String} keyProperty_='id'
-         * @private
+         * @protected
          */
         keyProperty_: 'id',
         /**
          * @member {String|null} storeId=null
-         * @private
+         * @protected
          */
         storeId: null,
         /**

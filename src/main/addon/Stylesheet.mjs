@@ -12,13 +12,13 @@ class Stylesheet extends Base {
         return {
             /**
              * @member {String} className='Neo.main.addon.Stylesheet'
-             * @private
+             * @protected
              */
             className: 'Neo.main.addon.Stylesheet',
             /**
              * Remote method access for other workers
              * @member {Object} remote={app: [//...]}
-             * @private
+             * @protected
              */
             remote: {
                 app: [
@@ -29,7 +29,7 @@ class Stylesheet extends Base {
             },
             /**
              * @member {Boolean} singleton=true
-             * @private
+             * @protected
              */
             singleton: true
         }
@@ -102,7 +102,7 @@ class Stylesheet extends Base {
     /**
      *
      * @param {Object} data
-     * @private
+     * @protected
      */
     insertCssRules(data) {
         let styleEl = document.getElementById('neoDynamicStyleSheet'),
@@ -126,7 +126,7 @@ class Stylesheet extends Base {
 
     /**
      *
-     * @private
+     * @protected
      */
     insertTheme() {
         let me     = this,

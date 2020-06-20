@@ -8,7 +8,7 @@ class LineChartComponent extends AmChartComponent {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.country.LineChartComponent'
-         * @private
+         * @protected
          */
         className: 'Covid.view.country.LineChartComponent',
         /**

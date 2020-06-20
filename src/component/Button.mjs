@@ -10,7 +10,7 @@ class Button extends Component {
         /**
          * Valid values for iconPosition
          * @member {String[]} iconPositions=['top', 'right', 'bottom', 'left']
-         * @private
+         * @protected
          * @static
          */
         iconPositions: ['top', 'right', 'bottom', 'left']
@@ -19,12 +19,12 @@ class Button extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.component.Button'
-         * @private
+         * @protected
          */
         className: 'Neo.component.Button',
         /**
          * @member {String} ntype='button'
-         * @private
+         * @protected
          */
         ntype: 'button',
         /**
@@ -95,7 +95,7 @@ class Button extends Component {
      * Triggered after the handler config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetHandler(value, oldValue) {
         if (value) {
@@ -115,7 +115,7 @@ class Button extends Component {
      * Triggered after the iconCls config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetIconCls(value, oldValue) {
         let me       = this,
@@ -138,7 +138,7 @@ class Button extends Component {
      * Triggered after the iconColor config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
-     * @private
+     * @protected
      */
     afterSetIconColor(value, oldValue) {
         let me       = this,
@@ -161,7 +161,7 @@ class Button extends Component {
      * Triggered after the iconPosition config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetIconPosition(value, oldValue) {
         let cls = this.cls;
@@ -176,7 +176,7 @@ class Button extends Component {
      * Triggered after the pressed config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @private
+     * @protected
      */
     afterSetPressed(value, oldValue) {
         let cls = this.cls;
@@ -189,7 +189,7 @@ class Button extends Component {
      * Triggered after the route config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetRoute(value, oldValue) {
         if (value) {
@@ -209,7 +209,7 @@ class Button extends Component {
      * Triggered after the text config got changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     afterSetText(value, oldValue) {
         let me       = this,
@@ -234,7 +234,7 @@ class Button extends Component {
     /**
      * Converts the iconCls array into a string on beforeGet
      * @returns {String}
-     * @private
+     * @protected
      */
     beforeGetIconCls() {
         let iconCls = this._iconCls;
@@ -251,7 +251,7 @@ class Button extends Component {
      * @param {Array|String|null} value
      * @param {Array|String|null} oldValue
      * @returns {Array}
-     * @private
+     * @protected
      */
     beforeSetIconCls(value, oldValue) {
         if (value && !Array.isArray(value)) {
@@ -265,14 +265,14 @@ class Button extends Component {
      * Triggered before the iconPosition config gets changed
      * @param {String} value
      * @param {String} oldValue
-     * @private
+     * @protected
      */
     beforeSetIconPosition(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'iconPosition');
     }
 
     /**
-     * @private
+     * @protected
      */
     changeRoute() {
         const me = this;

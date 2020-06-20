@@ -8,12 +8,12 @@ class HelixContainerController extends ComponentController {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.HelixContainerController'
-         * @private
+         * @protected
          */
         className: 'Covid.view.HelixContainerController',
         /**
          * @member {Neo.component.Helix|null} helix_=null
-         * @private
+         * @protected
          */
         helix_: null
     }}
@@ -21,7 +21,7 @@ class HelixContainerController extends ComponentController {
     /**
      * Triggered when accessing the helix config
      * @param {Neo.component.Helix|null} value
-     * @private
+     * @protected
      */
     beforeGetHelix(value) {
         if (!value) {

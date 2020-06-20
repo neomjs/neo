@@ -8,12 +8,12 @@ class Toolbar extends BaseToolbar {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.grid.header.Toolbar'
-         * @private
+         * @protected
          */
         className: 'Neo.grid.header.Toolbar',
         /**
          * @member {String} ntype='grid-header-toolbar'
-         * @private
+         * @protected
          */
         ntype: 'grid-header-toolbar',
         /**
@@ -22,19 +22,19 @@ class Toolbar extends BaseToolbar {
         cls: ['grid-header-toolbar'],
         /**
          * @member {String} _layout='base'
-         * @private
+         * @protected
          */
         _layout  : 'base',
         /**
          * @member {Object} itemDefaults={ntype:'grid-header-button'}
-         * @private
+         * @protected
          */
         itemDefaults: {
             ntype: 'grid-header-button'
         },
         /**
          * @member {Object} _vdom
-         * @private
+         * @protected
          */
         _vdom: {
             cn: [{

@@ -10,7 +10,7 @@ class CountryHelix extends Helix {
     static getConfig() {return {
         /**
          * @member {String} className='Covid.view.country.Helix'
-         * @private
+         * @protected
          */
         className: 'Covid.view.country.Helix',
         /**

@@ -9,12 +9,12 @@ class Date extends Picker {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.trigger.Date'
-         * @private
+         * @protected
          */
         className: 'Neo.form.field.trigger.Date',
         /**
          * @member {String} ntype='trigger-date'
-         * @private
+         * @protected
          */
         ntype: 'trigger-date',
         /**

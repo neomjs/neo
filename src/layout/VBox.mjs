@@ -8,17 +8,17 @@ class VBox extends Flexbox {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.layout.VBox'
-         * @private
+         * @protected
          */
         className: 'Neo.layout.VBox',
         /**
          * @member {String} ntype='layout-vbox'
-         * @private
+         * @protected
          */
         ntype: 'layout-vbox',
         /**
          * @member {String} direction='column'
-         * @private
+         * @protected
          */
         direction: 'column'
     }}

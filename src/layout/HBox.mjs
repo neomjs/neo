@@ -8,17 +8,17 @@ class HBox extends Flexbox {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.layout.HBox'
-         * @private
+         * @protected
          */
         className: 'Neo.layout.HBox',
         /**
          * @member {String} ntype='layout-hbox'
-         * @private
+         * @protected
          */
         ntype: 'layout-hbox',
         /**
          * @member {String} direction='row'
-         * @private
+         * @protected
          */
         direction: 'row'
     }}

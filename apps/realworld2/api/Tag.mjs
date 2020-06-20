@@ -8,7 +8,7 @@ class Tag extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='RealWorld2.api.Tag'
-         * @private
+         * @protected
          */
         className: 'RealWorld2.api.Tag',
         /**
