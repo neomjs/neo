@@ -742,28 +742,28 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onWindowChartMaximizeButtonClick(data) {
-        this.createPopupWindow('controls-panel', 'sharedcovid_chart', 'SharedCovidChart');
+        this.createPopupWindow('controls-panel', 'sharedcovidchart', 'SharedCovidChart');
     }
 
     /**
      * @param {Object} data
      */
     onWindowGalleryMaximizeButtonClick(data) {
-        this.createPopupWindow('gallery-container', 'sharedcovid_gallery', 'SharedCovidGallery');
+        this.createPopupWindow('gallery-container', 'sharedcovidgallery', 'SharedCovidGallery');
     }
 
     /**
      * @param {Object} data
      */
     onWindowHelixMaximizeButtonClick(data) {
-        this.createPopupWindow('helix-container', 'sharedcovid_helix', 'SharedCovidHelix');
+        this.createPopupWindow('helix-container', 'sharedcovidhelix', 'SharedCovidHelix');
     }
 
     /**
      * @param {Object} data
      */
     onWindowMapMaximizeButtonClick(data) {
-        this.createPopupWindow('mapbox-gl-container', 'sharedcovid_map', 'SharedCovidMap');
+        this.createPopupWindow('mapbox-gl-container', 'sharedcovidmap', 'SharedCovidMap');
     }
 
     /**

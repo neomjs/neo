@@ -1,2 +1,2 @@
 import '../../../../src/worker/App.mjs';
-import '../../../../apps/sharedcovid_gallery/app.mjs';
+import '../../../../apps/sharedcovidgallery/app.mjs';

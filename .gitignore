@@ -10,14 +10,14 @@
 !/apps/realworld2/**/*.mjs
 !/apps/sharedcovid/index.html
 !/apps/sharedcovid/**/*.mjs
-!/apps/sharedcovid_chart/index.html
-!/apps/sharedcovid_chart/**/*.mjs
-!/apps/sharedcovid_helix/index.html
-!/apps/sharedcovid_helix/**/*.mjs
-!/apps/sharedcovid_gallery/index.html
-!/apps/sharedcovid_gallery/**/*.mjs
-!/apps/sharedcovid_map/index.html
-!/apps/sharedcovid_map/**/*.mjs
+!/apps/sharedcovidchart/index.html
+!/apps/sharedcovidchart/**/*.mjs
+!/apps/sharedcovidhelix/index.html
+!/apps/sharedcovidhelix/**/*.mjs
+!/apps/sharedcovidgallery/index.html
+!/apps/sharedcovidgallery/**/*.mjs
+!/apps/sharedcovidmap/index.html
+!/apps/sharedcovidmap/**/*.mjs
 
 /buildScripts/webpack/entrypoints/myApps/**/*.mjs
 !/buildScripts/webpack/entrypoints/myApps/Covid.mjs
