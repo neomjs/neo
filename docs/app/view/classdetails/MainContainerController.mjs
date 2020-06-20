@@ -67,7 +67,7 @@ class MainContainerController extends Component {
             if (item.access === 'private') {
                 countPrivates++;
             } else if (item.access === 'protected') {
-                countPrivates++;
+                countProtecteds++;
             }
 
             if (item.scope === 'static') {

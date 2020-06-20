@@ -32,6 +32,10 @@ class MembersList extends Base {
          */
         showPrivateMembers_: true,
         /**
+         * @member {Boolean} showProtectedMembers_=true
+         */
+        showProtectedMembers_: true,
+        /**
          * @member {Boolean} showStaticMembers_=true
          */
         showStaticMembers_: true,
@@ -81,6 +85,18 @@ class MembersList extends Base {
      * @protected
      */
     afterSetFilterMembersQuery(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.onRefreshClassMembers();
+        }
+    }
+
+    /**
+     * Triggered after the showProtectedMembers config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowProtectedMembers(value, oldValue) {
         if (oldValue !== undefined) {
             this.onRefreshClassMembers();
         }
@@ -216,8 +232,8 @@ class MembersList extends Base {
                 itemAttributes.push('inherited');
             }
 
-            if (item.access === 'private') {
-                itemAttributes.push('private');
+            if (item.access === 'private' || item.access === 'protected') {
+                itemAttributes.push(item.access);
             }
 
             if (item.scope === 'static') {
@@ -513,6 +529,14 @@ class MembersList extends Base {
                 operator: '!==',
                 property: 'access',
                 value   : 'private'
+            });
+        }
+
+        if (!me.showProtectedMembers) {
+            filters.push({
+                operator: '!==',
+                property: 'access',
+                value   : 'protected'
             });
         }
 
