@@ -105,20 +105,21 @@ class MainContainerController extends Component {
      * @param {Object} value
      * @param {Object} oldValue
      */
-    onHashChange(value, oldValue) {
+    onHashChange(value, oldValue) {console.log('onHashChange', value);
         let me                  = this,
+            hash                = value && value.hash,
             contentTabContainer = me.getReference('content-tabcontainer'),
             structureStore      = me.getReference('api-treelist').store,
             record, tab;
 
-        if (value.hasOwnProperty('viewSource')) {
-            record = structureStore.find('className', value.viewSource)[0];
+        if (hash && hash.hasOwnProperty('viewSource')) {
+            record = structureStore.find('className', hash.viewSource)[0];console.log(record);
 
             if (record) {
                 tab = contentTabContainer.add({
                     ntype        : 'classdetails-sourceviewcomponent',
-                    id           : value.viewSource + '__source',
-                    line         : value.line,
+                    id           : hash.viewSource + '__source',
+                    line         : hash.line,
                     structureData: record,
 
                     tabButtonConfig: {
@@ -128,7 +129,7 @@ class MainContainerController extends Component {
                 });
 
                 // adjust the highlighted line for already added source view tabs
-                tab.line = value.line;
+                tab.line = hash.line;
             }
         }
     }

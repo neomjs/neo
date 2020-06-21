@@ -109,7 +109,7 @@ class SourceViewComponent extends Component {
         }
 
         if (me.isHighlighted) {
-            me.afterSetIsHighlighted(true);
+            me.afterSetIsHighlighted(true, false);
         }
     }
 
