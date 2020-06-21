@@ -138,11 +138,11 @@ function generateStructure(target, parentId, docs) {
                 docItem = docs[i];
 
                 if ((docItem.$kind === 'class' || docItem.$kind === 'module') && docItem.neoClassName === className) {
-                    let i = docItem.meta.path.indexOf('neomjs/'),
+                    let i = docItem.meta.path.indexOf('neomjs/neo/'),
                         m = false;
 
                     if (i > -1) {
-                        srcPath = docItem.meta.path.substr(i + 7) + '/' + docItem.meta.filename;
+                        srcPath = docItem.meta.path.substr(i + 11) + '/' + docItem.meta.filename;
                         m = true;
                     }
 
