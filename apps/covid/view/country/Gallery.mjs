@@ -101,21 +101,6 @@ class CountryGallery extends Gallery {
     }}
 
     /**
-     *
-     * @param {Object} config
-     */
-    constructor(config) {
-        super(config);
-
-        const me = this;
-
-        // we do need a short delay to ensure that the maincontainer and its controller is constructed
-        setTimeout(() => {
-            me.getCountryFlagUrl = me.getController('maincontainer-controller').getCountryFlagUrl.bind(me);
-        }, 20);
-    }
-
-    /**
      * Override this method to get different item-markups
      * @param {Object} vdomItem
      * @param {Object} record
@@ -135,7 +120,7 @@ class CountryGallery extends Gallery {
         firstChild.style.height = (me.imageHeight - 70) + 'px';
         firstChild.style.width  = me.imageWidth  + 'px';
 
-        firstChild.cn[0].cn[0].src  = me.getCountryFlagUrl(record.country);
+        firstChild.cn[0].cn[0].src  = Util.getCountryFlagUrl(record.country);
         firstChild.cn[0].cn[1].html = record.country;
 
         table.cn[0].cn[1].html = fN({value: record.cases});
@@ -167,7 +152,7 @@ class CountryGallery extends Gallery {
 
         setTimeout(() => {
             this.selectOnMount = true;
-            this.onMounted();
+            this.afterSetMounted(true, false);
         }, 200);
     }
 }
