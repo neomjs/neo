@@ -108,6 +108,7 @@ class MainContainer3 extends Container {
                 ntype              : 'table-container',
                 id                 : 'myTableContainer3',
                 amountRows         : 100, // testing var
+                createRandomData   : true,
                 useCustomScrollbars: false,
                 width              : '100%',
 

@@ -105,10 +105,11 @@ class MainContainer2 extends Container {
                 ]
             },
             {
-                ntype     : 'table-container',
-                id        : 'myTableContainer2',
-                amountRows: 50, // testing var
-                width     : '100%',
+                ntype           : 'table-container',
+                id              : 'myTableContainer2',
+                amountRows      : 50, // testing var
+                createRandomData: true,
+                width           : '100%',
 
                 columnDefaults: {
                     renderer: function(data) {

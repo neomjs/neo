@@ -82,11 +82,10 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create(TableContainer, {
-            autoRender      : false,
-            createRandomData: false, // testing config
-            id              : 'myTableStoreContainer',
-            selectionModel  : CellModel,
-            store           : MainStore,
+            autoRender    : false,
+            id            : 'myTableStoreContainer',
+            selectionModel: CellModel,
+            store         : MainStore,
 
             columns: [
                 {dataField: 'firstname', text: 'Firstname'},

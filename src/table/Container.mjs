@@ -35,9 +35,9 @@ class Container extends BaseContainer {
         columnDefaults: null,
         /**
          * todo: testing config, remove when Stores are ready
-         * @member {Boolean} createRandomData=true
+         * @member {Boolean} createRandomData=false
          */
-        createRandomData: true,
+        createRandomData: false,
         /**
          * @member {Array} cls=['neo-table-container']
          */

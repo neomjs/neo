@@ -201,13 +201,12 @@ class MainContainer extends Viewport {
                 }
             }]
         }, {
-            ntype           : 'table-container',
-            createRandomData: false, // testing config
-            id              : 'myTableStoreContainer',
-            selectionModel  : CellModel,
-            store           : MainStore,
-            width           : '100%',
-            wrapperStyle    : {height: '300px'},
+            ntype         : 'table-container',
+            id            : 'myTableStoreContainer',
+            selectionModel: CellModel,
+            store         : MainStore,
+            width         : '100%',
+            wrapperStyle  : {height: '300px'},
 
             columns: [{
                 text     : 'Firstname',
