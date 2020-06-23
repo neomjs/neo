@@ -118,21 +118,6 @@ class CountryHelix extends Helix {
 
     /**
      *
-     * @param {Object} config
-     */
-    constructor(config) {
-        super(config);
-
-        const me = this;
-
-        // we do need a short delay to ensure that the maincontainer and its controller is constructed
-        setTimeout(() => {
-            me.getCountryFlagUrl = me.getController('maincontainer-controller').getCountryFlagUrl.bind(me);
-        }, 20);
-    }
-
-    /**
-     *
      * @param {Object} vdomItem
      * @param {Object} record
      * @param {Number} index
@@ -146,7 +131,7 @@ class CountryHelix extends Helix {
 
         vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
 
-        firstChild.cn[0].cn[0].src  = me.getCountryFlagUrl(record.country);
+        firstChild.cn[0].cn[0].src  = Util.getCountryFlagUrl(record.country);
         firstChild.cn[0].cn[1].html = record.country;
 
         table.cn[0].cn[1].html = fN({value: record.cases});
