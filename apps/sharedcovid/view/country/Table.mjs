@@ -50,7 +50,7 @@ class Table extends Container {
                     cls : ['neo-country-column', 'neo-table-cell'],
                     html: [
                         '<div style="display: flex; align-items: center">',
-                            '<img style="height:20px; margin-right:10px; width:20px;" src="' + this.getCountryFlagUrl(data.value) + '">' + data.value,
+                            '<img style="height:20px; margin-right:10px; width:20px;" src="' + Util.getCountryFlagUrl(data.value) + '">' + data.value,
                         '</div>'
                     ].join('')
                 };
@@ -100,21 +100,6 @@ class Table extends Container {
          */
         store: CountryStore
     }}
-
-    /**
-     *
-     * @param {Object} config
-     */
-    constructor(config) {
-        super(config);
-
-        const me = this;
-
-        // we do need a short delay to ensure that the maincontainer and its controller is constructed
-        setTimeout(() => {
-            me.getCountryFlagUrl = me.getController('maincontainer-controller').getCountryFlagUrl.bind(me);
-        }, 20);
-    }
 }
 
 Neo.applyClassConfig(Table);
