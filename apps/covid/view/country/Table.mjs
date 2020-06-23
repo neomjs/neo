@@ -61,7 +61,7 @@ class Table extends Container {
         }, {
             dataField: 'casesPerOneMillion',
             text     : 'Cases / 1M'
-        },{
+        }, {
             dataField: 'infected',
             text     : 'Infected',
             renderer : data => Util.formatInfected(data)
