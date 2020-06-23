@@ -33,13 +33,13 @@ class MainContainerController extends ComponentController {
          */
         activeMainTabIndex: 0,
         /**
-         * @member {String} apiUrl='https://disease.sh/countries'
-         */
-        apiUrl: 'https://disease.sh/v2/countries',
-        /**
          * @member {String} apiSummaryUrl='https://disease.sh/v2/all'
          */
         apiSummaryUrl: 'https://disease.sh/v2/all',
+        /**
+         * @member {String} apiUrl='https://disease.sh/countries'
+         */
+        apiUrl: 'https://disease.sh/v2/countries',
         /**
          * @member {String[]} connectedApps=[]
          */
