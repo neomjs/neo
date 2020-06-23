@@ -235,7 +235,7 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} hashObject
      * @param {String} hashObject.mainview
-     * @return {Number}
+     * @returns {Number}
      */
     getTabIndex(hashObject) {
         if (!hashObject || !hashObject.mainview) {
@@ -248,7 +248,7 @@ class MainContainerController extends ComponentController {
     /**
      *
      * @param {Number} tabIndex
-     * @return {Neo.component.Base}
+     * @returns {Neo.component.Base}
      */
     getView(tabIndex) {
         return this.getReference(this.mainTabs[tabIndex]);
