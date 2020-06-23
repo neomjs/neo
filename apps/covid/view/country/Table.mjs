@@ -96,10 +96,6 @@ class Table extends Container {
             text     : 'Tests / 1M'
         }],
         /**
-         * @member {Boolean} createRandomData=false
-         */
-        createRandomData: false, // testing config
-        /**
          * @member {Neo.data.Store} store=CountryStore
          */
         store: CountryStore

@@ -79,10 +79,6 @@ class HistoricalDataTable extends Container {
             renderer : data => Util.formatNumber(data, '#fb6767')
         }],
         /**
-         * @member {Boolean} createRandomData=false
-         */
-        createRandomData: false, // testing config
-        /**
          * @member {Neo.data.Store} store=HistoricalData
          */
         store: HistoricalData

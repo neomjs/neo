@@ -106,10 +106,11 @@ class MainContainer extends Container {
                 ]
             },
             {
-                ntype     : 'table-container',
-                id        : 'myTableContainer',
-                amountRows: 20, // testing var
-                width     : '100%',
+                ntype           : 'table-container',
+                id              : 'myTableContainer',
+                amountRows      : 20, // testing var
+                createRandomData: true,
+                width           : '100%',
 
                 wrapperStyle: {
                     height: '300px'
