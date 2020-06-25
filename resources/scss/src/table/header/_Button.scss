@@ -8,7 +8,7 @@
     flex-direction  : row;
     font-size       : 13px;
     font-weight     : 600;
-    height          : 100%;
+    height          : 29px; // Webkit => Safari can not handle 100%
     justify-content : flex-end;
     margin          : 0;
     padding         : 7px 10px 6px;
