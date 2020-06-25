@@ -34,24 +34,13 @@ class MainContainer extends Viewport {
          */
         controller: MainContainerController,
         /**
-         * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         * @member {Array} items
          */
-        layout: {ntype: 'vbox', align: 'stretch'}
-    }}
-
-    /**
-     *
-     * @param {Object} config
-     */
-    constructor(config) {
-        super(config);
-
-        this.items = [HeaderContainer, {
-            module     : TabContainer,
-            activeIndex: this.controller.getTabIndex(Neo.config.hash),
-            flex       : 1,
-            reference  : 'tab-container',
-            style      : {margin: '10px', marginTop: 0},
+        items: [HeaderContainer, {
+            module   : TabContainer,
+            flex     : 1,
+            reference: 'tab-container',
+            style    : {margin: '10px', marginTop: 0},
 
             items: [{
                 module         : TableContainer,
@@ -63,7 +52,6 @@ class MainContainer extends Viewport {
                 }
             }, {
                 module         : MapboxGlContainer,
-                reference      : 'mapbox-gl-container',
                 tabButtonConfig: {
                     iconCls: 'fa fa-globe-americas',
                     route  : 'mainview=mapboxglmap',
@@ -78,7 +66,6 @@ class MainContainer extends Viewport {
                 }
             }, {
                 module         : GalleryContainer,
-                reference      : 'gallery-container',
                 tabButtonConfig: {
                     iconCls: 'fa fa-images',
                     route  : 'mainview=gallery',
@@ -86,7 +73,6 @@ class MainContainer extends Viewport {
                 }
             }, {
                 module         : HelixContainer,
-                reference      : 'helix-container',
                 tabButtonConfig: {
                     iconCls: 'fa fa-dna',
                     route  : 'mainview=helix',
@@ -101,8 +87,12 @@ class MainContainer extends Viewport {
                     text   : 'Attribution'
                 }
             }]
-        }, FooterContainer];
-    }
+        }, FooterContainer],
+        /**
+         * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         */
+        layout: {ntype: 'vbox', align: 'stretch'}
+    }}
 }
 
 Neo.applyClassConfig(MainContainer);
