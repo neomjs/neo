@@ -58,6 +58,10 @@ class ConfigurationViewport extends Viewport {
             flex  : me.configPanelFlex,
             style : {margin: '20px'},
 
+            containerConfig: {
+                style: {overflowY: 'scroll'}
+            },
+
             headers: [{
                 dock : 'top',
                 items: [{

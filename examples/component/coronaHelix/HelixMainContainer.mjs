@@ -65,7 +65,6 @@ class HelixMainContainer extends Viewport {
             width : 250,
 
             containerConfig: {
-                flex : null,
                 style: {overflowY: 'scroll'}
             },
 
