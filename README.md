@@ -83,8 +83,8 @@ You can find the code of the covid app <a href="https://github.com/neomjs/neo/tr
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/world.png">
 
-<!-- COVID19 IN NUMBERS Demo App -->
-<h2 id="covid19-app">Multi Browser Window COVID19 IN NUMBERS Demo App</h2>
+<!-- SW COVID19 IN NUMBERS Demo App -->
+<h2 id="sw-covid19-app">Multi Browser Window COVID19 IN NUMBERS Demo App</h2>
 Blog post: <a href="https://medium.com/swlh/expanding-single-page-apps-into-multiple-browser-windows-e6d9bd155d59?source=friends_link&sk=bbfe1dada95c5674669e463f93360822">Expanding Single Page Apps into multiple Browser Windows</a></br>
 </br>
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/apps/sharedcovid/index.html#mainview=table">Live Demo: COIN App (Multi Window)</a></br>
