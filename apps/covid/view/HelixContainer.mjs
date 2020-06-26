@@ -53,7 +53,6 @@ class HelixContainer extends Container {
             width    : 250,
 
             containerConfig: {
-                flex : null,
                 style: {overflowY: 'scroll'}
             },
 

@@ -53,7 +53,6 @@ class GalleryContainer extends Container {
             width    : 260,
 
             containerConfig: {
-                flex : null,
                 style: {overflowY: 'scroll'}
             },
 

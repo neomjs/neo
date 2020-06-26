@@ -65,7 +65,6 @@ class GalleryMainContainer extends Viewport {
             width : 260,
 
             containerConfig: {
-                flex : null,
                 style: {overflowY: 'scroll'}
             },
 
