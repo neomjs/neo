@@ -91,7 +91,7 @@ class Panel extends Container {
             verticalItems.push(Panel.createHeaderConfig(header));
         });
 
-        if (hf && hasHorizontalHeaders || !hf && hasVerticalHeaders) {
+        if (hasVerticalHeaders && (hf && hasHorizontalHeaders || !hf && hasHorizontalHeaders)) {
             leftHeaders.forEach(header => {
                 horizontalItems.push(Panel.createHeaderConfig(header));
             });
@@ -100,7 +100,8 @@ class Panel extends Container {
                 ntype       : 'container',
                 flex        : 1,
                 items       : items,
-                itemDefaults: me.itemDefaults
+                itemDefaults: me.itemDefaults,
+                ...me.containerConfig || {}
             };
 
             horizontalItems.push({...me.headerDefaults, ...config});
@@ -115,8 +116,7 @@ class Panel extends Container {
                 layout: {
                     ntype: (hf ? 'hbox' : 'vbox'),
                     align: 'stretch'
-                },
-                ...me.containerConfig || {}
+                }
             });
         } else {
             config = {
