@@ -52,6 +52,7 @@ class MainContainer extends Viewport {
                 }
             }, {
                 module         : MapboxGlContainer,
+                reference      : 'mapbox-gl-container',
                 tabButtonConfig: {
                     iconCls: 'fa fa-globe-americas',
                     route  : 'mainview=mapboxglmap',
@@ -66,6 +67,7 @@ class MainContainer extends Viewport {
                 }
             }, {
                 module         : GalleryContainer,
+                reference      : 'gallery-container',
                 tabButtonConfig: {
                     iconCls: 'fa fa-images',
                     route  : 'mainview=gallery',
@@ -73,6 +75,7 @@ class MainContainer extends Viewport {
                 }
             }, {
                 module         : HelixContainer,
+                reference      : 'helix-container',
                 tabButtonConfig: {
                     iconCls: 'fa fa-dna',
                     route  : 'mainview=helix',
