@@ -43,13 +43,6 @@ class TabContainer extends Container {
             vdom: {innerHTML: 'dist/production'}
         }],
         /**
-         * @member {Object} tabButtonConfig
-         */
-        tabButtonConfig: {
-            iconCls: 'fa fa-images',
-            text   : 'Examples'
-        },
-        /**
          * @member {String} tabBarPosition='left'
          */
         tabBarPosition: 'left',

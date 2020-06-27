@@ -52,7 +52,11 @@ class MainContainer extends Viewport {
                 },
                 vdom: {innerHTML: 'Blog'}
             }, {
-                module: ExamplesTabContainer,
+                module         : ExamplesTabContainer,
+                tabButtonConfig: {
+                    iconCls: 'fa fa-images',
+                    text   : 'Examples'
+                }
             }, {
                 module: Component,
                 cls   : ['neo-examples-tab-component'],
