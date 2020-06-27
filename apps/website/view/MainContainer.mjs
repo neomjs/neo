@@ -2,6 +2,7 @@ import BlogContainer             from './blog/Container.mjs';
 import {default as Component}    from '../../../src/component/Base.mjs';
 import ExamplesTabContainer      from './examples/TabContainer.mjs';
 import HeaderContainer           from './HeaderContainer.mjs';
+import HomeTabContainer          from './home/TabContainer.mjs';
 import MainContainerController   from './MainContainerController.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
 import Viewport                  from '../../../src/container/Viewport.mjs';
@@ -41,15 +42,12 @@ class MainContainer extends Viewport {
             style      : {margin: '20px'},
 
             items: [{
-                module: Component,
-                cls   : ['neo-examples-tab-component'],
-                style : {padding: '20px'},
+                module         : HomeTabContainer,
                 tabButtonConfig: {
                     iconCls: 'fa fa-home',
                     route  : 'mainview=home',
                     text   : 'Home'
-                },
-                vdom: {innerHTML: 'Amazing text to describe neo.mjs'}
+                }
             }, {
                 module         : BlogContainer,
                 tabButtonConfig: {
