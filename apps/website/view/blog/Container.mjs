@@ -1,5 +1,6 @@
 import {default as BaseContainer} from '../../../../src/container/Base.mjs';
 import {default as Component}     from '../../../../src/component/Base.mjs';
+import List                       from './List.mjs';
 import {default as SearchField}   from '../../../../src/form/field/Search.mjs';
 import Toolbar                    from '../../../../src/container/Toolbar.mjs';
 
@@ -28,9 +29,8 @@ class Container extends BaseContainer {
                 width          : 240
             }]
         }, {
-            module: Component,
-            flex  : 1,
-            html  : 'List'
+            module: List,
+            flex  : 1
         }],
         /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}

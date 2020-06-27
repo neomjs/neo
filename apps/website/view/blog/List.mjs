@@ -1,4 +1,5 @@
 import {default as BaseList} from '../../../../src/list/Base.mjs';
+import BlogPosts             from '../../store/BlogPosts.mjs';
 
 /**
  * @class Website.view.blog.List
@@ -10,7 +11,11 @@ class List extends BaseList {
          * @member {String} className='Website.view.blog.List'
          * @protected
          */
-        className: 'Website.view.blog.List'
+        className: 'Website.view.blog.List',
+        /**
+         * @member {Neo.data.Store} store=BlogPosts
+         */
+        store: BlogPosts
     }}
 }
 
