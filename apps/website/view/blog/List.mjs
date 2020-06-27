@@ -1,5 +1,6 @@
 import {default as BaseList} from '../../../../src/list/Base.mjs';
 import BlogPosts             from '../../store/BlogPosts.mjs';
+import {default as VDomUtil} from '../../../../src/util/VDom.mjs';
 
 /**
  * @class Website.view.blog.List
@@ -50,17 +51,11 @@ class List extends BaseList {
                             cls: ['neo-inner-content'],
                             cn : [{
                                 cls : ['neo-inner-details'],
-                                cn : [{
+                                flag: 'author',
+                                cn  : [{
                                     cls : ['neo-bold'],
                                     tag : 'span',
                                     html: record.author
-                                }, {
-                                    vtype: 'text',
-                                    html : ' in '
-                                }, {
-                                    cls : ['neo-bold'],
-                                    tag : 'span',
-                                    html: record.publisher
                                 }]
                             }, {
                                 cls : ['neo-inner-details'],
@@ -71,6 +66,17 @@ class List extends BaseList {
                 }]
             }]
         }];
+
+        if (record.publisher.length > 0) {
+            VDomUtil.getByFlag(vdomCn[0], 'author').cn.push({
+                vtype: 'text',
+                html : ' in '
+            }, {
+                cls : ['neo-bold'],
+                tag : 'span',
+                html: record.publisher
+            });
+        }
 
         if (record.selectedInto.length > 0) {
             vdomCn[0].cn[1].cn.unshift({
