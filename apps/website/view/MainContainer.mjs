@@ -1,3 +1,4 @@
+import BlogContainer             from './blog/Container.mjs';
 import {default as Component}    from '../../../src/component/Base.mjs';
 import ExamplesTabContainer      from './examples/TabContainer.mjs';
 import HeaderContainer           from './HeaderContainer.mjs';
@@ -43,14 +44,11 @@ class MainContainer extends Viewport {
                 },
                 vdom: {innerHTML: 'Amazing text to describe neo.mjs'}
             }, {
-                module: Component,
-                cls   : ['neo-examples-tab-component'],
-                style : {padding: '20px'},
+                module         : BlogContainer,
                 tabButtonConfig: {
                     iconCls: 'fa fa-play-circle',
                     text   : 'Blog'
-                },
-                vdom: {innerHTML: 'Blog'}
+                }
             }, {
                 module         : ExamplesTabContainer,
                 tabButtonConfig: {
