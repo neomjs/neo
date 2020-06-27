@@ -73,7 +73,6 @@ class List extends BaseList {
         }];
 
         if (record.selectedInto.length > 0) {
-            console.log(vdomCn[0].cn[1]);
             vdomCn[0].cn[1].cn.unshift({
                 cls: ['neo-absolute', 'neo-item-top-position'],
                 cn : [{
