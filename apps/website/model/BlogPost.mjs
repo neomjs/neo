@@ -19,6 +19,9 @@ class BlogPost extends Model {
             name: 'author',
             type: 'String'
         }, {
+            name: 'date',
+            type: 'String'
+        }, {
             name: 'id',
             type: 'Integer'
         }, {
@@ -29,6 +32,9 @@ class BlogPost extends Model {
             type: 'String'
         }, {
             name: 'provider',
+            type: 'String'
+        },{
+            name: 'publisher',
             type: 'String'
         }, {
             name: 'selectedInto',

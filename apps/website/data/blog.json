@@ -1,22 +1,38 @@
 [
     {
         "author"      : "Tobias Uhlig",
-        "id"          : 2,
+        "date"        : "June 24, 2020",
+        "id"          : 3,
         "image"       : "how-to-create-a-webworkers-driven-multithreading-app-part-2.png",
         "name"        : "How to create a webworkers driven multithreading App - Part 2",
         "provider"    : "Medium",
+        "publisher"   : "The Startup",
         "selectedInto": ["Javascript"],
         "type"        : "Tutorial",
         "url"         : "https://medium.com/swlh/how-to-create-a-webworkers-driven-multithreading-app-part-2-3c5b3c2d1adb?source=friends_link&sk=cf4b5c0e014fcfd6fc1d9845f4eb3097"
     },
     {
         "author"      : "Tobias Uhlig",
-        "id"          : 1,
+        "date"        : "June 17, 2020",
+        "id"          : 2,
         "image"       : "expanding-single-page-apps-into-multiple-browser-windows.png",
         "name"        : "Expanding Single Page Apps into multiple Browser Windows",
         "provider"    : "Medium",
+        "publisher"   : "The Startup",
         "selectedInto": ["Javascript", "Programming", "Software Engineering"],
         "type"        : "Blog Post",
         "url"         : "https://medium.com/swlh/expanding-single-page-apps-into-multiple-browser-windows-e6d9bd155d59?source=friends_link&sk=bbfe1dada95c5674669e463f93360822"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "date"        : "June 6, 2020",
+        "id"          : 1,
+        "image"       : "neo-mjs-v1-2-5-support-for-sharedworkers-including-firefox.png",
+        "name"        : "neo.mjs v1.2.5 → Support for SharedWorkers including Firefox",
+        "provider"    : "Medium",
+        "publisher"   : "The Startup",
+        "selectedInto": ["Javascript", "Programming", "Software Engineering"],
+        "type"        : "Release Announcement",
+        "url"         : "https://medium.com/swlh/neo-mjs-v1-2-5-support-for-sharedworkers-including-firefox-b31f144cea3f?source=friends_link&sk=6bd4d0beb0e095c388153ce8f06aa76f"
     }
 ]
