@@ -41,13 +41,33 @@ class List extends BaseList {
                     cls: ['neo-absolute', 'neo-item-position'],
                     cn : [{
                         cls : ['neo-title'],
-                        html: record.name
+                        html: record.name.replace(/^(.{65}[^\s]*).*/, "$1")
                     }, {
                         cls: ['neo-top-20'],
                         cn : [{
                             tag: 'img',
                             cls: ['neo-user-image'],
                             src: `https://raw.githubusercontent.com/neomjs/pages/master/resources/website/blogAuthor/${record.authorImage}`
+                        }, {
+                            cls: ['neo-inner-content'],
+                            cn : [{
+                                cls : ['neo-inner-details'],
+                                cn : [{
+                                    cls : 'neo-bold',
+                                    tag : 'span',
+                                    html: record.author
+                                }, {
+                                    vtype: 'text',
+                                    html : ' in '
+                                }, {
+                                    cls : 'neo-bold',
+                                    tag : 'span',
+                                    html: record.publisher
+                                }]
+                            }, {
+                                cls : ['neo-inner-details'],
+                                html: record.date
+                            }]
                         }]
                     }]
                 }]

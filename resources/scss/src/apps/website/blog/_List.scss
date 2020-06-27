@@ -18,9 +18,24 @@
             position: absolute;
         }
 
+        .neo-bold {
+            font-weight: 600;
+        }
+
+        .neo-inner-content {
+            color      : #fff;
+            display    : inline-block;
+            font-size  : 14px;
+            margin-left: 10px;
+        }
+
         .neo-full-size {
             height: 100%;
             width : 100%;
+        }
+
+        .neo-inner-details {
+            line-height: 22px;
         }
 
         .neo-item-position {
@@ -42,13 +57,16 @@
         }
 
         .neo-top-20 {
-            margin-top: 20px;
+            align-items: center;
+            display    : flex;
+            margin-top : 20px;
         }
 
         .neo-user-image {
             border-radius: 50%;
-            height       : 36px;
-            width        : 36px;
+            display      : inline-block;
+            height       : 44px;
+            width        : 44px;
         }
 
         .preview-image {
