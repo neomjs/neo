@@ -9,15 +9,22 @@ import Viewport                  from '../../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
+        /**
+         * @member {String} className='Website.view.MainContainer'
+         * @protected
+         */
         className: 'Website.view.MainContainer',
-        ntype    : 'main-container',
-
+        /**
+         * @member {Boolean} autoMount=true
+         */
         autoMount: true,
         /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'},
-
+        /**
+         * @member {Array} items
+         */
         items: [{
             module: HeaderContainer
         }, {
