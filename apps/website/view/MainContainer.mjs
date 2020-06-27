@@ -46,6 +46,7 @@ class MainContainer extends Viewport {
                 style : {padding: '20px'},
                 tabButtonConfig: {
                     iconCls: 'fa fa-home',
+                    route  : 'mainview=home',
                     text   : 'Home'
                 },
                 vdom: {innerHTML: 'Amazing text to describe neo.mjs'}
@@ -53,12 +54,14 @@ class MainContainer extends Viewport {
                 module         : BlogContainer,
                 tabButtonConfig: {
                     iconCls: 'fa fa-play-circle',
+                    route  : 'mainview=blog',
                     text   : 'Blog'
                 }
             }, {
                 module         : ExamplesTabContainer,
                 tabButtonConfig: {
                     iconCls: 'fa fa-images',
+                    route  : 'mainview=examples',
                     text   : 'Examples'
                 }
             }, {
@@ -67,6 +70,7 @@ class MainContainer extends Viewport {
                 style : {padding: '20px'},
                 tabButtonConfig: {
                     iconCls: 'fa fa-table',
+                    route  : 'mainview=docs',
                     text   : 'Docs'
                 },
                 vdom: {innerHTML: 'Docs'}
