@@ -1,4 +1,5 @@
 import {default as Component}    from '../../../src/component/Base.mjs';
+import HeaderContainer           from './HeaderContainer.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
 import Viewport                  from '../../../src/container/Viewport.mjs';
 
@@ -12,13 +13,17 @@ class MainContainer extends Viewport {
         ntype    : 'main-container',
 
         autoMount: true,
-        layout   : {ntype: 'fit'},
+        /**
+         * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         */
+        layout: {ntype: 'vbox', align: 'stretch'},
 
         items: [{
+            module: HeaderContainer
+        }, {
             module: TabContainer,
-            height: 300,
-            width : 500,
-            style : {flex: 'none', margin: '20px'},
+            flex  : 1,
+            style : {margin: '20px'},
 
             itemDefaults: {
                 module: Component,
