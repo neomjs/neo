@@ -201,22 +201,29 @@ class Base extends Component {
     /**
      * Override this method for custom list items
      * @param {Object} record
+     * @returns {Object} The list item object
      */
     createItem(record) {
-        let me = this;
+        let me          = this,
+            itemContent = me.createItemContent(record);
 
-        return {
+        const item = {
             tag     : 'li',
             cls     : [me.itemCls],
             html    : me.createItemContent(record),
             id      : me.getItemId(record[me.getKeyProperty()]),
             tabIndex: -1
         };
+
+        item[typeof itemContent === 'string' ? 'html' : 'vdom'] = itemContent;
+
+        return item;
     }
 
     /**
      * Override this method for custom renderers
      * @param {Object} record
+     * @returns {Object|String} Either an vdom object or a html string
      */
     createItemContent(record) {
         let me       = this,
