@@ -1,27 +1,37 @@
 $neoMap: map-merge($neoMap, (
-    'tab-button-background-image'        : linear-gradient(#393d3e, #282b2b),
-    'tab-button-background-image-pressed': linear-gradient(#434749, #323536),
-    'tab-button-border-radius'           : 0,
-    'tab-button-glyph-color'             : #bbb,
-    'tab-button-glyph-color-active'      : #bbb,
-    'tab-button-glyph-color-over'        : #bbb,
-    'tab-button-glyph-color-pressed'     : #bbb,
-    'tab-button-pressed-use-gradient'    : true,
-    'tab-button-text-color'              : #bbb,
-    'tab-button-text-transform'          : none,
-    'tab-button-use-gradient'            : true
+    'tab-button-background-image'               : linear-gradient(#393d3e, #282b2b),
+    'tab-button-background-image-bottom'        : linear-gradient(to top, #393d3e, #282b2b),
+    'tab-button-background-image-left'          : linear-gradient(to right, #393d3e, #282b2b),
+    'tab-button-background-image-pressed'       : linear-gradient(#434749, #323536),
+    'tab-button-background-image-pressed-bottom': linear-gradient(to top, #434749, #323536),
+    'tab-button-background-image-pressed-left'  : linear-gradient(to right, #434749, #323536),
+    'tab-button-background-image-pressed-right' : linear-gradient(to left,  #434749, #323536),
+    'tab-button-background-image-right'         : linear-gradient(to left,  #393d3e, #282b2b),
+    'tab-button-border-radius'                  : 0,
+    'tab-button-glyph-color'                    : #bbb,
+    'tab-button-glyph-color-active'             : #bbb,
+    'tab-button-glyph-color-over'               : #bbb,
+    'tab-button-glyph-color-pressed'            : #bbb,
+    'tab-button-text-color'                     : #bbb,
+    'tab-button-text-transform'                 : none
 ));
 
 @if $useCss4Vars == true {
     :root .neo-theme-dark { // .neo-tab-header-button
-        --tab-button-background-image        : #{neo(tab-button-background-image)};
-        --tab-button-background-image-pressed: #{neo(tab-button-background-image-pressed)};
-        --tab-button-border-radius           : #{neo(tab-button-border-radius)};
-        --tab-button-glyph-color             : #{neo(tab-button-glyph-color)};
-        --tab-button-glyph-color-active      : #{neo(tab-button-glyph-color-active)};
-        --tab-button-glyph-color-over        : #{neo(tab-button-glyph-color-over)};
-        --tab-button-glyph-color-pressed     : #{neo(tab-button-glyph-color-pressed)};
-        --tab-button-text-color              : #{neo(tab-button-text-color)};
-        --tab-button-text-transform          : #{neo(tab-button-text-transform)};
+        --tab-button-background-image               : #{neo(tab-button-background-image)};
+        --tab-button-background-image-bottom        : #{neo(tab-button-background-image-bottom)};
+        --tab-button-background-image-left          : #{neo(tab-button-background-image-left)};
+        --tab-button-background-image-pressed       : #{neo(tab-button-background-image-pressed)};
+        --tab-button-background-image-pressed-bottom: #{neo(tab-button-background-image-pressed-bottom)};
+        --tab-button-background-image-pressed-left  : #{neo(tab-button-background-image-pressed-left)};
+        --tab-button-background-image-pressed-right : #{neo(tab-button-background-image-pressed-right)};
+        --tab-button-background-image-right         : #{neo(tab-button-background-image-right)};
+        --tab-button-border-radius                  : #{neo(tab-button-border-radius)};
+        --tab-button-glyph-color                    : #{neo(tab-button-glyph-color)};
+        --tab-button-glyph-color-active             : #{neo(tab-button-glyph-color-active)};
+        --tab-button-glyph-color-over               : #{neo(tab-button-glyph-color-over)};
+        --tab-button-glyph-color-pressed            : #{neo(tab-button-glyph-color-pressed)};
+        --tab-button-text-color                     : #{neo(tab-button-text-color)};
+        --tab-button-text-transform                 : #{neo(tab-button-text-transform)};
     }
 }

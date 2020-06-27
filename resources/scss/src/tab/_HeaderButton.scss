@@ -52,7 +52,6 @@
 
     .neo-tab-button-indicator {
         background-color: transparent;
-        //bottom          : calc(#{v(tab-strip-height)} * -1);
         bottom          : calcVar(tab-strip-height, '*', -1);
         height          : v(tab-strip-height);
         position        : absolute;
@@ -67,39 +66,29 @@
 
     &.neo-dock-bottom {
         .neo-tab-header-button {
-            /*@if $button-use-gradients == true {
-                background-image: linear-gradient(to top, #393d3e, #282b2b);
-            }*/
+            background-image: v(tab-button-background-image-bottom);
 
             &.pressed {
-                @if neo(tab-button-pressed-use-gradient) == true {
-                    background-image: linear-gradient(to top, #434749, #323536) !important;
-                }
+                background-image: v(tab-button-background-image-pressed-bottom) !important;
             }
         }
 
         .neo-tab-button-indicator {
             bottom: unset;
             height: v(tab-strip-height);
-            //top   : calc(#{v(tab-strip-height)} * -1);
-            top  : calcVar(tab-strip-height, '*', -1);
+            top   : calcVar(tab-strip-height, '*', -1);
             width : 100%;
         }
     }
 
     &.neo-dock-left {
         .neo-tab-header-button {
-            height: unset;
-            width : 25px;
-
-            /*@if $button-use-gradients == true {
-                background-image: linear-gradient(to right, #393d3e, #282b2b);
-            }*/
+            background-image: v(tab-button-background-image-left);
+            height          : unset;
+            width           : 25px;
 
             &.pressed {
-                @if neo(tab-button-pressed-use-gradient) == true {
-                    background-image: linear-gradient(to right, #434749, #323536) !important;
-                }
+                background-image: v(tab-button-background-image-pressed-left) !important;
             }
         }
 
@@ -113,17 +102,12 @@
 
     &.neo-dock-right {
         .neo-tab-header-button {
+            background-image: v(tab-button-background-image-right);
             height: unset;
             width : 25px;
 
-            /*@if $button-use-gradients == true {
-                background-image: linear-gradient(to left, #393d3e, #282b2b);
-            }*/
-
             &.pressed {
-                @if neo(tab-button-pressed-use-gradient) == true {
-                    background-image: linear-gradient(to left, #434749, #323536) !important;
-                }
+                background-image: v(tab-button-background-image-pressed-right) !important;
             }
         }
 
