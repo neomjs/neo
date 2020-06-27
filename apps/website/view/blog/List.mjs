@@ -38,7 +38,15 @@ class List extends BaseList {
             }, {
                 cls: ['neo-relative'],
                 cn : [{
-                    cls: ['neo-absolute', 'neo-item-position'],
+                    cls: ['neo-absolute', 'neo-item-top-position'],
+                    cn : [{
+                        html: `Officially selected by ${record.provider} into`
+                    }, {
+                        cls : ['neo-bold'],
+                        html: record.selectedInto.join('</br>')
+                    }]
+                }, {
+                    cls: ['neo-absolute', 'neo-item-bottom-position'],
                     cn : [{
                         cls : ['neo-title'],
                         html: record.name.replace(/^(.{65}[^\s]*).*/, "$1")
@@ -53,14 +61,14 @@ class List extends BaseList {
                             cn : [{
                                 cls : ['neo-inner-details'],
                                 cn : [{
-                                    cls : 'neo-bold',
+                                    cls : ['neo-bold'],
                                     tag : 'span',
                                     html: record.author
                                 }, {
                                     vtype: 'text',
                                     html : ' in '
                                 }, {
-                                    cls : 'neo-bold',
+                                    cls : ['neo-bold'],
                                     tag : 'span',
                                     html: record.publisher
                                 }]

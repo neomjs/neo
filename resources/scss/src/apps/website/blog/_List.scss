@@ -38,11 +38,21 @@
             line-height: 22px;
         }
 
-        .neo-item-position {
+        .neo-item-bottom-position {
             bottom: 0;
             left  : 0;
             margin: 30px 40px;
             right : 30%;
+        }
+
+        .neo-item-top-position {
+            color     : #fff;
+            font-size : 14px;
+            margin    : 30px 40px;
+            left      : 30%;
+            right     : 0;
+            text-align: end;
+            top       : -400px;
         }
 
         .neo-relative {
