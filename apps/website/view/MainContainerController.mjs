@@ -19,7 +19,13 @@ class MainContainerController extends ComponentController {
     onConstructed() {
         super.onConstructed();
 
-        console.log('MainContainerController onConstructed');
+        // todo: move once routes are in place
+        setTimeout(() => {
+            let me       = this,
+                blogList = me.getReference('blog-list');
+
+            blogList.store.load();
+        }, 10);
     }
 }
 

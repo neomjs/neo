@@ -28,8 +28,9 @@ class Container extends BaseContainer {
                 width          : 240
             }]
         }, {
-            module: List,
-            flex  : 1
+            module   : List,
+            flex     : 1,
+            reference: 'blog-list'
         }],
         /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}

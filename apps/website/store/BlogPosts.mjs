@@ -26,7 +26,11 @@ class BlogPosts extends Store {
         sorters: [{
             property : 'id',
             direction: 'DESC'
-        }]
+        }],
+        /**
+         * @member {String} url='../../apps/website/data/blog.json'
+         */
+        url: '../../apps/website/data/blog.json'
     }}
 }
 
