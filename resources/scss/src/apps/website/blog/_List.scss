@@ -4,23 +4,49 @@
     .neo-list-item {
         border       : 1px solid #282829;
         display      : flex;
-        height       : 150px;
+        height       : 400px;
         margin-bottom: 10px;
         padding      : 0;
         white-space  : normal;
         width        : 800px;
 
         .content {
-            background-color: #323232;
-            flex            : 1;
-            padding         : 5px;
+            flex: 1;
+        }
+
+        .neo-absolute {
+            position: absolute;
+        }
+
+        .neo-full-size {
+            height: 100%;
+            width : 100%;
+        }
+
+        .neo-item-position {
+            bottom: 0;
+            left  : 0;
+            margin: 30px 40px;
+            right : 30%;
+        }
+
+        .neo-relative {
+            position: relative;
+        }
+
+        .neo-title {
+            color      : #fff;
+            font-size  : 34px;
+            font-weight: 600;
+            line-height: 1;
         }
 
         .preview-image {
-            background-position: 50% 50%;
-            background-size    : cover;
-            height             : 100%;
-            width              : 200px;
+            background-blend-mode: overlay;
+            background-color     : #333;
+            background-position  : 50% 50%;
+            background-size      : cover;
+            height               : 100%;
         }
     }
 }
