@@ -2,6 +2,7 @@ import BlogContainer             from './blog/Container.mjs';
 import {default as Component}    from '../../../src/component/Base.mjs';
 import ExamplesTabContainer      from './examples/TabContainer.mjs';
 import HeaderContainer           from './HeaderContainer.mjs';
+import MainContainerController   from './MainContainerController.mjs';
 import {default as TabContainer} from '../../../src/tab/Container.mjs';
 import Viewport                  from '../../../src/container/Viewport.mjs';
 
@@ -20,6 +21,10 @@ class MainContainer extends Viewport {
          * @member {Boolean} autoMount=true
          */
         autoMount: true,
+        /**
+         * @member {Neo.controller.Component} controller=MainContainerController
+         */
+        controller: MainContainerController,
         /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
          */
