@@ -222,7 +222,7 @@ class Base extends Component {
     /**
      * Override this method for custom renderers
      * @param {Object} record
-     * @returns {Object[]|Object|String} Either an vdom cn array or object, or a html string
+     * @returns {Object[]|String} Either an vdom cn array or a html string
      */
     createItemContent(record) {
         let me       = this,

@@ -28,9 +28,9 @@ class List extends BaseList {
     createItemContent(record) {
         let me = this;
 
-        return {
+        return [{
             html: record.name
-        };
+        }];
     }
 }
 
