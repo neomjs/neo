@@ -1,0 +1,23 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <title>neo.mjs - Website</title>
+</head>
+<body>
+    <script>
+        Neo = self.Neo || {}; Neo.config = Neo.config || {};
+
+        Object.assign(Neo.config, {
+            appPath       : 'apps/website/app.mjs',
+            basePath      : '../../',
+            environment   : 'development',
+            isExperimental: true,
+            themes        : ['neo-theme-dark', 'neo-theme-light']
+        });
+    </script>
+
+    <script src="../../src/Main.mjs" type="module"></script>
+</body>
+</html>

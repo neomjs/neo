@@ -18,6 +18,8 @@
 !/apps/sharedcovidgallery/**/*.mjs
 !/apps/sharedcovidmap/index.html
 !/apps/sharedcovidmap/**/*.mjs
+!/apps/website/index.html
+!/apps/website/**/*.mjs
 
 /buildScripts/webpack/entrypoints/myApps/**/*.mjs
 !/buildScripts/webpack/entrypoints/myApps/Covid.mjs
@@ -28,6 +30,7 @@
 !/buildScripts/webpack/entrypoints/myApps/SharedCovidGallery.mjs
 !/buildScripts/webpack/entrypoints/myApps/SharedCovidHelix.mjs
 !/buildScripts/webpack/entrypoints/myApps/SharedCovidMap.mjs
+!/buildScripts/webpack/entrypoints/myApps/Website.mjs
 /buildScripts/webpack/json/myApps.json
 
 /dist

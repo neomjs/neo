@@ -226,7 +226,7 @@ class Store extends Base {
         Neo.Xhr.promiseJson({
             url: me.url
         }).then(data => {
-            me.data = data.json.data;
+            me.data = Array.isArray(data.json) ? data.json : data.json.data;
             me.fire('load', me.items);
         }).catch(err => {
             console.log('Error for Neo.Xhr.request', err, me.id);
