@@ -1,5 +1,7 @@
 import {default as BaseContainer} from '../../../../src/container/Base.mjs';
 import {default as Component}     from '../../../../src/component/Base.mjs';
+import {default as SearchField}   from '../../../../src/form/field/Search.mjs';
+import Toolbar                    from '../../../../src/container/Toolbar.mjs';
 
 /**
  * @class Website.view.blog.Container
@@ -16,13 +18,14 @@ class Container extends BaseContainer {
          * @member {Array} items
          */
         items: [{
-            module: Container,
-            height: 50,
-            layout: {ntype: 'hbox', align: 'stretch'},
+            module: Toolbar,
+            height: 40,
 
             items: [{
-                module: Component,
-                html  : 'Controls'
+                module         : SearchField,
+                placeholderText: 'Filter Items',
+                style          : {padding: '10px'},
+                width          : 240
             }]
         }, {
             module: Component,

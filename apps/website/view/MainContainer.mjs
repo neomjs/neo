@@ -30,9 +30,10 @@ class MainContainer extends Viewport {
         items: [{
             module: HeaderContainer
         }, {
-            module: TabContainer,
-            flex  : 1,
-            style : {margin: '20px'},
+            module     : TabContainer,
+            activeIndex: 1, // todo: remove, just for development
+            flex       : 1,
+            style      : {margin: '20px'},
 
             items: [{
                 module: Component,
