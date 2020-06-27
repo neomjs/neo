@@ -2,7 +2,7 @@
     {
         "author"      : "Tobias Uhlig",
         "date"        : "June 24, 2020",
-        "id"          : 3,
+        "id"          : 4,
         "image"       : "how-to-create-a-webworkers-driven-multithreading-app-part-2.png",
         "name"        : "How to create a webworkers driven multithreading App - Part 2",
         "provider"    : "Medium",
@@ -14,7 +14,7 @@
     {
         "author"      : "Tobias Uhlig",
         "date"        : "June 17, 2020",
-        "id"          : 2,
+        "id"          : 3,
         "image"       : "expanding-single-page-apps-into-multiple-browser-windows.png",
         "name"        : "Expanding Single Page Apps into multiple Browser Windows",
         "provider"    : "Medium",
@@ -26,7 +26,7 @@
     {
         "author"      : "Tobias Uhlig",
         "date"        : "June 6, 2020",
-        "id"          : 1,
+        "id"          : 2,
         "image"       : "neo-mjs-v1-2-5-support-for-sharedworkers-including-firefox.png",
         "name"        : "neo.mjs v1.2.5 → Support for SharedWorkers including Firefox",
         "provider"    : "Medium",
@@ -34,5 +34,17 @@
         "selectedInto": ["Javascript", "Programming", "Software Engineering"],
         "type"        : "Release Announcement",
         "url"         : "https://medium.com/swlh/neo-mjs-v1-2-5-support-for-sharedworkers-including-firefox-b31f144cea3f?source=friends_link&sk=6bd4d0beb0e095c388153ce8f06aa76f"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "date"        : "June 4, 2020",
+        "id"          : 1,
+        "image"       : "chrome-v83-enables-js-module-support-for-sharedworkers-starting-a-new-era-for-multi-browser.png",
+        "name"        : "Chrome v83 enables JS module support for SharedWorkers → Starting a new era for multi Browser Window Apps with neo.mjs",
+        "provider"    : "Medium",
+        "publisher"   : "The Startup",
+        "selectedInto": ["Javascript", "Programming", "Software Engineering"],
+        "type"        : "Blog Post",
+        "url"         : "https://medium.com/swlh/chrome-v83-enables-js-module-support-for-sharedworkers-starting-a-new-era-for-multi-browser-dbb20366bddf?source=friends_link&sk=5fb6a90658d292a6af5bd30c24cb239d"
     }
 ]

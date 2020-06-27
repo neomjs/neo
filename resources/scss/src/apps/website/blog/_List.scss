@@ -7,6 +7,7 @@
         height       : 150px;
         margin-bottom: 10px;
         padding      : 0;
+        white-space  : normal;
         width        : 800px;
 
         .content {
@@ -16,7 +17,10 @@
         }
 
         .preview-image {
-            width: 200px;
+            background-position: 50% 50%;
+            background-size    : cover;
+            height             : 100%;
+            width              : 200px;
         }
     }
 }
