@@ -210,12 +210,11 @@ class Base extends Component {
         const item = {
             tag     : 'li',
             cls     : [me.itemCls],
-            html    : me.createItemContent(record),
             id      : me.getItemId(record[me.getKeyProperty()]),
             tabIndex: -1
         };
 
-        item[typeof itemContent === 'string' ? 'html' : 'vdom'] = itemContent;
+        item[typeof itemContent === 'string' ? 'html' : 'cn'] = itemContent;
 
         return item;
     }
@@ -223,7 +222,7 @@ class Base extends Component {
     /**
      * Override this method for custom renderers
      * @param {Object} record
-     * @returns {Object|String} Either an vdom object or a html string
+     * @returns {Object[]|Object|String} Either an vdom cn array or object, or a html string
      */
     createItemContent(record) {
         let me       = this,
