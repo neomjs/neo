@@ -41,15 +41,27 @@ class MainContainer extends Viewport {
             items: [{
                 tabButtonConfig: {
                     iconCls: 'fa fa-home',
-                    text   : 'Tab 1'
+                    text   : 'Home'
                 },
-                vdom: {innerHTML: 'Welcome to your new Neo App.'}
+                vdom: {innerHTML: 'Amazing text to describe neo.mjs'}
             }, {
                 tabButtonConfig: {
                     iconCls: 'fa fa-play-circle',
-                    text   : 'Tab 2'
+                    text   : 'Blog'
                 },
-                vdom: {innerHTML: 'Have fun creating something awesome!'}
+                vdom: {innerHTML: 'Blog'}
+            }, {
+                tabButtonConfig: {
+                    iconCls: 'fa fa-images',
+                    text   : 'Examples'
+                },
+                vdom: {innerHTML: 'Examples'}
+            }, {
+                tabButtonConfig: {
+                    iconCls: 'fa fa-table',
+                    text   : 'Docs'
+                },
+                vdom: {innerHTML: 'Docs'}
             }]
         }]
     }}
