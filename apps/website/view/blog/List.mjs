@@ -29,7 +29,13 @@ class List extends BaseList {
         let me = this;
 
         return [{
+            cls : ['content'],
             html: record.name
+        }, {
+            cls  : ['preview-image'],
+            style: {
+                backgroundImage: `url('https://raw.githubusercontent.com/neomjs/pages/master/resources/website/blog/${record.image}')`
+            }
         }];
     }
 }
