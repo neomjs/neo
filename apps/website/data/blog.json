@@ -1,6 +1,7 @@
 [
     {
         "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "June 24, 2020",
         "id"          : 5,
         "image"       : "how-to-create-a-webworkers-driven-multithreading-app-part-2.png",
@@ -13,6 +14,7 @@
     },
     {
         "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "June 17, 2020",
         "id"          : 4,
         "image"       : "expanding-single-page-apps-into-multiple-browser-windows.png",
@@ -25,6 +27,7 @@
     },
     {
         "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "June 6, 2020",
         "id"          : 3,
         "image"       : "neo-mjs-v1-2-5-support-for-sharedworkers-including-firefox.png",
@@ -37,6 +40,7 @@
     },
     {
         "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "June 4, 2020",
         "id"          : 2,
         "image"       : "chrome-v83-enables-js-module-support-for-sharedworkers-starting-a-new-era-for-multi-browser.png",
@@ -49,6 +53,7 @@
     },
     {
         "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "May 30, 2020",
         "id"          : 1,
         "image"       : "how-to-create-a-webworkers-driven-multithreading-app-part-1.png",

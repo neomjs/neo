@@ -42,6 +42,13 @@ class List extends BaseList {
                     cn : [{
                         cls : ['neo-title'],
                         html: record.name
+                    }, {
+                        cls: ['neo-top-20'],
+                        cn : [{
+                            tag: 'img',
+                            cls: ['neo-user-image'],
+                            src: `https://raw.githubusercontent.com/neomjs/pages/master/resources/website/blogAuthor/${record.authorImage}`
+                        }]
                     }]
                 }]
             }]

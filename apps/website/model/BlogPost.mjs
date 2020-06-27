@@ -19,6 +19,9 @@ class BlogPost extends Model {
             name: 'author',
             type: 'String'
         }, {
+            name: 'authorImage',
+            type: 'String'
+        }, {
             name: 'date',
             type: 'String'
         }, {
