@@ -26,8 +26,6 @@ class List extends BaseList {
      * @param {Object} record
      */
     createItemContent(record) {
-        let me = this;
-
         const vdomCn = [{
             cls: ['content'],
             cn : [{
