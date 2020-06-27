@@ -28,7 +28,7 @@ class List extends BaseList {
     createItemContent(record) {
         let me = this;
 
-        return [{
+        const vdomCn = [{
             cls: ['content'],
             cn : [{
                 cls  : ['neo-full-size', 'preview-image'],
@@ -38,14 +38,6 @@ class List extends BaseList {
             }, {
                 cls: ['neo-relative'],
                 cn : [{
-                    cls: ['neo-absolute', 'neo-item-top-position'],
-                    cn : [{
-                        html: `Officially selected by ${record.provider} into`
-                    }, {
-                        cls : ['neo-bold'],
-                        html: record.selectedInto.join('</br>')
-                    }]
-                }, {
                     cls: ['neo-absolute', 'neo-item-bottom-position'],
                     cn : [{
                         cls : ['neo-title'],
@@ -81,6 +73,21 @@ class List extends BaseList {
                 }]
             }]
         }];
+
+        if (record.selectedInto.length > 0) {
+            console.log(vdomCn[0].cn[1]);
+            vdomCn[0].cn[1].cn.unshift({
+                cls: ['neo-absolute', 'neo-item-top-position'],
+                cn : [{
+                    html: `Officially selected by ${record.provider} into`
+                }, {
+                    cls : ['neo-bold'],
+                    html: record.selectedInto.join('</br>')
+                }]
+            });
+        }
+
+        return vdomCn;
     }
 }
 
