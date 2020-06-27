@@ -13,6 +13,9 @@ class MainContainerController extends ComponentController {
         className: 'Website.view.MainContainerController'
     }}
 
+    /**
+     *
+     */
     onConstructed() {
         super.onConstructed();
 
