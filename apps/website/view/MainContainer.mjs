@@ -37,7 +37,7 @@ class MainContainer extends Viewport {
             module: HeaderContainer
         }, {
             module     : TabContainer,
-            activeIndex: 1, // todo: remove, just for development
+            activeIndex: 2, // todo: remove, just for development
             flex       : 1,
             style      : {margin: '20px'},
 

@@ -1,5 +1,5 @@
 import {default as BaseList} from '../../../../src/list/Base.mjs';
-import BlogPosts             from '../../store/BlogPosts.mjs';
+import Examples              from '../../store/Examples.mjs';
 
 /**
  * @class Website.view.examples.List
@@ -17,16 +17,16 @@ class List extends BaseList {
          */
         cls: ['website-examples-list', 'neo-list-container', 'neo-list'],
         /**
-         * @member {Neo.data.Store} store=BlogPosts
+         * @member {Neo.data.Store} store=Examples
          */
-        store: BlogPosts
+        store: Examples
     }}
 
     /**
      * @param {Object} record
      */
     createItemContent(record) {
-        const vdomCn = [{
+        return [{
             cls: ['content'],
             cn : [{
                 cls  : ['neo-full-size', 'preview-image'],
@@ -44,8 +44,6 @@ class List extends BaseList {
                 }]
             }]
         }];
-
-        return vdomCn;
     }
 }
 

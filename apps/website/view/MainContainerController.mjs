@@ -21,10 +21,12 @@ class MainContainerController extends ComponentController {
 
         // todo: move once routes are in place
         setTimeout(() => {
-            let me       = this,
-                blogList = me.getReference('blog-list');
+            let me           = this,
+                blogList     = me.getReference('blog-list'),
+                examplesList = me.getReference('examples-devmode-list');
 
-            blogList.store.load();
+            blogList    .store.load();
+            examplesList.store.load();
         }, 10);
     }
 }

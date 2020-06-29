@@ -1,5 +1,6 @@
 import {default as Component} from '../../../../src/component/Base.mjs';
 import Container              from '../../../../src/tab/Container.mjs';
+import List                   from './List.mjs';
 
 /**
  * @class Website.view.examples.TabContainer
@@ -24,11 +25,12 @@ class TabContainer extends Container {
          * @member {Array} items
          */
         items: [{
+            module         : List,
+            reference      : 'examples-devmode-list',
             tabButtonConfig: {
                 iconCls: 'fa fa-images',
                 text   : 'development mode'
-            },
-            vdom: {innerHTML: 'development mode'}
+            }
         }, {
             tabButtonConfig: {
                 iconCls: 'fa fa-play-circle',
