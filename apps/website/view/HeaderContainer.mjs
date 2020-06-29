@@ -28,8 +28,7 @@ class HeaderContainer extends Container {
          */
         itemDefaults: {
             ntype       : 'button',
-            iconPosition: 'top',
-            minWidth    : 77
+            iconPosition: 'top'
         },
         /**
          * @member {Array} items
@@ -46,25 +45,19 @@ class HeaderContainer extends Container {
                 src: 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/covid_logo_dark.jpg'
             }
         }, {
-            ntype   : 'component',
-            flex    : 10,
-            minWidth: null
+            ntype: 'component',
+            flex : 10
         }, {
-            iconCls: 'fa fa-sun',
-            text   : 'Light</br>Theme'
+            iconCls: 'fa fa-sun'
         }, {
-            iconCls: 'fab fa-github',
-            text   : 'View on</br>GitHub'
+            iconCls: 'fab fa-github'
         }, {
-            iconCls: 'fab fa-facebook-f',
-            text   : 'Follow on</br>Facebook'
+            iconCls: 'fab fa-facebook-f'
         }, {
-            iconCls: 'fab fa-linkedin-in',
-            text   : 'Follow on</br>LinkedIn'
+            iconCls: 'fab fa-linkedin-in'
         }, {
             iconCls: 'fab fa-twitter',
-            style  : {marginRight: '20px'},
-            text   : 'Follow on</br>Twitter'
+            style  : {marginRight: '20px'}
         }]
     }}
 }
