@@ -27,8 +27,7 @@ class HeaderContainer extends Container {
          * @member {Object} itemDefaults
          */
         itemDefaults: {
-            ntype       : 'button',
-            iconPosition: 'top'
+            ntype: 'button'
         },
         /**
          * @member {Array} items
@@ -48,6 +47,7 @@ class HeaderContainer extends Container {
             ntype: 'component',
             flex : 10
         }, {
+            handler: 'onSwitchThemeButtonClick',
             iconCls: 'fa fa-sun'
         }, {
             iconCls: 'fab fa-github'
