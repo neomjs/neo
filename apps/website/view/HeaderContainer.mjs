@@ -46,20 +46,20 @@ class HeaderContainer extends Container {
             }
         }, {
             iconCls: 'fa fa-sun',
-            text   : 'Light Theme'
+            text   : 'Light</br>Theme'
         }, {
             iconCls: 'fab fa-github',
-            text   : 'View on GitHub'
+            text   : 'View on</br>GitHub'
         }, {
             iconCls: 'fab fa-facebook-f',
-            text   : 'Follow on Facebook'
+            text   : 'Follow on</br>Facebook'
         }, {
             iconCls: 'fab fa-linkedin-in',
-            text   : 'Follow on LinkedIn'
+            text   : 'Follow on</br>LinkedIn'
         }, {
             iconCls: 'fab fa-twitter',
             style  : {marginRight: '20px'},
-            text   : 'Follow on Twitter'
+            text   : 'Follow on</br>Twitter'
         }]
     }}
 }
