@@ -1,0 +1,8 @@
+[
+    {
+        "id"          : 1,
+        "image"       : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/coronaHelix.png",
+        "name"        : "Corona Helix",
+        "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/examples/component/coronaHelix/index.html"
+    }
+]
