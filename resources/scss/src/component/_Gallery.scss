@@ -50,14 +50,19 @@
         }
     }
 
-    .image-wrap img {
+    .neo-item-wrapper {
         pointer-events     : none;
         transition-property: transform;
         transition-duration: 550ms;
     }
 
+    .neo-selected {
+        .neo-item-wrapper {
+            transform: translate3d(0, 0, 180px) scale(1.5);
+        }
+    }
+
     .image-wrap.neo-selected img {
-        transform: translate3d(0, 0, 180px) scale(1.5);
         -webkit-box-reflect: unset !important;
     }
 }

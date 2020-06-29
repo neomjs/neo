@@ -59,9 +59,12 @@ class Gallery extends Component {
             cls     : ['neo-gallery-item', 'image-wrap', 'view', 'neo-transition-1000'],
             tabIndex: '-1',
             cn: [{
-                tag  : 'img',
-                cls  : [],
-                style: {}
+                cls: ['neo-item-wrapper'],
+                cn : [{
+                    tag  : 'img',
+                    cls  : [],
+                    style: {}
+                }]
             }]
         },
         /**
@@ -240,6 +243,10 @@ class Gallery extends Component {
                 me.store.items = data.json.data;
                 setTimeout(() => { // todo: rendering check
                     me.createItems();
+
+                    if (me.selectOnMount) {
+                        me.afterSetMounted(true, false);
+                    }
                 }, 100);
             }).catch(err => {
                 console.log('Error for Neo.Xhr.request', err, me.id);
@@ -442,7 +449,7 @@ class Gallery extends Component {
      */
     createItem(vdomItem, record, index) {
         let me        = this,
-            imageVdom = vdomItem.cn[0];
+            imageVdom = vdomItem.cn[0].cn[0];
 
         vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
 
@@ -515,7 +522,7 @@ class Gallery extends Component {
         me.vdom = vdom;
 
         if (me.selectionModel.hasSelection() && selectedItem > startIndex && selectedItem < startIndex + countItems) {
-            me.onMounted();
+            me.afterSetMounted(true, false);
         }
     }
 
@@ -535,7 +542,7 @@ class Gallery extends Component {
             y           = index - x * amountRows;
 
         if (me.orderByRow) {
-            let amountColumns = Math.ceil(me.store.getCount() / amountRows);
+            let amountColumns = Math.ceil(Math.min(me.maxItems, me.store.getCount()) / amountRows);
 
             x = index % amountColumns;
             y = Math.floor(index / amountColumns);
@@ -575,7 +582,7 @@ class Gallery extends Component {
             x, y;
 
         if (me.orderByRow) {
-            amountRows = Math.ceil(me.store.getCount() / amountRows);
+            amountRows = Math.ceil(Math.min(me.maxItems, me.store.getCount()) / amountRows);
 
             x = index % amountRows;
             y = Math.floor(index / amountRows);
@@ -733,12 +740,14 @@ class Gallery extends Component {
     onSort() {
         let me        = this,
             hasChange = false,
-            items     = me.store.items,
+            items     = [...me.store.items],
             newCn     = [],
             vdom      = me.vdom,
             view      = me.getItemsRoot(),
             vdomMap   = view.cn.map(e => e.id),
             fromIndex, vdomId;
+
+        items.length = Math.min(me.maxItems, me.store.getCount());
 
         if (me[itemsMounted] === true && items) {
             items.forEach((item, index) => {
@@ -785,7 +794,7 @@ class Gallery extends Component {
             amountColumns;
 
         if (orderByRow) {
-            amountColumns = Math.ceil(me.store.getCount() / amountRows);
+            amountColumns = Math.ceil(Math.min(me.maxItems, me.store.getCount()) / amountRows);
         }
 
         view.cn.forEach((item, index) => {
