@@ -9,15 +9,36 @@
     {
         "backgroundColor": "#444",
         "id"             : 2,
-        "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/coronaGallery.png",
-        "name"           : "Corona Gallery",
-        "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/examples/component/coronaGallery/index.html"
+        "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/realworldApp.png",
+        "name"           : "RealWorld App",
+        "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/apps/realworld/index.html"
     },
     {
         "backgroundColor": "#444",
         "id"             : 3,
+        "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/coronaGallery.png",
+        "name"           : "COVID-19 Gallery",
+        "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/examples/component/coronaGallery/index.html"
+    },
+    {
+        "backgroundColor": "#444",
+        "id"             : 4,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/coronaHelix.png",
-        "name"           : "Corona Helix",
+        "name"           : "COVID-19 Helix",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/examples/component/coronaHelix/index.html"
+    },
+    {
+        "backgroundColor": "#444",
+        "id"             : 5,
+        "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/realworldApp2.png",
+        "name"           : "RealWorld App v2</br>(in progress)",
+        "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/apps/realworld2/index.html#/gallery"
+    },
+    {
+        "backgroundColor": "#444",
+        "id"             : 6,
+        "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/dateSelector.png",
+        "name"           : "component.DateSelector",
+        "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/examples/component/dateSelector/index.html"
     }
 ]
