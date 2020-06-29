@@ -133,6 +133,7 @@ class GalleryMainContainer extends Viewport {
                 }
             }, {
                 ntype    : 'button',
+                disabled : true,
                 text     : 'Sort by Lastname',
                 listeners: {},
                 style    : {margin: '20px', marginBottom: '10px'},
@@ -150,6 +151,7 @@ class GalleryMainContainer extends Viewport {
                 }
             }, {
                 ntype    : 'button',
+                disabled : true,
                 text     : 'Sort by Firstname',
                 listeners: {},
                 style    : {margin: '20px', marginTop: 0},

@@ -22,6 +22,9 @@ class BlogPost extends Model {
             name: 'authorImage',
             type: 'String'
         }, {
+            name: 'backgroundColor',
+            type: 'String'
+        }, {
             name: 'date',
             type: 'String'
         }, {
