@@ -31,7 +31,7 @@ class List extends BaseList {
             cn : [{
                 cls  : ['neo-full-size', 'preview-image'],
                 style: {
-                    backgroundImage: record.image
+                    backgroundImage: `url('${record.image}')`
                 }
             }, {
                 cls: ['neo-relative'],

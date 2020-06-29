@@ -14,14 +14,6 @@ class TabContainer extends Container {
          */
         className: 'Website.view.examples.TabContainer',
         /**
-         * @member {Object} itemDefaults
-         */
-        itemDefaults: {
-            module: Component,
-            cls   : ['neo-examples-tab-component'],
-            style : {padding: '20px'},
-        },
-        /**
          * @member {Array} items
          */
         items: [{
@@ -32,12 +24,18 @@ class TabContainer extends Container {
                 text   : 'development mode'
             }
         }, {
+            module         : Component,
+            cls            : ['neo-examples-tab-component'],
+            style          : {padding: '20px'},
             tabButtonConfig: {
                 iconCls: 'fa fa-play-circle',
                 text   : 'dist/development'
             },
             vdom: {innerHTML: 'dist/development'}
         }, {
+            module         : Component,
+            cls            : ['neo-examples-tab-component'],
+            style          : {padding: '20px'},
             tabButtonConfig: {
                 iconCls: 'fa fa-home',
                 text   : 'dist/production'
