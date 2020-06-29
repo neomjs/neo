@@ -32,6 +32,7 @@ class List extends BaseList {
             cn : [{
                 cls  : ['neo-full-size', 'preview-image'],
                 style: {
+                    backgroundColor: record.backgroundColor,
                     backgroundImage: `url('https://raw.githubusercontent.com/neomjs/pages/master/resources/website/blog/${record.image}')`
                 }
             }, {

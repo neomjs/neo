@@ -16,6 +16,9 @@ class Example extends Model {
          * @protected
          */
         fields: [{
+            name: 'backgroundColor',
+            type: 'String'
+        }, {
             name: 'id',
             type: 'Integer'
         }, {
