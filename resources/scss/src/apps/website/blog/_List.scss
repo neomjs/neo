@@ -27,6 +27,7 @@
             display    : inline-block;
             font-size  : 16px;
             margin-left: 10px;
+            text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
         }
 
         .neo-full-size {
@@ -46,13 +47,14 @@
         }
 
         .neo-item-top-position {
-            color     : #fff;
-            font-size : 16px;
-            margin    : 30px 40px;
-            left      : 30%;
-            right     : 0;
-            text-align: end;
-            top       : -400px;
+            color      : #fff;
+            font-size  : 16px;
+            margin     : 30px 40px;
+            left       : 30%;
+            right      : 0;
+            text-align : end;
+            text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
+            top        : -400px;
         }
 
         .neo-relative {
@@ -64,6 +66,7 @@
             font-size  : 34px;
             font-weight: 600;
             line-height: 1;
+            text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
         }
 
         .neo-top-20 {
