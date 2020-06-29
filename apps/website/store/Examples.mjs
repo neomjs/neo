@@ -21,11 +21,11 @@ class Examples extends Store {
          */
         model: Example,
         /**
-         * @member {Object[]} sorters=[{property: 'id', direction: 'DESC'}]
+         * @member {Object[]} sorters=[{property: 'id', direction: 'ASC'}]
          */
         sorters: [{
             property : 'id',
-            direction: 'DESC'
+            direction: 'ASC'
         }],
         /**
          * @member {String} url='../../apps/website/data/examples_devmode.json'
