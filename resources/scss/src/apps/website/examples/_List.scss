@@ -23,6 +23,12 @@
             width : 100%;
         }
 
+        .neo-inner-details {
+            color      : #fff;
+            font-size  : 16px;
+            line-height: 22px;
+        }
+
         .neo-item-bottom-position {
             bottom: 0;
             left  : 0;
@@ -39,6 +45,10 @@
             font-size  : 34px;
             font-weight: 600;
             line-height: 1;
+        }
+
+        .neo-top-20 {
+            margin-top: 20px;
         }
 
         .preview-image {
