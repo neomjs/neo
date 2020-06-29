@@ -24,13 +24,20 @@ class HeaderContainer extends Container {
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
+         * @member {Object} itemDefaults
+         */
+        itemDefaults: {
+            ntype       : 'button',
+            iconPosition: 'top'
+        },
+        /**
          * @member {Array} items
          */
         items: [{
             ntype    : 'component',
             minWidth : 267,
             reference: 'logo',
-            style    : {margin: '10px'},
+            style    : {margin: '10px', marginRight: '100px'},
             width    : 267,
 
             vdom: {
@@ -38,21 +45,21 @@ class HeaderContainer extends Container {
                 src: 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/covid_logo_dark.jpg'
             }
         }, {
-            ntype: 'button',
-            text : 'Light Theme'
+            iconCls: 'fa fa-sun',
+            text   : 'Light Theme'
         }, {
-            ntype: 'button',
-            text : 'View on GitHub'
+            iconCls: 'fab fa-github',
+            text   : 'View on GitHub'
         }, {
-            ntype: 'button',
-            text : 'Follow on Facebook'
+            iconCls: 'fab fa-facebook-f',
+            text   : 'Follow on Facebook'
         }, {
-            ntype: 'button',
-            text : 'Follow on LinkedIn'
+            iconCls: 'fab fa-linkedin-in',
+            text   : 'Follow on LinkedIn'
         }, {
-            ntype: 'button',
-            style: {marginRight: '20px'},
-            text : 'Follow on Twitter'
+            iconCls: 'fab fa-twitter',
+            style  : {marginRight: '20px'},
+            text   : 'Follow on Twitter'
         }]
     }}
 }
