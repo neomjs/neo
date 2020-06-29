@@ -738,36 +738,38 @@ class Gallery extends Component {
      *
      */
     onSort() {
-        let me        = this,
-            hasChange = false,
-            items     = [...me.store.items],
-            newCn     = [],
-            vdom      = me.vdom,
-            view      = me.getItemsRoot(),
-            vdomMap   = view.cn.map(e => e.id),
-            fromIndex, vdomId;
+        if (this[itemsMounted] === true) {
+            let me        = this,
+                hasChange = false,
+                items     = [...me.store.items || []],
+                newCn     = [],
+                vdom      = me.vdom,
+                view      = me.getItemsRoot(),
+                vdomMap   = view.cn.map(e => e.id),
+                fromIndex, vdomId;
 
-        items.length = Math.min(me.maxItems, me.store.getCount());
+            items.length = Math.min(me.maxItems, me.store.getCount());
 
-        if (me[itemsMounted] === true && items) {
-            items.forEach((item, index) => {
-                vdomId    = me.getItemVnodeId(item[me.keyProperty]);
-                fromIndex = vdomMap.indexOf(vdomId);
+            if (items.length > 0) {
+                items.forEach((item, index) => {
+                    vdomId    = me.getItemVnodeId(item[me.keyProperty]);
+                    fromIndex = vdomMap.indexOf(vdomId);
 
-                newCn.push(view.cn[fromIndex]);
+                    newCn.push(view.cn[fromIndex]);
 
-                if (index !== fromIndex) {
-                    hasChange = true;
+                    if (index !== fromIndex) {
+                        hasChange = true;
+                    }
+                });
+
+                if (hasChange) {
+                    view.cn = newCn;
+                    me.vdom = vdom;
+
+                    setTimeout(() => {
+                        me.afterSetOrderByRow(me.orderByRow, !me.orderByRow);
+                    }, 50);
                 }
-            });
-
-            if (hasChange) {
-                view.cn = newCn;
-                me.vdom = vdom;
-
-                setTimeout(() => {
-                    me.afterSetOrderByRow(me.orderByRow, !me.orderByRow);
-                }, 50);
             }
         }
     }
