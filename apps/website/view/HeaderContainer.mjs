@@ -37,6 +37,22 @@ class HeaderContainer extends Container {
                 tag: 'img',
                 src: 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/covid_logo_dark.jpg'
             }
+        }, {
+            ntype: 'button',
+            text : 'Light Theme'
+        }, {
+            ntype: 'button',
+            text : 'View on GitHub'
+        }, {
+            ntype: 'button',
+            text : 'Follow on Facebook'
+        }, {
+            ntype: 'button',
+            text : 'Follow on LinkedIn'
+        }, {
+            ntype: 'button',
+            style: {marginRight: '20px'},
+            text : 'Follow on Twitter'
         }]
     }}
 }
