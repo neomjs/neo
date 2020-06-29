@@ -41,6 +41,15 @@ class List extends BaseList {
                     cn : [{
                         cls : ['neo-title'],
                         html: record.name.replace(/^(.{65}[^\s]*).*/, "$1")
+                    }, {
+                        cls: ['neo-inner-content', 'neo-top-20'],
+                        cn : [{
+                            cls : ['neo-inner-details'],
+                            html: record.browsers.join(', ')
+                        }, {
+                            cls : ['neo-inner-details'],
+                            html: record.environments.join(', ')
+                        }]
                     }]
                 }]
             }]
