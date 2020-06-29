@@ -28,7 +28,8 @@ class HeaderContainer extends Container {
          */
         itemDefaults: {
             ntype       : 'button',
-            iconPosition: 'top'
+            iconPosition: 'top',
+            minWidth    : 77
         },
         /**
          * @member {Array} items
@@ -44,6 +45,10 @@ class HeaderContainer extends Container {
                 tag: 'img',
                 src: 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/covid_logo_dark.jpg'
             }
+        }, {
+            ntype   : 'component',
+            flex    : 10,
+            minWidth: null
         }, {
             iconCls: 'fa fa-sun',
             text   : 'Light</br>Theme'
