@@ -1,6 +1,8 @@
 [
     {
         "backgroundColor": "#666",
+        "browsers"       : ["Chrome"],
+        "environments"   : ["Desktop"],
         "id"             : 1,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/covidDashboard.png",
         "name"           : "Covid Dashboard",
@@ -8,6 +10,8 @@
     },
     {
         "backgroundColor": "#444",
+        "browsers"       : ["Chrome"],
+        "environments"   : ["Desktop"],
         "id"             : 2,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/realworldApp.png",
         "name"           : "RealWorld App",
@@ -15,6 +19,8 @@
     },
     {
         "backgroundColor": "#444",
+        "browsers"       : ["Chrome"],
+        "environments"   : ["Desktop"],
         "id"             : 3,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/coronaGallery.png",
         "name"           : "COVID-19 Gallery",
@@ -22,6 +28,8 @@
     },
     {
         "backgroundColor": "#444",
+        "browsers"       : ["Chrome"],
+        "environments"   : ["Desktop"],
         "id"             : 4,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/coronaHelix.png",
         "name"           : "COVID-19 Helix",
@@ -29,6 +37,8 @@
     },
     {
         "backgroundColor": "#444",
+        "browsers"       : ["Chrome"],
+        "environments"   : ["Desktop"],
         "id"             : 5,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/realworldApp2.png",
         "name"           : "RealWorld App v2</br>(in progress)",
@@ -36,6 +46,8 @@
     },
     {
         "backgroundColor": "#444",
+        "browsers"       : ["Chrome"],
+        "environments"   : ["Desktop"],
         "id"             : 6,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/dateSelector.png",
         "name"           : "component.DateSelector",
@@ -43,6 +55,8 @@
     },
     {
         "backgroundColor": "#444",
+        "browsers"       : ["Chrome"],
+        "environments"   : ["Desktop"],
         "id"             : 7,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/gallery.png",
         "name"           : "component.Gallery",
@@ -50,6 +64,8 @@
     },
     {
         "backgroundColor": "#444",
+        "browsers"       : ["Chrome"],
+        "environments"   : ["Desktop"],
         "id"             : 8,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/helix.png",
         "name"           : "component.Helix",
@@ -57,6 +73,8 @@
     },
     {
         "backgroundColor": "#444",
+        "browsers"       : ["Chrome"],
+        "environments"   : ["Desktop"],
         "id"             : 9,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/dateField.png",
         "name"           : "form.field.Date",
@@ -64,6 +82,8 @@
     },
     {
         "backgroundColor": "#444",
+        "browsers"       : ["Chrome"],
+        "environments"   : ["Desktop"],
         "id"             : 10,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/selectField.png",
         "name"           : "form.field.Select",
@@ -71,6 +91,8 @@
     },
     {
         "backgroundColor": "#444",
+        "browsers"       : ["Chrome"],
+        "environments"   : ["Desktop"],
         "id"             : 11,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/tabContainer.png",
         "name"           : "tab.Container",
@@ -78,6 +100,8 @@
     },
     {
         "backgroundColor": "#444",
+        "browsers"       : ["Chrome"],
+        "environments"   : ["Desktop"],
         "id"             : 12,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/siesta.png",
         "name"           : "Siesta Unit Tests",

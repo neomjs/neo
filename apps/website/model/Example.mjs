@@ -19,6 +19,12 @@ class Example extends Model {
             name: 'backgroundColor',
             type: 'String'
         }, {
+            name: 'browsers',
+            type: 'Array'
+        }, {
+            name: 'environments',
+            type: 'Array'
+        }, {
             name: 'id',
             type: 'Integer'
         }, {
