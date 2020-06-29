@@ -263,11 +263,12 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} value
      * @param {Object} oldValue
-     * @param {String} hashString
      */
-    onHashChange(value, oldValue, hashString) {
-        let me   = this,
-            view = me.view,
+    onHashChange(value, oldValue) {
+        let me         = this,
+            hash       = value.hash,
+            hashString = value.hashString,
+            view       = me.view,
             cards, newView, slug;
 
         if (!view.mounted) { // the initial hash change gets triggered before the vnode got back from the vdom worker (using autoMount)
