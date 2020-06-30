@@ -6,7 +6,7 @@
         "id"             : 1,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/covidDashboard.png",
         "name"           : "Covid Dashboard",
-        "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/examples/component/covid/index.html"
+        "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/apps/covid/index.html"
     },
     {
         "backgroundColor": "#444",
