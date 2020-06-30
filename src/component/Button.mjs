@@ -80,6 +80,16 @@ class Button extends Component {
          */
         text_: '',
         /**
+         * Transforms the button tag into an a tag [optional]
+         * @member {String|null} url_=null
+         */
+        url_: null,
+        /**
+         * If url is set, applies the target attribute on the top level vdom node [optional]
+         * @member {String} urlTarget_='_blank'
+         */
+        urlTarget_: '_blank',
+        /**
          * @member {Object} _vdom
          */
         _vdom: {
@@ -226,6 +236,48 @@ class Button extends Component {
             NeoArray.remove(vdomRoot.cls, 'no-text');
             textNode.removeDom = false;
             textNode.innerHTML = value;
+        }
+
+        me.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the url config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetUrl(value, oldValue) {
+        let me       = this,
+            vdom     = me.vdom,
+            vdomRoot = me.getVdomRoot();
+
+        if (value) {
+            vdomRoot.href = value;
+            vdomRoot.tag  = 'a';
+        } else {
+            delete vdomRoot.href;
+            vdomRoot.tag = 'button';
+        }
+
+        me.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the urlTarget config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetUrlTarget(value, oldValue) {
+        let me       = this,
+            vdom     = me.vdom,
+            vdomRoot = me.getVdomRoot();
+
+        if (me.url) {
+            vdomRoot.target = value;
+        } else {
+            delete vdomRoot.target;
         }
 
         me.vdom = vdom;

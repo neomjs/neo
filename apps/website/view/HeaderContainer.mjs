@@ -50,14 +50,18 @@ class HeaderContainer extends Container {
             handler: 'onSwitchThemeButtonClick',
             iconCls: 'fa fa-sun'
         }, {
-            iconCls: 'fab fa-github'
+            iconCls: 'fab fa-github',
+            url    : 'https://github.com/neomjs/neo'
         }, {
-            iconCls: 'fab fa-facebook-f'
+            iconCls: 'fab fa-facebook-f',
+            url    : 'https://www.facebook.com/Neomjs-101788847886539/'
         }, {
-            iconCls: 'fab fa-linkedin-in'
+            iconCls: 'fab fa-linkedin-in',
+            url    : 'https://www.linkedin.com/company/26254666/'
         }, {
             iconCls: 'fab fa-twitter',
-            style  : {marginRight: '20px'}
+            style  : {marginRight: '20px'},
+            url    : 'https://twitter.com/UhligTobias'
         }]
     }}
 }
