@@ -13,7 +13,7 @@
     }
 
     input[type=range]::-moz-range-track, {
-        background   : #3c3f41;
+        background   : v(rangefield-track-background);
         border-radius: 2px;
         cursor       : pointer;
         height       : 4px;
@@ -22,7 +22,7 @@
     }
 
     input[type=range]::-webkit-slider-runnable-track {
-        background   : #3c3f41;
+        background   : v(rangefield-track-background);
         border-radius: 2px;
         cursor       : pointer;
         height       : 4px;
