@@ -37,24 +37,25 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onSwitchThemeButtonClick(data) {
-        let me       = this,
-            button   = data.component,
-            logo     = me.getReference('logo'),
-            logoPath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
-            vdom     = logo.vdom,
-            view     = me.view,
-            cls, iconCls, theme;
+        let me              = this,
+            button          = data.component,
+            headerContainer = me.getReference('header-container'),
+            style           = headerContainer.style,
+            view            = me.view,
+            cls, color, iconCls, theme;
 
         if (button.iconCls === 'fa fa-sun') {
+            color   = '#666';
             iconCls = 'fa fa-moon';
             theme   = 'neo-theme-light';
         } else {
+            color   = '#2b2b2b';
             iconCls = 'fa fa-sun';
             theme   = 'neo-theme-dark';
         }
 
-        vdom.src = logoPath + (theme === 'neo-theme-dark' ? 'covid_logo_dark.jpg' : 'covid_logo_light.jpg');
-        logo.vdom = vdom;
+        style.backgroundColor = color;
+        headerContainer.style = style;
 
         cls = [...view.cls];
 

@@ -16,9 +16,9 @@ class HeaderContainer extends Container {
          */
         cls: ['website-header-container'],
         /**
-         * @member {Number} height=70
+         * @member {Number} height=170
          */
-        height: 120,
+        height: 170,
         /**
          * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
          */
@@ -34,18 +34,30 @@ class HeaderContainer extends Container {
          */
         items: [{
             ntype    : 'component',
-            minWidth : 267,
+            flex     : 10,
+            minWidth : 340,
             reference: 'logo',
-            style    : {margin: '10px', marginRight: '100px'},
-            width    : 267,
 
             vdom: {
-                tag: 'img',
-                src: 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/covid_logo_dark.jpg'
+                cn: [{
+                    cls  : ['neo-full-size', 'neo-logo']
+                }, {
+                    cls: ['neo-relative'],
+                    cn : [{
+                        cls: ['neo-absolute', 'neo-item-bottom-position'],
+                        cn : [{
+                            cls : ['neo-title'],
+                            html: 'neo.mjs'
+                        }, {
+                            cls: ['neo-inner-content', 'neo-top-10'],
+                            cn : [{
+                                cls : ['neo-inner-details'],
+                                html: 'The webworkers driven UI framework'
+                            }]
+                        }]
+                    }]
+                }]
             }
-        }, {
-            ntype: 'component',
-            flex : 10
         }, {
             handler: 'onSwitchThemeButtonClick',
             iconCls: 'fa fa-sun'
@@ -60,10 +72,19 @@ class HeaderContainer extends Container {
             url    : 'https://www.linkedin.com/company/26254666/'
         }, {
             iconCls: 'fab fa-twitter',
-            style  : {marginRight: '20px'},
+            style  : {marginRight: '10px'},
             url    : 'https://twitter.com/UhligTobias'
         }]
     }}
+
+    constructor(config) {
+        super(config);
+
+        this.style = {
+            backgroundColor: '#2b2b2b',
+            backgroundImage: `url('https://raw.githubusercontent.com/neomjs/pages/master/resources/website/neo-background.png')`
+        };
+    }
 }
 
 Neo.applyClassConfig(HeaderContainer);
