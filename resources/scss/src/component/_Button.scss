@@ -18,6 +18,7 @@
     margin             : v(button-margin);
     padding            : v(button-padding);
     position           : relative;
+    text-decoration    : none; // for url buttons => links
     white-space        : nowrap;
     -webkit-appearance : button;
 

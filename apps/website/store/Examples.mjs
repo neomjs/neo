@@ -26,11 +26,7 @@ class Examples extends Store {
         sorters: [{
             property : 'id',
             direction: 'ASC'
-        }],
-        /**
-         * @member {String} url='../../apps/website/data/examples_devmode.json'
-         */
-        url: '../../apps/website/data/examples_devmode.json'
+        }]
     }}
 }
 

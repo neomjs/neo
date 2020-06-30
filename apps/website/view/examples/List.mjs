@@ -19,8 +19,34 @@ class List extends BaseList {
         /**
          * @member {Neo.data.Store} store=Examples
          */
-        store: Examples
+        store: Examples,
+        /**
+         * @member {String|null} storeUrl_=null
+         */
+        storeUrl_: null
     }}
+
+    /**
+     * Triggered before the store config gets changed.
+     * @param {Object|Neo.data.Store} value
+     * @param {Object|Neo.data.Store} oldValue
+     * @returns {Neo.data.Store}
+     * @protected
+     */
+    beforeSetStore(value, oldValue) {
+        if (value) {
+            if (value.isClass) {
+                value = {
+                    module: value,
+                    url   : this.storeUrl
+                };
+            } else if (Neo.isObject(value)) {
+                value.url = this.storeUrl;
+            }
+        }
+
+        return super.beforeSetStore(value, oldValue);
+    }
 
     /**
      * @param {Object} record

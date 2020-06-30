@@ -1,6 +1,5 @@
-import {default as Component} from '../../../../src/component/Base.mjs';
-import Container              from '../../../../src/tab/Container.mjs';
-import List                   from './List.mjs';
+import Container from '../../../../src/tab/Container.mjs';
+import List      from './List.mjs';
 
 /**
  * @class Website.view.examples.TabContainer
@@ -19,28 +18,27 @@ class TabContainer extends Container {
         items: [{
             module         : List,
             reference      : 'examples-devmode-list',
+            storeUrl       : '../../apps/website/data/examples_devmode.json',
             tabButtonConfig: {
                 iconCls: 'fa fa-images',
                 text   : 'development mode'
             }
         }, {
-            module         : Component,
-            cls            : ['neo-examples-tab-component'],
-            style          : {padding: '20px'},
+            module         : List,
+            reference      : 'examples-dist-dev-list',
+            storeUrl       : '../../apps/website/data/examples_dist_dev.json',
             tabButtonConfig: {
                 iconCls: 'fa fa-play-circle',
                 text   : 'dist/development'
-            },
-            vdom: {innerHTML: 'dist/development'}
+            }
         }, {
-            module         : Component,
-            cls            : ['neo-examples-tab-component'],
-            style          : {padding: '20px'},
+            module         : List,
+            reference      : 'examples-dist-prod-list',
+            storeUrl       : '../../apps/website/data/examples_dist_prod.json',
             tabButtonConfig: {
                 iconCls: 'fa fa-home',
                 text   : 'dist/production'
-            },
-            vdom: {innerHTML: 'dist/production'}
+            }
         }],
         /**
          * @member {String} tabBarPosition='left'
