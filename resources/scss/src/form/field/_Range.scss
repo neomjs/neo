@@ -31,7 +31,7 @@
     }
 
     input[type=range]::-moz-range-thumb {
-        background   : #bbb;
+        background   : v(rangefield-thumb-background);
         border-color : #3c3f41;
         border-radius: 50%;
         cursor       : ew-resize;
@@ -40,15 +40,13 @@
         width        : 15px;
         will-change  : box-shadow;
 
-        -webkit-appearance: none;
-
         &:active {
             box-shadow: 0 0 0 4px rgba(51, 153, 204, 0.49);
         }
     }
 
     input[type=range]::-webkit-slider-thumb {
-        background   : #bbb;
+        background   : v(rangefield-thumb-background);
         border-color : #3c3f41;
         border-radius: 50%;
         cursor       : ew-resize;
