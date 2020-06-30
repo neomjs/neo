@@ -51,7 +51,7 @@ class MainContainer extends Viewport {
             }, {
                 module         : BlogContainer,
                 tabButtonConfig: {
-                    iconCls: 'fa fa-play-circle',
+                    iconCls: 'fa fa-rss',
                     route  : 'mainview=blog',
                     text   : 'Blog'
                 }
@@ -67,7 +67,7 @@ class MainContainer extends Viewport {
                 cls   : ['neo-examples-tab-component'],
                 style : {padding: '20px'},
                 tabButtonConfig: {
-                    iconCls: 'fa fa-table',
+                    iconCls: 'fa fa-hands-helping',
                     route  : 'mainview=docs',
                     text   : 'Docs'
                 },
