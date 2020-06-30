@@ -1,4 +1,6 @@
 .website-header-container {
+    background-blend-mode: overlay;
+
     .neo-button {
         max-height: 50px;
         max-width : 50px;
@@ -7,5 +9,49 @@
             font-size: 30px;
             margin   : 0 !important;
         }
+    }
+
+    .neo-absolute {
+        position: absolute;
+    }
+
+    .neo-full-size {
+        height: 100%;
+        width : 100%;
+    }
+
+    .neo-inner-details {
+        color      : #fff;
+        font-size  : 16px;
+        line-height: 22px;
+        text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
+    }
+
+    .neo-logo {
+        background-repeat    : no-repeat;
+        height               : 100%;
+        margin-left          : 10px;
+    }
+
+    .neo-item-bottom-position {
+        bottom: 0;
+        left  : 0;
+        margin: 24px 32px;
+    }
+
+    .neo-relative {
+        position: relative;
+    }
+
+    .neo-title {
+        color      : #fff;
+        font-size  : 34px;
+        font-weight: 600;
+        line-height: 1;
+        text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
+    }
+
+    .neo-top-10 {
+        margin-top: 10px;
     }
 }

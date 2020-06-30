@@ -34,12 +34,13 @@ class MainContainer extends Viewport {
          * @member {Array} items
          */
         items: [{
-            module: HeaderContainer
+            module   : HeaderContainer,
+            reference: 'header-container'
         }, {
             module     : TabContainer,
             activeIndex: 2, // todo: remove, just for development
             flex       : 1,
-            style      : {margin: '20px'},
+            style      : {margin: '10px'},
 
             items: [{
                 module         : HomeTabContainer,
