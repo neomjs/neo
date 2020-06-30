@@ -18,6 +18,7 @@ class TabContainer extends Container {
         items: [{
             module         : List,
             reference      : 'examples-devmode-list',
+            storeUrl       : '../../apps/website/data/examples_devmode.json',
             tabButtonConfig: {
                 iconCls: 'fa fa-images',
                 text   : 'development mode'
@@ -25,6 +26,7 @@ class TabContainer extends Container {
         }, {
             module         : List,
             reference      : 'examples-dist-dev-list',
+            storeUrl       : '../../apps/website/data/examples_dist_dev.json',
             tabButtonConfig: {
                 iconCls: 'fa fa-play-circle',
                 text   : 'dist/development'
@@ -32,6 +34,7 @@ class TabContainer extends Container {
         }, {
             module         : List,
             reference      : 'examples-dist-prod-list',
+            storeUrl       : '../../apps/website/data/examples_dist_prod.json',
             tabButtonConfig: {
                 iconCls: 'fa fa-home',
                 text   : 'dist/production'
