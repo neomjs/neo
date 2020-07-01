@@ -393,7 +393,16 @@ class Base extends Component {
      *
      */
     onStoreLoad() {
-        this.createItems();
+        let me = this;
+
+        if (!me.mounted && me.rendering) {
+            const listenerId = me.on('rendered', () => {
+                me.un('rendered', listenerId);
+                me.createItems();
+            });
+        } else {
+            me.createItems();
+        }
     }
 
     /**

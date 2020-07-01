@@ -227,7 +227,7 @@ class Store extends Base {
             url: me.url
         }).then(data => {
             me.data = Array.isArray(data.json) ? data.json : data.json.data;
-            me.fire('load', me.items);
+            // we do not need to fire a load event => onCollectionMutate()
         }).catch(err => {
             console.log('Error for Neo.Xhr.request', err, me.id);
         });
