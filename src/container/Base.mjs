@@ -184,6 +184,24 @@ class Base extends Component {
     }
 
     /**
+     * Triggered after the rendering config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetRendering(value, oldValue) {
+        if (oldValue !== undefined) {
+            let items = this.items,
+                i     = 0,
+                len   = items.length;
+
+            for (; i < len; i++) {
+                items[i].rendering = value;
+            }
+        }
+    }
+
+    /**
      *
      * @param {Object|String} value
      * @returns {Neo.layout.Base}
