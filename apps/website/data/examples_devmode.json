@@ -4,6 +4,15 @@
         "browsers"       : ["Chrome"],
         "environments"   : ["Desktop"],
         "id"             : 1,
+        "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/sharedcovid.png",
+        "name"           : "Multi Window Covid App",
+        "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/apps/sharedcovid/index.html#mainview=table"
+    },
+    {
+        "backgroundColor": "#666",
+        "browsers"       : ["Chrome"],
+        "environments"   : ["Desktop"],
+        "id"             : 2,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/covidDashboard.png",
         "name"           : "Covid Dashboard",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/apps/covid/index.html"
@@ -12,7 +21,7 @@
         "backgroundColor": "#444",
         "browsers"       : ["Chrome"],
         "environments"   : ["Desktop"],
-        "id"             : 2,
+        "id"             : 3,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/realworldApp.png",
         "name"           : "RealWorld App",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/apps/realworld/index.html"
@@ -21,7 +30,7 @@
         "backgroundColor": "#444",
         "browsers"       : ["Chrome"],
         "environments"   : ["Desktop"],
-        "id"             : 3,
+        "id"             : 4,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/coronaGallery.png",
         "name"           : "COVID-19 Gallery",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/examples/component/coronaGallery/index.html"
@@ -30,7 +39,7 @@
         "backgroundColor": "#444",
         "browsers"       : ["Chrome"],
         "environments"   : ["Desktop"],
-        "id"             : 4,
+        "id"             : 5,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/coronaHelix.png",
         "name"           : "COVID-19 Helix",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/examples/component/coronaHelix/index.html"
@@ -39,7 +48,7 @@
         "backgroundColor": "#444",
         "browsers"       : ["Chrome"],
         "environments"   : ["Desktop"],
-        "id"             : 5,
+        "id"             : 6,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/realworldApp2.png",
         "name"           : "RealWorld App v2</br>(in progress)",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/apps/realworld2/index.html#/gallery"
@@ -48,7 +57,7 @@
         "backgroundColor": "#444",
         "browsers"       : ["Chrome"],
         "environments"   : ["Desktop"],
-        "id"             : 6,
+        "id"             : 7,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/dateSelector.png",
         "name"           : "component.DateSelector",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/examples/component/dateSelector/index.html"
@@ -57,7 +66,7 @@
         "backgroundColor": "#444",
         "browsers"       : ["Chrome"],
         "environments"   : ["Desktop"],
-        "id"             : 7,
+        "id"             : 8,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/gallery.png",
         "name"           : "component.Gallery",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/examples/component/gallery/index.html"
@@ -66,7 +75,7 @@
         "backgroundColor": "#444",
         "browsers"       : ["Chrome"],
         "environments"   : ["Desktop"],
-        "id"             : 8,
+        "id"             : 9,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/helix.png",
         "name"           : "component.Helix",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/examples/component/helix/index.html"
@@ -75,7 +84,7 @@
         "backgroundColor": "#444",
         "browsers"       : ["Chrome"],
         "environments"   : ["Desktop"],
-        "id"             : 9,
+        "id"             : 10,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/dateField.png",
         "name"           : "form.field.Date",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/examples/form/field/date/index.html"
@@ -84,7 +93,7 @@
         "backgroundColor": "#444",
         "browsers"       : ["Chrome"],
         "environments"   : ["Desktop"],
-        "id"             : 10,
+        "id"             : 11,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/selectField.png",
         "name"           : "form.field.Select",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/examples/form/field/select/index.html"
@@ -93,7 +102,7 @@
         "backgroundColor": "#444",
         "browsers"       : ["Chrome"],
         "environments"   : ["Desktop"],
-        "id"             : 11,
+        "id"             : 12,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/tabContainer.png",
         "name"           : "tab.Container",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/examples/tab/container/index.html"
@@ -102,7 +111,7 @@
         "backgroundColor": "#444",
         "browsers"       : ["Chrome"],
         "environments"   : ["Desktop"],
-        "id"             : 12,
+        "id"             : 13,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/siesta.png",
         "name"           : "Siesta Unit Tests",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/test/siesta/index.html"
