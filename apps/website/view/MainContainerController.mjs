@@ -30,6 +30,7 @@ class MainContainerController extends ComponentController {
             examplesList.store.load();
             me.getReference('examples-dist-dev-list').store.load();
             me.getReference('examples-dist-prod-list').store.load();
+            me.getReference('docs-list').store.load();
         }, 10);
     }
 

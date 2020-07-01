@@ -1,5 +1,6 @@
 import BlogContainer             from './blog/Container.mjs';
 import {default as Component}    from '../../../src/component/Base.mjs';
+import {default as ExamplesList} from './examples/List.mjs';
 import ExamplesTabContainer      from './examples/TabContainer.mjs';
 import HeaderContainer           from './HeaderContainer.mjs';
 import HomeTabContainer          from './home/TabContainer.mjs';
@@ -64,15 +65,14 @@ class MainContainer extends Viewport {
                     text   : 'Examples'
                 }
             }, {
-                module: Component,
-                cls   : ['neo-examples-tab-component'],
-                style : {padding: '20px'},
+                module         : ExamplesList,
+                reference      : 'docs-list',
+                storeUrl       : '../../apps/website/data/docs.json',
                 tabButtonConfig: {
                     iconCls: 'fa fa-hands-helping',
                     route  : 'mainview=docs',
                     text   : 'Docs'
-                },
-                vdom: {innerHTML: 'Docs'}
+                }
             }]
         }]
     }}
