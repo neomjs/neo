@@ -35,6 +35,37 @@ class MainContainerController extends ComponentController {
     }
 
     /**
+     *
+     * @param {Object} value
+     * @param {Object} oldValue
+     */
+    onHashChange(value, oldValue) {
+        let me           = this,
+            hash         = value && value.hash,
+            tabContainer = me.getReference('main-tab-container'),
+            activeIndex  = -1;
+
+        switch (hash.mainview) {
+            case 'home':
+                activeIndex = 0;
+                break;
+            case 'blog':
+                activeIndex = 1;
+                break;
+            case 'examples':
+                activeIndex = 2;
+                break;
+            case 'docs':
+                activeIndex = 3;
+                break;
+        }
+
+        if (activeIndex > -1) {
+            tabContainer.activeIndex = activeIndex
+        }
+    }
+
+    /**
      * @param {Object} data
      */
     onSwitchThemeButtonClick(data) {
