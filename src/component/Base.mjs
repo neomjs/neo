@@ -170,7 +170,7 @@ class Base extends CoreBase {
          * @member {Boolean} rendering_=false
          * @protected
          */
-        rendering: false,
+        rendering_: false,
         /**
          * Set this to true for bulk updates.
          * Ensure to set it back to false afterwards.

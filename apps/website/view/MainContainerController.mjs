@@ -16,22 +16,69 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @param {Object} value
+     * @param {Object} oldValue
      */
-    onConstructed() {
-        super.onConstructed();
+    onHashChange(value, oldValue) {
+        let me               = this,
+            hash             = value && value.hash,
+            tabContainer     = me.getReference('main-tab-container'),
+            activeChildIndex = -1,
+            activeIndex      = -1,
+            store;
 
-        // todo: move once routes are in place
-        setTimeout(() => {
-            let me           = this,
-                blogList     = me.getReference('blog-list'),
-                examplesList = me.getReference('examples-devmode-list');
+        switch (hash.mainview) {
+            case 'home':
+                activeIndex = 0;
 
-            blogList    .store.load();
-            examplesList.store.load();
-            me.getReference('examples-dist-dev-list').store.load();
-            me.getReference('examples-dist-prod-list').store.load();
-            me.getReference('docs-list').store.load();
-        }, 10);
+                switch (hash.childview) {
+                    case 'developers':
+                        activeChildIndex = 0;
+                        break;
+                    default:
+                        activeChildIndex = 1;
+                        break;
+                }
+
+                me.getReference('home-tab-container').activeIndex = activeChildIndex;
+                break;
+            case 'blog':
+                activeIndex = 1;
+                store       = me.getReference('blog-list').store;
+                break;
+            case 'examples':
+                activeIndex = 2;
+
+                switch (hash.childview) {
+                    case 'devmode':
+                        activeChildIndex = 0;
+                        store            = me.getReference('examples-devmode-list').store;
+                        break;
+                    case 'dist_dev':
+                        activeChildIndex = 1;
+                        store            = me.getReference('examples-dist-dev-list').store;
+                        break;
+                    default:
+                        activeChildIndex = 2;
+                        store            = me.getReference('examples-dist-prod-list').store;
+                        break;
+                }
+
+                me.getReference('examples-tab-container').activeIndex = activeChildIndex;
+                break;
+            case 'docs':
+                activeIndex = 3;
+                store       = me.getReference('docs-list').store;
+                break;
+        }
+
+        if (activeIndex > -1) {
+            tabContainer.activeIndex = activeIndex;
+        }
+
+        if (store && store.getCount() < 1) {
+            store.load();
+        }
     }
 
     /**

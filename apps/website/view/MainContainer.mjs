@@ -38,40 +38,46 @@ class MainContainer extends Viewport {
             module   : HeaderContainer,
             reference: 'header-container'
         }, {
-            module     : TabContainer,
-            activeIndex: 2, // todo: remove, just for development
-            flex       : 1,
-            style      : {margin: '10px'},
+            module   : TabContainer,
+            flex     : 1,
+            reference: 'main-tab-container',
+            style    : {margin: '10px'},
 
             items: [{
                 module         : HomeTabContainer,
+                reference      : 'home-tab-container',
                 tabButtonConfig: {
-                    iconCls: 'fa fa-home',
-                    route  : 'mainview=home',
-                    text   : 'Home'
+                    editRoute: false,
+                    iconCls  : 'fa fa-home',
+                    route    : 'mainview=home',
+                    text     : 'Home'
                 }
             }, {
                 module         : BlogContainer,
                 tabButtonConfig: {
-                    iconCls: 'fa fa-rss',
-                    route  : 'mainview=blog',
-                    text   : 'Blog'
+                    editRoute: false,
+                    iconCls  : 'fa fa-rss',
+                    route    : 'mainview=blog',
+                    text     : 'Blog'
                 }
             }, {
                 module         : ExamplesTabContainer,
+                reference      : 'examples-tab-container',
                 tabButtonConfig: {
-                    iconCls: 'fa fa-images',
-                    route  : 'mainview=examples',
-                    text   : 'Examples'
+                    editRoute: false,
+                    iconCls  : 'fa fa-images',
+                    route    : 'mainview=examples',
+                    text     : 'Examples'
                 }
             }, {
                 module         : ExamplesList,
                 reference      : 'docs-list',
                 storeUrl       : '../../apps/website/data/docs.json',
                 tabButtonConfig: {
-                    iconCls: 'fa fa-hands-helping',
-                    route  : 'mainview=docs',
-                    text   : 'Docs'
+                    editRoute: false,
+                    iconCls  : 'fa fa-hands-helping',
+                    route    : 'mainview=docs',
+                    text     : 'Docs'
                 }
             }]
         }]
