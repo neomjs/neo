@@ -1,7 +1,7 @@
 [
     {
         "backgroundColor": "#666",
-        "browsers"       : ["Chrome"],
+        "browsers"       : ["Chrome v83+ (SharedWorkers)"],
         "environments"   : ["Desktop"],
         "id"             : 1,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/sharedcovid.png",
