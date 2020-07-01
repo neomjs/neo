@@ -1,6 +1,6 @@
 [
     {
-        "backgroundColor": "#444",
+        "backgroundColor": "#555",
         "browsers"       : ["Chrome (including more examples)"],
         "environments"   : ["Desktop"],
         "id"             : 1,
@@ -9,7 +9,7 @@
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/docs/index.html"
     },
     {
-        "backgroundColor": "#444",
+        "backgroundColor": "#777",
         "browsers"       : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments"   : ["Desktop"],
         "id"             : 2,
@@ -18,7 +18,7 @@
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/docs/index.html"
     },
     {
-        "backgroundColor": "#666",
+        "backgroundColor": "#555",
         "browsers"       : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments"   : ["Desktop"],
         "id"             : 3,
