@@ -3,6 +3,7 @@
 
     .neo-list-item {
         border       : 1px solid #282829;
+        cursor       : default;
         display      : flex;
         height       : 400px;
         margin-bottom: 10px;
@@ -42,11 +43,12 @@
         }
 
         .neo-title {
-            color      : #fff;
-            font-size  : 34px;
-            font-weight: 600;
-            line-height: 1;
-            text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
+            color          : #fff;
+            font-size      : 34px;
+            font-weight    : 600;
+            line-height    : 1;
+            text-decoration: none;
+            text-shadow    : 1px 1px 1px #000, 1px 1px 1px #fff;
         }
 
         .neo-top-20 {

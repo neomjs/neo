@@ -74,6 +74,12 @@
             "title": "SharedCovid MapboxGL Map",
             "mainThreadAddons": "'MapboxGL', 'Stylesheet'",
             "useSharedWorkers": true
+        },
+        "Website": {
+            "input": "myApps/Website.mjs",
+            "output": "/apps/website/",
+            "themes": "'neo-theme-dark', 'neo-theme-light'",
+            "title": "neo.mjs - Website"
         }
     }
 }
