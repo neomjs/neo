@@ -1,0 +1,29 @@
+[
+    {
+        "backgroundColor": "#444",
+        "browsers"       : ["Chrome"],
+        "environments"   : ["Desktop"],
+        "id"             : 1,
+        "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/coronaGallery.png",
+        "name"           : "Docs App</br>Dev mode (including more examples)",
+        "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/docs/index.html"
+    },
+    {
+        "backgroundColor": "#444",
+        "browsers"       : ["Chrome", "Edge", "Firefox", "Safari"],
+        "environments"   : ["Desktop"],
+        "id"             : 2,
+        "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/realworldApp.png",
+        "name"           : "Docs App</br>dist development",
+        "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/docs/index.html"
+    },
+    {
+        "backgroundColor": "#666",
+        "browsers"       : ["Chrome", "Edge", "Firefox", "Safari"],
+        "environments"   : ["Desktop"],
+        "id"             : 3,
+        "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/covidDashboard.png",
+        "name"           : "Docs App</br>dist production",
+        "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html"
+    }
+]
