@@ -4,7 +4,7 @@
         "browsers"       : ["Chrome (including more examples)"],
         "environments"   : ["Desktop"],
         "id"             : 1,
-        "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/coronaGallery.png",
+        "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/docs.png",
         "name"           : "Docs App</br>Development Mode",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/docs/index.html"
     },
@@ -13,7 +13,7 @@
         "browsers"       : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments"   : ["Desktop"],
         "id"             : 2,
-        "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/realworldApp.png",
+        "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/dist_dev/docs.png",
         "name"           : "Docs App</br>dist/development",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/docs/index.html"
     },
@@ -22,7 +22,7 @@
         "browsers"       : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments"   : ["Desktop"],
         "id"             : 3,
-        "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/covidDashboard.png",
+        "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/dist_prod/docs.png",
         "name"           : "Docs App</br>dist/production",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html"
     }
