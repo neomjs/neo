@@ -46,32 +46,36 @@ class MainContainer extends Viewport {
             items: [{
                 module         : HomeTabContainer,
                 tabButtonConfig: {
-                    iconCls: 'fa fa-home',
-                    route  : 'mainview=home',
-                    text   : 'Home'
+                    editRoute: false,
+                    iconCls  : 'fa fa-home',
+                    route    : 'mainview=home',
+                    text     : 'Home'
                 }
             }, {
                 module         : BlogContainer,
                 tabButtonConfig: {
-                    iconCls: 'fa fa-rss',
-                    route  : 'mainview=blog',
-                    text   : 'Blog'
+                    editRoute: false,
+                    iconCls  : 'fa fa-rss',
+                    route    : 'mainview=blog',
+                    text     : 'Blog'
                 }
             }, {
                 module         : ExamplesTabContainer,
                 tabButtonConfig: {
-                    iconCls: 'fa fa-images',
-                    route  : 'mainview=examples',
-                    text   : 'Examples'
+                    editRoute: false,
+                    iconCls  : 'fa fa-images',
+                    route    : 'mainview=examples',
+                    text     : 'Examples'
                 }
             }, {
                 module         : ExamplesList,
                 reference      : 'docs-list',
                 storeUrl       : '../../apps/website/data/docs.json',
                 tabButtonConfig: {
-                    iconCls: 'fa fa-hands-helping',
-                    route  : 'mainview=docs',
-                    text   : 'Docs'
+                    editRoute: false,
+                    iconCls  : 'fa fa-hands-helping',
+                    route    : 'mainview=docs',
+                    text     : 'Docs'
                 }
             }]
         }]
