@@ -16,33 +16,11 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        return;
-        // todo: move once routes are in place
-        setTimeout(() => {
-            let me           = this,
-                blogList     = me.getReference('blog-list'),
-                examplesList = me.getReference('examples-devmode-list');
-
-            blogList    .store.load();
-            examplesList.store.load();
-            me.getReference('examples-dist-dev-list').store.load();
-            me.getReference('examples-dist-prod-list').store.load();
-            me.getReference('docs-list').store.load();
-        }, 10);
-    }
-
-    /**
-     *
      * @param {Object} value
      * @param {Object} oldValue
      */
     onHashChange(value, oldValue) {
         let me               = this,
-            view             = me.view,
             hash             = value && value.hash,
             tabContainer     = me.getReference('main-tab-container'),
             activeChildIndex = -1,
@@ -52,6 +30,17 @@ class MainContainerController extends ComponentController {
         switch (hash.mainview) {
             case 'home':
                 activeIndex = 0;
+
+                switch (hash.childview) {
+                    case 'developers':
+                        activeChildIndex = 0;
+                        break;
+                    default:
+                        activeChildIndex = 1;
+                        break;
+                }
+
+                me.getReference('home-tab-container').activeIndex = activeChildIndex;
                 break;
             case 'blog':
                 activeIndex = 1;

@@ -45,6 +45,7 @@ class MainContainer extends Viewport {
 
             items: [{
                 module         : HomeTabContainer,
+                reference      : 'home-tab-container',
                 tabButtonConfig: {
                     editRoute: false,
                     iconCls  : 'fa fa-home',
