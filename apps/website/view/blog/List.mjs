@@ -40,8 +40,13 @@ class List extends BaseList {
                 cn : [{
                     cls: ['neo-absolute', 'neo-item-bottom-position'],
                     cn : [{
-                        cls : ['neo-title'],
-                        html: record.name.replace(/^(.{65}[^\s]*).*/, "$1")
+                        cls   : ['neo-title'],
+                        href  : record.url,
+                        tag   : 'a',
+                        target: '_blank',
+                        cn    : [{
+                            html: record.name.replace(/^(.{65}[^\s]*).*/, "$1")
+                        }]
                     }, {
                         cls: ['neo-top-20'],
                         cn : [{
