@@ -61,6 +61,7 @@ class MainContainer extends Viewport {
                 }
             }, {
                 module         : ExamplesTabContainer,
+                reference      : 'examples-tab-container',
                 tabButtonConfig: {
                     editRoute: false,
                     iconCls  : 'fa fa-images',

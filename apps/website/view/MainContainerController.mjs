@@ -20,6 +20,7 @@ class MainContainerController extends ComponentController {
     onConstructed() {
         super.onConstructed();
 
+        return;
         // todo: move once routes are in place
         setTimeout(() => {
             let me           = this,
@@ -40,10 +41,13 @@ class MainContainerController extends ComponentController {
      * @param {Object} oldValue
      */
     onHashChange(value, oldValue) {
-        let me           = this,
-            hash         = value && value.hash,
-            tabContainer = me.getReference('main-tab-container'),
-            activeIndex  = -1;
+        let me               = this,
+            view             = me.view,
+            hash             = value && value.hash,
+            tabContainer     = me.getReference('main-tab-container'),
+            activeChildIndex = -1,
+            activeIndex      = -1,
+            store;
 
         switch (hash.mainview) {
             case 'home':
@@ -51,17 +55,40 @@ class MainContainerController extends ComponentController {
                 break;
             case 'blog':
                 activeIndex = 1;
+                store       = me.getReference('blog-list').store;
                 break;
             case 'examples':
                 activeIndex = 2;
+
+                switch (hash.childview) {
+                    case 'devmode':
+                        activeChildIndex = 0;
+                        store            = me.getReference('examples-devmode-list').store;
+                        break;
+                    case 'dist_dev':
+                        activeChildIndex = 1;
+                        store            = me.getReference('examples-dist-dev-list').store;
+                        break;
+                    default:
+                        activeChildIndex = 2;
+                        store            = me.getReference('examples-dist-prod-list').store;
+                        break;
+                }
+
+                me.getReference('examples-tab-container').activeIndex = activeChildIndex;
                 break;
             case 'docs':
                 activeIndex = 3;
+                store       = me.getReference('docs-list').store;
                 break;
         }
 
         if (activeIndex > -1) {
-            tabContainer.activeIndex = activeIndex
+            tabContainer.activeIndex = activeIndex;
+        }
+
+        if (store && store.getCount() < 1) {
+            store.load();
         }
     }
 

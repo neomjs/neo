@@ -13,6 +13,10 @@ class TabContainer extends Container {
          */
         className: 'Website.view.examples.TabContainer',
         /**
+         * @member {Number} activeIndex=2
+         */
+        activeIndex: 2,
+        /**
          * @member {Array} items
          */
         items: [{
