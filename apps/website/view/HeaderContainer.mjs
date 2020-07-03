@@ -52,7 +52,7 @@ class HeaderContainer extends Container {
                             cls: ['neo-inner-content', 'neo-top-10'],
                             cn : [{
                                 cls : ['neo-inner-details'],
-                                html: 'The webworkers driven UI framework'
+                                html: 'Create multithreaded Web Apps'
                             }]
                         }]
                     }]
