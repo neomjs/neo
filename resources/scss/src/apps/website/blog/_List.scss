@@ -69,7 +69,7 @@
         .neo-top-20 {
             align-items: center;
             display    : flex;
-            margin-top : 20px;
+            transition : margin 250ms ease-out;
         }
 
         .neo-user-image {
@@ -106,16 +106,20 @@
             font-size: 12px;
             left     : 15%;
             margin   : 9px 12px;
-            top      : -220px;
+            top      : -200px;
         }
 
         .neo-list-item {
-            height       : 220px;
+            height       : 200px;
             margin-bottom: 5px;
         }
 
         .neo-title {
             font-size: 20px;
+        }
+
+        .neo-top-20 {
+            margin-top: 15px;
         }
 
         .neo-user-image {
@@ -154,6 +158,10 @@
 
         .neo-title {
             font-size: 34px;
+        }
+
+        .neo-top-20 {
+            margin-top: 20px;
         }
 
         .neo-user-image {
