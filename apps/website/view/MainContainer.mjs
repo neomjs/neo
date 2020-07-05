@@ -36,6 +36,7 @@ class MainContainer extends Viewport {
          */
         items: [{
             module   : HeaderContainer,
+            flex     : 'none',
             reference: 'header-container'
         }, {
             module   : TabContainer,

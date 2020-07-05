@@ -16,10 +16,6 @@ class HeaderContainer extends Container {
          */
         cls: ['website-header-container'],
         /**
-         * @member {Number} height=170
-         */
-        height: 170,
-        /**
          * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
          */
         layout: {ntype: 'hbox', align: 'stretch'},
