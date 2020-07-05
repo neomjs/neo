@@ -31,10 +31,9 @@
         }
 
         .neo-item-bottom-position {
-            bottom: 0;
-            left  : 0;
-            margin: 30px 40px;
-            right : 30%;
+            bottom    : 0;
+            left      : 0;
+            transition: margin 250ms ease-out;
         }
 
         .neo-relative {
@@ -68,6 +67,11 @@
             line-height: 16px;
         }
 
+        .neo-item-bottom-position {
+            margin: 9px 12px;
+            right : 15%;
+        }
+
         .neo-list-item {
             height       : 220px;
             margin-bottom: 5px;
@@ -84,6 +88,11 @@
         .neo-inner-details {
             font-size  : 16px;
             line-height: 22px;
+        }
+
+        .neo-item-bottom-position {
+            margin: 30px 40px;
+            right : 30%;
         }
 
         .neo-list-item {
