@@ -188,7 +188,7 @@
         "date"           : "Jan 3, 2020",
         "id"             : 3,
         "image"          : "release-announcement-npx-neo-app.png",
-        "name"           : "Release announcement: npx neo-app",
+        "name"           : "Release announcement:</br>npx neo-app",
         "provider"       : "Medium",
         "publisher"      : "",
         "selectedInto"   : [],
