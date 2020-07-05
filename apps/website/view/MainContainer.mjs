@@ -1,5 +1,4 @@
 import BlogContainer             from './blog/Container.mjs';
-import {default as Component}    from '../../../src/component/Base.mjs';
 import {default as ExamplesList} from './examples/List.mjs';
 import ExamplesTabContainer      from './examples/TabContainer.mjs';
 import HeaderContainer           from './HeaderContainer.mjs';
@@ -24,6 +23,10 @@ class MainContainer extends Viewport {
          */
         autoMount: true,
         /**
+         * @member {String[]} cls=['website-header-container']
+         */
+        cls: ['website-main-container', 'neo-viewport'],
+        /**
          * @member {Neo.controller.Component} controller=MainContainerController
          */
         controller: MainContainerController,
@@ -40,9 +43,9 @@ class MainContainer extends Viewport {
             reference: 'header-container'
         }, {
             module   : TabContainer,
+            cls      : ['website-main-tabcontainer', 'neo-tab-container'],
             flex     : 1,
             reference: 'main-tab-container',
-            style    : {margin: '10px'},
 
             items: [{
                 module         : HomeTabContainer,
