@@ -2,14 +2,13 @@
     transition: padding 250ms ease-out;
 
     .neo-list-item {
-        border       : 1px solid #282829;
-        cursor       : default;
-        display      : flex;
-        height       : 400px;
-        margin-bottom: 10px;
-        padding      : 0;
-        white-space  : normal;
-        width        : 800px;
+        border     : 1px solid #282829;
+        cursor     : default;
+        display    : flex;
+        padding    : 0;
+        transition : height 250ms ease-out, margin-bottom 250ms ease-out;
+        white-space: normal;
+        width      : 800px;
 
         .content {
             flex: 1;
@@ -64,9 +63,19 @@
 
     @media (max-height: 400px), (max-width: 600px) {
         padding: 5px;
+
+        .neo-list-item {
+            height       : 220px;
+            margin-bottom: 5px;
+        }
     }
 
     @media (min-height: 401px) and (min-width: 601px) {
         padding: 10px;
+
+        .neo-list-item {
+            height       : 400px;
+            margin-bottom: 10px;
+        }
     }
 }
