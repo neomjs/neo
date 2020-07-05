@@ -6,10 +6,11 @@
         cursor     : default;
         display    : flex;
         height     : 400px;
+        max-width  : 800px;
         padding    : 0;
         transition : margin-bottom 250ms ease-out;
         white-space: normal;
-        width      : 800px;
+        width      : 100%;
 
         .content {
             flex: 1;
