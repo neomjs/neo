@@ -81,8 +81,7 @@
         .neo-user-image {
             border-radius: 50%;
             display      : inline-block;
-            height       : 44px;
-            width        : 44px;
+            transition   : height 250ms ease-out, width 250ms ease-out;
         }
 
         .preview-image {
@@ -115,6 +114,11 @@
         .neo-title {
             font-size: 20px;
         }
+
+        .neo-user-image {
+            height: 30px;
+            width : 30px;
+        }
     }
 
     @media (min-height: 401px) and (min-width: 601px) {
@@ -138,6 +142,11 @@
 
         .neo-title {
             font-size: 34px;
+        }
+
+        .neo-user-image {
+            height: 44px;
+            width : 44px;
         }
     }
 }
