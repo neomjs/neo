@@ -38,9 +38,9 @@
     }
 
     .neo-item-bottom-position {
-        bottom: 0;
-        left  : 0;
-        margin: 24px 32px;
+        bottom    : 0;
+        left      : 0;
+        transition: margin 250ms ease-out;
     }
 
     .neo-relative {
@@ -62,7 +62,7 @@
     }
 
     @media (max-width: 600px) {
-        height: 70px;
+        height: 55px;
 
         .neo-button {
             height: 30px;
@@ -74,8 +74,12 @@
         }
 
         .neo-inner-content {
-            font-size : 11px;
+            font-size : 12px;
             margin-top: 0;
+        }
+
+        .neo-item-bottom-position {
+            margin: 2px 10px;
         }
 
         .neo-title {
@@ -98,6 +102,10 @@
         .neo-inner-content {
             font-size : 16px;
             margin-top: 10px;
+        }
+
+        .neo-item-bottom-position {
+            margin: 24px 32px;
         }
 
         .neo-title {
