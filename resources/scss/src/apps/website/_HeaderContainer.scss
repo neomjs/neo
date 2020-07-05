@@ -1,5 +1,8 @@
 .website-header-container {
-    background-blend-mode: overlay;
+    background-blend-mode     : overlay;
+    transition-duration       : 250ms;
+    transition-property       : height;
+    transition-timing-function: ease-out;
 
     @media (max-width: 600px) {
         height: 70px;
