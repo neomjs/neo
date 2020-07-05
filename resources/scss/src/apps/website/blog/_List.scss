@@ -48,12 +48,10 @@
 
         .neo-item-top-position {
             color      : #fff;
-            font-size  : 16px;
-            margin     : 30px 40px;
-            left       : 30%;
             right      : 0;
             text-align : end;
             text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
+            transition : font-size 250ms ease-out, margin 250ms ease-out;
         }
 
         .neo-relative {
@@ -66,7 +64,6 @@
             line-height    : 1;
             text-decoration: none;
             text-shadow    : 1px 1px 1px #000, 1px 1px 1px #fff;
-            transition     : font-size 250ms ease-out;
         }
 
         .neo-top-20 {
@@ -106,11 +103,14 @@
         }
 
         .neo-item-top-position {
-            top: -300px;
+            font-size: 12px;
+            left     : 15%;
+            margin   : 9px 12px;
+            top      : -220px;
         }
 
         .neo-list-item {
-            height       : 300px;
+            height       : 220px;
             margin-bottom: 5px;
         }
 
@@ -141,7 +141,10 @@
         }
 
         .neo-item-top-position {
-            top: -400px;
+            font-size: 16px;
+            left     : 30%;
+            margin   : 30px 40px;
+            top      : -400px;
         }
 
         .neo-list-item {
