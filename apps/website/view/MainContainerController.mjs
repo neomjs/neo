@@ -97,7 +97,7 @@ class MainContainerController extends ComponentController {
             iconCls = 'fa fa-moon';
             theme   = 'neo-theme-light';
         } else {
-            color   = '#2b2b2b';
+            color   = '#444';
             iconCls = 'fa fa-sun';
             theme   = 'neo-theme-dark';
         }

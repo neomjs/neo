@@ -24,27 +24,27 @@ class TabContainer extends Container {
             reference      : 'examples-devmode-list',
             storeUrl       : '../../apps/website/data/examples_devmode.json',
             tabButtonConfig: {
-                iconCls: 'fa fa-images',
+                iconCls: 'fa fa-chess-knight',
                 route  : 'childview=devmode',
-                text   : 'development mode'
+                text   : 'DevMode'
             }
         }, {
             module         : List,
             reference      : 'examples-dist-dev-list',
             storeUrl       : '../../apps/website/data/examples_dist_dev.json',
             tabButtonConfig: {
-                iconCls: 'fa fa-play-circle',
+                iconCls: 'fa fa-chess-queen',
                 route  : 'childview=dist_dev',
-                text   : 'dist/development'
+                text   : 'dist/dev'
             }
         }, {
             module         : List,
             reference      : 'examples-dist-prod-list',
             storeUrl       : '../../apps/website/data/examples_dist_prod.json',
             tabButtonConfig: {
-                iconCls: 'fa fa-home',
+                iconCls: 'fa fa-chess-king',
                 route  : 'childview=dist_prod',
-                text   : 'dist/production'
+                text   : 'dist/prod'
             }
         }],
         /**

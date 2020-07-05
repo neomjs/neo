@@ -29,14 +29,14 @@ class TabContainer extends Container {
          */
         items: [{
             tabButtonConfig: {
-                iconCls: 'fa fa-images',
+                iconCls: 'fa fa-chess-pawn',
                 route  : 'childview=developers',
                 text   : 'For Developers'
             },
             vdom: {innerHTML: 'Amazing text to describe neo.mjs for developers'}
         }, {
             tabButtonConfig: {
-                iconCls: 'fa fa-play-circle',
+                iconCls: 'fa fa-chess-king',
                 route  : 'childview=executives',
                 text   : 'For Executives'
             },

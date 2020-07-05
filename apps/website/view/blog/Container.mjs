@@ -1,7 +1,6 @@
 import {default as BaseContainer} from '../../../../src/container/Base.mjs';
 import List                       from './List.mjs';
 import {default as SearchField}   from '../../../../src/form/field/Search.mjs';
-import Toolbar                    from '../../../../src/container/Toolbar.mjs';
 
 /**
  * @class Website.view.blog.Container
@@ -15,16 +14,22 @@ class Container extends BaseContainer {
          */
         className: 'Website.view.blog.Container',
         /**
+         * @member {String[]} cls=['website-blog-container', 'neo-container']
+         */
+        cls: ['website-blog-container', 'neo-container'],
+        /**
          * @member {Array} items
          */
-        items: [{
-            module: Toolbar,
-            height: 40,
+        items: [{ //#323232
+            module: BaseContainer,
+            cls   : ['website-blog-toolbar', 'neo-container'],
+            flex  : 'none',
+            layout: {ntype: 'hbox', align: 'stretch'},
 
             items: [{
                 module         : SearchField,
+                cls            : ['website-blog-searchfield', 'neo-searchfield', 'neo-textfield'],
                 placeholderText: 'Filter Items',
-                style          : {padding: '10px'},
                 width          : 240
             }]
         }, {

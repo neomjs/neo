@@ -16,26 +16,14 @@ class HeaderContainer extends Container {
          */
         cls: ['website-header-container'],
         /**
-         * @member {Number} height=170
-         */
-        height: 170,
-        /**
          * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
          */
-        layout: {ntype: 'hbox', align: 'stretch'},
-        /**
-         * @member {Object} itemDefaults
-         */
-        itemDefaults: {
-            ntype: 'button'
-        },
+        layout: {ntype: 'fit'},
         /**
          * @member {Array} items
          */
         items: [{
             ntype    : 'component',
-            flex     : 10,
-            minWidth : 340,
             reference: 'logo',
 
             vdom: {
@@ -49,31 +37,40 @@ class HeaderContainer extends Container {
                             cls : ['neo-title'],
                             html: 'neo.mjs'
                         }, {
-                            cls: ['neo-inner-content', 'neo-top-10'],
+                            cls: ['neo-inner-content'],
                             cn : [{
                                 cls : ['neo-inner-details'],
-                                html: 'The webworkers driven UI framework'
+                                html: 'Create multithreaded Web Apps'
                             }]
                         }]
                     }]
                 }]
             }
         }, {
-            handler: 'onSwitchThemeButtonClick',
-            iconCls: 'fa fa-sun'
-        }, {
-            iconCls: 'fab fa-github',
-            url    : 'https://github.com/neomjs/neo'
-        }, {
-            iconCls: 'fab fa-facebook-f',
-            url    : 'https://www.facebook.com/Neomjs-101788847886539/'
-        }, {
-            iconCls: 'fab fa-linkedin-in',
-            url    : 'https://www.linkedin.com/company/26254666/'
-        }, {
-            iconCls: 'fab fa-twitter',
-            style  : {marginRight: '10px'},
-            url    : 'https://twitter.com/UhligTobias'
+            ntype : 'container',
+            cls   : ['website-header-buttons'],
+            layout: {ntype: 'hbox', align: 'stretch'},
+
+            itemDefaults: {
+                ntype: 'button'
+            },
+
+            items: [{
+                handler: 'onSwitchThemeButtonClick',
+                iconCls: 'fa fa-sun'
+            }, {
+                iconCls: 'fab fa-github',
+                url    : 'https://github.com/neomjs/neo'
+            }, {
+                iconCls: 'fab fa-facebook-f',
+                url    : 'https://www.facebook.com/Neomjs-101788847886539/'
+            }, {
+                iconCls: 'fab fa-linkedin-in',
+                url    : 'https://www.linkedin.com/company/26254666/'
+            }, {
+                iconCls: 'fab fa-twitter',
+                url    : 'https://twitter.com/UhligTobias'
+            }]
         }]
     }}
 
@@ -81,7 +78,7 @@ class HeaderContainer extends Container {
         super(config);
 
         this.style = {
-            backgroundColor: '#2b2b2b',
+            backgroundColor: '#444',
             backgroundImage: `url('https://raw.githubusercontent.com/neomjs/pages/master/resources/website/neo-background.png')`
         };
     }

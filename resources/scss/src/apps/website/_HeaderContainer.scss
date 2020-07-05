@@ -1,18 +1,20 @@
 .website-header-container {
     background-blend-mode: overlay;
-
-    .neo-button {
-        max-height: 50px;
-        max-width : 50px;
-
-        .neo-button-glyph {
-            font-size: 30px;
-            margin   : 0 !important;
-        }
-    }
+    transition           : background-position 700ms ease-out, height 250ms ease-out;
 
     .neo-absolute {
         position: absolute;
+    }
+
+    .neo-button {
+        transition-duration       : 250ms;
+        transition-property       : height, margin, width;
+        transition-timing-function: ease-out;
+
+        .neo-button-glyph {
+            margin    : 0 !important;
+            transition: font-size 250ms ease-out;
+        }
     }
 
     .neo-full-size {
@@ -20,23 +22,27 @@
         width : 100%;
     }
 
+    .neo-inner-content {
+        transition: font-size 250ms ease-out, margin-top 250ms ease-out;
+        overflow  : hidden;
+    }
+
     .neo-inner-details {
         color      : #fff;
-        font-size  : 16px;
         line-height: 22px;
         text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
     }
 
     .neo-logo {
-        background-repeat    : no-repeat;
-        height               : 100%;
-        margin-left          : 10px;
+        background-repeat: no-repeat;
+        height           : 100%;
+        margin-left      : 10px;
     }
 
     .neo-item-bottom-position {
-        bottom: 0;
-        left  : 0;
-        margin: 24px 32px;
+        bottom    : 0;
+        left      : 0;
+        transition: margin 250ms ease-out;
     }
 
     .neo-relative {
@@ -45,13 +51,78 @@
 
     .neo-title {
         color      : #fff;
-        font-size  : 34px;
         font-weight: 600;
         line-height: 1;
         text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
+        transition : font-size 250ms ease-out;
     }
 
-    .neo-top-10 {
-        margin-top: 10px;
+    .website-header-buttons {
+        position: absolute;
+        right   : 0;
+        top     : 0;
+    }
+
+    @media (max-height: 400px), (max-width: 600px) {
+        background-position: 0 38%;
+        height             : 55px;
+
+        .neo-button {
+            height: 30px;
+            margin: 1px;
+            width : 30px;
+
+            .neo-button-glyph {
+                font-size: 20px;
+            }
+        }
+
+        .neo-inner-content {
+            font-size : 11px;
+            margin-top: 0;
+        }
+
+        .neo-item-bottom-position {
+            margin: 2px 10px;
+        }
+
+        .neo-title {
+            font-size: 24px;
+        }
+
+        .website-header-buttons:last-child {
+            margin-right: 1px;
+        }
+    }
+
+    @media (min-height: 401px) and (min-width: 601px) {
+        background-position: 0 0;
+        height             : 170px;
+
+        .neo-button {
+            height: 50px;
+            width : 50px;
+
+            .neo-button-glyph {
+                font-size: 30px;
+            }
+        }
+
+        .neo-inner-content {
+            font-size : 16px;
+            margin-top: 10px;
+        }
+
+        .neo-item-bottom-position {
+            margin: 24px 32px;
+        }
+
+        .neo-title {
+            font-size: 34px;
+        }
+
+        .website-header-buttons:last-child {
+            margin-right: 5px;
+        }
     }
 }

@@ -1,15 +1,15 @@
 .website-blog-list.neo-list-container.neo-list {
-    padding: 10px;
+    transition: padding 250ms ease-out;
 
     .neo-list-item {
-        border       : 1px solid #282829;
-        cursor       : default;
-        display      : flex;
-        height       : 400px;
-        margin-bottom: 10px;
-        padding      : 0;
-        white-space  : normal;
-        width        : 800px;
+        border     : 1px solid #282829;
+        cursor     : default;
+        display    : flex;
+        max-width  : 800px;
+        padding    : 0;
+        transition : height 250ms ease-out, margin-bottom 250ms ease-out;
+        white-space: normal;
+        width      : 100%;
 
         .content {
             flex: 1;
@@ -26,9 +26,9 @@
         .neo-inner-content {
             color      : #fff;
             display    : inline-block;
-            font-size  : 16px;
             margin-left: 10px;
             text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
+            transition : font-size 250ms ease-out;
         }
 
         .neo-full-size {
@@ -37,25 +37,21 @@
         }
 
         .neo-inner-details {
-            line-height: 22px;
+            transition: line-height 250ms ease-out;
         }
 
         .neo-item-bottom-position {
-            bottom: 0;
-            left  : 0;
-            margin: 30px 40px;
-            right : 30%;
+            bottom    : 0;
+            left      : 0;
+            transition: margin 250ms ease-out;
         }
 
         .neo-item-top-position {
             color      : #fff;
-            font-size  : 16px;
-            margin     : 30px 40px;
-            left       : 30%;
             right      : 0;
             text-align : end;
             text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
-            top        : -400px;
+            transition : font-size 250ms ease-out, margin 250ms ease-out;
         }
 
         .neo-relative {
@@ -64,7 +60,6 @@
 
         .neo-title {
             color          : #fff;
-            font-size      : 34px;
             font-weight    : 600;
             line-height    : 1;
             text-decoration: none;
@@ -74,14 +69,13 @@
         .neo-top-20 {
             align-items: center;
             display    : flex;
-            margin-top : 20px;
+            transition : margin 250ms ease-out;
         }
 
         .neo-user-image {
             border-radius: 50%;
             display      : inline-block;
-            height       : 44px;
-            width        : 44px;
+            transition   : height 250ms ease-out, width 250ms ease-out;
         }
 
         .preview-image {
@@ -89,6 +83,90 @@
             background-position  : 50% 50%;
             background-size      : cover;
             height               : 100%;
+        }
+    }
+
+    @media (max-height: 400px), (max-width: 600px) {
+        padding: 5px;
+
+        .neo-inner-content {
+            font-size: 12px;
+        }
+
+        .neo-inner-details {
+            line-height: 16px;
+        }
+
+        .neo-item-bottom-position {
+            margin: 9px 12px;
+            right : 15%;
+        }
+
+        .neo-item-top-position {
+            font-size: 12px;
+            left     : 15%;
+            margin   : 9px 12px;
+            top      : -200px;
+        }
+
+        .neo-list-item {
+            height       : 200px;
+            margin-bottom: 5px;
+        }
+
+        .neo-title {
+            font-size: 20px;
+        }
+
+        .neo-top-20 {
+            margin-top: 15px;
+        }
+
+        .neo-user-image {
+            height: 30px;
+            width : 30px;
+        }
+    }
+
+    @media (min-height: 401px) and (min-width: 601px) {
+        padding: 10px;
+
+        .neo-inner-content {
+            font-size: 16px;
+        }
+
+        .neo-inner-details {
+            line-height: 22px;
+        }
+
+        .neo-item-bottom-position {
+            margin: 30px 40px;
+            right : 30%;
+        }
+
+        .neo-item-top-position {
+            font-size: 16px;
+            left     : 30%;
+            margin   : 30px 40px;
+            top      : -400px;
+        }
+
+        .neo-list-item {
+            height       : 400px;
+            margin-bottom: 10px;
+        }
+
+        .neo-title {
+            font-size: 34px;
+        }
+
+        .neo-top-20 {
+            margin-top: 20px;
+        }
+
+        .neo-user-image {
+            height: 44px;
+            width : 44px;
         }
     }
 }
