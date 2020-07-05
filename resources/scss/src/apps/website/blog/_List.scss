@@ -1,5 +1,5 @@
 .website-blog-list.neo-list-container.neo-list {
-    padding: 10px;
+    transition: padding 250ms ease-out;
 
     .neo-list-item {
         border       : 1px solid #282829;
@@ -90,5 +90,13 @@
             background-size      : cover;
             height               : 100%;
         }
+    }
+
+    @media (max-height: 400px), (max-width: 600px) {
+        padding: 5px;
+    }
+
+    @media (min-height: 401px) and (min-width: 601px) {
+        padding: 10px;
     }
 }
