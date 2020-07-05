@@ -69,7 +69,6 @@ class HeaderContainer extends Container {
                 url    : 'https://www.linkedin.com/company/26254666/'
             }, {
                 iconCls: 'fab fa-twitter',
-                style  : {marginRight: '5px'},
                 url    : 'https://twitter.com/UhligTobias'
             }]
         }]

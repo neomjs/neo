@@ -7,7 +7,9 @@
     }
 
     .neo-button {
-        transition: height 250ms ease-out, width 250ms ease-out;
+        transition-duration       : 250ms;
+        transition-property       : height, margin, width;
+        transition-timing-function: ease-out;
 
         .neo-button-glyph {
             margin    : 0 !important;
@@ -66,6 +68,7 @@
 
         .neo-button {
             height: 30px;
+            margin: 1px;
             width : 30px;
 
             .neo-button-glyph {
@@ -84,6 +87,10 @@
 
         .neo-title {
             font-size: 24px;
+        }
+
+        .website-header-buttons:last-child {
+            margin-right: 2px;
         }
     }
 
@@ -110,6 +117,10 @@
 
         .neo-title {
             font-size: 34px;
+        }
+
+        .website-header-buttons:last-child {
+            margin-right: 5px;
         }
     }
 }
