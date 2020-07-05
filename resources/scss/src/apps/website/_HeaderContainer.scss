@@ -11,6 +11,12 @@
         }
     }
 
+    .website-header-buttons {
+        position: absolute;
+        right   : 0;
+        top     : 0;
+    }
+
     @media (max-width: 600px) {
         height: 70px;
 

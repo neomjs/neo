@@ -18,21 +18,12 @@ class HeaderContainer extends Container {
         /**
          * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
          */
-        layout: {ntype: 'hbox', align: 'stretch'},
-        /**
-         * @member {Object} itemDefaults
-         */
-        itemDefaults: {
-            ntype: 'button',
-            flex : 'none'
-        },
+        layout: {ntype: 'fit'},
         /**
          * @member {Array} items
          */
         items: [{
             ntype    : 'component',
-            flex     : 10,
-            minWidth : 340,
             reference: 'logo',
 
             vdom: {
@@ -56,21 +47,31 @@ class HeaderContainer extends Container {
                 }]
             }
         }, {
-            handler: 'onSwitchThemeButtonClick',
-            iconCls: 'fa fa-sun'
-        }, {
-            iconCls: 'fab fa-github',
-            url    : 'https://github.com/neomjs/neo'
-        }, {
-            iconCls: 'fab fa-facebook-f',
-            url    : 'https://www.facebook.com/Neomjs-101788847886539/'
-        }, {
-            iconCls: 'fab fa-linkedin-in',
-            url    : 'https://www.linkedin.com/company/26254666/'
-        }, {
-            iconCls: 'fab fa-twitter',
-            style  : {marginRight: '10px'},
-            url    : 'https://twitter.com/UhligTobias'
+            ntype : 'container',
+            cls   : ['website-header-buttons'],
+            layout: {ntype: 'hbox', align: 'stretch'},
+
+            itemDefaults: {
+                ntype: 'button'
+            },
+
+            items: [{
+                handler: 'onSwitchThemeButtonClick',
+                iconCls: 'fa fa-sun'
+            }, {
+                iconCls: 'fab fa-github',
+                url    : 'https://github.com/neomjs/neo'
+            }, {
+                iconCls: 'fab fa-facebook-f',
+                url    : 'https://www.facebook.com/Neomjs-101788847886539/'
+            }, {
+                iconCls: 'fab fa-linkedin-in',
+                url    : 'https://www.linkedin.com/company/26254666/'
+            }, {
+                iconCls: 'fab fa-twitter',
+                style  : {marginRight: '5px'},
+                url    : 'https://twitter.com/UhligTobias'
+            }]
         }]
     }}
 
