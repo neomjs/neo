@@ -23,7 +23,8 @@ class HeaderContainer extends Container {
          * @member {Object} itemDefaults
          */
         itemDefaults: {
-            ntype: 'button'
+            ntype: 'button',
+            flex : 'none'
         },
         /**
          * @member {Array} items
