@@ -1,6 +1,6 @@
 .website-header-container {
     background-blend-mode: overlay;
-    transition           : height 250ms ease-out;
+    transition           : background-position 700ms ease-out, height 250ms ease-out;
 
     .neo-absolute {
         position: absolute;
@@ -64,7 +64,8 @@
     }
 
     @media (max-width: 600px) {
-        height: 55px;
+        background-position: 0 38%;
+        height             : 55px;
 
         .neo-button {
             height: 30px;
@@ -95,7 +96,8 @@
     }
 
     @media (min-width: 601px) {
-        height: 170px;
+        background-position: 0 0;
+        height             : 170px;
 
         .neo-button {
             height: 50px;
