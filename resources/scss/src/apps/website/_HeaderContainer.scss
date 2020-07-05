@@ -63,7 +63,7 @@
         top     : 0;
     }
 
-    @media (max-width: 600px) {
+    @media (max-height: 400px), (max-width: 600px) {
         background-position: 0 38%;
         height             : 55px;
 
@@ -95,7 +95,7 @@
         }
     }
 
-    @media (min-width: 601px) {
+    @media (min-height: 401px) and (min-width: 601px) {
         background-position: 0 0;
         height             : 170px;
 
