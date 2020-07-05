@@ -5,10 +5,9 @@
         border     : 1px solid #282829;
         cursor     : default;
         display    : flex;
-        height     : 400px;
         max-width  : 800px;
         padding    : 0;
-        transition : margin-bottom 250ms ease-out;
+        transition : height 250ms ease-out, margin-bottom 250ms ease-out;
         white-space: normal;
         width      : 100%;
 
@@ -44,7 +43,6 @@
         .neo-item-bottom-position {
             bottom    : 0;
             left      : 0;
-            right     : 30%;
             transition: margin 250ms ease-out;
         }
 
@@ -56,7 +54,6 @@
             right      : 0;
             text-align : end;
             text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
-            top        : -400px;
         }
 
         .neo-relative {
@@ -105,9 +102,15 @@
 
         .neo-item-bottom-position {
             margin: 9px 12px;
+            right : 15%;
+        }
+
+        .neo-item-top-position {
+            top: -300px;
         }
 
         .neo-list-item {
+            height       : 300px;
             margin-bottom: 5px;
         }
 
@@ -134,9 +137,15 @@
 
         .neo-item-bottom-position {
             margin: 30px 40px;
+            right : 30%;
+        }
+
+        .neo-item-top-position {
+            top: -400px;
         }
 
         .neo-list-item {
+            height       : 400px;
             margin-bottom: 10px;
         }
 
