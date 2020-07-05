@@ -2,6 +2,10 @@
     background-blend-mode: overlay;
     transition           : height 250ms ease-out;
 
+    .neo-absolute {
+        position: absolute;
+    }
+
     .neo-button {
         transition: height 250ms ease-out, width 250ms ease-out;
 
@@ -11,50 +15,18 @@
         }
     }
 
-    .website-header-buttons {
-        position: absolute;
-        right   : 0;
-        top     : 0;
-    }
-
-    @media (max-width: 600px) {
-        height: 70px;
-
-        .neo-button {
-            height: 30px;
-            width : 30px;
-
-            .neo-button-glyph {
-                font-size: 20px;
-            }
-        }
-    }
-
-    @media (min-width: 601px) {
-        height: 170px;
-
-        .neo-button {
-            height: 50px;
-            width : 50px;
-
-            .neo-button-glyph {
-                font-size: 30px;
-            }
-        }
-    }
-
-    .neo-absolute {
-        position: absolute;
-    }
-
     .neo-full-size {
         height: 100%;
         width : 100%;
     }
 
+    .neo-inner-content {
+        transition: font-size 250ms ease-out, margin-top 250ms ease-out;
+        overflow  : hidden;
+    }
+
     .neo-inner-details {
         color      : #fff;
-        font-size  : 16px;
         line-height: 22px;
         text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
     }
@@ -77,13 +49,59 @@
 
     .neo-title {
         color      : #fff;
-        font-size  : 34px;
         font-weight: 600;
         line-height: 1;
         text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
+        transition : font-size 250ms ease-out;
     }
 
-    .neo-top-10 {
-        margin-top: 10px;
+    .website-header-buttons {
+        position: absolute;
+        right   : 0;
+        top     : 0;
+    }
+
+    @media (max-width: 600px) {
+        height: 70px;
+
+        .neo-button {
+            height: 30px;
+            width : 30px;
+
+            .neo-button-glyph {
+                font-size: 20px;
+            }
+        }
+
+        .neo-inner-content {
+            font-size : 11px;
+            margin-top: 0;
+        }
+
+        .neo-title {
+            font-size: 24px;
+        }
+    }
+
+    @media (min-width: 601px) {
+        height: 170px;
+
+        .neo-button {
+            height: 50px;
+            width : 50px;
+
+            .neo-button-glyph {
+                font-size: 30px;
+            }
+        }
+
+        .neo-inner-content {
+            font-size : 16px;
+            margin-top: 10px;
+        }
+
+        .neo-title {
+            font-size: 34px;
+        }
     }
 }

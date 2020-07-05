@@ -37,7 +37,7 @@ class HeaderContainer extends Container {
                             cls : ['neo-title'],
                             html: 'neo.mjs'
                         }, {
-                            cls: ['neo-inner-content', 'neo-top-10'],
+                            cls: ['neo-inner-content'],
                             cn : [{
                                 cls : ['neo-inner-details'],
                                 html: 'Create multithreaded Web Apps'
