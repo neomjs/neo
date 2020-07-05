@@ -78,7 +78,7 @@ class HeaderContainer extends Container {
         super(config);
 
         this.style = {
-            backgroundColor: '#2b2b2b',
+            backgroundColor: '#444',
             backgroundImage: `url('https://raw.githubusercontent.com/neomjs/pages/master/resources/website/neo-background.png')`
         };
     }
