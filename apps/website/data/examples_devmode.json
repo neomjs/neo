@@ -47,7 +47,7 @@
     {
         "backgroundColor": "#444",
         "browsers"       : ["Chrome"],
-        "environments"   : ["Desktop", "Mobile"],
+        "environments"   : ["Desktop"],
         "id"             : 6,
         "image"          : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/website.png",
         "name"           : "Neo Website App",
