@@ -64,11 +64,11 @@
 
         .neo-title {
             color          : #fff;
-            font-size      : 34px;
             font-weight    : 600;
             line-height    : 1;
             text-decoration: none;
             text-shadow    : 1px 1px 1px #000, 1px 1px 1px #fff;
+            transition     : font-size 250ms ease-out;
         }
 
         .neo-top-20 {
@@ -102,6 +102,10 @@
         .neo-list-item {
             margin-bottom: 5px;
         }
+
+        .neo-title {
+            font-size: 20px;
+        }
     }
 
     @media (min-height: 401px) and (min-width: 601px) {
@@ -113,6 +117,10 @@
 
         .neo-list-item {
             margin-bottom: 10px;
+        }
+
+        .neo-title {
+            font-size: 34px;
         }
     }
 }
