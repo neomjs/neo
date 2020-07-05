@@ -5,10 +5,11 @@
         border     : 1px solid #282829;
         cursor     : default;
         display    : flex;
+        max-width  : 800px;
         padding    : 0;
         transition : height 250ms ease-out, margin-bottom 250ms ease-out;
         white-space: normal;
-        width      : 800px;
+        width      : 100%;
 
         .content {
             flex: 1;
