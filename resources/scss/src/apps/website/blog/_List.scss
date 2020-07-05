@@ -27,9 +27,9 @@
         .neo-inner-content {
             color      : #fff;
             display    : inline-block;
-            font-size  : 16px;
             margin-left: 10px;
             text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
+            transition : font-size 250ms ease-out;
         }
 
         .neo-full-size {
@@ -38,7 +38,7 @@
         }
 
         .neo-inner-details {
-            line-height: 22px;
+            transition: line-height 250ms ease-out;
         }
 
         .neo-item-bottom-position {
@@ -96,6 +96,14 @@
     @media (max-height: 400px), (max-width: 600px) {
         padding: 5px;
 
+        .neo-inner-content {
+            font-size: 12px;
+        }
+
+        .neo-inner-details {
+            line-height: 16px;
+        }
+
         .neo-item-bottom-position {
             margin: 9px 12px;
         }
@@ -111,6 +119,14 @@
 
     @media (min-height: 401px) and (min-width: 601px) {
         padding: 10px;
+
+        .neo-inner-content {
+            font-size: 16px;
+        }
+
+        .neo-inner-details {
+            line-height: 22px;
+        }
 
         .neo-item-bottom-position {
             margin: 30px 40px;
