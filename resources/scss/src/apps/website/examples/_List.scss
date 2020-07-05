@@ -49,7 +49,7 @@
         }
 
         .neo-top-20 {
-            margin-top: 20px;
+            transition: margin 250ms ease-out;
         }
 
         .preview-image {
@@ -80,6 +80,10 @@
         .neo-title {
             font-size: 20px;
         }
+
+        .neo-top-20 {
+            margin-top: 10px;
+        }
     }
 
     @media (min-height: 401px) and (min-width: 601px) {
@@ -102,6 +106,10 @@
 
         .neo-title {
             font-size: 34px;
+        }
+
+        .neo-top-20 {
+            margin-top: 20px;
         }
     }
 }
