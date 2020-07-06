@@ -81,6 +81,10 @@ class MainContainerController extends ComponentController {
         }
     }
 
+    onSearchFieldChange(data) {
+        console.log('onSearchFieldChange', data);
+    }
+
     /**
      * @param {Object} data
      */
