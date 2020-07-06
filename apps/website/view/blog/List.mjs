@@ -114,6 +114,7 @@ class List extends BaseList {
      */
     filterItems(data) {
         let me         = this,
+            emptyValue = !data.value || data.value === '',
             store      = me.store,
             valueRegEx = new RegExp(data.value, 'gi'),
             vdom       = me.vdom,
@@ -126,7 +127,7 @@ class List extends BaseList {
 
             item.style = item.style || {};
 
-            if (!data.value || data.value === '') {
+            if (emptyValue) {
                 itemName.html = name;
                 delete item.style.display;
             } else if (name.toLowerCase().includes(data.value.toLowerCase())) {
