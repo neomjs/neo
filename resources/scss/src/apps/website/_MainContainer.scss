@@ -1,13 +1,20 @@
 .website-main-container {
+    justify-content: center;
+    min-width      : 310px;
+
+    .website-center-region {
+        max-width: 850px;
+    }
+
     .website-main-tabcontainer {
-        transition: margin 250ms ease-out;
+        transition: margin v(website-transition-duration) ease-out;
 
         @media (max-height: 400px), (max-width: 600px) {
             margin: 0;
         }
 
         @media (min-height: 401px) and (min-width: 601px) {
-            margin: 10px;
+            margin: 10px 0;
         }
     }
 }
