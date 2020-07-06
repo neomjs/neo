@@ -2,7 +2,6 @@
     transition: padding v(website-transition-duration) ease-out;
 
     .neo-list-item {
-        border     : 1px solid #282829;
         cursor     : default;
         display    : flex;
         max-width  : 800px;
@@ -22,6 +21,10 @@
 
         .neo-bold {
             font-weight: 600;
+        }
+
+        .neo-highlight-search {
+            color: #5d83a7;
         }
 
         .neo-inner-content {

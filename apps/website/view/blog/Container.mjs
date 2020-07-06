@@ -29,6 +29,7 @@ class Container extends BaseContainer {
             items: [{
                 module         : SearchField,
                 cls            : ['website-blog-searchfield', 'neo-searchfield', 'neo-textfield'],
+                listeners      : {change: 'onSearchFieldChange'},
                 placeholderText: 'Filter Items',
                 width          : 240
             }]

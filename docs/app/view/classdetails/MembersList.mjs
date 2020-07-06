@@ -1,6 +1,5 @@
 import Base                    from '../../../../src/list/Base.mjs';
 import {default as Collection} from '../../../../src/collection/Base.mjs';
-import NeoArray                from '../../../../src/util/Array.mjs';
 
 /**
  * @class Docs.app.view.classdetails.MembersList
@@ -242,7 +241,7 @@ class MembersList extends Base {
 
             headerText = item.name;
 
-            if (me.filterMembersQuery !== ''&& me.filterMembersQuery !== null) {
+            if (me.filterMembersQuery !== '' && me.filterMembersQuery !== null) {
                 index = item.name.toLowerCase().indexOf(me.filterMembersQuery.toLowerCase());
 
                 headerText = [
