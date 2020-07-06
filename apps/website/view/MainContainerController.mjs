@@ -85,25 +85,18 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onSwitchThemeButtonClick(data) {
-        let me              = this,
-            button          = data.component,
-            headerContainer = me.getReference('header-container'),
-            style           = headerContainer.style,
-            view            = me.view,
-            cls, color, iconCls, theme;
+        let me     = this,
+            button = data.component,
+            view   = me.view,
+            cls, iconCls, theme;
 
         if (button.iconCls === 'fa fa-sun') {
-            color   = '#666';
             iconCls = 'fa fa-moon';
             theme   = 'neo-theme-light';
         } else {
-            color   = '#444';
             iconCls = 'fa fa-sun';
             theme   = 'neo-theme-dark';
         }
-
-        style.backgroundColor = color;
-        headerContainer.style = style;
 
         cls = [...view.cls];
 

@@ -73,15 +73,6 @@ class HeaderContainer extends Container {
             }]
         }]
     }}
-
-    constructor(config) {
-        super(config);
-
-        this.style = {
-            backgroundColor: '#444',
-            backgroundImage: `url('https://raw.githubusercontent.com/neomjs/pages/master/resources/website/neo-background.png')`
-        };
-    }
 }
 
 Neo.applyClassConfig(HeaderContainer);
