@@ -58,7 +58,7 @@ class List extends BaseList {
                 cls  : ['neo-full-size', 'preview-image'],
                 style: {
                     backgroundColor: record.backgroundColor,
-                    backgroundImage: `url('${record.image}')`
+                    backgroundImage: `url('${record.image}'), linear-gradient(#777, #333)`
                 }
             }, {
                 cls: ['neo-relative'],
