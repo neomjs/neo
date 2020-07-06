@@ -603,6 +603,11 @@ class MembersList extends Base {
     }
 
     /**
+     * Override to not call createItems() at this point => onRefreshClassMembers()
+     */
+    onStoreFilter() {}
+
+    /**
      *
      */
     onRefreshClassMembers() {
