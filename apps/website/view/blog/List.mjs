@@ -118,9 +118,10 @@ class List extends BaseList {
             store      = me.store,
             valueRegEx = new RegExp(data.value, 'gi'),
             vdom       = me.vdom,
-            itemName, name, record;
+            hasMatch, itemName, name, record;
 
         vdom.cn.forEach((item, index) => {
+            hasMatch = false;
             itemName = VDomUtil.getByFlag(item, 'name');
             record   = store.getAt(index);
             name     = record.name.replace(List.nameRegEx, "$1");
@@ -130,11 +131,17 @@ class List extends BaseList {
             if (emptyValue) {
                 itemName.html = name;
                 delete item.style.display;
-            } else if (name.toLowerCase().includes(data.value.toLowerCase())) {
-                itemName.html = name.replace(valueRegEx, match => `<span class="neo-highlight-search">${match}</span>`);
-                delete item.style.display;
             } else {
-                item.style.display = 'none';
+                itemName.html = name.replace(valueRegEx, match => {
+                    hasMatch = true;
+                    return `<span class="neo-highlight-search">${match}</span>`;
+                });
+
+                if (hasMatch) {
+                    delete item.style.display;
+                } else {
+                    item.style.display = 'none';
+                }
             }
         });
 
