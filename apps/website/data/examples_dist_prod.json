@@ -3,7 +3,7 @@
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 1,
-        "image"       : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/covidDashboard.png",
+        "image"       : "devmode/covidDashboard.png",
         "name"        : "Covid Dashboard",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/covid/index.html#mainview=table"
     },
@@ -11,7 +11,7 @@
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 2,
-        "image"       : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/realworldApp.png",
+        "image"       : "devmode/realworldApp.png",
         "name"        : "RealWorld App",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/realworld/index.html"
     },
@@ -19,7 +19,7 @@
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 3,
-        "image"       : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/coronaGallery.png",
+        "image"       : "devmode/coronaGallery.png",
         "name"        : "COVID-19 Gallery",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/examples/component/coronaGallery/index.html"
     },
@@ -27,7 +27,7 @@
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 4,
-        "image"       : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/coronaHelix.png",
+        "image"       : "devmode/coronaHelix.png",
         "name"        : "COVID-19 Helix",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/examples/component/coronaHelix/index.html"
     },
@@ -35,7 +35,7 @@
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop", "Mobile"],
         "id"          : 5,
-        "image"       : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/website.png",
+        "image"       : "devmode/website.png",
         "name"        : "Neo Website App",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/website/index.html#mainview=blog"
     },
@@ -43,7 +43,7 @@
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 6,
-        "image"       : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/realworldApp2.png",
+        "image"       : "devmode/realworldApp2.png",
         "name"        : "RealWorld App v2</br>(in progress)",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/realworld2/index.html#/gallery"
     },
@@ -51,7 +51,7 @@
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 7,
-        "image"       : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/dateSelector.png",
+        "image"       : "devmode/dateSelector.png",
         "name"        : "component.DateSelector",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/examples/component/dateSelector/index.html"
     },
@@ -59,7 +59,7 @@
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 8,
-        "image"       : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/gallery.png",
+        "image"       : "devmode/gallery.png",
         "name"        : "component.Gallery",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/examples/component/gallery/index.html"
     },
@@ -67,7 +67,7 @@
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 9,
-        "image"       : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/helix.png",
+        "image"       : "devmode/helix.png",
         "name"        : "component.Helix",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/examples/component/helix/index.html"
     },
@@ -75,7 +75,7 @@
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 10,
-        "image"       : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/dateField.png",
+        "image"       : "devmode/dateField.png",
         "name"        : "form.field.Date",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/examples/form/field/date/index.html"
     },
@@ -83,7 +83,7 @@
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 11,
-        "image"       : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/selectField.png",
+        "image"       : "devmode/selectField.png",
         "name"        : "form.field.Select",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/examples/form/field/select/index.html"
     },
@@ -91,7 +91,7 @@
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 12,
-        "image"       : "https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples/devmode/tabContainer.png",
+        "image"       : "devmode/tabContainer.png",
         "name"        : "tab.Container",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/examples/tab/container/index.html"
     }

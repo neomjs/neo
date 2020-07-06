@@ -36,12 +36,24 @@ class List extends BaseList {
      * @param {Object} record
      */
     createItemContent(record) {
+        let basePath;
+
+        if (Neo.config.isGitHubPages) {
+            basePath = '../../../../resources/website';
+
+            if (!Neo.config.isExperimental) {
+                basePath = '../../' + basePath;
+            }
+        } else {
+            basePath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/website';
+        }
+
         const vdomCn = [{
             cls: ['content'],
             cn : [{
                 cls  : ['neo-full-size', 'preview-image'],
                 style: {
-                    backgroundImage: `url('https://raw.githubusercontent.com/neomjs/pages/master/resources/website/blog/${record.image}'), linear-gradient(#777, #333)`
+                    backgroundImage: `url('${basePath}/blog/${record.image}'), linear-gradient(#777, #333)`
                 }
             }, {
                 cls: ['neo-relative'],
@@ -61,7 +73,7 @@ class List extends BaseList {
                         cn : [{
                             tag: 'img',
                             cls: ['neo-user-image'],
-                            src: `https://raw.githubusercontent.com/neomjs/pages/master/resources/website/blogAuthor/${record.authorImage}`
+                            src: `${basePath}/blogAuthor/${record.authorImage}`
                         }, {
                             cls: ['neo-inner-content'],
                             cn : [{
@@ -114,26 +126,34 @@ class List extends BaseList {
      */
     filterItems(data) {
         let me         = this,
+            emptyValue = !data.value || data.value === '',
             store      = me.store,
             valueRegEx = new RegExp(data.value, 'gi'),
             vdom       = me.vdom,
-            itemName, name, record;
+            hasMatch, itemName, name, record;
 
         vdom.cn.forEach((item, index) => {
+            hasMatch = false;
             itemName = VDomUtil.getByFlag(item, 'name');
             record   = store.getAt(index);
             name     = record.name.replace(List.nameRegEx, "$1");
 
             item.style = item.style || {};
 
-            if (!data.value || data.value === '') {
+            if (emptyValue) {
                 itemName.html = name;
                 delete item.style.display;
-            } else if (name.toLowerCase().includes(data.value.toLowerCase())) {
-                itemName.html = name.replace(valueRegEx, match => `<span class="neo-highlight-search">${match}</span>`);
-                delete item.style.display;
             } else {
-                item.style.display = 'none';
+                itemName.html = name.replace(valueRegEx, match => {
+                    hasMatch = true;
+                    return `<span class="neo-highlight-search">${match}</span>`;
+                });
+
+                if (hasMatch) {
+                    delete item.style.display;
+                } else {
+                    item.style.display = 'none';
+                }
             }
         });
 

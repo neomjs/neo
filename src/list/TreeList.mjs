@@ -233,8 +233,9 @@ class TreeList extends Base {
     filter(property, value, parentId, parentMatch=false) {
         let me         = this,
             isFiltered = true,
+            valueRegEx = new RegExp(value, 'gi'),
             vdom       = me.vdom,
-            childReturnValue, directMatch, index, node;
+            childReturnValue, directMatch, node;
 
         if (!value) {
             value = '';
@@ -242,25 +243,18 @@ class TreeList extends Base {
 
         me.store.items.forEach(item => {
             if (item.parentId === parentId) {
-                index       = item[property].toLowerCase().indexOf(value.toLowerCase());
-                directMatch = index > -1;
+                directMatch = false;
                 node        = me.getVdomChild(me.getItemId(item.id), vdom);
+
+                node.cn[0].innerHTML = item[property].replace(valueRegEx, match => {
+                    directMatch = true;
+                    return `<span class="neo-highlight-search">${match}</span>`;
+                });
 
                 if (item.isLeaf) {
                     childReturnValue = true;
                 } else {
                     childReturnValue = me.filter(property, value, item.id, directMatch || parentMatch);
-                }
-
-                if (directMatch) {
-                    node.cn[0].innerHTML =
-                        item[property].substr(0, index) +
-                        '<span class="neo-highlight-search">' +
-                        item[property].substr(index, value.length) +
-                        '</span>' +
-                        item[property].substr(index + value.length);
-                } else {
-                    node.cn[0].innerHTML = item[property];
                 }
 
                 if (directMatch || parentMatch || childReturnValue === false || value === '') {

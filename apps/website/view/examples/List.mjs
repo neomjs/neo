@@ -52,13 +52,25 @@ class List extends BaseList {
      * @param {Object} record
      */
     createItemContent(record) {
+        let basePath;
+
+        if (Neo.config.isGitHubPages) {
+            basePath = '../../../../resources/website/examples';
+
+            if (!Neo.config.isExperimental) {
+                basePath = '../../' + basePath;
+            }
+        } else {
+            basePath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples';
+        }
+
         return [{
             cls: ['content'],
             cn : [{
                 cls  : ['neo-full-size', 'preview-image'],
                 style: {
                     backgroundColor: record.backgroundColor,
-                    backgroundImage: `url('${record.image}'), linear-gradient(#777, #333)`
+                    backgroundImage: `url('${basePath}/${record.image}'), linear-gradient(#777, #333)`
                 }
             }, {
                 cls: ['neo-relative'],

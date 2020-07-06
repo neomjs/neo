@@ -207,10 +207,11 @@ class MembersList extends Base {
      *
      */
     createItems() {
-        let me              = this,
-            hasExamples     = false,
-            targetClassName = me.targetClassName,
-            vdom            = me.vdom,
+        let me                 = this,
+            filterMembersRegEx = new RegExp(me.filterMembersQuery || '', 'gi'),
+            hasExamples        = false,
+            targetClassName    = me.targetClassName,
+            vdom               = me.vdom,
             headerText, itemAttributes, itemConfig, path;
 
         vdom.cn = [];
@@ -242,15 +243,7 @@ class MembersList extends Base {
             headerText = item.name;
 
             if (me.filterMembersQuery !== '' && me.filterMembersQuery !== null) {
-                index = item.name.toLowerCase().indexOf(me.filterMembersQuery.toLowerCase());
-
-                headerText = [
-                    headerText.substr(0, index),
-                    '<span class="neo-highlight-search">',
-                    headerText.substr(index, me.filterMembersQuery.length),
-                    '</span>',
-                    headerText.substr(index + me.filterMembersQuery.length)
-                ].join('');
+                headerText = headerText.replace(filterMembersRegEx, match => `<span class="neo-highlight-search">${match}</span>`);
             }
 
             // configs
@@ -608,6 +601,11 @@ class MembersList extends Base {
 
         me.fire('mutateItems', me.store);
     }
+
+    /**
+     * Override to not call createItems() at this point => onRefreshClassMembers()
+     */
+    onStoreFilter() {}
 
     /**
      *
