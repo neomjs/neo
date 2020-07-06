@@ -36,12 +36,24 @@ class List extends BaseList {
      * @param {Object} record
      */
     createItemContent(record) {
+        let basePath;
+
+        if (Neo.config.isGitHubPages) {
+            basePath = '../../../../resources/website';
+
+            if (!Neo.config.isExperimental) {
+                basePath = '../../' + basePath;
+            }
+        } else {
+            basePath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/website';
+        }
+
         const vdomCn = [{
             cls: ['content'],
             cn : [{
                 cls  : ['neo-full-size', 'preview-image'],
                 style: {
-                    backgroundImage: `url('https://raw.githubusercontent.com/neomjs/pages/master/resources/website/blog/${record.image}'), linear-gradient(#777, #333)`
+                    backgroundImage: `url('${basePath}/blog/${record.image}'), linear-gradient(#777, #333)`
                 }
             }, {
                 cls: ['neo-relative'],
@@ -61,7 +73,7 @@ class List extends BaseList {
                         cn : [{
                             tag: 'img',
                             cls: ['neo-user-image'],
-                            src: `https://raw.githubusercontent.com/neomjs/pages/master/resources/website/blogAuthor/${record.authorImage}`
+                            src: `${basePath}/blogAuthor/${record.authorImage}`
                         }, {
                             cls: ['neo-inner-content'],
                             cn : [{
