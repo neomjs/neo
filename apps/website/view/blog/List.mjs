@@ -7,6 +7,15 @@ import {default as VDomUtil} from '../../../../src/util/VDom.mjs';
  * @extends Neo.list.Base
  */
 class List extends BaseList {
+    static getStaticConfig() {return {
+        /**
+         * A regex to enforce a maxLength (word break)
+         * @member {RegExp} nameRegEx
+         * @protected
+         * @static
+         */
+        nameRegEx: /^(.{65}[^\s]*).*/
+    }}
     static getConfig() {return {
         /**
          * @member {String} className='Website.view.blog.List'
@@ -44,7 +53,8 @@ class List extends BaseList {
                         tag   : 'a',
                         target: '_blank',
                         cn    : [{
-                            html: record.name.replace(/^(.{65}[^\s]*).*/, "$1")
+                            flag: 'name',
+                            html: record.name.replace(List.nameRegEx, "$1")
                         }]
                     }, {
                         cls: ['neo-top-20'],
@@ -96,6 +106,40 @@ class List extends BaseList {
         }
 
         return vdomCn;
+    }
+
+    /**
+     * Custom filtering logic
+     * @param {Object} data
+     */
+    filterItems(data) {
+        let me         = this,
+            store      = me.store,
+            valueRegEx = new RegExp(data.value, 'gi'),
+            vdom       = me.vdom,
+            itemName, name, record;
+
+        vdom.cn.forEach((item, index) => {
+            itemName = VDomUtil.getByFlag(item, 'name');
+            record   = store.getAt(index);
+            name     = record.name.replace(List.nameRegEx, "$1");
+
+            if (!data.value || data.value === '') {
+                itemName.html = name;
+
+                item.removeDom = false;
+            } else if (name.toLowerCase().includes(data.value.toLowerCase())) {
+                itemName.html = name.replace(valueRegEx, function(match) {
+                    return '<span class="neo-highlight-search">' + match + '</span>';
+                });
+
+                item.removeDom = false;
+            } else {
+                item.removeDom = true;
+            }
+        });
+
+        me.vdom = vdom;
     }
 }
 

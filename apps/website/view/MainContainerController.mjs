@@ -81,8 +81,12 @@ class MainContainerController extends ComponentController {
         }
     }
 
+    /**
+     *
+     * @param {Object} data
+     */
     onSearchFieldChange(data) {
-        console.log('onSearchFieldChange', data);
+        this.getReference('blog-list').filterItems(data);
     }
 
     /**
