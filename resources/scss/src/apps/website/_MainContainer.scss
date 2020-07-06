@@ -7,7 +7,7 @@
     }
 
     .website-main-tabcontainer {
-        transition: margin 250ms ease-out;
+        transition: margin v(website-transition-duration) ease-out;
 
         @media (max-height: 400px), (max-width: 600px) {
             margin: 0;
