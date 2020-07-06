@@ -124,18 +124,16 @@ class List extends BaseList {
             record   = store.getAt(index);
             name     = record.name.replace(List.nameRegEx, "$1");
 
+            item.style = item.style || {};
+
             if (!data.value || data.value === '') {
                 itemName.html = name;
-
-                item.removeDom = false;
+                delete item.style.display;
             } else if (name.toLowerCase().includes(data.value.toLowerCase())) {
-                itemName.html = name.replace(valueRegEx, function(match) {
-                    return '<span class="neo-highlight-search">' + match + '</span>';
-                });
-
-                item.removeDom = false;
+                itemName.html = name.replace(valueRegEx, match => `<span class="neo-highlight-search">${match}</span>`);
+                delete item.style.display;
             } else {
-                item.removeDom = true;
+                item.style.display = 'none';
             }
         });
 
