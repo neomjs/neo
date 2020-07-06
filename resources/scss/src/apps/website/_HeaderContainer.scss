@@ -2,6 +2,7 @@
     background-blend-mode: overlay;
     background-color     : #444;
     background-image     : linear-gradient(#ddd, #999), url('https://raw.githubusercontent.com/neomjs/pages/master/resources/website/neo-background.png');
+    position             : relative;
     transition           : background-position 700ms ease-out, height 250ms ease-out;
 
     .neo-absolute {
