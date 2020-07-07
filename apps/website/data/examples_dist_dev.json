@@ -5,6 +5,7 @@
         "id"          : 1,
         "image"       : "devmode/covidDashboard.png",
         "name"        : "Covid Dashboard",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/apps/covid",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/apps/covid/index.html#mainview=table"
     },
     {
@@ -13,6 +14,7 @@
         "id"          : 2,
         "image"       : "devmode/realworldApp.png",
         "name"        : "RealWorld App",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/apps/realworld",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/apps/realworld/index.html"
     },
     {
@@ -21,6 +23,7 @@
         "id"          : 3,
         "image"       : "devmode/coronaGallery.png",
         "name"        : "COVID-19 Gallery",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/component/coronaGallery",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/examples/component/coronaGallery/index.html"
     },
     {
@@ -29,6 +32,7 @@
         "id"          : 4,
         "image"       : "devmode/coronaHelix.png",
         "name"        : "COVID-19 Helix",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/component/coronaHelix",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/examples/component/coronaHelix/index.html"
     },
     {
@@ -37,6 +41,7 @@
         "id"          : 5,
         "image"       : "devmode/website.png",
         "name"        : "Neo Website App",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/apps/website",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/apps/website/index.html#mainview=blog"
     },
     {
@@ -45,6 +50,7 @@
         "id"          : 6,
         "image"       : "devmode/realworldApp2.png",
         "name"        : "RealWorld App v2</br>(in progress)",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/apps/realworld2",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/apps/realworld2/index.html#/gallery"
     },
     {
@@ -53,6 +59,7 @@
         "id"          : 7,
         "image"       : "devmode/dateSelector.png",
         "name"        : "component.DateSelector",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/component/dateSelector",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/examples/component/dateSelector/index.html"
     },
     {
@@ -61,6 +68,7 @@
         "id"          : 8,
         "image"       : "devmode/gallery.png",
         "name"        : "component.Gallery",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/component/gallery",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/examples/component/gallery/index.html"
     },
     {
@@ -69,6 +77,7 @@
         "id"          : 9,
         "image"       : "devmode/helix.png",
         "name"        : "component.Helix",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/component/helix",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/examples/component/helix/index.html"
     },
     {
@@ -77,6 +86,7 @@
         "id"          : 10,
         "image"       : "devmode/dateField.png",
         "name"        : "form.field.Date",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/form/field/date",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/examples/form/field/date/index.html"
     },
     {
@@ -85,6 +95,7 @@
         "id"          : 11,
         "image"       : "devmode/selectField.png",
         "name"        : "form.field.Select",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/form/field/select",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/examples/form/field/select/index.html"
     },
     {
@@ -93,6 +104,7 @@
         "id"          : 12,
         "image"       : "devmode/tabContainer.png",
         "name"        : "tab.Container",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/tab/container",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/examples/tab/container/index.html"
     }
 ]

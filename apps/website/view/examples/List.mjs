@@ -63,7 +63,7 @@ class List extends BaseList {
         } else {
             basePath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples';
         }
-
+console.log(record.sourceUrl);
         return [{
             cls: ['content'],
             cn : [{
@@ -88,8 +88,9 @@ class List extends BaseList {
                         cls: ['neo-top-20'],
                         cn : [{
                             tag   : 'a',
-                            target: '_blank',
-                            cls   : ['fab fa-github', 'neo-github-image']
+                            cls   : ['fab fa-github', 'neo-github-image'],
+                            href  : record.sourceUrl,
+                            target: '_blank'
                         }, {
                             cls: ['neo-inner-content'],
                             cn : [{

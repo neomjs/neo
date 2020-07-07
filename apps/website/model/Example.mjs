@@ -34,6 +34,9 @@ class Example extends Model {
             name: 'name',
             type: 'String'
         }, {
+            name: 'sourceUrl',
+            type: 'String'
+        }, {
             name: 'url',
             type: 'String'
         }]
