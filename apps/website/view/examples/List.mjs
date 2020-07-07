@@ -63,7 +63,7 @@ class List extends BaseList {
         } else {
             basePath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples';
         }
-console.log(record.sourceUrl);
+
         return [{
             cls: ['content'],
             cn : [{
