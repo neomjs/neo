@@ -25,11 +25,11 @@
         }
 
         .neo-github-image {
-            color          : #ddd;
-            font-size      : 44px;
-            height         : 44px;
-            text-decoration: none;
-            width          : 44px;
+            color                     : #ddd;
+            text-decoration           : none;
+            transition-duration       : v(website-transition-duration);
+            transition-property       : font-size, height, width;
+            transition-timing-function: ease-out;
         }
 
         .neo-inner-content {
@@ -78,6 +78,12 @@
     @media (max-height: 400px), (max-width: 600px) {
         padding: 5px 5px 0 5px;
 
+        .neo-github-image {
+            font-size: 30px;
+            height   : 30px;
+            width    : 30px;
+        }
+
         .neo-inner-content {
             font-size: 12px;
         }
@@ -108,6 +114,12 @@
 
     @media (min-height: 401px) and (min-width: 601px) {
         padding: 10px 10px 0 10px;
+
+        .neo-github-image {
+            font-size: 44px;
+            height   : 44px;
+            width    : 44px;
+        }
 
         .neo-inner-content {
             font-size: 16px;

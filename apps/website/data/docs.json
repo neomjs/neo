@@ -6,7 +6,7 @@
         "id"             : 1,
         "image"          : "devmode/docs.png",
         "name"           : "Docs App</br>Development Mode",
-        "sourceUrl"      : "https://github.com/neomjs/neo/tree/dev/docs/",
+        "sourceUrl"      : "https://github.com/neomjs/neo/tree/dev/docs",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/docs/index.html"
     },
     {
@@ -16,7 +16,7 @@
         "id"             : 2,
         "image"          : "dist_dev/docs.png",
         "name"           : "Docs App</br>dist/development",
-        "sourceUrl"      : "https://github.com/neomjs/neo/tree/dev/docs/",
+        "sourceUrl"      : "https://github.com/neomjs/neo/tree/dev/docs",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/docs/index.html"
     },
     {
@@ -26,7 +26,7 @@
         "id"             : 3,
         "image"          : "dist_prod/docs.png",
         "name"           : "Docs App</br>dist/production",
-        "sourceUrl"      : "https://github.com/neomjs/neo/tree/dev/docs/",
+        "sourceUrl"      : "https://github.com/neomjs/neo/tree/dev/docs",
         "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html"
     }
 ]
