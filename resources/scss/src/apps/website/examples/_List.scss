@@ -24,10 +24,24 @@
             width : 100%;
         }
 
-        .neo-inner-details {
+        .neo-github-image {
+            color          : #ddd;
+            font-size      : 44px;
+            height         : 44px;
+            text-decoration: none;
+            width          : 44px;
+        }
+
+        .neo-inner-content {
             color      : #fff;
+            display    : inline-block;
+            margin-left: 10px;
             text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
-            transition : font-size v(website-transition-duration) ease-out, line-height v(website-transition-duration) ease-out;
+            transition : font-size v(website-transition-duration) ease-out;
+        }
+
+        .neo-inner-details {
+            transition: line-height v(website-transition-duration) ease-out;
         }
 
         .neo-item-bottom-position {
@@ -49,7 +63,9 @@
         }
 
         .neo-top-20 {
-            transition: margin v(website-transition-duration) ease-out;
+            align-items: center;
+            display    : flex;
+            transition : margin v(website-transition-duration) ease-out;
         }
 
         .preview-image {
@@ -62,8 +78,11 @@
     @media (max-height: 400px), (max-width: 600px) {
         padding: 5px 5px 0 5px;
 
+        .neo-inner-content {
+            font-size: 12px;
+        }
+
         .neo-inner-details {
-            font-size  : 12px;
             line-height: 16px;
         }
 
@@ -89,6 +108,10 @@
 
     @media (min-height: 401px) and (min-width: 601px) {
         padding: 10px 10px 0 10px;
+
+        .neo-inner-content {
+            font-size: 16px;
+        }
 
         .neo-inner-details {
             font-size  : 16px;
