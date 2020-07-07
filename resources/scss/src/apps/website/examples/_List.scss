@@ -60,6 +60,11 @@
             line-height    : 1;
             text-decoration: none;
             text-shadow    : 1px 1px 1px #000, 1px 1px 1px #fff;
+            transition     : color 250ms ease-out;
+
+            &:hover {
+                color: #5d83a7
+            }
         }
 
         .neo-top-20 {
