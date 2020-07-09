@@ -1,9 +1,11 @@
 $neoMap: map-merge($neoMap, (
+    'website-background-image'   : linear-gradient(#444, #222),
     'website-transition-duration': 300ms
 ));
 
 @if $useCss4Vars == true {
     :root .neo-theme-dark { // .website-main-container
+        --website-background-image   : #{neo(website-background-image)};
         --website-transition-duration: #{neo(website-transition-duration)};
     }
 }

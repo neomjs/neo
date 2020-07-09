@@ -10,12 +10,15 @@
     }
 
     .neo-button {
+        background-image          : v(website-header-button-background-image);
+        border                    : v(website-header-button-border);
         border-radius             : 50%;
         transition-duration       : v(website-transition-duration);
         transition-property       : height, margin, width;
         transition-timing-function: ease-out;
 
         .neo-button-glyph {
+            color     : v(website-header-button-glyph-color);
             margin    : 0 !important;
             transition: font-size v(website-transition-duration) ease-out;
         }
