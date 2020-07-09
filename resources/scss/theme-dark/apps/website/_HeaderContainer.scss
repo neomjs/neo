@@ -1,9 +1,11 @@
 $neoMap: map-merge($neoMap, (
-    'website-header-button-background-image': linear-gradient(#999,#111)
+    'website-header-button-background-image': linear-gradient(#999,#111),
+    'website-header-button-glyph-color'     : #eee
 ));
 
 @if $useCss4Vars == true {
     :root .neo-theme-dark { // .website-header-container
         --website-header-button-background-image: #{neo(website-header-button-background-image)};
+        --website-header-button-glyph-color     : #{neo(website-header-button-glyph-color)};
     }
 }

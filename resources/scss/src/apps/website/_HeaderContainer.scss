@@ -17,6 +17,7 @@
         transition-timing-function: ease-out;
 
         .neo-button-glyph {
+            color     : v(website-header-button-glyph-color);
             margin    : 0 !important;
             transition: font-size v(website-transition-duration) ease-out;
         }
