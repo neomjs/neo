@@ -55,8 +55,10 @@ class ExecutiveIntroComponent extends Component {
             '</p>',
             '<p>',
                 'This will enable me to spend more time on neo.mjs, so you will get new widgets, features and bugfixes ',
-                'a lot faster.',
+                'a lot faster. Your company logo & link will get added to different places depending on the tier level, ',
+                'which will increase your reputation inside the neo.mjs developer community.',
             '</p>',
+            '<h1>3. The planned Business Model (BaaS)</h1>',
         ].join('')}
     }}
 }

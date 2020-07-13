@@ -7,6 +7,7 @@
         color      : #292929;
         flex       : auto !important;
         font-weight: 400;
+        overflow-y : auto;
         word-break : break-word;
 
         h1 {
@@ -39,7 +40,7 @@
         }
 
         @media (max-height: 400px), (max-width: 600px) {
-            margin: 0 20px;
+            padding: 0 20px;
 
             h1 {
                 font-size  : 26px;
@@ -59,7 +60,7 @@
         }
 
         @media (min-height: 401px) and (min-width: 601px) {
-            margin: 0 32px;
+            padding: 0 32px;
 
             h1 {
                 font-size  : 36px;
