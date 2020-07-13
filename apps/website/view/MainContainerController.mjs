@@ -85,6 +85,36 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} data
      */
+    onNavLinkClick(data) {
+        const targetId = data.target.data.target;
+
+        Neo.main.DomAccess.scrollIntoView({
+            id: targetId
+        }).then(() => {
+            setTimeout(() => {
+                Neo.main.DomAccess.setStyle({
+                    id: targetId,
+                    style: {
+                        color: 'red'
+                    }
+                }).then(() => {
+                    setTimeout(() => {
+                        Neo.main.DomAccess.setStyle({
+                            id: targetId,
+                            style: {
+                                color: null
+                            }
+                        });
+                    }, 300)
+                });
+            }, 900)
+        });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onSearchFieldChange(data) {
         this.getReference('blog-list').filterItems(data);
     }

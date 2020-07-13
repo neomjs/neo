@@ -29,7 +29,7 @@ class Util extends Base {
     }}
 
     /**
-     * Converts a syles object which can use camelcase syntax into a styles string
+     * Converts a styles object which can use camelcase syntax into a styles string
      * @param {Object} styles The styles object
      * @returns {String} The styles string (DOM ready)
      */

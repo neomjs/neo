@@ -41,6 +41,7 @@ class DomAccess extends Base {
                 'scrollIntoView',
                 'scrollToTableRow',
                 'selectNode',
+                'setStyle',
                 'windowScrollTo'
             ]
         },
@@ -430,6 +431,27 @@ class DomAccess extends Base {
         if (node) {
             node.select();
             node.setSelectionRange(start, end);
+        }
+
+        return {id: data.id};
+    }
+
+
+    /**
+     * Not recommended to use => stick to vdom updates.
+     * Can be handy for custom CSS based animations though.
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Object} data.style
+     * @returns {Object} obj.id => the passed id
+     */
+    setStyle(data) {
+        let node = this.getElement(data.id);
+
+        if (node) {
+            Object.entries(data.style).forEach(([key, value]) => {
+                node.style[Neo.decamel(key)] = value;
+            });
         }
 
         return {id: data.id};
