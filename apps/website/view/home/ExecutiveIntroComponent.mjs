@@ -91,7 +91,7 @@ class ExecutiveIntroComponent extends Component {
                         'multiple WebViews. Take a look at:',
                     '</p>',
                     '<p>',
-                    '<a target="_blank" href="https://medium.com/swlh/expanding-single-page-apps-into-multiple-browser-windows-e6d9bd155d59?source=friends_link&sk=bbfe1dada95c5674669e463f93360822">Expanding Single Page Apps into multiple Browser Windows</a>',
+                        '<a target="_blank" href="https://medium.com/swlh/expanding-single-page-apps-into-multiple-browser-windows-e6d9bd155d59?source=friends_link&sk=bbfe1dada95c5674669e463f93360822">Expanding Single Page Apps into multiple Browser Windows</a>',
                     '</p>',
                '</li>',
                 '<li>',

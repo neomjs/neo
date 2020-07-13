@@ -86,10 +86,28 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onNavLinkClick(data) {
-        console.log('onNavLinkClick', data);
+        const targetId = data.target.data.target;
 
         Neo.main.DomAccess.scrollIntoView({
-            id: data.target.data.target
+            id: targetId
+        }).then(() => {
+            setTimeout(() => {
+                Neo.main.DomAccess.setStyle({
+                    id: targetId,
+                    style: {
+                        color: 'red'
+                    }
+                }).then(() => {
+                    setTimeout(() => {
+                        Neo.main.DomAccess.setStyle({
+                            id: targetId,
+                            style: {
+                                color: null
+                            }
+                        });
+                    }, 300)
+                });
+            }, 900)
         });
     }
 
