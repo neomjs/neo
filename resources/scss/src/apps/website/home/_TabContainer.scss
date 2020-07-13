@@ -1,6 +1,7 @@
 .website-home-tab-container {
     .website-intro-component {
         color : #292929;
+        flex  : auto !important;
         margin: 0 32px;
 
         h1 {
@@ -26,6 +27,21 @@
             list-style: none;
             margin    : 0;
             padding   : 0;
+        }
+
+        @media (max-height: 400px), (max-width: 600px) {
+            margin: 0 20px;
+
+            h1 {
+                font-size  : 26px;
+                line-height: 32px;
+            }
+
+            li {
+                font-size  : 18px;
+                line-height: 28px;
+                margin-top : 0.67em;
+            }
         }
     }
 }
