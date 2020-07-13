@@ -4,7 +4,7 @@
     }
 
     .website-intro-component {
-        color      : #292929;
+        color      : v(website-home-color);
         flex       : auto !important;
         font-weight: 400;
         overflow-y : auto;
