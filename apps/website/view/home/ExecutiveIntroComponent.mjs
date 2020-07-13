@@ -21,7 +21,7 @@ class ExecutiveIntroComponent extends Component {
          */
         vdom: {
             innerHTML: [
-                '<h2>Content</h2>',
+                '<h1>Content</h1>',
                 '<ol>',
                     '<li>Introduction</li>',
                     '<li>Sponsorship</li>',
