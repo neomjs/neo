@@ -1,5 +1,6 @@
 import {default as Component} from '../../../../src/component/Base.mjs';
 import Container              from '../../../../src/tab/Container.mjs';
+import ExecutiveIntroComponent from './ExecutiveIntroComponent.mjs';
 
 /**
  * @class Website.view.home.TabContainer
@@ -17,17 +18,12 @@ class TabContainer extends Container {
          */
         activeIndex: 1,
         /**
-         * @member {Object} itemDefaults
-         */
-        itemDefaults: {
-            module: Component,
-            cls   : ['neo-examples-tab-component'],
-            style : {padding: '20px'},
-        },
-        /**
          * @member {Array} items
          */
         items: [{
+            module         : Component,
+            cls            : ['neo-examples-tab-component'],
+            style          : {padding: '20px'},
             tabButtonConfig: {
                 iconCls: 'fa fa-chess-pawn',
                 route  : 'childview=developers',
@@ -35,17 +31,17 @@ class TabContainer extends Container {
             },
             vdom: {innerHTML: 'Amazing text to describe neo.mjs for developers'}
         }, {
+            module         : ExecutiveIntroComponent,
             tabButtonConfig: {
                 iconCls: 'fa fa-chess-king',
                 route  : 'childview=executives',
                 text   : 'For Executives'
-            },
-            vdom: {innerHTML: 'Amazing text to describe neo.mjs for executives'}
+            }
         }],
         /**
          * @member {String} tabBarPosition='left'
          */
-        tabBarPosition: 'left',
+        tabBarPosition: 'left'
     }}
 }
 
