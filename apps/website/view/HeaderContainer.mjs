@@ -57,7 +57,7 @@ class HeaderContainer extends Container {
 
             items: [{
                 handler: 'onSwitchThemeButtonClick',
-                iconCls: 'fa fa-sun'
+                iconCls: 'fa fa-moon'
             }, {
                 iconCls: 'fab fa-github',
                 url    : 'https://github.com/neomjs/neo'

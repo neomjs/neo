@@ -6,6 +6,16 @@ import Examples              from '../../store/Examples.mjs';
  * @extends Neo.list.Base
  */
 class List extends BaseList {
+    static getStaticConfig() {return {
+        /**
+         * A regex to enforce a maxLength (word break)
+         * @member {RegExp} nameRegEx
+         * @protected
+         * @static
+         */
+        nameRegEx: /^(.{65}[^\s]*).*/
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Website.view.examples.List'
@@ -69,7 +79,6 @@ class List extends BaseList {
             cn : [{
                 cls  : ['neo-full-size', 'preview-image'],
                 style: {
-                    backgroundColor: record.backgroundColor,
                     backgroundImage: `url('${basePath}/${record.image}'), linear-gradient(#777, #333)`
                 }
             }, {
@@ -82,7 +91,7 @@ class List extends BaseList {
                         href  : record.url,
                         target: '_blank',
                         cn    : [{
-                            html: record.name.replace(/^(.{65}[^\s]*).*/, "$1")
+                            html: record.name.replace(List.nameRegEx, "$1")
                         }]
                     }, {
                         cls: ['neo-top-20'],

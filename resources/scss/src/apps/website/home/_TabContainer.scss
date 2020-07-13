@@ -1,0 +1,86 @@
+.website-home-tab-container {
+    .neo-tab-content-container {
+        border: none;
+    }
+
+    .website-intro-component {
+        color      : v(website-home-color);
+        flex       : auto !important;
+        font-weight: 400;
+        overflow-y : auto;
+        word-break : break-word;
+
+        a {
+            color: #1c60a0;
+        }
+
+        h1 {
+            font-weight  : 600;
+            margin-bottom: -0.28em;
+            margin-top   : 1em;
+            transition   : font-size v(website-transition-duration) ease-out, line-height v(website-transition-duration) ease-out;
+        }
+
+        li {
+            list-style-type           : decimal;
+            margin-bottom             : -0.46em;
+            margin-left               : 30px;
+            padding-left              : 0;
+            transition-duration       : v(website-transition-duration);
+            transition-property       : font-size, line-height, margin-top;
+            transition-timing-function: ease-out;
+        }
+
+        ol {
+            list-style: none;
+            margin    : 0;
+            padding   : 0;
+        }
+
+        p {
+            margin-bottom: -0.46em;
+            margin-top   : 0.86em;
+            transition   : font-size v(website-transition-duration) ease-out, line-height v(website-transition-duration) ease-out;
+        }
+
+        @media (max-height: 400px), (max-width: 600px) {
+            padding: 0 20px;
+
+            h1 {
+                font-size  : 26px;
+                line-height: 32px;
+            }
+
+            li {
+                font-size  : 18px;
+                line-height: 28px;
+                margin-top : 0.67em;
+            }
+
+            p {
+                font-size  : 18px;
+                line-height: 28px;
+            }
+        }
+
+        @media (min-height: 401px) and (min-width: 601px) {
+            padding: 0 32px;
+
+            h1 {
+                font-size  : 36px;
+                line-height: 40px;
+            }
+
+            li {
+                font-size  : 21px;
+                line-height: 32px;
+                margin-top : 0.86em;
+            }
+
+            p {
+                font-size  : 21px;
+                line-height: 32px;
+            }
+        }
+    }
+}

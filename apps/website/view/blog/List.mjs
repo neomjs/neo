@@ -16,6 +16,7 @@ class List extends BaseList {
          */
         nameRegEx: /^(.{65}[^\s]*).*/
     }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Website.view.blog.List'
