@@ -65,6 +65,10 @@
             }
         }
 
+        .nav-target {
+            transition: color 300ms ease-out;
+        }
+
         @media (max-height: 400px), (max-width: 600px) {
             padding: 0 20px 20px 20px;
 
