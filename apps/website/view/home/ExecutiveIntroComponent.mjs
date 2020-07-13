@@ -12,6 +12,11 @@ class ExecutiveIntroComponent extends Component {
          */
         className: 'Website.view.home.ExecutiveIntroComponent',
         /**
+         * @member {String[]} cls=['website-intro-component']
+         * @protected
+         */
+        cls: ['website-intro-component'],
+        /**
          * @member {Object} vdom
          */
         vdom: {innerHTML: 'Amazing text to describe neo.mjs for executives'}

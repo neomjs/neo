@@ -27,8 +27,6 @@ class TabContainer extends Container {
          */
         items: [{
             module         : DeveloperIntroComponent,
-            cls            : ['neo-examples-tab-component'],
-            style          : {padding: '20px'},
             tabButtonConfig: {
                 iconCls: 'fa fa-chess-pawn',
                 route  : 'childview=developers',
