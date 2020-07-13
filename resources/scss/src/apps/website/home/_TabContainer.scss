@@ -41,6 +41,14 @@
             list-style-type: decimal;
         }
 
+        ol ul > li {
+            margin-left: 0;
+
+            &:first-child {
+                margin-top: .40em;
+            }
+        }
+
         p {
             margin-bottom: -0.46em;
             margin-top   : 0.86em;
