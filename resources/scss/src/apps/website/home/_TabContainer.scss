@@ -23,7 +23,6 @@
         }
 
         li {
-            list-style-type           : decimal;
             margin-bottom             : -0.46em;
             margin-left               : 30px;
             padding-left              : 0;
@@ -32,10 +31,14 @@
             transition-timing-function: ease-out;
         }
 
-        ol {
+        ol, ul {
             list-style: none;
             margin    : 0;
             padding   : 0;
+        }
+
+        ol > li {
+            list-style-type: decimal;
         }
 
         p {
