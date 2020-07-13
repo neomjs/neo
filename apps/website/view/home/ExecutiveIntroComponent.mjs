@@ -17,6 +17,15 @@ class ExecutiveIntroComponent extends Component {
          */
         cls: ['website-intro-component'],
         /**
+         * @member {Object[]} domListeners
+         * @protected
+         */
+        domListeners: [{
+            click   : 'onNavLinkClick',
+            delegate: '.nav-link'
+        }],
+        /**
+         * For dynamic structures, you would use the JSON based syntax
          * @member {Object} vdom
          */
         vdom: {innerHTML: [
@@ -41,7 +50,7 @@ class ExecutiveIntroComponent extends Component {
                 '<li>Do you need help creating a prototype App for your use case?</li>',
                 '<li>What is the long term goal?</li>',
                 '<li>Can I join as an investor?</li>',
-                '<li>How to get in touch?</li>',
+                '<li><a class="nav-link">How to get in touch?</a></li>',
             '</ol>',
             '<h1>1. Introduction</h1>',
             '<p>',
@@ -204,7 +213,7 @@ class ExecutiveIntroComponent extends Component {
                 'However, I am open minded. In case you can provide a very strong value on the business side, ',
                 'we can definitely talk. I am not looking for investors who only want to drop in money.',
             '</p>',
-            '<h1>9. How to get in touch?</h1>',
+            '<h1 id="exec-nav-9">9. How to get in touch?</h1>',
             '<p>',
                 'Feel free to send me a contact request or a private message on LinkedIn. ',
                 'You are welcome to take a closer look into my professional experience (e.g. recommendations) as well.',

@@ -85,6 +85,18 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} data
      */
+    onNavLinkClick(data) {
+        console.log('onNavLinkClick', data);
+
+        Neo.main.DomAccess.scrollIntoView({
+            id: 'exec-nav-9'
+        });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onSearchFieldChange(data) {
         this.getReference('blog-list').filterItems(data);
     }
