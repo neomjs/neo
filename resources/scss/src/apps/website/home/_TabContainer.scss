@@ -50,7 +50,11 @@
 
         .nav-link {
             cursor         : pointer;
-            text-decoration: underline;
+            text-decoration: none;
+
+            &:hover {
+                text-decoration: underline;
+            }
         }
 
         @media (max-height: 400px), (max-width: 600px) {

@@ -89,7 +89,7 @@ class MainContainerController extends ComponentController {
         console.log('onNavLinkClick', data);
 
         Neo.main.DomAccess.scrollIntoView({
-            id: 'exec-nav-9'
+            id: data.target.data.target
         });
     }
 
