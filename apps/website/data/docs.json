@@ -1,32 +1,29 @@
 [
     {
-        "backgroundColor": "#555",
-        "browsers"       : ["Chrome (including more examples)"],
-        "environments"   : ["Desktop"],
-        "id"             : 1,
-        "image"          : "devmode/docs.png",
-        "name"           : "Docs App</br>Development Mode",
-        "sourceUrl"      : "https://github.com/neomjs/neo/tree/dev/docs",
-        "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/docs/index.html"
+        "browsers"    : ["Chrome (including more examples)"],
+        "environments": ["Desktop"],
+        "id"          : 1,
+        "image"       : "devmode/docs.png",
+        "name"        : "Docs App</br>Development Mode",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/docs",
+        "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/docs/index.html"
     },
     {
-        "backgroundColor": "#777",
-        "browsers"       : ["Chrome", "Edge", "Firefox", "Safari"],
-        "environments"   : ["Desktop"],
-        "id"             : 2,
-        "image"          : "dist_dev/docs.png",
-        "name"           : "Docs App</br>dist/development",
-        "sourceUrl"      : "https://github.com/neomjs/neo/tree/dev/docs",
-        "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/docs/index.html"
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
+        "environments": ["Desktop"],
+        "id"          : 2,
+        "image"       : "dist_dev/docs.png",
+        "name"        : "Docs App</br>dist/development",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/docs",
+        "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/docs/index.html"
     },
     {
-        "backgroundColor": "#555",
-        "browsers"       : ["Chrome", "Edge", "Firefox", "Safari"],
-        "environments"   : ["Desktop"],
-        "id"             : 3,
-        "image"          : "dist_prod/docs.png",
-        "name"           : "Docs App</br>dist/production",
-        "sourceUrl"      : "https://github.com/neomjs/neo/tree/dev/docs",
-        "url"            : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html"
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
+        "environments": ["Desktop"],
+        "id"          : 3,
+        "image"       : "dist_prod/docs.png",
+        "name"        : "Docs App</br>dist/production",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/docs",
+        "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/docs/index.html"
     }
 ]

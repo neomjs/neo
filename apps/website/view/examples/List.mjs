@@ -69,7 +69,6 @@ class List extends BaseList {
             cn : [{
                 cls  : ['neo-full-size', 'preview-image'],
                 style: {
-                    backgroundColor: record.backgroundColor,
                     backgroundImage: `url('${basePath}/${record.image}'), linear-gradient(#777, #333)`
                 }
             }, {
