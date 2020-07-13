@@ -4,8 +4,10 @@
     }
 
     .website-intro-component {
-        color: #292929;
-        flex : auto !important;
+        color      : #292929;
+        flex       : auto !important;
+        font-weight: 400;
+        word-break : break-word;
 
         h1 {
             font-weight  : 600;
@@ -15,7 +17,6 @@
         }
 
         li {
-            font-weight               : 400;
             list-style-type           : decimal;
             margin-bottom             : -0.46em;
             margin-left               : 30px;
@@ -31,6 +32,12 @@
             padding   : 0;
         }
 
+        p {
+            margin-bottom: -0.46em;
+            margin-top   : 0.86em;
+            transition   : font-size v(website-transition-duration) ease-out, line-height v(website-transition-duration) ease-out;
+        }
+
         @media (max-height: 400px), (max-width: 600px) {
             margin: 0 20px;
 
@@ -43,6 +50,11 @@
                 font-size  : 18px;
                 line-height: 28px;
                 margin-top : 0.67em;
+            }
+
+            p {
+                font-size  : 18px;
+                line-height: 28px;
             }
         }
 
@@ -58,6 +70,11 @@
                 font-size  : 21px;
                 line-height: 32px;
                 margin-top : 0.86em;
+            }
+
+            p {
+                font-size  : 21px;
+                line-height: 32px;
             }
         }
     }

@@ -27,7 +27,10 @@ class ExecutiveIntroComponent extends Component {
                     '<li>Sponsorship</li>',
                     '<li>The planned Business Model (BaaS)</li>',
                     '<li>Do you need help creating a prototype App for your use case?</li>',
-                '</ol>'
+                '</ol>',
+                '<h1>Introduction</h1>',
+                '<p>A nice intro text</p>',
+                '<h1>Sponsorship</h1>'
             ].join('')
         }
     }}
