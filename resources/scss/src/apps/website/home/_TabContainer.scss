@@ -47,6 +47,12 @@
             transition   : font-size v(website-transition-duration) ease-out, line-height v(website-transition-duration) ease-out;
         }
 
+
+        .nav-link {
+            cursor         : pointer;
+            text-decoration: underline;
+        }
+
         @media (max-height: 400px), (max-width: 600px) {
             padding: 0 20px 20px 20px;
 
