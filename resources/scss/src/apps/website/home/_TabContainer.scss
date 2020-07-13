@@ -15,6 +15,7 @@
         }
 
         h1 {
+            color        : v(website-home-h1-color);
             font-weight  : 600;
             margin-bottom: -0.28em;
             margin-top   : 1em;
@@ -22,7 +23,6 @@
         }
 
         li {
-            list-style-type           : decimal;
             margin-bottom             : -0.46em;
             margin-left               : 30px;
             padding-left              : 0;
@@ -31,10 +31,14 @@
             transition-timing-function: ease-out;
         }
 
-        ol {
+        ol, ul {
             list-style: none;
             margin    : 0;
             padding   : 0;
+        }
+
+        ol > li {
+            list-style-type: decimal;
         }
 
         p {
@@ -44,7 +48,7 @@
         }
 
         @media (max-height: 400px), (max-width: 600px) {
-            padding: 0 20px;
+            padding: 0 20px 20px 20px;
 
             h1 {
                 font-size  : 26px;
@@ -64,7 +68,7 @@
         }
 
         @media (min-height: 401px) and (min-width: 601px) {
-            padding: 0 32px;
+            padding: 0 32px 32px 32px;
 
             h1 {
                 font-size  : 36px;

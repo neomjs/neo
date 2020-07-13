@@ -1,9 +1,11 @@
 $neoMap: map-merge($neoMap, (
-    'website-home-color': #292929
+    'website-home-color'   : #292929,
+    'website-home-h1-color': #292929
 ));
 
 @if $useCss4Vars == true {
     :root .neo-theme-light { // .website-home-tab-container
-        --website-home-color: #{neo(website-home-color)};
+        --website-home-color   : #{neo(website-home-color)};
+        --website-home-h1-color: #{neo(website-home-h1-color)};
     }
 }
