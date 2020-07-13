@@ -54,6 +54,7 @@
         background-color: transparent;
         bottom          : calcVar(tab-strip-height, '*', -1);
         height          : v(tab-strip-height);
+        pointer-events  : none;
         position        : absolute;
         width           : 100%;
         z-index         : 2;
