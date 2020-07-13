@@ -18,6 +18,11 @@ class TabContainer extends Container {
          */
         activeIndex: 1,
         /**
+         * @member {String[]} cls=['website-home-tab-container', 'neo-tab-container'],
+         * @protected
+         */
+        cls: ['website-home-tab-container', 'neo-tab-container'],
+        /**
          * @member {Array} items
          */
         items: [{

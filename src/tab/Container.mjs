@@ -49,7 +49,7 @@ class Container extends BaseContainer {
         cardContainerId: null,
         /**
          * adds baseCls + '-plain' is case plain is set to true
-         * @member {Array} cls=['neo-tab-container'],
+         * @member {String[]} cls=['neo-tab-container'],
          * @protected
          */
         cls: ['neo-tab-container'],
