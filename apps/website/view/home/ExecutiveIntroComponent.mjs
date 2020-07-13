@@ -60,7 +60,7 @@ class ExecutiveIntroComponent extends Component {
                 '<li>',
                     '<b>Multi Window Apps</b>',
                     '<p>',
-                        '<b>Problem:</b> Expanding Single Page Apps into multiple Browser windows is simply impossible ',
+                        '<b>Problem:</b> Expanding Single Page Apps into multiple Browser Windows is simply impossible ',
                         'with any other library or framework out there.',
                     '</p>',
                     '<p>',
