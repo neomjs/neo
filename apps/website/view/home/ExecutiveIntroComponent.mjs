@@ -19,7 +19,17 @@ class ExecutiveIntroComponent extends Component {
         /**
          * @member {Object} vdom
          */
-        vdom: {innerHTML: 'Amazing text to describe neo.mjs for executives'}
+        vdom: {
+            innerHTML: [
+                '<h2>Content</h2>',
+                '<ol>',
+                    '<li>Introduction</li>',
+                    '<li>Sponsorship</li>',
+                    '<li>The planned Business Model (BaaS)</li>',
+                    '<li>Do you need help creating a prototype App for your use case?</li>',
+                '</ol>'
+            ].join('')
+        }
     }}
 }
 
