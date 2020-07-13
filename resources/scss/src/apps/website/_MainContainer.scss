@@ -10,6 +10,10 @@
     .website-main-tabcontainer {
         transition: margin v(website-transition-duration) ease-out;
 
+        .neo-tab-content-container {
+            border: none;
+        }
+
         @media (max-height: 400px), (max-width: 600px) {
             margin: 0;
         }
