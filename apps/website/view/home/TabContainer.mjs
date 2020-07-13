@@ -1,5 +1,5 @@
-import {default as Component} from '../../../../src/component/Base.mjs';
 import Container              from '../../../../src/tab/Container.mjs';
+import DeveloperIntroComponent from './DeveloperIntroComponent.mjs';
 import ExecutiveIntroComponent from './ExecutiveIntroComponent.mjs';
 
 /**
@@ -21,7 +21,7 @@ class TabContainer extends Container {
          * @member {Array} items
          */
         items: [{
-            module         : Component,
+            module         : DeveloperIntroComponent,
             cls            : ['neo-examples-tab-component'],
             style          : {padding: '20px'},
             tabButtonConfig: {
