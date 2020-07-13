@@ -85,7 +85,17 @@ class ExecutiveIntroComponent extends Component {
                         'packages to ensure this. The exact details are not figured out yet.',
                     '</li>',
                 '</ol>',
-                'In case the BaaS options are interesting for you, you are welcome to reach out to me.',
+            '</p>',
+            '<p>',
+                'In case the BaaS options are interesting for you, you are very welcome to reach out to me.',
+            '</p>',
+            '<h1>How to get in touch?</h1>',
+            '<p>',
+                'Feel free to send me a contact request or private message on LinkedIn. ',
+                'You are welcome to take a closer look into my professional experience (e.g. recommendations) as well.',
+            '</p>',
+            '<p>',
+                '<a target="_blank" href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig\'s LinkedIn Profile</a>',
             '</p>',
         ].join('')}
     }}
