@@ -113,7 +113,7 @@ class ExecutiveIntroComponent extends Component {
                     '<p>',
                     '<b>Solution:</b> In a couple of years, we will most likely look back at this madness and laugh. Calling it ',
                     '"a hiccup in the history of Web Development". Browsers did catch up. Using neo.mjs, you can run the Development ',
-                    'Mode directly inside the Browser. No build processes or source maps needed. You can debug the real code. ',
+                    'Mode directly inside the Browser. No build processes or source maps needed. You can debug the real ES8+ code. ',
                     'This has saved me a lot of time already, since it is the best possible debugging experience.',
                 '</p>',
                 '</li>',
