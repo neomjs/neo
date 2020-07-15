@@ -17,6 +17,14 @@ class DeveloperIntroComponent extends Component {
          */
         cls: ['website-intro-component'],
         /**
+         * @member {Object[]} domListeners
+         * @protected
+         */
+        domListeners: [{
+            click   : 'onNavLinkClick',
+            delegate: '.nav-link'
+        }],
+        /**
          * @member {Object} vdom
          */
         vdom: {innerHTML: [
@@ -31,7 +39,7 @@ class DeveloperIntroComponent extends Component {
                         '<li>2.3 <a class="nav-link" data-target="dev-nav-2.3">Developing UIs inside nodejs</a></li>',
                         '<li>2.4 <a class="nav-link" data-target="dev-nav-2.4">Scalable Architectures</a></li>',
                         '<li>2.5 <a class="nav-link" data-target="dev-nav-2.5">Memory Leaks</a></li>',
-                        '<li>2.6 <a class="nav-link" data-target="dev-nav-2.6">No Templates</a></li>',
+                        '<li>2.6 <a class="nav-link" data-target="dev-nav-2.6">Templates</a></li>',
                         '<li>2.7 <a class="nav-link" data-target="dev-nav-2.7">Consistent Code</a></li>',
                     '</ul>',
                 '</li>',
