@@ -238,7 +238,7 @@ class DeveloperIntroComponent extends Component {
                 'Once Developer Certifications are in place, the best & most active Contributors will get them. For free.',
             '</p>',
             '<p>',
-                'In case you read the Executives Intro: If the neo.mjs project will get on a financial sustainable level ',
+                'In case you read the Executives Intro: If the neo.mjs project will get on a financially sustainable level ',
                 '(still a long way), it is my goal to create new jobs or contractor positions.',
             '</p>',
             '<p>',
