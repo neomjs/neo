@@ -239,7 +239,10 @@ class DeveloperIntroComponent extends Component {
             '</p>',
             '<p>',
                 'In case you read the Executives Intro: If the neo.mjs project will get on a financial sustainable level ',
-                '(still a long way), it is my goal to create new jobs or contractor positions. Guess who I will ask first.',
+                '(still a long way), it is my goal to create new jobs or contractor positions.',
+            '</p>',
+            '<p>',
+                'Guess who I will ask first. This can include Company Shares.',
             '</p>',
         ].join('')}
     }}
