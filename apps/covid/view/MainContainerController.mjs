@@ -308,12 +308,12 @@ class MainContainerController extends ComponentController {
 
                     switch(activeView.ntype) {
                         case 'gallery':
-                            if (!selectionModel.isSelected(country)) {
+                            if (country && !selectionModel.isSelected(country)) {
                                 selectionModel.select(country, false);
                             }
                             break;
                         case 'helix':
-                            if (!selectionModel.isSelected(country)) {
+                            if (country && !selectionModel.isSelected(country)) {
                                 selectionModel.select(country, false);
                                 activeView.onKeyDownSpace(null);
                             }
@@ -323,7 +323,7 @@ class MainContainerController extends ComponentController {
 
                             me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(country)});
 
-                            if (!selectionModel.isSelected(id)) {
+                            if (country && !selectionModel.isSelected(id)) {
                                 selectionModel.select(id);
                                 Neo.main.DomAccess.scrollToTableRow({id: id});
                             }

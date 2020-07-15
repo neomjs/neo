@@ -293,35 +293,37 @@ class Gallery extends Component {
      * @protected
      */
     afterSetMounted(value, oldValue) {
-        let me = this;
+        if (value) {
+            let me = this;
 
-        setTimeout(() => {
-            Neo.currentWorker.promiseMessage('main', {
-                action    : 'readDom',
-                appName   : me.appName,
-                vnodeId   : me.id,
-                attributes: [
-                    'offsetHeight',
-                    'offsetWidth'
-                ]
-            }).then(data => {
-                me.offsetHeight = data.attributes.offsetHeight;
-                me.offsetWidth  = data.attributes.offsetWidth;
+            setTimeout(() => {
+                Neo.currentWorker.promiseMessage('main', {
+                    action    : 'readDom',
+                    appName   : me.appName,
+                    vnodeId   : me.id,
+                    attributes: [
+                        'offsetHeight',
+                        'offsetWidth'
+                    ]
+                }).then(data => {
+                    me.offsetHeight = data.attributes.offsetHeight;
+                    me.offsetWidth  = data.attributes.offsetWidth;
 
-                if (me.selectOnMount) {
-                    let selection = me.selectionModel.getSelection(),
-                        key       = selection.length > 0 && selection[0];
+                    if (me.selectOnMount) {
+                        let selection = me.selectionModel.getSelection(),
+                            key       = selection.length > 0 && selection[0];
 
-                    if (!key) {
-                        let index = parseInt(Math.min(me.maxItems, me.store.getCount()) / me.amountRows);
+                        if (!key) {
+                            let index = parseInt(Math.min(me.maxItems, me.store.getCount()) / me.amountRows);
 
-                        key = me.store.getKeyAt(index);
+                            key = me.store.getKeyAt(index);
+                        }
+
+                        me.selectionModel.select(key);
                     }
-
-                    me.selectionModel.select(key);
-                }
-            });
-        }, 200);
+                });
+            }, 200);
+        }
     }
 
     /**
