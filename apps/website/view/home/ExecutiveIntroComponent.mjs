@@ -273,7 +273,7 @@ class ExecutiveIntroComponent extends Component {
             '</p>',
             '<p>',
                 '<a target="_blank" href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig\'s LinkedIn Profile</a>',
-            '</p>',
+            '</p>'
         ].join('')}
     }}
 }

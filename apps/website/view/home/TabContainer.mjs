@@ -31,8 +31,7 @@ class TabContainer extends Container {
                 iconCls: 'fa fa-chess-pawn',
                 route  : 'childview=developers',
                 text   : 'For Developers'
-            },
-            vdom: {innerHTML: 'Amazing text to describe neo.mjs for developers'}
+            }
         }, {
             module         : ExecutiveIntroComponent,
             tabButtonConfig: {
