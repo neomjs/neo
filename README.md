@@ -56,7 +56,7 @@ without the need to take care of a workers setup or the cross channel communicat
 All Blog posts are stored here:
 <a href="https://github.com/neomjs/neo/projects/14">neo/projects/14</a>.</br>
 The latest article:
-> How to create a webworkers driven multithreading App — Part 2
+> Creating a responsive multithreading Website for Desktop & Mobile
 
 <!-- Scalable frontend architectures -->
 <h2 id="architectures">Scalable frontend architectures</h2>

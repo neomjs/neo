@@ -469,13 +469,13 @@ class MainContainerController extends ComponentController {
                     }
 
                     if (activeView.ntype === 'gallery' || me.connectedApps.includes('SharedCovidGallery')) {
-                        if (!me.galleryView.selectionModel.isSelected(country)) {
+                        if (country && !me.galleryView.selectionModel.isSelected(country)) {
                             me.galleryView.selectionModel.select(country, false);
                         }
                     }
 
                     if (activeView.ntype === 'helix' || me.connectedApps.includes('SharedCovidHelix')) {
-                        if (!me.helixView.selectionModel.isSelected(country)) {
+                        if (country && !me.helixView.selectionModel.isSelected(country)) {
                             me.helixView.selectionModel.select(country, false);
                             me.helixView.onKeyDownSpace(null);
                         }
@@ -499,7 +499,7 @@ class MainContainerController extends ComponentController {
 
                         me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(country)});
 
-                        if (!selectionModel.isSelected(id)) {
+                        if (country && !selectionModel.isSelected(id)) {
                             selectionModel.select(id);
                             Neo.main.DomAccess.scrollToTableRow({id: id});
                         }

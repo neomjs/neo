@@ -153,7 +153,7 @@ class CountryGallery extends Gallery {
         setTimeout(() => {
             this.selectOnMount = true;
             this.afterSetMounted(true, false);
-        }, 200);
+        }, 400);
     }
 }
 

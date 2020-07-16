@@ -51,6 +51,7 @@ class ExecutiveIntroComponent extends Component {
                     '<li>4.1 <a class="nav-link" data-target="exec-nav-4.1">Professional Services</a></li>',
                     '<li>4.2 <a class="nav-link" data-target="exec-nav-4.2">Trainings</a></li>',
                     '<li>4.3 <a class="nav-link" data-target="exec-nav-4.3">Support</a></li>',
+                    '<li>4.4 <a class="nav-link" data-target="exec-nav-4.4">Developer Certifications</a></li>',
                     '</ul>',
                 '</li>',
                 '<li><a class="nav-link" data-target="exec-nav-5">You can influence the neo.mjs roadmap</a></li>',
@@ -224,6 +225,11 @@ class ExecutiveIntroComponent extends Component {
                         'In case you need a guaranteed response time for your questions & tickets, there will be support ',
                         'packages to ensure this. The exact details are not figured out yet.',
                     '</li>',
+                    '<li>',
+                        '<b class="nav-target" id="exec-nav-4.4">Developer Certifications</b></br>',
+                        'Once there is a demand for neo.mjs developers on the job market, I would like to create a Certification Program, ',
+                        'to help you identifying the most talented developers more easily.',
+                    '</li>',
                 '</ol>',
             '</p>',
             '<p>',
@@ -273,7 +279,7 @@ class ExecutiveIntroComponent extends Component {
             '</p>',
             '<p>',
                 '<a target="_blank" href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig\'s LinkedIn Profile</a>',
-            '</p>',
+            '</p>'
         ].join('')}
     }}
 }
