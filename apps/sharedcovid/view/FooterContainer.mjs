@@ -43,7 +43,7 @@ class FooterContainer extends Container {
         }, {
             flex: 1
         }, {
-            html : 'Data provided by <a target="_blank" href="https://github.com/NovelCOVID/API">NovelCOVID/API</a>.'
+            html : 'Data provided by <a target="_blank" href="https://github.com/disease-sh/API">disease-sh/API</a>.'
         }, {
             flex: 1
         }, {
