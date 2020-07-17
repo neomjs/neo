@@ -31,11 +31,36 @@ class WeekComponent extends Component {
                 cn : [{
                     cls: ['neo-time-axis']
                 }, {
-                    cls: ['neo-c-w-content']
+                    cls: ['neo-c-w-content'],
+                    cn : []
                 }]
             }]
         }
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let content = this.getVdomContent(),
+            i       = 0;
+
+        for (; i < 7; i++) {
+            content.cn.push({
+                cls: ['neo-c-w-column']
+            });
+        }
+    }
+
+    /**
+     *
+     */
+    getVdomContent() {
+        return this.vdom.cn[1].cn[1];
+    }
 }
 
 Neo.applyClassConfig(WeekComponent);

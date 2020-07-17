@@ -6,14 +6,21 @@
     .neo-c-w-body {
         align-items: stretch;
         display    : flex;
-        flex       : 1 0 100%;
+        flex       : 1;
+    }
+
+    .neo-c-w-column{
+        border-left: 1px solid #ddd;
+        flex       : 1;
     }
 
     .neo-c-w-content {
+        align-items          : stretch;
         background-image     : linear-gradient(#fff, #fff 20px, #ddd 1px, #fff 21px, #fff 41px, #ddd 1px);
         background-size      : 0.5em 42px;
         background-position-y: 0;
-        flex                 : 1 0 100%;
+        display              : flex;
+        flex                 : 1;
     }
 
     .neo-header-row {
