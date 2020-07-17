@@ -38,14 +38,15 @@ class MainContainer extends Container {
             flex  : 'none',
             style : {borderBottom: '1px solid #ddd'}, // todo: scss
             items : ['->', {
-                text   : 'Day',
-                handler: me.changeTimeInterval
+                handler: me.changeTimeInterval.bind(me, 'day'),
+                text   : 'Day'
             }, {
-                text   : 'Week',
-                handler: me.changeTimeInterval
+                handler: me.changeTimeInterval.bind(me, 'week'),
+                pressed: true,
+                text   : 'Week'
             }, {
-                text   : 'Month',
-                handler: me.changeTimeInterval
+                handler: me.changeTimeInterval.bind(me, 'month'),
+                text   : 'Month'
             }]
         }, {
             module: Container,
@@ -58,7 +59,7 @@ class MainContainer extends Container {
             }, {
                 module: Container,
                 flex  : 1,
-                layout: {ntype: 'card'},
+                layout: {ntype: 'card', activeIndex: 1},
                 items : [{
                     ntype: 'component',
                     vdom : {innerHTML: 'Day'}
@@ -73,8 +74,14 @@ class MainContainer extends Container {
         }];
     }
 
-    changeTimeInterval() {
-        console.log('changeTimeInterval');
+    changeTimeInterval(interval) {
+        const map = {
+            day  : 0,
+            month: 2,
+            week : 1
+        };
+
+        this.items[1].items[1].layout.activeIndex = map[interval];
     }
 }
 
