@@ -1,5 +1,6 @@
 import {default as Container} from '../container/Base.mjs';
 import DateSelector           from '../component/DateSelector.mjs';
+import ItemsContainer         from './ItemsContainer.mjs';
 import Toolbar                from '../container/Toolbar.mjs';
 
 /**
@@ -79,10 +80,8 @@ class MainContainer extends Container {
                     module: DateSelector,
                     flex  : 'none'
                 }, {
-                    ntype: 'component',
-                    flex : 1,
-                    style: {marginTop: '20px'},
-                    vdom : {innerHTML: 'Calendar Items'}
+                    module: ItemsContainer,
+                    flex  : 1
                 }]
             }, {
                 module: Container,
