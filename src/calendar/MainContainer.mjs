@@ -22,7 +22,12 @@ class MainContainer extends Container {
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
          */
-        layout: {ntype: 'vbox', align: 'stretch'}
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * @member {Boolean} sideBarExpanded_=true
+         * @protected
+         */
+        sideBarExpanded_: true
     }}
 
     /**
@@ -38,7 +43,10 @@ class MainContainer extends Container {
             module: Toolbar,
             flex  : 'none',
             style : {borderBottom: '1px solid #ddd'}, // todo: scss
-            items : ['->', {
+            items : [{
+                handler: me.toggleSidebar.bind(me),
+                iconCls: 'fa fa-bars'
+            }, '->', {
                 handler: me.changeTimeInterval.bind(me, 'day'),
                 text   : 'Day'
             }, {
@@ -85,6 +93,23 @@ class MainContainer extends Container {
         }];
     }
 
+    /**
+     * Triggered after the sideBarExpanded config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSideBarExpanded(value, oldValue) {
+        if (Neo.isBoolean(oldValue)) {
+            let sideBar = this.items[1].items[0],
+                style   = sideBar.style || {};
+
+            style.marginLeft = value ? '0': '-220px';
+
+            sideBar.style = style;
+        }
+    }
+
     changeTimeInterval(interval) {
         const map = {
             day  : 0,
@@ -93,6 +118,10 @@ class MainContainer extends Container {
         };
 
         this.items[1].items[1].layout.activeIndex = map[interval];
+    }
+
+    toggleSidebar() {
+        this.sideBarExpanded = !this.sideBarExpanded;
     }
 }
 
