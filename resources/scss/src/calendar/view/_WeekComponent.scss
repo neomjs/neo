@@ -17,7 +17,7 @@
     .neo-c-w-content {
         align-items          : stretch;
         background-image     : linear-gradient(#fff, #fff 20px, #ddd 1px, #fff 21px, #fff 41px, #ddd 1px);
-        background-size      : 0.5em 42px;
+        background-size      : 1px 42px;
         background-position-y: 0;
         display              : flex;
         flex                 : 1;
@@ -30,7 +30,12 @@
     }
 
     .neo-time-axis {
-        flex : none;
-        width: 50px;
+        background-image     : linear-gradient(#fff 41px, #ddd 1px);
+        background-position-x: 100%;
+        background-position-y: 0;
+        background-repeat    : repeat-y;
+        background-size      : 0.6em 42px;
+        flex                 : none;
+        width                : 50px;
     }
 }
