@@ -78,7 +78,8 @@ class MainContainer extends Container {
                 width : 220,
                 items : [{
                     module: DateSelector,
-                    flex  : 'none'
+                    flex  : 'none',
+                    height: me.sideBarWidth
                 }, {
                     module: ItemsContainer,
                     flex  : 1
