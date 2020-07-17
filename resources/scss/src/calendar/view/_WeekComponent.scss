@@ -20,7 +20,21 @@
         background-size      : 1px 42px;
         background-position-y: 0;
         display              : flex;
-        flex                 : 1;
+        flex                 : 1 1 ;
+        max-height           : 1008px; // todo: dynamic height
+    }
+
+    .neo-c-w-timeaxis-item {
+        align-items    : center;
+        color          : #999;
+        display        : flex;
+        font-size      : 10px;
+        height         : 42px;
+        justify-content: center;
+
+        &:first-child {
+            margin-top: 20px;
+        }
     }
 
     .neo-header-row {
@@ -34,7 +48,7 @@
         background-position-x: 100%;
         background-position-y: 0;
         background-repeat    : repeat-y;
-        background-size      : 0.6em 42px;
+        background-size      : 0.4em 42px;
         flex                 : none;
         width                : 50px;
     }

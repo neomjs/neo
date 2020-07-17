@@ -29,7 +29,8 @@ class WeekComponent extends Component {
             }, {
                 cls: ['neo-c-w-body'],
                 cn : [{
-                    cls: ['neo-time-axis']
+                    cls: ['neo-time-axis'],
+                    cn : []
                 }, {
                     cls: ['neo-c-w-content'],
                     cn : []
@@ -45,12 +46,23 @@ class WeekComponent extends Component {
     constructor(config) {
         super(config);
 
-        let content = this.getVdomContent(),
-            i       = 0;
+        let content  = this.getVdomContent(),
+            timeAxis = this.getVdomTimeAxis(),
+            i        = 0,
+            html;
 
         for (; i < 7; i++) {
             content.cn.push({
                 cls: ['neo-c-w-column']
+            });
+        }
+
+        for (i=1; i < 25; i++) {
+            timeAxis.cn.push({
+                cls: ['neo-c-w-timeaxis-item'],
+                cn : [{
+                    html: (i < 10 ? '0' : '') + i + ':00'
+                }]
             });
         }
     }
@@ -60,6 +72,13 @@ class WeekComponent extends Component {
      */
     getVdomContent() {
         return this.vdom.cn[1].cn[1];
+    }
+
+    /**
+     *
+     */
+    getVdomTimeAxis() {
+        return this.vdom.cn[1].cn[0];
     }
 }
 
