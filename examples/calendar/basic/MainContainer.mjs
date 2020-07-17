@@ -11,10 +11,17 @@ class MainContainer extends Viewport {
         ntype    : 'calendar-basic-maincontainer',
 
         autoMount: true,
-        layout   : {ntype: 'fit'},
+        layout   : {ntype: 'vbox', align: 'stretch'},
 
         items: [{
-            module: Calendar
+            ntype : 'container',
+            height: 100,
+            style : {
+                backgroundColor: '#ddd'
+            }
+        }, {
+            module: Calendar,
+            flex  : 1
         }]
     }}
 }

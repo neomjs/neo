@@ -1,4 +1,5 @@
 import {default as Container} from '../container/Base.mjs';
+import Toolbar                from '../container/Toolbar.mjs';
 
 /**
  * @class Neo.calendar.MainContainer
@@ -17,12 +18,27 @@ class MainContainer extends Container {
          */
         ntype: 'calendar-maincontainer',
         /**
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         * @protected
+         */
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
          * @member {Object[]} items
          * @protected
          */
         items: [{
-            ntype: 'component',
-            vdom : {innerHTML: 'calendar'}
+            module: Toolbar,
+            flex  : 'none',
+            items : ['->', {
+                text: 'Day'
+            }, {
+                text: 'Week'
+            }, {
+                text: 'Month'
+            }]
+        }, {
+            module: Container,
+            flex  : 1
         }]
     }}
 }
