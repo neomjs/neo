@@ -21,26 +21,48 @@ class MainContainer extends Container {
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
          */
-        layout: {ntype: 'vbox', align: 'stretch'},
-        /**
-         * @member {Object[]} items
-         * @protected
-         */
-        items: [{
+        layout: {ntype: 'vbox', align: 'stretch'}
+    }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me = this;
+
+        me.items = [{
             module: Toolbar,
             flex  : 'none',
             items : ['->', {
-                text: 'Day'
+                text   : 'Day',
+                handler: me.changeTimeInterval
             }, {
-                text: 'Week'
+                text   : 'Week',
+                handler: me.changeTimeInterval
             }, {
-                text: 'Month'
+                text   : 'Month',
+                handler: me.changeTimeInterval
             }]
         }, {
             module: Container,
-            flex  : 1
-        }]
-    }}
+            flex  : 1,
+            layout: {ntype: 'hbox', align: 'stretch'},
+            items : [{
+                module: Container,
+                width : 200
+            }, {
+                module: Container,
+                flex  : 1
+            }]
+        }];
+    }
+
+    changeTimeInterval() {
+        console.log('changeTimeInterval');
+    }
 }
 
 Neo.applyClassConfig(MainContainer);
