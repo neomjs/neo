@@ -1,4 +1,5 @@
-import {default as Container} from '../container/Base.mjs';
+import {default as Container}     from '../container/Base.mjs';
+import {default as CalendarStore} from './store/Calendars.mjs';
 
 /**
  * @class Neo.calendar.ItemsContainer
@@ -15,7 +16,12 @@ class ItemsContainer extends Container {
          * @member {String} ntype='calendar-itemscontainer'
          * @protected
          */
-        ntype: 'calendar-itemscontainer'
+        ntype: 'calendar-itemscontainer',
+        /**
+         * @member {Neo.data.Store} store_=CalendarStore
+         * @protected
+         */
+        store_: CalendarStore
     }}
 }
 
