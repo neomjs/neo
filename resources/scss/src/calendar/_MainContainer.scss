@@ -3,4 +3,15 @@
         border-right: 1px solid #ddd;
         transition  : margin-left 350ms ease-out;
     }
+
+    .neo-dateselector {
+        .neo-dateselector-content {
+            border-right: 0;
+        }
+
+        .neo-dateselector-header {
+            border-right: 0;
+            border-top  : 0;
+        }
+    }
 }
