@@ -2,6 +2,7 @@ import {default as Container} from '../container/Base.mjs';
 import DateSelector           from '../component/DateSelector.mjs';
 import ItemsContainer         from './ItemsContainer.mjs';
 import Toolbar                from '../container/Toolbar.mjs';
+import WeekComponent          from './view/WeekComponent.mjs';
 
 /**
  * @class Neo.calendar.MainContainer
@@ -92,8 +93,7 @@ class MainContainer extends Container {
                     ntype: 'component',
                     vdom : {innerHTML: 'Day'}
                 }, {
-                    ntype: 'component',
-                    vdom : {innerHTML: 'Week'}
+                    module: WeekComponent
                 }, {
                     ntype: 'component',
                     vdom : {innerHTML: 'Month'}

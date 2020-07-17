@@ -20,6 +20,21 @@ class WeekComponent extends Component {
          * @member {String[]} cls=['neo-calendar-weekcomponent']
          */
         cls: ['neo-calendar-weekcomponent'],
+        /**
+         * @member {Object} vdom
+         */
+        vdom: {
+            cn: [{
+                cls: ['neo-header-row']
+            }, {
+                cls: ['neo-body'],
+                cn : [{
+                    cls: ['neo-time-axis']
+                }, {
+                    cls: ['neo-content']
+                }]
+            }]
+        }
     }}
 }
 
