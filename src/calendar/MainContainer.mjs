@@ -36,6 +36,7 @@ class MainContainer extends Container {
         me.items = [{
             module: Toolbar,
             flex  : 'none',
+            style : {borderBottom: '1px solid #ddd'}, // todo: scss
             items : ['->', {
                 text   : 'Day',
                 handler: me.changeTimeInterval
@@ -52,10 +53,22 @@ class MainContainer extends Container {
             layout: {ntype: 'hbox', align: 'stretch'},
             items : [{
                 module: Container,
+                style : {borderRight: '1px solid #ddd'}, // todo: scss
                 width : 200
             }, {
                 module: Container,
-                flex  : 1
+                flex  : 1,
+                layout: {ntype: 'card'},
+                items : [{
+                    ntype: 'component',
+                    vdom : {innerHTML: 'Day'}
+                }, {
+                    ntype: 'component',
+                    vdom : {innerHTML: 'Week'}
+                }, {
+                    ntype: 'component',
+                    vdom : {innerHTML: 'Month'}
+                }]
             }]
         }];
     }
