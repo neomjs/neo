@@ -16,9 +16,7 @@ class MainContainer extends Viewport {
         items: [{
             ntype : 'container',
             height: 100,
-            style : {
-                backgroundColor: '#ddd'
-            }
+            style : {backgroundColor: '#ddd'}
         }, {
             module: Calendar,
             flex  : 1

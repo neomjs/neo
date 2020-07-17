@@ -1,4 +1,5 @@
 import {default as Container} from '../container/Base.mjs';
+import DateSelector           from '../component/DateSelector.mjs';
 import Toolbar                from '../container/Toolbar.mjs';
 
 /**
@@ -54,8 +55,18 @@ class MainContainer extends Container {
             layout: {ntype: 'hbox', align: 'stretch'},
             items : [{
                 module: Container,
+                layout: {ntype: 'vbox', align: 'stretch'},
                 style : {borderRight: '1px solid #ddd'}, // todo: scss
-                width : 200
+                width : 220,
+                items : [{
+                    module: DateSelector,
+                    flex  : 'none'
+                }, {
+                    ntype: 'component',
+                    flex : 1,
+                    style: {marginTop: '20px'},
+                    vdom : {innerHTML: 'Calendar Items'}
+                }]
             }, {
                 module: Container,
                 flex  : 1,
