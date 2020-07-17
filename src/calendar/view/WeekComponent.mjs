@@ -27,11 +27,11 @@ class WeekComponent extends Component {
             cn: [{
                 cls: ['neo-header-row']
             }, {
-                cls: ['neo-body'],
+                cls: ['neo-c-w-body'],
                 cn : [{
                     cls: ['neo-time-axis']
                 }, {
-                    cls: ['neo-content']
+                    cls: ['neo-c-w-content']
                 }]
             }]
         }

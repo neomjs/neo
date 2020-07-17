@@ -1,0 +1,29 @@
+.neo-calendar-weekcomponent {
+    align-items   : stretch;
+    display       : flex;
+    flex-direction: column;
+
+    .neo-c-w-body {
+        align-items: stretch;
+        display    : flex;
+        flex       : 1 0 100%;
+    }
+
+    .neo-c-w-content {
+        background-image     : linear-gradient(#fff, #fff 20px, #ddd 1px, #fff 21px, #fff 41px, #ddd 1px);
+        background-size      : 0.5em 42px;
+        background-position-y: 0;
+        flex                 : 1 0 100%;
+    }
+
+    .neo-header-row {
+        background-color: #eee;
+        flex            : none;
+        height          : 60px;
+    }
+
+    .neo-time-axis {
+        flex : none;
+        width: 50px;
+    }
+}
