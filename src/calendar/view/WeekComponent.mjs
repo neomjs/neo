@@ -1,4 +1,4 @@
-import {default as Component}     from '../../component/Base.mjs';
+import {default as Component} from '../../component/Base.mjs';
 
 /**
  * @class Neo.calendar.view.WeekComponent

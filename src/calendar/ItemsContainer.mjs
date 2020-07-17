@@ -19,7 +19,7 @@ class ItemsContainer extends Container {
          */
         ntype: 'calendar-itemscontainer',
         /**
-         * @member {String[]} cls=['neo-container']
+         * @member {String[]} cls=['neo-calendar-itemscontainer', 'neo-container']
          */
         cls: ['neo-calendar-itemscontainer', 'neo-container'],
         /**
