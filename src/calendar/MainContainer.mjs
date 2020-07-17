@@ -31,7 +31,12 @@ class MainContainer extends Container {
          * @member {Boolean} sideBarExpanded_=true
          * @protected
          */
-        sideBarExpanded_: true
+        sideBarExpanded_: true,
+        /**
+         * @member {Number} sideBarWidth=220
+         * @protected
+         */
+        sideBarWidth: 220
     }}
 
     /**
@@ -108,7 +113,7 @@ class MainContainer extends Container {
             let sideBar = this.items[1].items[0],
                 style   = sideBar.style || {};
 
-            style.marginLeft = value ? '0': '-220px';
+            style.marginLeft = value ? '0': `-${this.sideBarWidth}px`;
 
             sideBar.style = style;
         }
