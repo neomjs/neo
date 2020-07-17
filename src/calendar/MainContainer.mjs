@@ -19,6 +19,10 @@ class MainContainer extends Container {
          */
         ntype: 'calendar-maincontainer',
         /**
+         * @member {String[]} cls=['neo-container']
+         */
+        cls: ['neo-calendar-maincontainer', 'neo-container'],
+        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
          */
@@ -63,8 +67,8 @@ class MainContainer extends Container {
             layout: {ntype: 'hbox', align: 'stretch'},
             items : [{
                 module: Container,
+                cls   : ['neo-calendar-sidebar', 'neo-container'],
                 layout: {ntype: 'vbox', align: 'stretch'},
-                style : {borderRight: '1px solid #ddd'}, // todo: scss
                 width : 220,
                 items : [{
                     module: DateSelector,
