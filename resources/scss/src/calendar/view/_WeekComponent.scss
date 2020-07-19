@@ -107,6 +107,8 @@
         background-repeat    : repeat-y;
         background-size      : 0.4em 42px;
         flex                 : none;
+        height               : 1008px; // todo: dynamic height
+        max-height           : 1008px; // todo: dynamic height
         width                : 50px;
     }
 
