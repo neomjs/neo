@@ -20,7 +20,7 @@
         background-size      : 1px 42px;
         background-position-y: 0;
         display              : flex;
-        flex                 : 1 1 ;
+        flex                 : 1;
         max-height           : 1008px; // todo: dynamic height
     }
 
@@ -38,9 +38,12 @@
     }
 
     .neo-header-row {
+        align-items     : stretch;
         background-color: #eee;
+        display         : flex;
         flex            : none;
         height          : 60px;
+        justify-content : center;
     }
 
     .neo-time-axis {
