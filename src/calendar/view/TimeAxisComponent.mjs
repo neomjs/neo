@@ -45,6 +45,12 @@ class TimeAxisComponent extends Component {
         me.afterSetRowHeight(me.rowHeight, 0);
     }
 
+    /**
+     * Triggered after the rowHeight config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
     afterSetRowHeight(value, oldValue) {
         if (oldValue !== undefined) {
             let me          = this,
@@ -78,6 +84,9 @@ class TimeAxisComponent extends Component {
         }
     }
 
+    /**
+     *
+     */
     createItems() {
         let vdom = this.vdom,
             html, i;
