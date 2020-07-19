@@ -42,6 +42,10 @@
         }
     }
 
+    &.pressed {
+        border-color: v(button-pressed-border-color);
+    }
+
     .neo-button-glyph {
         color         : v(button-glyph-color);
         font-size     : 12px;
