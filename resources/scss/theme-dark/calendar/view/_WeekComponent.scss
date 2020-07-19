@@ -1,11 +1,13 @@
 $neoMap: map-merge($neoMap, (
-    'calendar-weekcomponent-background-color': #323232,
-    'calendar-weekcomponent-border-color'    : #3c3f41
+    'calendar-weekcomponent-background-color'        : #323232,
+    'calendar-weekcomponent-border-color'            : #3c3f41,
+    'calendar-weekcomponent-weekend-background-color': rgba(40, 40, 40, .35)
 ));
 
 @if $useCss4Vars == true {
     :root .neo-theme-dark { // .neo-calendar-weekcomponent
-        --calendar-weekcomponent-background-color: #{neo(calendar-weekcomponent-background-color)};
-        --calendar-weekcomponent-border-color    : #{neo(calendar-weekcomponent-border-color)};
+        --calendar-weekcomponent-background-color        : #{neo(calendar-weekcomponent-background-color)};
+        --calendar-weekcomponent-border-color            : #{neo(calendar-weekcomponent-border-color)};
+        --calendar-weekcomponent-weekend-background-color: #{neo(calendar-weekcomponent-weekend-background-color)};
     }
 }

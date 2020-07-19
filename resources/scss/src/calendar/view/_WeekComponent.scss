@@ -15,7 +15,7 @@
         flex       : 1;
 
         &.neo-weekend {
-            background-color: rgba(240, 240, 240, .35);
+            background-color: v(calendar-weekcomponent-weekend-background-color);
         }
     }
 
