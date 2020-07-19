@@ -11,11 +11,11 @@
     }
 
     .neo-c-w-column{
-        border-left: 1px solid v(calendar-weekcomponent-border-color);
+        border-left: 1px solid v(c-w-border-color);
         flex       : 1;
 
         &.neo-weekend {
-            background-color: v(calendar-weekcomponent-weekend-background-color);
+            background-color: v(c-w-weekend-background-color);
         }
     }
 
@@ -29,12 +29,12 @@
         max-height           : 1008px; // todo: dynamic height
 
         background-image: linear-gradient(
-            v(calendar-weekcomponent-background-color),
-            v(calendar-weekcomponent-background-color) 20px,
-            v(calendar-weekcomponent-border-color) 1px,
-            v(calendar-weekcomponent-background-color) 21px,
-            v(calendar-weekcomponent-background-color) 41px,
-            v(calendar-weekcomponent-border-color) 1px
+            v(c-w-background-color),
+            v(c-w-background-color) 20px,
+            v(c-w-border-color) 1px,
+            v(c-w-background-color) 21px,
+            v(c-w-background-color) 41px,
+            v(c-w-border-color) 1px
         );
     }
 
@@ -53,7 +53,7 @@
 
     .neo-header-row-item {
         align-items    : center;
-        border-bottom  : 1px solid v(calendar-weekcomponent-border-color);
+        border-bottom  : 1px solid v(c-w-border-color);
         border-left    : 1px solid transparent;
         cursor         : pointer;
         display        : flex;
@@ -64,19 +64,20 @@
         padding-top    : 10px;
 
         &:nth-child(2) {
-            border-left: 1px solid v(calendar-weekcomponent-border-color);
+            border-left: 1px solid v(c-w-border-color);
         }
 
         &:hover {
             .neo-date {
-                background-color: #eee;
+                background-color: v(c-w-header-date-background-color-hover);
+                color           : v(c-w-header-date-color-hover);
             }
         }
 
         .neo-date {
             align-items    : center;
             border-radius  : 50%;
-            color          : v(calendar-weekcomponent-weekend-header-date-color);
+            color          : v(c-w-header-date-color);
             display        : flex;
             font-size      : 1.6em;
             height         : 1.7em;
@@ -86,7 +87,7 @@
         }
 
         .neo-day {
-            color        : v(calendar-weekcomponent-weekend-header-day-color);
+            color        : v(c-w-header-day-color);
             font-size    : .7em;
             margin-bottom: .3em;
         }
@@ -100,7 +101,7 @@
     }
 
     .neo-time-axis {
-        background-image     : linear-gradient(v(calendar-weekcomponent-background-color) 41px, v(calendar-weekcomponent-border-color) 1px);
+        background-image     : linear-gradient(v(c-w-background-color) 41px, v(c-w-border-color) 1px);
         background-position-x: 100%;
         background-position-y: 0;
         background-repeat    : repeat-y;
@@ -110,7 +111,7 @@
     }
 
     .neo-top-left-corner {
-        border-bottom: 1px solid v(calendar-weekcomponent-border-color);
+        border-bottom: 1px solid v(c-w-border-color);
         width        : 50px;
     }
 }
