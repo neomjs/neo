@@ -19,19 +19,22 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onSwitchThemeButtonClick(data) {
-        let me       = this,
-            button   = data.component,
-            view     = me.view,
-            buttonText, cls, iconCls, theme;
+        let me            = this,
+            button        = data.component,
+            headerToolbar = me.getReference('headerToolbar'),
+            view          = me.view,
+            buttonText, cls, headerColor, iconCls, theme;
 
         if (button.text === 'Theme Light') {
-            buttonText = 'Theme Dark';
-            iconCls    = 'fa fa-moon';
-            theme      = 'neo-theme-light';
+            buttonText  = 'Theme Dark';
+            headerColor = '#f2f2f2';
+            iconCls     = 'fa fa-moon';
+            theme       = 'neo-theme-light';
         } else {
-            buttonText = 'Theme Light';
-            iconCls    = 'fa fa-sun';
-            theme      = 'neo-theme-dark';
+            buttonText  = 'Theme Light';
+            headerColor = '#33343d';
+            iconCls     = 'fa fa-sun';
+            theme       = 'neo-theme-dark';
         }
 
         cls = [...view.cls];
@@ -49,6 +52,10 @@ class MainContainerController extends ComponentController {
             iconCls: iconCls,
             text   : buttonText
         });
+
+        let style = headerToolbar.style || {};
+        style.backgroundColor = headerColor;
+        headerToolbar.style = style;
     }
 }
 

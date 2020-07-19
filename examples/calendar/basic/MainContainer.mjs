@@ -21,10 +21,10 @@ class MainContainer extends Viewport {
             module : Toolbar,
             flex   : 'none',
             padding: 20,
+            reference: 'headerToolbar',
 
             style: {
-                backgroundColor: '#f2f2f2',
-                padding        : '10px 5px 10px 10px'
+                padding: '10px 5px 10px 10px'
             },
 
             items: ['->', {
