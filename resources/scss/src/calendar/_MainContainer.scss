@@ -1,6 +1,6 @@
 .neo-calendar-maincontainer {
     .neo-calendar-sidebar {
-        border-right: 1px solid #ddd;
+        border-right: 1px solid v(calendar-border-color);
         transition  : margin-left 350ms ease-out;
     }
 
