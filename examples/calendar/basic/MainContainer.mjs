@@ -1,7 +1,8 @@
-import Button                from '../../../src/component/Button.mjs';
-import {default as Calendar} from '../../../src/calendar/MainContainer.mjs';
-import Toolbar               from '../../../src/container/Toolbar.mjs';
-import Viewport              from '../../../src/container/Viewport.mjs';
+import Button                  from '../../../src/component/Button.mjs';
+import {default as Calendar}   from '../../../src/calendar/MainContainer.mjs';
+import MainContainerController from './MainContainerController.mjs';
+import Toolbar                 from '../../../src/container/Toolbar.mjs';
+import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
  * @class CalendarBasic.MainContainer
@@ -12,8 +13,9 @@ class MainContainer extends Viewport {
         className: 'CalendarBasic.MainContainer',
         ntype    : 'calendar-basic-maincontainer',
 
-        autoMount: true,
-        layout   : {ntype: 'vbox', align: 'stretch'},
+        autoMount : true,
+        controller: MainContainerController,
+        layout    : {ntype: 'vbox', align: 'stretch'},
 
         items: [{
             module : Toolbar,
@@ -27,6 +29,7 @@ class MainContainer extends Viewport {
 
             items: ['->', {
                 module : Button,
+                handler: 'onSwitchThemeButtonClick',
                 iconCls: 'fa fa-moon',
                 text   : 'Theme Dark'
             }]
