@@ -1,4 +1,5 @@
 import {default as Component} from '../../component/Base.mjs';
+import TimeAxisComponent      from './TimeAxisComponent.mjs';
 
 /**
  * @class Neo.calendar.view.WeekComponent
@@ -21,6 +22,14 @@ class WeekComponent extends Component {
          */
         cls: ['neo-calendar-weekcomponent'],
         /**
+         * @member {Object} timeAxis=null
+         */
+        timeAxis: null,
+        /**
+         * @member {Object} timeAxisConfig=null
+         */
+        timeAxisConfig: null,
+        /**
          * @member {Object} vdom
          */
         vdom: {
@@ -32,9 +41,6 @@ class WeekComponent extends Component {
             }, {
                 cls: ['neo-c-w-body'],
                 cn : [{
-                    cls: ['neo-time-axis'],
-                    cn : []
-                }, {
                     cls: ['neo-c-w-content'],
                     cn : []
                 }]
@@ -50,11 +56,17 @@ class WeekComponent extends Component {
         super(config);
 
         let me        = this,
-            content   = me.getVdomContent(),
             headerRow = me.getVdomHeaderRow(),
-            timeAxis  = me.getVdomTimeAxis(),
             i         = 0,
-            columnCls, html;
+            columnCls, content;
+
+        me.timeAxis = Neo.create(TimeAxisComponent, {
+            ...me.timeAxisConfig || {}
+        });
+
+        me.vdom.cn[1].cn.unshift(me.timeAxis.vdom);
+
+        content = me.getVdomContent();
 
         for (; i < 7; i++) {
             columnCls = ['neo-c-w-column'];
@@ -78,17 +90,6 @@ class WeekComponent extends Component {
                 }]
             });
         }
-
-        for (i=1; i < 25; i++) {
-            html = i === 24 ? '00:00' : (i < 10 ? '0' : '') + i + ':00';
-
-            timeAxis.cn.push({
-                cls: ['neo-c-w-timeaxis-item'],
-                cn : [{
-                    html: html
-                }]
-            });
-        }
     }
 
     /**
@@ -103,13 +104,6 @@ class WeekComponent extends Component {
      */
     getVdomHeaderRow() {
         return this.vdom.cn[0];
-    }
-
-    /**
-     *
-     */
-    getVdomTimeAxis() {
-        return this.vdom.cn[1].cn[0];
     }
 }
 
