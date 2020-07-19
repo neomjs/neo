@@ -21,13 +21,21 @@
 
     .neo-c-w-content {
         align-items          : stretch;
-        background-image     : linear-gradient(#fff, #fff 20px, #ddd 1px, #fff 21px, #fff 41px, #ddd 1px);
         background-size      : 1px 42px;
         background-position-y: 0;
         display              : flex;
         flex                 : 1;
         height               : 1008px; // todo: dynamic height
         max-height           : 1008px; // todo: dynamic height
+
+        background-image: linear-gradient(
+            v(calendar-weekcomponent-background-color),
+            v(calendar-weekcomponent-background-color) 20px,
+            #ddd 1px,
+            v(calendar-weekcomponent-background-color) 21px,
+            v(calendar-weekcomponent-background-color) 41px,
+            #ddd 1px
+        );
     }
 
     .neo-c-w-timeaxis-item {

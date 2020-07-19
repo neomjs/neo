@@ -1,0 +1,9 @@
+$neoMap: map-merge($neoMap, (
+    'calendar-weekcomponent-background-color': #323232
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-dark { // .neo-calendar-weekcomponent
+        --calendar-weekcomponent-background-color: #{neo(calendar-weekcomponent-background-color)};
+    }
+}
