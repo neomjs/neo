@@ -7,6 +7,7 @@
         align-items: stretch;
         display    : flex;
         flex       : 1;
+        overflow-y : auto;
     }
 
     .neo-c-w-column{
@@ -25,6 +26,7 @@
         background-position-y: 0;
         display              : flex;
         flex                 : 1;
+        height               : 1008px; // todo: dynamic height
         max-height           : 1008px; // todo: dynamic height
     }
 
