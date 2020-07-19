@@ -51,41 +51,49 @@ class MainContainer extends Container {
         let me = this;
 
         me.items = [{
-            module: Toolbar,
-            cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
+            module: Container,
             flex  : 'none',
+            layout: {ntype: 'hbox', align: 'stretch'},
             items : [{
-                handler: me.toggleSidebar.bind(me),
-                iconCls: 'fa fa-bars'
+                module: Toolbar,
+                cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
+                width : me.sideBarWidth,
+                items : [{
+                    handler: me.toggleSidebar.bind(me),
+                    iconCls: 'fa fa-bars'
+                }, '->', {
+                    iconCls: 'fa fa-chevron-left',
+                }, {
+                    height: 24,
+                    text  : 'Today'
+                }, {
+                    iconCls: 'fa fa-chevron-right'
+                }]
             }, {
-                iconCls: 'fa fa-chevron-left',
-                style  : {marginLeft: '48px'}
-            }, {
-                height : 24,
-                text   : 'Today'
-            }, {
-                iconCls: 'fa fa-chevron-right'
-            }, '->', {
-                handler    : me.changeTimeInterval.bind(me, 'day'),
-                text       : 'Day',
-                toggleGroup: 'timeInterval',
-                value      : 'day'
-            }, {
-                handler    : me.changeTimeInterval.bind(me, 'week'),
-                pressed    : true,
-                text       : 'Week',
-                toggleGroup: 'timeInterval',
-                value      : 'week'
-            }, {
-                handler    : me.changeTimeInterval.bind(me, 'month'),
-                text       : 'Month',
-                toggleGroup: 'timeInterval',
-                value      : 'month'
-            }, {
-                handler    : me.changeTimeInterval.bind(me, 'year'),
-                text       : 'Year',
-                toggleGroup: 'timeInterval',
-                value      : 'year'
+                module: Toolbar,
+                cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
+                items : ['->', {
+                    handler    : me.changeTimeInterval.bind(me, 'day'),
+                    text       : 'Day',
+                    toggleGroup: 'timeInterval',
+                    value      : 'day'
+                }, {
+                    handler    : me.changeTimeInterval.bind(me, 'week'),
+                    pressed    : true,
+                    text       : 'Week',
+                    toggleGroup: 'timeInterval',
+                    value      : 'week'
+                }, {
+                    handler    : me.changeTimeInterval.bind(me, 'month'),
+                    text       : 'Month',
+                    toggleGroup: 'timeInterval',
+                    value      : 'month'
+                }, {
+                    handler    : me.changeTimeInterval.bind(me, 'year'),
+                    text       : 'Year',
+                    toggleGroup: 'timeInterval',
+                    value      : 'year'
+                }]
             }]
         }, {
             module: Container,
