@@ -47,12 +47,36 @@
         align-items    : center;
         border-bottom  : 1px solid #ddd;
         border-left    : 1px solid #ddd;
+        color          : #666;
+        cursor         : pointer;
         display        : flex;
         flex           : 1;
         flex-direction : column;
         justify-content: center;
         padding-bottom : 10px;
         padding-top    : 20px;
+
+        &:hover {
+            .neo-date {
+                background-color: #eee;
+            }
+        }
+
+        .neo-date {
+            align-items    : center;
+            border-radius  : 50%;
+            display        : flex;
+            font-size      : 1.6em;
+            height         : 1.8em;
+            justify-content: center;
+            transition     : background-color 200ms ease-out;
+            width          : 1.8em;
+        }
+
+        .neo-day {
+            font-size    : .7em;
+            margin-bottom: .3em;
+        }
     }
 
     .neo-header-row {
