@@ -1,13 +1,17 @@
 $neoMap: map-merge($neoMap, (
-    'calendar-weekcomponent-background-color'        : #323232,
-    'calendar-weekcomponent-border-color'            : #3c3f41,
-    'calendar-weekcomponent-weekend-background-color': rgba(40, 40, 40, .35)
+    'calendar-weekcomponent-background-color'         : #2b2b2b,
+    'calendar-weekcomponent-border-color'             : #3c3f41,
+    'calendar-weekcomponent-weekend-background-color' : rgba(50, 50, 60, .35),
+    'calendar-weekcomponent-weekend-header-date-color': #999,
+    'calendar-weekcomponent-weekend-header-day-color' : #999
 ));
 
 @if $useCss4Vars == true {
     :root .neo-theme-dark { // .neo-calendar-weekcomponent
-        --calendar-weekcomponent-background-color        : #{neo(calendar-weekcomponent-background-color)};
-        --calendar-weekcomponent-border-color            : #{neo(calendar-weekcomponent-border-color)};
-        --calendar-weekcomponent-weekend-background-color: #{neo(calendar-weekcomponent-weekend-background-color)};
+        --calendar-weekcomponent-background-color         : #{neo(calendar-weekcomponent-background-color)};
+        --calendar-weekcomponent-border-color             : #{neo(calendar-weekcomponent-border-color)};
+        --calendar-weekcomponent-weekend-background-color : #{neo(calendar-weekcomponent-weekend-background-color)};
+        --calendar-weekcomponent-weekend-header-date-color: #{neo(calendar-weekcomponent-weekend-header-date-color)};
+        --calendar-weekcomponent-weekend-header-day-color : #{neo(calendar-weekcomponent-weekend-header-day-color)};
     }
 }

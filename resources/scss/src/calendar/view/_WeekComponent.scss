@@ -55,7 +55,6 @@
         align-items    : center;
         border-bottom  : 1px solid v(calendar-weekcomponent-border-color);
         border-left    : 1px solid transparent;
-        color          : #666;
         cursor         : pointer;
         display        : flex;
         flex           : 1;
@@ -77,6 +76,7 @@
         .neo-date {
             align-items    : center;
             border-radius  : 50%;
+            color          : v(calendar-weekcomponent-weekend-header-date-color);
             display        : flex;
             font-size      : 1.6em;
             height         : 1.7em;
@@ -86,6 +86,7 @@
         }
 
         .neo-day {
+            color        : v(calendar-weekcomponent-weekend-header-day-color);
             font-size    : .7em;
             margin-bottom: .3em;
         }
