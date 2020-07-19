@@ -57,6 +57,14 @@ class MainContainer extends Container {
             items : [{
                 handler: me.toggleSidebar.bind(me),
                 iconCls: 'fa fa-bars'
+            }, {
+                iconCls: 'fa fa-chevron-left',
+                style  : {marginLeft: '48px'}
+            }, {
+                height : 24,
+                text   : 'Today'
+            }, {
+                iconCls: 'fa fa-chevron-right'
             }, '->', {
                 handler: me.changeTimeInterval.bind(me, 'day'),
                 text   : 'Day'
@@ -67,6 +75,9 @@ class MainContainer extends Container {
             }, {
                 handler: me.changeTimeInterval.bind(me, 'month'),
                 text   : 'Month'
+            }, {
+                handler: me.changeTimeInterval.bind(me, 'year'),
+                text   : 'Year'
             }]
         }, {
             module: Container,
@@ -97,6 +108,9 @@ class MainContainer extends Container {
                 }, {
                     ntype: 'component',
                     vdom : {innerHTML: 'Month'}
+                }, {
+                    ntype: 'component',
+                    vdom : {innerHTML: 'Year'}
                 }]
             }]
         }];
@@ -123,7 +137,8 @@ class MainContainer extends Container {
         const map = {
             day  : 0,
             month: 2,
-            week : 1
+            week : 1,
+            year : 3
         };
 
         this.items[1].items[1].layout.activeIndex = map[interval];

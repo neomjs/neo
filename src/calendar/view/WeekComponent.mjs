@@ -59,7 +59,7 @@ class WeekComponent extends Component {
         for (; i < 7; i++) {
             columnCls = ['neo-c-w-column'];
 
-            if (i === 0 || i === 6) {
+            if (i === 0 || i === 6) { // todo: startWeekday
                 columnCls.push('neo-weekend');
             }
 
