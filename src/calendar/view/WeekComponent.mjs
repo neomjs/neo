@@ -49,14 +49,20 @@ class WeekComponent extends Component {
     constructor(config) {
         super(config);
 
-        let content  = this.getVdomContent(),
-            timeAxis = this.getVdomTimeAxis(),
-            i        = 0,
+        let me        = this,
+            content   = me.getVdomContent(),
+            headerRow = me.getVdomHeaderRow(),
+            timeAxis  = me.getVdomTimeAxis(),
+            i         = 0,
             html;
 
         for (; i < 7; i++) {
             content.cn.push({
                 cls: ['neo-c-w-column']
+            });
+
+            headerRow.cn.push({
+                cls: ['neo-header-row-item']
             });
         }
 
@@ -77,6 +83,13 @@ class WeekComponent extends Component {
      */
     getVdomContent() {
         return this.vdom.cn[1].cn[1];
+    }
+
+    /**
+     *
+     */
+    getVdomHeaderRow() {
+        return this.vdom.cn[0];
     }
 
     /**

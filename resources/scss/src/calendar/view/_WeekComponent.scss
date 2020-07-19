@@ -37,13 +37,18 @@
         }
     }
 
+    .neo-header-row-item {
+        border-bottom: 1px solid #ddd;
+        border-left  : 1px solid #ddd;
+        flex         : 1
+    }
+
     .neo-header-row {
-        align-items     : stretch;
-        background-color: #eee;
-        display         : flex;
-        flex            : none;
-        height          : 60px;
-        justify-content : center;
+        align-items    : stretch;
+        display        : flex;
+        flex           : none;
+        height         : 60px;
+        justify-content: center;
     }
 
     .neo-time-axis {
@@ -57,6 +62,7 @@
     }
 
     .neo-top-left-corner {
-        width: 50px;
+        border-bottom: 1px solid #ddd;
+        width        : 50px;
     }
 }
