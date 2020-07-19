@@ -25,7 +25,10 @@ class WeekComponent extends Component {
          */
         vdom: {
             cn: [{
-                cls: ['neo-header-row']
+                cls: ['neo-header-row'],
+                cn : [{
+                    cls: ['neo-top-left-corner']
+                }]
             }, {
                 cls: ['neo-c-w-body'],
                 cn : [{
