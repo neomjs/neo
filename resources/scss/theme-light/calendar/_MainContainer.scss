@@ -3,7 +3,7 @@ $neoMap: map-merge($neoMap, (
 ));
 
 @if $useCss4Vars == true {
-    :root .neo-theme-dark { // .neo-calendar-maincontainer
+    :root .neo-theme-light { // .neo-calendar-maincontainer
         --calendar-border-color: #{neo(calendar-border-color)};
     }
 }

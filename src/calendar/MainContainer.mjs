@@ -52,8 +52,8 @@ class MainContainer extends Container {
 
         me.items = [{
             module: Toolbar,
+            cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
             flex  : 'none',
-            style : {borderBottom: '1px solid #ddd'}, // todo: scss
             items : [{
                 handler: me.toggleSidebar.bind(me),
                 iconCls: 'fa fa-bars'
