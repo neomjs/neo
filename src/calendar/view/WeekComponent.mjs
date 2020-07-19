@@ -58,10 +58,12 @@ class WeekComponent extends Component {
         }
 
         for (i=1; i < 25; i++) {
+            html = i === 24 ? '00:00' : (i < 10 ? '0' : '') + i + ':00';
+
             timeAxis.cn.push({
                 cls: ['neo-c-w-timeaxis-item'],
                 cn : [{
-                    html: (i < 10 ? '0' : '') + i + ':00'
+                    html: html
                 }]
             });
         }
