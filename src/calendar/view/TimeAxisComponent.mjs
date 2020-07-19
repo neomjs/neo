@@ -32,35 +32,49 @@ class TimeAxisComponent extends Component {
      */
     constructor(config) {
         super(config);
-        this.createItems();
+
+        let me = this;
+
+        me.createItems();
+        me.afterSetRowHeight(me.rowHeight, 0);
+    }
+
+    afterSetRowHeight(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me         = this,
+                vdom       = me.vdom,
+                itemHeight = 4 * me.rowHeight + 2, // 2 * 1px borders
+                i, itemStyle;
+
+            vdom.style.backgroundImage = `linear-gradient(var(--c-w-background-color) ${itemHeight-1}px, var(--c-w-border-color) 1px)`;
+            vdom.style.backgroundSize  = `0.4em ${itemHeight}px`;
+
+            for (i=0; i < 24; i++) {
+                itemStyle = {
+                    height: `${itemHeight}px`
+                };
+
+                if (i === 1) {
+                    itemStyle.marginTop = `${2 * me.rowHeight}px`;
+                }
+
+                vdom.cn[i].style = itemStyle;
+            }
+        }
     }
 
     createItems() {
-        let me         = this,
-            vdom       = me.vdom,
-            itemHeight = 4 * me.rowHeight + 2, // 2 * 1px borders
-            html, i, itemStyle;
-
-        vdom.style.backgroundImage = `linear-gradient(var(--c-w-background-color) ${itemHeight-1}px, var(--c-w-border-color) 1px)`;
-        vdom.style.backgroundSize  = `0.4em ${itemHeight}px`;
+        let vdom = this.vdom,
+            html, i;
 
         vdom.cn = [];
 
         for (i=1; i < 25; i++) {
             html = i === 24 ? '00:00' : (i < 10 ? '0' : '') + i + ':00';
 
-            itemStyle = {
-                height: `${itemHeight}px`
-            };
-
-            if (i === 1) {
-                itemStyle.marginTop = `${2 * me.rowHeight}px`;
-            }
-
             vdom.cn.push({
                 cls  : ['neo-c-w-timeaxis-item'],
-                cn   : [{html: html}],
-                style: itemStyle
+                cn   : [{html: html}]
             });
         }
     }
