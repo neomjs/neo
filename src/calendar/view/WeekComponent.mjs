@@ -54,15 +54,28 @@ class WeekComponent extends Component {
             headerRow = me.getVdomHeaderRow(),
             timeAxis  = me.getVdomTimeAxis(),
             i         = 0,
-            html;
+            columnCls, html;
 
         for (; i < 7; i++) {
+            columnCls = ['neo-c-w-column'];
+
+            if (i === 0 || i === 6) {
+                columnCls.push('neo-weekend');
+            }
+
             content.cn.push({
-                cls: ['neo-c-w-column']
+                cls: columnCls
             });
 
             headerRow.cn.push({
-                cls: ['neo-header-row-item']
+                cls: ['neo-header-row-item'],
+                cn : [{
+                    cls: ['neo-day'],
+                    html: 'Sun'
+                }, {
+                    cls: ['neo-date'],
+                    html: '19'
+                }]
             });
         }
 

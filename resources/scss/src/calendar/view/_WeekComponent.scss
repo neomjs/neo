@@ -12,6 +12,10 @@
     .neo-c-w-column{
         border-left: 1px solid #ddd;
         flex       : 1;
+
+        &.neo-weekend {
+            background-color: rgba(240, 240, 240, .35);
+        }
     }
 
     .neo-c-w-content {
@@ -38,16 +42,21 @@
     }
 
     .neo-header-row-item {
-        border-bottom: 1px solid #ddd;
-        border-left  : 1px solid #ddd;
-        flex         : 1
+        align-items    : center;
+        border-bottom  : 1px solid #ddd;
+        border-left    : 1px solid #ddd;
+        display        : flex;
+        flex           : 1;
+        flex-direction : column;
+        justify-content: center;
+        padding-bottom : 10px;
+        padding-top    : 20px;
     }
 
     .neo-header-row {
         align-items    : stretch;
         display        : flex;
         flex           : none;
-        height         : 60px;
         justify-content: center;
     }
 
