@@ -50,6 +50,59 @@ class MainContainer extends Container {
 
         let me = this;
 
+        me.createItemsContent();
+
+        if (!me.sideBarExpanded) {
+            me.afterSetSideBarExpanded(false, true);
+        }
+    }
+
+    /**
+     * Triggered after the sideBarExpanded config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSideBarExpanded(value, oldValue) {
+        if (Neo.isBoolean(oldValue)) {
+            let sideBar = this.items[1].items[0],
+                style   = sideBar.style || {};
+
+            style.marginLeft = value ? '0': `-${this.sideBarWidth}px`;
+
+            sideBar.style = style;
+        }
+    }
+
+    /**
+     *
+     * @param {String} interval
+     * @protected
+     */
+    changeTimeInterval(interval) {
+        const map = {
+            day  : 0,
+            month: 2,
+            week : 1,
+            year : 3
+        };
+
+        this.items[1].items[1].layout.activeIndex = map[interval];
+
+        this.items[0].items[1].items.forEach(item => {
+            if (item.toggleGroup === 'timeInterval') {
+                item.pressed = item.value === interval;
+            }
+        });
+    }
+
+    /**
+     *
+     * @protected
+     */
+    createItemsContent() {
+        let me = this;
+
         me.items = [{
             module: Container,
             flex  : 'none',
@@ -133,39 +186,9 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered after the sideBarExpanded config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     *
      * @protected
      */
-    afterSetSideBarExpanded(value, oldValue) {
-        if (Neo.isBoolean(oldValue)) {
-            let sideBar = this.items[1].items[0],
-                style   = sideBar.style || {};
-
-            style.marginLeft = value ? '0': `-${this.sideBarWidth}px`;
-
-            sideBar.style = style;
-        }
-    }
-
-    changeTimeInterval(interval) {
-        const map = {
-            day  : 0,
-            month: 2,
-            week : 1,
-            year : 3
-        };
-
-        this.items[1].items[1].layout.activeIndex = map[interval];
-
-        this.items[0].items[1].items.forEach(item => {
-            if (item.toggleGroup === 'timeInterval') {
-                item.pressed = item.value === interval;
-            }
-        });
-    }
-
     toggleSidebar() {
         this.sideBarExpanded = !this.sideBarExpanded;
     }
