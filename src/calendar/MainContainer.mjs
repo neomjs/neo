@@ -56,7 +56,7 @@ class MainContainer extends Container {
             layout: {ntype: 'hbox', align: 'stretch'},
             items : [{
                 module: Toolbar,
-                cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
+                cls   : ['neo-calendar-header-toolbar', 'neo-left', 'neo-toolbar'],
                 width : me.sideBarWidth,
                 items : [{
                     handler: me.toggleSidebar.bind(me),
@@ -159,7 +159,7 @@ class MainContainer extends Container {
 
         this.items[1].items[1].layout.activeIndex = map[interval];
 
-        this.items[0].items.forEach(item => {
+        this.items[0].items[1].items.forEach(item => {
             if (item.toggleGroup === 'timeInterval') {
                 item.pressed = item.value === interval;
             }
