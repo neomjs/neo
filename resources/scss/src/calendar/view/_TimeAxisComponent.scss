@@ -1,0 +1,24 @@
+.neo-calendar-timeaxis {
+    background-image     : linear-gradient(v(c-w-background-color) 41px, v(c-w-border-color) 1px);
+    background-position-x: 100%;
+    background-position-y: 0;
+    background-repeat    : repeat-y;
+    background-size      : 0.4em 42px;
+    flex                 : none;
+    height               : 1008px; // todo: dynamic height
+    max-height           : 1008px; // todo: dynamic height
+    width                : 50px;
+
+    .neo-c-w-timeaxis-item {
+        align-items    : center;
+        color          : #999;
+        display        : flex;
+        font-size      : 10px;
+        height         : 42px;
+        justify-content: center;
+
+        &:first-child {
+            margin-top: 20px;
+        }
+    }
+}
