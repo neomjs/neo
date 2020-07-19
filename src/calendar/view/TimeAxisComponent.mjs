@@ -19,13 +19,7 @@ class TimeAxisComponent extends Component {
         /**
          * @member {String[]} cls=['neo-calendar-timeaxis']
          */
-        cls: ['neo-calendar-timeaxis'],
-        /**
-         * @member {Object} vdom
-         */
-        vdom: {
-            cn: []
-        }
+        cls: ['neo-calendar-timeaxis']
     }}
 
     /**
@@ -34,9 +28,14 @@ class TimeAxisComponent extends Component {
      */
     constructor(config) {
         super(config);
+        this.createItems();
+    }
 
+    createItems() {
         let vdom = this.vdom,
             html, i;
+
+        vdom.cn = [];
 
         for (i=1; i < 25; i++) {
             html = i === 24 ? '00:00' : (i < 10 ? '0' : '') + i + ':00';
