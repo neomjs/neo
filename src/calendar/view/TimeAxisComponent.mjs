@@ -23,7 +23,13 @@ class TimeAxisComponent extends Component {
         /**
          * @member {Number} rowHeight_=10
          */
-        rowHeight_: 10
+        rowHeight_: 10,
+        /**
+         * @member {Object} vdom
+         */
+        vdom: {
+            style: {}
+        }
     }}
 
     /**
@@ -41,25 +47,34 @@ class TimeAxisComponent extends Component {
 
     afterSetRowHeight(value, oldValue) {
         if (oldValue !== undefined) {
-            let me         = this,
-                vdom       = me.vdom,
-                itemHeight = 4 * me.rowHeight + 2, // 2 * 1px borders
+            let me          = this,
+                vdom        = me.vdom,
+                rowHeight   = me.rowHeight,
+                itemHeight  = 4 * rowHeight + 2, // 2 * 1px borders
+                totalHeight = 2 * rowHeight + (24 * itemHeight),
                 i, itemStyle;
 
-            vdom.style.backgroundImage = `linear-gradient(var(--c-w-background-color) ${itemHeight-1}px, var(--c-w-border-color) 1px)`;
-            vdom.style.backgroundSize  = `0.4em ${itemHeight}px`;
+            Object.assign(vdom.style, {
+                backgroundImage: `linear-gradient(var(--c-w-background-color) ${itemHeight-1}px, var(--c-w-border-color) 1px)`,
+                backgroundSize : `0.4em ${itemHeight}px`,
+                height         : `${totalHeight}px`,
+                maxHeight      : `${totalHeight}px`
+            });
 
             for (i=0; i < 24; i++) {
                 itemStyle = {
                     height: `${itemHeight}px`
                 };
 
-                if (i === 1) {
-                    itemStyle.marginTop = `${2 * me.rowHeight}px`;
+                if (i === 0) {
+                    itemStyle.marginTop = `${2 * rowHeight}px`;
                 }
 
                 vdom.cn[i].style = itemStyle;
             }
+
+            me.totalHeight = totalHeight;
+            console.log(totalHeight);
         }
     }
 
