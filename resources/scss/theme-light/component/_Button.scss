@@ -14,6 +14,7 @@ $neoMap: map-merge($neoMap, (
     'button-hover-color'              : #bbb,
     'button-margin'                   : 2px,
     'button-padding'                  : 5px 12px 5px 12px,
+    'button-pressed-border-color'     : #1c60a0,
     'button-text-color'               : #1c60a0,
     'button-text-font-family'         : #{neo(neo-font-family)},
     'button-text-font-size'           : 11px,
@@ -40,6 +41,7 @@ $neoMap: map-merge($neoMap, (
         --button-hover-color              : #{neo(button-hover-color)};
         --button-margin                   : #{neo(button-margin)};
         --button-padding                  : #{neo(button-padding)};
+        --button-pressed-border-color     : #{neo(button-pressed-border-color)};
         --button-text-color               : #{neo(button-text-color)};
         --button-text-font-family         : #{neo(button-text-font-family)};
         --button-text-font-size           : #{neo(button-text-font-size)};

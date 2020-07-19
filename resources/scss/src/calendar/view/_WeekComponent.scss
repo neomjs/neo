@@ -1,0 +1,119 @@
+.neo-calendar-weekcomponent {
+    align-items   : stretch;
+    display       : flex;
+    flex-direction: column;
+
+    .neo-c-w-body {
+        align-items: stretch;
+        display    : flex;
+        flex       : 1;
+        overflow-y : auto;
+    }
+
+    .neo-c-w-column{
+        border-left: 1px solid v(c-w-border-color);
+        flex       : 1;
+
+        &.neo-weekend {
+            background-color: v(c-w-weekend-background-color);
+        }
+    }
+
+    .neo-c-w-content {
+        align-items          : stretch;
+        background-size      : 1px 42px;
+        background-position-y: 0;
+        display              : flex;
+        flex                 : 1;
+        height               : 1008px; // todo: dynamic height
+        max-height           : 1008px; // todo: dynamic height
+
+        background-image: linear-gradient(
+            v(c-w-background-color),
+            v(c-w-background-color) 20px,
+            v(c-w-border-color) 1px,
+            v(c-w-background-color) 21px,
+            v(c-w-background-color) 41px,
+            v(c-w-border-color) 1px
+        );
+    }
+
+    .neo-c-w-timeaxis-item {
+        align-items    : center;
+        color          : #999;
+        display        : flex;
+        font-size      : 10px;
+        height         : 42px;
+        justify-content: center;
+
+        &:first-child {
+            margin-top: 20px;
+        }
+    }
+
+    .neo-header-row-item {
+        align-items    : center;
+        border-bottom  : 1px solid v(c-w-border-color);
+        border-left    : 1px solid transparent;
+        cursor         : pointer;
+        display        : flex;
+        flex           : 1;
+        flex-direction : column;
+        justify-content: center;
+        padding-bottom : 5px;
+        padding-top    : 10px;
+
+        &:nth-child(2) {
+            border-left: 1px solid v(c-w-border-color);
+        }
+
+        &:hover {
+            .neo-date {
+                background-color: v(c-w-header-date-background-color-hover);
+                color           : v(c-w-header-date-color-hover);
+            }
+        }
+
+        .neo-date {
+            align-items    : center;
+            border-radius  : 50%;
+            color          : v(c-w-header-date-color);
+            display        : flex;
+            font-size      : 1.6em;
+            height         : 1.7em;
+            justify-content: center;
+            transition     : background-color 100ms ease-out;
+            width          : 1.7em;
+        }
+
+        .neo-day {
+            color        : v(c-w-header-day-color);
+            font-size    : .7em;
+            margin-bottom: .3em;
+        }
+    }
+
+    .neo-header-row {
+        align-items    : stretch;
+        display        : flex;
+        flex           : none;
+        justify-content: center;
+    }
+
+    .neo-time-axis {
+        background-image     : linear-gradient(v(c-w-background-color) 41px, v(c-w-border-color) 1px);
+        background-position-x: 100%;
+        background-position-y: 0;
+        background-repeat    : repeat-y;
+        background-size      : 0.4em 42px;
+        flex                 : none;
+        height               : 1008px; // todo: dynamic height
+        max-height           : 1008px; // todo: dynamic height
+        width                : 50px;
+    }
+
+    .neo-top-left-corner {
+        border-bottom: 1px solid v(c-w-border-color);
+        width        : 50px;
+    }
+}

@@ -1,0 +1,21 @@
+$neoMap: map-merge($neoMap, (
+    'c-w-background-color'                  : #fff,
+    'c-w-border-color'                      : #ddd,
+    'c-w-header-date-background-color-hover': #eee,
+    'c-w-header-date-color'                 : #666,
+    'c-w-header-date-color-hover'           : #666,
+    'c-w-header-day-color'                  : #666,
+    'c-w-weekend-background-color'          : rgba(240, 240, 240, .35)
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-light { // .neo-calendar-weekcomponent
+        --c-w-background-color                  : #{neo(c-w-background-color)};
+        --c-w-border-color                      : #{neo(c-w-border-color)};
+        --c-w-header-date-background-color-hover: #{neo(c-w-header-date-background-color-hover)};
+        --c-w-header-date-color                 : #{neo(c-w-header-date-color)};
+        --c-w-header-date-color-hover           : #{neo(c-w-header-date-color-hover)};
+        --c-w-header-day-color                  : #{neo(c-w-header-day-color)};
+        --c-w-weekend-background-color          : #{neo(c-w-weekend-background-color)};
+    }
+}
