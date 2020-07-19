@@ -66,18 +66,26 @@ class MainContainer extends Container {
             }, {
                 iconCls: 'fa fa-chevron-right'
             }, '->', {
-                handler: me.changeTimeInterval.bind(me, 'day'),
-                text   : 'Day'
+                handler    : me.changeTimeInterval.bind(me, 'day'),
+                text       : 'Day',
+                toggleGroup: 'timeInterval',
+                value      : 'day'
             }, {
-                handler: me.changeTimeInterval.bind(me, 'week'),
-                pressed: true,
-                text   : 'Week'
+                handler    : me.changeTimeInterval.bind(me, 'week'),
+                pressed    : true,
+                text       : 'Week',
+                toggleGroup: 'timeInterval',
+                value      : 'week'
             }, {
-                handler: me.changeTimeInterval.bind(me, 'month'),
-                text   : 'Month'
+                handler    : me.changeTimeInterval.bind(me, 'month'),
+                text       : 'Month',
+                toggleGroup: 'timeInterval',
+                value      : 'month'
             }, {
-                handler: me.changeTimeInterval.bind(me, 'year'),
-                text   : 'Year'
+                handler    : me.changeTimeInterval.bind(me, 'year'),
+                text       : 'Year',
+                toggleGroup: 'timeInterval',
+                value      : 'year'
             }]
         }, {
             module: Container,
@@ -142,6 +150,12 @@ class MainContainer extends Container {
         };
 
         this.items[1].items[1].layout.activeIndex = map[interval];
+
+        this.items[0].items.forEach(item => {
+            if (item.toggleGroup === 'timeInterval') {
+                item.pressed = item.value === interval;
+            }
+        });
     }
 
     toggleSidebar() {
