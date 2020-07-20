@@ -31,6 +31,12 @@ class TimeAxisComponent extends Component {
          */
         cls: ['neo-calendar-timeaxis'],
         /**
+         * Only full hours are valid for now
+         * format: 'hh:mm'
+         * @member {String} endTime_='24:00'
+         */
+        endTime_: '24:00',
+        /**
          * The time interval in minutes to display as rows.
          * Valid values: 15, 30, 60
          * @member {Number} interval_=30
@@ -40,6 +46,12 @@ class TimeAxisComponent extends Component {
          * @member {Number} rowHeight_=20
          */
         rowHeight_: 20,
+        /**
+         * Only full hours are valid for now
+         * format: 'hh:mm'
+         * @member {String} startTime_='00:00'
+         */
+        startTime_: '00:00',
         /**
          * @member {Object} vdom
          */
@@ -118,6 +130,18 @@ class TimeAxisComponent extends Component {
                 rowsPerItem: rowsPerItem,
                 totalHeight: totalHeight
             });
+        }
+    }
+
+    /**
+     * Triggered after the startTime config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetStartTime(value, oldValue) {
+        if (oldValue !== undefined) {
+            console.log('afterSetStartTime', value);
         }
     }
 
