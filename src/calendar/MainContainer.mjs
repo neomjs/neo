@@ -30,6 +30,10 @@ class MainContainer extends Container {
          */
         currentDate_: new Date(),
         /**
+         * @member {Neo.component.DateSelector|null} dateSelector_=null
+         */
+        dateSelector_: null,
+        /**
          * @member {Object|null} dateSelectorConfig=null
          */
         dateSelectorConfig: null,
