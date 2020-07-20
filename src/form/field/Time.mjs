@@ -1,5 +1,4 @@
 import {default as Collection}  from '../../collection/Base.mjs';
-import DateUtil                 from '../../util/Date.mjs';
 import {default as List}        from '../../list/Base.mjs';
 import Picker                   from './Picker.mjs';
 import {default as TimeTrigger} from './trigger/Time.mjs';
@@ -235,7 +234,7 @@ class Time extends Picker {
      * @param {Object} data
      * @protected
      */
-    onContainerKeyDownEnter() {
+    onContainerKeyDownEnter(data) {
         this.hidePicker();
     }
 
@@ -243,7 +242,7 @@ class Time extends Picker {
      * @param {Object} data
      * @protected
      */
-    onContainerKeyDownEscape() {
+    onContainerKeyDownEscape(data) {
         this.focusInputEl(this.hidePicker);
     }
 
