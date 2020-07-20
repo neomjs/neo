@@ -105,7 +105,7 @@ class WeekComponent extends Component {
      * @param {Neo.component.Base} data.component
      * @param {Number} data.rowHeight
      * @param {Number} data.rowsPerItem
-     * @param {Number} data.value
+     * @param {Number} data.totalHeight
      */
     adjustTotalHeight(data) {
         let me          = this,
@@ -126,8 +126,8 @@ class WeekComponent extends Component {
         Object.assign(me.getVdomContent().style, {
             backgroundImage: `linear-gradient(${gradient.join(',')})`,
             backgroundSize : `1px ${rowsPerItem * rowHeight + rowsPerItem}px`,
-            height         : `${data.value - rowHeight}px`,
-            maxHeight      : `${data.value - rowHeight}px`
+            height         : `${data.totalHeight - rowHeight}px`,
+            maxHeight      : `${data.totalHeight - rowHeight}px`
         });
 
         me.vdom = vdom;

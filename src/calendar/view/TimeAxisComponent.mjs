@@ -116,7 +116,7 @@ class TimeAxisComponent extends Component {
                 component  : me,
                 rowHeight  : rowHeight,
                 rowsPerItem: rowsPerItem,
-                value      : totalHeight
+                totalHeight: totalHeight
             });
         }
     }
