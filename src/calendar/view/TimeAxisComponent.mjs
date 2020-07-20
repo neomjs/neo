@@ -121,7 +121,6 @@ class TimeAxisComponent extends Component {
         }
     }
 
-
     /**
      * Triggered before the interval config gets changed
      * @param {Number} value
