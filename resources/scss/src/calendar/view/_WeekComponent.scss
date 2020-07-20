@@ -21,21 +21,9 @@
 
     .neo-c-w-content {
         align-items          : stretch;
-        background-size      : 1px 42px;
         background-position-y: 0;
         display              : flex;
         flex                 : 1;
-        height               : 1008px; // todo: dynamic height
-        max-height           : 1008px; // todo: dynamic height
-
-        background-image: linear-gradient(
-            v(c-w-background-color),
-            v(c-w-background-color) 20px,
-            v(c-w-border-color) 1px,
-            v(c-w-background-color) 21px,
-            v(c-w-background-color) 41px,
-            v(c-w-border-color) 1px
-        );
     }
 
     .neo-header-row-item {
