@@ -266,6 +266,17 @@ class MainContainer extends Container {
 
     /**
      *
+     */
+    destroy(...args) {
+        // remove references, the super call will remove component tree based instances
+        this.dateSelector  = null;
+        this.weekComponent = null;
+
+        super.destroy(...args);
+    }
+
+    /**
+     *
      * @protected
      */
     toggleSidebar() {
