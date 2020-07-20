@@ -150,7 +150,7 @@ class TimeAxisComponent extends Component {
             // silent update: the view containing this component will trigger the vdom update
             me._vdom = vdom;
 
-            me.fire('heightChange', {
+            me.fire('change', {
                 component  : me,
                 rowHeight  : rowHeight,
                 rowsPerItem: rowsPerItem,

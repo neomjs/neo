@@ -95,8 +95,8 @@ class WeekComponent extends Component {
 
         me.timeAxis = Neo.create(TimeAxisComponent, {
             listeners: {
-                heightChange: me.adjustTotalHeight,
-                scope       : me
+                change: me.adjustTotalHeight,
+                scope : me
             },
             ...me.timeAxisConfig || {}
         });
