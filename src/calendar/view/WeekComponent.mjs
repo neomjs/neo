@@ -1,4 +1,5 @@
 import {default as Component} from '../../component/Base.mjs';
+import DateUtil               from '../../util/Date.mjs';
 import TimeAxisComponent      from './TimeAxisComponent.mjs';
 import {default as VDomUtil}  from '../../util/VDom.mjs';
 
@@ -7,24 +8,6 @@ import {default as VDomUtil}  from '../../util/VDom.mjs';
  * @extends Neo.container.Base
  */
 class WeekComponent extends Component {
-    // todo: we could move this one into the dateUtil
-    static getStaticConfig() {return {
-        /**
-         * Valid values for dayNameFormat
-         * @member {String[]} dayNameFormats=['narrow', 'short', 'long']
-         * @protected
-         * @static
-         */
-        dayNameFormats: ['narrow', 'short', 'long'],
-        /**
-         * Valid values for dayNameFormat
-         * @member {Number[]} weekStartDays=[0, 1, 2, 3, 4, 5, 6]
-         * @protected
-         * @static
-         */
-        weekStartDays: [0, 1, 2, 3, 4, 5, 6]
-    }}
-
     static getConfig() {return {
         /**
          * @member {String} className='Neo.calendar.view.WeekComponent'
@@ -46,6 +29,12 @@ class WeekComponent extends Component {
          * @protected
          */
         currentDate_: null,
+        /**
+         * The format of the column headers.
+         * Valid values are: narrow, short & long
+         * @member {String} dayNameFormat_='short'
+         */
+        dayNameFormat_: 'short',
         /**
          * @member {Object} timeAxis=null
          */
@@ -184,6 +173,26 @@ class WeekComponent extends Component {
         if (oldValue !== undefined) {
             console.log('WeekComponent afterSetWeekStartDay', value);
         }
+    }
+
+    /**
+     * Triggered before the dayNameFormat config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetDayNameFormat(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'dayNameFormat', DateUtil.prototype.dayNameFormats);
+    }
+
+    /**
+     * Triggered before the weekStartDay config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetWeekStartDay(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'weekStartDay', DateUtil.prototype.weekStartDays);
     }
 
     /**
