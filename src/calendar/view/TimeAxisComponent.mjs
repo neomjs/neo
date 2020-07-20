@@ -107,6 +107,17 @@ class TimeAxisComponent extends Component {
         }
     }
 
+
+    /**
+     * Triggered before the interval config gets changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    beforeSetInterval(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'interval');
+    }
+
     /**
      *
      */
