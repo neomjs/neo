@@ -33,6 +33,7 @@ class MainContainer extends Viewport {
                 clearable    : false,
                 labelPosition: 'inline',
                 labelText    : 'Row Height',
+                listeners    : {change: 'onRowHeightFieldChange'},
                 maxValue     : 30,
                 minValue     : 8,
                 style        : {marginRight: '10px'},
@@ -46,8 +47,9 @@ class MainContainer extends Viewport {
                 text   : 'Theme Dark'
             }]
         }, {
-            module: Calendar,
-            flex  : 1
+            module   : Calendar,
+            reference: 'calendar',
+            flex     : 1
         }]
     }}
 }
