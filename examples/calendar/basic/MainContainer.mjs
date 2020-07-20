@@ -29,6 +29,19 @@ class MainContainer extends Viewport {
             },
 
             items: ['->', {
+                module        : NumberField,
+                clearable     : false,
+                excludedValues: [45],
+                labelPosition : 'inline',
+                labelText     : 'Interval',
+                listeners     : {change: 'onIntervalFieldChange'},
+                maxValue      : 60,
+                minValue      : 15,
+                stepSize      : 15,
+                style         : {marginRight: '10px'},
+                value         : 30,
+                width         : 120
+            }, {
                 module       : NumberField,
                 clearable    : false,
                 labelPosition: 'inline',

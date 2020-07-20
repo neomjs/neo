@@ -18,9 +18,15 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} data
      */
-    onRowHeightFieldChange(data) {
-        console.log('onRowHeightFieldChange', data);
+    onIntervalFieldChange(data) {
+        console.log('onIntervalFieldChange', data);
+    }
 
+    /**
+     *
+     * @param {Object} data
+     */
+    onRowHeightFieldChange(data) {
         // todo: create an easier access, e.g. calendar.weekComponent
         this.getReference('calendar').down('calendar-view-weekComponent').timeAxis.rowHeight = data.value;
     }
