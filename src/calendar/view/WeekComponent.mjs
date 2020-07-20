@@ -7,6 +7,24 @@ import {default as VDomUtil}  from '../../util/VDom.mjs';
  * @extends Neo.container.Base
  */
 class WeekComponent extends Component {
+    // todo: we could move this one into the dateUtil
+    static getStaticConfig() {return {
+        /**
+         * Valid values for dayNameFormat
+         * @member {String[]} dayNameFormats=['narrow', 'short', 'long']
+         * @protected
+         * @static
+         */
+        dayNameFormats: ['narrow', 'short', 'long'],
+        /**
+         * Valid values for dayNameFormat
+         * @member {Number[]} weekStartDays=[0, 1, 2, 3, 4, 5, 6]
+         * @protected
+         * @static
+         */
+        weekStartDays: [0, 1, 2, 3, 4, 5, 6]
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.calendar.view.WeekComponent'
