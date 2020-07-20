@@ -35,6 +35,10 @@ class Number extends Text {
          */
         cls: ['neo-numberfield', 'neo-textfield'],
         /**
+         * @member {Number[]|null} excluded=null
+         */
+        excludedValues: null,
+        /**
          * Value for the inputType_ textfield config
          * @member {String} inputType='number'
          */
@@ -183,6 +187,12 @@ class Number extends Text {
             oldValue = me.value || (me.maxValue + me.stepSize),
             value    = Math.max(me.minValue, oldValue - me.stepSize);
 
+        if (me.excludedValues) {
+            while(me.excludedValues.includes(value)) {
+                value = Math.max(me.minValue, value - me.stepSize);
+            }
+        }
+
         if (oldValue !== value) {
             me.value = value;
         }
@@ -195,6 +205,12 @@ class Number extends Text {
         let me       = this,
             oldValue = me.value || (me.minValue - me.stepSize),
             value    = Math.min(me.maxValue, oldValue + me.stepSize);
+
+        if (me.excludedValues) {
+            while(me.excludedValues.includes(value)) {
+                value = Math.min(me.maxValue, value + me.stepSize);
+            }
+        }
 
         if (oldValue !== value) {
             me.value = value;
