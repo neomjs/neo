@@ -1,8 +1,9 @@
-import Button                  from '../../../src/component/Button.mjs';
-import {default as Calendar}   from '../../../src/calendar/MainContainer.mjs';
-import MainContainerController from './MainContainerController.mjs';
-import Toolbar                 from '../../../src/container/Toolbar.mjs';
-import Viewport                from '../../../src/container/Viewport.mjs';
+import Button                   from '../../../src/component/Button.mjs';
+import {default as Calendar}    from '../../../src/calendar/MainContainer.mjs';
+import MainContainerController  from './MainContainerController.mjs';
+import {default as NumberField} from '../../../src/form/field/Number.mjs';
+import Toolbar                  from '../../../src/container/Toolbar.mjs';
+import Viewport                 from '../../../src/container/Viewport.mjs';
 
 /**
  * @class CalendarBasic.MainContainer
@@ -28,14 +29,27 @@ class MainContainer extends Viewport {
             },
 
             items: ['->', {
+                module       : NumberField,
+                clearable    : false,
+                labelPosition: 'inline',
+                labelText    : 'Row Height',
+                listeners    : {change: 'onRowHeightFieldChange'},
+                maxValue     : 30,
+                minValue     : 8,
+                style        : {marginRight: '10px'},
+                value        : 10,
+                width        : 120
+            }, {
                 module : Button,
                 handler: 'onSwitchThemeButtonClick',
+                height : 27,
                 iconCls: 'fa fa-moon',
                 text   : 'Theme Dark'
             }]
         }, {
-            module: Calendar,
-            flex  : 1
+            module   : Calendar,
+            reference: 'calendar',
+            flex     : 1
         }]
     }}
 }

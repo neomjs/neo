@@ -319,6 +319,20 @@ class Text extends Base {
     }
 
     /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        if (value && this.labelPosition === 'inline') {
+            this.updateCenterBorderElWidth();
+        }
+    }
+
+    /**
      * Triggered after the placeholderText config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
@@ -776,10 +790,10 @@ class Text extends Base {
 
     /**
      * Used for labelPosition: 'inline' to adjust the top border matching to the length of the label
-     * @param {Boolean} silent true to get the value, but not apply it to the DOM
+     * @param {Boolean} [silent=false] true to get the value, but not apply it to the DOM
      * @protected
      */
-    updateCenterBorderElWidth(silent) {
+    updateCenterBorderElWidth(silent=false) {
         let me = this;
 
         if (me.mounted) {

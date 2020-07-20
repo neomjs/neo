@@ -178,16 +178,6 @@ class Number extends Text {
     /**
      * @protected
      */
-    onSpinButtonClick(value, oldValue) {
-        this.fire('change', {
-            oldValue: oldValue,
-            value   : value
-        });
-    }
-
-    /**
-     * @protected
-     */
     onSpinButtonDownClick() {
         let me       = this,
             oldValue = me.value || (me.maxValue + me.stepSize),
@@ -195,7 +185,6 @@ class Number extends Text {
 
         if (oldValue !== value) {
             me.value = value;
-            me.onSpinButtonClick(value, oldValue);
         }
     }
 
@@ -208,10 +197,7 @@ class Number extends Text {
             value    = Math.min(me.maxValue, oldValue + me.stepSize);
 
         if (oldValue !== value) {
-            console.log(value);
-
             me.value = value;
-            me.onSpinButtonClick(value, oldValue);
         }
     }
 

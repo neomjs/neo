@@ -50,42 +50,103 @@ class MainContainer extends Container {
 
         let me = this;
 
+        me.createItemsContent();
+
+        if (!me.sideBarExpanded) {
+            me.afterSetSideBarExpanded(false, true);
+        }
+    }
+
+    /**
+     * Triggered after the sideBarExpanded config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSideBarExpanded(value, oldValue) {
+        if (Neo.isBoolean(oldValue)) {
+            let sideBar = this.items[1].items[0],
+                style   = sideBar.style || {};
+
+            style.marginLeft = value ? '0': `-${this.sideBarWidth}px`;
+
+            sideBar.style = style;
+        }
+    }
+
+    /**
+     *
+     * @param {String} interval
+     * @protected
+     */
+    changeTimeInterval(interval) {
+        const map = {
+            day  : 0,
+            month: 2,
+            week : 1,
+            year : 3
+        };
+
+        this.items[1].items[1].layout.activeIndex = map[interval];
+
+        this.items[0].items[1].items.forEach(item => {
+            if (item.toggleGroup === 'timeInterval') {
+                item.pressed = item.value === interval;
+            }
+        });
+    }
+
+    /**
+     *
+     * @protected
+     */
+    createItemsContent() {
+        let me = this;
+
         me.items = [{
-            module: Toolbar,
-            cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
+            module: Container,
             flex  : 'none',
+            layout: {ntype: 'hbox', align: 'stretch'},
             items : [{
-                handler: me.toggleSidebar.bind(me),
-                iconCls: 'fa fa-bars'
+                module: Toolbar,
+                cls   : ['neo-calendar-header-toolbar', 'neo-left', 'neo-toolbar'],
+                width : me.sideBarWidth,
+                items : [{
+                    handler: me.toggleSidebar.bind(me),
+                    iconCls: 'fa fa-bars'
+                }, '->', {
+                    iconCls: 'fa fa-chevron-left',
+                }, {
+                    height: 24,
+                    text  : 'Today'
+                }, {
+                    iconCls: 'fa fa-chevron-right'
+                }]
             }, {
-                iconCls: 'fa fa-chevron-left',
-                style  : {marginLeft: '48px'}
-            }, {
-                height : 24,
-                text   : 'Today'
-            }, {
-                iconCls: 'fa fa-chevron-right'
-            }, '->', {
-                handler    : me.changeTimeInterval.bind(me, 'day'),
-                text       : 'Day',
-                toggleGroup: 'timeInterval',
-                value      : 'day'
-            }, {
-                handler    : me.changeTimeInterval.bind(me, 'week'),
-                pressed    : true,
-                text       : 'Week',
-                toggleGroup: 'timeInterval',
-                value      : 'week'
-            }, {
-                handler    : me.changeTimeInterval.bind(me, 'month'),
-                text       : 'Month',
-                toggleGroup: 'timeInterval',
-                value      : 'month'
-            }, {
-                handler    : me.changeTimeInterval.bind(me, 'year'),
-                text       : 'Year',
-                toggleGroup: 'timeInterval',
-                value      : 'year'
+                module: Toolbar,
+                cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
+                items : ['->', {
+                    handler    : me.changeTimeInterval.bind(me, 'day'),
+                    text       : 'Day',
+                    toggleGroup: 'timeInterval',
+                    value      : 'day'
+                }, {
+                    handler    : me.changeTimeInterval.bind(me, 'week'),
+                    pressed    : true,
+                    text       : 'Week',
+                    toggleGroup: 'timeInterval',
+                    value      : 'week'
+                }, {
+                    handler    : me.changeTimeInterval.bind(me, 'month'),
+                    text       : 'Month',
+                    toggleGroup: 'timeInterval',
+                    value      : 'month'
+                }, {
+                    handler    : me.changeTimeInterval.bind(me, 'year'),
+                    text       : 'Year',
+                    toggleGroup: 'timeInterval',
+                    value      : 'year'
+                }]
             }]
         }, {
             module: Container,
@@ -125,39 +186,9 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered after the sideBarExpanded config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     *
      * @protected
      */
-    afterSetSideBarExpanded(value, oldValue) {
-        if (Neo.isBoolean(oldValue)) {
-            let sideBar = this.items[1].items[0],
-                style   = sideBar.style || {};
-
-            style.marginLeft = value ? '0': `-${this.sideBarWidth}px`;
-
-            sideBar.style = style;
-        }
-    }
-
-    changeTimeInterval(interval) {
-        const map = {
-            day  : 0,
-            month: 2,
-            week : 1,
-            year : 3
-        };
-
-        this.items[1].items[1].layout.activeIndex = map[interval];
-
-        this.items[0].items.forEach(item => {
-            if (item.toggleGroup === 'timeInterval') {
-                item.pressed = item.value === interval;
-            }
-        });
-    }
-
     toggleSidebar() {
         this.sideBarExpanded = !this.sideBarExpanded;
     }

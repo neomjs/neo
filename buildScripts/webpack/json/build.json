@@ -23,6 +23,11 @@
             "output": "/examples/component/button/",
             "title": "Neo Button"
         },
+        "calendarBasic": {
+            "input": "examples/calendar/Basic.mjs",
+            "output": "/examples/calendar/basic/",
+            "title": "Neo Calendar Basic"
+        },
         "chip": {
             "input": "examples/component/Chip.mjs",
             "output": "/examples/component/chip/",

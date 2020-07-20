@@ -162,7 +162,8 @@
             }
 
             .neo-year-text {
-                color: v(dateselector-header-year-text-color);
+                color : v(dateselector-header-year-text-color);
+                height: 1em;
             }
         }
 

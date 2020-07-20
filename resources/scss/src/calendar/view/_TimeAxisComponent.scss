@@ -1,0 +1,15 @@
+.neo-calendar-timeaxis {
+    background-position-x: 100%;
+    background-position-y: 0;
+    background-repeat    : repeat-y;
+    flex                 : none;
+    width                : 50px;
+
+    .neo-c-w-timeaxis-item {
+        align-items    : center;
+        color          : #999;
+        display        : flex;
+        font-size      : 10px;
+        justify-content: center;
+    }
+}

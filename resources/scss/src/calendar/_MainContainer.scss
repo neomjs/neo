@@ -1,6 +1,10 @@
 .neo-calendar-maincontainer {
     .neo-calendar-header-toolbar {
         border-bottom: 1px solid v(calendar-border-color);
+
+        &.neo-left {
+            padding-right: 0;
+        }
     }
 
     .neo-calendar-sidebar {
