@@ -104,29 +104,30 @@ class WeekComponent extends Component {
      * @param {Object} data
      * @param {Neo.component.Base} data.component
      * @param {Number} data.rowHeight
+     * @param {Number} data.rowsPerItem
      * @param {Number} data.value
      */
     adjustTotalHeight(data) {
-        let me         = this,
-            itemHeight = data.rowHeight,
-            vdom       = me.vdom;
+        let me          = this,
+            rowHeight   = data.rowHeight,
+            rowsPerItem = data.rowsPerItem,
+            vdom        = me.vdom,
+            i           = 0,
+            gradient    = [];
 
-        let backgroundImage = [
-            'linear-gradient(',
-                'var(--c-w-background-color),',
-                `var(--c-w-background-color) ${itemHeight}px,`,
-                'var(--c-w-border-color) 0,',
-                `var(--c-w-background-color) ${itemHeight + 1}px,`,
-                `var(--c-w-background-color) ${2 * itemHeight + 1}px,`,
-                'var(--c-w-border-color) 0',
-            ')'
-        ].join('');
+        for (; i < rowsPerItem; i++) {
+            gradient.push(
+                `var(--c-w-background-color) ${i * rowHeight + i}px`,
+                `var(--c-w-background-color) ${(i + 1) * rowHeight + i}px`,
+                'var(--c-w-border-color) 0'
+            );
+        }
 
         Object.assign(me.getVdomContent().style, {
-            backgroundImage: backgroundImage,
-            backgroundSize : `1px ${2 * itemHeight + 2}px`,
-            height         : `${data.value - itemHeight}px`,
-            maxHeight      : `${data.value - itemHeight}px`
+            backgroundImage: `linear-gradient(${gradient.join(',')})`,
+            backgroundSize : `1px ${rowsPerItem * rowHeight + rowsPerItem}px`,
+            height         : `${data.value - rowHeight}px`,
+            maxHeight      : `${data.value - rowHeight}px`
         });
 
         me.vdom = vdom;
