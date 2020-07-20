@@ -99,6 +99,18 @@ class MainContainer extends Container {
     }
 
     /**
+     * Triggered after the weekStartDay config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetWeekStartDay(value, oldValue) {
+        if (oldValue !== undefined) {
+            console.log('MainContainer afterSetWeekStartDay', value);
+        }
+    }
+
+    /**
      *
      * @param {String} interval
      * @protected
