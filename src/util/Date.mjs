@@ -62,6 +62,28 @@ class DateUtil extends Base {
     static getFirstDayOfMonth(date) {
         return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
     }
+
+    /**
+     * Returns the week number of the passed date
+     * https://en.wikipedia.org/wiki/ISO_8601
+     * @param {Date} targetDate
+     * @returns {Number} 0-6 (Sun-Sat)
+     */
+    static getWeekOfYear(targetDate) {
+        let date      = new Date(targetDate.valueOf()),
+            dayNumber = (targetDate.getUTCDay() + 6) % 7,
+            firstThursday;
+
+        date.setUTCDate(date.getUTCDate() - dayNumber + 3);
+        firstThursday = date.valueOf();
+        date.setUTCMonth(0, 1);
+
+        if (date.getUTCDay() !== 4) {
+            date.setUTCMonth(0, 1 + ((4 - date.getUTCDay()) + 7) % 7);
+        }
+
+        return Math.ceil((firstThursday - date) /  (7 * 24 * 3600 * 1000)) + 1;
+    }
 }
 
 Neo.applyClassConfig(DateUtil);
