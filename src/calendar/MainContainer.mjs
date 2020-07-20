@@ -49,6 +49,10 @@ class MainContainer extends Container {
          */
         sideBarWidth: 220,
         /**
+         * @member {Object|null} weekComponentConfig=null
+         */
+        weekComponentConfig: null,
+        /**
          * 0-6 => Sun-Sat
          * @member {Number} weekStartDay_=0
          */
@@ -213,7 +217,8 @@ class MainContainer extends Container {
                     vdom : {innerHTML: 'Day'}
                 }, {
                     module     : WeekComponent,
-                    currentDate: me.currentDate
+                    currentDate: me.currentDate,
+                    ...me.weekComponentConfig || {}
                 }, {
                     ntype: 'component',
                     vdom : {innerHTML: 'Month'}
