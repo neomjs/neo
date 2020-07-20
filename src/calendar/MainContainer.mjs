@@ -234,9 +234,11 @@ class MainContainer extends Container {
                 layout: {ntype: 'vbox', align: 'stretch'},
                 width : 220,
                 items : [{
-                    module: DateSelector,
-                    flex  : 'none',
-                    height: me.sideBarWidth,
+                    module      : DateSelector,
+                    currentDate : me.currentDate,
+                    flex        : 'none',
+                    height      : me.sideBarWidth,
+                    weekStartDay: me.weekStartDay,
                     ...me.dateSelectorConfig || {}
                 }, {
                     module: ItemsContainer,
@@ -250,8 +252,9 @@ class MainContainer extends Container {
                     ntype: 'component',
                     vdom : {innerHTML: 'Day'}
                 }, {
-                    module     : WeekComponent,
-                    currentDate: me.currentDate,
+                    module      : WeekComponent,
+                    currentDate : me.currentDate,
+                    weekStartDay: me.weekStartDay,
                     ...me.weekComponentConfig || {}
                 }, {
                     ntype: 'component',
