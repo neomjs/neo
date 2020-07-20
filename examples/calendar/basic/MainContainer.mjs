@@ -49,6 +49,7 @@ class MainContainer extends Viewport {
                 listeners    : {change: 'onRowHeightFieldChange'},
                 maxValue     : 100,
                 minValue     : 8,
+                stepSize     : 2,
                 style        : {marginRight: '10px'},
                 value        : 20,
                 width        : 120
