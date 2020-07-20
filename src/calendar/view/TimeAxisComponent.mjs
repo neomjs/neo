@@ -21,9 +21,9 @@ class TimeAxisComponent extends Component {
          */
         cls: ['neo-calendar-timeaxis'],
         /**
-         * @member {Number} rowHeight_=10
+         * @member {Number} rowHeight_=20
          */
-        rowHeight_: 10,
+        rowHeight_: 20,
         /**
          * @member {Object} vdom
          */
@@ -56,8 +56,8 @@ class TimeAxisComponent extends Component {
             let me          = this,
                 vdom        = me.vdom,
                 rowHeight   = me.rowHeight,
-                itemHeight  = 4 * rowHeight + 2, // 2 * 1px borders
-                totalHeight = 2 * rowHeight + (24 * itemHeight),
+                itemHeight  = 2 * rowHeight + 2, // 2 * 1px borders
+                totalHeight = rowHeight + (24 * itemHeight),
                 i, itemStyle;
 
             Object.assign(vdom.style, {
@@ -73,7 +73,7 @@ class TimeAxisComponent extends Component {
                 };
 
                 if (i === 0) {
-                    itemStyle.marginTop = `${2 * rowHeight}px`;
+                    itemStyle.marginTop = `${rowHeight}px`;
                 }
 
                 vdom.cn[i].style = itemStyle;

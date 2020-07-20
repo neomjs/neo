@@ -34,10 +34,10 @@ class MainContainer extends Viewport {
                 labelPosition: 'inline',
                 labelText    : 'Row Height',
                 listeners    : {change: 'onRowHeightFieldChange'},
-                maxValue     : 30,
+                maxValue     : 100,
                 minValue     : 8,
                 style        : {marginRight: '10px'},
-                value        : 10,
+                value        : 20,
                 width        : 120
             }, {
                 module : Button,

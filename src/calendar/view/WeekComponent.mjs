@@ -108,7 +108,7 @@ class WeekComponent extends Component {
      */
     adjustTotalHeight(data) {
         let me         = this,
-            itemHeight = 2 * data.rowHeight,
+            itemHeight = data.rowHeight,
             vdom       = me.vdom;
 
         let backgroundImage = [
