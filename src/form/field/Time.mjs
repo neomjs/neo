@@ -58,6 +58,11 @@ class Time extends Picker {
          */
         minValue_: '08:00',
         /**
+         * The height of the picker container. Defaults to px.
+         * @member {Number|null} pickerHeight=150
+         */
+        pickerHeight: 150,
+        /**
          * Defaults to 1min
          * @member {Number} stepSize_=60*5
          */
