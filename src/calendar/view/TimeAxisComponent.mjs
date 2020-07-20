@@ -62,6 +62,18 @@ class TimeAxisComponent extends Component {
     }
 
     /**
+     * Triggered after the interval config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetInterval(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.afterSetRowHeight(this.rowHeight, 0);
+        }
+    }
+
+    /**
      * Triggered after the rowHeight config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -72,7 +84,8 @@ class TimeAxisComponent extends Component {
             let me          = this,
                 vdom        = me.vdom,
                 rowHeight   = me.rowHeight,
-                itemHeight  = 2 * rowHeight + 2, // 2 * 1px borders
+                rowsPerItem = me.getRowsPerItem(),
+                itemHeight  = rowsPerItem * rowHeight + rowsPerItem, // rowsPerItem * 1px borders
                 totalHeight = rowHeight + (24 * itemHeight),
                 i, itemStyle;
 
@@ -89,7 +102,7 @@ class TimeAxisComponent extends Component {
                 };
 
                 if (i === 0) {
-                    itemStyle.marginTop = `${rowHeight}px`;
+                    itemStyle.marginTop = `${rowHeight * (rowsPerItem === 1 ? 0.5 : rowsPerItem === 2 ? 1 : 2)}px`;
                 }
 
                 vdom.cn[i].style = itemStyle;
@@ -100,9 +113,10 @@ class TimeAxisComponent extends Component {
             me.vdom = vdom;
 
             me.fire('heightChange', {
-                component: me,
-                rowHeight: rowHeight,
-                value    : totalHeight
+                component  : me,
+                rowHeight  : rowHeight,
+                rowsPerItem: rowsPerItem,
+                value      : totalHeight
             });
         }
     }
@@ -135,6 +149,14 @@ class TimeAxisComponent extends Component {
                 cn   : [{html: html}]
             });
         }
+    }
+
+    /**
+     * Calculates the amount of rows related to the interval config
+     * @return {Number}
+     */
+    getRowsPerItem() {
+        return this.interval === 60 ? 1 : this.interval === 30 ? 2 : 4;
     }
 }
 

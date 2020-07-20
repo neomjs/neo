@@ -16,10 +16,19 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @return {Neo.component.Base}
+     */
+    getWeeklyTimeAxis() {
+        // todo: create an easier access, e.g. calendar.weekComponent
+        return this.getReference('calendar').down('calendar-view-weekComponent').timeAxis;
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onIntervalFieldChange(data) {
-        console.log('onIntervalFieldChange', data);
+        this.getWeeklyTimeAxis().interval = data.value;
     }
 
     /**
@@ -27,8 +36,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onRowHeightFieldChange(data) {
-        // todo: create an easier access, e.g. calendar.weekComponent
-        this.getReference('calendar').down('calendar-view-weekComponent').timeAxis.rowHeight = data.value;
+        this.getWeeklyTimeAxis().rowHeight = data.value;
     }
 
     /**
