@@ -31,6 +31,12 @@ class TimeAxisComponent extends Component {
          */
         cls: ['neo-calendar-timeaxis'],
         /**
+         * Only full hours are valid for now
+         * format: 'hh:mm'
+         * @member {String} endTime_='24:00'
+         */
+        endTime_: '24:00',
+        /**
          * The time interval in minutes to display as rows.
          * Valid values: 15, 30, 60
          * @member {Number} interval_=30
@@ -40,6 +46,12 @@ class TimeAxisComponent extends Component {
          * @member {Number} rowHeight_=20
          */
         rowHeight_: 20,
+        /**
+         * Only full hours are valid for now
+         * format: 'hh:mm'
+         * @member {String} startTime_='00:00'
+         */
+        startTime_: '00:00',
         /**
          * @member {Object} vdom
          */
@@ -59,6 +71,25 @@ class TimeAxisComponent extends Component {
 
         me.createItems();
         me.afterSetRowHeight(me.rowHeight, 0);
+    }
+
+    /**
+     * Triggered after the endTime config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetEndTime(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            // todo: handle 24:00 as 23:59
+            if (!value) {
+                me.endTime = '24:00';
+            }
+
+            me.afterSetRowHeight(me.rowHeight, 0);
+        }
     }
 
     /**
@@ -82,11 +113,13 @@ class TimeAxisComponent extends Component {
     afterSetRowHeight(value, oldValue) {
         if (oldValue !== undefined) {
             let me          = this,
+                endTime     = me.endTime.split(':').map(Number)[0],
+                startTime   = me.startTime.split(':').map(Number)[0],
                 vdom        = me.vdom,
                 rowHeight   = me.rowHeight,
                 rowsPerItem = me.getRowsPerItem(),
                 itemHeight  = rowsPerItem * rowHeight + rowsPerItem, // rowsPerItem * 1px borders
-                totalHeight = rowHeight + (24 * itemHeight),
+                totalHeight = rowHeight + ((endTime - startTime) * itemHeight),
                 i, itemStyle;
 
             Object.assign(vdom.style, {
@@ -101,26 +134,42 @@ class TimeAxisComponent extends Component {
                     height: `${itemHeight}px`
                 };
 
-                if (i === 0) {
+                if (i === startTime) {
                     itemStyle.marginTop = `${rowHeight * (rowsPerItem === 1 ? 0.5 : rowsPerItem === 2 ? 1 : 2)}px`;
+                } else {
+                    delete itemStyle.marginTop;
                 }
 
                 vdom.cn[i].style = itemStyle;
+
+                vdom.cn[i].removeDom = (i < startTime || i >= endTime);
             }
 
             me.totalHeight = totalHeight;
 
-            me.vdom = vdom;
+            // silent update, the view containing this component will trigger the vdom update
+            me._vdom = vdom;
 
             me.fire('heightChange', {
                 component  : me,
                 rowHeight  : rowHeight,
                 rowsPerItem: rowsPerItem,
-                value      : totalHeight
+                totalHeight: totalHeight
             });
         }
     }
 
+    /**
+     * Triggered after the startTime config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetStartTime(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.afterSetRowHeight(this.rowHeight, 0);
+        }
+    }
 
     /**
      * Triggered before the interval config gets changed

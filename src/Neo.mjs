@@ -512,6 +512,14 @@ function autoGenerateGetSet(proto, key) {
                 // every set call has to delete the matching symbol
                 delete me[configSymbol][key];
 
+                if (Array.isArray(value)) {
+                    if (key !== 'items') {
+                        value = [...value];
+                    }
+                } else if (value instanceof Date) {
+                    value = new Date(value.valueOf());
+                }
+
                 // we do want to store the value before the beforeSet modification as well,
                 // since it could get pulled by other beforeSet methods of different configs
                 me[_key] = value;

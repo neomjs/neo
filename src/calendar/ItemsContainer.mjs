@@ -57,8 +57,6 @@ class ItemsContainer extends Container {
      *
      */
     onStoreLoad() {
-        console.log('onStoreLoad');
-
         this.items = [{
             checked       : true,
             valueLabelText: 'Calendar 1'

@@ -2,6 +2,7 @@ import Button                   from '../../../src/component/Button.mjs';
 import {default as Calendar}    from '../../../src/calendar/MainContainer.mjs';
 import MainContainerController  from './MainContainerController.mjs';
 import {default as NumberField} from '../../../src/form/field/Number.mjs';
+import {default as TimeField}   from '../../../src/form/field/Time.mjs';
 import Toolbar                  from '../../../src/container/Toolbar.mjs';
 import Viewport                 from '../../../src/container/Viewport.mjs';
 
@@ -29,6 +30,28 @@ class MainContainer extends Viewport {
             },
 
             items: ['->', {
+                module       : TimeField,
+                clearable    : false,
+                labelPosition: 'inline',
+                labelText    : 'Start Time',
+                listeners    : {change: 'onStartTimeFieldChange'},
+                maxValue     : '10:00',
+                minValue     : '00:00',
+                stepSize     : 60 * 60, // 1h
+                style        : {marginRight: '10px'},
+                value        : '00:00',
+                width        : 120
+            }, {
+                module       : TimeField,
+                labelPosition: 'inline',
+                labelText    : 'End Time',
+                listeners    : {change: 'onEndTimeFieldChange'},
+                maxValue     : '23:00',
+                minValue     : '14:00',
+                stepSize     : 60 * 60, // 1h
+                style        : {marginRight: '10px'},
+                width        : 120
+            }, {
                 module        : NumberField,
                 clearable     : false,
                 excludedValues: [45],
