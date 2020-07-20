@@ -72,7 +72,12 @@ class WeekComponent extends Component {
                     style: {}
                 }]
             }]
-        }
+        },
+        /**
+         * 0-6 => Sun-Sat
+         * @member {Number} weekStartDay_=0
+         */
+        weekStartDay_: 0
     }}
 
     /**
