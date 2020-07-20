@@ -74,6 +74,25 @@ class TimeAxisComponent extends Component {
     }
 
     /**
+     * Triggered after the endTime config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetEndTime(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            // todo: handle 24:00 as 23:59
+            if (!value) {
+                me.endTime = '24:00';
+            }
+
+            me.afterSetRowHeight(me.rowHeight, 0);
+        }
+    }
+
+    /**
      * Triggered after the interval config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -94,11 +113,13 @@ class TimeAxisComponent extends Component {
     afterSetRowHeight(value, oldValue) {
         if (oldValue !== undefined) {
             let me          = this,
+                endTime     = me.endTime.split(':').map(Number)[0],
+                startTime   = me.startTime.split(':').map(Number)[0],
                 vdom        = me.vdom,
                 rowHeight   = me.rowHeight,
                 rowsPerItem = me.getRowsPerItem(),
                 itemHeight  = rowsPerItem * rowHeight + rowsPerItem, // rowsPerItem * 1px borders
-                totalHeight = rowHeight + (24 * itemHeight),
+                totalHeight = rowHeight + ((endTime - startTime) * itemHeight),
                 i, itemStyle;
 
             Object.assign(vdom.style, {
@@ -113,16 +134,21 @@ class TimeAxisComponent extends Component {
                     height: `${itemHeight}px`
                 };
 
-                if (i === 0) {
+                if (i === startTime) {
                     itemStyle.marginTop = `${rowHeight * (rowsPerItem === 1 ? 0.5 : rowsPerItem === 2 ? 1 : 2)}px`;
+                } else {
+                    delete itemStyle.marginTop;
                 }
 
                 vdom.cn[i].style = itemStyle;
+
+                vdom.cn[i].removeDom = (i < startTime || i >= endTime);
             }
 
             me.totalHeight = totalHeight;
 
-            me.vdom = vdom;
+            // silent update, the view containing this component will trigger the vdom update
+            me._vdom = vdom;
 
             me.fire('heightChange', {
                 component  : me,
@@ -141,7 +167,7 @@ class TimeAxisComponent extends Component {
      */
     afterSetStartTime(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('afterSetStartTime', value);
+            this.afterSetRowHeight(this.rowHeight, 0);
         }
     }
 
