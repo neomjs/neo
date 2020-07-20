@@ -147,7 +147,7 @@ class TimeAxisComponent extends Component {
 
             me.totalHeight = totalHeight;
 
-            // silent update, the view containing this component will trigger the vdom update
+            // silent update: the view containing this component will trigger the vdom update
             me._vdom = vdom;
 
             me.fire('heightChange', {
