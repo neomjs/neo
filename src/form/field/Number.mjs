@@ -39,6 +39,11 @@ class Number extends Text {
          */
         excludedValues: null,
         /**
+         * false only allows changing the field using the spin buttons
+         * @member {Boolean} inputEditable_=true
+         */
+        inputEditable_: true,
+        /**
          * Value for the inputType_ textfield config
          * @member {String} inputType='number'
          */
@@ -75,6 +80,28 @@ class Number extends Text {
     }
 
     /**
+     * Triggered after the inputEditable config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetInputEditable(value, oldValue) {
+        let me      = this,
+            vdom    = me.vdom,
+            inputEl = me.getInputEl(),
+            style   = inputEl.style || {};
+
+        if (value) {
+            delete style.pointerEvents;
+        } else {
+            style.pointerEvents = 'none';
+        }
+
+        me.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the maxValue config got changed
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
@@ -84,6 +111,7 @@ class Number extends Text {
     }
 
     /**
+     * Triggered after the minValue config got changed
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
@@ -93,6 +121,7 @@ class Number extends Text {
     }
 
     /**
+     * Triggered after the stepSize config got changed
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
@@ -120,6 +149,7 @@ class Number extends Text {
     }
 
     /**
+     * Triggered after the triggerPosition config got changed
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -131,6 +161,7 @@ class Number extends Text {
     }
 
     /**
+     * Triggered after the useSpinButtons config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
