@@ -25,6 +25,12 @@ class MainContainer extends Container {
          */
         cls: ['neo-calendar-maincontainer', 'neo-container'],
         /**
+         * The currently active date inside all views
+         * @member {Date} currentDate_=new Date()
+         * @protected
+         */
+        currentDate_: new Date(),
+        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
          */
@@ -54,6 +60,18 @@ class MainContainer extends Container {
 
         if (!me.sideBarExpanded) {
             me.afterSetSideBarExpanded(false, true);
+        }
+    }
+
+    /**
+     * Triggered after the currentDate config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetCurrentDate(value, oldValue) {
+        if (oldValue !== undefined) {
+            console.log('afterSetCurrentDate', value);
         }
     }
 
