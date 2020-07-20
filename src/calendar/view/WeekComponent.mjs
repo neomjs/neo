@@ -175,6 +175,18 @@ class WeekComponent extends Component {
     }
 
     /**
+     * Triggered after the weekStartDay config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetWeekStartDay(value, oldValue) {
+        if (oldValue !== undefined) {
+            console.log('WeekComponent afterSetWeekStartDay', value);
+        }
+    }
+
+    /**
      *
      */
     getVdomContent() {
