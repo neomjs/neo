@@ -23,6 +23,12 @@ class WeekComponent extends Component {
          */
         cls: ['neo-calendar-weekcomponent'],
         /**
+         * Will get passed from the MainContainer
+         * @member {Date|null} currentDate_=null
+         * @protected
+         */
+        currentDate_: null,
+        /**
          * @member {Object} timeAxis=null
          */
         timeAxis: null,
@@ -131,6 +137,18 @@ class WeekComponent extends Component {
         });
 
         me.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the currentDate config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetCurrentDate(value, oldValue) {
+        if (oldValue !== undefined) {
+            console.log('WeekComponent afterSetCurrentDate', value);
+        }
     }
 
     /**

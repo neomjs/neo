@@ -191,7 +191,8 @@ class MainContainer extends Container {
                     ntype: 'component',
                     vdom : {innerHTML: 'Day'}
                 }, {
-                    module: WeekComponent
+                    module     : WeekComponent,
+                    currentDate: me.currentDate
                 }, {
                     ntype: 'component',
                     vdom : {innerHTML: 'Month'}
