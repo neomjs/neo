@@ -27,9 +27,12 @@ class MainContainer extends Container {
         /**
          * The currently active date inside all views
          * @member {Date} currentDate_=new Date()
-         * @protected
          */
         currentDate_: new Date(),
+        /**
+         * @member {Object|null} dateSelectorConfig=null
+         */
+        dateSelectorConfig: null,
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
@@ -48,7 +51,6 @@ class MainContainer extends Container {
         /**
          * 0-6 => Sun-Sat
          * @member {Number} weekStartDay_=0
-         * @protected
          */
         weekStartDay_: 0
     }}
@@ -196,7 +198,8 @@ class MainContainer extends Container {
                 items : [{
                     module: DateSelector,
                     flex  : 'none',
-                    height: me.sideBarWidth
+                    height: me.sideBarWidth,
+                    ...me.dateSelectorConfig || {}
                 }, {
                     module: ItemsContainer,
                     flex  : 1
