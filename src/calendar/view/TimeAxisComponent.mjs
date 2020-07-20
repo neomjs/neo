@@ -81,6 +81,8 @@ class TimeAxisComponent extends Component {
 
             me.totalHeight = totalHeight;
             console.log(totalHeight);
+
+            me.vdom = vdom;
         }
     }
 
