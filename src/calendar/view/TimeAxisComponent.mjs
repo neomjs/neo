@@ -21,6 +21,12 @@ class TimeAxisComponent extends Component {
          */
         cls: ['neo-calendar-timeaxis'],
         /**
+         * The time interval in minutes to display as rows.
+         * Valid values: 15, 30, 60
+         * @member {Number} interval_=30
+         */
+        interval_: 30,
+        /**
          * @member {Number} rowHeight_=20
          */
         rowHeight_: 20,
