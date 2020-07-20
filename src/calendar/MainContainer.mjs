@@ -125,6 +125,19 @@ class MainContainer extends Container {
     }
 
     /**
+     * Triggered when accessing the dateSelector config
+     * @param {Object} value
+     * @protected
+     */
+    beforeGetDateSelector(value) {
+        if (!value) {
+            value = this.dateSelector = this.down('dateselector');
+        }
+
+        return value;
+    }
+
+    /**
      * Triggered when accessing the weekComponent config
      * @param {Object} value
      * @protected
