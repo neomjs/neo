@@ -44,7 +44,13 @@ class MainContainer extends Container {
          * @member {Number} sideBarWidth=220
          * @protected
          */
-        sideBarWidth: 220
+        sideBarWidth: 220,
+        /**
+         * 0-6 => Sun-Sat
+         * @member {Number} weekStartDay_=0
+         * @protected
+         */
+        weekStartDay_: 0
     }}
 
     /**

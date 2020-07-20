@@ -117,6 +117,7 @@ class DateSelector extends Component {
         /**
          * 0-6 => Sun-Sat
          * @member {Number} weekStartDay_=0
+         * @protected
          */
         weekStartDay_: 0,
         /**

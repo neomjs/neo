@@ -76,6 +76,7 @@ class WeekComponent extends Component {
         /**
          * 0-6 => Sun-Sat
          * @member {Number} weekStartDay_=0
+         * @protected
          */
         weekStartDay_: 0
     }}
@@ -107,7 +108,7 @@ class WeekComponent extends Component {
         for (; i < 7; i++) {
             columnCls = ['neo-c-w-column'];
 
-            if (i === 0 || i === 6) { // todo: startWeekday
+            if (i === 0 || i === 6) { // todo: weekStartDay
                 columnCls.push('neo-weekend');
             }
 
