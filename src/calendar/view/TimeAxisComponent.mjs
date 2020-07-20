@@ -5,6 +5,16 @@ import {default as Component} from '../../component/Base.mjs';
  * @extends Neo.container.Base
  */
 class TimeAxisComponent extends Component {
+    static getStaticConfig() {return {
+        /**
+         * Valid values for interval
+         * @member {Number[]} intervals=[15, 30, 60]
+         * @protected
+         * @static
+         */
+        intervals: [15, 30, 60]
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.calendar.view.TimeAxisComponent'
@@ -21,9 +31,15 @@ class TimeAxisComponent extends Component {
          */
         cls: ['neo-calendar-timeaxis'],
         /**
-         * @member {Number} rowHeight_=10
+         * The time interval in minutes to display as rows.
+         * Valid values: 15, 30, 60
+         * @member {Number} interval_=30
          */
-        rowHeight_: 10,
+        interval_: 30,
+        /**
+         * @member {Number} rowHeight_=20
+         */
+        rowHeight_: 20,
         /**
          * @member {Object} vdom
          */
@@ -46,6 +62,18 @@ class TimeAxisComponent extends Component {
     }
 
     /**
+     * Triggered after the interval config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetInterval(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.afterSetRowHeight(this.rowHeight, 0);
+        }
+    }
+
+    /**
      * Triggered after the rowHeight config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -56,8 +84,9 @@ class TimeAxisComponent extends Component {
             let me          = this,
                 vdom        = me.vdom,
                 rowHeight   = me.rowHeight,
-                itemHeight  = 4 * rowHeight + 2, // 2 * 1px borders
-                totalHeight = 2 * rowHeight + (24 * itemHeight),
+                rowsPerItem = me.getRowsPerItem(),
+                itemHeight  = rowsPerItem * rowHeight + rowsPerItem, // rowsPerItem * 1px borders
+                totalHeight = rowHeight + (24 * itemHeight),
                 i, itemStyle;
 
             Object.assign(vdom.style, {
@@ -73,7 +102,7 @@ class TimeAxisComponent extends Component {
                 };
 
                 if (i === 0) {
-                    itemStyle.marginTop = `${2 * rowHeight}px`;
+                    itemStyle.marginTop = `${rowHeight * (rowsPerItem === 1 ? 0.5 : rowsPerItem === 2 ? 1 : 2)}px`;
                 }
 
                 vdom.cn[i].style = itemStyle;
@@ -84,11 +113,23 @@ class TimeAxisComponent extends Component {
             me.vdom = vdom;
 
             me.fire('heightChange', {
-                component: me,
-                rowHeight: rowHeight,
-                value    : totalHeight
+                component  : me,
+                rowHeight  : rowHeight,
+                rowsPerItem: rowsPerItem,
+                value      : totalHeight
             });
         }
+    }
+
+
+    /**
+     * Triggered before the interval config gets changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    beforeSetInterval(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'interval');
     }
 
     /**
@@ -108,6 +149,14 @@ class TimeAxisComponent extends Component {
                 cn   : [{html: html}]
             });
         }
+    }
+
+    /**
+     * Calculates the amount of rows related to the interval config
+     * @return {Number}
+     */
+    getRowsPerItem() {
+        return this.interval === 60 ? 1 : this.interval === 30 ? 2 : 4;
     }
 }
 
