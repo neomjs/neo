@@ -16,11 +16,10 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @return {Neo.component.Base}
+     * @return {Neo.calendar.view.TimeAxisComponent}
      */
     getWeeklyTimeAxis() {
-        // todo: create an easier access, e.g. calendar.weekComponent
-        return this.getReference('calendar').down('calendar-view-weekComponent').timeAxis;
+        return this.getReference('calendar').weekComponent.timeAxis;
     }
 
     /**
