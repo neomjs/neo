@@ -490,11 +490,12 @@ class Text extends Base {
             value = [value];
         }
 
-        let me = this;
+        let me       = this,
+            newValue = [...value];
 
-        value.forEach((item, index) => {
+        newValue.forEach((item, index) => {
             if (item.isClass) {
-                value[index] = Neo.create(item, {
+                newValue[index] = Neo.create(item, {
                     id   : me.getTriggerId(item.prototype.type),
                     field: me
                 });
@@ -508,11 +509,11 @@ class Text extends Base {
                     item.id        = me.getTriggerId(item.module.prototype.type);
                 }
 
-                value[index] = Neo[item.className ? 'create' : 'ntype']({...item, field: me});
+                newValue[index] = Neo[item.className ? 'create' : 'ntype']({...item, field: me});
             }
         });
 
-        return value;
+        return newValue;
     }
 
     /**

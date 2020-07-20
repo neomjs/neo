@@ -1,7 +1,7 @@
 import Picker from './Picker.mjs';
 
 /**
- * used by form.field.Time
+ * Used by form.field.Time
  * @class Neo.form.field.trigger.Time
  * @extends Neo.form.field.trigger.Picker
  */
