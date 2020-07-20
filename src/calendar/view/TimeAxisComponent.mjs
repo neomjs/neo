@@ -113,7 +113,7 @@ class TimeAxisComponent extends Component {
     afterSetRowHeight(value, oldValue) {
         if (oldValue !== undefined) {
             let me          = this,
-                endTime     = me.endTime.split(':').map(Number)[0],
+                endTime     = me.endTime  .split(':').map(Number)[0],
                 startTime   = me.startTime.split(':').map(Number)[0],
                 vdom        = me.vdom,
                 rowHeight   = me.rowHeight,
