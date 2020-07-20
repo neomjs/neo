@@ -1,9 +1,9 @@
-import Base                                from './Base.mjs';
-import {default as BaseTrigger}            from './trigger/Base.mjs';
-import {default as ClearTrigger}           from './trigger/Clear.mjs';
-import NeoArray                            from '../../util/Array.mjs';
-import {default as VDomUtil}               from '../../util/VDom.mjs';
-import {default as VNodeUtil}              from '../../util/VNode.mjs';
+import Base                      from './Base.mjs';
+import {default as BaseTrigger}  from './trigger/Base.mjs';
+import {default as ClearTrigger} from './trigger/Clear.mjs';
+import NeoArray                  from '../../util/Array.mjs';
+import {default as VDomUtil}     from '../../util/VDom.mjs';
+import {default as VNodeUtil}    from '../../util/VNode.mjs';
 
 /**
  * @class Neo.form.field.Text
@@ -361,7 +361,7 @@ class Text extends Base {
     afterSetTriggers(value, oldValue) {
         let me           = this,
             vdom         = me.vdom,
-            inputEl      = vdom.cn[1], // inpuEl or inputWrapperEl
+            inputEl      = vdom.cn[1], // inputEl or inputWrapperEl
             preTriggers  = [],
             postTriggers = [],
             width;
@@ -498,18 +498,17 @@ class Text extends Base {
                     id   : me.getTriggerId(item.prototype.type),
                     field: me
                 });
-            } else if (item instanceof BaseTrigger !== true) {
+            } else if (!(item instanceof BaseTrigger)) {
                 if (!item.module && !item.ntype) {
                     item.ntype = 'trigger';
                 }
 
                 if (item.module) {
-                    item.id    = me.getTriggerId(item.module.prototype.type);
-                    item.ntype = item.module.prototype.ntype;
-                    delete item.module;
+                    item.className = item.module.prototype.className;
+                    item.id        = me.getTriggerId(item.module.prototype.type);
                 }
 
-                value[index] = Neo.ntype({...item, field: me});
+                value[index] = Neo[item.className ? 'create' : 'ntype']({...item, field: me});
             }
         });
 
