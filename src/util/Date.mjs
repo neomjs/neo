@@ -67,7 +67,7 @@ class DateUtil extends Base {
      * Returns the week number of the passed date
      * https://en.wikipedia.org/wiki/ISO_8601
      * @param {Date} targetDate
-     * @returns {Number} 0-6 (Sun-Sat)
+     * @returns {Number}
      */
     static getWeekOfYear(targetDate) {
         let date      = new Date(targetDate.valueOf()),
