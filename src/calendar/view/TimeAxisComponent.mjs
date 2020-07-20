@@ -80,9 +80,14 @@ class TimeAxisComponent extends Component {
             }
 
             me.totalHeight = totalHeight;
-            console.log(totalHeight);
 
             me.vdom = vdom;
+
+            me.fire('heightChange', {
+                component: me,
+                rowHeight: rowHeight,
+                value    : totalHeight
+            });
         }
     }
 
