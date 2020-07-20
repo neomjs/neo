@@ -49,6 +49,10 @@ class MainContainer extends Container {
          */
         sideBarWidth: 220,
         /**
+         * @member {Neo.calendar.view.WeekComponent|null} weekComponent_=null
+         */
+        weekComponent_: null,
+        /**
          * @member {Object|null} weekComponentConfig=null
          */
         weekComponentConfig: null,
@@ -114,6 +118,19 @@ class MainContainer extends Container {
         if (oldValue !== undefined) {
             console.log('MainContainer afterSetWeekStartDay', value);
         }
+    }
+
+    /**
+     * Triggered when accessing the weekComponent config
+     * @param {Object} value
+     * @protected
+     */
+    beforeGetWeekComponent(value) {
+        if (!value) {
+            value = this.weekComponent = this.down('calendar-view-weekComponent');
+        }
+
+        return value;
     }
 
     /**
