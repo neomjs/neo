@@ -237,6 +237,8 @@ Neo = self.Neo = Object.assign({
                 return ignoreNeoInstances ? obj : this.cloneNeoInstance(obj);
             } else if(obj.constructor.isClass) {
                 return obj;
+            } else if (obj instanceof Date) {
+                obj = new Date(obj.valueOf());
             } else {
                 out = {};
                 Object.entries(obj).forEach(([key, value]) => {
