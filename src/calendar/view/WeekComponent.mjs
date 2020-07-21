@@ -1,5 +1,6 @@
 import {default as Component} from '../../component/Base.mjs';
 import DateUtil               from '../../util/Date.mjs';
+import NeoArray               from '../../util/Array.mjs';
 import TimeAxisComponent      from './TimeAxisComponent.mjs';
 import {default as VDomUtil}  from '../../util/VDom.mjs';
 
@@ -188,7 +189,7 @@ class WeekComponent extends Component {
      */
     afterSetWeekStartDay(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('WeekComponent afterSetWeekStartDay', value);
+            this.updateHeader();
         }
     }
 
@@ -224,6 +225,52 @@ class WeekComponent extends Component {
      */
     getVdomHeaderRow() {
         return this.vdom.cn[0];
+    }
+
+    /**
+     *
+     */
+    updateHeader() {
+        let me              = this,
+            vdom            = me.vdom,
+            content         = me.getVdomContent(),
+            date            = DateUtil.clone(me.currentDate),
+            firstDayInMonth = DateUtil.getFirstDayOfMonth(me.currentDate),
+            firstDayOffset  = firstDayInMonth - me.weekStartDay,
+            headerRow       = me.getVdomHeaderRow(),
+            i               = 0,
+            columnCls, currentDate, currentDay, day;
+
+        firstDayOffset = firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
+        day            = 1 - firstDayOffset;
+
+        date.setDate(day);
+
+        currentDate = me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay;
+
+        const dt = new Intl.DateTimeFormat(Neo.config.locale, {
+            weekday: me.dayNameFormat
+        });
+
+        for (; i < 7; i++) {
+            columnCls  = ['neo-c-w-column'];
+            currentDay = date.getDay();
+
+            if (currentDay === 0 || currentDay === 6) {
+                columnCls.push('neo-weekend');
+            } else {
+                NeoArray.remove(columnCls, 'neo-weekend')
+            }
+
+            content.cn[i].cls = columnCls;
+
+            headerRow.cn[i + 1].cn[0].html = dt.format(date);
+            headerRow.cn[i + 1].cn[1].html = currentDate + i;
+
+            date.setDate(date.getDate() + 1);
+        }
+
+        me.vdom = vdom;
     }
 }
 
