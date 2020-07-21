@@ -82,7 +82,7 @@ class WeekComponent extends Component {
             firstDayOffset  = firstDayInMonth - me.weekStartDay,
             headerRow       = me.getVdomHeaderRow(),
             i               = 0,
-            columnCls, content, currentDay, day;
+            columnCls, content, currentDate, currentDay, day;
 
         firstDayOffset = firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
         day            = 1 - firstDayOffset;
@@ -101,8 +101,7 @@ class WeekComponent extends Component {
 
         content = me.getVdomContent();
 
-        console.log(me.currentDate.getDay());
-        console.log(me.currentDate.getDate());
+        currentDate = me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay;
 
         const dt = new Intl.DateTimeFormat(Neo.config.locale, {
             weekday: me.dayNameFormat
@@ -127,7 +126,7 @@ class WeekComponent extends Component {
                     html: dt.format(date)
                 }, {
                     cls: ['neo-date'],
-                    html: '19'
+                    html: currentDate + i
                 }]
             });
 
