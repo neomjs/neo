@@ -76,10 +76,18 @@ class WeekComponent extends Component {
     constructor(config) {
         super(config);
 
-        let me        = this,
-            headerRow = me.getVdomHeaderRow(),
-            i         = 0,
-            columnCls, content;
+        let me              = this,
+            date            = DateUtil.clone(me.currentDate),
+            firstDayInMonth = DateUtil.getFirstDayOfMonth(me.currentDate),
+            firstDayOffset  = firstDayInMonth - me.weekStartDay,
+            headerRow       = me.getVdomHeaderRow(),
+            i               = 0,
+            columnCls, content, currentDay, day;
+
+        firstDayOffset = firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
+        day            = 1 - firstDayOffset;
+
+        date.setDate(day);
 
         me.timeAxis = Neo.create(TimeAxisComponent, {
             listeners: {
@@ -93,10 +101,18 @@ class WeekComponent extends Component {
 
         content = me.getVdomContent();
 
-        for (; i < 7; i++) {
-            columnCls = ['neo-c-w-column'];
+        console.log(me.currentDate.getDay());
+        console.log(me.currentDate.getDate());
 
-            if (i === 0 || i === 6) { // todo: weekStartDay
+        const dt = new Intl.DateTimeFormat(Neo.config.locale, {
+            weekday: me.dayNameFormat
+        });
+
+        for (; i < 7; i++) {
+            columnCls  = ['neo-c-w-column'];
+            currentDay = date.getDay();
+
+            if (currentDay === 0 || currentDay === 6) {
                 columnCls.push('neo-weekend');
             }
 
@@ -108,12 +124,14 @@ class WeekComponent extends Component {
                 cls: ['neo-header-row-item'],
                 cn : [{
                     cls: ['neo-day'],
-                    html: 'Sun'
+                    html: dt.format(date)
                 }, {
                     cls: ['neo-date'],
                     html: '19'
                 }]
             });
+
+            date.setDate(date.getDate() + 1);
         }
     }
 
