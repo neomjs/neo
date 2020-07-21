@@ -120,7 +120,8 @@ class MainContainer extends Container {
      */
     afterSetWeekStartDay(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('MainContainer afterSetWeekStartDay', value);
+            this.dateSelector .weekStartDay = value;
+            this.weekComponent.weekStartDay = value;
         }
     }
 
