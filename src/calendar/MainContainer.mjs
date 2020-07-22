@@ -4,6 +4,8 @@ import ItemsContainer         from './ItemsContainer.mjs';
 import Toolbar                from '../container/Toolbar.mjs';
 import WeekComponent          from './view/WeekComponent.mjs';
 
+const todayDate = new Date();
+
 /**
  * @class Neo.calendar.MainContainer
  * @extends Neo.container.Base
@@ -28,7 +30,7 @@ class MainContainer extends Container {
          * The currently active date inside all views
          * @member {Date} currentDate_=new Date()
          */
-        currentDate_: new Date(),
+        currentDate_: todayDate,
         /**
          * @member {Neo.component.DateSelector|null} dateSelector_=null
          */
@@ -196,8 +198,9 @@ class MainContainer extends Container {
                 }, '->', {
                     iconCls: 'fa fa-chevron-left',
                 }, {
-                    height: 24,
-                    text  : 'Today'
+                    handler: me.onTodayButtonClick.bind(me),
+                    height : 24,
+                    text   : 'Today'
                 }, {
                     iconCls: 'fa fa-chevron-right'
                 }]
@@ -297,6 +300,14 @@ class MainContainer extends Container {
         if (opts.oldValue !== undefined) {
             this.currentDate = new Date(opts.value);
         }
+    }
+
+    /**
+     *
+     * @param data
+     */
+    onTodayButtonClick(data) {
+        this.currentDate = todayDate;
     }
 
     /**
