@@ -61,8 +61,8 @@
             width          : 1.62em;
 
             &.neo-today {
-                background-color: red;
-                color           : #fff
+                background-color: v(c-w-header-today-background-color);
+                color           : v(c-w-header-today-color);
             }
         }
 
