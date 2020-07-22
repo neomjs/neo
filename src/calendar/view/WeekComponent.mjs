@@ -91,6 +91,7 @@ class WeekComponent extends Component {
         date.setDate(day);
 
         me.timeAxis = Neo.create(TimeAxisComponent, {
+            parentId : me.id,
             listeners: {
                 change: me.adjustTotalHeight,
                 scope : me
@@ -211,6 +212,15 @@ class WeekComponent extends Component {
      */
     beforeSetWeekStartDay(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'weekStartDay', DateUtil.prototype.weekStartDays);
+    }
+
+    /**
+     *
+     */
+    destroy(...args) {
+        this.timeAxis = null;
+
+        super.destroy(...args);
     }
 
     /**
