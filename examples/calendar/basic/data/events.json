@@ -1,0 +1,12 @@
+[
+    {
+        "attendees" : ["Tobias"],
+        "allDay"    : false,
+        "id"        : 1,
+        "calendarId": 1,
+        "description": "Description Text",
+        "endDate"    : "Wed Jul 22 2020 14:00:00 GMT+0200 (Central European Summer Time)",
+        "startDate"  : "Wed Jul 22 2020 12:00:00 GMT+0200 (Central European Summer Time)",
+        "title"      : "Lunch Break"
+    }
+]

@@ -93,7 +93,12 @@ class MainContainer extends Viewport {
         }, {
             module   : Calendar,
             reference: 'calendar',
-            flex     : 1
+            flex     : 1,
+
+            eventStoreConfig: {
+                autoLoad: true,
+                url     : '../../examples/calendar/basic/data/events.json'
+            }
         }]
     }}
 }

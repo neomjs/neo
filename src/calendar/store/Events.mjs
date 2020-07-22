@@ -1,4 +1,4 @@
-import Event from '../model/Calendar.mjs';
+import Event from '../model/Event.mjs';
 import Store from '../../../src/data/Store.mjs';
 
 /**
