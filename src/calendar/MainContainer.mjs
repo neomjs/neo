@@ -91,7 +91,9 @@ class MainContainer extends Container {
      */
     afterSetCurrentDate(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('afterSetCurrentDate', value);
+            console.log('afterSetCurrentDate', value, oldValue);
+            this.dateSelector .currentDate = value;
+            this.weekComponent.currentDate = value;
         }
     }
 
@@ -240,6 +242,12 @@ class MainContainer extends Container {
                     flex        : 'none',
                     height      : me.sideBarWidth,
                     weekStartDay: me.weekStartDay,
+
+                    listeners: {
+                        change: me.onDateSelectorChange,
+                        scope : me
+                    },
+
                     ...me.dateSelectorConfig || {}
                 }, {
                     module: ItemsContainer,
@@ -277,6 +285,18 @@ class MainContainer extends Container {
         this.weekComponent = null;
 
         super.destroy(...args);
+    }
+
+    /**
+     *
+     * @param {Object} opts
+     * @param {String} opts.oldValue
+     * @param {String} opts.value
+     */
+    onDateSelectorChange(opts) {
+        if (opts.oldValue !== undefined) {
+            this.currentDate = new Date(opts.value);
+        }
     }
 
     /**
