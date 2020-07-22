@@ -93,7 +93,6 @@ class MainContainer extends Container {
      */
     afterSetCurrentDate(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('afterSetCurrentDate', value, oldValue);
             this.dateSelector .currentDate = value;
             this.weekComponent.currentDate = value;
         }
@@ -196,12 +195,14 @@ class MainContainer extends Container {
                     handler: me.toggleSidebar.bind(me),
                     iconCls: 'fa fa-bars'
                 }, '->', {
+                    handler: me.onPreviousIntervalButtonClick.bind(me),
                     iconCls: 'fa fa-chevron-left',
                 }, {
                     handler: me.onTodayButtonClick.bind(me),
                     height : 24,
                     text   : 'Today'
                 }, {
+                    handler: me.onNextIntervalButtonClick.bind(me),
                     iconCls: 'fa fa-chevron-right'
                 }]
             }, {
@@ -306,6 +307,22 @@ class MainContainer extends Container {
      *
      * @param data
      */
+    onNextIntervalButtonClick(data) {
+        this.switchInterval(1);
+    }
+
+    /**
+     *
+     * @param data
+     */
+    onPreviousIntervalButtonClick(data) {
+        this.switchInterval(-1);
+    }
+
+    /**
+     *
+     * @param data
+     */
     onTodayButtonClick(data) {
         this.currentDate = todayDate;
     }
@@ -316,6 +333,21 @@ class MainContainer extends Container {
      */
     toggleSidebar() {
         this.sideBarExpanded = !this.sideBarExpanded;
+    }
+
+    /**
+     * todo: different intervals matching to the active card view
+     * @param {Number} multiplier
+     */
+    switchInterval(multiplier) {
+        let me          = this,
+            currentDate = me.currentDate,
+            interval    = 7;
+
+        interval *= multiplier;
+
+        currentDate.setDate(currentDate.getDate() + interval);
+        me.currentDate = currentDate;
     }
 }
 
