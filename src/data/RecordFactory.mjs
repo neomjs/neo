@@ -80,11 +80,12 @@ class RecordFactory extends Base {
 
                         if (Array.isArray(model.fields)) {
                             model.fields.forEach(field => {
-                                let symbol = Symbol(field.name);
+                                let parsedValue = instance.parseRecordValue(field, config[field.name]),
+                                    symbol      = Symbol(field.name);
 
                                 properties = {
                                     [symbol]: {
-                                        value   : config[field.name],
+                                        value   : parsedValue,
                                         writable: true
                                     },
                                     [field.name]: {
@@ -97,8 +98,9 @@ class RecordFactory extends Base {
                                             let me       = this,
                                                 oldValue = me[symbol];
 
-                                            if (value !== oldValue) {
-                                                // todo: parse value if field.type
+                                            if (instance.hasChanged(value, oldValue)) {
+                                                value = instance.parseRecordValue(field, value);
+
                                                 me[symbol] = value;
 
                                                 me._isModified = true;
@@ -119,7 +121,7 @@ class RecordFactory extends Base {
                                 // adding the original value of each field
                                 if (model.trackModifiedFields) {
                                     properties[instance.ovPrefix + field.name] = {
-                                        value: config[field.name]
+                                        value: parsedValue
                                     }
                                 }
 
@@ -135,6 +137,28 @@ class RecordFactory extends Base {
 
             return ns;
         }
+    }
+
+    /**
+     * Checks if the value of a config has changed
+     * todo: we could compare objects & arrays for equality
+     * @param {*} value
+     * @param {*} oldValue
+     * @returns {Boolean}
+     * @private
+     */
+    hasChanged(value, oldValue) {
+        if (Array.isArray(value)) {
+            return true;
+        } else if (Neo.isObject(value)) {
+            if (oldValue instanceof Date && value instanceof Date) {
+                return oldValue.valueOf() !== value.valueOf();
+            }
+
+            return true;
+        }
+
+        return oldValue !== value;
     }
 
     /**
@@ -207,6 +231,22 @@ class RecordFactory extends Base {
         if (store) {
             store.onRecordChange(opts);
         }
+    }
+
+    /**
+     * todo: parse value for more field types
+     * @param {Object} field
+     * @param {*} value
+     * @return {*}
+     */
+    parseRecordValue(field, value) {
+        const type = field.type && field.type.toLowerCase();
+
+        if (type === 'date') {
+            return new Date(value);
+        }
+
+        return value;
     }
 }
 
