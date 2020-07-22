@@ -32,18 +32,18 @@ class ClassSystem extends Base {
                     ...config
                 });
             } else {
-                config = {};
+                const newConfig = {};
 
                 if (DefaultClass) {
-                    config.module = DefaultClass;
+                    newConfig.module = DefaultClass;
                 }
 
-                Object.assign(config, {
+                Object.assign(newConfig, {
                     ...defaultValues,
                     ...config
                 });
 
-                config = Neo.create(config);
+                config = Neo.create(newConfig);
             }
         }
 
