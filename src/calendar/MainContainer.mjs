@@ -1,6 +1,7 @@
 import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
 import {default as Container}       from '../container/Base.mjs';
 import DateSelector                 from '../component/DateSelector.mjs';
+import DateUtil                     from '../util/Date.mjs';
 import {default as EventStore}      from './store/Events.mjs';
 import ItemsContainer               from './ItemsContainer.mjs';
 import Toolbar                      from '../container/Toolbar.mjs';
@@ -103,7 +104,7 @@ class MainContainer extends Container {
      */
     afterSetCurrentDate(value, oldValue) {
         if (oldValue !== undefined) {
-            this.dateSelector .currentDate = value;
+            this.dateSelector .value       = DateUtil.convertToyyyymmdd(value);
             this.weekComponent.currentDate = value;
         }
     }
