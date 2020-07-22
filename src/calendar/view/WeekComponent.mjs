@@ -143,7 +143,7 @@ class WeekComponent extends Component {
      */
     afterSetCurrentDate(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('WeekComponent afterSetCurrentDate', value);
+            this.updateHeader();
         }
     }
 
