@@ -1,8 +1,10 @@
-import {default as Container} from '../container/Base.mjs';
-import DateSelector           from '../component/DateSelector.mjs';
-import ItemsContainer         from './ItemsContainer.mjs';
-import Toolbar                from '../container/Toolbar.mjs';
-import WeekComponent          from './view/WeekComponent.mjs';
+import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
+import {default as Container}       from '../container/Base.mjs';
+import DateSelector                 from '../component/DateSelector.mjs';
+import {default as EventStore}      from './store/Events.mjs';
+import ItemsContainer               from './ItemsContainer.mjs';
+import Toolbar                      from '../container/Toolbar.mjs';
+import WeekComponent                from './view/WeekComponent.mjs';
 
 const todayDate = new Date();
 
@@ -39,6 +41,14 @@ class MainContainer extends Container {
          * @member {Object|null} dateSelectorConfig=null
          */
         dateSelectorConfig: null,
+        /**
+         * @member {Neo.calendar.store.Events|null} eventStore_=null
+         */
+        eventStore_: null,
+        /**
+         * @member {Object|null} eventStoreConfig=null
+         */
+        eventStoreConfig: null,
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
@@ -152,6 +162,20 @@ class MainContainer extends Container {
         }
 
         return value;
+    }
+
+    /**
+     * Triggered before the selectionModel config gets changed.
+     * @param {Neo.calendar.store.Events} value
+     * @param {Neo.calendar.store.Events} oldValue
+     * @protected
+     */
+    beforeSetEventStore(value, oldValue) {
+        if (oldValue) {
+            oldValue.destroy();
+        }
+
+        return ClassSystemUtil.beforeSetInstance(value, EventStore, this.eventStoreConfig || {});
     }
 
     /**
