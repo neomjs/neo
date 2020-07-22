@@ -237,6 +237,8 @@ Neo = self.Neo = Object.assign({
                 return ignoreNeoInstances ? obj : this.cloneNeoInstance(obj);
             } else if(obj.constructor.isClass) {
                 return obj;
+            } else if (obj instanceof Date) {
+                obj = new Date(obj.valueOf());
             } else {
                 out = {};
                 Object.entries(obj).forEach(([key, value]) => {
@@ -536,8 +538,7 @@ function autoGenerateGetSet(proto, key) {
                     me[_key] = value;
                 }
 
-                // todo: we could compare objects & arrays for equality
-                if (Neo.isObject(value) || Array.isArray(value) || value !== oldValue) {
+                if (hasChanged(value, oldValue)) {
                     if (me[afterSet] && typeof me[afterSet] === 'function') {
                         me[afterSet](value, oldValue);
                     }
@@ -563,6 +564,28 @@ function exists(className) {
     } catch(e) {
         return false;
     }
+}
+
+/**
+ * Checks if the value of a config has changed
+ * todo: we could compare objects & arrays for equality
+ * @param {*} value
+ * @param {*} oldValue
+ * @returns {Boolean}
+ * @private
+ */
+function hasChanged(value, oldValue) {
+    if (Array.isArray(value)) {
+        return true;
+    } else if (Neo.isObject(value)) {
+        if (oldValue instanceof Date && value instanceof Date) {
+            return oldValue.valueOf() !== value.valueOf();
+        }
+
+        return true;
+    }
+
+    return oldValue !== value;
 }
 
 /**

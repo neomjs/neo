@@ -10,7 +10,21 @@ class DateUtil extends Base {
          * @member {String} className='Neo.util.Date'
          * @protected
          */
-        className: 'Neo.util.Date'
+        className: 'Neo.util.Date',
+        /**
+         * Valid values for dayNameFormat
+         * @member {String[]} dayNameFormats=['narrow', 'short', 'long']
+         * @protected
+         * @static
+         */
+        dayNameFormats: ['narrow', 'short', 'long'],
+        /**
+         * Valid values for dayNameFormat
+         * @member {Number[]} weekStartDays=[0, 1, 2, 3, 4, 5, 6]
+         * @protected
+         * @static
+         */
+        weekStartDays: [0, 1, 2, 3, 4, 5, 6]
     }}
 
     /**
@@ -23,7 +37,7 @@ class DateUtil extends Base {
     }
 
     /**
-     * Returns the yyyy-mm-dd formated value of a given Date instance
+     * Returns the yyyy-mm-dd formatted value of a given Date instance
      * @param {Date} date
      * @return {String} the yyyy-mm-dd formatted date
      */
@@ -47,6 +61,28 @@ class DateUtil extends Base {
      */
     static getFirstDayOfMonth(date) {
         return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+    }
+
+    /**
+     * Returns the week number of the passed date
+     * https://en.wikipedia.org/wiki/ISO_8601
+     * @param {Date} targetDate
+     * @returns {Number}
+     */
+    static getWeekOfYear(targetDate) {
+        let date      = new Date(targetDate.valueOf()),
+            dayNumber = (targetDate.getUTCDay() + 6) % 7,
+            firstThursday;
+
+        date.setUTCDate(date.getUTCDate() - dayNumber + 3);
+        firstThursday = date.valueOf();
+        date.setUTCMonth(0, 1);
+
+        if (date.getUTCDay() !== 4) {
+            date.setUTCMonth(0, 1 + ((4 - date.getUTCDay()) + 7) % 7);
+        }
+
+        return Math.ceil((firstThursday - date) /  (7 * 24 * 3600 * 1000)) + 1;
     }
 }
 

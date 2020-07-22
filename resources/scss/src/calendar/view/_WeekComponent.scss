@@ -55,10 +55,15 @@
             color          : v(c-w-header-date-color);
             display        : flex;
             font-size      : 1.6em;
-            height         : 1.7em;
+            height         : 1.62em;
             justify-content: center;
             transition     : background-color 100ms ease-out;
-            width          : 1.7em;
+            width          : 1.62em;
+
+            &.neo-today {
+                background-color: v(c-w-header-today-background-color);
+                color           : v(c-w-header-today-color);
+            }
         }
 
         .neo-day {

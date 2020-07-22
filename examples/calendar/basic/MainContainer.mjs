@@ -30,6 +30,12 @@ class MainContainer extends Viewport {
             },
 
             items: ['->', {
+                module : Button,
+                handler: 'onWeekStartDayButtonClick',
+                height : 27,
+                style  : {marginRight: '10px'},
+                text   : 'weekStartDay: Monday'
+            }, {
                 module       : TimeField,
                 clearable    : false,
                 labelPosition: 'inline',

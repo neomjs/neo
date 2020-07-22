@@ -4,6 +4,8 @@ import ItemsContainer         from './ItemsContainer.mjs';
 import Toolbar                from '../container/Toolbar.mjs';
 import WeekComponent          from './view/WeekComponent.mjs';
 
+const todayDate = new Date();
+
 /**
  * @class Neo.calendar.MainContainer
  * @extends Neo.container.Base
@@ -25,6 +27,19 @@ class MainContainer extends Container {
          */
         cls: ['neo-calendar-maincontainer', 'neo-container'],
         /**
+         * The currently active date inside all views
+         * @member {Date} currentDate_=new Date()
+         */
+        currentDate_: todayDate,
+        /**
+         * @member {Neo.component.DateSelector|null} dateSelector_=null
+         */
+        dateSelector_: null,
+        /**
+         * @member {Object|null} dateSelectorConfig=null
+         */
+        dateSelectorConfig: null,
+        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
          */
@@ -38,7 +53,20 @@ class MainContainer extends Container {
          * @member {Number} sideBarWidth=220
          * @protected
          */
-        sideBarWidth: 220
+        sideBarWidth: 220,
+        /**
+         * @member {Neo.calendar.view.WeekComponent|null} weekComponent_=null
+         */
+        weekComponent_: null,
+        /**
+         * @member {Object|null} weekComponentConfig=null
+         */
+        weekComponentConfig: null,
+        /**
+         * 0-6 => Sun-Sat
+         * @member {Number} weekStartDay_=0
+         */
+        weekStartDay_: 0
     }}
 
     /**
@@ -58,6 +86,19 @@ class MainContainer extends Container {
     }
 
     /**
+     * Triggered after the currentDate config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetCurrentDate(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.dateSelector .currentDate = value;
+            this.weekComponent.currentDate = value;
+        }
+    }
+
+    /**
      * Triggered after the sideBarExpanded config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -72,6 +113,45 @@ class MainContainer extends Container {
 
             sideBar.style = style;
         }
+    }
+
+    /**
+     * Triggered after the weekStartDay config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetWeekStartDay(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.dateSelector .weekStartDay = value;
+            this.weekComponent.weekStartDay = value;
+        }
+    }
+
+    /**
+     * Triggered when accessing the dateSelector config
+     * @param {Object} value
+     * @protected
+     */
+    beforeGetDateSelector(value) {
+        if (!value) {
+            value = this.dateSelector = this.down('dateselector');
+        }
+
+        return value;
+    }
+
+    /**
+     * Triggered when accessing the weekComponent config
+     * @param {Object} value
+     * @protected
+     */
+    beforeGetWeekComponent(value) {
+        if (!value) {
+            value = this.weekComponent = this.down('calendar-view-weekComponent');
+        }
+
+        return value;
     }
 
     /**
@@ -115,11 +195,14 @@ class MainContainer extends Container {
                     handler: me.toggleSidebar.bind(me),
                     iconCls: 'fa fa-bars'
                 }, '->', {
+                    handler: me.onPreviousIntervalButtonClick.bind(me),
                     iconCls: 'fa fa-chevron-left',
                 }, {
-                    height: 24,
-                    text  : 'Today'
+                    handler: me.onTodayButtonClick.bind(me),
+                    height : 24,
+                    text   : 'Today'
                 }, {
+                    handler: me.onNextIntervalButtonClick.bind(me),
                     iconCls: 'fa fa-chevron-right'
                 }]
             }, {
@@ -158,9 +241,18 @@ class MainContainer extends Container {
                 layout: {ntype: 'vbox', align: 'stretch'},
                 width : 220,
                 items : [{
-                    module: DateSelector,
-                    flex  : 'none',
-                    height: me.sideBarWidth
+                    module      : DateSelector,
+                    currentDate : me.currentDate,
+                    flex        : 'none',
+                    height      : me.sideBarWidth,
+                    weekStartDay: me.weekStartDay,
+
+                    listeners: {
+                        change: me.onDateSelectorChange,
+                        scope : me
+                    },
+
+                    ...me.dateSelectorConfig || {}
                 }, {
                     module: ItemsContainer,
                     flex  : 1
@@ -173,7 +265,10 @@ class MainContainer extends Container {
                     ntype: 'component',
                     vdom : {innerHTML: 'Day'}
                 }, {
-                    module: WeekComponent
+                    module      : WeekComponent,
+                    currentDate : me.currentDate,
+                    weekStartDay: me.weekStartDay,
+                    ...me.weekComponentConfig || {}
                 }, {
                     ntype: 'component',
                     vdom : {innerHTML: 'Month'}
@@ -187,10 +282,72 @@ class MainContainer extends Container {
 
     /**
      *
+     */
+    destroy(...args) {
+        // remove references, the super call will remove component tree based instances
+        this.dateSelector  = null;
+        this.weekComponent = null;
+
+        super.destroy(...args);
+    }
+
+    /**
+     *
+     * @param {Object} opts
+     * @param {String} opts.oldValue
+     * @param {String} opts.value
+     */
+    onDateSelectorChange(opts) {
+        if (opts.oldValue !== undefined) {
+            this.currentDate = new Date(opts.value);
+        }
+    }
+
+    /**
+     *
+     * @param data
+     */
+    onNextIntervalButtonClick(data) {
+        this.switchInterval(1);
+    }
+
+    /**
+     *
+     * @param data
+     */
+    onPreviousIntervalButtonClick(data) {
+        this.switchInterval(-1);
+    }
+
+    /**
+     *
+     * @param data
+     */
+    onTodayButtonClick(data) {
+        this.currentDate = todayDate;
+    }
+
+    /**
+     *
      * @protected
      */
     toggleSidebar() {
         this.sideBarExpanded = !this.sideBarExpanded;
+    }
+
+    /**
+     * todo: different intervals matching to the active card view
+     * @param {Number} multiplier
+     */
+    switchInterval(multiplier) {
+        let me          = this,
+            currentDate = me.currentDate,
+            interval    = 7;
+
+        interval *= multiplier;
+
+        currentDate.setDate(currentDate.getDate() + interval);
+        me.currentDate = currentDate;
     }
 }
 

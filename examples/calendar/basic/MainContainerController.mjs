@@ -16,11 +16,10 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @return {Neo.component.Base}
+     * @return {Neo.calendar.view.TimeAxisComponent}
      */
     getWeeklyTimeAxis() {
-        // todo: create an easier access, e.g. calendar.weekComponent
-        return this.getReference('calendar').down('calendar-view-weekComponent').timeAxis;
+        return this.getReference('calendar').weekComponent.timeAxis;
     }
 
     /**
@@ -97,6 +96,24 @@ class MainContainerController extends ComponentController {
         let style = headerToolbar.style || {};
         style.backgroundColor = headerColor;
         headerToolbar.style = style;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onWeekStartDayButtonClick(data) {
+        let button     = data.component,
+            buttonText = 'weekStartDay: Monday',
+            startDay   = 0;
+
+        if (button.text === 'weekStartDay: Monday') {
+            buttonText  = 'weekStartDay: Sunday';
+            startDay    = 1;
+        }
+
+        this.getReference('calendar').weekStartDay = startDay;
+        button.text = buttonText;
     }
 }
 

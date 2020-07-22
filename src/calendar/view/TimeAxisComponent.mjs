@@ -113,7 +113,7 @@ class TimeAxisComponent extends Component {
     afterSetRowHeight(value, oldValue) {
         if (oldValue !== undefined) {
             let me          = this,
-                endTime     = me.endTime.split(':').map(Number)[0],
+                endTime     = me.endTime  .split(':').map(Number)[0],
                 startTime   = me.startTime.split(':').map(Number)[0],
                 vdom        = me.vdom,
                 rowHeight   = me.rowHeight,
@@ -147,10 +147,10 @@ class TimeAxisComponent extends Component {
 
             me.totalHeight = totalHeight;
 
-            // silent update, the view containing this component will trigger the vdom update
+            // silent update: the view containing this component will trigger the vdom update
             me._vdom = vdom;
 
-            me.fire('heightChange', {
+            me.fire('change', {
                 component  : me,
                 rowHeight  : rowHeight,
                 rowsPerItem: rowsPerItem,

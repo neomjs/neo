@@ -1,6 +1,16 @@
 import {default as Component} from '../../component/Base.mjs';
+import DateUtil               from '../../util/Date.mjs';
+import NeoArray               from '../../util/Array.mjs';
 import TimeAxisComponent      from './TimeAxisComponent.mjs';
 import {default as VDomUtil}  from '../../util/VDom.mjs';
+
+const todayDate = new Date();
+
+const today = {
+    day  : todayDate.getDate(),
+    month: todayDate.getMonth(),
+    year : todayDate.getFullYear()
+};
 
 /**
  * @class Neo.calendar.view.WeekComponent
@@ -22,6 +32,18 @@ class WeekComponent extends Component {
          * @member {String[]} cls=['neo-calendar-weekcomponent']
          */
         cls: ['neo-calendar-weekcomponent'],
+        /**
+         * Will get passed from the MainContainer
+         * @member {Date|null} currentDate_=null
+         * @protected
+         */
+        currentDate_: null,
+        /**
+         * The format of the column headers.
+         * Valid values are: narrow, short & long
+         * @member {String} dayNameFormat_='short'
+         */
+        dayNameFormat_: 'short',
         /**
          * @member {Object} timeAxis=null
          */
@@ -48,7 +70,12 @@ class WeekComponent extends Component {
                     style: {}
                 }]
             }]
-        }
+        },
+        /**
+         * 0-6 => Sun-Sat
+         * @member {Number} weekStartDay_=0
+         */
+        weekStartDay_: 0
     }}
 
     /**
@@ -58,45 +85,20 @@ class WeekComponent extends Component {
     constructor(config) {
         super(config);
 
-        let me        = this,
-            headerRow = me.getVdomHeaderRow(),
-            i         = 0,
-            columnCls, content;
+        let me = this;
 
         me.timeAxis = Neo.create(TimeAxisComponent, {
+            parentId : me.id,
             listeners: {
-                heightChange: me.adjustTotalHeight,
-                scope       : me
+                change: me.adjustTotalHeight,
+                scope : me
             },
             ...me.timeAxisConfig || {}
         });
 
         me.vdom.cn[1].cn.unshift(me.timeAxis.vdom);
 
-        content = me.getVdomContent();
-
-        for (; i < 7; i++) {
-            columnCls = ['neo-c-w-column'];
-
-            if (i === 0 || i === 6) { // todo: startWeekday
-                columnCls.push('neo-weekend');
-            }
-
-            content.cn.push({
-                cls: columnCls
-            });
-
-            headerRow.cn.push({
-                cls: ['neo-header-row-item'],
-                cn : [{
-                    cls: ['neo-day'],
-                    html: 'Sun'
-                }, {
-                    cls: ['neo-date'],
-                    html: '19'
-                }]
-            });
-        }
+        me.updateHeader(true);
     }
 
     /**
@@ -134,6 +136,59 @@ class WeekComponent extends Component {
     }
 
     /**
+     * Triggered after the currentDate config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetCurrentDate(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.updateHeader();
+        }
+    }
+
+    /**
+     * Triggered after the weekStartDay config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetWeekStartDay(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.updateHeader();
+        }
+    }
+
+    /**
+     * Triggered before the dayNameFormat config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetDayNameFormat(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'dayNameFormat', DateUtil.prototype.dayNameFormats);
+    }
+
+    /**
+     * Triggered before the weekStartDay config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetWeekStartDay(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'weekStartDay', DateUtil.prototype.weekStartDays);
+    }
+
+    /**
+     *
+     */
+    destroy(...args) {
+        this.timeAxis = null;
+
+        super.destroy(...args);
+    }
+
+    /**
      *
      */
     getVdomContent() {
@@ -145,6 +200,78 @@ class WeekComponent extends Component {
      */
     getVdomHeaderRow() {
         return this.vdom.cn[0];
+    }
+
+    /**
+     *
+     * @param {Boolean} [create=false]
+     */
+    updateHeader(create=false) {
+        let me        = this,
+            vdom      = me.vdom,
+            date      = DateUtil.clone(me.currentDate),
+            headerRow = me.getVdomHeaderRow(),
+            i         = 0,
+            columnCls, content, currentDate, currentDay, dateCls;
+
+        date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
+
+        content = me.getVdomContent();
+
+        const dt = new Intl.DateTimeFormat(Neo.config.locale, {
+            weekday: me.dayNameFormat
+        });
+
+        for (; i < 7; i++) {
+            columnCls   = ['neo-c-w-column'];
+            currentDate = date.getDate();
+            currentDay  = date.getDay();
+            dateCls     = ['neo-date'];
+
+            if (currentDay === 0 || currentDay === 6) {
+                columnCls.push('neo-weekend');
+            } else {
+                NeoArray.remove(columnCls, 'neo-weekend');
+            }
+
+            if (currentDate        === today.day   &&
+                date.getMonth()    === today.month &&
+                date.getFullYear() === today.year) {
+                dateCls.push('neo-today');
+            } else {
+                NeoArray.remove(dateCls, 'neo-today');
+            }
+
+            if (create) {
+                content.cn.push({
+                    cls: columnCls
+                });
+
+                headerRow.cn.push({
+                    cls: ['neo-header-row-item'],
+                    cn : [{
+                        cls : ['neo-day'],
+                        html: dt.format(date)
+                    }, {
+                        cls : dateCls,
+                        html: currentDate
+                    }]
+                });
+            } else {
+                content.cn[i].cls = columnCls;
+
+                headerRow.cn[i + 1].cn[0].html = dt.format(date);
+
+                Object.assign(headerRow.cn[i + 1].cn[1], {
+                    cls : dateCls,
+                    html: currentDate
+                });
+            }
+
+            date.setDate(date.getDate() + 1);
+        }
+
+        me.vdom = vdom;
     }
 }
 

@@ -18,23 +18,6 @@ const today = {
  * @extends Neo.component.Base
  */
 class DateSelector extends Component {
-    static getStaticConfig() {return {
-        /**
-         * Valid values for dayNameFormat
-         * @member {String[]} dayNameFormats=['narrow', 'short', 'long']
-         * @protected
-         * @static
-         */
-        dayNameFormats: ['narrow', 'short', 'long'],
-        /**
-         * Valid values for dayNameFormat
-         * @member {Number[]} weekStartDays=[0, 1, 2, 3, 4, 5, 6]
-         * @protected
-         * @static
-         */
-        weekStartDays: [0, 1, 2, 3, 4, 5, 6]
-    }}
-
     static getConfig() {return {
         /**
          * @member {String} className='Neo.component.DateSelector'
@@ -323,7 +306,7 @@ class DateSelector extends Component {
      * @protected
      */
     beforeSetDayNameFormat(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'dayNameFormat');
+        return this.beforeSetEnumValue(value, oldValue, 'dayNameFormat', DateUtil.prototype.dayNameFormats);
     }
 
     /**
@@ -347,7 +330,7 @@ class DateSelector extends Component {
      * @protected
      */
     beforeSetWeekStartDay(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'weekStartDay');
+        return this.beforeSetEnumValue(value, oldValue, 'weekStartDay', DateUtil.prototype.weekStartDays);
     }
 
     /**
@@ -554,14 +537,15 @@ class DateSelector extends Component {
      */
     createDayViewContent(silent, containerEl) {
         let me              = this,
-            currentDay      = me.currentDate.getDate(),
-            currentMonth    = me.currentDate.getMonth(),
-            currentYear     = me.currentDate.getFullYear(),
+            currentDate     = me.currentDate,
+            currentDay      = currentDate.getDate(),
+            currentMonth    = currentDate.getMonth(),
+            currentYear     = currentDate.getFullYear(),
             valueDate       = new Date(me.value),
             valueMonth      = valueDate.getMonth(),
             valueYear       = valueDate.getFullYear(),
-            daysInMonth     = DateUtil.getDaysInMonth(me.currentDate),
-            firstDayInMonth = DateUtil.getFirstDayOfMonth(me.currentDate),
+            daysInMonth     = DateUtil.getDaysInMonth(currentDate),
+            firstDayInMonth = DateUtil.getFirstDayOfMonth(currentDate),
             firstDayOffset  = firstDayInMonth - me.weekStartDay,
             vdom            = me.vdom,
             centerEl        = containerEl || me.getCenterContentEl(),

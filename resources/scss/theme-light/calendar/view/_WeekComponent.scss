@@ -5,6 +5,8 @@ $neoMap: map-merge($neoMap, (
     'c-w-header-date-color'                 : #666,
     'c-w-header-date-color-hover'           : #666,
     'c-w-header-day-color'                  : #666,
+    'c-w-header-today-background-color'     : red,
+    'c-w-header-today-color'                : #fff,
     'c-w-weekend-background-color'          : rgba(240, 240, 240, .35)
 ));
 
@@ -16,6 +18,8 @@ $neoMap: map-merge($neoMap, (
         --c-w-header-date-color                 : #{neo(c-w-header-date-color)};
         --c-w-header-date-color-hover           : #{neo(c-w-header-date-color-hover)};
         --c-w-header-day-color                  : #{neo(c-w-header-day-color)};
+        --c-w-header-today-background-color     : #{neo(c-w-header-today-background-color)};
+        --c-w-header-today-color                : #{neo(c-w-header-today-color)};
         --c-w-weekend-background-color          : #{neo(c-w-weekend-background-color)};
     }
 }

@@ -119,10 +119,10 @@ class Base {
      * @param {String|Number} value
      * @param {String|Number} oldValue
      * @param {String} name config name
-     * @param {String} [staticName=name + 's'] name of the static config array
+     * @param {Array|String} [staticName=name + 's'] name of the static config array
      */
     beforeSetEnumValue(value, oldValue, name, staticName = name + 's') {
-        const values = this.getStaticConfig(staticName);
+        const values = Array.isArray(staticName) ? staticName : this.getStaticConfig(staticName);
 
         if (!values.includes(value)) {
             Neo.logError('Supported values for ' + name + ' are:', values.join(', '), this);
