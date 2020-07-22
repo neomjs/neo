@@ -171,11 +171,21 @@ class MainContainer extends Container {
      * @protected
      */
     beforeSetEventStore(value, oldValue) {
+        let me = this;
+
         if (oldValue) {
             oldValue.destroy();
         }
 
-        return ClassSystemUtil.beforeSetInstance(value, EventStore, this.eventStoreConfig || {});
+        const defaultValue = {
+            listeners: {
+                load : me.onEventStoreLoad,
+                scope: me
+            },
+            ...me.eventStoreConfig || {}
+        }
+
+        return ClassSystemUtil.beforeSetInstance(value, EventStore, defaultValue);
     }
 
     /**
@@ -325,6 +335,14 @@ class MainContainer extends Container {
         if (opts.oldValue !== undefined) {
             this.currentDate = new Date(opts.value);
         }
+    }
+
+    /**
+     *
+     * @param {Object[]} data
+     */
+    onEventStoreLoad(data) {
+        console.log('onEventStoreLoad', data);
     }
 
     /**
