@@ -110,6 +110,18 @@ class MainContainer extends Container {
     }
 
     /**
+     * Triggered after the eventStore config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetEventStore(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.weekComponent.eventStore = value;
+        }
+    }
+
+    /**
      * Triggered after the sideBarExpanded config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -302,6 +314,7 @@ class MainContainer extends Container {
                 }, {
                     module      : WeekComponent,
                     currentDate : me.currentDate,
+                    eventStore  : me.eventStore,
                     weekStartDay: me.weekStartDay,
                     ...me.weekComponentConfig || {}
                 }, {

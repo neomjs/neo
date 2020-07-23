@@ -45,6 +45,10 @@ class WeekComponent extends Component {
          */
         dayNameFormat_: 'short',
         /**
+         * @member {Neo.calendar.store.Events|null} eventStore_=null
+         */
+        eventStore_: null,
+        /**
          * @member {Object} timeAxis=null
          */
         timeAxis: null,
