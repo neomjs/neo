@@ -342,7 +342,8 @@ class MainContainer extends Container {
                 layout: {ntype: 'card', activeIndex: 1},
                 items : [{
                     ntype: 'component',
-                    vdom : {innerHTML: 'Day'}
+                    html : 'Day',
+                    style: {padding: '20px'}
                 }, {
                     module      : WeekComponent,
                     currentDate : me.currentDate,
@@ -351,10 +352,12 @@ class MainContainer extends Container {
                     ...me.weekComponentConfig || {}
                 }, {
                     ntype: 'component',
-                    vdom : {innerHTML: 'Month'}
+                    html : 'Month',
+                    style: {padding: '20px'}
                 }, {
                     ntype: 'component',
-                    vdom : {innerHTML: 'Year'}
+                    html : 'Year',
+                    style: {padding: '20px'}
                 }]
             }]
         }];
