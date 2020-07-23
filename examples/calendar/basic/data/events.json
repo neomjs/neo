@@ -7,7 +7,7 @@
         "description": "Description Text",
         "endDate"    : "Wed Jul 22 2020 14:00:00 GMT+0200",
         "startDate"  : "Wed Jul 22 2020 12:00:00 GMT+0200",
-        "title"      : "Lunch Break"
+        "title"      : "Lunch Break 1"
     },
     {
         "attendees" : ["Tobias"],
@@ -17,6 +17,6 @@
         "description": "Description Text 2",
         "endDate"    : "Wed Jul 23 2020 14:00:00 GMT+0200",
         "startDate"  : "Wed Jul 23 2020 12:00:00 GMT+0200",
-        "title"      : "Lunch Break"
+        "title"      : "Lunch Break 2"
     }
 ]

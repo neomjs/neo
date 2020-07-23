@@ -259,8 +259,9 @@ class WeekComponent extends Component {
                             html: record.title,
 
                             style: {
-                                height: '10%', // todo
-                                top   : '20%'  // todo
+                                height: '10%',             // todo
+                                top   : '20%',             // todo
+                                width : 'calc(100% - 1px)' // todo
                             }
                         });
                     }

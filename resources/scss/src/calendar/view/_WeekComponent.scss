@@ -13,9 +13,18 @@
     .neo-c-w-column{
         border-left: 1px solid v(c-w-border-color);
         flex       : 1;
+        position   : relative;
 
         &.neo-weekend {
             background-color: v(c-w-weekend-background-color);
+        }
+
+        .neo-event {
+            background-color: rgba(255, 0, 0, 0.2);
+            border-left     : 3px solid red;
+            border-right    : 1px solid transparent;
+            padding         : 5px;
+            position        : absolute;
         }
     }
 
