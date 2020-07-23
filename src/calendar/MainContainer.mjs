@@ -56,18 +56,19 @@ class MainContainer extends Container {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
+         * @member {Number} settingsContainerWidth=300
+         */
+        settingsContainerWidth: 300,
+        /**
          * @member {Boolean} settingsExpanded_=false
-         * @protected
          */
         settingsExpanded_: false,
         /**
          * @member {Boolean} sideBarExpanded_=true
-         * @protected
          */
         sideBarExpanded_: true,
         /**
          * @member {Number} sideBarWidth=220
-         * @protected
          */
         sideBarWidth: 220,
         /**
