@@ -113,8 +113,8 @@ class TimeAxisComponent extends Component {
     afterSetRowHeight(value, oldValue) {
         if (oldValue !== undefined) {
             let me          = this,
-                endTime     = me.endTime  .split(':').map(Number)[0],
-                startTime   = me.startTime.split(':').map(Number)[0],
+                endTime     = me.getTime(me.endTime),
+                startTime   = me.getTime(me.startTime),
                 vdom        = me.vdom,
                 rowHeight   = me.rowHeight,
                 rowsPerItem = me.getRowsPerItem(),
@@ -206,6 +206,15 @@ class TimeAxisComponent extends Component {
      */
     getRowsPerItem() {
         return this.interval === 60 ? 1 : this.interval === 30 ? 2 : 4;
+    }
+
+    /**
+     * Calculates the time for the end- or startTime
+     * @param {String} value
+     * @return {Number}
+     */
+    getTime(value) {
+        return value.split(':').map(Number)[0];
     }
 }
 
