@@ -240,7 +240,7 @@ class WeekComponent extends Component {
             j          = 0,
             len        = eventStore.getCount(),
             startIndex = 0,
-            column, duration, height, i, record, top;
+            column, duration, height, i, record, startHours, top;
 
         // remove previous events from the vdom
         content.cn.forEach(item => item.cn = []);
@@ -253,9 +253,10 @@ class WeekComponent extends Component {
 
                 if (DateUtil.matchDate(date, record.startDate)) {
                     if (DateUtil.matchDate(date, record.endDate)) {
-                        duration = (record.endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
-                        height   = Math.round(duration / totalTime * 100 * 1000) / 1000; // rounded to 3 digits
-                        top      = Math.round((record.startDate.getHours() - startTime) / totalTime * 100 * 1000) / 1000; // rounded to 3 digits
+                        duration   = (record.endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
+                        height     = Math.round(duration / totalTime * 100 * 1000) / 1000;
+                        startHours = (record.startDate.getHours() * 60 + record.startDate.getMinutes()) / 60;
+                        top        = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
 
                         console.log(j, record);
                         console.log(top);
