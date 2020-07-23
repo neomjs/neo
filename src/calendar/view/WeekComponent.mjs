@@ -84,7 +84,7 @@ class WeekComponent extends Component {
          * start => left, end => right in LTR mode.
          * @member {String} timeAxisPosition_='start'
          */
-        timeAxisPosition_: 'start',
+        timeAxisPosition_: 'end',
         /**
          * @member {Object} vdom
          */
@@ -431,6 +431,10 @@ class WeekComponent extends Component {
             }
 
             date.setDate(date.getDate() + 1);
+        }
+
+        if (create && me.timeAxisPosition === 'end') {
+            headerRow.cn.push(headerRow.cn.shift());
         }
 
         me.vdom = vdom;
