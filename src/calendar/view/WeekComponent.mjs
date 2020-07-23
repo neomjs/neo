@@ -17,6 +17,16 @@ const today = {
  * @extends Neo.component.Base
  */
 class WeekComponent extends Component {
+    static getStaticConfig() {return {
+        /**
+         * Valid values for timeAxisPosition
+         * @member {String[]} timeAxisPositions=['end', 'start']
+         * @protected
+         * @static
+         */
+        timeAxisPositions: ['end', 'start']
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.calendar.view.WeekComponent'
