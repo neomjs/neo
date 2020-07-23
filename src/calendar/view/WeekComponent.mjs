@@ -55,6 +55,12 @@ class WeekComponent extends Component {
          */
         firstColumnDate: null,
         /**
+         * Internal flag to check if updateHeader(true) has already run
+         * @member {Boolean} headerCreated=false
+         * @protected
+         */
+        headerCreated: false,
+        /**
          * @member {Object} timeAxis=null
          */
         timeAxis: null,
@@ -100,7 +106,7 @@ class WeekComponent extends Component {
         me.timeAxis = Neo.create(TimeAxisComponent, {
             parentId : me.id,
             listeners: {
-                change: me.adjustTotalHeight,
+                change: me.onTimeAxisChange,
                 scope : me
             },
             ...me.timeAxisConfig || {}
@@ -109,6 +115,8 @@ class WeekComponent extends Component {
         me.vdom.cn[1].cn.unshift(me.timeAxis.vdom);
 
         me.updateHeader(true);
+
+        me.headerCreated = true;
     }
 
     /**
@@ -118,8 +126,9 @@ class WeekComponent extends Component {
      * @param {Number} data.rowHeight
      * @param {Number} data.rowsPerItem
      * @param {Number} data.totalHeight
+     * @param {Boolean} [silent=false]
      */
-    adjustTotalHeight(data) {
+    adjustTotalHeight(data, silent=false) {
         let me          = this,
             rowHeight   = data.rowHeight,
             rowsPerItem = data.rowsPerItem,
@@ -142,7 +151,7 @@ class WeekComponent extends Component {
             maxHeight      : `${data.totalHeight - rowHeight}px`
         });
 
-        me.vdom = vdom;
+        me[silent ? '_vdom' : 'vdom'] = vdom;
     }
 
     /**
@@ -225,6 +234,24 @@ class WeekComponent extends Component {
     }
 
     /**
+     *
+     * @param {Object} data
+     * @param {Neo.component.Base} data.component
+     * @param {Number} data.rowHeight
+     * @param {Number} data.rowsPerItem
+     * @param {Number} data.totalHeight
+     */
+    onTimeAxisChange(data) {
+        let me = this;
+
+        me.adjustTotalHeight(data, me.headerCreated);
+
+        if (me.headerCreated) {
+            me.updateEvents();
+        }
+    }
+
+    /**
      * The algorithm relies on the eventStore being sorted by startDate ASC
      */
     updateEvents() {
@@ -233,13 +260,12 @@ class WeekComponent extends Component {
             endTime    = timeAxis.getTime(timeAxis.endTime),
             startTime  = timeAxis.getTime(timeAxis.startTime),
             totalTime  = endTime - startTime,
-            date       = me.firstColumnDate,
+            date       = DateUtil.clone(me.firstColumnDate),
             eventStore = me.eventStore,
             vdom       = me.vdom,
             content    = me.getVdomContent(),
             j          = 0,
             len        = eventStore.getCount(),
-            startIndex = 0,
             column, duration, height, i, record, startHours, top;
 
         // remove previous events from the vdom
@@ -248,7 +274,7 @@ class WeekComponent extends Component {
         for (; j < 7; j++) {
             column = content.cn[j];
 
-            for (i = startIndex; i < len; i++) {
+            for (i = 0; i < len; i++) {
                 record = eventStore.items[i];
 
                 if (DateUtil.matchDate(date, record.startDate)) {
@@ -279,6 +305,7 @@ class WeekComponent extends Component {
             date.setDate(date.getDate() + 1);
         }
 
+        console.log(content);
         me.vdom = vdom;
     }
 
