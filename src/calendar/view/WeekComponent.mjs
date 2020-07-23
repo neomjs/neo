@@ -152,6 +152,16 @@ class WeekComponent extends Component {
     }
 
     /**
+     * Triggered after the eventStore config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetEventStore(value, oldValue) {
+        console.log('afterSetEventStore', value);
+    }
+
+    /**
      * Triggered after the weekStartDay config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -187,7 +197,8 @@ class WeekComponent extends Component {
      *
      */
     destroy(...args) {
-        this.timeAxis = null;
+        this.eventStore = null;
+        this.timeAxis   = null;
 
         super.destroy(...args);
     }
