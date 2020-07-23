@@ -38,10 +38,8 @@ class SettingsContainer extends Container {
 
         me.items = [{
             ntype: 'component',
-            vdom : {
-                html: 'Settings'
-            }
-        }]
+            html : 'Settings'
+        }];
     }
 }
 

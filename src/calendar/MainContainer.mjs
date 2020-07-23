@@ -4,6 +4,7 @@ import DateSelector                 from '../component/DateSelector.mjs';
 import DateUtil                     from '../util/Date.mjs';
 import {default as EventStore}      from './store/Events.mjs';
 import ItemsContainer               from './ItemsContainer.mjs';
+import SettingsContainer            from './view/SettingsContainer.mjs';
 import Toolbar                      from '../container/Toolbar.mjs';
 import WeekComponent                from './view/WeekComponent.mjs';
 
@@ -139,7 +140,12 @@ class MainContainer extends Container {
      */
     afterSetSettingsExpanded(value, oldValue) {
         if (Neo.isBoolean(oldValue)) {
-            console.log('afterSetSettingsExpanded', value);
+            let settingsContainer = this.items[1].items[2],
+                style             = settingsContainer.style;
+
+            style.marginRight = value ? '0': `-${this.settingsContainerWidth}px`;
+
+            settingsContainer.style = style;
         }
     }
 
@@ -312,7 +318,7 @@ class MainContainer extends Container {
                 module: Container,
                 cls   : ['neo-calendar-sidebar', 'neo-container'],
                 layout: {ntype: 'vbox', align: 'stretch'},
-                width : 220,
+                width : me.sideBarWidth,
                 items : [{
                     module      : DateSelector,
                     currentDate : me.currentDate,
@@ -358,6 +364,15 @@ class MainContainer extends Container {
                 handler: me.toggleSettings.bind(me),
                 iconCls: 'fa fa-cog',
                 style  : {marginLeft: '10px'}
+            });
+
+            me.items[1].items.push({
+                module: SettingsContainer,
+                width : me.settingsContainerWidth,
+
+                style: {
+                    marginRight: me.settingsExpanded ? '0': `-${this.settingsContainerWidth}px`
+                }
             });
         }
     }
