@@ -176,6 +176,7 @@ class WeekComponent extends Component {
     afterSetWeekStartDay(value, oldValue) {
         if (oldValue !== undefined) {
             this.updateHeader();
+            this.updateEvents();
         }
     }
 
@@ -224,25 +225,47 @@ class WeekComponent extends Component {
     }
 
     /**
-     *
+     * The algorithm relies on the eventStore being sorted by startDate ASC
      */
     updateEvents() {
         let me         = this,
             date       = me.firstColumnDate,
             eventStore = me.eventStore,
             vdom       = me.vdom,
+            content    = me.getVdomContent(),
             j          = 0,
             len        = eventStore.getCount(),
             startIndex = 0,
-            i, record;
+            column, i, record;
+
+        // remove previous events from the vdom
+        content.cn.forEach(item => item.cn = []);
 
         for (; j < 7; j++) {
+            column = content.cn[j];
+
             for (i = startIndex; i < len; i++) {
                 record = eventStore.items[i];
 
                 if (DateUtil.matchDate(date, record.startDate)) {
                     startIndex++;
-                    console.log(j, record);
+
+                    if (DateUtil.matchDate(date, record.endDate)) {
+                        console.log(j, record);
+
+                        column.cn.push({
+                            cls : ['neo-event'],
+                            id  : me.id + '__' + record[eventStore.keyProperty],
+                            html: record.title,
+
+                            style: {
+                                height: '10%', // todo
+                                top   : '20%'  // todo
+                            }
+                        });
+                    }
+                } else {
+                    break;
                 }
             }
 
@@ -258,17 +281,16 @@ class WeekComponent extends Component {
      */
     updateHeader(create=false) {
         let me        = this,
+            date      = me.currentDate, // cloned
             vdom      = me.vdom,
-            date      = DateUtil.clone(me.currentDate),
+            content   = me.getVdomContent(),
             headerRow = me.getVdomHeaderRow(),
             i         = 0,
-            columnCls, content, currentDate, currentDay, dateCls;
+            columnCls, currentDate, currentDay, dateCls;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
         me.firstColumnDate = DateUtil.clone(date);
-
-        content = me.getVdomContent();
 
         const dt = new Intl.DateTimeFormat(Neo.config.locale, {
             weekday: me.dayNameFormat
