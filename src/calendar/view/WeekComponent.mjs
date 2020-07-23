@@ -158,7 +158,7 @@ class WeekComponent extends Component {
      * @protected
      */
     afterSetEventStore(value, oldValue) {
-        console.log('afterSetEventStore', value);
+        // console.log('afterSetEventStore', value);
     }
 
     /**
@@ -215,6 +215,26 @@ class WeekComponent extends Component {
      */
     getVdomHeaderRow() {
         return this.vdom.cn[0];
+    }
+
+    /**
+     *
+     */
+    updateEvents() {
+        let me         = this,
+            eventStore = me.eventStore,
+            vdom       = me.vdom,
+            i          = 0,
+            len        = eventStore.getCount(),
+            record;
+
+        for (; i < len; i++) {
+            record = eventStore.items[i];
+
+            console.log(record);
+        }
+
+        me.vdom = vdom;
     }
 
     /**

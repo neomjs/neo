@@ -356,7 +356,8 @@ class MainContainer extends Container {
      * @param {Object[]} data
      */
     onEventStoreLoad(data) {
-        console.log('onEventStoreLoad', data);
+        // todo: update the active view (card)
+        this.weekComponent.updateEvents();
     }
 
     /**
