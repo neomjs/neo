@@ -26,7 +26,8 @@ class MainContainer extends Viewport {
             reference: 'headerToolbar',
 
             style: {
-                padding: '10px 5px 10px 10px'
+                backgroundColor: '#f2f2f2',
+                padding        : '10px 5px 10px 10px'
             },
 
             items: ['->', {
