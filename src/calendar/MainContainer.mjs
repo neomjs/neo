@@ -56,6 +56,11 @@ class MainContainer extends Container {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
+         * @member {Boolean} settingsExpanded_=false
+         * @protected
+         */
+        settingsExpanded_: false,
+        /**
          * @member {Boolean} sideBarExpanded_=true
          * @protected
          */
@@ -122,6 +127,18 @@ class MainContainer extends Container {
     afterSetEventStore(value, oldValue) {
         if (oldValue !== undefined) {
             this.weekComponent.eventStore = value;
+        }
+    }
+
+    /**
+     * Triggered after the settingsExpanded config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSettingsExpanded(value, oldValue) {
+        if (Neo.isBoolean(oldValue)) {
+            console.log('afterSetSettingsExpanded', value);
         }
     }
 
@@ -261,22 +278,26 @@ class MainContainer extends Container {
                 cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
                 items : ['->', {
                     handler    : me.changeTimeInterval.bind(me, 'day'),
+                    height     : 24,
                     text       : 'Day',
                     toggleGroup: 'timeInterval',
                     value      : 'day'
                 }, {
                     handler    : me.changeTimeInterval.bind(me, 'week'),
+                    height     : 24,
                     pressed    : true,
                     text       : 'Week',
                     toggleGroup: 'timeInterval',
                     value      : 'week'
                 }, {
                     handler    : me.changeTimeInterval.bind(me, 'month'),
+                    height     : 24,
                     text       : 'Month',
                     toggleGroup: 'timeInterval',
                     value      : 'month'
                 }, {
                     handler    : me.changeTimeInterval.bind(me, 'year'),
+                    height     : 24,
                     text       : 'Year',
                     toggleGroup: 'timeInterval',
                     value      : 'year'
@@ -330,6 +351,14 @@ class MainContainer extends Container {
                 }]
             }]
         }];
+
+        if (me.useSettingsContainer) {
+            me.items[0].items[1].items.push({
+                handler: me.toggleSettings.bind(me),
+                iconCls: 'fa fa-cog',
+                style  : {marginLeft: '10px'}
+            });
+        }
     }
 
     /**
@@ -386,6 +415,14 @@ class MainContainer extends Container {
      */
     onTodayButtonClick(data) {
         this.currentDate = todayDate;
+    }
+
+    /**
+     *
+     * @protected
+     */
+    toggleSettings() {
+        this.settingsExpanded = !this.settingsExpanded;
     }
 
     /**
