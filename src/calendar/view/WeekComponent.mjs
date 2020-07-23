@@ -84,7 +84,7 @@ class WeekComponent extends Component {
          * start => left, end => right in LTR mode.
          * @member {String} timeAxisPosition_='start'
          */
-        timeAxisPosition_: 'end',
+        timeAxisPosition_: 'start',
         /**
          * @member {Object} vdom
          */
@@ -374,7 +374,7 @@ class WeekComponent extends Component {
             content   = me.getVdomContent(),
             headerRow = me.getVdomHeaderRow(),
             i         = 0,
-            columnCls, currentDate, currentDay, dateCls;
+            columnCls, currentDate, currentDay, dateCls, index;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
@@ -422,9 +422,11 @@ class WeekComponent extends Component {
             } else {
                 content.cn[i].cls = columnCls;
 
-                headerRow.cn[i + 1].cn[0].html = dt.format(date);
+                index = me.timeAxisPosition === 'end' ? i : (i + 1);
 
-                Object.assign(headerRow.cn[i + 1].cn[1], {
+                headerRow.cn[index].cn[0].html = dt.format(date);
+
+                Object.assign(headerRow.cn[index].cn[1], {
                     cls : dateCls,
                     html: currentDate
                 });
