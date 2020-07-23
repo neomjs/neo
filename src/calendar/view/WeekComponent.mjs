@@ -184,6 +184,18 @@ class WeekComponent extends Component {
     }
 
     /**
+     * Triggered after the timeAxisPosition config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetTimeAxisPosition(value, oldValue) {
+        if (oldValue !== undefined) {
+            console.log('afterSetTimeAxisPosition', value);
+        }
+    }
+
+    /**
      * Triggered after the weekStartDay config got changed
      * @param {Number} value
      * @param {Number} oldValue
