@@ -10,6 +10,13 @@
         overflow-y : auto;
     }
 
+    .neo-timeaxis-end {
+        .neo-c-w-column{
+            border-left : none;
+            border-right: 1px solid v(c-w-border-color);
+        }
+    }
+
     .neo-c-w-column{
         border-left: 1px solid v(c-w-border-color);
         flex       : 1;

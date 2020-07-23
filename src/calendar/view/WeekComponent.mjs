@@ -201,11 +201,13 @@ class WeekComponent extends Component {
      */
     afterSetTimeAxisPosition(value, oldValue) {
         let me   = this,
-            vdom = me.vdom;
+            vdom = me.vdom,
+            tmp;
 
         NeoArray[value === 'end' ? 'add' : 'remove'](vdom.cn[1].cls, 'neo-timeaxis-end');
 
         if (oldValue !== undefined) {
+            vdom.cn[1].cn.unshift(vdom.cn[1].cn.pop()); // switch the order of the 2 items
             console.log('afterSetTimeAxisPosition', value);
         }
 
