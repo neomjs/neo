@@ -240,7 +240,7 @@ class WeekComponent extends Component {
             j          = 0,
             len        = eventStore.getCount(),
             startIndex = 0,
-            column, duration, height, i, record;
+            column, duration, height, i, record, top;
 
         // remove previous events from the vdom
         content.cn.forEach(item => item.cn = []);
@@ -252,14 +252,13 @@ class WeekComponent extends Component {
                 record = eventStore.items[i];
 
                 if (DateUtil.matchDate(date, record.startDate)) {
-                    //startIndex++;
-
                     if (DateUtil.matchDate(date, record.endDate)) {
                         duration = (record.endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
-                        height   = Math.round(duration / totalTime * 100 * 1000) / 1000;
+                        height   = Math.round(duration / totalTime * 100 * 1000) / 1000; // rounded to 3 digits
+                        top      = Math.round((record.startDate.getHours() - startTime) / totalTime * 100 * 1000) / 1000; // rounded to 3 digits
 
                         console.log(j, record);
-                        console.log(duration);
+                        console.log(top);
 
                         column.cn.push({
                             cls : ['neo-event'],
@@ -268,13 +267,11 @@ class WeekComponent extends Component {
 
                             style: {
                                 height: `${height}%`,
-                                top   : '20%',             // todo
+                                top   : `${top}%`,
                                 width : 'calc(100% - 1px)' // todo
                             }
                         });
                     }
-                } else {
-                    //break;
                 }
             }
 
