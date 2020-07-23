@@ -229,6 +229,16 @@ class WeekComponent extends Component {
     }
 
     /**
+     * Triggered before the timeAxisPosition config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetTimeAxisPosition(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'timeAxisPosition');
+    }
+
+    /**
      * Triggered before the weekStartDay config gets changed
      * @param {String} value
      * @param {String} oldValue
