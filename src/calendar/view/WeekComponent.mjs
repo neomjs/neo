@@ -49,6 +49,12 @@ class WeekComponent extends Component {
          */
         eventStore_: null,
         /**
+         * Will get passed from updateHeader()
+         * @member {Date|null} firstColumnDate=null
+         * @protected
+         */
+        firstColumnDate: null,
+        /**
          * @member {Object} timeAxis=null
          */
         timeAxis: null,
@@ -222,16 +228,25 @@ class WeekComponent extends Component {
      */
     updateEvents() {
         let me         = this,
+            date       = me.firstColumnDate,
             eventStore = me.eventStore,
             vdom       = me.vdom,
-            i          = 0,
+            j          = 0,
             len        = eventStore.getCount(),
-            record;
+            startIndex = 0,
+            i, record;
 
-        for (; i < len; i++) {
-            record = eventStore.items[i];
+        for (; j < 7; j++) {
+            for (i = startIndex; i < len; i++) {
+                record = eventStore.items[i];
 
-            console.log(record);
+                if (DateUtil.matchDate(date, record.startDate)) {
+                    startIndex++;
+                    console.log(j, record);
+                }
+            }
+
+            date.setDate(date.getDate() + 1);
         }
 
         me.vdom = vdom;
@@ -250,6 +265,8 @@ class WeekComponent extends Component {
             columnCls, content, currentDate, currentDay, dateCls;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
+
+        me.firstColumnDate = DateUtil.clone(date);
 
         content = me.getVdomContent();
 
