@@ -14,7 +14,7 @@ const today = {
 
 /**
  * @class Neo.calendar.view.WeekComponent
- * @extends Neo.container.Base
+ * @extends Neo.component.Base
  */
 class WeekComponent extends Component {
     static getConfig() {return {
