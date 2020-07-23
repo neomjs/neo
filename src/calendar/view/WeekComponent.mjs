@@ -129,7 +129,7 @@ class WeekComponent extends Component {
             ...me.timeAxisConfig || {}
         });
 
-        me.vdom.cn[1].cn.unshift(me.timeAxis.vdom);
+        me.vdom.cn[1].cn[me.timeAxisPosition === 'start' ? 'unshift' : 'push'](me.timeAxis.vdom);
 
         me.updateHeader(true);
 
@@ -200,9 +200,16 @@ class WeekComponent extends Component {
      * @protected
      */
     afterSetTimeAxisPosition(value, oldValue) {
+        let me   = this,
+            vdom = me.vdom;
+
+        NeoArray[value === 'end' ? 'add' : 'remove'](vdom.cn[1].cls, 'neo-timeaxis-end');
+
         if (oldValue !== undefined) {
             console.log('afterSetTimeAxisPosition', value);
         }
+
+        me.vdom = vdom;
     }
 
     /**
