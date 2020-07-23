@@ -1,4 +1,5 @@
-import {default as Container} from '../../container/Base.mjs';
+import {default as Container}    from '../../container/Base.mjs';
+import {default as TabContainer} from '../../tab/Container.mjs';
 
 /**
  * @class Neo.calendar.view.SettingsContainer
@@ -37,8 +38,55 @@ class SettingsContainer extends Container {
         let me = this;
 
         me.items = [{
-            ntype: 'component',
-            html : 'Settings'
+            ntype : 'component',
+            height: 48,
+            html  : 'Settings',
+            style : {
+                padding: '15px 10px'
+            }
+        }, {
+            module: TabContainer,
+            items : [{
+                ntype: 'component',
+                html : 'General',
+                style: {padding: '20px'},
+
+                tabButtonConfig: {
+                    text: 'General'
+                }
+            }, {
+                ntype: 'component',
+                html : 'Day',
+                style: {padding: '20px'},
+
+                tabButtonConfig: {
+                    text: 'Day'
+                }
+            }, {
+                ntype: 'component',
+                html : 'Week',
+                style: {padding: '20px'},
+
+                tabButtonConfig: {
+                    text: 'Week'
+                }
+            }, {
+                ntype: 'component',
+                html : 'Month',
+                style: {padding: '20px'},
+
+                tabButtonConfig: {
+                    text: 'Month'
+                }
+            }, {
+                ntype: 'component',
+                html : 'Year',
+                style: {padding: '20px'},
+
+                tabButtonConfig: {
+                    text: 'Year'
+                }
+            }]
         }];
     }
 }

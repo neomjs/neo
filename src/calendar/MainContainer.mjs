@@ -59,7 +59,7 @@ class MainContainer extends Container {
         /**
          * @member {Number} settingsContainerWidth=300
          */
-        settingsContainerWidth: 300,
+        settingsContainerWidth: 310,
         /**
          * @member {Boolean} settingsExpanded_=false
          */
