@@ -66,6 +66,10 @@ class MainContainer extends Container {
          */
         sideBarWidth: 220,
         /**
+         * @member {Boolean} useSettingsContainer_=true
+         */
+        useSettingsContainer_: true,
+        /**
          * @member {Neo.calendar.view.WeekComponent|null} weekComponent_=null
          */
         weekComponent_: null,
