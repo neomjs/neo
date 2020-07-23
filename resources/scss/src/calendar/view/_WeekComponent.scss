@@ -10,10 +10,20 @@
         overflow-y : auto;
     }
 
-    .neo-timeaxis-end {
+    &.neo-timeaxis-end {
         .neo-c-w-column{
             border-left : none;
             border-right: 1px solid v(c-w-border-color);
+        }
+
+        .neo-header-row-item {
+            &:nth-child(2) {
+                border-left: none;
+            }
+
+            &:nth-last-child(2) {
+                border-right: 1px solid v(c-w-border-color);
+            }
         }
     }
 

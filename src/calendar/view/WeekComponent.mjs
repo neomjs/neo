@@ -204,7 +204,7 @@ class WeekComponent extends Component {
             vdom      = me.vdom,
             headerRow = me.getVdomHeaderRow();
 
-        NeoArray[value === 'end' ? 'add' : 'remove'](vdom.cn[1].cls, 'neo-timeaxis-end');
+        NeoArray[value === 'end' ? 'add' : 'remove'](me._cls, 'neo-timeaxis-end');
 
         if (oldValue !== undefined) {
             vdom.cn[1].cn.unshift(vdom.cn[1].cn.pop()); // switch the order of the 2 items
