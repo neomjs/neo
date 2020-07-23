@@ -277,6 +277,7 @@ class WeekComponent extends Component {
             for (i = 0; i < len; i++) {
                 record = eventStore.items[i];
 
+                // todo: we need a check for date overlaps => startDate < current day, endDate >= current day
                 if (DateUtil.matchDate(date, record.startDate)) {
                     if (DateUtil.matchDate(date, record.endDate)) {
                         duration   = (record.endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
