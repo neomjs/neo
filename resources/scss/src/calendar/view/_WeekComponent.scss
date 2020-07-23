@@ -21,10 +21,14 @@
 
         .neo-event {
             background-color: rgba(255, 0, 0, 0.2);
-            border-left     : 3px solid red;
+            border-left     : 2px solid red;
             border-right    : 1px solid transparent;
             padding         : 5px;
             position        : absolute;
+
+            transition-duration       : 400ms;
+            transition-property       : height, top, width;
+            transition-timing-function: ease-out;
         }
     }
 
@@ -33,6 +37,7 @@
         background-position-y: 0;
         display              : flex;
         flex                 : 1;
+        overflow             : hidden;
     }
 
     .neo-header-row-item {

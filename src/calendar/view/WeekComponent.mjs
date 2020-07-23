@@ -293,8 +293,8 @@ class WeekComponent extends Component {
                             html: record.title,
 
                             style: {
-                                height: `${height}%`,
-                                top   : `${top}%`,
+                                height: `calc(${height}% - 2px)`,
+                                top   : `calc(${top}% + 1px)`,
                                 width : 'calc(100% - 1px)' // todo
                             }
                         });
