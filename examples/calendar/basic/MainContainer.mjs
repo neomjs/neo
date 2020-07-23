@@ -26,10 +26,17 @@ class MainContainer extends Viewport {
             reference: 'headerToolbar',
 
             style: {
-                padding: '10px 5px 10px 10px'
+                backgroundColor: '#f2f2f2',
+                padding        : '10px 5px 10px 10px'
             },
 
             items: ['->', {
+                module : Button,
+                handler: 'onTimeAxisPositionButtonClick',
+                height : 27,
+                style  : {marginRight: '10px'},
+                text   : 'timeAxisPosition: end'
+            }, {
                 module : Button,
                 handler: 'onWeekStartDayButtonClick',
                 height : 27,
@@ -93,7 +100,12 @@ class MainContainer extends Viewport {
         }, {
             module   : Calendar,
             reference: 'calendar',
-            flex     : 1
+            flex     : 1,
+
+            eventStoreConfig: {
+                autoLoad: true,
+                url     : '../../examples/calendar/basic/data/events.json'
+            }
         }]
     }}
 }

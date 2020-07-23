@@ -14,9 +14,19 @@ const today = {
 
 /**
  * @class Neo.calendar.view.WeekComponent
- * @extends Neo.container.Base
+ * @extends Neo.component.Base
  */
 class WeekComponent extends Component {
+    static getStaticConfig() {return {
+        /**
+         * Valid values for timeAxisPosition
+         * @member {String[]} timeAxisPositions=['end', 'start']
+         * @protected
+         * @static
+         */
+        timeAxisPositions: ['end', 'start']
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.calendar.view.WeekComponent'
@@ -45,6 +55,22 @@ class WeekComponent extends Component {
          */
         dayNameFormat_: 'short',
         /**
+         * @member {Neo.calendar.store.Events|null} eventStore_=null
+         */
+        eventStore_: null,
+        /**
+         * Will get passed from updateHeader()
+         * @member {Date|null} firstColumnDate=null
+         * @protected
+         */
+        firstColumnDate: null,
+        /**
+         * Internal flag to check if updateHeader(true) has already run
+         * @member {Boolean} headerCreated=false
+         * @protected
+         */
+        headerCreated: false,
+        /**
          * @member {Object} timeAxis=null
          */
         timeAxis: null,
@@ -52,6 +78,13 @@ class WeekComponent extends Component {
          * @member {Object} timeAxisConfig=null
          */
         timeAxisConfig: null,
+        /**
+         * Position the timeAxis at the left or right side.
+         * Valid values are start & end.
+         * start => left, end => right in LTR mode.
+         * @member {String} timeAxisPosition_='start'
+         */
+        timeAxisPosition_: 'start',
         /**
          * @member {Object} vdom
          */
@@ -90,15 +123,17 @@ class WeekComponent extends Component {
         me.timeAxis = Neo.create(TimeAxisComponent, {
             parentId : me.id,
             listeners: {
-                change: me.adjustTotalHeight,
+                change: me.onTimeAxisChange,
                 scope : me
             },
             ...me.timeAxisConfig || {}
         });
 
-        me.vdom.cn[1].cn.unshift(me.timeAxis.vdom);
+        me.vdom.cn[1].cn[me.timeAxisPosition === 'start' ? 'unshift' : 'push'](me.timeAxis.vdom);
 
         me.updateHeader(true);
+
+        me.headerCreated = true;
     }
 
     /**
@@ -108,8 +143,9 @@ class WeekComponent extends Component {
      * @param {Number} data.rowHeight
      * @param {Number} data.rowsPerItem
      * @param {Number} data.totalHeight
+     * @param {Boolean} [silent=false]
      */
-    adjustTotalHeight(data) {
+    adjustTotalHeight(data, silent=false) {
         let me          = this,
             rowHeight   = data.rowHeight,
             rowsPerItem = data.rowsPerItem,
@@ -132,7 +168,7 @@ class WeekComponent extends Component {
             maxHeight      : `${data.totalHeight - rowHeight}px`
         });
 
-        me.vdom = vdom;
+        me[silent ? '_vdom' : 'vdom'] = vdom;
     }
 
     /**
@@ -148,6 +184,42 @@ class WeekComponent extends Component {
     }
 
     /**
+     * Triggered after the eventStore config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetEventStore(value, oldValue) {
+        // console.log('afterSetEventStore', value);
+    }
+
+    /**
+     * Triggered after the timeAxisPosition config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetTimeAxisPosition(value, oldValue) {
+        let me   = this,
+            vdom      = me.vdom,
+            headerRow = me.getVdomHeaderRow();
+
+        NeoArray[value === 'end' ? 'add' : 'remove'](me._cls, 'neo-timeaxis-end');
+
+        if (oldValue !== undefined) {
+            vdom.cn[1].cn.unshift(vdom.cn[1].cn.pop()); // switch the order of the 2 items
+
+            if (value === 'end') {
+                headerRow.cn.push(headerRow.cn.shift());
+            } else {
+                headerRow.cn.unshift(headerRow.cn.pop());
+            }
+        }
+
+        me.vdom = vdom;
+    }
+
+    /**
      * Triggered after the weekStartDay config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -156,6 +228,7 @@ class WeekComponent extends Component {
     afterSetWeekStartDay(value, oldValue) {
         if (oldValue !== undefined) {
             this.updateHeader();
+            this.updateEvents();
         }
     }
 
@@ -167,6 +240,16 @@ class WeekComponent extends Component {
      */
     beforeSetDayNameFormat(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'dayNameFormat', DateUtil.prototype.dayNameFormats);
+    }
+
+    /**
+     * Triggered before the timeAxisPosition config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetTimeAxisPosition(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'timeAxisPosition');
     }
 
     /**
@@ -183,7 +266,8 @@ class WeekComponent extends Component {
      *
      */
     destroy(...args) {
-        this.timeAxis = null;
+        this.eventStore = null;
+        this.timeAxis   = null;
 
         super.destroy(...args);
     }
@@ -204,19 +288,97 @@ class WeekComponent extends Component {
 
     /**
      *
+     * @param {Object} data
+     * @param {Neo.component.Base} data.component
+     * @param {Number} data.rowHeight
+     * @param {Number} data.rowsPerItem
+     * @param {Number} data.totalHeight
+     */
+    onTimeAxisChange(data) {
+        let me = this;
+
+        me.adjustTotalHeight(data, me.headerCreated);
+
+        if (me.headerCreated) {
+            me.updateEvents();
+        }
+    }
+
+    /**
+     * The algorithm relies on the eventStore being sorted by startDate ASC
+     */
+    updateEvents() {
+        let me         = this,
+            timeAxis   = me.timeAxis,
+            endTime    = timeAxis.getTime(timeAxis.endTime),
+            startTime  = timeAxis.getTime(timeAxis.startTime),
+            totalTime  = endTime - startTime,
+            date       = DateUtil.clone(me.firstColumnDate),
+            eventStore = me.eventStore,
+            vdom       = me.vdom,
+            content    = me.getVdomContent(),
+            j          = 0,
+            len        = eventStore.getCount(),
+            column, duration, height, i, record, startHours, top;
+
+        // remove previous events from the vdom
+        content.cn.forEach(item => item.cn = []);
+
+        for (; j < 7; j++) {
+            column = content.cn[j];
+
+            for (i = 0; i < len; i++) {
+                record = eventStore.items[i];
+
+                // todo: we need a check for date overlaps => startDate < current day, endDate >= current day
+                if (DateUtil.matchDate(date, record.startDate)) {
+                    if (DateUtil.matchDate(date, record.endDate)) {
+                        duration   = (record.endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
+                        height     = Math.round(duration / totalTime * 100 * 1000) / 1000;
+                        startHours = (record.startDate.getHours() * 60 + record.startDate.getMinutes()) / 60;
+                        top        = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
+
+                        console.log(j, record);
+                        console.log(top);
+
+                        column.cn.push({
+                            cls : ['neo-event'],
+                            id  : me.id + '__' + record[eventStore.keyProperty],
+                            html: record.title,
+
+                            style: {
+                                height: `calc(${height}% - 2px)`,
+                                top   : `calc(${top}% + 1px)`,
+                                width : 'calc(100% - 1px)' // todo
+                            }
+                        });
+                    }
+                }
+            }
+
+            date.setDate(date.getDate() + 1);
+        }
+
+        console.log(content);
+        me.vdom = vdom;
+    }
+
+    /**
+     *
      * @param {Boolean} [create=false]
      */
     updateHeader(create=false) {
         let me        = this,
+            date      = me.currentDate, // cloned
             vdom      = me.vdom,
-            date      = DateUtil.clone(me.currentDate),
+            content   = me.getVdomContent(),
             headerRow = me.getVdomHeaderRow(),
             i         = 0,
-            columnCls, content, currentDate, currentDay, dateCls;
+            columnCls, currentDate, currentDay, dateCls, index;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
-        content = me.getVdomContent();
+        me.firstColumnDate = DateUtil.clone(date);
 
         const dt = new Intl.DateTimeFormat(Neo.config.locale, {
             weekday: me.dayNameFormat
@@ -260,15 +422,21 @@ class WeekComponent extends Component {
             } else {
                 content.cn[i].cls = columnCls;
 
-                headerRow.cn[i + 1].cn[0].html = dt.format(date);
+                index = me.timeAxisPosition === 'end' ? i : (i + 1);
 
-                Object.assign(headerRow.cn[i + 1].cn[1], {
+                headerRow.cn[index].cn[0].html = dt.format(date);
+
+                Object.assign(headerRow.cn[index].cn[1], {
                     cls : dateCls,
                     html: currentDate
                 });
             }
 
             date.setDate(date.getDate() + 1);
+        }
+
+        if (create && me.timeAxisPosition === 'end') {
+            headerRow.cn.push(headerRow.cn.shift());
         }
 
         me.vdom = vdom;

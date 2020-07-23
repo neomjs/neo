@@ -25,23 +25,25 @@ class ClassSystem extends Base {
             config = Neo.create(DefaultClass, defaultValues);
         } else if (config && config.isClass) {
             config = Neo.create(config, defaultValues);
-        } else if (Neo.isObject(config) && config instanceof Neo.core.Base !== true) {
+        } else if (Neo.isObject(config) && !(config instanceof Neo.core.Base)) {
             if (config.ntype) {
                 config = Neo.ntype({
                     ...defaultValues,
                     ...config
                 });
             } else {
-                config = {
-                    ...defaultValues,
-                    ...config
-                };
+                const newConfig = {};
 
                 if (DefaultClass) {
-                    config.module = DefaultClass;
+                    newConfig.module = DefaultClass;
                 }
 
-                config = Neo.create(config);
+                Object.assign(newConfig, {
+                    ...defaultValues,
+                    ...config
+                });
+
+                config = Neo.create(newConfig);
             }
         }
 

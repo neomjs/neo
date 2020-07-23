@@ -1,5 +1,5 @@
 import Calendar from '../model/Calendar.mjs';
-import Store   from '../../../src/data/Store.mjs';
+import Store    from '../../../src/data/Store.mjs';
 
 /**
  * @class Neo.calendar.store.Calendars

@@ -1,8 +1,12 @@
-import {default as Container} from '../container/Base.mjs';
-import DateSelector           from '../component/DateSelector.mjs';
-import ItemsContainer         from './ItemsContainer.mjs';
-import Toolbar                from '../container/Toolbar.mjs';
-import WeekComponent          from './view/WeekComponent.mjs';
+import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
+import {default as Container}       from '../container/Base.mjs';
+import DateSelector                 from '../component/DateSelector.mjs';
+import DateUtil                     from '../util/Date.mjs';
+import {default as EventStore}      from './store/Events.mjs';
+import ItemsContainer               from './ItemsContainer.mjs';
+import SettingsContainer            from './view/SettingsContainer.mjs';
+import Toolbar                      from '../container/Toolbar.mjs';
+import WeekComponent                from './view/WeekComponent.mjs';
 
 const todayDate = new Date();
 
@@ -40,20 +44,38 @@ class MainContainer extends Container {
          */
         dateSelectorConfig: null,
         /**
+         * @member {Neo.calendar.store.Events|null} eventStore_=null
+         */
+        eventStore_: null,
+        /**
+         * @member {Object|null} eventStoreConfig=null
+         */
+        eventStoreConfig: null,
+        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
+         * @member {Number} settingsContainerWidth=300
+         */
+        settingsContainerWidth: 310,
+        /**
+         * @member {Boolean} settingsExpanded_=false
+         */
+        settingsExpanded_: false,
+        /**
          * @member {Boolean} sideBarExpanded_=true
-         * @protected
          */
         sideBarExpanded_: true,
         /**
          * @member {Number} sideBarWidth=220
-         * @protected
          */
         sideBarWidth: 220,
+        /**
+         * @member {Boolean} useSettingsContainer_=true
+         */
+        useSettingsContainer_: true,
         /**
          * @member {Neo.calendar.view.WeekComponent|null} weekComponent_=null
          */
@@ -93,8 +115,37 @@ class MainContainer extends Container {
      */
     afterSetCurrentDate(value, oldValue) {
         if (oldValue !== undefined) {
-            this.dateSelector .currentDate = value;
+            this.dateSelector .value       = DateUtil.convertToyyyymmdd(value);
             this.weekComponent.currentDate = value;
+        }
+    }
+
+    /**
+     * Triggered after the eventStore config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetEventStore(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.weekComponent.eventStore = value;
+        }
+    }
+
+    /**
+     * Triggered after the settingsExpanded config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSettingsExpanded(value, oldValue) {
+        if (Neo.isBoolean(oldValue)) {
+            let settingsContainer = this.items[1].items[2],
+                style             = settingsContainer.style;
+
+            style.marginRight = value ? '0': `-${this.settingsContainerWidth}px`;
+
+            settingsContainer.style = style;
         }
     }
 
@@ -155,6 +206,30 @@ class MainContainer extends Container {
     }
 
     /**
+     * Triggered before the selectionModel config gets changed.
+     * @param {Neo.calendar.store.Events} value
+     * @param {Neo.calendar.store.Events} oldValue
+     * @protected
+     */
+    beforeSetEventStore(value, oldValue) {
+        let me = this;
+
+        if (oldValue) {
+            oldValue.destroy();
+        }
+
+        const defaultValue = {
+            listeners: {
+                load : me.onEventStoreLoad,
+                scope: me
+            },
+            ...me.eventStoreConfig || {}
+        }
+
+        return ClassSystemUtil.beforeSetInstance(value, EventStore, defaultValue);
+    }
+
+    /**
      *
      * @param {String} interval
      * @protected
@@ -210,22 +285,26 @@ class MainContainer extends Container {
                 cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
                 items : ['->', {
                     handler    : me.changeTimeInterval.bind(me, 'day'),
+                    height     : 24,
                     text       : 'Day',
                     toggleGroup: 'timeInterval',
                     value      : 'day'
                 }, {
                     handler    : me.changeTimeInterval.bind(me, 'week'),
+                    height     : 24,
                     pressed    : true,
                     text       : 'Week',
                     toggleGroup: 'timeInterval',
                     value      : 'week'
                 }, {
                     handler    : me.changeTimeInterval.bind(me, 'month'),
+                    height     : 24,
                     text       : 'Month',
                     toggleGroup: 'timeInterval',
                     value      : 'month'
                 }, {
                     handler    : me.changeTimeInterval.bind(me, 'year'),
+                    height     : 24,
                     text       : 'Year',
                     toggleGroup: 'timeInterval',
                     value      : 'year'
@@ -239,7 +318,7 @@ class MainContainer extends Container {
                 module: Container,
                 cls   : ['neo-calendar-sidebar', 'neo-container'],
                 layout: {ntype: 'vbox', align: 'stretch'},
-                width : 220,
+                width : me.sideBarWidth,
                 items : [{
                     module      : DateSelector,
                     currentDate : me.currentDate,
@@ -263,21 +342,42 @@ class MainContainer extends Container {
                 layout: {ntype: 'card', activeIndex: 1},
                 items : [{
                     ntype: 'component',
-                    vdom : {innerHTML: 'Day'}
+                    html : 'Day',
+                    style: {padding: '20px'}
                 }, {
                     module      : WeekComponent,
                     currentDate : me.currentDate,
+                    eventStore  : me.eventStore,
                     weekStartDay: me.weekStartDay,
                     ...me.weekComponentConfig || {}
                 }, {
                     ntype: 'component',
-                    vdom : {innerHTML: 'Month'}
+                    html : 'Month',
+                    style: {padding: '20px'}
                 }, {
                     ntype: 'component',
-                    vdom : {innerHTML: 'Year'}
+                    html : 'Year',
+                    style: {padding: '20px'}
                 }]
             }]
         }];
+
+        if (me.useSettingsContainer) {
+            me.items[0].items[1].items.push({
+                handler: me.toggleSettings.bind(me),
+                iconCls: 'fa fa-cog',
+                style  : {marginLeft: '10px'}
+            });
+
+            me.items[1].items.push({
+                module: SettingsContainer,
+                width : me.settingsContainerWidth,
+
+                style: {
+                    marginRight: me.settingsExpanded ? '0': `-${this.settingsContainerWidth}px`
+                }
+            });
+        }
     }
 
     /**
@@ -305,6 +405,15 @@ class MainContainer extends Container {
 
     /**
      *
+     * @param {Object[]} data
+     */
+    onEventStoreLoad(data) {
+        // todo: update the active view (card)
+        this.weekComponent.updateEvents();
+    }
+
+    /**
+     *
      * @param data
      */
     onNextIntervalButtonClick(data) {
@@ -325,6 +434,14 @@ class MainContainer extends Container {
      */
     onTodayButtonClick(data) {
         this.currentDate = todayDate;
+    }
+
+    /**
+     *
+     * @protected
+     */
+    toggleSettings() {
+        this.settingsExpanded = !this.settingsExpanded;
     }
 
     /**

@@ -102,6 +102,24 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} data
      */
+    onTimeAxisPositionButtonClick(data) {
+        let button     = data.component,
+            buttonText = 'timeAxisPosition: end',
+            value      = 'start';
+
+        if (button.text === 'timeAxisPosition: end') {
+            buttonText  = 'timeAxisPosition: start';
+            value       = 'end';
+        }
+
+        this.getReference('calendar').weekComponent.timeAxisPosition = value;
+        button.text = buttonText;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onWeekStartDayButtonClick(data) {
         let button     = data.component,
             buttonText = 'weekStartDay: Monday',

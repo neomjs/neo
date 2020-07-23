@@ -1,4 +1,4 @@
-import Model  from '../../data/Model.mjs';
+import Model from '../../data/Model.mjs';
 
 /**
  * @class Neo.calendar.model.Calendar

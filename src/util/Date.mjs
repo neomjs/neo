@@ -84,6 +84,18 @@ class DateUtil extends Base {
 
         return Math.ceil((firstThursday - date) /  (7 * 24 * 3600 * 1000)) + 1;
     }
+
+    /**
+     * Returns true in case the day, month & year of 2 given Date objects are the same
+     * @param {Date} date1
+     * @param {Date} date2
+     * @returns {Boolean}
+     */
+    static matchDate(date1, date2) {
+        return date1.getFullYear() === date2.getFullYear() &&
+               date1.getMonth()    === date2.getMonth()    &&
+               date1.getDate()     === date2.getDate();
+    }
 }
 
 Neo.applyClassConfig(DateUtil);

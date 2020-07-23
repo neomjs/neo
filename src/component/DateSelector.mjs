@@ -502,14 +502,14 @@ class DateSelector extends Component {
     /**
      *
      */
-    createDayNamesRow(firstDayInMonth) {
+    createDayNamesRow() {
         let me   = this,
-            date = new Date(me.value),
+            date = DateUtil.clone(me.currentDate),
             i    = 0,
             len  = 7,
             row  = {cls: ['neo-row', 'neo-header-row'], cn: []};
 
-        date.setDate(firstDayInMonth);
+        date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
         const dt = new Intl.DateTimeFormat(Neo.config.locale, {
             weekday: me.dayNameFormat
@@ -557,7 +557,7 @@ class DateSelector extends Component {
         rows           = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
         day            = 1 - firstDayOffset;
 
-        centerEl.cn.push(me.createDayNamesRow(day));
+        centerEl.cn.push(me.createDayNamesRow());
 
         for (; i < rows; i++) {
             row = {cls: ['neo-row'], cn: []};
