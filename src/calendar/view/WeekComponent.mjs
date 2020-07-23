@@ -69,6 +69,13 @@ class WeekComponent extends Component {
          */
         timeAxisConfig: null,
         /**
+         * Position the timeAxis at the left or right side.
+         * Valid values are start & end.
+         * start => left, end => right in LTR mode.
+         * @member {String} timeAxisPosition_='start'
+         */
+        timeAxisPosition_: 'start',
+        /**
          * @member {Object} vdom
          */
         vdom: {
