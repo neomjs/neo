@@ -229,6 +229,10 @@ class WeekComponent extends Component {
      */
     updateEvents() {
         let me         = this,
+            timeAxis   = me.timeAxis,
+            endTime    = timeAxis.getTime(timeAxis.endTime),
+            startTime  = timeAxis.getTime(timeAxis.startTime),
+            totalTime  = endTime - startTime,
             date       = me.firstColumnDate,
             eventStore = me.eventStore,
             vdom       = me.vdom,
@@ -236,7 +240,7 @@ class WeekComponent extends Component {
             j          = 0,
             len        = eventStore.getCount(),
             startIndex = 0,
-            column, i, record;
+            column, duration, height, i, record;
 
         // remove previous events from the vdom
         content.cn.forEach(item => item.cn = []);
@@ -248,10 +252,14 @@ class WeekComponent extends Component {
                 record = eventStore.items[i];
 
                 if (DateUtil.matchDate(date, record.startDate)) {
-                    startIndex++;
+                    //startIndex++;
 
                     if (DateUtil.matchDate(date, record.endDate)) {
+                        duration = (record.endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
+                        height   = Math.round(duration / totalTime * 100 * 1000) / 1000;
+
                         console.log(j, record);
+                        console.log(duration);
 
                         column.cn.push({
                             cls : ['neo-event'],
@@ -259,14 +267,14 @@ class WeekComponent extends Component {
                             html: record.title,
 
                             style: {
-                                height: '10%',             // todo
+                                height: `${height}%`,
                                 top   : '20%',             // todo
                                 width : 'calc(100% - 1px)' // todo
                             }
                         });
                     }
                 } else {
-                    break;
+                    //break;
                 }
             }
 
