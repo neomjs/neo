@@ -30,18 +30,6 @@ class MainContainer extends Viewport {
             },
 
             items: ['->', {
-                module       : NumberField,
-                clearable    : false,
-                labelPosition: 'inline',
-                labelText    : 'Row Height',
-                listeners    : {change: 'onRowHeightFieldChange'},
-                maxValue     : 100,
-                minValue     : 8,
-                stepSize     : 2,
-                style        : {marginRight: '10px'},
-                value        : 20,
-                width        : 120
-            }, {
                 module : Button,
                 handler: 'onSwitchThemeButtonClick',
                 height : 27,

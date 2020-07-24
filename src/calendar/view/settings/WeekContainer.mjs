@@ -66,6 +66,18 @@ class WeekContainer extends Container {
             style         : {marginTop: '5px'},
             value         : 30
         }, {
+            module    : NumberField,
+            clearable : false,
+            flex      : 'none',
+            labelText : 'Row Height',
+            labelWidth: 130,
+            listeners : {change: me.onRowHeightChange, scope: me},
+            maxValue  : 100,
+            minValue  : 8,
+            stepSize  : 2,
+            style     : {marginTop: '5px'},
+            value     : 20
+        }, {
             module        : RadioField,
             checked       : weekComponent.timeAxisPosition === 'start',
             fieldValue    : 'start',
@@ -122,6 +134,14 @@ class WeekContainer extends Container {
      */
     onIntervalChange(data) {
         this.getTimeAxis().interval = data.value;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onRowHeightChange(data) {
+        this.getTimeAxis().rowHeight = data.value;
     }
 
     /**

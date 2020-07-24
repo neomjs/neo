@@ -16,22 +16,6 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @return {Neo.calendar.view.TimeAxisComponent}
-     */
-    getWeeklyTimeAxis() {
-        return this.getReference('calendar').weekComponent.timeAxis;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onRowHeightFieldChange(data) {
-        this.getWeeklyTimeAxis().rowHeight = data.value;
-    }
-
-    /**
-     *
      * @param {Object} data
      */
     onSwitchThemeButtonClick(data) {
