@@ -97,24 +97,6 @@ class MainContainerController extends ComponentController {
         style.backgroundColor = headerColor;
         headerToolbar.style = style;
     }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onTimeAxisPositionButtonClick(data) {
-        let button     = data.component,
-            buttonText = 'timeAxisPosition: end',
-            value      = 'start';
-
-        if (button.text === 'timeAxisPosition: end') {
-            buttonText  = 'timeAxisPosition: start';
-            value       = 'end';
-        }
-
-        this.getReference('calendar').weekComponent.timeAxisPosition = value;
-        button.text = buttonText;
-    }
 }
 
 Neo.applyClassConfig(MainContainerController);
