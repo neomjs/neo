@@ -1,4 +1,5 @@
-import {default as Container} from '../../../container/Base.mjs';
+import {default as Container}  from '../../../container/Base.mjs';
+import {default as RadioField} from '../../../form/field/Radio.mjs';
 
 /**
  * @class Neo.calendar.view.settings.GeneralContainer
@@ -27,12 +28,23 @@ class GeneralContainer extends Container {
         let me = this;
 
         me.items = [{
-            ntype : 'component',
-            height: 48,
-            html  : 'Settings',
-            style : {
-                padding: '15px 10px'
-            }
+            module        : RadioField,
+            checked       : true,
+            flex          : 'none',
+            hideValueLabel: false,
+            labelText     : 'weekStartDay',
+            labelWidth    : 110,
+            name          : 'weekStartDay',
+            valueLabelText: 'Sunday'
+        }, {
+            module        : RadioField,
+            flex          : 'none',
+            hideValueLabel: false,
+            labelText     : '',
+            labelWidth    : 110,
+            name          : 'weekStartDay',
+            style         : {marginTop: '5px'},
+            valueLabelText: 'Monday'
         }];
     }
 }
