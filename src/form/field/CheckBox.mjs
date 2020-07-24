@@ -1,5 +1,4 @@
-import Base                          from './Base.mjs';
-import {default as ComponentManager} from '../../manager/Component.mjs'
+import Base from './Base.mjs';
 
 /**
  * @class Neo.form.field.CheckBox
@@ -111,8 +110,9 @@ class CheckBox extends Base {
 
         if (oldValue !== undefined) {
             me.fire('change', {
-                oldValue: oldValue,
-                value   : value
+                component: me,
+                oldValue : oldValue,
+                value    : value
             });
         }
     }
@@ -246,8 +246,9 @@ class CheckBox extends Base {
         me.vnode.childNodes[1].attributes.checked = checked + '';
 
         me.fire('change', {
-            oldValue: !checked,
-            value   : checked
+            component: me,
+            oldValue : !checked,
+            value    : checked
         });
     }
 }

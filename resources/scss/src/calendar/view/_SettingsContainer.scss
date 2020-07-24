@@ -1,4 +1,13 @@
 .neo-calendar-settingscontainer {
     border-left: 1px solid v(calendar-border-color);
     transition : margin-right 350ms ease-out;
+
+    .neo-header {
+        background-color: v(calendar-settings-header-background-color);
+        color           : v(calendar-settings-header-color);
+    }
+
+    .neo-tab-content-container {
+        border: 0 !important;
+    }
 }

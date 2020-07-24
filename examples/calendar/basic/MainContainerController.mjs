@@ -16,46 +16,6 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @return {Neo.calendar.view.TimeAxisComponent}
-     */
-    getWeeklyTimeAxis() {
-        return this.getReference('calendar').weekComponent.timeAxis;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onEndTimeFieldChange(data) {
-        this.getWeeklyTimeAxis().endTime = data.value;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onIntervalFieldChange(data) {
-        this.getWeeklyTimeAxis().interval = data.value;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onRowHeightFieldChange(data) {
-        this.getWeeklyTimeAxis().rowHeight = data.value;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onStartTimeFieldChange(data) {
-        this.getWeeklyTimeAxis().startTime = data.value;
-    }
-
-    /**
-     *
      * @param {Object} data
      */
     onSwitchThemeButtonClick(data) {
@@ -96,42 +56,6 @@ class MainContainerController extends ComponentController {
         let style = headerToolbar.style || {};
         style.backgroundColor = headerColor;
         headerToolbar.style = style;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onTimeAxisPositionButtonClick(data) {
-        let button     = data.component,
-            buttonText = 'timeAxisPosition: end',
-            value      = 'start';
-
-        if (button.text === 'timeAxisPosition: end') {
-            buttonText  = 'timeAxisPosition: start';
-            value       = 'end';
-        }
-
-        this.getReference('calendar').weekComponent.timeAxisPosition = value;
-        button.text = buttonText;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onWeekStartDayButtonClick(data) {
-        let button     = data.component,
-            buttonText = 'weekStartDay: Monday',
-            startDay   = 0;
-
-        if (button.text === 'weekStartDay: Monday') {
-            buttonText  = 'weekStartDay: Sunday';
-            startDay    = 1;
-        }
-
-        this.getReference('calendar').weekStartDay = startDay;
-        button.text = buttonText;
     }
 }
 

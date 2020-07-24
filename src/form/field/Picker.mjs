@@ -84,39 +84,6 @@ class Picker extends Text {
     }}
 
     /**
-     * Triggered after the hideLabel config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetHideLabel(value, oldValue) {
-        super.afterSetHideLabel(value, oldValue);
-        this.updatePickerWidth();
-    }
-
-    /**
-     * Triggered after the labelWidth config got changed
-     * @param {Number|String} value
-     * @param {Number|String} oldValue
-     * @protected
-     */
-    afterSetLabelWidth(value, oldValue) {
-        super.afterSetLabelWidth(value, oldValue);
-        this.updatePickerWidth();
-    }
-
-    /**
-     * Triggered after the width config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetWidth(value, oldValue) {
-        super.afterSetWidth(value, oldValue);
-        this.updatePickerWidth();
-    }
-
-    /**
      *
      * @return {Neo.container.Base}
      */
@@ -139,14 +106,18 @@ class Picker extends Text {
 
     applyClientRects(silent) {
         let me              = this,
-            bodyRect        = me.clientRects[1],
+            bodyRect        = me.clientRects[2],
+            inputRect       = me.clientRects[1],
             triggerRect     = me.clientRects[0],
             vdom            = me.picker.vdom,
-            width           = me.matchPickerWidth ? me.getInputWidth() : me.pickerWidth;
+            width           = me.matchPickerWidth ? (inputRect.width - 1) : me.pickerWidth;
+
+        me.pickerWidth = width;
 
         Object.assign(vdom.style, {
-            left: (triggerRect.left + triggerRect.width - width + 1) + 'px',
-            top : (triggerRect.top + triggerRect.height + 1) + 'px'
+            left : `${triggerRect.left + triggerRect.width - width}px`,
+            top  : `${triggerRect.top + triggerRect.height + 1}px`,
+            width: `${width}px`
         });
 
         me.picker[silent ? '_vdom' : 'vdom'] = vdom;
@@ -169,7 +140,7 @@ class Picker extends Text {
         let me = this;
 
         Neo.main.DomAccess.getBoundingClientRect({
-            id: [me.id, 'body']
+            id: [me.id, me.id + '-input-wrapper', 'body']
         }).then(data => {
             me.clientRects = data;
             me.showPicker(callback, callbackScope);
@@ -177,7 +148,7 @@ class Picker extends Text {
     }
 
     /**
-     * Returns the picker intance and creates it in case it does not exist yet
+     * Returns the picker instance and creates it in case it does not exist yet
      * @return {Neo.container.Base}
      */
     getPicker() {
@@ -301,24 +272,6 @@ class Picker extends Text {
                 callback.apply(callbackScope || me);
             }
         });
-    }
-
-    /**
-     *
-     */
-    updatePickerWidth() {
-        let me = this,
-            inputWidth;
-
-        if (me.matchPickerWidth) {
-            inputWidth = me.getInputWidth();
-
-            if (me.picker) {
-                me.picker.width = inputWidth;
-            } else {
-                me.pickerWidth  = inputWidth;
-            }
-        }
     }
 }
 

@@ -1,5 +1,7 @@
 import {default as Container}    from '../../container/Base.mjs';
+import GeneralContainer          from './settings/GeneralContainer.mjs';
 import {default as TabContainer} from '../../tab/Container.mjs';
+import WeekContainer             from './settings/WeekContainer.mjs';
 
 /**
  * @class Neo.calendar.view.SettingsContainer
@@ -39,17 +41,17 @@ class SettingsContainer extends Container {
 
         me.items = [{
             ntype : 'component',
+            cls   : ['neo-header'],
             height: 48,
-            html  : 'Settings',
+            html  : '<i class="fa fa-cog"></i> Settings',
             style : {
                 padding: '15px 10px'
             }
         }, {
             module: TabContainer,
             items : [{
-                ntype: 'component',
-                html : 'General',
-                style: {padding: '20px'},
+                module: GeneralContainer,
+                style : {padding: '20px'},
 
                 tabButtonConfig: {
                     text: 'General'
@@ -63,9 +65,8 @@ class SettingsContainer extends Container {
                     text: 'Day'
                 }
             }, {
-                ntype: 'component',
-                html : 'Week',
-                style: {padding: '20px'},
+                module: WeekContainer,
+                style : {padding: '20px'},
 
                 tabButtonConfig: {
                     text: 'Week'
