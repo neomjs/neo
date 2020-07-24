@@ -61,7 +61,7 @@ class GalleryContainerController extends ComponentController {
      * @param {Object} data
      */
     onRangefieldChange(data) {
-        this.gallery[data.sender.name] = data.value;
+        this.gallery[data.component.name] = data.value;
     }
 
     /**

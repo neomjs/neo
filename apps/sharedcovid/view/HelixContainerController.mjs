@@ -70,7 +70,7 @@ class HelixContainerController extends ComponentController {
      * @param {Object} data
      */
     onRangefieldChange(data) {
-        const name = data.sender.name;
+        const name = data.component.name;
 
         if (['deltaY', 'maxOpacity', 'minOpacity'].includes(name)) {
             data.value /= 100;

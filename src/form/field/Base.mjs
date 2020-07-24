@@ -31,9 +31,9 @@ class Base extends Component {
     afterSetValue(value, oldValue) {
         if (oldValue !== undefined) {
             this.fire('change', {
-                oldValue: oldValue,
-                sender  : this,
-                value   : value
+                component: this,
+                oldValue : oldValue,
+                value    : value
             });
         }
     }
