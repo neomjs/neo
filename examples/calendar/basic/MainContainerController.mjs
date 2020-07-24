@@ -26,14 +26,6 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} data
      */
-    onIntervalFieldChange(data) {
-        this.getWeeklyTimeAxis().interval = data.value;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
     onRowHeightFieldChange(data) {
         this.getWeeklyTimeAxis().rowHeight = data.value;
     }

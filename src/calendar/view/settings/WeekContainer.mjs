@@ -1,6 +1,7 @@
-import {default as Container}  from '../../../container/Base.mjs';
-import {default as RadioField} from '../../../form/field/Radio.mjs';
-import {default as TimeField}  from '../../../form/field/Time.mjs';
+import {default as Container}   from '../../../container/Base.mjs';
+import {default as NumberField} from '../../../form/field/Number.mjs';
+import {default as RadioField}  from '../../../form/field/Radio.mjs';
+import {default as TimeField}   from '../../../form/field/Time.mjs';
 
 /**
  * @class Neo.calendar.view.settings.WeekContainer
@@ -50,6 +51,20 @@ class WeekContainer extends Container {
             minValue  : '14:00',
             stepSize  : 60 * 60, // 1h
             style     : {marginTop: '5px'}
+        }, {
+            module        : NumberField,
+            clearable     : false,
+            excludedValues: [45],
+            flex          : 'none',
+            inputEditable : false,
+            labelText     : 'Interval',
+            labelWidth    : 130,
+            listeners     : {change: me.onIntervalChange, scope: me},
+            maxValue      : 60,
+            minValue      : 15,
+            stepSize      : 15,
+            style         : {marginTop: '5px'},
+            value         : 30
         }, {
             module        : RadioField,
             checked       : weekComponent.timeAxisPosition === 'start',
@@ -105,17 +120,25 @@ class WeekContainer extends Container {
      *
      * @param {Object} data
      */
+    onIntervalChange(data) {
+        this.getTimeAxis().interval = data.value;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onStartTimeChange(data) {
         this.getTimeAxis().startTime = data.value;
     }
 
     /**
      *
-     * @param opts
+     * @param data
      */
-    onTimeAxisPositionChange(opts) {
-        if (opts.value) {
-            this.getWeekComponent().timeAxisPosition = opts.component.fieldValue;
+    onTimeAxisPositionChange(data) {
+        if (data.value) {
+            this.getWeekComponent().timeAxisPosition = data.component.fieldValue;
         }
     }
 }
