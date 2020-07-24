@@ -39,8 +39,17 @@ class WeekContainer extends Container {
             maxValue  : '10:00',
             minValue  : '00:00',
             stepSize  : 60 * 60, // 1h
-            style     : {marginRight: '10px'},
             value     : '00:00'
+        }, {
+            module    : TimeField,
+            flex      : 'none',
+            labelText : 'End Time',
+            labelWidth: 130,
+            listeners : {change: me.onEndTimeChange, scope: me},
+            maxValue  : '23:00',
+            minValue  : '14:00',
+            stepSize  : 60 * 60, // 1h
+            style     : {marginTop: '5px'}
         }, {
             module        : RadioField,
             checked       : weekComponent.timeAxisPosition === 'start',
@@ -82,6 +91,14 @@ class WeekContainer extends Container {
      */
     getWeekComponent() {
         return this.up('calendar-maincontainer').weekComponent;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onEndTimeChange(data) {
+        this.getTimeAxis().endTime = data.value;
     }
 
     /**
