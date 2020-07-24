@@ -2,6 +2,11 @@
     border-left: 1px solid v(calendar-border-color);
     transition : margin-right 350ms ease-out;
 
+    .neo-header {
+        background-color: #f2f2f2;
+        color           : #1c60a0;
+    }
+
     .neo-tab-content-container {
         border: 0 !important;
     }

@@ -41,8 +41,9 @@ class SettingsContainer extends Container {
 
         me.items = [{
             ntype : 'component',
+            cls   : ['neo-header'],
             height: 48,
-            html  : 'Settings',
+            html  : '<i class="fa fa-cog"></i> Settings',
             style : {
                 padding: '15px 10px'
             }
