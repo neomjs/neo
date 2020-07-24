@@ -1,9 +1,8 @@
-import Button                   from '../../../src/component/Button.mjs';
-import {default as Calendar}    from '../../../src/calendar/MainContainer.mjs';
-import MainContainerController  from './MainContainerController.mjs';
-import {default as NumberField} from '../../../src/form/field/Number.mjs';
-import Toolbar                  from '../../../src/container/Toolbar.mjs';
-import Viewport                 from '../../../src/container/Viewport.mjs';
+import Button                  from '../../../src/component/Button.mjs';
+import {default as Calendar}   from '../../../src/calendar/MainContainer.mjs';
+import MainContainerController from './MainContainerController.mjs';
+import Toolbar                 from '../../../src/container/Toolbar.mjs';
+import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
  * @class CalendarBasic.MainContainer
