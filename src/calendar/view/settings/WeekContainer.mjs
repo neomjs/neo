@@ -1,5 +1,6 @@
 import {default as Container}  from '../../../container/Base.mjs';
 import {default as RadioField} from '../../../form/field/Radio.mjs';
+import {default as TimeField}  from '../../../form/field/Time.mjs';
 
 /**
  * @class Neo.calendar.view.settings.WeekContainer
@@ -29,6 +30,18 @@ class WeekContainer extends Container {
             weekComponent = me.getWeekComponent();
 
         me.items = [{
+            module    : TimeField,
+            clearable : false,
+            flex      : 'none',
+            labelText : 'Start Time',
+            labelWidth: 130,
+            listeners : {change: me.onStartTimeChange, scope: me},
+            maxValue  : '10:00',
+            minValue  : '00:00',
+            stepSize  : 60 * 60, // 1h
+            style     : {marginRight: '10px'},
+            value     : '00:00'
+        }, {
             module        : RadioField,
             checked       : weekComponent.timeAxisPosition === 'start',
             fieldValue    : 'start',
@@ -36,13 +49,10 @@ class WeekContainer extends Container {
             hideValueLabel: false,
             labelText     : 'timeAxisPosition',
             labelWidth    : 130,
+            listeners     : {change: me.onTimeAxisPositionChange, scope: me},
             name          : 'timeAxisPosition',
-            valueLabelText: 'start',
-
-            listeners: {
-                change: me.onTimeAxisPositionChange,
-                scope : me
-            }
+            style         : {marginTop: '5px'},
+            valueLabelText: 'start'
         }, {
             module        : RadioField,
             checked       : weekComponent.timeAxisPosition === 'end',
@@ -51,15 +61,19 @@ class WeekContainer extends Container {
             hideValueLabel: false,
             labelText     : '',
             labelWidth    : 130,
+            listeners     : {change: me.onTimeAxisPositionChange, scope: me},
             name          : 'timeAxisPosition',
             style         : {marginTop: '5px'},
-            valueLabelText: 'end',
-
-            listeners: {
-                change: me.onTimeAxisPositionChange,
-                scope : me
-            }
+            valueLabelText: 'end'
         }];
+    }
+
+    /**
+     *
+     * @return {Neo.calendar.view.TimeAxisComponent}
+     */
+    getTimeAxis() {
+        return this.getWeekComponent().timeAxis;
     }
 
     /**
@@ -68,6 +82,14 @@ class WeekContainer extends Container {
      */
     getWeekComponent() {
         return this.up('calendar-maincontainer').weekComponent;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onStartTimeChange(data) {
+        this.getTimeAxis().startTime = data.value;
     }
 
     /**
