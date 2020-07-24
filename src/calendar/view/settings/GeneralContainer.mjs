@@ -25,27 +25,51 @@ class GeneralContainer extends Container {
     constructor(config) {
         super(config);
 
-        let me = this;
+        let me       = this,
+            calendar = me.up('calendar-maincontainer');
 
         me.items = [{
             module        : RadioField,
-            checked       : true,
+            checked       : calendar.weekStartDay === 0,
+            fieldValue    : 0,
             flex          : 'none',
             hideValueLabel: false,
             labelText     : 'weekStartDay',
             labelWidth    : 110,
             name          : 'weekStartDay',
-            valueLabelText: 'Sunday'
+            valueLabelText: 'Sunday',
+
+            listeners: {
+                change: me.onWeekStartDayChange,
+                scope : me
+            }
         }, {
             module        : RadioField,
+            checked       : calendar.weekStartDay === 1,
+            fieldValue    : 1,
             flex          : 'none',
             hideValueLabel: false,
             labelText     : '',
             labelWidth    : 110,
             name          : 'weekStartDay',
             style         : {marginTop: '5px'},
-            valueLabelText: 'Monday'
+            valueLabelText: 'Monday',
+
+            listeners: {
+                change: me.onWeekStartDayChange,
+                scope : me
+            }
         }];
+    }
+
+    /**
+     *
+     * @param opts
+     */
+    onWeekStartDayChange(opts) {
+        if (opts.value) {
+            this.up('calendar-maincontainer').weekStartDay = opts.component.fieldValue;
+        }
     }
 }
 
