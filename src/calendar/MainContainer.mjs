@@ -7,6 +7,7 @@ import ItemsContainer               from './ItemsContainer.mjs';
 import SettingsContainer            from './view/SettingsContainer.mjs';
 import Toolbar                      from '../container/Toolbar.mjs';
 import WeekComponent                from './view/WeekComponent.mjs';
+import YearComponent                from './view/YearComponent.mjs';
 
 const todayDate = new Date();
 
@@ -253,6 +254,13 @@ class MainContainer extends Container {
             ...me.weekComponentConfig || {}
         });
 
+        me.yearComponent = Neo.create({
+            module     : YearComponent,
+            currentDate: me.currentDate,
+            eventStore : me.eventStore,
+            ...me.yearComponentConfig || {}
+        });
+
         me.items = [{
             module: Container,
             flex  : 'none',
@@ -343,11 +351,8 @@ class MainContainer extends Container {
                     ntype: 'component',
                     html : 'Month',
                     style: {padding: '20px'}
-                }, {
-                    ntype: 'component',
-                    html : 'Year',
-                    style: {padding: '20px'}
-                }]
+                }, me.yearComponent
+                ]
             }]
         }];
 
