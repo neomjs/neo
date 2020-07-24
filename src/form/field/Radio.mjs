@@ -88,8 +88,9 @@ class Radio extends CheckBox {
                 item.vnode.childNodes[1].attributes.checked = 'false';
 
                 item.fire('change', {
-                    oldValue: true,
-                    value   : false
+                    component: me,
+                    oldValue : true,
+                    value    : false
                 });
             }
         });
