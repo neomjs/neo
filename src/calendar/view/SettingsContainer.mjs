@@ -1,4 +1,5 @@
 import {default as Container}    from '../../container/Base.mjs';
+import GeneralContainer          from './settings/GeneralContainer.mjs';
 import {default as TabContainer} from '../../tab/Container.mjs';
 
 /**
@@ -47,9 +48,8 @@ class SettingsContainer extends Container {
         }, {
             module: TabContainer,
             items : [{
-                ntype: 'component',
-                html : 'General',
-                style: {padding: '20px'},
+                module: GeneralContainer,
+                style : {padding: '20px'},
 
                 tabButtonConfig: {
                     text: 'General'
