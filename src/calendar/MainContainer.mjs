@@ -295,7 +295,6 @@ class MainContainer extends Container {
                 }, {
                     handler    : me.changeTimeInterval.bind(me, 'week'),
                     height     : 24,
-                    pressed    : true,
                     text       : 'Week',
                     toggleGroup: 'timeInterval',
                     value      : 'week'
@@ -308,6 +307,7 @@ class MainContainer extends Container {
                 }, {
                     handler    : me.changeTimeInterval.bind(me, 'year'),
                     height     : 24,
+                    pressed    : true,
                     text       : 'Year',
                     toggleGroup: 'timeInterval',
                     value      : 'year'
@@ -342,7 +342,7 @@ class MainContainer extends Container {
             }, {
                 module: Container,
                 flex  : 1,
-                layout: {ntype: 'card', activeIndex: 1},
+                layout: {ntype: 'card', activeIndex: 3}, // todo: activeIndex for testing
                 items : [{
                     ntype: 'component',
                     html : 'Day',
