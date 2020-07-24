@@ -32,18 +32,6 @@ class MainContainer extends Viewport {
 
             items: ['->', {
                 module       : TimeField,
-                clearable    : false,
-                labelPosition: 'inline',
-                labelText    : 'Start Time',
-                listeners    : {change: 'onStartTimeFieldChange'},
-                maxValue     : '10:00',
-                minValue     : '00:00',
-                stepSize     : 60 * 60, // 1h
-                style        : {marginRight: '10px'},
-                value        : '00:00',
-                width        : 120
-            }, {
-                module       : TimeField,
                 labelPosition: 'inline',
                 labelText    : 'End Time',
                 listeners    : {change: 'onEndTimeFieldChange'},

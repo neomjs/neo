@@ -50,14 +50,6 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} data
      */
-    onStartTimeFieldChange(data) {
-        this.getWeeklyTimeAxis().startTime = data.value;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
     onSwitchThemeButtonClick(data) {
         let me            = this,
             button        = data.component,
