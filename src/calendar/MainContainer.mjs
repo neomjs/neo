@@ -77,9 +77,9 @@ class MainContainer extends Container {
          */
         useSettingsContainer_: true,
         /**
-         * @member {Neo.calendar.view.WeekComponent|null} weekComponent_=null
+         * @member {Neo.calendar.view.WeekComponent|null} weekComponent=null
          */
-        weekComponent_: null,
+        weekComponent: null,
         /**
          * @member {Object|null} weekComponentConfig=null
          */
@@ -193,19 +193,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered when accessing the weekComponent config
-     * @param {Object} value
-     * @protected
-     */
-    beforeGetWeekComponent(value) {
-        if (!value) {
-            value = this.weekComponent = this.down('calendar-view-weekComponent');
-        }
-
-        return value;
-    }
-
-    /**
      * Triggered before the selectionModel config gets changed.
      * @param {Neo.calendar.store.Events} value
      * @param {Neo.calendar.store.Events} oldValue
@@ -257,6 +244,14 @@ class MainContainer extends Container {
      */
     createItemsContent() {
         let me = this;
+
+        me.weekComponent = Neo.create({
+            module      : WeekComponent,
+            currentDate : me.currentDate,
+            eventStore  : me.eventStore,
+            weekStartDay: me.weekStartDay,
+            ...me.weekComponentConfig || {}
+        });
 
         me.items = [{
             module: Container,
@@ -344,13 +339,7 @@ class MainContainer extends Container {
                     ntype: 'component',
                     html : 'Day',
                     style: {padding: '20px'}
-                }, {
-                    module      : WeekComponent,
-                    currentDate : me.currentDate,
-                    eventStore  : me.eventStore,
-                    weekStartDay: me.weekStartDay,
-                    ...me.weekComponentConfig || {}
-                }, {
+                }, me.weekComponent, {
                     ntype: 'component',
                     html : 'Month',
                     style: {padding: '20px'}
@@ -374,7 +363,7 @@ class MainContainer extends Container {
                 width : me.settingsContainerWidth,
 
                 style: {
-                    marginRight: me.settingsExpanded ? '0': `-${this.settingsContainerWidth}px`
+                    marginRight: me.settingsExpanded ? '0': `-${me.settingsContainerWidth}px`
                 }
             });
         }

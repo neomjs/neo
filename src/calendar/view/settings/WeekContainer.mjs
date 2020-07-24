@@ -31,7 +31,7 @@ class WeekContainer extends Container {
         me.items = [{
             module        : RadioField,
             checked       : weekComponent.timeAxisPosition === 'start',
-            fieldValue    : 0,
+            fieldValue    : 'start',
             flex          : 'none',
             hideValueLabel: false,
             labelText     : 'timeAxisPosition',
@@ -46,7 +46,7 @@ class WeekContainer extends Container {
         }, {
             module        : RadioField,
             checked       : weekComponent.timeAxisPosition === 'end',
-            fieldValue    : 1,
+            fieldValue    : 'end',
             flex          : 'none',
             hideValueLabel: false,
             labelText     : '',
@@ -66,7 +66,7 @@ class WeekContainer extends Container {
      *
      * @return {Neo.calendar.view.WeekComponent}
      */
-    getWeekComponent() {return {};
+    getWeekComponent() {
         return this.up('calendar-maincontainer').weekComponent;
     }
 
@@ -76,7 +76,7 @@ class WeekContainer extends Container {
      */
     onTimeAxisPositionChange(opts) {
         if (opts.value) {
-            //this.getWeekComponent().timeAxisPosition = opts.component.fieldValue;
+            this.getWeekComponent().timeAxisPosition = opts.component.fieldValue;
         }
     }
 }
