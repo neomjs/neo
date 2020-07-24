@@ -37,12 +37,6 @@ class MainContainer extends Viewport {
                 style  : {marginRight: '10px'},
                 text   : 'timeAxisPosition: end'
             }, {
-                module : Button,
-                handler: 'onWeekStartDayButtonClick',
-                height : 27,
-                style  : {marginRight: '10px'},
-                text   : 'weekStartDay: Monday'
-            }, {
                 module       : TimeField,
                 clearable    : false,
                 labelPosition: 'inline',

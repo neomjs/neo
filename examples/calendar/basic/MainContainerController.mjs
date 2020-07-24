@@ -115,24 +115,6 @@ class MainContainerController extends ComponentController {
         this.getReference('calendar').weekComponent.timeAxisPosition = value;
         button.text = buttonText;
     }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onWeekStartDayButtonClick(data) {
-        let button     = data.component,
-            buttonText = 'weekStartDay: Monday',
-            startDay   = 0;
-
-        if (button.text === 'weekStartDay: Monday') {
-            buttonText  = 'weekStartDay: Sunday';
-            startDay    = 1;
-        }
-
-        this.getReference('calendar').weekStartDay = startDay;
-        button.text = buttonText;
-    }
 }
 
 Neo.applyClassConfig(MainContainerController);
