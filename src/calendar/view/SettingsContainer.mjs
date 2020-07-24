@@ -43,10 +43,7 @@ class SettingsContainer extends Container {
             ntype : 'component',
             cls   : ['neo-header'],
             height: 48,
-            html  : '<i class="fa fa-cog"></i> Settings',
-            style : {
-                padding: '15px 10px'
-            }
+            html  : '<i class="fa fa-cog"></i>Settings'
         }, {
             module: TabContainer,
             items : [{
