@@ -58,7 +58,9 @@ class YearComponent extends Component {
             vdom           = me.vdom,
             monthContainer = vdom.cn[1],
             i              = 0,
-            len            = 12;
+            len            = 12,
+            weekLen        = 8,
+            j;
 
         for (; i < len; i++) {
             currentDate.setMonth(i);
@@ -69,8 +71,20 @@ class YearComponent extends Component {
                 cn : [{
                     cls : ['neo-month-name'],
                     html: currentMonth
+                }, {
+                    cls: ['neo-calendar-week'],
+                    cn : [{
+                        cls: ['neo-top-left-spacer']
+                    }]
                 }]
             });
+
+            for (j=0; j < 7; j++) {
+                monthContainer.cn[i].cn[1].cn.push({
+                    cls : ['neo-weekday-cell'],
+                    html: j
+                });
+            }
         }
 
         me.vdom = vdom;

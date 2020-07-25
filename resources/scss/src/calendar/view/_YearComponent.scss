@@ -21,4 +21,16 @@
             padding     : 0 1em 2em 1em;
         }
     }
+
+    .neo-calendar-week {
+        display: flex;
+
+        .neo-top-left-spacer {
+            flex: 1;
+        }
+
+        .neo-weekday-cell {
+            flex: 1;
+        }
+    }
 }
