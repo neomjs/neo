@@ -46,6 +46,12 @@ class YearComponent extends Component {
          */
         eventStore_: null,
         /**
+         * The format of the month header names.
+         * Valid values are: narrow, short & long
+         * @member {String} monthNameFormat_='long'
+         */
+        monthNameFormat_: 'long',
+        /**
          * True to show the days of the previous or next month (not selectable)
          * @member {Boolean} showDisabledDays_=true
          */
@@ -247,7 +253,7 @@ class YearComponent extends Component {
      */
     createMonths() {
         let me             = this,
-            dt             = new Intl.DateTimeFormat(Neo.config.locale, {month: 'long'}),
+            dt             = new Intl.DateTimeFormat(Neo.config.locale, {month: me.monthNameFormat}),
             currentDate    = me.currentDate, // cloned
             vdom           = me.vdom,
             monthContainer = vdom.cn[1],
