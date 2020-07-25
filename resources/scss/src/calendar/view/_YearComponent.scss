@@ -3,7 +3,10 @@
     flex-direction: column;
 
     .neo-header {
-        height: 30px;
+        color      : #1c60a0;
+        font-size  : 1.3em;
+        font-weight: 600;
+        padding    : 0.4em 0.8em;
     }
 
     .neo-months-container {
