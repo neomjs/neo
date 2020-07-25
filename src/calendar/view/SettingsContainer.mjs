@@ -2,6 +2,7 @@ import {default as Container}    from '../../container/Base.mjs';
 import GeneralContainer          from './settings/GeneralContainer.mjs';
 import {default as TabContainer} from '../../tab/Container.mjs';
 import WeekContainer             from './settings/WeekContainer.mjs';
+import YearContainer             from './settings/YearContainer.mjs';
 
 /**
  * @class Neo.calendar.view.SettingsContainer
@@ -77,9 +78,8 @@ class SettingsContainer extends Container {
                     text: 'Month'
                 }
             }, {
-                ntype: 'component',
-                html : 'Year',
-                style: {padding: '20px'},
+                module: YearContainer,
+                style : {padding: '20px'},
 
                 tabButtonConfig: {
                     text: 'Year'
