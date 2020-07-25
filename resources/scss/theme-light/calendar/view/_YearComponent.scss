@@ -1,11 +1,15 @@
 $neoMap: map-merge($neoMap, (
-    'calendar-yearcomponent-month-color': #555,
-    'calendar-yearcomponent-year-color' : #1c60a0
+    'calendar-yearcomponent-month-color'          : #555,
+    'calendar-yearcomponent-week-background-color': #f2f2f2,
+    'calendar-yearcomponent-week-color'           : #555,
+    'calendar-yearcomponent-year-color'           : #1c60a0
 ));
 
 @if $useCss4Vars == true {
     :root .neo-theme-light { // .neo-calendar-yearcomponent
-        --calendar-yearcomponent-month-color: #{neo(calendar-yearcomponent-month-color)};
-        --calendar-yearcomponent-year-color : #{neo(calendar-yearcomponent-year-color)};
+        --calendar-yearcomponent-month-color          : #{neo(calendar-yearcomponent-month-color)};
+        --calendar-yearcomponent-week-background-color: #{neo(calendar-yearcomponent-week-background-color)};
+        --calendar-yearcomponent-week-color           : #{neo(calendar-yearcomponent-week-color)};
+        --calendar-yearcomponent-year-color           : #{neo(calendar-yearcomponent-year-color)};
     }
 }

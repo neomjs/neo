@@ -48,7 +48,8 @@
         }
 
         .neo-weeknumber-cell {
-            background-color: #f2f2f2;
+            background-color: v(calendar-yearcomponent-week-background-color);
+            color           : v(calendar-yearcomponent-week-color);
         }
     }
 }
