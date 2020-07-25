@@ -10,14 +10,21 @@
         padding    : 0.4em 0.8em;
     }
 
+    .neo-month-name {
+        color        : #555;
+        font-size    : 1.3em;
+        margin-bottom: .5em;
+    }
+
     .neo-months-container {
-        display  : flex;
-        flex     : 1;
-        flex-wrap: wrap;
+        align-content: flex-start;
+        display      : flex;
+        flex         : 1;
+        flex-wrap    : wrap;
 
         .neo-month {
             flex-basis: 25%;
-            padding   : 0 1em 2em 1em;
+            padding   : 0 2em 4em;
         }
     }
 
