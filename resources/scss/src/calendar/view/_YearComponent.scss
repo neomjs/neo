@@ -21,6 +21,7 @@
         display      : flex;
         flex         : 1;
         flex-wrap    : wrap;
+        overflow-y   : auto;
 
         .neo-month {
             flex-basis: 25%;
