@@ -31,7 +31,7 @@ class MainContainer extends Viewport {
             items: [{
                 ntype: 'component',
                 cls  : ['neo-header'],
-                html : '<i class="fa fa-calendar"></i>neo.mjs Calendar'
+                html : '<i class="fa fa-calendar"></i>neo.mjs Calendar (Sneak Preview)'
             }, '->', {
                 module : Button,
                 handler: 'onSwitchThemeButtonClick',
