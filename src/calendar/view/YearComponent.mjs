@@ -63,8 +63,7 @@ class YearComponent extends Component {
                 cls : ['neo-year-header'],
                 html: '2020' // todo
             }, {
-                cls: ['neo-months-container'],
-                cn : []
+                cls: ['neo-months-container']
             }]
         },
         /**
@@ -117,7 +116,7 @@ class YearComponent extends Component {
      */
     afterSetWeekStartDay(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('afterSetWeekStartDay', value);
+            this.createMonths();
         }
     }
 
@@ -236,6 +235,8 @@ class YearComponent extends Component {
             monthContainer = vdom.cn[1],
             i              = 0,
             monthVdom;
+
+        monthContainer.cn = [];
 
         for (; i < 12; i++) {
             currentDate.setMonth(i);
