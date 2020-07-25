@@ -339,9 +339,9 @@ class MainContainer extends Container {
                 width : me.sideBarWidth,
                 items : [{
                     module      : DateSelector,
-                    currentDate : me.currentDate,
                     flex        : 'none',
                     height      : me.sideBarWidth,
+                    value       : DateUtil.convertToyyyymmdd(me.currentDate),
                     weekStartDay: me.weekStartDay,
 
                     listeners: {
