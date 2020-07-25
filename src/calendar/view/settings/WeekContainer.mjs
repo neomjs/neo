@@ -36,45 +36,54 @@ class WeekContainer extends Container {
         super(config);
 
         let me            = this,
-            weekComponent = me.getWeekComponent();
+            weekComponent = me.getWeekComponent(),
+            timeAxis      = weekComponent.timeAxis;
 
         me.items = [{
-            module   : TimeField,
-            clearable: false,
-            labelText: 'Start Time',
-            listeners: {change: me.onStartTimeChange, scope: me},
-            maxValue : '10:00',
-            minValue : '00:00',
-            stepSize : 60 * 60, // 1h
-            style    : {},
-            value    : '00:00'
+            module              : TimeField,
+            clearable           : true,
+            clearToOriginalValue: true,
+            labelText           : 'Start Time',
+            listeners           : {change: me.onTimeAxisConfigChange, scope: me},
+            maxValue            : '10:00',
+            minValue            : '00:00',
+            name                : 'startTime',
+            stepSize            : 60 * 60, // 1h
+            style               : {},
+            value               : timeAxis.startTime
         }, {
             module   : TimeField,
             labelText: 'End Time',
-            listeners: {change: me.onEndTimeChange, scope: me},
+            listeners: {change: me.onTimeAxisConfigChange, scope: me},
             maxValue : '23:00',
             minValue : '14:00',
-            stepSize : 60 * 60 // 1h
+            name     : 'endTime',
+            stepSize : 60 * 60, // 1h
+            value    : timeAxis.endTime !== '24:00' ? timeAxis.endTime : undefined
         }, {
-            module        : NumberField,
-            clearable     : false,
-            excludedValues: [45],
-            inputEditable : false,
-            labelText     : 'Interval',
-            listeners     : {change: me.onIntervalChange, scope: me},
-            maxValue      : 60,
-            minValue      : 15,
-            stepSize      : 15,
-            value         : 30
+            module              : NumberField,
+            clearable           : true,
+            clearToOriginalValue: true,
+            excludedValues      : [45],
+            inputEditable       : false,
+            labelText           : 'Interval',
+            listeners           : {change: me.onTimeAxisConfigChange, scope: me},
+            maxValue            : 60,
+            minValue            : 15,
+            name                : 'interval',
+            stepSize            : 15,
+            value               : timeAxis.interval
         }, {
-            module   : NumberField,
-            clearable: false,
-            labelText: 'Row Height',
-            listeners: {change: me.onRowHeightChange, scope: me},
-            maxValue : 100,
-            minValue : 8,
-            stepSize : 2,
-            value    : 20
+            module              : NumberField,
+            clearable           : true,
+            clearToOriginalValue: true,
+            labelText           : 'Row Height',
+            listeners           : {change: me.onTimeAxisConfigChange, scope: me},
+            maxValue            : 100,
+            minValue            : 8,
+            name                : 'rowHeight',
+            stepSize            : 2,
+            value               : timeAxis.rowHeight
         }, {
             module        : RadioField,
             checked       : weekComponent.timeAxisPosition === 'start',
@@ -116,32 +125,8 @@ class WeekContainer extends Container {
      *
      * @param {Object} data
      */
-    onEndTimeChange(data) {
-        this.getTimeAxis().endTime = data.value;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onIntervalChange(data) {
-        this.getTimeAxis().interval = data.value;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onRowHeightChange(data) {
-        this.getTimeAxis().rowHeight = data.value;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onStartTimeChange(data) {
-        this.getTimeAxis().startTime = data.value;
+    onTimeAxisConfigChange(data) {
+        this.getTimeAxis()[data.component.name] = data.value;
     }
 
     /**

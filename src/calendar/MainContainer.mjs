@@ -7,6 +7,7 @@ import ItemsContainer               from './ItemsContainer.mjs';
 import SettingsContainer            from './view/SettingsContainer.mjs';
 import Toolbar                      from '../container/Toolbar.mjs';
 import WeekComponent                from './view/WeekComponent.mjs';
+import YearComponent                from './view/YearComponent.mjs';
 
 const todayDate = new Date();
 
@@ -88,7 +89,15 @@ class MainContainer extends Container {
          * 0-6 => Sun-Sat
          * @member {Number} weekStartDay_=0
          */
-        weekStartDay_: 0
+        weekStartDay_: 0,
+        /**
+         * @member {Neo.calendar.view.YearComponent|null} yearComponent=null
+         */
+        yearComponent: null,
+        /**
+         * @member {Object|null} yearComponentConfig=null
+         */
+        yearComponentConfig: null
     }}
 
     /**
@@ -253,6 +262,14 @@ class MainContainer extends Container {
             ...me.weekComponentConfig || {}
         });
 
+        me.yearComponent = Neo.create({
+            module      : YearComponent,
+            currentDate : me.currentDate,
+            eventStore  : me.eventStore,
+            weekStartDay: me.weekStartDay,
+            ...me.yearComponentConfig || {}
+        });
+
         me.items = [{
             module: Container,
             flex  : 'none',
@@ -287,7 +304,6 @@ class MainContainer extends Container {
                 }, {
                     handler    : me.changeTimeInterval.bind(me, 'week'),
                     height     : 24,
-                    pressed    : true,
                     text       : 'Week',
                     toggleGroup: 'timeInterval',
                     value      : 'week'
@@ -300,6 +316,7 @@ class MainContainer extends Container {
                 }, {
                     handler    : me.changeTimeInterval.bind(me, 'year'),
                     height     : 24,
+                    pressed    : true,
                     text       : 'Year',
                     toggleGroup: 'timeInterval',
                     value      : 'year'
@@ -334,7 +351,7 @@ class MainContainer extends Container {
             }, {
                 module: Container,
                 flex  : 1,
-                layout: {ntype: 'card', activeIndex: 1},
+                layout: {ntype: 'card', activeIndex: 3}, // todo: activeIndex for testing
                 items : [{
                     ntype: 'component',
                     html : 'Day',
@@ -343,11 +360,8 @@ class MainContainer extends Container {
                     ntype: 'component',
                     html : 'Month',
                     style: {padding: '20px'}
-                }, {
-                    ntype: 'component',
-                    html : 'Year',
-                    style: {padding: '20px'}
-                }]
+                }, me.yearComponent
+                ]
             }]
         }];
 

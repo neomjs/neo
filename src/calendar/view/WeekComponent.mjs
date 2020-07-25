@@ -34,10 +34,10 @@ class WeekComponent extends Component {
          */
         className: 'Neo.calendar.view.WeekComponent',
         /**
-         * @member {String} ntype='calendar-view-weekComponent'
+         * @member {String} ntype='calendar-view-weekcomponent'
          * @protected
          */
-        ntype: 'calendar-view-weekComponent',
+        ntype: 'calendar-view-weekcomponent',
         /**
          * @member {String[]} cls=['neo-calendar-weekcomponent']
          */

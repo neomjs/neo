@@ -612,6 +612,7 @@ class DateSelector extends Component {
      * @param {Number|String} year
      * @param {Number|String} month
      * @param {Number|String} day
+     * @returns {String} id
      */
     getCellId(year, month, day) {
         day = day.toString();
