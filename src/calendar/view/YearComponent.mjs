@@ -90,7 +90,7 @@ class YearComponent extends Component {
         let me   = this,
             date = me.currentDate, // cloned
             i    = 0,
-            row  = {cls: ['neo-calendar-week'], cn: [{cls: ['neo-top-left-spacer']}]};
+            row  = {cls: ['neo-calendar-week'], cn: [{cls: ['neo-cell', 'neo-top-left-spacer']}]};
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
@@ -100,7 +100,7 @@ class YearComponent extends Component {
 
         for (; i < 7; i++) {
             row.cn.push({
-                cls : ['neo-weekday-cell'],
+                cls : ['neo-cell', 'neo-weekday-cell'],
                 html: dt.format(date)
             });
 
@@ -144,14 +144,14 @@ class YearComponent extends Component {
 
             if (me.showWeekNumber) {
                 row.cn.push({
-                    cls : ['neo-weeknumber-cell'],
+                    cls : ['neo-cell', 'neo-weeknumber-cell'],
                     html: DateUtil.getWeekOfYear(weekDate)
                 });
 
                 weekDate.setDate(weekDate.getDate() + 7);
             } else {
                 row.cn.push({
-                    cls: ['neo-top-left-spacer']
+                    cls: ['neo-cell', 'neo-top-left-spacer']
                 });
             }
 

@@ -1,6 +1,7 @@
 .neo-calendar-yearcomponent {
     display       : flex;
     flex-direction: column;
+    font-size     : 0.9em;
 
     .neo-header {
         color      : #1c60a0;
@@ -15,31 +16,32 @@
         flex-wrap: wrap;
 
         .neo-month {
-            border-right: 1px solid #ddd;
-            border-top  : 1px solid #ddd;
-            flex-basis  : 25%;
-            padding     : 0 1em 2em 1em;
+            flex-basis: 25%;
+            padding   : 0 1em 2em 1em;
         }
     }
 
     .neo-calendar-week {
         display: flex;
+        height : 2em;
 
         .neo-cell {
-            flex: 1;
+            align-items    : center;
+            display        : flex;
+            flex           : 1;
+            justify-content: center;
         }
 
         .neo-top-left-spacer {
-            flex: 1;
+
         }
 
         .neo-weekday-cell {
-            flex: 1;
+
         }
 
         .neo-weeknumber-cell {
             background-color: #f2f2f2;
-            flex            : 1;
         }
     }
 }
