@@ -89,7 +89,11 @@ class MainContainer extends Container {
          * 0-6 => Sun-Sat
          * @member {Number} weekStartDay_=0
          */
-        weekStartDay_: 0
+        weekStartDay_: 0,
+        /**
+         * @member {Object|null} yearComponentConfig=null
+         */
+        yearComponentConfig: null,
     }}
 
     /**
