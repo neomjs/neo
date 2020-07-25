@@ -255,9 +255,10 @@ class MainContainer extends Container {
         });
 
         me.yearComponent = Neo.create({
-            module     : YearComponent,
-            currentDate: me.currentDate,
-            eventStore : me.eventStore,
+            module      : YearComponent,
+            currentDate : me.currentDate,
+            eventStore  : me.eventStore,
+            weekStartDay: me.weekStartDay,
             ...me.yearComponentConfig || {}
         });
 
