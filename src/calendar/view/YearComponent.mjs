@@ -52,14 +52,24 @@ class YearComponent extends Component {
      */
     createMonths() {
         let me             = this,
+            dt             = new Intl.DateTimeFormat(Neo.config.locale, {month: 'long'}),
+            currentDate    = me.currentDate, // cloned
+            currentMonth   = dt.format(me.currentDate),
             vdom           = me.vdom,
             monthContainer = vdom.cn[1],
             i              = 0,
             len            = 12;
 
         for (; i < len; i++) {
+            currentDate.setMonth(i);
+            currentMonth = dt.format(currentDate);
+
             monthContainer.cn.push({
-                cls: ['neo-month']
+                cls: ['neo-month'],
+                cn : [{
+                    cls : ['neo-month-name'],
+                    html: currentMonth
+                }]
             });
         }
 

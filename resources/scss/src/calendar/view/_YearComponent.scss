@@ -15,8 +15,10 @@
         flex-wrap: wrap;
 
         .neo-month {
-            border    : 1px solid #ddd;
-            flex-basis: 25%;
+            border-right: 1px solid #ddd;
+            border-top  : 1px solid #ddd;
+            flex-basis  : 25%;
+            padding     : 0 1em 2em 1em;
         }
     }
 }
