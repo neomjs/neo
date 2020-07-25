@@ -91,9 +91,13 @@ class MainContainer extends Container {
          */
         weekStartDay_: 0,
         /**
+         * @member {Neo.calendar.view.YearComponent|null} yearComponent=null
+         */
+        yearComponent: null,
+        /**
          * @member {Object|null} yearComponentConfig=null
          */
-        yearComponentConfig: null,
+        yearComponentConfig: null
     }}
 
     /**
