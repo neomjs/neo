@@ -2,20 +2,21 @@
     border-left: 1px solid v(calendar-border-color);
     transition : margin-right 350ms ease-out;
 
-    .neo-header {
-        align-items     : center;
-        background-color: v(calendar-settings-header-background-color);
-        color           : v(calendar-settings-header-color);
-        display         : flex;
-        padding         : 0 10px;
-
-        .fa {
-            font-size   : 18px;
-            margin-right: 5px;
-        }
-    }
-
     .neo-tab-content-container {
         border: 0 !important;
+    }
+}
+
+// todo: move into a better spot
+.neo-header {
+    align-items     : center;
+    background-color: v(calendar-settings-header-background-color);
+    color           : v(calendar-settings-header-color);
+    display         : flex;
+    padding         : 0 10px;
+
+    .fa {
+        font-size   : 18px;
+        margin-right: 5px;
     }
 }

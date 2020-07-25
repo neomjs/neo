@@ -28,7 +28,11 @@ class MainContainer extends Viewport {
                 padding        : '10px 5px 10px 10px'
             },
 
-            items: ['->', {
+            items: [{
+                ntype: 'component',
+                cls  : ['neo-header'],
+                html : '<i class="fa fa-calendar"></i>neo.mjs Calendar'
+            }, '->', {
                 module : Button,
                 handler: 'onSwitchThemeButtonClick',
                 height : 27,
