@@ -60,8 +60,7 @@ class YearComponent extends Component {
          */
         vdom: {
             cn: [{
-                cls : ['neo-year-header'],
-                html: '2020' // todo
+                cls : ['neo-year-header']
             }, {
                 cls: ['neo-months-container']
             }]
@@ -79,6 +78,7 @@ class YearComponent extends Component {
      */
     constructor(config) {
         super(config);
+        this.updateHeaderYear();
         this.createMonths();
     }
 
@@ -299,6 +299,13 @@ class YearComponent extends Component {
         }
 
         return this.id + '__' + year + '-' + month + '-' + day;
+    }
+
+    /**
+     *
+     */
+    updateHeaderYear() {
+        this.vdom.cn[0].html = this.currentDate.getFullYear();
     }
 }
 
