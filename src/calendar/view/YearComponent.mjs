@@ -90,7 +90,13 @@ class YearComponent extends Component {
      */
     afterSetCurrentDate(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('afterSetCurrentDate', value);
+            if (value.getFullYear() !== oldValue.getFullYear()) {
+                // todo
+                console.log('## transition to the new year', value.getFullYear());
+            } else {
+                // todo
+                console.log('## select a new day', value.getMonth(), value.getDate());
+            }
         }
     }
 
