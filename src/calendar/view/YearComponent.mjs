@@ -147,6 +147,7 @@ class YearComponent extends Component {
             currentDay      = currentDate.getDate(),
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),
+            disabledDate    = DateUtil.clone(currentDate),
             valueDate       = me.currentDate, // cloned
             valueMonth      = valueDate.getMonth(),
             valueYear       = valueDate.getFullYear(),
@@ -156,7 +157,7 @@ class YearComponent extends Component {
             columns         = 7,
             i               = 0,
             weekDate        = DateUtil.clone(currentDate),
-            cellCls, cellId, cls, day, disabledDate, hasContent, j, row, rows;
+            cellCls, cellId, cls, day, hasContent, j, row, rows;
 
         firstDayOffset = firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
         rows           = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
@@ -189,7 +190,7 @@ class YearComponent extends Component {
                 }
 
                 if (me.showDisabledDays && !hasContent) {
-                    disabledDate = DateUtil.clone(currentDate);
+                    disabledDate.setMonth(currentMonth);
                     disabledDate.setDate(day);
                 }
 
