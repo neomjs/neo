@@ -30,6 +30,12 @@ class YearComponent extends Component {
          */
         cls: ['neo-calendar-yearcomponent'],
         /**
+         * Will get passed from the MainContainer
+         * @member {Date|null} currentDate_=null
+         * @protected
+         */
+        currentDate_: null,
+        /**
          * The format of the column headers.
          * Valid values are: narrow, short & long
          * @member {String} dayNameFormat_='narrow'
@@ -110,7 +116,7 @@ class YearComponent extends Component {
             currentDay      = currentDate.getDate(),
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),
-            valueDate       = new Date(me.value),
+            valueDate       = me.currentDate, // cloned
             valueMonth      = valueDate.getMonth(),
             valueYear       = valueDate.getFullYear(),
             daysInMonth     = DateUtil.getDaysInMonth(currentDate),
@@ -139,7 +145,6 @@ class YearComponent extends Component {
 
                 if (valueYear === currentYear && valueMonth === currentMonth && day === currentDay) {
                     cellCls.push('neo-selected');
-                    me.selectionModel.items = [cellId]; // silent update
                 }
 
                 if (me.showDisabledDays && !hasContent) {
@@ -173,23 +178,21 @@ class YearComponent extends Component {
         let me             = this,
             dt             = new Intl.DateTimeFormat(Neo.config.locale, {month: 'long'}),
             currentDate    = me.currentDate, // cloned
-            currentMonth   = dt.format(me.currentDate),
             vdom           = me.vdom,
             monthContainer = vdom.cn[1],
             i              = 0,
-            len            = 12,
             monthVdom;
 
-        for (; i < len; i++) {
+        for (; i < 12; i++) {
             currentDate.setMonth(i);
-            currentMonth = dt.format(currentDate);
+            currentDate.setDate(1);
 
             monthVdom = {
                 cls: ['neo-month'],
                 cn : [
                     {
                         cls : ['neo-month-name'],
-                        html: currentMonth
+                        html: dt.format(currentDate)
                     },
                     me.createDayNamesRow()
                 ]
