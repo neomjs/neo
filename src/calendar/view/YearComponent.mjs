@@ -110,6 +110,18 @@ class YearComponent extends Component {
     }
 
     /**
+     * Triggered after the weekStartDay config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetWeekStartDay(value, oldValue) {
+        if (oldValue !== undefined) {
+            console.log('afterSetWeekStartDay', value);
+        }
+    }
+
+    /**
      *
      */
     createDayNamesRow() {
