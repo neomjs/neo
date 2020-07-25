@@ -118,8 +118,8 @@ class MainContainer extends Container {
 
     /**
      * Triggered after the currentDate config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {Date} value
+     * @param {Date} oldValue
      * @protected
      */
     afterSetCurrentDate(value, oldValue) {

@@ -83,6 +83,18 @@ class YearComponent extends Component {
     }
 
     /**
+     * Triggered after the currentDate config got changed
+     * @param {Date} value
+     * @param {Date} oldValue
+     * @protected
+     */
+    afterSetCurrentDate(value, oldValue) {
+        if (oldValue !== undefined) {
+            console.log('afterSetCurrentDate', value);
+        }
+    }
+
+    /**
      * Triggered after the showWeekNumbers config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
