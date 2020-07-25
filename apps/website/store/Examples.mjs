@@ -25,7 +25,7 @@ class Examples extends Store {
          */
         sorters: [{
             property : 'id',
-            direction: 'ASC'
+            direction: 'DESC'
         }]
     }}
 }

@@ -2,7 +2,16 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 1,
+        "id"          : 13,
+        "image"       : "devmode/calendar-preview.png",
+        "name"        : "Calendar Sneak Preview",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/src/calendar",
+        "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/examples/calendar/basic/index.html"
+    },
+    {
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
+        "environments": ["Desktop"],
+        "id"          : 12,
         "image"       : "devmode/covidDashboard.png",
         "name"        : "Covid Dashboard",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/apps/covid",
@@ -11,7 +20,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 2,
+        "id"          : 11,
         "image"       : "devmode/realworldApp.png",
         "name"        : "RealWorld App",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/apps/realworld",
@@ -20,7 +29,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 3,
+        "id"          : 10,
         "image"       : "devmode/coronaGallery.png",
         "name"        : "COVID-19 Gallery",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/component/coronaGallery",
@@ -29,7 +38,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 4,
+        "id"          : 9,
         "image"       : "devmode/coronaHelix.png",
         "name"        : "COVID-19 Helix",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/component/coronaHelix",
@@ -38,7 +47,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop", "Mobile"],
-        "id"          : 5,
+        "id"          : 8,
         "image"       : "devmode/website.png",
         "name"        : "Neo Website App",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/apps/website",
@@ -47,7 +56,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 6,
+        "id"          : 7,
         "image"       : "devmode/realworldApp2.png",
         "name"        : "RealWorld App v2</br>(in progress)",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/apps/realworld2",
@@ -56,7 +65,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 7,
+        "id"          : 6,
         "image"       : "devmode/dateSelector.png",
         "name"        : "component.DateSelector",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/component/dateSelector",
@@ -65,7 +74,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 8,
+        "id"          : 5,
         "image"       : "devmode/gallery.png",
         "name"        : "component.Gallery",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/component/gallery",
@@ -74,7 +83,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 9,
+        "id"          : 4,
         "image"       : "devmode/helix.png",
         "name"        : "component.Helix",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/component/helix",
@@ -83,7 +92,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 10,
+        "id"          : 3,
         "image"       : "devmode/dateField.png",
         "name"        : "form.field.Date",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/form/field/date",
@@ -92,7 +101,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 11,
+        "id"          : 2,
         "image"       : "devmode/selectField.png",
         "name"        : "form.field.Select",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/form/field/select",
@@ -101,7 +110,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 12,
+        "id"          : 1,
         "image"       : "devmode/tabContainer.png",
         "name"        : "tab.Container",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/tab/container",
