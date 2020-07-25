@@ -28,9 +28,42 @@ class YearComponent extends Component {
          * @member {Object} vdom
          */
         vdom: {
-            cn: []
+            cn: [{
+                cls: ['neo-header']
+            }, {
+                cls: ['neo-months-container'],
+                cn : []
+            }]
         }
     }}
+
+    /**
+     *
+     * @param config
+     */
+    constructor(config) {
+        super(config);
+        this.createMonths();
+    }
+
+    /**
+     *
+     */
+    createMonths() {
+        let me             = this,
+            vdom           = me.vdom,
+            monthContainer = vdom.cn[1],
+            i              = 0,
+            len            = 12;
+
+        for (; i < len; i++) {
+            monthContainer.cn.push({
+                cls: ['neo-month']
+            });
+        }
+
+        me.vdom = vdom;
+    }
 }
 
 Neo.applyClassConfig(YearComponent);
