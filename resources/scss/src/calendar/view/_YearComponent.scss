@@ -4,10 +4,11 @@
     font-size     : 0.9em;
 
     .neo-year-header {
-        color      : v(calendar-yearcomponent-year-color);
-        font-size  : 1.3em;
-        font-weight: 600;
-        padding    : 0.4em 0.8em;
+        color        : v(calendar-yearcomponent-year-color);
+        font-size    : 1.3em;
+        font-weight  : 600;
+        margin-bottom: .5em;
+        padding      : .4em .8em;
     }
 
     .neo-month-name {
