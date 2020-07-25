@@ -1,17 +1,21 @@
 $neoMap: map-merge($neoMap, (
-    'calendar-yearcomponent-cell-color'           : #bbb,
-    'calendar-yearcomponent-month-color'          : #ccc,
-    'calendar-yearcomponent-week-background-color': #33343d,
-    'calendar-yearcomponent-week-color'           : #ccc,
-    'calendar-yearcomponent-year-color'           : #ccc
+    'c-y-cell-color'           : #bbb,
+    'c-y-month-color'          : #ccc,
+    'c-y-today-background-color': firebrick,
+    'c-y-today-color'           : #fff,
+    'c-y-week-background-color': #33343d,
+    'c-y-week-color'           : #ccc,
+    'c-y-year-color'           : #ccc
 ));
 
 @if $useCss4Vars == true {
     :root .neo-theme-dark { // .neo-calendar-yearcomponent
-        --calendar-yearcomponent-cell-color           : #{neo(calendar-yearcomponent-cell-color)};
-        --calendar-yearcomponent-month-color          : #{neo(calendar-yearcomponent-month-color)};
-        --calendar-yearcomponent-week-background-color: #{neo(calendar-yearcomponent-week-background-color)};
-        --calendar-yearcomponent-week-color           : #{neo(calendar-yearcomponent-week-color)};
-        --calendar-yearcomponent-year-color           : #{neo(calendar-yearcomponent-year-color)};
+        --c-y-cell-color            : #{neo(c-y-cell-color)};
+        --c-y-month-color           : #{neo(c-y-month-color)};
+        --c-y-today-background-color: #{neo(c-y-today-background-color)};
+        --c-y-today-color           : #{neo(c-y-today-color)};
+        --c-y-week-background-color : #{neo(c-y-week-background-color)};
+        --c-y-week-color            : #{neo(c-y-week-color)};
+        --c-y-year-color            : #{neo(c-y-year-color)};
     }
 }

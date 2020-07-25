@@ -4,7 +4,7 @@
     font-size     : 0.9em;
 
     .neo-year-header {
-        color        : v(calendar-yearcomponent-year-color);
+        color        : v(c-y-year-color);
         font-size    : 1.3em;
         font-weight  : 600;
         margin-bottom: .5em;
@@ -12,7 +12,7 @@
     }
 
     .neo-month-name {
-        color        : v(calendar-yearcomponent-month-color);
+        color        : v(c-y-month-color);
         font-size    : 1.3em;
         margin-bottom: .5em;
     }
@@ -37,7 +37,7 @@
 
         .neo-cell {
             align-items    : center;
-            color          : v(calendar-yearcomponent-cell-color);
+            color          : v(c-y-cell-color);
             display        : flex;
             flex           : 1;
             font-weight    : 400;
@@ -64,8 +64,8 @@
             justify-content: center;
 
             &.neo-today {
-                background-color: red;
-                color           : #fff;
+                background-color: v(c-y-today-background-color);
+                color           : v(c-y-today-color);
                 font-weight     : 900;
             }
         }
@@ -79,8 +79,8 @@
         }
 
         .neo-weeknumber-cell {
-            background-color: v(calendar-yearcomponent-week-background-color);
-            color           : v(calendar-yearcomponent-week-color);
+            background-color: v(c-y-week-background-color);
+            color           : v(c-y-week-color);
         }
     }
 }
