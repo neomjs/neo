@@ -3,15 +3,16 @@
     flex-direction: column;
     font-size     : 0.9em;
 
-    .neo-header {
-        color      : #1c60a0;
-        font-size  : 1.3em;
-        font-weight: 600;
-        padding    : 0.4em 0.8em;
+    .neo-year-header {
+        color        : v(c-y-year-color);
+        font-size    : 1.3em;
+        font-weight  : 600;
+        margin-bottom: .5em;
+        padding      : .4em .8em;
     }
 
     .neo-month-name {
-        color        : #555;
+        color        : v(c-y-month-color);
         font-size    : 1.3em;
         margin-bottom: .5em;
     }
@@ -21,9 +22,11 @@
         display      : flex;
         flex         : 1;
         flex-wrap    : wrap;
+        overflow-y   : auto;
 
         .neo-month {
             flex-basis: 25%;
+            min-width : 18em;
             padding   : 0 2em 4em;
         }
     }
@@ -34,9 +37,37 @@
 
         .neo-cell {
             align-items    : center;
+            color          : v(c-y-cell-color);
             display        : flex;
             flex           : 1;
+            font-weight    : 400;
             justify-content: center;
+
+            &:focus {
+                outline: 0;
+
+                .neo-cell-content {
+                    background-color: #1c60a0;
+                    color           : #fff;
+                    font-weight     : 900;
+                }
+            }
+        }
+
+        .neo-cell-content {
+            align-items    : center;
+            border-radius  : 50%;
+            cursor         : pointer;
+            display        : flex;
+            height         : 1.8em;
+            width          : 1.8em;
+            justify-content: center;
+
+            &.neo-today {
+                background-color: v(c-y-today-background-color);
+                color           : v(c-y-today-color);
+                font-weight     : 900;
+            }
         }
 
         .neo-top-left-spacer {
@@ -48,7 +79,8 @@
         }
 
         .neo-weeknumber-cell {
-            background-color: #f2f2f2;
+            background-color: v(c-y-week-background-color);
+            color           : v(c-y-week-color);
         }
     }
 }
