@@ -143,7 +143,7 @@ class YearComponent extends Component {
                 }
 
                 if (me.showDisabledDays && !hasContent) {
-                    disabledDate = me.currentDate; // cloned
+                    disabledDate = DateUtil.clone(currentDate);
                     disabledDate.setDate(day);
                 }
 
