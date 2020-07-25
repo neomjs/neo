@@ -51,6 +51,11 @@ class YearComponent extends Component {
          */
         showDisabledDays_: true,
         /**
+         * True to show the week number as the first column of each month
+         * @member {Boolean} showWeekNumber_=true
+         */
+        showWeekNumber_: true,
+        /**
          * @member {Object} vdom
          */
         vdom: {
@@ -124,6 +129,7 @@ class YearComponent extends Component {
             firstDayOffset  = firstDayInMonth - me.weekStartDay,
             columns         = 7,
             i               = 0,
+            weekDate        = DateUtil.clone(currentDate),
             cellCls, cellId, cls, day, disabledDate, hasContent, j, row, rows;
 
         firstDayOffset = firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
@@ -131,7 +137,23 @@ class YearComponent extends Component {
         day            = 1 - firstDayOffset;
 
         for (; i < rows; i++) {
-            row = {cls: ['neo-calendar-week'], cn: [{cls: ['neo-top-left-spacer']}]}; // todo: weekNumber
+            row = {
+                cls: ['neo-calendar-week'],
+                cn : []
+            };
+
+            if (me.showWeekNumber) {
+                row.cn.push({
+                    cls : ['neo-weeknumber-cell'],
+                    html: DateUtil.getWeekOfYear(weekDate)
+                });
+
+                weekDate.setDate(weekDate.getDate() + 7);
+            } else {
+                row.cn.push({
+                    cls: ['neo-top-left-spacer']
+                });
+            }
 
             for (j=0; j < columns; j++) {
                 hasContent = day > 0 && day <= daysInMonth;
