@@ -1,0 +1,19 @@
+.neo-calendar-yearcomponent {
+    display       : flex;
+    flex-direction: column;
+
+    .neo-header {
+        height: 30px;
+    }
+
+    .neo-months-container {
+        display  : flex;
+        flex     : 1;
+        flex-wrap: wrap;
+
+        .neo-month {
+            border    : 1px solid #ddd;
+            flex-basis: 25%;
+        }
+    }
+}

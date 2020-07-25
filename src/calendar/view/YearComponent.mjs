@@ -29,7 +29,8 @@ class YearComponent extends Component {
          */
         vdom: {
             cn: [{
-                cls: ['neo-header']
+                cls : ['neo-header'],
+                html: '2020' // todo
             }, {
                 cls: ['neo-months-container'],
                 cn : []
