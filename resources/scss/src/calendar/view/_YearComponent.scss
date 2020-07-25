@@ -36,6 +36,7 @@
 
         .neo-cell {
             align-items    : center;
+            color          : v(calendar-yearcomponent-cell-color);
             display        : flex;
             flex           : 1;
             justify-content: center;

@@ -1,4 +1,5 @@
 $neoMap: map-merge($neoMap, (
+    'calendar-yearcomponent-cell-color'           : #555,
     'calendar-yearcomponent-month-color'          : #555,
     'calendar-yearcomponent-week-background-color': #f2f2f2,
     'calendar-yearcomponent-week-color'           : #555,
@@ -7,6 +8,7 @@ $neoMap: map-merge($neoMap, (
 
 @if $useCss4Vars == true {
     :root .neo-theme-light { // .neo-calendar-yearcomponent
+        --calendar-yearcomponent-cell-color           : #{neo(calendar-yearcomponent-cell-color)};
         --calendar-yearcomponent-month-color          : #{neo(calendar-yearcomponent-month-color)};
         --calendar-yearcomponent-week-background-color: #{neo(calendar-yearcomponent-week-background-color)};
         --calendar-yearcomponent-week-color           : #{neo(calendar-yearcomponent-week-color)};
