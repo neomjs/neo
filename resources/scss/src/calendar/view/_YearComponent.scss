@@ -4,7 +4,7 @@
     font-size     : 0.9em;
 
     .neo-year-header {
-        color      : #1c60a0;
+        color      : v(calendar-yearcomponent-year-color);
         font-size  : 1.3em;
         font-weight: 600;
         padding    : 0.4em 0.8em;

@@ -1,0 +1,9 @@
+$neoMap: map-merge($neoMap, (
+    'calendar-yearcomponent-year-color': #eee
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-dark { // .neo-calendar-yearcomponent
+        --calendar-yearcomponent-year-color: #{neo(calendar-yearcomponent-year-color)};
+    }
+}
