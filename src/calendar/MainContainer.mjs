@@ -118,6 +118,7 @@ class MainContainer extends Container {
 
     /**
      * Triggered after the currentDate config got changed
+     * todo: Only update the active view, adjust the state on card change
      * @param {Date} value
      * @param {Date} oldValue
      * @protected
@@ -126,6 +127,7 @@ class MainContainer extends Container {
         if (oldValue !== undefined) {
             this.dateSelector .value       = DateUtil.convertToyyyymmdd(value);
             this.weekComponent.currentDate = value;
+            this.yearComponent.currentDate = value;
         }
     }
 
