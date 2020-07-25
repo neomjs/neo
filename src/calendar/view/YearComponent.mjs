@@ -1,4 +1,13 @@
 import {default as Component} from '../../component/Base.mjs';
+import DateUtil               from '../../util/Date.mjs';
+
+const todayDate = new Date();
+
+const today = {
+    day  : todayDate.getDate(),
+    month: todayDate.getMonth(),
+    year : todayDate.getFullYear()
+};
 
 /**
  * @class Neo.calendar.view.YearComponent
@@ -30,6 +39,11 @@ class YearComponent extends Component {
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
         eventStore_: null,
+        /**
+         * True to show the days of the previous or next month (not selectable)
+         * @member {Boolean} showDisabledDays_=true
+         */
+        showDisabledDays_: true,
         /**
          * @member {Object} vdom
          */
@@ -87,6 +101,73 @@ class YearComponent extends Component {
 
     /**
      *
+     * @param {Object} containerEl
+     * @param {Date} currentDate
+     * @returns {Object} vdom
+     */
+    createMonthContent(containerEl, currentDate) {
+        let me              = this,
+            currentDay      = currentDate.getDate(),
+            currentMonth    = currentDate.getMonth(),
+            currentYear     = currentDate.getFullYear(),
+            valueDate       = new Date(me.value),
+            valueMonth      = valueDate.getMonth(),
+            valueYear       = valueDate.getFullYear(),
+            daysInMonth     = DateUtil.getDaysInMonth(currentDate),
+            firstDayInMonth = DateUtil.getFirstDayOfMonth(currentDate),
+            firstDayOffset  = firstDayInMonth - me.weekStartDay,
+            columns         = 7,
+            i               = 0,
+            cellCls, cellId, cls, day, disabledDate, hasContent, j, row, rows;
+
+        firstDayOffset = firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
+        rows           = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
+        day            = 1 - firstDayOffset;
+
+        for (; i < rows; i++) {
+            row = {cls: ['neo-calendar-week'], cn: [{cls: ['neo-top-left-spacer']}]}; // todo: weekNumber
+
+            for (j=0; j < columns; j++) {
+                hasContent = day > 0 && day <= daysInMonth;
+                cellCls    = hasContent ? ['neo-cell'] : ['neo-cell', 'neo-disabled'];
+                cellId     = me.getCellId(currentYear, currentMonth + 1, day);
+                cls        = ['neo-cell-content'];
+
+                if (today.year === currentYear && today.month === currentMonth && today.day === day) {
+                    cls.push('neo-today');
+                }
+
+                if (valueYear === currentYear && valueMonth === currentMonth && day === currentDay) {
+                    cellCls.push('neo-selected');
+                    me.selectionModel.items = [cellId]; // silent update
+                }
+
+                if (me.showDisabledDays && !hasContent) {
+                    disabledDate = me.currentDate; // cloned
+                    disabledDate.setDate(day);
+                }
+
+                row.cn.push({
+                    id      : cellId,
+                    cls     : cellCls,
+                    tabIndex: hasContent ? -1 : null,
+                    cn: [{
+                        cls : cls,
+                        html: hasContent ? day : me.showDisabledDays ? disabledDate.getDate() : ''
+                    }]
+                });
+
+                day++;
+            }
+
+            containerEl.cn.push(row);
+        }
+
+        return containerEl;
+    }
+
+    /**
+     *
      */
     createMonths() {
         let me             = this,
@@ -96,13 +177,14 @@ class YearComponent extends Component {
             vdom           = me.vdom,
             monthContainer = vdom.cn[1],
             i              = 0,
-            len            = 12;
+            len            = 12,
+            monthVdom;
 
         for (; i < len; i++) {
             currentDate.setMonth(i);
             currentMonth = dt.format(currentDate);
 
-            monthContainer.cn.push({
+            monthVdom = {
                 cls: ['neo-month'],
                 cn : [
                     {
@@ -111,10 +193,36 @@ class YearComponent extends Component {
                     },
                     me.createDayNamesRow()
                 ]
-            });
+            };
+
+            monthVdom = me.createMonthContent(monthVdom, DateUtil.clone(currentDate));
+
+            monthContainer.cn.push(monthVdom);
         }
 
         me.vdom = vdom;
+    }
+
+    /**
+     * @param {Number|String} year
+     * @param {Number|String} month
+     * @param {Number|String} day
+     * @returns {String} id
+     */
+    getCellId(year, month, day) {
+        day = day.toString();
+
+        if (day.length < 2) {
+            day = '0' + day;
+        }
+
+        month = month.toString();
+
+        if (month.length < 2) {
+            month = '0' + month;
+        }
+
+        return this.id + '__' + year + '-' + month + '-' + day;
     }
 }
 

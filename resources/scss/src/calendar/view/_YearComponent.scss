@@ -25,6 +25,10 @@
     .neo-calendar-week {
         display: flex;
 
+        .neo-cell {
+            flex: 1;
+        }
+
         .neo-top-left-spacer {
             flex: 1;
         }
