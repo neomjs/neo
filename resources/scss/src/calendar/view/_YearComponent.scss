@@ -40,11 +40,34 @@
             color          : v(calendar-yearcomponent-cell-color);
             display        : flex;
             flex           : 1;
+            font-weight    : 400;
             justify-content: center;
+
+            &:focus {
+                outline: 0;
+
+                .neo-cell-content {
+                    background-color: #1c60a0;
+                    color           : #fff;
+                    font-weight     : 900;
+                }
+            }
         }
 
         .neo-cell-content {
-            cursor: pointer;
+            align-items    : center;
+            border-radius  : 50%;
+            cursor         : pointer;
+            display        : flex;
+            height         : 1.8em;
+            width          : 1.8em;
+            justify-content: center;
+
+            &.neo-today {
+                background-color: red;
+                color           : #fff;
+                font-weight     : 900;
+            }
         }
 
         .neo-top-left-spacer {
