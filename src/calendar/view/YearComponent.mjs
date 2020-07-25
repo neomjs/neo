@@ -52,9 +52,9 @@ class YearComponent extends Component {
         showDisabledDays_: true,
         /**
          * True to show the week number as the first column of each month
-         * @member {Boolean} showWeekNumber_=true
+         * @member {Boolean} showWeekNumbers_=true
          */
-        showWeekNumber_: true,
+        showWeekNumbers_: true,
         /**
          * @member {Object} vdom
          */
@@ -81,6 +81,32 @@ class YearComponent extends Component {
     constructor(config) {
         super(config);
         this.createMonths();
+    }
+
+    /**
+     * Triggered after the showWeekNumbers config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowWeekNumbers(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this,
+                vdom = me.vdom,
+                i    = 0,
+                itemCn, j, len;
+
+            for (; i < 12; i++) {
+                itemCn = vdom.cn[1].cn[i].cn;
+                len    = itemCn.length;
+
+                for (j = 1; j < len; j++) {
+                    itemCn[j].cn[0].removeDom = !value;
+                }
+            }
+
+            me.vdom = vdom;
+        }
     }
 
     /**
@@ -139,21 +165,14 @@ class YearComponent extends Component {
         for (; i < rows; i++) {
             row = {
                 cls: ['neo-calendar-week'],
-                cn : []
+                cn : [{
+                    cls      : ['neo-cell', 'neo-weeknumber-cell'],
+                    html     : DateUtil.getWeekOfYear(weekDate),
+                    removeDom: !me.showWeekNumbers
+                }]
             };
 
-            if (me.showWeekNumber) {
-                row.cn.push({
-                    cls : ['neo-cell', 'neo-weeknumber-cell'],
-                    html: DateUtil.getWeekOfYear(weekDate)
-                });
-
-                weekDate.setDate(weekDate.getDate() + 7);
-            } else {
-                row.cn.push({
-                    cls: ['neo-cell', 'neo-top-left-spacer']
-                });
-            }
+            weekDate.setDate(weekDate.getDate() + 7);
 
             for (j=0; j < columns; j++) {
                 hasContent = day > 0 && day <= daysInMonth;

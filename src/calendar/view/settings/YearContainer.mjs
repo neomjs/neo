@@ -30,12 +30,12 @@ class YearContainer extends Container {
 
         me.items = [{
             module    : CheckBoxField,
-            checked   : yearComponent.showWeekNumber,
+            checked   : yearComponent.showWeekNumbers,
             flex      : 'none',
-            labelText : 'Show WeekNumber',
-            labelWidth: 150,
-            listeners : {change: me.onShowWeekNumberChange, scope: me},
-            name      : 'showWeekNumber'
+            labelText : 'Show WeekNumbers',
+            labelWidth: 160,
+            listeners : {change: me.onShowWeekNumbersChange, scope: me},
+            name      : 'showWeekNumbers'
         }];
     }
 
@@ -51,8 +51,8 @@ class YearContainer extends Container {
      *
      * @param opts
      */
-    onShowWeekNumberChange(opts) {
-        this.getYearComponent().showWeekNumber = opts.value;
+    onShowWeekNumbersChange(opts) {
+        this.getYearComponent().showWeekNumbers = opts.value;
     }
 }
 
