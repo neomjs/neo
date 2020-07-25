@@ -278,7 +278,7 @@ class Time extends Picker {
 
         if (me.value !== value) {
             me._value = value;
-            me.afterSetValue(value, oldValue, true); // prevent the list from getting selected / focussed
+            me.afterSetValue(value, oldValue, true); // prevent the list from getting selected / focused
         }
     }
 
