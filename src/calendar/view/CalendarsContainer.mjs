@@ -1,5 +1,4 @@
 import {default as Container}     from '../../container/Base.mjs';
-import {default as CalendarStore} from './../store/Calendars.mjs';
 import {default as CheckBoxField} from '../../form/field/CheckBox.mjs';
 
 /**
@@ -19,6 +18,10 @@ class CalendarsContainer extends Container {
          */
         ntype: 'calendar-calendarscontainer',
         /**
+         * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
+         */
+        calendarStore_: null,
+        /**
          * @member {String[]} cls=['neo-calendar-calendarscontainer', 'neo-container']
          */
         cls: ['neo-calendar-calendarscontainer', 'neo-container'],
@@ -36,12 +39,7 @@ class CalendarsContainer extends Container {
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
          */
-        layout: {ntype: 'vbox', align: 'stretch'},
-        /**
-         * @member {Neo.data.Store} store_=CalendarStore
-         * @protected
-         */
-        store_: CalendarStore
+        layout: {ntype: 'vbox', align: 'stretch'}
     }}
 
     /**

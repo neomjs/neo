@@ -374,8 +374,9 @@ class MainContainer extends Container {
 
                     ...me.dateSelectorConfig || {}
                 }, {
-                    module: CalendarsContainer,
-                    flex  : 1
+                    module       : CalendarsContainer,
+                    calendarStore: me.calendarStore,
+                    flex         : 1
                 }]
             }, {
                 module: Container,
