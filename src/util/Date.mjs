@@ -19,6 +19,13 @@ class DateUtil extends Base {
          */
         dayNameFormats: ['narrow', 'short', 'long'],
         /**
+         * Valid values for monthNameFormat
+         * @member {String[]} monthNameFormats=['narrow', 'short', 'long']
+         * @protected
+         * @static
+         */
+        monthNameFormats: ['narrow', 'short', 'long'],
+        /**
          * Valid values for dayNameFormat
          * @member {Number[]} weekStartDays=[0, 1, 2, 3, 4, 5, 6]
          * @protected
