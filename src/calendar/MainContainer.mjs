@@ -29,6 +29,10 @@ class MainContainer extends Container {
          */
         ntype: 'calendar-maincontainer',
         /**
+         * @member {Neo.calendar.view.CalendarsContainer|null} calendarsContainer=null
+         */
+        calendarsContainer: null,
+        /**
          * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
          */
         calendarStore_: null,
@@ -283,6 +287,12 @@ class MainContainer extends Container {
     createItemsContent() {
         let me = this;
 
+        me.calendarsContainer = Neo.create({
+            module       : CalendarsContainer,
+            calendarStore: me.calendarStore,
+            flex         : 1
+        });
+
         me.weekComponent = Neo.create({
             module      : WeekComponent,
             currentDate : me.currentDate,
@@ -373,11 +383,7 @@ class MainContainer extends Container {
                     },
 
                     ...me.dateSelectorConfig || {}
-                }, {
-                    module       : CalendarsContainer,
-                    calendarStore: me.calendarStore,
-                    flex         : 1
-                }]
+                }, me.calendarsContainer]
             }, {
                 module: Container,
                 flex  : 1,
@@ -417,9 +423,12 @@ class MainContainer extends Container {
      *
      */
     destroy(...args) {
+        let me = this;
+
         // remove references, the super call will remove component tree based instances
-        this.dateSelector  = null;
-        this.weekComponent = null;
+        me.calendarsContainer = null;
+        me.dateSelector       = null;
+        me.weekComponent      = null;
 
         super.destroy(...args);
     }
