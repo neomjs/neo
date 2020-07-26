@@ -47,6 +47,11 @@ class YearComponent extends Component {
          */
         eventStore_: null,
         /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_day=null
+         * @protected
+         */
+        intlFormat_day: null,
+        /**
          * @member {Intl.DateTimeFormat|null} intlFormat_month=null
          * @protected
          */
@@ -118,6 +123,18 @@ class YearComponent extends Component {
                 // todo
                 console.log('## select a new day', value.getMonth(), value.getDate());
             }
+        }
+    }
+
+    /**
+     * Triggered after the dayNameFormat config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetDayNameFormat(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.updateDayNamesRows();
         }
     }
 
