@@ -209,7 +209,7 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetDayNameFormat(value, oldValue) {
-        if (this.rendered) {
+        if (oldValue !== undefined) {
             this.recreateDayViewContent();
         }
     }
@@ -265,7 +265,7 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetShowDisabledDays(value, oldValue) {
-        if (this.rendered) {
+        if (oldValue !== undefined) {
             this.recreateDayViewContent();
         }
     }
@@ -277,7 +277,7 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        if (this.rendered) {
+        if (oldValue !== undefined) {
             value.register(this);
         }
     }
@@ -310,7 +310,7 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetWeekStartDay(value, oldValue) {
-        if (this.rendered) {
+        if (oldValue !== undefined) {
             this.recreateDayViewContent(false, false);
         }
     }
