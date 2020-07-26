@@ -46,6 +46,11 @@ class YearComponent extends Component {
          */
         eventStore_: null,
         /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_month=null
+         * @protected
+         */
+        intlFormat_month: null,
+        /**
          * The format of the month header names.
          * Valid values are: narrow, short & long
          * @member {String} monthNameFormat_='long'
@@ -113,18 +118,19 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetMonthNameFormat(value, oldValue) {
-        if (oldValue !== undefined) {console.log(value);
+        this.intlFormat_month = new Intl.DateTimeFormat(Neo.config.locale, {month: value});
+
+        if (oldValue !== undefined) {
             let me          = this,
                 vdom        = me.vdom,
                 i           = 0,
-                dt          = new Intl.DateTimeFormat(Neo.config.locale, {month: value}), // todo: store inside a prop
                 currentDate = me.currentDate;
 
             for (; i < 12; i++) {
                 currentDate.setMonth(i);
                 currentDate.setDate(1);
 
-                vdom.cn[1].cn[i].cn[0].html = dt.format(currentDate);
+                vdom.cn[1].cn[i].cn[0].html = me.intlFormat_month.format(currentDate);
             }
 
             me.vdom = vdom;
@@ -278,7 +284,6 @@ class YearComponent extends Component {
      */
     createMonths() {
         let me             = this,
-            dt             = new Intl.DateTimeFormat(Neo.config.locale, {month: me.monthNameFormat}),
             currentDate    = me.currentDate, // cloned
             vdom           = me.vdom,
             monthContainer = vdom.cn[1],
@@ -296,7 +301,7 @@ class YearComponent extends Component {
                 cn : [
                     {
                         cls : ['neo-month-name'],
-                        html: dt.format(currentDate)
+                        html: me.intlFormat_month.format(currentDate)
                     },
                     me.createDayNamesRow()
                 ]
