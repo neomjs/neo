@@ -131,6 +131,7 @@ class YearComponent extends Component {
         if (oldValue !== undefined) {
             let me = this;
 
+            me.updateDayNamesRows(true);
             me.updateMonthNameFormat(me.monthNameFormat, '');
         }
     }
@@ -368,6 +369,34 @@ class YearComponent extends Component {
         }
 
         return this.id + '__' + year + '-' + month + '-' + day;
+    }
+
+    /**
+     *
+     * @param {Boolean} [silent=false]
+     */
+    updateDayNamesRows(silent=false) {
+        let me   = this,
+            date = me.currentDate, // cloned
+            vdom = me.vdom,
+            i    = 1,
+            j;
+
+        date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
+
+        const dt = new Intl.DateTimeFormat(me.locale, {
+            weekday: me.dayNameFormat
+        });
+
+        for (; i < 8; i++) {
+            for (j=0; j < 12; j++) {
+                vdom.cn[1].cn[j].cn[1].cn[i].html = dt.format(date);
+            }
+
+            date.setDate(date.getDate() + 1);
+        }
+
+        me[silent ? '_vdom' : 'vdom'] = vdom;
     }
 
     /**
