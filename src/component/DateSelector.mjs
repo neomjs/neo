@@ -56,6 +56,11 @@ class DateSelector extends Component {
          */
         dayNameFormat_: 'short',
         /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_day=null
+         * @protected
+         */
+        intlFormat_day: null,
+        /**
          * Internal flag to prevent changing the date while change animations are still running
          * @member {Boolean} isUpdating_=false
          * @protected
@@ -209,9 +214,7 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetDayNameFormat(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.recreateDayViewContent();
-        }
+        this.updateHeaderDays(value, oldValue);
     }
 
     /**
@@ -223,6 +226,7 @@ class DateSelector extends Component {
     afterSetLocale(value, oldValue) {
         if (oldValue !== undefined) {
             console.log('afterSetLocale', value);
+            this.updateHeaderDays(this.dayNameFormat, '');
         }
     }
 
@@ -527,7 +531,7 @@ class DateSelector extends Component {
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
-        const dt = new Intl.DateTimeFormat(Neo.config.locale, {
+        const dt = new Intl.DateTimeFormat(me.locale, {
             weekday: me.dayNameFormat
         });
 
@@ -788,6 +792,35 @@ class DateSelector extends Component {
 
     /**
      *
+     * @param {String} value
+     * @param {String} oldValue
+     * @param {Boolean} [silent=false]
+     */
+    updateHeaderDays(value, oldValue, silent=false) {
+        let me = this;
+
+        me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
+
+        if (oldValue !== undefined) {
+            let centerEl = me.getCenterContentEl().cn[0],
+                date     = me.currentDate, // cloned
+                vdom     = me.vdom,
+                i        = 0;
+
+            date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
+
+            for (; i < 7; i++) {
+                centerEl.cn[i].cn[0].html = me.intlFormat_day.format(date);
+
+                date.setDate(date.getDate() + 1);
+            }
+
+            me[silent ? '_vdom' : 'vdom'] = vdom;
+        }
+    }
+
+    /**
+     *
      * @param {Number} increment
      * @param {Number} yearIncrement
      * @param {Boolean} silent=false
@@ -796,7 +829,7 @@ class DateSelector extends Component {
      */
     updateHeaderMonth(increment, yearIncrement, silent=false, monthElDomRect) {
         let me             = this,
-            dt             = new Intl.DateTimeFormat(Neo.config.locale, {month: 'short'}),
+            dt             = new Intl.DateTimeFormat(me.locale, {month: 'short'}),
             currentMonth   = dt.format(me.currentDate),
             monthEl        = me.getHeaderMonthEl(),
             slideDirection = yearIncrement > 0 ? 'bottom' : yearIncrement < 0 ? 'top' : increment < 0 ? 'top' : 'bottom',

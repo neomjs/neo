@@ -394,8 +394,7 @@ class YearComponent extends Component {
         me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
 
         if (oldValue !== undefined) {
-            let me   = this,
-                date = me.currentDate, // cloned
+            let date = me.currentDate, // cloned
                 vdom = me.vdom,
                 i    = 1,
                 j;
