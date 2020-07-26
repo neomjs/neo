@@ -438,7 +438,7 @@ class MainContainer extends Container {
      * @param {Object[]} data
      */
     onCalendarStoreLoad(data) {
-        console.log('onCalendarStoreLoad', data);
+        this.calendarsContainer.onStoreLoad(data);
     }
 
     /**

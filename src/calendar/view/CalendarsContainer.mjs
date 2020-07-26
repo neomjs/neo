@@ -44,24 +44,23 @@ class CalendarsContainer extends Container {
 
     /**
      *
-     * @param config
+     * @param {Object[]} data
      */
-    constructor(config) {
-        super(config);
-        this.onStoreLoad(); // todo
-    }
+    onStoreLoad(data) {
+        let me    = this,
+            items = [];
 
-    /**
-     *
-     */
-    onStoreLoad() {
-        this.items = [{
-            checked       : true,
-            valueLabelText: 'Calendar 1'
-        }, {
-            checked       : true,
-            valueLabelText: 'Calendar 2'
-        }];
+        data.forEach(item => {
+            items.push({
+                checked       : true,
+                valueLabelText: item.name
+            });
+        });
+
+        me._items = items;
+
+        me.parseItemConfigs(items);
+        me.createItems();
     }
 }
 
