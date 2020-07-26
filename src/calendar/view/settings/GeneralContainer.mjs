@@ -65,6 +65,18 @@ class GeneralContainer extends Container {
             valueLabelText: 'en-US'
         }, {
             module        : RadioField,
+            checked       : calendar.locale === 'es-ES',
+            fieldValue    : 'es-ES',
+            flex          : 'none',
+            hideValueLabel: false,
+            labelText     : '',
+            labelWidth    : 110,
+            listeners     : {change: me.onRadioChange, scope: me},
+            name          : 'locale',
+            style         : {marginTop: '5px'},
+            valueLabelText: 'es-ES'
+        }, {
+            module        : RadioField,
             checked       : calendar.locale === 'fr-FR',
             fieldValue    : 'fr-FR',
             flex          : 'none',
