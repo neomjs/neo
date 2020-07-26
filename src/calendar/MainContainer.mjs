@@ -71,6 +71,10 @@ class MainContainer extends Container {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
+         * @member {String} locale_=Neo.config.locale
+         */
+        locale_: Neo.config.locale,
+        /**
          * @member {Number} settingsContainerWidth=300
          */
         settingsContainerWidth: 310,
