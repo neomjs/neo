@@ -36,13 +36,9 @@ class GeneralContainer extends Container {
             hideValueLabel: false,
             labelText     : 'weekStartDay',
             labelWidth    : 110,
+            listeners     : {change: me.onWeekStartDayChange, scope: me},
             name          : 'weekStartDay',
-            valueLabelText: 'Sunday',
-
-            listeners: {
-                change: me.onWeekStartDayChange,
-                scope : me
-            }
+            valueLabelText: 'Sunday'
         }, {
             module        : RadioField,
             checked       : calendar.weekStartDay === 1,
@@ -51,14 +47,10 @@ class GeneralContainer extends Container {
             hideValueLabel: false,
             labelText     : '',
             labelWidth    : 110,
+            listeners     : {change: me.onWeekStartDayChange, scope: me},
             name          : 'weekStartDay',
             style         : {marginTop: '5px'},
-            valueLabelText: 'Monday',
-
-            listeners: {
-                change: me.onWeekStartDayChange,
-                scope : me
-            }
+            valueLabelText: 'Monday'
         }];
     }
 
