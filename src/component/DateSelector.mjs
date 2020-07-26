@@ -225,8 +225,15 @@ class DateSelector extends Component {
      */
     afterSetLocale(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('afterSetLocale', value);
-            this.updateHeaderDays(this.dayNameFormat, '');
+            let me   = this,
+                dt   = new Intl.DateTimeFormat(me.locale, {month: 'short'}),
+                vdom = me.vdom;
+
+            me.updateHeaderDays(me.dayNameFormat, '', true);
+
+            me.getHeaderMonthEl().html = dt.format(me.currentDate);
+
+            me.vdom = vdom;
         }
     }
 
@@ -531,16 +538,12 @@ class DateSelector extends Component {
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
-        const dt = new Intl.DateTimeFormat(me.locale, {
-            weekday: me.dayNameFormat
-        });
-
         for (; i < len; i++) {
             row.cn.push({
                 cls: ['neo-cell'],
                 cn : [{
                     cls : ['neo-cell-content'],
-                    html: dt.format(date)
+                    html: me.intlFormat_day.format(date)
                 }]
             });
 
