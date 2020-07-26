@@ -38,6 +38,13 @@ class MainContainer extends Viewport {
                 height : 27,
                 iconCls: 'fa fa-moon',
                 text   : 'Theme Dark'
+            }, {
+                module : Button,
+                height : 27,
+                iconCls: 'fab fa-github',
+                style  : {marginLeft: '5px'},
+                text   : 'GitHub',
+                url    : 'https://github.com/neomjs/neo/tree/dev/src/calendar'
             }]
         }, {
             module     : Calendar,
