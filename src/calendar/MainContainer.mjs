@@ -1,10 +1,10 @@
+import CalendarsContainer           from './view/CalendarsContainer.mjs';
 import {default as CalendarStore}   from './store/Calendars.mjs';
 import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
 import {default as Container}       from '../container/Base.mjs';
 import DateSelector                 from '../component/DateSelector.mjs';
 import DateUtil                     from '../util/Date.mjs';
 import {default as EventStore}      from './store/Events.mjs';
-import ItemsContainer               from './ItemsContainer.mjs';
 import SettingsContainer            from './view/SettingsContainer.mjs';
 import Toolbar                      from '../container/Toolbar.mjs';
 import WeekComponent                from './view/WeekComponent.mjs';
@@ -374,7 +374,7 @@ class MainContainer extends Container {
 
                     ...me.dateSelectorConfig || {}
                 }, {
-                    module: ItemsContainer,
+                    module: CalendarsContainer,
                     flex  : 1
                 }]
             }, {

@@ -1,27 +1,27 @@
-import {default as Container}     from '../container/Base.mjs';
-import {default as CalendarStore} from './store/Calendars.mjs';
-import {default as CheckBoxField} from '../form/field/CheckBox.mjs';
+import {default as Container}     from '../../container/Base.mjs';
+import {default as CalendarStore} from './../store/Calendars.mjs';
+import {default as CheckBoxField} from '../../form/field/CheckBox.mjs';
 
 /**
- * @class Neo.calendar.ItemsContainer
+ * @class Neo.calendar.view.CalendarsContainer
  * @extends Neo.container.Base
  */
-class ItemsContainer extends Container {
+class CalendarsContainer extends Container {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.calendar.ItemsContainer'
+         * @member {String} className='Neo.calendar.view.CalendarsContainer'
          * @protected
          */
-        className: 'Neo.calendar.ItemsContainer',
+        className: 'Neo.calendar.view.CalendarsContainer',
         /**
-         * @member {String} ntype='calendar-itemscontainer'
+         * @member {String} ntype='calendar-calendarscontainer'
          * @protected
          */
-        ntype: 'calendar-itemscontainer',
+        ntype: 'calendar-calendarscontainer',
         /**
-         * @member {String[]} cls=['neo-calendar-itemscontainer', 'neo-container']
+         * @member {String[]} cls=['neo-calendar-calendarscontainer', 'neo-container']
          */
-        cls: ['neo-calendar-itemscontainer', 'neo-container'],
+        cls: ['neo-calendar-calendarscontainer', 'neo-container'],
         /**
          * @member {Object} itemDefaults
          * @protected
@@ -67,6 +67,6 @@ class ItemsContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(ItemsContainer);
+Neo.applyClassConfig(CalendarsContainer);
 
-export {ItemsContainer as default};
+export {CalendarsContainer as default};
