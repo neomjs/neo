@@ -258,6 +258,8 @@ class YearComponent extends Component {
         rows           = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
         day            = 1 - firstDayOffset;
 
+        weekDate.setDate(day + 7);
+
         for (; i < rows; i++) {
             row = {
                 cls: ['neo-calendar-week'],
