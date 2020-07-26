@@ -38,12 +38,24 @@ class MainContainer extends Viewport {
                 height : 27,
                 iconCls: 'fa fa-moon',
                 text   : 'Theme Dark'
+            }, {
+                module : Button,
+                height : 27,
+                iconCls: 'fab fa-github',
+                style  : {marginLeft: '5px'},
+                text   : 'GitHub',
+                url    : 'https://github.com/neomjs/neo/tree/dev/src/calendar'
             }]
         }, {
             module     : Calendar,
             currentDate: new Date('2020-07-20'),
             flex       : 1,
             reference  : 'calendar',
+
+            calendarStoreConfig: {
+                autoLoad: true,
+                url     : '../../examples/calendar/basic/data/calendars.json'
+            },
 
             eventStoreConfig: {
                 autoLoad: true,

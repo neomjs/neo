@@ -30,19 +30,75 @@ class GeneralContainer extends Container {
 
         me.items = [{
             module        : RadioField,
+            checked       : calendar.locale === 'default',
+            fieldValue    : 'default',
+            flex          : 'none',
+            hideValueLabel: false,
+            labelText     : 'locale',
+            labelWidth    : 110,
+            listeners     : {change: me.onRadioChange, scope: me},
+            name          : 'locale',
+            valueLabelText: 'default'
+        }, {
+            module        : RadioField,
+            checked       : calendar.locale === 'de-DE',
+            fieldValue    : 'de-DE',
+            flex          : 'none',
+            hideValueLabel: false,
+            labelText     : '',
+            labelWidth    : 110,
+            listeners     : {change: me.onRadioChange, scope: me},
+            name          : 'locale',
+            style         : {marginTop: '5px'},
+            valueLabelText: 'de-DE'
+        }, {
+            module        : RadioField,
+            checked       : calendar.locale === 'en-US',
+            fieldValue    : 'en-US',
+            flex          : 'none',
+            hideValueLabel: false,
+            labelText     : '',
+            labelWidth    : 110,
+            listeners     : {change: me.onRadioChange, scope: me},
+            name          : 'locale',
+            style         : {marginTop: '5px'},
+            valueLabelText: 'en-US'
+        }, {
+            module        : RadioField,
+            checked       : calendar.locale === 'es-ES',
+            fieldValue    : 'es-ES',
+            flex          : 'none',
+            hideValueLabel: false,
+            labelText     : '',
+            labelWidth    : 110,
+            listeners     : {change: me.onRadioChange, scope: me},
+            name          : 'locale',
+            style         : {marginTop: '5px'},
+            valueLabelText: 'es-ES'
+        }, {
+            module        : RadioField,
+            checked       : calendar.locale === 'fr-FR',
+            fieldValue    : 'fr-FR',
+            flex          : 'none',
+            hideValueLabel: false,
+            labelText     : '',
+            labelWidth    : 110,
+            listeners     : {change: me.onRadioChange, scope: me},
+            name          : 'locale',
+            style         : {marginTop: '5px'},
+            valueLabelText: 'fr-FR'
+        }, {
+            module        : RadioField,
             checked       : calendar.weekStartDay === 0,
             fieldValue    : 0,
             flex          : 'none',
             hideValueLabel: false,
             labelText     : 'weekStartDay',
             labelWidth    : 110,
+            listeners     : {change: me.onRadioChange, scope: me},
             name          : 'weekStartDay',
-            valueLabelText: 'Sunday',
-
-            listeners: {
-                change: me.onWeekStartDayChange,
-                scope : me
-            }
+            style         : {marginTop: '10px'},
+            valueLabelText: 'Sunday'
         }, {
             module        : RadioField,
             checked       : calendar.weekStartDay === 1,
@@ -51,24 +107,20 @@ class GeneralContainer extends Container {
             hideValueLabel: false,
             labelText     : '',
             labelWidth    : 110,
+            listeners     : {change: me.onRadioChange, scope: me},
             name          : 'weekStartDay',
             style         : {marginTop: '5px'},
-            valueLabelText: 'Monday',
-
-            listeners: {
-                change: me.onWeekStartDayChange,
-                scope : me
-            }
+            valueLabelText: 'Monday'
         }];
     }
 
     /**
      *
-     * @param opts
+     * @param {Object} data
      */
-    onWeekStartDayChange(opts) {
-        if (opts.value) {
-            this.up('calendar-maincontainer').weekStartDay = opts.component.fieldValue;
+    onRadioChange(data) {
+        if (data.value) {
+            this.up('calendar-maincontainer')[data.component.name] = data.component.fieldValue;
         }
     }
 }

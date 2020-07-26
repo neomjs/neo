@@ -1,9 +1,10 @@
+import CalendarsContainer           from './view/CalendarsContainer.mjs';
+import {default as CalendarStore}   from './store/Calendars.mjs';
 import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
 import {default as Container}       from '../container/Base.mjs';
 import DateSelector                 from '../component/DateSelector.mjs';
 import DateUtil                     from '../util/Date.mjs';
 import {default as EventStore}      from './store/Events.mjs';
-import ItemsContainer               from './ItemsContainer.mjs';
 import SettingsContainer            from './view/SettingsContainer.mjs';
 import Toolbar                      from '../container/Toolbar.mjs';
 import WeekComponent                from './view/WeekComponent.mjs';
@@ -27,6 +28,18 @@ class MainContainer extends Container {
          * @protected
          */
         ntype: 'calendar-maincontainer',
+        /**
+         * @member {Neo.calendar.view.CalendarsContainer|null} calendarsContainer=null
+         */
+        calendarsContainer: null,
+        /**
+         * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
+         */
+        calendarStore_: null,
+        /**
+         * @member {Object|null} calendarStoreConfig=null
+         */
+        calendarStoreConfig: null,
         /**
          * @member {String[]} cls=['neo-container']
          */
@@ -57,6 +70,10 @@ class MainContainer extends Container {
          * @protected
          */
         layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * @member {String} locale_=Neo.config.locale
+         */
+        locale_: Neo.config.locale,
         /**
          * @member {Number} settingsContainerWidth=300
          */
@@ -128,6 +145,20 @@ class MainContainer extends Container {
             this.dateSelector .value       = DateUtil.convertToyyyymmdd(value);
             this.weekComponent.currentDate = value;
             this.yearComponent.currentDate = value;
+        }
+    }
+
+    /**
+     * Triggered after the locale config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLocale(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.dateSelector .locale = value;
+            this.weekComponent.locale = value;
+            this.yearComponent.locale = value;
         }
     }
 
@@ -208,7 +239,26 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered before the selectionModel config gets changed.
+     * Triggered before the calendarStore config gets changed.
+     * @param {Neo.calendar.store.Calendars} value
+     * @param {Neo.calendar.store.Calendars} oldValue
+     * @protected
+     */
+    beforeSetCalendarStore(value, oldValue) {
+        let me = this;
+
+        if (oldValue) {
+            oldValue.destroy();
+        }
+
+        return ClassSystemUtil.beforeSetInstance(value, CalendarStore, {
+            listeners: {load: me.onCalendarStoreLoad, scope: me},
+            ...me.calendarStoreConfig || {}
+        });
+    }
+
+    /**
+     * Triggered before the eventStore config gets changed.
      * @param {Neo.calendar.store.Events} value
      * @param {Neo.calendar.store.Events} oldValue
      * @protected
@@ -220,15 +270,10 @@ class MainContainer extends Container {
             oldValue.destroy();
         }
 
-        const defaultValue = {
-            listeners: {
-                load : me.onEventStoreLoad,
-                scope: me
-            },
+        return ClassSystemUtil.beforeSetInstance(value, EventStore, {
+            listeners: {load: me.onEventStoreLoad, scope: me},
             ...me.eventStoreConfig || {}
-        }
-
-        return ClassSystemUtil.beforeSetInstance(value, EventStore, defaultValue);
+        });
     }
 
     /**
@@ -260,10 +305,17 @@ class MainContainer extends Container {
     createItemsContent() {
         let me = this;
 
+        me.calendarsContainer = Neo.create({
+            module       : CalendarsContainer,
+            calendarStore: me.calendarStore,
+            flex         : 1
+        });
+
         me.weekComponent = Neo.create({
             module      : WeekComponent,
             currentDate : me.currentDate,
             eventStore  : me.eventStore,
+            locale      : me.locale,
             weekStartDay: me.weekStartDay,
             ...me.weekComponentConfig || {}
         });
@@ -272,6 +324,7 @@ class MainContainer extends Container {
             module      : YearComponent,
             currentDate : me.currentDate,
             eventStore  : me.eventStore,
+            locale      : me.locale,
             weekStartDay: me.weekStartDay,
             ...me.yearComponentConfig || {}
         });
@@ -341,6 +394,7 @@ class MainContainer extends Container {
                     module      : DateSelector,
                     flex        : 'none',
                     height      : me.sideBarWidth,
+                    locale      : me.locale,
                     value       : DateUtil.convertToyyyymmdd(me.currentDate),
                     weekStartDay: me.weekStartDay,
 
@@ -350,10 +404,7 @@ class MainContainer extends Container {
                     },
 
                     ...me.dateSelectorConfig || {}
-                }, {
-                    module: ItemsContainer,
-                    flex  : 1
-                }]
+                }, me.calendarsContainer]
             }, {
                 module: Container,
                 flex  : 1,
@@ -393,11 +444,22 @@ class MainContainer extends Container {
      *
      */
     destroy(...args) {
+        let me = this;
+
         // remove references, the super call will remove component tree based instances
-        this.dateSelector  = null;
-        this.weekComponent = null;
+        me.calendarsContainer = null;
+        me.dateSelector       = null;
+        me.weekComponent      = null;
 
         super.destroy(...args);
+    }
+
+    /**
+     *
+     * @param {Object[]} data
+     */
+    onCalendarStoreLoad(data) {
+        this.calendarsContainer.onStoreLoad(data);
     }
 
     /**

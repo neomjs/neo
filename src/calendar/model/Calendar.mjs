@@ -16,11 +16,14 @@ class Calendar extends Model {
          * @protected
          */
         fields: [{
-            name: 'id',
-            type: 'Integer'
+            name: 'active',
+            type: 'Boolean'
         }, {
             name: 'color',
             type: 'String'
+        }, {
+            name: 'id',
+            type: 'Integer'
         }, {
             name: 'name',
             type: 'String'

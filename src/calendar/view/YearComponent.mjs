@@ -1,5 +1,6 @@
 import {default as Component} from '../../component/Base.mjs';
 import DateUtil               from '../../util/Date.mjs';
+import NeoArray               from '../../util/Array.mjs';
 
 const todayDate = new Date();
 
@@ -46,16 +47,30 @@ class YearComponent extends Component {
          */
         eventStore_: null,
         /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_day=null
+         * @protected
+         */
+        intlFormat_day: null,
+        /**
          * @member {Intl.DateTimeFormat|null} intlFormat_month=null
          * @protected
          */
         intlFormat_month: null,
+        /**
+         * @member {String} locale_=Neo.config.locale
+         */
+        locale_: Neo.config.locale,
         /**
          * The format of the month header names.
          * Valid values are: narrow, short & long
          * @member {String} monthNameFormat_='long'
          */
         monthNameFormat_: 'long',
+        /**
+         * True to show borders for the calendar month cells
+         * @member {Boolean} showCellBorders_=false
+         */
+        showCellBorders_: false,
         /**
          * True to show the days of the previous or next month (not selectable)
          * @member {Boolean} showDisabledDays_=true
@@ -112,29 +127,51 @@ class YearComponent extends Component {
     }
 
     /**
+     * Triggered after the dayNameFormat config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetDayNameFormat(value, oldValue) {
+        this.updateDayNamesRows(value, oldValue);
+    }
+
+    /**
+     * Triggered after the locale config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLocale(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.updateDayNamesRows(me.dayNameFormat, '', true);
+            me.updateMonthNameFormat(me.monthNameFormat, '');
+        }
+    }
+
+    /**
      * Triggered after the monthNameFormat config got changed
      * @param {String} value
      * @param {String} oldValue
      * @protected
      */
     afterSetMonthNameFormat(value, oldValue) {
-        this.intlFormat_month = new Intl.DateTimeFormat(Neo.config.locale, {month: value});
+        this.updateMonthNameFormat(value, oldValue);
+    }
 
-        if (oldValue !== undefined) {
-            let me          = this,
-                vdom        = me.vdom,
-                i           = 0,
-                currentDate = me.currentDate;
+    /**
+     * Triggered after the showCellBorders config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowCellBorders(value, oldValue) {
+        let cls = this.cls;
 
-            for (; i < 12; i++) {
-                currentDate.setMonth(i);
-                currentDate.setDate(1);
-
-                vdom.cn[1].cn[i].cn[0].html = me.intlFormat_month.format(currentDate);
-            }
-
-            me.vdom = vdom;
-        }
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-show-cell-borders');
+        this.cls = cls;
     }
 
     /**
@@ -196,14 +233,10 @@ class YearComponent extends Component {
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
-        const dt = new Intl.DateTimeFormat(Neo.config.locale, {
-            weekday: me.dayNameFormat
-        });
-
         for (; i < 7; i++) {
             row.cn.push({
                 cls : ['neo-cell', 'neo-weekday-cell'],
-                html: dt.format(date)
+                html: me.intlFormat_day.format(date)
             });
 
             date.setDate(date.getDate() + 1);
@@ -238,6 +271,8 @@ class YearComponent extends Component {
         firstDayOffset = firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
         rows           = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
         day            = 1 - firstDayOffset;
+
+        weekDate.setDate(day + 7);
 
         for (; i < rows; i++) {
             row = {
@@ -348,10 +383,70 @@ class YearComponent extends Component {
     }
 
     /**
+     * Dynamically update the weekday rows inside each month
+     * @param {String} value
+     * @param {String} oldValue
+     * @param {Boolean} [silent=false]
+     */
+    updateDayNamesRows(value, oldValue, silent=false) {
+        let me = this;
+
+        me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
+
+        if (oldValue !== undefined) {
+            let me   = this,
+                date = me.currentDate, // cloned
+                vdom = me.vdom,
+                i    = 1,
+                j;
+
+            date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
+
+            for (; i < 8; i++) {
+                for (j=0; j < 12; j++) {
+                    vdom.cn[1].cn[j].cn[1].cn[i].html = me.intlFormat_day.format(date);
+                }
+
+                date.setDate(date.getDate() + 1);
+            }
+
+            me[silent ? '_vdom' : 'vdom'] = vdom;
+        }
+    }
+
+    /**
      *
      */
     updateHeaderYear() {
         this.vdom.cn[0].html = this.currentDate.getFullYear();
+    }
+
+    /**
+     * Dynamically update the monthNameFormat
+     * @param {String} value
+     * @param {String} oldValue
+     * @param {Boolean} [silent=false]
+     * @protected
+     */
+    updateMonthNameFormat(value, oldValue, silent=false) {
+        let me = this;
+
+        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: value});
+
+        if (oldValue !== undefined) {
+            let vdom        = me.vdom,
+                i           = 0,
+                currentDate = me.currentDate;
+
+            for (; i < 12; i++) {
+                currentDate.setMonth(i);
+                currentDate.setDate(1);
+
+                vdom.cn[1].cn[i].cn[0].html = me.intlFormat_month.format(currentDate);
+            }
+
+            me[silent ? '_vdom' : 'vdom'] = vdom;
+        }
     }
 }
 

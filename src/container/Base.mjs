@@ -223,6 +223,8 @@ class Base extends Component {
             vdom     = me.vdom,
             vdomRoot = me.getVdomRoot();
 
+        vdomRoot.cn = [];
+
         items.forEach((item, index) => {
             if (item.constructor.isClass && item instanceof Neo.core.Base) {
                 Object.assign(item, {
@@ -347,7 +349,7 @@ class Base extends Component {
                 item[i] = me.insert(item[len - 1], index);
             }
         } else if (typeof item === 'object') {
-            if (item instanceof Neo.component.Base !== true) {
+            if (!(item instanceof Neo.component.Base)) {
                 if (item.module) {
                     item.className = item.module.prototype.className;
                 }
@@ -394,7 +396,7 @@ class Base extends Component {
         let me           = this,
             currentIndex = me.indexOf(itemId);
 
-        console.log(currentIndex);
+        console.log('moveTo', currentIndex);
     }
 
     parseItemConfigs(items) {

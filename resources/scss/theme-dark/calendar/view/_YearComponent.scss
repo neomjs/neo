@@ -1,15 +1,17 @@
 $neoMap: map-merge($neoMap, (
-    'c-y-cell-color'           : #bbb,
-    'c-y-month-color'          : #ccc,
+    'c-y-cell-border-color'     : #3c3f41,
+    'c-y-cell-color'            : #bbb,
+    'c-y-month-color'           : #ccc,
     'c-y-today-background-color': firebrick,
     'c-y-today-color'           : #fff,
-    'c-y-week-background-color': #33343d,
-    'c-y-week-color'           : #ccc,
-    'c-y-year-color'           : #ccc
+    'c-y-week-background-color' : #33343d,
+    'c-y-week-color'            : #ccc,
+    'c-y-year-color'            : #ccc
 ));
 
 @if $useCss4Vars == true {
     :root .neo-theme-dark { // .neo-calendar-yearcomponent
+        --c-y-cell-border-color     : #{neo(c-y-cell-border-color)};
         --c-y-cell-color            : #{neo(c-y-cell-color)};
         --c-y-month-color           : #{neo(c-y-month-color)};
         --c-y-today-background-color: #{neo(c-y-today-background-color)};
