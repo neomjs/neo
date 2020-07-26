@@ -149,6 +149,20 @@ class MainContainer extends Container {
     }
 
     /**
+     * Triggered after the locale config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLocale(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.dateSelector .locale = value;
+            this.weekComponent.locale = value;
+            this.yearComponent.locale = value;
+        }
+    }
+
+    /**
      * Triggered after the eventStore config got changed
      * @param {String} value
      * @param {String} oldValue
