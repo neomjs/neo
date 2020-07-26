@@ -56,7 +56,7 @@ class YearContainer extends Container {
             module    : CheckBoxField,
             checked   : yearComponent.showWeekNumbers,
             flex      : 'none',
-            labelText : 'Show WeekNumbers',
+            labelText : 'Show Week Numbers',
             labelWidth: 160,
             listeners : {change: me.onShowWeekNumbersChange, scope: me},
             name      : 'showWeekNumbers',
