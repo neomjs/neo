@@ -389,7 +389,7 @@ class YearComponent extends Component {
     }
 
     /**
-     *
+     * Dynamically update the weekday rows inside each month
      * @param {Boolean} [silent=false]
      */
     updateDayNamesRows(silent=false) {
