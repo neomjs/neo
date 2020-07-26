@@ -52,6 +52,10 @@ class YearComponent extends Component {
          */
         intlFormat_month: null,
         /**
+         * @member {String} locale_=Neo.config.locale
+         */
+        locale_: Neo.config.locale,
+        /**
          * The format of the month header names.
          * Valid values are: narrow, short & long
          * @member {String} monthNameFormat_='long'
@@ -124,7 +128,9 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetMonthNameFormat(value, oldValue) {
-        this.intlFormat_month = new Intl.DateTimeFormat(Neo.config.locale, {month: value});
+        let me = this;
+
+        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: value});
 
         if (oldValue !== undefined) {
             let me          = this,
@@ -215,7 +221,7 @@ class YearComponent extends Component {
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
-        const dt = new Intl.DateTimeFormat(Neo.config.locale, {
+        const dt = new Intl.DateTimeFormat(me.locale, {
             weekday: me.dayNameFormat
         });
 
