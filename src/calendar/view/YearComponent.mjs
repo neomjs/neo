@@ -129,7 +129,9 @@ class YearComponent extends Component {
      */
     afterSetLocale(value, oldValue) {
         if (oldValue !== undefined) {
-            this.afterSetMonthNameFormat(this.monthNameFormat, '');
+            let me = this;
+
+            me.updateMonthNameFormat(me.monthNameFormat, '');
         }
     }
 
@@ -140,25 +142,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetMonthNameFormat(value, oldValue) {
-        let me = this;
-
-        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: value});
-
-        if (oldValue !== undefined) {
-            let me          = this,
-                vdom        = me.vdom,
-                i           = 0,
-                currentDate = me.currentDate;
-
-            for (; i < 12; i++) {
-                currentDate.setMonth(i);
-                currentDate.setDate(1);
-
-                vdom.cn[1].cn[i].cn[0].html = me.intlFormat_month.format(currentDate);
-            }
-
-            me.vdom = vdom;
-        }
+        this.updateMonthNameFormat(value, oldValue);
     }
 
     /**
@@ -391,6 +375,35 @@ class YearComponent extends Component {
      */
     updateHeaderYear() {
         this.vdom.cn[0].html = this.currentDate.getFullYear();
+    }
+
+    /**
+     * Dynamically update the monthNameFormat
+     * @param {String} value
+     * @param {String} oldValue
+     * @param {Boolean} [silent=false]
+     * @protected
+     */
+    updateMonthNameFormat(value, oldValue, silent=false) {
+        let me = this;
+
+        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: value});
+
+        if (oldValue !== undefined) {
+            let me          = this,
+                vdom        = me.vdom,
+                i           = 0,
+                currentDate = me.currentDate;
+
+            for (; i < 12; i++) {
+                currentDate.setMonth(i);
+                currentDate.setDate(1);
+
+                vdom.cn[1].cn[i].cn[0].html = me.intlFormat_month.format(currentDate);
+            }
+
+            me[silent ? '_vdom' : 'vdom'] = vdom;
+        }
     }
 }
 
