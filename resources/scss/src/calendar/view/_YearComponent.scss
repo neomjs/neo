@@ -5,11 +5,11 @@
 
     &.neo-show-cell-borders {
         .neo-calendar-week {
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid v(c-y-cell-border-color);
         }
 
         .neo-cell {
-            border-right: 1px solid #ddd;
+            border-right: 1px solid v(c-y-cell-border-color);
         }
 
         .neo-top-left-spacer {
@@ -21,7 +21,7 @@
         }
 
         .neo-weeknumber-cell {
-            border-left: 1px solid #ddd;
+            border-left: 1px solid v(c-y-cell-border-color);
         }
     }
 

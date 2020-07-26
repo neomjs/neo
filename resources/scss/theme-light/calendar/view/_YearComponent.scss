@@ -1,4 +1,5 @@
 $neoMap: map-merge($neoMap, (
+    'c-y-cell-border-color'     : #ddd,
     'c-y-cell-color'            : #555,
     'c-y-month-color'           : #555,
     'c-y-today-background-color': red,
@@ -10,6 +11,7 @@ $neoMap: map-merge($neoMap, (
 
 @if $useCss4Vars == true {
     :root .neo-theme-light { // .neo-calendar-yearcomponent
+        --c-y-cell-border-color     : #{neo(c-y-cell-border-color)};
         --c-y-cell-color            : #{neo(c-y-cell-color)};
         --c-y-month-color           : #{neo(c-y-month-color)};
         --c-y-today-background-color: #{neo(c-y-today-background-color)};
