@@ -200,11 +200,12 @@ class WeekComponent extends Component {
      * @protected
      */
     afterSetTimeAxisPosition(value, oldValue) {
-        let me   = this,
+        let me        = this,
+            cls       = me.cls,
             vdom      = me.vdom,
             headerRow = me.getVdomHeaderRow();
 
-        NeoArray[value === 'end' ? 'add' : 'remove'](me._cls, 'neo-timeaxis-end');
+        NeoArray[value === 'end' ? 'add' : 'remove'](cls,  'neo-timeaxis-end');
 
         if (oldValue !== undefined) {
             vdom.cn[1].cn.unshift(vdom.cn[1].cn.pop()); // switch the order of the 2 items
@@ -216,6 +217,7 @@ class WeekComponent extends Component {
             }
         }
 
+        me._cls = cls;
         me.vdom = vdom;
     }
 
@@ -338,8 +340,8 @@ class WeekComponent extends Component {
                         startHours = (record.startDate.getHours() * 60 + record.startDate.getMinutes()) / 60;
                         top        = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
 
-                        console.log(j, record);
-                        console.log(top);
+                        // console.log(j, record);
+                        // console.log(top);
 
                         column.cn.push({
                             cls : ['neo-event'],
@@ -359,7 +361,7 @@ class WeekComponent extends Component {
             date.setDate(date.getDate() + 1);
         }
 
-        console.log(content);
+        // console.log(content);
         me.vdom = vdom;
     }
 
