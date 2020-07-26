@@ -1,5 +1,6 @@
 import {default as Component} from '../../component/Base.mjs';
 import DateUtil               from '../../util/Date.mjs';
+import NeoArray               from '../../util/Array.mjs';
 
 const todayDate = new Date();
 
@@ -56,6 +57,11 @@ class YearComponent extends Component {
          * @member {String} monthNameFormat_='long'
          */
         monthNameFormat_: 'long',
+        /**
+         * True to show borders for the calendar month cells
+         * @member {Boolean} showCellBorders_=false
+         */
+        showCellBorders_: false,
         /**
          * True to show the days of the previous or next month (not selectable)
          * @member {Boolean} showDisabledDays_=true
@@ -135,6 +141,19 @@ class YearComponent extends Component {
 
             me.vdom = vdom;
         }
+    }
+
+    /**
+     * Triggered after the showCellBorders config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowCellBorders(value, oldValue) {
+        let cls = this.cls;
+
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-show-cell-borders');
+        this.cls = cls;
     }
 
     /**
