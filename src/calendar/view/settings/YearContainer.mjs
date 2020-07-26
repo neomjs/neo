@@ -1,5 +1,6 @@
 import {default as CheckBoxField} from '../../../form/field/CheckBox.mjs';
 import {default as Container}     from '../../../container/Base.mjs';
+import {default as RadioField}    from '../../../form/field/Radio.mjs';
 
 /**
  * @class Neo.calendar.view.settings.YearContainer
@@ -29,13 +30,37 @@ class YearContainer extends Container {
             yearComponent = me.getYearComponent();
 
         me.items = [{
+            module        : RadioField,
+            checked       : yearComponent.monthNameFormat === 'short',
+            fieldValue    : 'short',
+            flex          : 'none',
+            hideValueLabel: false,
+            labelText     : 'Month Name Format',
+            labelWidth    : 160,
+            listeners     : {change: me.onRadioChange, scope: me},
+            name          : 'monthNameFormat',
+            valueLabelText: 'short'
+        }, {
+            module        : RadioField,
+            checked       : yearComponent.monthNameFormat === 'long',
+            fieldValue    : 'long',
+            flex          : 'none',
+            hideValueLabel: false,
+            labelText     : '',
+            labelWidth    : 160,
+            listeners     : {change: me.onRadioChange, scope: me},
+            name          : 'monthNameFormat',
+            style         : {marginTop: '5px'},
+            valueLabelText: 'long'
+        }, {
             module    : CheckBoxField,
             checked   : yearComponent.showWeekNumbers,
             flex      : 'none',
-            labelText : 'Show WeekNumbers',
+            labelText : 'Show Week Numbers',
             labelWidth: 160,
             listeners : {change: me.onShowWeekNumbersChange, scope: me},
-            name      : 'showWeekNumbers'
+            name      : 'showWeekNumbers',
+            style     : {marginTop: '5px'}
         }];
     }
 
@@ -45,6 +70,16 @@ class YearContainer extends Container {
      */
     getYearComponent() {
         return this.up('calendar-maincontainer').yearComponent;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onRadioChange(data) {
+        if (data.value) {
+            this.getYearComponent()[data.component.name] = data.component.fieldValue;
+        }
     }
 
     /**

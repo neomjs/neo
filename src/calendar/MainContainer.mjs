@@ -118,14 +118,16 @@ class MainContainer extends Container {
 
     /**
      * Triggered after the currentDate config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * todo: Only update the active view, adjust the state on card change
+     * @param {Date} value
+     * @param {Date} oldValue
      * @protected
      */
     afterSetCurrentDate(value, oldValue) {
         if (oldValue !== undefined) {
             this.dateSelector .value       = DateUtil.convertToyyyymmdd(value);
             this.weekComponent.currentDate = value;
+            this.yearComponent.currentDate = value;
         }
     }
 
@@ -337,9 +339,9 @@ class MainContainer extends Container {
                 width : me.sideBarWidth,
                 items : [{
                     module      : DateSelector,
-                    currentDate : me.currentDate,
                     flex        : 'none',
                     height      : me.sideBarWidth,
+                    value       : DateUtil.convertToyyyymmdd(me.currentDate),
                     weekStartDay: me.weekStartDay,
 
                     listeners: {

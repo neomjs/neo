@@ -46,6 +46,17 @@ class YearComponent extends Component {
          */
         eventStore_: null,
         /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_month=null
+         * @protected
+         */
+        intlFormat_month: null,
+        /**
+         * The format of the month header names.
+         * Valid values are: narrow, short & long
+         * @member {String} monthNameFormat_='long'
+         */
+        monthNameFormat_: 'long',
+        /**
          * True to show the days of the previous or next month (not selectable)
          * @member {Boolean} showDisabledDays_=true
          */
@@ -60,8 +71,7 @@ class YearComponent extends Component {
          */
         vdom: {
             cn: [{
-                cls : ['neo-year-header'],
-                html: '2020' // todo
+                cls : ['neo-year-header']
             }, {
                 cls: ['neo-months-container']
             }]
@@ -79,7 +89,52 @@ class YearComponent extends Component {
      */
     constructor(config) {
         super(config);
+        this.updateHeaderYear();
         this.createMonths();
+    }
+
+    /**
+     * Triggered after the currentDate config got changed
+     * @param {Date} value
+     * @param {Date} oldValue
+     * @protected
+     */
+    afterSetCurrentDate(value, oldValue) {
+        if (oldValue !== undefined) {
+            if (value.getFullYear() !== oldValue.getFullYear()) {
+                // todo
+                console.log('## transition to the new year', value.getFullYear());
+            } else {
+                // todo
+                console.log('## select a new day', value.getMonth(), value.getDate());
+            }
+        }
+    }
+
+    /**
+     * Triggered after the monthNameFormat config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetMonthNameFormat(value, oldValue) {
+        this.intlFormat_month = new Intl.DateTimeFormat(Neo.config.locale, {month: value});
+
+        if (oldValue !== undefined) {
+            let me          = this,
+                vdom        = me.vdom,
+                i           = 0,
+                currentDate = me.currentDate;
+
+            for (; i < 12; i++) {
+                currentDate.setMonth(i);
+                currentDate.setDate(1);
+
+                vdom.cn[1].cn[i].cn[0].html = me.intlFormat_month.format(currentDate);
+            }
+
+            me.vdom = vdom;
+        }
     }
 
     /**
@@ -118,6 +173,16 @@ class YearComponent extends Component {
         if (oldValue !== undefined) {
             this.createMonths();
         }
+    }
+
+    /**
+     * Triggered before the monthNameFormat config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetMonthNameFormat(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'monthNameFormat', DateUtil.prototype.monthNameFormats);
     }
 
     /**
@@ -229,7 +294,6 @@ class YearComponent extends Component {
      */
     createMonths() {
         let me             = this,
-            dt             = new Intl.DateTimeFormat(Neo.config.locale, {month: 'long'}),
             currentDate    = me.currentDate, // cloned
             vdom           = me.vdom,
             monthContainer = vdom.cn[1],
@@ -247,7 +311,7 @@ class YearComponent extends Component {
                 cn : [
                     {
                         cls : ['neo-month-name'],
-                        html: dt.format(currentDate)
+                        html: me.intlFormat_month.format(currentDate)
                     },
                     me.createDayNamesRow()
                 ]
@@ -281,6 +345,13 @@ class YearComponent extends Component {
         }
 
         return this.id + '__' + year + '-' + month + '-' + day;
+    }
+
+    /**
+     *
+     */
+    updateHeaderYear() {
+        this.vdom.cn[0].html = this.currentDate.getFullYear();
     }
 }
 

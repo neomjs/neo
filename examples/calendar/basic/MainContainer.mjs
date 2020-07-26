@@ -40,9 +40,10 @@ class MainContainer extends Viewport {
                 text   : 'Theme Dark'
             }]
         }, {
-            module   : Calendar,
-            reference: 'calendar',
-            flex     : 1,
+            module     : Calendar,
+            currentDate: new Date('2020-07-20'),
+            flex       : 1,
+            reference  : 'calendar',
 
             eventStoreConfig: {
                 autoLoad: true,
