@@ -67,6 +67,10 @@ class DateSelector extends Component {
          */
         keys: {},
         /**
+         * @member {String} locale_=Neo.config.locale
+         */
+        locale_: Neo.config.locale,
+        /**
          * Used for wheel events. min value = 1.
          * A higher value means lesser sensitivity for wheel events
          * => you need to scroll "more" to trigger a month / year change
