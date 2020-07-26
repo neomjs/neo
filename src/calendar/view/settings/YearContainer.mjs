@@ -37,7 +37,7 @@ class YearContainer extends Container {
             hideValueLabel: false,
             labelText     : 'Month Name Format',
             labelWidth    : 160,
-            listeners     : {change: me.onConfigChange, scope: me},
+            listeners     : {change: me.onRadioChange, scope: me},
             name          : 'monthNameFormat',
             valueLabelText: 'short'
         }, {
@@ -48,7 +48,7 @@ class YearContainer extends Container {
             hideValueLabel: false,
             labelText     : '',
             labelWidth    : 160,
-            listeners     : {change: me.onConfigChange, scope: me},
+            listeners     : {change: me.onRadioChange, scope: me},
             name          : 'monthNameFormat',
             style         : {marginTop: '5px'},
             valueLabelText: 'long'
@@ -76,8 +76,10 @@ class YearContainer extends Container {
      *
      * @param {Object} data
      */
-    onConfigChange(data) {
-        this.getYearComponent()[data.component.name] = data.value;
+    onRadioChange(data) {
+        if (data.value) {
+            this.getYearComponent()[data.component.name] = data.component.fieldValue;
+        }
     }
 
     /**

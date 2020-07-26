@@ -107,6 +107,31 @@ class YearComponent extends Component {
     }
 
     /**
+     * Triggered after the monthNameFormat config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetMonthNameFormat(value, oldValue) {
+        if (oldValue !== undefined) {console.log(value);
+            let me          = this,
+                vdom        = me.vdom,
+                i           = 0,
+                dt          = new Intl.DateTimeFormat(Neo.config.locale, {month: value}), // todo: store inside a prop
+                currentDate = me.currentDate;
+
+            for (; i < 12; i++) {
+                currentDate.setMonth(i);
+                currentDate.setDate(1);
+
+                vdom.cn[1].cn[i].cn[0].html = dt.format(currentDate);
+            }
+
+            me.vdom = vdom;
+        }
+    }
+
+    /**
      * Triggered after the showWeekNumbers config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
