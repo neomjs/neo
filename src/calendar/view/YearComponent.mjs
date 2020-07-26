@@ -133,9 +133,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetDayNameFormat(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.updateDayNamesRows();
-        }
+        this.updateDayNamesRows(value, oldValue);
     }
 
     /**
@@ -148,7 +146,7 @@ class YearComponent extends Component {
         if (oldValue !== undefined) {
             let me = this;
 
-            me.updateDayNamesRows(true);
+            me.updateDayNamesRows(me.dayNameFormat, '', true);
             me.updateMonthNameFormat(me.monthNameFormat, '');
         }
     }
@@ -235,14 +233,10 @@ class YearComponent extends Component {
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
-        const dt = new Intl.DateTimeFormat(me.locale, {
-            weekday: me.dayNameFormat
-        });
-
         for (; i < 7; i++) {
             row.cn.push({
                 cls : ['neo-cell', 'neo-weekday-cell'],
-                html: dt.format(date)
+                html: me.intlFormat_day.format(date)
             });
 
             date.setDate(date.getDate() + 1);
@@ -390,30 +384,34 @@ class YearComponent extends Component {
 
     /**
      * Dynamically update the weekday rows inside each month
+     * @param {String} value
+     * @param {String} oldValue
      * @param {Boolean} [silent=false]
      */
-    updateDayNamesRows(silent=false) {
-        let me   = this,
-            date = me.currentDate, // cloned
-            vdom = me.vdom,
-            i    = 1,
-            j;
+    updateDayNamesRows(value, oldValue, silent=false) {
+        let me = this;
 
-        date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
+        me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
 
-        const dt = new Intl.DateTimeFormat(me.locale, {
-            weekday: me.dayNameFormat
-        });
+        if (oldValue !== undefined) {
+            let me   = this,
+                date = me.currentDate, // cloned
+                vdom = me.vdom,
+                i    = 1,
+                j;
 
-        for (; i < 8; i++) {
-            for (j=0; j < 12; j++) {
-                vdom.cn[1].cn[j].cn[1].cn[i].html = dt.format(date);
+            date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
+
+            for (; i < 8; i++) {
+                for (j=0; j < 12; j++) {
+                    vdom.cn[1].cn[j].cn[1].cn[i].html = me.intlFormat_day.format(date);
+                }
+
+                date.setDate(date.getDate() + 1);
             }
 
-            date.setDate(date.getDate() + 1);
+            me[silent ? '_vdom' : 'vdom'] = vdom;
         }
-
-        me[silent ? '_vdom' : 'vdom'] = vdom;
     }
 
     /**
@@ -436,8 +434,7 @@ class YearComponent extends Component {
         me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: value});
 
         if (oldValue !== undefined) {
-            let me          = this,
-                vdom        = me.vdom,
+            let vdom        = me.vdom,
                 i           = 0,
                 currentDate = me.currentDate;
 
