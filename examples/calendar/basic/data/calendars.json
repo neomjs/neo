@@ -1,32 +1,38 @@
 [
     {
-        "color": "blue",
-        "id"   : 1,
-        "name" : "Gerard"
+        "active": true,
+        "color" : "blue",
+        "id"    : 1,
+        "name"  : "Gerard"
     },
     {
-        "color": "pink",
-        "id"   : 2,
-        "name" : "Grgur"
+        "active": true,
+        "color" : "pink",
+        "id"    : 2,
+        "name"  : "Grgur"
     },
     {
-        "color": "orange",
-        "id"   : 3,
-        "name" : "Hyle"
+        "active": true,
+        "color" : "orange",
+        "id"    : 3,
+        "name"  : "Hyle"
     },
     {
-        "color": "yellow",
-        "id"   : 4,
-        "name" : "Jay"
+        "active": false,
+        "color" : "yellow",
+        "id"    : 4,
+        "name"  : "Jay"
     },
     {
-        "color": "green",
-        "id"   : 5,
-        "name" : "Pat"
+        "active": true,
+        "color" : "green",
+        "id"    : 5,
+        "name"  : "Pat"
     },
     {
-        "color": "red",
-        "id"   : 6,
-        "name" : "Tobias"
+        "active": true,
+        "color" : "red",
+        "id"    : 6,
+        "name"  : "Tobias"
     }
 ]

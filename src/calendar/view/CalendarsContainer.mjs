@@ -52,7 +52,7 @@ class CalendarsContainer extends Container {
 
         data.forEach(item => {
             items.push({
-                checked       : true,
+                checked       : item.active,
                 valueLabelText: item.name
             });
         });

@@ -16,6 +16,9 @@ class Calendar extends Model {
          * @protected
          */
         fields: [{
+            name: 'active',
+            type: 'Boolean'
+        }, {
             name: 'color',
             type: 'String'
         }, {
