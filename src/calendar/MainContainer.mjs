@@ -315,6 +315,7 @@ class MainContainer extends Container {
             module      : WeekComponent,
             currentDate : me.currentDate,
             eventStore  : me.eventStore,
+            locale      : me.locale,
             weekStartDay: me.weekStartDay,
             ...me.weekComponentConfig || {}
         });
@@ -323,6 +324,7 @@ class MainContainer extends Container {
             module      : YearComponent,
             currentDate : me.currentDate,
             eventStore  : me.eventStore,
+            locale      : me.locale,
             weekStartDay: me.weekStartDay,
             ...me.yearComponentConfig || {}
         });
@@ -392,6 +394,7 @@ class MainContainer extends Container {
                     module      : DateSelector,
                     flex        : 'none',
                     height      : me.sideBarWidth,
+                    locale      : me.locale,
                     value       : DateUtil.convertToyyyymmdd(me.currentDate),
                     weekStartDay: me.weekStartDay,
 
