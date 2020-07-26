@@ -54,11 +54,20 @@ class YearContainer extends Container {
             valueLabelText: 'long'
         }, {
             module    : CheckBoxField,
+            checked   : yearComponent.showCellBorders,
+            flex      : 'none',
+            labelText : 'Show Cell Borders',
+            labelWidth: 160,
+            listeners : {change: me.onConfigChange, scope: me},
+            name      : 'showCellBorders',
+            style     : {marginTop: '5px'}
+        }, {
+            module    : CheckBoxField,
             checked   : yearComponent.showWeekNumbers,
             flex      : 'none',
             labelText : 'Show Week Numbers',
             labelWidth: 160,
-            listeners : {change: me.onShowWeekNumbersChange, scope: me},
+            listeners : {change: me.onConfigChange, scope: me},
             name      : 'showWeekNumbers',
             style     : {marginTop: '5px'}
         }];
@@ -84,10 +93,10 @@ class YearContainer extends Container {
 
     /**
      *
-     * @param opts
+     * @param {Object} data
      */
-    onShowWeekNumbersChange(opts) {
-        this.getYearComponent().showWeekNumbers = opts.value;
+    onConfigChange(data) {
+        this.getYearComponent()[data.component.name] = data.value;
     }
 }
 
