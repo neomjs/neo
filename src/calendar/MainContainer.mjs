@@ -217,7 +217,26 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered before the selectionModel config gets changed.
+     * Triggered before the calendarStore config gets changed.
+     * @param {Neo.calendar.store.Calendars} value
+     * @param {Neo.calendar.store.Calendars} oldValue
+     * @protected
+     */
+    beforeSetCalendarStore(value, oldValue) {
+        let me = this;
+
+        if (oldValue) {
+            oldValue.destroy();
+        }
+
+        return ClassSystemUtil.beforeSetInstance(value, CalendarStore, {
+            listeners: {load: me.onCalendarStoreLoad, scope: me},
+            ...me.calendarStoreConfig || {}
+        });
+    }
+
+    /**
+     * Triggered before the eventStore config gets changed.
      * @param {Neo.calendar.store.Events} value
      * @param {Neo.calendar.store.Events} oldValue
      * @protected
@@ -229,15 +248,10 @@ class MainContainer extends Container {
             oldValue.destroy();
         }
 
-        const defaultValue = {
-            listeners: {
-                load : me.onEventStoreLoad,
-                scope: me
-            },
+        return ClassSystemUtil.beforeSetInstance(value, EventStore, {
+            listeners: {load: me.onEventStoreLoad, scope: me},
             ...me.eventStoreConfig || {}
-        }
-
-        return ClassSystemUtil.beforeSetInstance(value, EventStore, defaultValue);
+        });
     }
 
     /**
@@ -407,6 +421,14 @@ class MainContainer extends Container {
         this.weekComponent = null;
 
         super.destroy(...args);
+    }
+
+    /**
+     *
+     * @param {Object[]} data
+     */
+    onCalendarStoreLoad(data) {
+        console.log('onCalendarStoreLoad', data);
     }
 
     /**
