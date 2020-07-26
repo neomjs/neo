@@ -1,3 +1,4 @@
+import {default as CalendarStore}   from './store/Calendars.mjs';
 import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
 import {default as Container}       from '../container/Base.mjs';
 import DateSelector                 from '../component/DateSelector.mjs';
@@ -27,6 +28,14 @@ class MainContainer extends Container {
          * @protected
          */
         ntype: 'calendar-maincontainer',
+        /**
+         * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
+         */
+        calendarStore_: null,
+        /**
+         * @member {Object|null} calendarStoreConfig=null
+         */
+        calendarStoreConfig: null,
         /**
          * @member {String[]} cls=['neo-container']
          */
