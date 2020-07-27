@@ -217,18 +217,16 @@ class YearComponent extends Component {
                 vdom = me.vdom,
                 date = me.currentDate, // cloned
                 i    = 0,
-                daysInMonth, firstDayInMonth, firstDayOffset, row, rows;
+                daysInMonth, firstDayOffset, rows;
 
             date.setMonth(0);
             date.setDate(1);
 
             for (; i < 12; i++) {
-                daysInMonth     = DateUtil.getDaysInMonth(date);
-                firstDayInMonth = DateUtil.getFirstDayOfMonth(date);
-                firstDayOffset  = firstDayInMonth - me.weekStartDay;
+                daysInMonth    = DateUtil.getDaysInMonth(date);
+                firstDayOffset = DateUtil.getFirstDayOffset(date, me.weekStartDay);
 
-                firstDayOffset = firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
-                rows           = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
+                rows = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
 
                 vdom.cn[1].cn[i].cn[7].removeDom = rows === 5 && !value;
 
@@ -291,25 +289,23 @@ class YearComponent extends Component {
      * @returns {Object} vdom
      */
     createMonthContent(containerEl, currentDate) {
-        let me              = this,
-            currentDay      = currentDate.getDate(),
-            currentMonth    = currentDate.getMonth(),
-            currentYear     = currentDate.getFullYear(),
-            disabledDate    = DateUtil.clone(currentDate),
-            valueDate       = me.currentDate, // cloned
-            valueMonth      = valueDate.getMonth(),
-            valueYear       = valueDate.getFullYear(),
-            daysInMonth     = DateUtil.getDaysInMonth(currentDate),
-            firstDayInMonth = DateUtil.getFirstDayOfMonth(currentDate),
-            firstDayOffset  = firstDayInMonth - me.weekStartDay,
-            columns         = 7,
-            i               = 0,
-            weekDate        = DateUtil.clone(currentDate),
+        let me             = this,
+            currentDay     = currentDate.getDate(),
+            currentMonth   = currentDate.getMonth(),
+            currentYear    = currentDate.getFullYear(),
+            disabledDate   = DateUtil.clone(currentDate),
+            valueDate      = me.currentDate, // cloned
+            valueMonth     = valueDate.getMonth(),
+            valueYear      = valueDate.getFullYear(),
+            daysInMonth    = DateUtil.getDaysInMonth(currentDate),
+            firstDayOffset = DateUtil.getFirstDayOffset(currentDate, me.weekStartDay),
+            columns        = 7,
+            i              = 0,
+            weekDate       = DateUtil.clone(currentDate),
             cellCls, cellId, cls, day, hasContent, j, row, rows;
 
-        firstDayOffset = firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
-        rows           = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
-        day            = 1 - firstDayOffset;
+        rows = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
+        day  = 1 - firstDayOffset;
 
         weekDate.setDate(day + 7);
 
