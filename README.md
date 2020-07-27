@@ -12,21 +12,20 @@ without the need to take care of a workers setup or the cross channel communicat
 
 ## Content
 1. <a href="#sponsors">Sponsors</a>
-2. <a href="#blog">Blog</a>
-3. <a href="#architectures">Scalable frontend architectures</a>
-4. <a href="#covid19-app">COVID19 IN NUMBERS Demo App</a>
-5. <a href="#sw-covid19-app">Multi Window COVID19 IN NUMBERS Demo App</a>
-6. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
-7. <a href="#learn-more">Want to learn more?</a>
-8. <a href="#impossible">Impossible? Pick with caution!</a>
-9. <a href="#online-examples">Online Examples</a>
-10. <a href="#online-docs">Online Docs</a>
-11. <a href="#get-started">Ready to get started?</a>
-12. <a href="#project-history">Project History</a>
-13. <a href="#story--vision">Story & Vision</a>
-14. <a href="#contributors">neo.mjs is in need of more contributors!</a>
-15. <a href="#sponsors1">neo.mjs is in need of more sponsors!</a>
-16. <a href="#slack-channel">Slack Channel for questions & feedback</a>
+2. <a href="#architectures">Scalable frontend architectures</a>
+3. <a href="#covid19-app">COVID19 IN NUMBERS Demo App</a>
+4. <a href="#sw-covid19-app">Multi Window COVID19 IN NUMBERS Demo App</a>
+5. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
+6. <a href="#learn-more">Want to learn more?</a>
+7. <a href="#impossible">Impossible? Pick with caution!</a>
+8. <a href="#online-examples">Online Examples</a>
+9. <a href="#online-docs">Online Docs</a>
+10. <a href="#get-started">Ready to get started?</a>
+11. <a href="#project-history">Project History</a>
+12. <a href="#story--vision">Story & Vision</a>
+13. <a href="#contributors">neo.mjs is in need of more contributors!</a>
+14. <a href="#sponsors1">neo.mjs is in need of more sponsors!</a>
+15. <a href="#slack-channel">Slack Channel for questions & feedback</a>
 
 <!-- Sponsors -->
 <h2 id="sponsors">Sponsors</h2>
@@ -49,14 +48,6 @@ without the need to take care of a workers setup or the cross channel communicat
   </tbody>
 </table>
 <!--bronze end-->
-
-<!-- Blog -->
-<h2 id="blog">Blog</h2>
-
-All Blog posts are stored here:
-<a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/website/index.html#mainview=blog">website/blog</a>.</br>
-The latest article:
-> Creating a responsive multithreading Website for Desktop & Mobile
 
 <!-- Scalable frontend architectures -->
 <h2 id="architectures">Scalable frontend architectures</h2>
