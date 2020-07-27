@@ -2,12 +2,6 @@
     display  : flex;
     font-size: 0.9em;
 
-    .neo-content-wrapper {
-        display       : flex;
-        flex          : 1 0 100%;
-        flex-direction: column;
-    }
-
     &.neo-show-cell-borders {
         .neo-calendar-week {
             border-bottom: 1px solid v(c-y-cell-border-color);
@@ -29,6 +23,19 @@
         .neo-weeknumber-cell {
             border-left: 1px solid v(c-y-cell-border-color);
         }
+    }
+
+    .neo-animation-wrapper {
+        display       : flex;
+        flex-direction: column;
+        transition    : transform 300ms cubic-bezier(0.47, 0, 0.745, 0.715);
+        will-change   : transform;
+    }
+
+    .neo-content-wrapper {
+        display       : flex;
+        flex          : 1 1 100%;
+        flex-direction: column;
     }
 
     .neo-year-header {

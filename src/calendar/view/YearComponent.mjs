@@ -309,7 +309,11 @@ class YearComponent extends Component {
                             cls: ['neo-animation-wrapper'],
                             cn : [{
                                 cls: ['neo-content-wrapper'],
-                                cn : []
+                                cn : [{
+                                    cls: ['neo-year-header']
+                                }, {
+                                    cls: ['neo-months-container']
+                                }]
                             }],
                             style: {
                                 flexDirection: 'column',
@@ -320,7 +324,7 @@ class YearComponent extends Component {
                         }]
                     });
 
-                    //me.createDayViewContent(true, vdom.cn[1].cn[0].cn[0]);
+                    me.createMonths(true, vdom.cn[1].cn[0].cn[0].cn[1]);
                     vdom.cn[1].cn[0].cn[increment < 0 ? 'unshift' : 'push'](vdom.cn[0]);
                     vdom.cn.splice(0, 1);
 
@@ -434,13 +438,14 @@ class YearComponent extends Component {
     }
 
     /**
-     *
+     * @param {Boolean} silent true to update the vdom silently
+     * @param {Object} [containerEl]
      */
-    createMonths() {
+    createMonths(silent, containerEl) {
         let me             = this,
             currentDate    = me.currentDate, // cloned
             vdom           = me.vdom,
-            monthContainer = vdom.cn[0].cn[1],
+            monthContainer = containerEl || vdom.cn[0].cn[1],
             i              = 0,
             monthVdom;
 
@@ -466,7 +471,9 @@ class YearComponent extends Component {
             monthContainer.cn.push(monthVdom);
         }
 
-        me.vdom = vdom;
+        if (!silent) {
+            me.vdom = vdom;
+        }
     }
 
     /**
