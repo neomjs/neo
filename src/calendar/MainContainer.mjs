@@ -17,6 +17,15 @@ const todayDate = new Date();
  * @extends Neo.container.Base
  */
 class MainContainer extends Container {
+    static getStaticConfig() {return {
+        /**
+         * Valid entries for the views config
+         * @member {String[]} validViews=['day', 'week', 'month', 'year']
+         * @static
+         */
+        validViews: ['day', 'week', 'month', 'year']
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.calendar.MainContainer'
