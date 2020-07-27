@@ -98,7 +98,7 @@ class YearComponent extends Component {
             cn: [{
                 cls: ['neo-content-wrapper'],
                 cn : [{
-                    cls : ['neo-year-header']
+                    cls: ['neo-year-header']
                 }, {
                     cls: ['neo-months-container']
                 }]
@@ -197,7 +197,7 @@ class YearComponent extends Component {
      */
     afterSetShowWeekNumbers(value, oldValue) {
         if (oldValue !== undefined) {
-            let me = this,
+            let me   = this,
                 vdom = me.vdom,
                 i    = 0,
                 itemCn, j, len;
@@ -267,7 +267,46 @@ class YearComponent extends Component {
      * @param {Number} increment
      */
     changeYear(increment) {
-        console.log('changeYear', increment);
+        let me = this,
+            vdom, y;
+
+        if (!me.useAnimations) {
+            // me.recreateContent(increment); // todo
+        } else {
+            if (!me.isUpdating) {
+                me.isUpdating = true;
+
+                Neo.main.DomAccess.getBoundingClientRect({
+                    id: me.id
+                }).then(data => {
+                    vdom = me.vdom;
+                    y    = increment < 0 ? 0 : -data.height;
+
+                    vdom.cn.push({
+                        cls: ['neo-relative'],
+                        cn : [{
+                            cls: ['neo-animation-wrapper'],
+                            cn : [{
+                                cls: ['neo-content-wrapper'],
+                                cn : []
+                            }],
+                            style: {
+                                flexDirection: 'column',
+                                height       : 2 * data.height + 'px',
+                                transform    : `translateY(${y}px)`,
+                                width        : data.width + 'px'
+                            }
+                        }]
+                    });
+
+                    //me.createDayViewContent(true, vdom.cn[1].cn[0].cn[0]);
+                    vdom.cn[1].cn[0].cn[increment < 0 ? 'unshift' : 'push'](vdom.cn[0]);
+                    vdom.cn.splice(0, 1);
+
+                    me.vdom = vdom;
+                });
+            }
+        }
     }
 
     /**
@@ -357,6 +396,7 @@ class YearComponent extends Component {
                     id      : cellId,
                     cls     : cellCls,
                     tabIndex: hasContent ? -1 : null,
+
                     cn: [{
                         cls : cls,
                         html: hasContent ? day : me.showDisabledDays ? disabledDate.getDate() : ''
