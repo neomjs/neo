@@ -400,9 +400,9 @@ class DateSelector extends Component {
                                 cn : []
                             }],
                             style: {
-                                height   : data[0].height + 'px',
+                                height   : `${data[0].height}px`,
                                 transform: `translateX(${x}px)`,
-                                width    : 2 * data[0].width + 'px'
+                                width    : `${2 * data[0].width}px`
                             }
                         }]
                     });
@@ -495,9 +495,10 @@ class DateSelector extends Component {
                                 cn : []
                             }],
                             style: {
-                                height   : 2 * data.height + 'px',
-                                transform: `translateY(${y}px)`,
-                                width    : data.width + 'px'
+                                flexDirection: 'column',
+                                height       : `${2 * data.height}px`,
+                                transform    : `translateY(${y}px)`,
+                                width        : `${data.width}px`
                             }
                         }]
                     });
