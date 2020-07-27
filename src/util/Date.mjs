@@ -61,6 +61,12 @@ class DateUtil extends Base {
         return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
     }
 
+    /**
+     *
+     * @param {Date} date
+     * @param {Number} weekStartDay 0-6
+     * @returns {Number}
+     */
     static getFirstDayOffset(date, weekStartDay) {
         let firstDayInMonth = DateUtil.getFirstDayOfMonth(date),
             firstDayOffset  = firstDayInMonth - weekStartDay;
