@@ -57,6 +57,12 @@ class YearComponent extends Component {
          */
         intlFormat_month: null,
         /**
+         * Internal flag to prevent changing the date while change animations are still running
+         * @member {Boolean} isUpdating_=false
+         * @protected
+         */
+        isUpdating_: false,
+        /**
          * @member {String} locale_=Neo.config.locale
          */
         locale_: Neo.config.locale,
