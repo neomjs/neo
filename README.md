@@ -54,7 +54,7 @@ without the need to take care of a workers setup or the cross channel communicat
 <h2 id="blog">Blog</h2>
 
 All Blog posts are stored here:
-<a href="https://github.com/neomjs/neo/projects/14">neo/projects/14</a>.</br>
+<a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/website/index.html#mainview=blog">website/blog</a>.</br>
 The latest article:
 > Creating a responsive multithreading Website for Desktop & Mobile
 
