@@ -79,6 +79,10 @@ class MainContainer extends Container {
          */
         dateSelectorConfig: null,
         /**
+         * @member {Neo.calendar.view.DayComponent|null} dayComponent=null
+         */
+        dayComponent: null,
+        /**
          * @member {Object|null} dayComponentConfig=null
          */
         dayComponentConfig: null,
@@ -99,6 +103,10 @@ class MainContainer extends Container {
          * @member {String} locale_=Neo.config.locale
          */
         locale_: Neo.config.locale,
+        /**
+         * @member {Neo.calendar.view.MonthComponent|null} monthComponent=null
+         */
+        monthComponent: null,
         /**
          * @member {Object|null} monthComponentConfig=null
          */
