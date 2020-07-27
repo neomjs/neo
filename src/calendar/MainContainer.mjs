@@ -342,8 +342,7 @@ class MainContainer extends Container {
      * @protected
      */
     createItemsContent() {
-        let me          = this,
-            activeIndex = me.views.indexOf(me.activeView);
+        let me = this;
 
         me.calendarsContainer = Neo.create({
             module       : CalendarsContainer,
@@ -376,35 +375,7 @@ class MainContainer extends Container {
             }, {
                 module: Toolbar,
                 cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
-                items : ['->', {
-                    handler    : me.changeTimeInterval.bind(me, 'day'),
-                    height     : 24,
-                    pressed    : activeIndex === 0,
-                    text       : 'Day',
-                    toggleGroup: 'timeInterval',
-                    value      : 'day'
-                }, {
-                    handler    : me.changeTimeInterval.bind(me, 'week'),
-                    height     : 24,
-                    pressed    : activeIndex === 1,
-                    text       : 'Week',
-                    toggleGroup: 'timeInterval',
-                    value      : 'week'
-                }, {
-                    handler    : me.changeTimeInterval.bind(me, 'month'),
-                    height     : 24,
-                    pressed    : activeIndex === 2,
-                    text       : 'Month',
-                    toggleGroup: 'timeInterval',
-                    value      : 'month'
-                }, {
-                    handler    : me.changeTimeInterval.bind(me, 'year'),
-                    height     : 24,
-                    pressed    : activeIndex === 3,
-                    text       : 'Year',
-                    toggleGroup: 'timeInterval',
-                    value      : 'year'
-                }]
+                items : ['->', ...me.createViewHeaderButtons()]
             }]
         }, {
             module: Container,
@@ -434,7 +405,7 @@ class MainContainer extends Container {
                 module: Container,
                 flex  : 1,
                 items : me.createViews(),
-                layout: {ntype: 'card', activeIndex: activeIndex}
+                layout: {ntype: 'card', activeIndex: me.views.indexOf(me.activeView)}
             }]
         }];
 
@@ -454,6 +425,29 @@ class MainContainer extends Container {
                 }
             });
         }
+    }
+
+    /**
+     *
+     * @returns {Neo.component.Base[]}
+     */
+    createViewHeaderButtons() {
+        let me          = this,
+            activeIndex = me.views.indexOf(me.activeView),
+            buttons     = [];
+
+        me.views.forEach((view, index) => {
+            buttons.push({
+                handler    : me.changeTimeInterval.bind(me, view),
+                height     : 24,
+                pressed    : activeIndex === index,
+                text       : Neo.capitalize(view),
+                toggleGroup: 'timeInterval',
+                value      : view
+            });
+        });
+
+        return buttons;
     }
 
     /**
