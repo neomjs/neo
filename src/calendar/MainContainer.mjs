@@ -44,6 +44,11 @@ class MainContainer extends Container {
          */
         activeView_: 'year',
         /**
+         * Scale the calendar with using s different base font-size
+         * @member {Number|null} baseFontSize_=null
+         */
+        baseFontSize_: null,
+        /**
          * @member {Neo.calendar.view.CalendarsContainer|null} calendarsContainer=null
          */
         calendarsContainer: null,
