@@ -291,10 +291,12 @@ class YearComponent extends Component {
 
         weekDate.setDate(day + 7);
 
-        for (; i < rows; i++) {
+        for (; i < 6; i++) {
             row = {
-                cls: ['neo-calendar-week'],
-                cn : [{
+                cls      : ['neo-calendar-week'],
+                removeDom: i > rows && !me.sixWeeksPerMonth,
+
+                cn: [{
                     cls      : ['neo-cell', 'neo-weeknumber-cell'],
                     html     : DateUtil.getWeekOfYear(weekDate),
                     removeDom: !me.showWeekNumbers
