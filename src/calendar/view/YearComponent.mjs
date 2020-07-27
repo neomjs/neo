@@ -310,7 +310,8 @@ class YearComponent extends Component {
                             cn : [{
                                 cls: ['neo-content-wrapper'],
                                 cn : [{
-                                    cls: ['neo-year-header']
+                                    cls : ['neo-year-header'],
+                                    html: me.currentDate.getFullYear()
                                 }, {
                                     cls: ['neo-months-container']
                                 }]
@@ -328,7 +329,16 @@ class YearComponent extends Component {
                     vdom.cn[1].cn[0].cn[increment < 0 ? 'unshift' : 'push'](vdom.cn[0]);
                     vdom.cn.splice(0, 1);
 
-                    me.vdom = vdom;
+                    me.promiseVdomUpdate(vdom).then(() => {
+                        y = increment < 0 ? -data.height : 0;
+                        vdom.cn[0].cn[0].style.transform = `translateY(${y}px)`;
+                        me.vdom = vdom;
+
+                        setTimeout(() => {
+                            vdom.cn[0] = vdom.cn[0].cn[0].cn[increment < 0 ? 1 : 0];
+                            me.triggerVdomUpdate();
+                        }, 300);
+                    });
                 });
             }
         }
@@ -496,6 +506,23 @@ class YearComponent extends Component {
         }
 
         return this.id + '__' + year + '-' + month + '-' + day;
+    }
+
+    /**
+     * Triggers a vdom update & sets isUpdating
+     * @param {Boolean} [silent=false]
+     * @protected
+     */
+    triggerVdomUpdate(silent=false) {
+        let me = this;
+
+        if (!silent) {
+            me.isUpdating = true;
+
+            me.promiseVdomUpdate(me.vdom).then(() => {
+                me.isUpdating = false;
+            });
+        }
     }
 
     /**

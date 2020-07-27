@@ -162,9 +162,11 @@ class MainContainer extends Container {
      */
     afterSetCurrentDate(value, oldValue) {
         if (oldValue !== undefined) {
-            this.dateSelector .value       = DateUtil.convertToyyyymmdd(value);
-            this.weekComponent.currentDate = value;
-            this.yearComponent.currentDate = value;
+            let me = this;
+
+            me.weekComponent.currentDate = value;
+            me.yearComponent.currentDate = value;
+            me.dateSelector .value       = DateUtil.convertToyyyymmdd(value);
         }
     }
 
