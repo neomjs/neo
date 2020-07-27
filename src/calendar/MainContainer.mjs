@@ -6,6 +6,7 @@ import {default as Container}       from '../container/Base.mjs';
 import DateSelector                 from '../component/DateSelector.mjs';
 import DateUtil                     from '../util/Date.mjs';
 import {default as EventStore}      from './store/Events.mjs';
+import MonthComponent               from './view/MonthComponent.mjs';
 import SettingsContainer            from './view/SettingsContainer.mjs';
 import Toolbar                      from '../container/Toolbar.mjs';
 import WeekComponent                from './view/WeekComponent.mjs';
@@ -484,8 +485,7 @@ class MainContainer extends Container {
                 style : {padding: '20px'}
             },
             month: {
-                module: Component,
-                html  : 'Month',
+                module: MonthComponent,
                 style : {padding: '20px'}
             },
             week: {
