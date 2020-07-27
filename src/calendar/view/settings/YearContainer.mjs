@@ -60,7 +60,7 @@ class YearContainer extends Container {
             labelWidth: 160,
             listeners : {change: me.onConfigChange, scope: me},
             name      : 'showCellBorders',
-            style     : {marginTop: '5px'}
+            style     : {marginTop: '10px'}
         }, {
             module    : CheckBoxField,
             checked   : yearComponent.showWeekNumbers,
@@ -69,7 +69,16 @@ class YearContainer extends Container {
             labelWidth: 160,
             listeners : {change: me.onConfigChange, scope: me},
             name      : 'showWeekNumbers',
-            style     : {marginTop: '5px'}
+            style     : {marginTop: '10px'}
+        }, {
+            module    : CheckBoxField,
+            checked   : yearComponent.sixWeeksPerMonth,
+            flex      : 'none',
+            labelText : 'sixWeeksPerMonth',
+            labelWidth: 160,
+            listeners : {change: me.onConfigChange, scope: me},
+            name      : 'sixWeeksPerMonth',
+            style     : {marginTop: '10px'}
         }];
     }
 
