@@ -106,6 +106,19 @@ class DateUtil extends Base {
     }
 
     /**
+     *
+     * @param {Date} date
+     * @param {Number} weekStartDay 0-6
+     * @returns {Number} 5-6
+     */
+    static getWeeksOfMonth(date, weekStartDay) {
+        let daysInMonth    = DateUtil.getDaysInMonth(date),
+            firstDayOffset = DateUtil.getFirstDayOffset(date, weekStartDay);
+
+        return (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
+    }
+
+    /**
      * Returns true in case the day, month & year of 2 given Date objects are the same
      * @param {Date} date1
      * @param {Date} date2

@@ -216,20 +216,13 @@ class YearComponent extends Component {
             let me   = this,
                 vdom = me.vdom,
                 date = me.currentDate, // cloned
-                i    = 0,
-                daysInMonth, firstDayOffset, rows;
+                i    = 0;
 
             date.setMonth(0);
             date.setDate(1);
 
             for (; i < 12; i++) {
-                daysInMonth    = DateUtil.getDaysInMonth(date);
-                firstDayOffset = DateUtil.getFirstDayOffset(date, me.weekStartDay);
-
-                rows = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
-
-                vdom.cn[1].cn[i].cn[7].removeDom = rows === 5 && !value;
-
+                vdom.cn[1].cn[i].cn[7].removeDom = DateUtil.getWeeksOfMonth(date, me.weekStartDay) === 5 && !value;
                 date.setMonth(date.getMonth() + 1);
             }
 
