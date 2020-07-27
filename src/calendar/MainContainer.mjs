@@ -95,6 +95,11 @@ class MainContainer extends Container {
          */
         useSettingsContainer_: true,
         /**
+         * Any combination and order of 'day', 'week', 'month', 'year'
+         * @member {String[]} views=['day', 'week', 'month', 'year']
+         */
+        views: ['day', 'week', 'month', 'year'],
+        /**
          * @member {Neo.calendar.view.WeekComponent|null} weekComponent=null
          */
         weekComponent: null,
@@ -529,7 +534,7 @@ class MainContainer extends Container {
      */
     switchInterval(multiplier) {
         let me          = this,
-            currentDate = me.currentDate,
+            currentDate = me.currentDate, // cloned
             interval    = 7;
 
         interval *= multiplier;
