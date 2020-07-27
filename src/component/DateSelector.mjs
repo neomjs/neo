@@ -781,9 +781,9 @@ class DateSelector extends Component {
      * @protected
      */
     triggerVdomUpdate(silent=false) {
-        let me = this;
-
         if (!silent) {
+            let me = this;
+
             me.isUpdating = true;
 
             me.promiseVdomUpdate(me.vdom).then(() => {
