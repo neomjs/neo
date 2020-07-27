@@ -30,8 +30,8 @@ class DateSelector extends Component {
          */
         ntype: 'dateselector',
         /**
-         * Stores the last date change which got triggered while a month / Year transition was running
-         * @member {Object|null} cachedUpdate=null
+         * Stores the last date change which got triggered while a month / year transition was running
+         * @member {Date|null} cachedUpdate=null
          * @protected
          */
         cachedUpdate: null,

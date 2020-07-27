@@ -27,6 +27,12 @@ class YearComponent extends Component {
          */
         ntype: 'calendar-view-yearcomponent',
         /**
+         * Stores the last date change which got triggered while a year transition was running
+         * @member {Date|null} cachedUpdate=null
+         * @protected
+         */
+        cachedUpdate: null,
+        /**
          * @member {String[]} cls=['neo-calendar-yearcomponent']
          */
         cls: ['neo-calendar-yearcomponent'],
