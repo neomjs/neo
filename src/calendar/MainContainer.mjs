@@ -65,9 +65,9 @@ class MainContainer extends Container {
          */
         currentDate_: todayDate,
         /**
-         * @member {Neo.component.DateSelector|null} dateSelector_=null
+         * @member {Neo.component.DateSelector|null} dateSelector=null
          */
-        dateSelector_: null,
+        dateSelector: null,
         /**
          * @member {Object|null} dateSelectorConfig=null
          */
@@ -246,19 +246,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered when accessing the dateSelector config
-     * @param {Object} value
-     * @protected
-     */
-    beforeGetDateSelector(value) {
-        if (!value) {
-            value = this.dateSelector = this.down('dateselector');
-        }
-
-        return value;
-    }
-
-    /**
      * Triggered before the calendarStore config gets changed.
      * @param {Neo.calendar.store.Calendars} value
      * @param {Neo.calendar.store.Calendars} oldValue
@@ -339,6 +326,47 @@ class MainContainer extends Container {
 
     /**
      *
+     * @returns {Neo.component.Base[]}
+     */
+    createHeaderItems() {
+        let me    = this,
+            items = [{
+            module: Toolbar,
+            cls   : ['neo-calendar-header-toolbar', 'neo-left', 'neo-toolbar'],
+            width : me.sideBarWidth,
+            items : [{
+                handler: me.toggleSidebar.bind(me),
+                iconCls: 'fa fa-bars'
+            }, '->', {
+                handler: me.onPreviousIntervalButtonClick.bind(me),
+                iconCls: 'fa fa-chevron-left',
+            }, {
+                handler: me.onTodayButtonClick.bind(me),
+                height : 24,
+                text   : 'Today'
+            }, {
+                handler: me.onNextIntervalButtonClick.bind(me),
+                iconCls: 'fa fa-chevron-right'
+            }]
+        }, {
+            module: Toolbar,
+            cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
+            items : ['->', ...me.createViewHeaderButtons()]
+        }];
+
+        if (me.useSettingsContainer) {
+            items[1].items.push({
+                handler: me.toggleSettings.bind(me),
+                iconCls: 'fa fa-cog',
+                style  : {marginLeft: '10px'}
+            });
+        }
+
+        return items;
+    }
+
+    /**
+     *
      * @protected
      */
     createItemsContent() {
@@ -350,33 +378,22 @@ class MainContainer extends Container {
             flex         : 1
         });
 
+        me.dateSelector = Neo.create({
+            module      : DateSelector,
+            flex        : 'none',
+            height      : me.sideBarWidth,
+            listeners   : {change: me.onDateSelectorChange, scope: me},
+            locale      : me.locale,
+            value       : DateUtil.convertToyyyymmdd(me.currentDate),
+            weekStartDay: me.weekStartDay,
+            ...me.dateSelectorConfig || {}
+        });
+
         me.items = [{
             module: Container,
             flex  : 'none',
             layout: {ntype: 'hbox', align: 'stretch'},
-            items : [{
-                module: Toolbar,
-                cls   : ['neo-calendar-header-toolbar', 'neo-left', 'neo-toolbar'],
-                width : me.sideBarWidth,
-                items : [{
-                    handler: me.toggleSidebar.bind(me),
-                    iconCls: 'fa fa-bars'
-                }, '->', {
-                    handler: me.onPreviousIntervalButtonClick.bind(me),
-                    iconCls: 'fa fa-chevron-left',
-                }, {
-                    handler: me.onTodayButtonClick.bind(me),
-                    height : 24,
-                    text   : 'Today'
-                }, {
-                    handler: me.onNextIntervalButtonClick.bind(me),
-                    iconCls: 'fa fa-chevron-right'
-                }]
-            }, {
-                module: Toolbar,
-                cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
-                items : ['->', ...me.createViewHeaderButtons()]
-            }]
+            items : me.createHeaderItems()
         }, {
             module: Container,
             flex  : 1,
@@ -386,21 +403,7 @@ class MainContainer extends Container {
                 cls   : ['neo-calendar-sidebar', 'neo-container'],
                 layout: {ntype: 'vbox', align: 'stretch'},
                 width : me.sideBarWidth,
-                items : [{
-                    module      : DateSelector,
-                    flex        : 'none',
-                    height      : me.sideBarWidth,
-                    locale      : me.locale,
-                    value       : DateUtil.convertToyyyymmdd(me.currentDate),
-                    weekStartDay: me.weekStartDay,
-
-                    listeners: {
-                        change: me.onDateSelectorChange,
-                        scope : me
-                    },
-
-                    ...me.dateSelectorConfig || {}
-                }, me.calendarsContainer]
+                items : [me.dateSelector, me.calendarsContainer]
             }, {
                 module: Container,
                 flex  : 1,
@@ -410,19 +413,10 @@ class MainContainer extends Container {
         }];
 
         if (me.useSettingsContainer) {
-            me.items[0].items[1].items.push({
-                handler: me.toggleSettings.bind(me),
-                iconCls: 'fa fa-cog',
-                style  : {marginLeft: '10px'}
-            });
-
             me.items[1].items.push({
                 module: SettingsContainer,
-                width : me.settingsContainerWidth,
-
-                style: {
-                    marginRight: me.settingsExpanded ? '0': `-${me.settingsContainerWidth}px`
-                }
+                style : {marginRight: me.settingsExpanded ? '0': `-${me.settingsContainerWidth}px`},
+                width : me.settingsContainerWidth
             });
         }
     }
