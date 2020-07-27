@@ -1,10 +1,10 @@
 import CalendarsContainer           from './view/CalendarsContainer.mjs';
 import {default as CalendarStore}   from './store/Calendars.mjs';
 import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
-import {default as Component}       from '../component/Base.mjs'; // todo: remove
 import {default as Container}       from '../container/Base.mjs';
 import DateSelector                 from '../component/DateSelector.mjs';
 import DateUtil                     from '../util/Date.mjs';
+import DayComponent                 from './view/DayComponent.mjs';
 import {default as EventStore}      from './store/Events.mjs';
 import MonthComponent               from './view/MonthComponent.mjs';
 import SettingsContainer            from './view/SettingsContainer.mjs';
@@ -480,8 +480,7 @@ class MainContainer extends Container {
 
         const map = {
             day: {
-                module: Component,
-                html  : 'Day',
+                module: DayComponent,
                 style : {padding: '20px'}
             },
             month: {
@@ -524,6 +523,7 @@ class MainContainer extends Container {
         me.calendarsContainer = null;
         me.dateSelector       = null;
         me.dayComponent       = null;
+        me.monthComponent     = null;
         me.weekComponent      = null;
         me.yearComponent      = null;
 
