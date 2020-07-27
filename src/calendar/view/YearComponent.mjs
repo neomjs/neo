@@ -213,7 +213,29 @@ class YearComponent extends Component {
      */
     afterSetSixWeeksPerMonth(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('afterSetSixWeeksPerMonth', value);
+            let me   = this,
+                vdom = me.vdom,
+                date = me.currentDate, // cloned
+                i    = 0,
+                daysInMonth, firstDayInMonth, firstDayOffset, row, rows;
+
+            date.setMonth(0);
+            date.setDate(1);
+
+            for (; i < 12; i++) {
+                daysInMonth     = DateUtil.getDaysInMonth(date);
+                firstDayInMonth = DateUtil.getFirstDayOfMonth(date);
+                firstDayOffset  = firstDayInMonth - me.weekStartDay;
+
+                firstDayOffset = firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
+                rows           = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
+
+                vdom.cn[1].cn[i].cn[7].removeDom = rows === 5 && !value;
+
+                date.setMonth(date.getMonth() + 1);
+            }
+
+            me.vdom = vdom;
         }
     }
 
