@@ -159,6 +159,20 @@ class MainContainer extends Container {
     }
 
     /**
+     * Triggered after the baseFontSize config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetBaseFontSize(value, oldValue) {
+        if (oldValue !== undefined) {
+            let style = this.style || {};
+            style.fontSize = `${value}px`;
+            this.style = style;
+        }
+    }
+
+    /**
      * Triggered after the currentDate config got changed
      * todo: Only update the active view, adjust the state on card change
      * @param {Date} value
