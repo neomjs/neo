@@ -105,9 +105,9 @@ class MainContainer extends Container {
         useSettingsContainer_: true,
         /**
          * Any combination and order of 'day', 'week', 'month', 'year'
-         * @member {String[]} views=['day', 'week', 'month', 'year']
+         * @member {String[]} views_=['day', 'week', 'month', 'year']
          */
-        views: ['day', 'week', 'month', 'year'],
+        views_: ['day', 'week', 'month', 'year'],
         /**
          * @member {Neo.calendar.view.WeekComponent|null} weekComponent=null
          */
@@ -288,6 +288,25 @@ class MainContainer extends Container {
             listeners: {load: me.onEventStoreLoad, scope: me},
             ...me.eventStoreConfig || {}
         });
+    }
+
+    /**
+     * Triggered before the views config gets changed.
+     * @param {String[]} value
+     * @param {String[]} oldValue
+     * @protected
+     */
+    beforeSetViews(value, oldValue) {
+        let validViews = this.getStaticConfig('validViews');
+
+        value.forEach(view => {
+            if (!validViews.includes(view)) {
+                console.error(view, 'is not a valid entry for views. Stick to:', validViews);
+                return oldValue;
+            }
+        });
+
+        return value;
     }
 
     /**
