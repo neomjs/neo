@@ -269,6 +269,15 @@ class YearComponent extends Component {
     }
 
     /**
+     * Stores the last date change which could not get applied while a transition was running
+     * @param {Date} [date=this.currentDate]
+     * @protected
+     */
+    cacheUpdate(date=this.currentDate) {
+        this.cachedUpdate = date;
+    }
+
+    /**
      *
      * @param {Number} increment
      */
