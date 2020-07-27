@@ -580,21 +580,14 @@ class MainContainer extends Container {
         let me          = this,
             currentDate = me.currentDate; // cloned
 
-        switch (me.activeView) {
-            case 'day':
-                currentDate.setDate(currentDate.getDate() + multiplier);
-                break;
-            case 'month':
-                currentDate.setMonth(currentDate.getMonth() + multiplier);
-                break;
-            case 'week':
-                currentDate.setDate(currentDate.getDate() + 7 * multiplier);
-                break;
-            case 'year':
-                currentDate.setFullYear(currentDate.getFullYear() + multiplier);
-                break;
-        }
+        const map = {
+            day  : () => {currentDate.setDate(    currentDate.getDate()     + multiplier)},
+            month: () => {currentDate.setMonth(   currentDate.getMonth()    + multiplier)},
+            week : () => {currentDate.setDate(    currentDate.getDate() + 7 * multiplier)},
+            year : () => {currentDate.setFullYear(currentDate.getFullYear() + multiplier)}
+        };
 
+        map[me.activeView]();
         me.currentDate = currentDate;
     }
 }
