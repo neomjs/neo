@@ -121,9 +121,11 @@ class YearComponent extends Component {
      */
     afterSetCurrentDate(value, oldValue) {
         if (oldValue !== undefined) {
-            if (value.getFullYear() !== oldValue.getFullYear()) {
-                // todo
-                console.log('## transition to the new year', value.getFullYear());
+            let oldYear = oldValue.getFullYear(),
+                year    = value   .getFullYear();
+
+            if (year !== oldYear) {
+                this.changeYear(year - oldYear);
             } else {
                 // todo
                 console.log('## select a new day', value.getMonth(), value.getDate());
@@ -250,6 +252,14 @@ class YearComponent extends Component {
      */
     beforeSetMonthNameFormat(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'monthNameFormat', DateUtil.prototype.monthNameFormats);
+    }
+
+    /**
+     *
+     * @param {Number} increment
+     */
+    changeYear(increment) {
+        console.log('changeYear', increment);
     }
 
     /**
