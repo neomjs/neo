@@ -23,9 +23,10 @@
     }
 
     .neo-animation-wrapper {
-        display    : flex;
-        transition : transform 300ms cubic-bezier(0.47, 0, 0.745, 0.715);
-        will-change: transform;
+        display       : flex;
+        flex-direction: column;
+        transition    : transform 300ms cubic-bezier(0.47, 0, 0.745, 0.715);
+        will-change   : transform;
     }
 
     .neo-animation-wrapper-header {

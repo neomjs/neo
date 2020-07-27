@@ -495,10 +495,9 @@ class DateSelector extends Component {
                                 cn : []
                             }],
                             style: {
-                                flexDirection: 'column',
-                                height       : 2 * data.height + 'px',
-                                transform    : `translateY(${y}px)`,
-                                width        : data.width + 'px'
+                                height   : 2 * data.height + 'px',
+                                transform: `translateY(${y}px)`,
+                                width    : data.width + 'px'
                             }
                         }]
                     });

@@ -317,10 +317,9 @@ class YearComponent extends Component {
                                 }]
                             }],
                             style: {
-                                flexDirection: 'column',
-                                height       : 2 * data.height + 'px',
-                                transform    : `translateY(${y}px)`,
-                                width        : data.width + 'px'
+                                height   : 2 * data.height + 'px',
+                                transform: `translateY(${y}px)`,
+                                width    : data.width + 'px'
                             }
                         }]
                     });
