@@ -85,7 +85,7 @@ class YearComponent extends Component {
          * True to show 6 weeks for each month, so that all months have the same height
          * @member {Boolean} sixWeeksPerMonth_=false
          */
-        sixWeeksPerMonth_: true,
+        sixWeeksPerMonth_: false,
         /**
          * @member {Object} vdom
          */
@@ -294,7 +294,7 @@ class YearComponent extends Component {
         for (; i < 6; i++) {
             row = {
                 cls      : ['neo-calendar-week'],
-                removeDom: i > rows && !me.sixWeeksPerMonth,
+                removeDom: i === rows && !me.sixWeeksPerMonth,
 
                 cn: [{
                     cls      : ['neo-cell', 'neo-weeknumber-cell'],
