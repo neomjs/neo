@@ -39,6 +39,11 @@ class MainContainer extends Container {
          */
         ntype: 'calendar-maincontainer',
         /**
+         * The currently active view. Must be a value included inside the views config.
+         * @member {String} activeView_='week'
+         */
+        activeView_: 'week',
+        /**
          * @member {Neo.calendar.view.CalendarsContainer|null} calendarsContainer=null
          */
         calendarsContainer: null,
@@ -337,7 +342,8 @@ class MainContainer extends Container {
      * @protected
      */
     createItemsContent() {
-        let me = this;
+        let me          = this,
+            activeIndex = me.views.indexOf(me.activeView);
 
         me.calendarsContainer = Neo.create({
             module       : CalendarsContainer,
@@ -373,25 +379,28 @@ class MainContainer extends Container {
                 items : ['->', {
                     handler    : me.changeTimeInterval.bind(me, 'day'),
                     height     : 24,
+                    pressed    : activeIndex === 0,
                     text       : 'Day',
                     toggleGroup: 'timeInterval',
                     value      : 'day'
                 }, {
                     handler    : me.changeTimeInterval.bind(me, 'week'),
                     height     : 24,
+                    pressed    : activeIndex === 1,
                     text       : 'Week',
                     toggleGroup: 'timeInterval',
                     value      : 'week'
                 }, {
                     handler    : me.changeTimeInterval.bind(me, 'month'),
                     height     : 24,
+                    pressed    : activeIndex === 2,
                     text       : 'Month',
                     toggleGroup: 'timeInterval',
                     value      : 'month'
                 }, {
                     handler    : me.changeTimeInterval.bind(me, 'year'),
                     height     : 24,
-                    pressed    : true,
+                    pressed    : activeIndex === 3,
                     text       : 'Year',
                     toggleGroup: 'timeInterval',
                     value      : 'year'
@@ -424,8 +433,8 @@ class MainContainer extends Container {
             }, {
                 module: Container,
                 flex  : 1,
-                layout: {ntype: 'card', activeIndex: 3}, // todo: activeIndex for testing
-                items : me.createViews()
+                items : me.createViews(),
+                layout: {ntype: 'card', activeIndex: activeIndex}
             }]
         }];
 
