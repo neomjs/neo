@@ -87,6 +87,11 @@ class YearComponent extends Component {
          */
         sixWeeksPerMonth_: false,
         /**
+         * True to use sliding animations
+         * @member {Boolean} useAnimations=true
+         */
+        useAnimations: true,
+        /**
          * @member {Object} vdom
          */
         vdom: {
