@@ -274,7 +274,6 @@ class MainContainer extends Container {
 
     /**
      * Triggered after the weekStartDay config got changed
-     * todo: Only update the active view, adjust the state on card change
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
@@ -283,9 +282,11 @@ class MainContainer extends Container {
         if (oldValue !== undefined) {
             let me = this;
 
-            me.dateSelector .weekStartDay = value;
-            me.weekComponent.weekStartDay = value;
-            me.yearComponent.weekStartDay = value;
+            me.dateSelector  .weekStartDay = value;
+            me.dayComponent  .weekStartDay = value;
+            me.monthComponent.weekStartDay = value;
+            me.weekComponent .weekStartDay = value;
+            me.yearComponent .weekStartDay = value;
         }
     }
 
