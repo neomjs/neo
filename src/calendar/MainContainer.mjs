@@ -1,6 +1,7 @@
 import CalendarsContainer           from './view/CalendarsContainer.mjs';
 import {default as CalendarStore}   from './store/Calendars.mjs';
 import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
+import {default as Component}       from '../component/Base.mjs'; // todo: remove
 import {default as Container}       from '../container/Base.mjs';
 import DateSelector                 from '../component/DateSelector.mjs';
 import DateUtil                     from '../util/Date.mjs';
@@ -344,24 +345,6 @@ class MainContainer extends Container {
             flex         : 1
         });
 
-        me.weekComponent = Neo.create({
-            module      : WeekComponent,
-            currentDate : me.currentDate,
-            eventStore  : me.eventStore,
-            locale      : me.locale,
-            weekStartDay: me.weekStartDay,
-            ...me.weekComponentConfig || {}
-        });
-
-        me.yearComponent = Neo.create({
-            module      : YearComponent,
-            currentDate : me.currentDate,
-            eventStore  : me.eventStore,
-            locale      : me.locale,
-            weekStartDay: me.weekStartDay,
-            ...me.yearComponentConfig || {}
-        });
-
         me.items = [{
             module: Container,
             flex  : 'none',
@@ -442,16 +425,7 @@ class MainContainer extends Container {
                 module: Container,
                 flex  : 1,
                 layout: {ntype: 'card', activeIndex: 3}, // todo: activeIndex for testing
-                items : [{
-                    ntype: 'component',
-                    html : 'Day',
-                    style: {padding: '20px'}
-                }, me.weekComponent, {
-                    ntype: 'component',
-                    html : 'Month',
-                    style: {padding: '20px'}
-                }, me.yearComponent
-                ]
+                items : me.createViews()
             }]
         }];
 
@@ -471,6 +445,52 @@ class MainContainer extends Container {
                 }
             });
         }
+    }
+
+    /**
+     *
+     * @returns {Neo.component.Base[]}
+     */
+    createViews() {
+        let me    = this,
+            cards = [],
+            cmp;
+
+        const map = {
+            day: {
+                module: Component,
+                html  : 'Day',
+                style : {padding: '20px'}
+            },
+            month: {
+                module: Component,
+                html  : 'Month',
+                style : {padding: '20px'}
+            },
+            week: {
+                module      : WeekComponent,
+                currentDate : me.currentDate,
+                eventStore  : me.eventStore,
+                locale      : me.locale,
+                weekStartDay: me.weekStartDay,
+                ...me.weekComponentConfig || {}
+            },
+            year: {
+                module      : YearComponent,
+                currentDate : me.currentDate,
+                eventStore  : me.eventStore,
+                locale      : me.locale,
+                weekStartDay: me.weekStartDay,
+                ...me.yearComponentConfig || {}
+            }
+        }
+
+        me.views.forEach(view => {
+            me[view + 'Component'] = cmp = Neo.create(map[view]);
+            cards.push(cmp);
+        });
+
+        return cards;
     }
 
     /**
