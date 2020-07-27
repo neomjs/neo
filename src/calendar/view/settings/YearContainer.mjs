@@ -35,7 +35,7 @@ class YearContainer extends Container {
             fieldValue    : 'short',
             flex          : 'none',
             hideValueLabel: false,
-            labelText     : 'Month Name Format',
+            labelText     : 'monthNameFormat',
             labelWidth    : 160,
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'monthNameFormat',
@@ -56,20 +56,29 @@ class YearContainer extends Container {
             module    : CheckBoxField,
             checked   : yearComponent.showCellBorders,
             flex      : 'none',
-            labelText : 'Show Cell Borders',
+            labelText : 'showCellBorders',
             labelWidth: 160,
             listeners : {change: me.onConfigChange, scope: me},
             name      : 'showCellBorders',
-            style     : {marginTop: '5px'}
+            style     : {marginTop: '10px'}
         }, {
             module    : CheckBoxField,
             checked   : yearComponent.showWeekNumbers,
             flex      : 'none',
-            labelText : 'Show Week Numbers',
+            labelText : 'showWeekNumbers',
             labelWidth: 160,
             listeners : {change: me.onConfigChange, scope: me},
             name      : 'showWeekNumbers',
-            style     : {marginTop: '5px'}
+            style     : {marginTop: '10px'}
+        }, {
+            module    : CheckBoxField,
+            checked   : yearComponent.sixWeeksPerMonth,
+            flex      : 'none',
+            labelText : 'sixWeeksPerMonth',
+            labelWidth: 160,
+            listeners : {change: me.onConfigChange, scope: me},
+            name      : 'sixWeeksPerMonth',
+            style     : {marginTop: '10px'}
         }];
     }
 

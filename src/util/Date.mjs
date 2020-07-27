@@ -62,6 +62,19 @@ class DateUtil extends Base {
     }
 
     /**
+     *
+     * @param {Date} date
+     * @param {Number} weekStartDay 0-6
+     * @returns {Number}
+     */
+    static getFirstDayOffset(date, weekStartDay) {
+        let firstDayInMonth = DateUtil.getFirstDayOfMonth(date),
+            firstDayOffset  = firstDayInMonth - weekStartDay;
+
+        return firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
+    }
+
+    /**
      * Returns the day number of the first day of a passed date object
      * @param {Date} date
      * @returns {Number} 0-6 (Sun-Sat)
@@ -90,6 +103,19 @@ class DateUtil extends Base {
         }
 
         return Math.ceil((firstThursday - date) /  (7 * 24 * 3600 * 1000)) + 1;
+    }
+
+    /**
+     *
+     * @param {Date} date
+     * @param {Number} weekStartDay 0-6
+     * @returns {Number} 5-6
+     */
+    static getWeeksOfMonth(date, weekStartDay) {
+        let daysInMonth    = DateUtil.getDaysInMonth(date),
+            firstDayOffset = DateUtil.getFirstDayOffset(date, weekStartDay);
+
+        return (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
     }
 
     /**

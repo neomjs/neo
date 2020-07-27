@@ -30,8 +30,8 @@ class DateSelector extends Component {
          */
         ntype: 'dateselector',
         /**
-         * Stores the last date change which got triggered while a month / Year transition was running
-         * @member {Object|null} cachedUpdate=null
+         * Stores the last date change which got triggered while a month / year transition was running
+         * @member {Date|null} cachedUpdate=null
          * @protected
          */
         cachedUpdate: null,
@@ -56,6 +56,11 @@ class DateSelector extends Component {
          */
         dayNameFormat_: 'short',
         /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_day=null
+         * @protected
+         */
+        intlFormat_day: null,
+        /**
          * Internal flag to prevent changing the date while change animations are still running
          * @member {Boolean} isUpdating_=false
          * @protected
@@ -66,6 +71,10 @@ class DateSelector extends Component {
          * @member {Object} keys
          */
         keys: {},
+        /**
+         * @member {String} locale_=Neo.config.locale
+         */
+        locale_: Neo.config.locale,
         /**
          * Used for wheel events. min value = 1.
          * A higher value means lesser sensitivity for wheel events
@@ -205,8 +214,26 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetDayNameFormat(value, oldValue) {
-        if (this.rendered) {
-            this.recreateDayViewContent();
+        this.updateHeaderDays(value, oldValue);
+    }
+
+    /**
+     * Triggered after the locale config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLocale(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me   = this,
+                dt   = new Intl.DateTimeFormat(me.locale, {month: 'short'}),
+                vdom = me.vdom;
+
+            me.updateHeaderDays(me.dayNameFormat, '', true);
+
+            me.getHeaderMonthEl().html = dt.format(me.currentDate);
+
+            me.vdom = vdom;
         }
     }
 
@@ -249,7 +276,7 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetShowDisabledDays(value, oldValue) {
-        if (this.rendered) {
+        if (oldValue !== undefined) {
             this.recreateDayViewContent();
         }
     }
@@ -261,7 +288,7 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        if (this.rendered) {
+        if (oldValue !== undefined) {
             value.register(this);
         }
     }
@@ -294,7 +321,7 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetWeekStartDay(value, oldValue) {
-        if (this.rendered) {
+        if (oldValue !== undefined) {
             this.recreateDayViewContent(false, false);
         }
     }
@@ -373,9 +400,9 @@ class DateSelector extends Component {
                                 cn : []
                             }],
                             style: {
-                                height   : data[0].height + 'px',
+                                height   : `${data[0].height}px`,
                                 transform: `translateX(${x}px)`,
-                                width    : 2 * data[0].width + 'px'
+                                width    : `${2 * data[0].width}px`
                             }
                         }]
                     });
@@ -469,9 +496,9 @@ class DateSelector extends Component {
                             }],
                             style: {
                                 flexDirection: 'column',
-                                height       : 2 * data.height + 'px',
+                                height       : `${2 * data.height}px`,
                                 transform    : `translateY(${y}px)`,
-                                width        : data.width + 'px'
+                                width        : `${data.width}px`
                             }
                         }]
                     });
@@ -511,16 +538,12 @@ class DateSelector extends Component {
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
-        const dt = new Intl.DateTimeFormat(Neo.config.locale, {
-            weekday: me.dayNameFormat
-        });
-
         for (; i < len; i++) {
             row.cn.push({
                 cls: ['neo-cell'],
                 cn : [{
                     cls : ['neo-cell-content'],
-                    html: dt.format(date)
+                    html: me.intlFormat_day.format(date)
                 }]
             });
 
@@ -759,14 +782,43 @@ class DateSelector extends Component {
      * @protected
      */
     triggerVdomUpdate(silent=false) {
-        let me = this;
-
         if (!silent) {
+            let me = this;
+
             me.isUpdating = true;
 
             me.promiseVdomUpdate(me.vdom).then(() => {
                 me.isUpdating = false;
             });
+        }
+    }
+
+    /**
+     *
+     * @param {String} value
+     * @param {String} oldValue
+     * @param {Boolean} [silent=false]
+     */
+    updateHeaderDays(value, oldValue, silent=false) {
+        let me = this;
+
+        me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
+
+        if (oldValue !== undefined) {
+            let centerEl = me.getCenterContentEl().cn[0],
+                date     = me.currentDate, // cloned
+                vdom     = me.vdom,
+                i        = 0;
+
+            date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
+
+            for (; i < 7; i++) {
+                centerEl.cn[i].cn[0].html = me.intlFormat_day.format(date);
+
+                date.setDate(date.getDate() + 1);
+            }
+
+            me[silent ? '_vdom' : 'vdom'] = vdom;
         }
     }
 
@@ -780,7 +832,7 @@ class DateSelector extends Component {
      */
     updateHeaderMonth(increment, yearIncrement, silent=false, monthElDomRect) {
         let me             = this,
-            dt             = new Intl.DateTimeFormat(Neo.config.locale, {month: 'short'}),
+            dt             = new Intl.DateTimeFormat(me.locale, {month: 'short'}),
             currentMonth   = dt.format(me.currentDate),
             monthEl        = me.getHeaderMonthEl(),
             slideDirection = yearIncrement > 0 ? 'bottom' : yearIncrement < 0 ? 'top' : increment < 0 ? 'top' : 'bottom',

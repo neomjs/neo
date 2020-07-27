@@ -1,6 +1,7 @@
 import CalendarsContainer           from './view/CalendarsContainer.mjs';
 import {default as CalendarStore}   from './store/Calendars.mjs';
 import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
+import {default as Component}       from '../component/Base.mjs'; // todo: remove
 import {default as Container}       from '../container/Base.mjs';
 import DateSelector                 from '../component/DateSelector.mjs';
 import DateUtil                     from '../util/Date.mjs';
@@ -17,6 +18,15 @@ const todayDate = new Date();
  * @extends Neo.container.Base
  */
 class MainContainer extends Container {
+    static getStaticConfig() {return {
+        /**
+         * Valid entries for the views config
+         * @member {String[]} validViews=['day', 'week', 'month', 'year']
+         * @static
+         */
+        validViews: ['day', 'week', 'month', 'year']
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.calendar.MainContainer'
@@ -28,6 +38,16 @@ class MainContainer extends Container {
          * @protected
          */
         ntype: 'calendar-maincontainer',
+        /**
+         * The currently active view. Must be a value included inside the views config.
+         * @member {String} activeView_='week'
+         */
+        activeView_: 'year',
+        /**
+         * Scale the calendar with using s different base font-size
+         * @member {Number|null} baseFontSize_=null
+         */
+        baseFontSize_: null,
         /**
          * @member {Neo.calendar.view.CalendarsContainer|null} calendarsContainer=null
          */
@@ -50,9 +70,9 @@ class MainContainer extends Container {
          */
         currentDate_: todayDate,
         /**
-         * @member {Neo.component.DateSelector|null} dateSelector_=null
+         * @member {Neo.component.DateSelector|null} dateSelector=null
          */
-        dateSelector_: null,
+        dateSelector: null,
         /**
          * @member {Object|null} dateSelectorConfig=null
          */
@@ -95,6 +115,11 @@ class MainContainer extends Container {
          */
         useSettingsContainer_: true,
         /**
+         * Any combination and order of 'day', 'week', 'month', 'year'
+         * @member {String[]} views_=['day', 'week', 'month', 'year']
+         */
+        views_: ['day', 'week', 'month', 'year'],
+        /**
          * @member {Neo.calendar.view.WeekComponent|null} weekComponent=null
          */
         weekComponent: null,
@@ -134,6 +159,26 @@ class MainContainer extends Container {
     }
 
     /**
+     * Triggered after the baseFontSize config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetBaseFontSize(value, oldValue) {
+        if (oldValue !== undefined) {
+            let style = this.style || {};
+
+            if (!value) {
+                delete style.fontSize;
+            } else {
+                style.fontSize = `${value}px`;
+            }
+
+            this.style = style;
+        }
+    }
+
+    /**
      * Triggered after the currentDate config got changed
      * todo: Only update the active view, adjust the state on card change
      * @param {Date} value
@@ -142,9 +187,11 @@ class MainContainer extends Container {
      */
     afterSetCurrentDate(value, oldValue) {
         if (oldValue !== undefined) {
-            this.dateSelector .value       = DateUtil.convertToyyyymmdd(value);
-            this.weekComponent.currentDate = value;
-            this.yearComponent.currentDate = value;
+            let me = this;
+
+            me.weekComponent.currentDate = value;
+            me.yearComponent.currentDate = value;
+            me.dateSelector .value       = DateUtil.convertToyyyymmdd(value);
         }
     }
 
@@ -226,19 +273,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered when accessing the dateSelector config
-     * @param {Object} value
-     * @protected
-     */
-    beforeGetDateSelector(value) {
-        if (!value) {
-            value = this.dateSelector = this.down('dateselector');
-        }
-
-        return value;
-    }
-
-    /**
      * Triggered before the calendarStore config gets changed.
      * @param {Neo.calendar.store.Calendars} value
      * @param {Neo.calendar.store.Calendars} oldValue
@@ -277,25 +311,82 @@ class MainContainer extends Container {
     }
 
     /**
+     * Triggered before the views config gets changed.
+     * @param {String[]} value
+     * @param {String[]} oldValue
+     * @protected
+     */
+    beforeSetViews(value, oldValue) {
+        let validViews = this.getStaticConfig('validViews');
+
+        value.forEach(view => {
+            if (!validViews.includes(view)) {
+                console.error(view, 'is not a valid entry for views. Stick to:', validViews);
+                return oldValue;
+            }
+        });
+
+        return value;
+    }
+
+    /**
      *
      * @param {String} interval
      * @protected
      */
     changeTimeInterval(interval) {
-        const map = {
-            day  : 0,
-            month: 2,
-            week : 1,
-            year : 3
-        };
+        let me = this;
 
-        this.items[1].items[1].layout.activeIndex = map[interval];
+        me.items[1].items[1].layout.activeIndex = me.views.indexOf(interval);
 
-        this.items[0].items[1].items.forEach(item => {
+        me.items[0].items[1].items.forEach(item => {
             if (item.toggleGroup === 'timeInterval') {
                 item.pressed = item.value === interval;
             }
         });
+
+        me.activeView = interval;
+    }
+
+    /**
+     *
+     * @returns {Neo.component.Base[]}
+     */
+    createHeaderItems() {
+        let me    = this,
+            items = [{
+            module: Toolbar,
+            cls   : ['neo-calendar-header-toolbar', 'neo-left', 'neo-toolbar'],
+            width : me.sideBarWidth,
+            items : [{
+                handler: me.toggleSidebar.bind(me),
+                iconCls: 'fa fa-bars'
+            }, '->', {
+                handler: me.onPreviousIntervalButtonClick.bind(me),
+                iconCls: 'fa fa-chevron-left',
+            }, {
+                handler: me.onTodayButtonClick.bind(me),
+                height : 24,
+                text   : 'Today'
+            }, {
+                handler: me.onNextIntervalButtonClick.bind(me),
+                iconCls: 'fa fa-chevron-right'
+            }]
+        }, {
+            module: Toolbar,
+            cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
+            items : ['->', ...me.createViewHeaderButtons()]
+        }];
+
+        if (me.useSettingsContainer) {
+            items[1].items.push({
+                handler: me.toggleSettings.bind(me),
+                iconCls: 'fa fa-cog',
+                style  : {marginLeft: '10px'}
+            });
+        }
+
+        return items;
     }
 
     /**
@@ -311,76 +402,22 @@ class MainContainer extends Container {
             flex         : 1
         });
 
-        me.weekComponent = Neo.create({
-            module      : WeekComponent,
-            currentDate : me.currentDate,
-            eventStore  : me.eventStore,
+        me.dateSelector = Neo.create({
+            module      : DateSelector,
+            flex        : 'none',
+            height      : me.sideBarWidth,
+            listeners   : {change: me.onDateSelectorChange, scope: me},
             locale      : me.locale,
+            value       : DateUtil.convertToyyyymmdd(me.currentDate),
             weekStartDay: me.weekStartDay,
-            ...me.weekComponentConfig || {}
-        });
-
-        me.yearComponent = Neo.create({
-            module      : YearComponent,
-            currentDate : me.currentDate,
-            eventStore  : me.eventStore,
-            locale      : me.locale,
-            weekStartDay: me.weekStartDay,
-            ...me.yearComponentConfig || {}
+            ...me.dateSelectorConfig || {}
         });
 
         me.items = [{
             module: Container,
             flex  : 'none',
             layout: {ntype: 'hbox', align: 'stretch'},
-            items : [{
-                module: Toolbar,
-                cls   : ['neo-calendar-header-toolbar', 'neo-left', 'neo-toolbar'],
-                width : me.sideBarWidth,
-                items : [{
-                    handler: me.toggleSidebar.bind(me),
-                    iconCls: 'fa fa-bars'
-                }, '->', {
-                    handler: me.onPreviousIntervalButtonClick.bind(me),
-                    iconCls: 'fa fa-chevron-left',
-                }, {
-                    handler: me.onTodayButtonClick.bind(me),
-                    height : 24,
-                    text   : 'Today'
-                }, {
-                    handler: me.onNextIntervalButtonClick.bind(me),
-                    iconCls: 'fa fa-chevron-right'
-                }]
-            }, {
-                module: Toolbar,
-                cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
-                items : ['->', {
-                    handler    : me.changeTimeInterval.bind(me, 'day'),
-                    height     : 24,
-                    text       : 'Day',
-                    toggleGroup: 'timeInterval',
-                    value      : 'day'
-                }, {
-                    handler    : me.changeTimeInterval.bind(me, 'week'),
-                    height     : 24,
-                    text       : 'Week',
-                    toggleGroup: 'timeInterval',
-                    value      : 'week'
-                }, {
-                    handler    : me.changeTimeInterval.bind(me, 'month'),
-                    height     : 24,
-                    text       : 'Month',
-                    toggleGroup: 'timeInterval',
-                    value      : 'month'
-                }, {
-                    handler    : me.changeTimeInterval.bind(me, 'year'),
-                    height     : 24,
-                    pressed    : true,
-                    text       : 'Year',
-                    toggleGroup: 'timeInterval',
-                    value      : 'year'
-                }]
-            }]
+            items : me.createHeaderItems()
         }, {
             module: Container,
             flex  : 1,
@@ -390,54 +427,91 @@ class MainContainer extends Container {
                 cls   : ['neo-calendar-sidebar', 'neo-container'],
                 layout: {ntype: 'vbox', align: 'stretch'},
                 width : me.sideBarWidth,
-                items : [{
-                    module      : DateSelector,
-                    flex        : 'none',
-                    height      : me.sideBarWidth,
-                    locale      : me.locale,
-                    value       : DateUtil.convertToyyyymmdd(me.currentDate),
-                    weekStartDay: me.weekStartDay,
-
-                    listeners: {
-                        change: me.onDateSelectorChange,
-                        scope : me
-                    },
-
-                    ...me.dateSelectorConfig || {}
-                }, me.calendarsContainer]
+                items : [me.dateSelector, me.calendarsContainer]
             }, {
                 module: Container,
                 flex  : 1,
-                layout: {ntype: 'card', activeIndex: 3}, // todo: activeIndex for testing
-                items : [{
-                    ntype: 'component',
-                    html : 'Day',
-                    style: {padding: '20px'}
-                }, me.weekComponent, {
-                    ntype: 'component',
-                    html : 'Month',
-                    style: {padding: '20px'}
-                }, me.yearComponent
-                ]
+                items : me.createViews(),
+                layout: {ntype: 'card', activeIndex: me.views.indexOf(me.activeView)}
             }]
         }];
 
         if (me.useSettingsContainer) {
-            me.items[0].items[1].items.push({
-                handler: me.toggleSettings.bind(me),
-                iconCls: 'fa fa-cog',
-                style  : {marginLeft: '10px'}
-            });
-
             me.items[1].items.push({
                 module: SettingsContainer,
-                width : me.settingsContainerWidth,
-
-                style: {
-                    marginRight: me.settingsExpanded ? '0': `-${me.settingsContainerWidth}px`
-                }
+                style : {marginRight: me.settingsExpanded ? '0': `-${me.settingsContainerWidth}px`},
+                width : me.settingsContainerWidth
             });
         }
+    }
+
+    /**
+     *
+     * @returns {Neo.component.Base[]}
+     */
+    createViewHeaderButtons() {
+        let me          = this,
+            activeIndex = me.views.indexOf(me.activeView),
+            buttons     = [];
+
+        me.views.forEach((view, index) => {
+            buttons.push({
+                handler    : me.changeTimeInterval.bind(me, view),
+                height     : 24,
+                pressed    : activeIndex === index,
+                text       : Neo.capitalize(view),
+                toggleGroup: 'timeInterval',
+                value      : view
+            });
+        });
+
+        return buttons;
+    }
+
+    /**
+     *
+     * @returns {Neo.component.Base[]}
+     */
+    createViews() {
+        let me    = this,
+            cards = [],
+            cmp;
+
+        const map = {
+            day: {
+                module: Component,
+                html  : 'Day',
+                style : {padding: '20px'}
+            },
+            month: {
+                module: Component,
+                html  : 'Month',
+                style : {padding: '20px'}
+            },
+            week: {
+                module      : WeekComponent,
+                currentDate : me.currentDate,
+                eventStore  : me.eventStore,
+                locale      : me.locale,
+                weekStartDay: me.weekStartDay,
+                ...me.weekComponentConfig || {}
+            },
+            year: {
+                module      : YearComponent,
+                currentDate : me.currentDate,
+                eventStore  : me.eventStore,
+                locale      : me.locale,
+                weekStartDay: me.weekStartDay,
+                ...me.yearComponentConfig || {}
+            }
+        }
+
+        me.views.forEach(view => {
+            me[view + 'Component'] = cmp = Neo.create(map[view]);
+            cards.push(cmp);
+        });
+
+        return cards;
     }
 
     /**
@@ -449,7 +523,9 @@ class MainContainer extends Container {
         // remove references, the super call will remove component tree based instances
         me.calendarsContainer = null;
         me.dateSelector       = null;
+        me.dayComponent       = null;
         me.weekComponent      = null;
+        me.yearComponent      = null;
 
         super.destroy(...args);
     }
@@ -524,17 +600,21 @@ class MainContainer extends Container {
     }
 
     /**
-     * todo: different intervals matching to the active card view
+     *
      * @param {Number} multiplier
      */
     switchInterval(multiplier) {
         let me          = this,
-            currentDate = me.currentDate,
-            interval    = 7;
+            currentDate = me.currentDate; // cloned
 
-        interval *= multiplier;
+        const map = {
+            day  : () => {currentDate.setDate(    currentDate.getDate()     + multiplier)},
+            month: () => {currentDate.setMonth(   currentDate.getMonth()    + multiplier)},
+            week : () => {currentDate.setDate(    currentDate.getDate() + 7 * multiplier)},
+            year : () => {currentDate.setFullYear(currentDate.getFullYear() + multiplier)}
+        };
 
-        currentDate.setDate(currentDate.getDate() + interval);
+        map[me.activeView]();
         me.currentDate = currentDate;
     }
 }

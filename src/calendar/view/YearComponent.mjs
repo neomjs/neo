@@ -27,6 +27,12 @@ class YearComponent extends Component {
          */
         ntype: 'calendar-view-yearcomponent',
         /**
+         * Stores the last date change which got triggered while a year transition was running
+         * @member {Date|null} cachedUpdate=null
+         * @protected
+         */
+        cachedUpdate: null,
+        /**
          * @member {String[]} cls=['neo-calendar-yearcomponent']
          */
         cls: ['neo-calendar-yearcomponent'],
@@ -57,6 +63,12 @@ class YearComponent extends Component {
          */
         intlFormat_month: null,
         /**
+         * Internal flag to prevent changing the date while change animations are still running
+         * @member {Boolean} isUpdating_=false
+         * @protected
+         */
+        isUpdating_: false,
+        /**
          * @member {String} locale_=Neo.config.locale
          */
         locale_: Neo.config.locale,
@@ -82,13 +94,26 @@ class YearComponent extends Component {
          */
         showWeekNumbers_: true,
         /**
+         * True to show 6 weeks for each month, so that all months have the same height
+         * @member {Boolean} sixWeeksPerMonth_=false
+         */
+        sixWeeksPerMonth_: false,
+        /**
+         * True to use sliding animations
+         * @member {Boolean} useAnimations=true
+         */
+        useAnimations: true,
+        /**
          * @member {Object} vdom
          */
         vdom: {
             cn: [{
-                cls : ['neo-year-header']
-            }, {
-                cls: ['neo-months-container']
+                cls: ['neo-content-wrapper'],
+                cn : [{
+                    cls: ['neo-year-header']
+                }, {
+                    cls: ['neo-months-container']
+                }]
             }]
         },
         /**
@@ -116,9 +141,11 @@ class YearComponent extends Component {
      */
     afterSetCurrentDate(value, oldValue) {
         if (oldValue !== undefined) {
-            if (value.getFullYear() !== oldValue.getFullYear()) {
-                // todo
-                console.log('## transition to the new year', value.getFullYear());
+            let oldYear = oldValue.getFullYear(),
+                year    = value   .getFullYear();
+
+            if (year !== oldYear) {
+                this.changeYear(year - oldYear);
             } else {
                 // todo
                 console.log('## select a new day', value.getMonth(), value.getDate());
@@ -182,18 +209,43 @@ class YearComponent extends Component {
      */
     afterSetShowWeekNumbers(value, oldValue) {
         if (oldValue !== undefined) {
-            let me = this,
+            let me   = this,
                 vdom = me.vdom,
                 i    = 0,
                 itemCn, j, len;
 
             for (; i < 12; i++) {
-                itemCn = vdom.cn[1].cn[i].cn;
+                itemCn = vdom.cn[0].cn[1].cn[i].cn;
                 len    = itemCn.length;
 
                 for (j = 1; j < len; j++) {
                     itemCn[j].cn[0].removeDom = !value;
                 }
+            }
+
+            me.vdom = vdom;
+        }
+    }
+
+    /**
+     * Triggered after the sixWeeksPerMonth config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSixWeeksPerMonth(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me   = this,
+                vdom = me.vdom,
+                date = me.currentDate, // cloned
+                i    = 0;
+
+            date.setMonth(0);
+            date.setDate(1);
+
+            for (; i < 12; i++) {
+                vdom.cn[0].cn[1].cn[i].cn[7].removeDom = DateUtil.getWeeksOfMonth(date, me.weekStartDay) === 5 && !value;
+                date.setMonth(date.getMonth() + 1);
             }
 
             me.vdom = vdom;
@@ -220,6 +272,75 @@ class YearComponent extends Component {
      */
     beforeSetMonthNameFormat(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'monthNameFormat', DateUtil.prototype.monthNameFormats);
+    }
+
+    /**
+     * Stores the last date change which could not get applied while a transition was running
+     * @param {Date} [date=this.currentDate]
+     * @protected
+     */
+    cacheUpdate(date=this.currentDate) {
+        this.cachedUpdate = date;
+    }
+
+    /**
+     *
+     * @param {Number} increment
+     */
+    changeYear(increment) {
+        let me = this,
+            vdom, y;
+
+        if (!me.useAnimations) {
+            // me.recreateContent(increment); // todo
+        } else {
+            if (!me.isUpdating) {
+                me.isUpdating = true;
+
+                Neo.main.DomAccess.getBoundingClientRect({
+                    id: me.id
+                }).then(data => {
+                    vdom = me.vdom;
+                    y    = increment < 0 ? 0 : -data.height;
+
+                    vdom.cn.push({
+                        cls: ['neo-relative'],
+                        cn : [{
+                            cls: ['neo-animation-wrapper'],
+                            cn : [{
+                                cls: ['neo-content-wrapper'],
+                                cn : [{
+                                    cls : ['neo-year-header'],
+                                    html: me.currentDate.getFullYear()
+                                }, {
+                                    cls: ['neo-months-container']
+                                }]
+                            }],
+                            style: {
+                                height   : `${2 * data.height}px`,
+                                transform: `translateY(${y}px)`,
+                                width    : `${data.width}px`
+                            }
+                        }]
+                    });
+
+                    me.createMonths(true, vdom.cn[1].cn[0].cn[0].cn[1]);
+                    vdom.cn[1].cn[0].cn[increment < 0 ? 'unshift' : 'push'](vdom.cn[0]);
+                    vdom.cn.splice(0, 1);
+
+                    me.promiseVdomUpdate(vdom).then(() => {
+                        y = increment < 0 ? -data.height : 0;
+                        vdom.cn[0].cn[0].style.transform = `translateY(${y}px)`;
+                        me.vdom = vdom;
+
+                        setTimeout(() => {
+                            vdom.cn[0] = vdom.cn[0].cn[0].cn[increment < 0 ? 1 : 0];
+                            me.triggerVdomUpdate();
+                        }, 300);
+                    });
+                });
+            }
+        }
     }
 
     /**
@@ -252,32 +373,33 @@ class YearComponent extends Component {
      * @returns {Object} vdom
      */
     createMonthContent(containerEl, currentDate) {
-        let me              = this,
-            currentDay      = currentDate.getDate(),
-            currentMonth    = currentDate.getMonth(),
-            currentYear     = currentDate.getFullYear(),
-            disabledDate    = DateUtil.clone(currentDate),
-            valueDate       = me.currentDate, // cloned
-            valueMonth      = valueDate.getMonth(),
-            valueYear       = valueDate.getFullYear(),
-            daysInMonth     = DateUtil.getDaysInMonth(currentDate),
-            firstDayInMonth = DateUtil.getFirstDayOfMonth(currentDate),
-            firstDayOffset  = firstDayInMonth - me.weekStartDay,
-            columns         = 7,
-            i               = 0,
-            weekDate        = DateUtil.clone(currentDate),
+        let me             = this,
+            currentDay     = currentDate.getDate(),
+            currentMonth   = currentDate.getMonth(),
+            currentYear    = currentDate.getFullYear(),
+            date           = DateUtil.clone(currentDate),
+            valueDate      = me.currentDate, // cloned
+            valueMonth     = valueDate.getMonth(),
+            valueYear      = valueDate.getFullYear(),
+            daysInMonth    = DateUtil.getDaysInMonth(currentDate),
+            firstDayOffset = DateUtil.getFirstDayOffset(currentDate, me.weekStartDay),
+            columns        = 7,
+            i              = 0,
+            weekDate       = DateUtil.clone(currentDate),
             cellCls, cellId, cls, day, hasContent, j, row, rows;
 
-        firstDayOffset = firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
-        rows           = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
-        day            = 1 - firstDayOffset;
+        rows = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
+        day  = 1 - firstDayOffset;
 
+        date.setDate(day);
         weekDate.setDate(day + 7);
 
-        for (; i < rows; i++) {
+        for (; i < 6; i++) {
             row = {
-                cls: ['neo-calendar-week'],
-                cn : [{
+                cls      : ['neo-calendar-week'],
+                removeDom: i === rows && !me.sixWeeksPerMonth,
+
+                cn: [{
                     cls      : ['neo-cell', 'neo-weeknumber-cell'],
                     html     : DateUtil.getWeekOfYear(weekDate),
                     removeDom: !me.showWeekNumbers
@@ -300,22 +422,22 @@ class YearComponent extends Component {
                     cellCls.push('neo-selected');
                 }
 
-                if (me.showDisabledDays && !hasContent) {
-                    disabledDate.setMonth(currentMonth);
-                    disabledDate.setDate(day);
-                }
-
                 row.cn.push({
                     id      : cellId,
                     cls     : cellCls,
                     tabIndex: hasContent ? -1 : null,
+
                     cn: [{
                         cls : cls,
-                        html: hasContent ? day : me.showDisabledDays ? disabledDate.getDate() : ''
+                        html: hasContent ? day : me.showDisabledDays ? date.getDate() : ''
                     }]
                 });
 
                 day++;
+
+                if (me.showDisabledDays) {
+                    date.setDate(date.getDate() + 1);
+                }
             }
 
             containerEl.cn.push(row);
@@ -325,13 +447,14 @@ class YearComponent extends Component {
     }
 
     /**
-     *
+     * @param {Boolean} silent true to update the vdom silently
+     * @param {Object} [containerEl]
      */
-    createMonths() {
+    createMonths(silent, containerEl) {
         let me             = this,
             currentDate    = me.currentDate, // cloned
             vdom           = me.vdom,
-            monthContainer = vdom.cn[1],
+            monthContainer = containerEl || vdom.cn[0].cn[1],
             i              = 0,
             monthVdom;
 
@@ -357,7 +480,9 @@ class YearComponent extends Component {
             monthContainer.cn.push(monthVdom);
         }
 
-        me.vdom = vdom;
+        if (!silent) {
+            me.vdom = vdom;
+        }
     }
 
     /**
@@ -383,6 +508,23 @@ class YearComponent extends Component {
     }
 
     /**
+     * Triggers a vdom update & sets isUpdating
+     * @param {Boolean} [silent=false]
+     * @protected
+     */
+    triggerVdomUpdate(silent=false) {
+        if (!silent) {
+            let me = this;
+
+            me.isUpdating = true;
+
+            me.promiseVdomUpdate(me.vdom).then(() => {
+                me.isUpdating = false;
+            });
+        }
+    }
+
+    /**
      * Dynamically update the weekday rows inside each month
      * @param {String} value
      * @param {String} oldValue
@@ -394,8 +536,7 @@ class YearComponent extends Component {
         me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
 
         if (oldValue !== undefined) {
-            let me   = this,
-                date = me.currentDate, // cloned
+            let date = me.currentDate, // cloned
                 vdom = me.vdom,
                 i    = 1,
                 j;
@@ -404,7 +545,7 @@ class YearComponent extends Component {
 
             for (; i < 8; i++) {
                 for (j=0; j < 12; j++) {
-                    vdom.cn[1].cn[j].cn[1].cn[i].html = me.intlFormat_day.format(date);
+                    vdom.cn[0].cn[1].cn[j].cn[1].cn[i].html = me.intlFormat_day.format(date);
                 }
 
                 date.setDate(date.getDate() + 1);
@@ -418,7 +559,7 @@ class YearComponent extends Component {
      *
      */
     updateHeaderYear() {
-        this.vdom.cn[0].html = this.currentDate.getFullYear();
+        this.vdom.cn[0].cn[0].html = this.currentDate.getFullYear();
     }
 
     /**
@@ -442,7 +583,7 @@ class YearComponent extends Component {
                 currentDate.setMonth(i);
                 currentDate.setDate(1);
 
-                vdom.cn[1].cn[i].cn[0].html = me.intlFormat_month.format(currentDate);
+                vdom.cn[0].cn[1].cn[i].cn[0].html = me.intlFormat_month.format(currentDate);
             }
 
             me[silent ? '_vdom' : 'vdom'] = vdom;
