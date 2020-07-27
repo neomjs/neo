@@ -91,9 +91,12 @@ class YearComponent extends Component {
          */
         vdom: {
             cn: [{
-                cls : ['neo-year-header']
-            }, {
-                cls: ['neo-months-container']
+                cls: ['neo-content-wrapper'],
+                cn : [{
+                    cls : ['neo-year-header']
+                }, {
+                    cls: ['neo-months-container']
+                }]
             }]
         },
         /**
@@ -195,7 +198,7 @@ class YearComponent extends Component {
                 itemCn, j, len;
 
             for (; i < 12; i++) {
-                itemCn = vdom.cn[1].cn[i].cn;
+                itemCn = vdom.cn[0].cn[1].cn[i].cn;
                 len    = itemCn.length;
 
                 for (j = 1; j < len; j++) {
@@ -224,7 +227,7 @@ class YearComponent extends Component {
             date.setDate(1);
 
             for (; i < 12; i++) {
-                vdom.cn[1].cn[i].cn[7].removeDom = DateUtil.getWeeksOfMonth(date, me.weekStartDay) === 5 && !value;
+                vdom.cn[0].cn[1].cn[i].cn[7].removeDom = DateUtil.getWeeksOfMonth(date, me.weekStartDay) === 5 && !value;
                 date.setMonth(date.getMonth() + 1);
             }
 
@@ -371,7 +374,7 @@ class YearComponent extends Component {
         let me             = this,
             currentDate    = me.currentDate, // cloned
             vdom           = me.vdom,
-            monthContainer = vdom.cn[1],
+            monthContainer = vdom.cn[0].cn[1],
             i              = 0,
             monthVdom;
 
@@ -443,7 +446,7 @@ class YearComponent extends Component {
 
             for (; i < 8; i++) {
                 for (j=0; j < 12; j++) {
-                    vdom.cn[1].cn[j].cn[1].cn[i].html = me.intlFormat_day.format(date);
+                    vdom.cn[0].cn[1].cn[j].cn[1].cn[i].html = me.intlFormat_day.format(date);
                 }
 
                 date.setDate(date.getDate() + 1);
@@ -457,7 +460,7 @@ class YearComponent extends Component {
      *
      */
     updateHeaderYear() {
-        this.vdom.cn[0].html = this.currentDate.getFullYear();
+        this.vdom.cn[0].cn[0].html = this.currentDate.getFullYear();
     }
 
     /**
@@ -481,7 +484,7 @@ class YearComponent extends Component {
                 currentDate.setMonth(i);
                 currentDate.setDate(1);
 
-                vdom.cn[1].cn[i].cn[0].html = me.intlFormat_month.format(currentDate);
+                vdom.cn[0].cn[1].cn[i].cn[0].html = me.intlFormat_month.format(currentDate);
             }
 
             me[silent ? '_vdom' : 'vdom'] = vdom;
