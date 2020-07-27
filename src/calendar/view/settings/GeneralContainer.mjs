@@ -1,5 +1,6 @@
-import {default as Container}  from '../../../container/Base.mjs';
-import {default as RadioField} from '../../../form/field/Radio.mjs';
+import {default as Container}   from '../../../container/Base.mjs';
+import {default as NumberField} from '../../../form/field/Number.mjs';
+import {default as RadioField}  from '../../../form/field/Radio.mjs';
 
 /**
  * @class Neo.calendar.view.settings.GeneralContainer
@@ -29,6 +30,17 @@ class GeneralContainer extends Container {
             calendar = me.up('calendar-maincontainer');
 
         me.items = [{
+            module    : NumberField,
+            clearable : true,
+            flex      : 'none',
+            labelText : 'baseFontSize',
+            labelWidth: 110,
+            listeners : {change: me.onBaseFontSizeChange, scope: me},
+            maxValue  : 30,
+            minValue  : 10,
+            name      : 'baseFontSize',
+            value     : calendar.baseFontSize
+        }, {
             module        : RadioField,
             checked       : calendar.locale === 'default',
             fieldValue    : 'default',
@@ -38,6 +50,7 @@ class GeneralContainer extends Container {
             labelWidth    : 110,
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'locale',
+            style         : {marginTop: '5px'},
             valueLabelText: 'default'
         }, {
             module        : RadioField,
@@ -112,6 +125,14 @@ class GeneralContainer extends Container {
             style         : {marginTop: '5px'},
             valueLabelText: 'Monday'
         }];
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onBaseFontSizeChange(data) {
+        this.up('calendar-maincontainer')[data.component.name] = data.value;
     }
 
     /**

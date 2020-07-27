@@ -167,7 +167,13 @@ class MainContainer extends Container {
     afterSetBaseFontSize(value, oldValue) {
         if (oldValue !== undefined) {
             let style = this.style || {};
-            style.fontSize = `${value}px`;
+
+            if (!value) {
+                delete style.fontSize;
+            } else {
+                style.fontSize = `${value}px`;
+            }
+
             this.style = style;
         }
     }
