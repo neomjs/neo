@@ -377,7 +377,7 @@ class YearComponent extends Component {
             currentDay     = currentDate.getDate(),
             currentMonth   = currentDate.getMonth(),
             currentYear    = currentDate.getFullYear(),
-            disabledDate   = DateUtil.clone(currentDate),
+            date           = DateUtil.clone(currentDate),
             valueDate      = me.currentDate, // cloned
             valueMonth     = valueDate.getMonth(),
             valueYear      = valueDate.getFullYear(),
@@ -391,6 +391,7 @@ class YearComponent extends Component {
         rows = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
         day  = 1 - firstDayOffset;
 
+        date.setDate(day);
         weekDate.setDate(day + 7);
 
         for (; i < 6; i++) {
@@ -421,11 +422,6 @@ class YearComponent extends Component {
                     cellCls.push('neo-selected');
                 }
 
-                if (me.showDisabledDays && !hasContent) {
-                    disabledDate.setMonth(currentMonth);
-                    disabledDate.setDate(day);
-                }
-
                 row.cn.push({
                     id      : cellId,
                     cls     : cellCls,
@@ -433,11 +429,15 @@ class YearComponent extends Component {
 
                     cn: [{
                         cls : cls,
-                        html: hasContent ? day : me.showDisabledDays ? disabledDate.getDate() : ''
+                        html: hasContent ? day : me.showDisabledDays ? date.getDate() : ''
                     }]
                 });
 
                 day++;
+
+                if (me.showDisabledDays) {
+                    date.setDate(date.getDate() + 1);
+                }
             }
 
             containerEl.cn.push(row);
