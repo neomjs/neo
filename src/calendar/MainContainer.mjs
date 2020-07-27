@@ -79,6 +79,10 @@ class MainContainer extends Container {
          */
         dateSelectorConfig: null,
         /**
+         * @member {Object|null} dayComponentConfig=null
+         */
+        dayComponentConfig: null,
+        /**
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
         eventStore_: null,
@@ -95,6 +99,10 @@ class MainContainer extends Container {
          * @member {String} locale_=Neo.config.locale
          */
         locale_: Neo.config.locale,
+        /**
+         * @member {Object|null} monthComponentConfig=null
+         */
+        monthComponentConfig: null,
         /**
          * @member {Number} settingsContainerWidth=300
          */
@@ -481,11 +489,13 @@ class MainContainer extends Container {
         const map = {
             day: {
                 module: DayComponent,
-                style : {padding: '20px'}
+                style : {padding: '20px'},
+                ...me.dayComponentConfig || {}
             },
             month: {
                 module: MonthComponent,
-                style : {padding: '20px'}
+                style : {padding: '20px'},
+                ...me.monthComponentConfig || {}
             },
             week: {
                 module      : WeekComponent,
