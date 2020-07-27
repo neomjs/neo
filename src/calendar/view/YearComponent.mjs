@@ -82,6 +82,11 @@ class YearComponent extends Component {
          */
         showWeekNumbers_: true,
         /**
+         * True to show 6 weeks for each month, so that all months have the same height
+         * @member {Boolean} sixWeeksPerMonth_=false
+         */
+        sixWeeksPerMonth_: true,
+        /**
          * @member {Object} vdom
          */
         vdom: {
@@ -197,6 +202,18 @@ class YearComponent extends Component {
             }
 
             me.vdom = vdom;
+        }
+    }
+
+    /**
+     * Triggered after the sixWeeksPerMonth config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSixWeeksPerMonth(value, oldValue) {
+        if (oldValue !== undefined) {
+            console.log('afterSetSixWeeksPerMonth', value);
         }
     }
 
