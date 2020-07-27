@@ -42,7 +42,7 @@ class MainContainer extends Container {
          * The currently active view. Must be a value included inside the views config.
          * @member {String} activeView_='week'
          */
-        activeView_: 'week',
+        activeView_: 'year',
         /**
          * @member {Neo.calendar.view.CalendarsContainer|null} calendarsContainer=null
          */
@@ -308,20 +308,17 @@ class MainContainer extends Container {
      * @protected
      */
     changeTimeInterval(interval) {
-        const map = {
-            day  : 0,
-            month: 2,
-            week : 1,
-            year : 3
-        };
+        let me = this;
 
-        this.items[1].items[1].layout.activeIndex = map[interval];
+        me.items[1].items[1].layout.activeIndex = me.views.indexOf(interval);
 
-        this.items[0].items[1].items.forEach(item => {
+        me.items[0].items[1].items.forEach(item => {
             if (item.toggleGroup === 'timeInterval') {
                 item.pressed = item.value === interval;
             }
         });
+
+        me.activeView = interval;
     }
 
     /**
@@ -576,17 +573,28 @@ class MainContainer extends Container {
     }
 
     /**
-     * todo: different intervals matching to the active card view
+     *
      * @param {Number} multiplier
      */
     switchInterval(multiplier) {
         let me          = this,
-            currentDate = me.currentDate, // cloned
-            interval    = 7;
+            currentDate = me.currentDate; // cloned
 
-        interval *= multiplier;
+        switch (me.activeView) {
+            case 'day':
+                currentDate.setDate(currentDate.getDate() + multiplier);
+                break;
+            case 'month':
+                currentDate.setMonth(currentDate.getMonth() + multiplier);
+                break;
+            case 'week':
+                currentDate.setDate(currentDate.getDate() + 7 * multiplier);
+                break;
+            case 'year':
+                currentDate.setFullYear(currentDate.getFullYear() + multiplier);
+                break;
+        }
 
-        currentDate.setDate(currentDate.getDate() + interval);
         me.currentDate = currentDate;
     }
 }

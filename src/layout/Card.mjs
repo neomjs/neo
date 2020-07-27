@@ -75,12 +75,6 @@ class Card extends Base {
 
                 item.cls = cls;
             });
-
-            me.fire('change', {
-                component: container,
-                oldValue : oldValue,
-                value    : value
-            });
         }
     }
 
