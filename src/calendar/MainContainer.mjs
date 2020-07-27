@@ -499,7 +499,9 @@ class MainContainer extends Container {
         // remove references, the super call will remove component tree based instances
         me.calendarsContainer = null;
         me.dateSelector       = null;
+        me.dayComponent       = null;
         me.weekComponent      = null;
+        me.yearComponent      = null;
 
         super.destroy(...args);
     }
