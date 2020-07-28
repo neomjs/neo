@@ -1,6 +1,5 @@
 .neo-calendar-monthcomponent {
     background-color: v(c-m-background-color);
-    color           : #666;
     display         : flex;
     flex-direction  : column;
     position        : relative;
@@ -20,6 +19,7 @@
 
         .neo-day {
             border-right   : 1px solid v(c-m-border-color);
+            color          : #666;
             display        : flex;
             flex-basis     : calc(100% / 7);
             justify-content: flex-end;
@@ -66,6 +66,7 @@
         .neo-day-name {
             align-items    : flex-end;
             border-right   : 1px solid transparent;
+            color          : v(c-m-day-name-color);
             display        : flex;
             flex-basis     : calc(100% / 7);
             justify-content: flex-end;
