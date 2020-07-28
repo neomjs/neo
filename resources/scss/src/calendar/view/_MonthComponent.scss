@@ -18,7 +18,7 @@
         position      : relative;
 
         .neo-day {
-            border-right   : 1px solid #ddd;
+            border-right   : 1px solid v(c-m-border-color);
             display        : flex;
             flex-basis     : calc(100% / 7);
             justify-content: flex-end;
@@ -46,7 +46,7 @@
 
         .neo-week {
             align-content: flex-start;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid v(c-m-border-color);
             display      : flex;
             height       : 11em;
         }
@@ -55,7 +55,7 @@
     .neo-days-header {
         align-items     : stretch;
         background-color: #fff;
-        border-bottom   : 1px solid #ddd;
+        border-bottom   : 1px solid v(c-m-border-color);
         display         : flex;
         height          : 5em;
         position        : absolute;
