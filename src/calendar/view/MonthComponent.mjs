@@ -46,12 +46,12 @@ class MonthComponent extends Component {
          * @member {Object} vdom
          */
         vdom: {
-            cls: ['neo-content-wrapper'],
             cn : [{
                 cls: ['neo-days-header'],
                 cn : []
             }, {
-                cls: ['neo-days']
+                cls: ['neo-days'],
+                cn : []
             }]
         },
         /**
@@ -68,6 +68,33 @@ class MonthComponent extends Component {
     constructor(config) {
         super(config);
         this.createHeader();
+        this.createContent();
+    }
+
+    /**
+     *
+     */
+    createContent() {
+        let me   = this,
+            date = me.currentDate, // cloned
+            vdom = me.vdom,
+            i    = 0,
+            j;
+
+        date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
+
+        for (; i < 7; i++) {
+            for (j=0; j < 30; j++) {
+                vdom.cn[1].cn.push({
+                    cls : ['neo-day'],
+                    html: i
+                });
+            }
+
+            date.setDate(date.getDate() + 1);
+        }
+
+        me.vdom = vdom;
     }
 
     /**

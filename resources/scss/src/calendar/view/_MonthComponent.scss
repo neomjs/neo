@@ -1,24 +1,43 @@
 .neo-calendar-monthcomponent {
+    color         : #666;
     display       : flex;
     flex-direction: column;
+
+    .neo-days {
+        align-content: flex-start;
+        display      : flex;
+        flex         : 1;
+        flex-wrap    : wrap;
+        overflow-y   : auto;
+
+        .neo-day {
+            border-bottom  : 1px solid #ddd;
+            border-right   : 1px solid #ddd;
+            display        : flex;
+            flex-basis     : calc(100% / 7);
+            height         : 8em;
+            justify-content: flex-end;
+            padding        : .3em;
+
+            &:nth-child(7n) {
+                border-right: 1px solid transparent;
+            }
+        }
+    }
 
     .neo-days-header {
         align-items  : stretch;
         border-bottom: 1px solid #ddd;
         display      : flex;
-        height       : 4em;
+        height       : 5em;
 
         .neo-day-name {
             align-items    : flex-end;
-            border-right   : 1px solid #ddd;
+            border-right   : 1px solid transparent;
             display        : flex;
             flex-basis     : calc(100% / 7);
             justify-content: flex-end;
             padding        : .3em;
-
-            &:last-child {
-                border-right: 1px solid transparent;
-            }
         }
     }
 }
