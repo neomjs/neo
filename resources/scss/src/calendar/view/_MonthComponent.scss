@@ -3,6 +3,11 @@
     display       : flex;
     flex-direction: column;
 
+    .neo-bold {
+        color      : #444;
+        font-weight: bold;
+    }
+
     .neo-days {
         display       : flex;
         flex          : 1 1 100%;
@@ -23,13 +28,12 @@
         }
 
         .neo-month-header {
-            font-size  : 1.6em;
-            font-weight: bold;
-            height     : 0;
-            position   : sticky;
-            top        : 0;
-            width      : 5.5em;
-            z-index    : 2;
+            font-size: 1.6em;
+            height   : 0;
+            position : sticky;
+            top      : 0;
+            width    : 5.5em;
+            z-index  : 2;
         }
 
         .neo-month-header-content {

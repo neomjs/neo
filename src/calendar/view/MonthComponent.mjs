@@ -105,24 +105,27 @@ class MonthComponent extends Component {
             firstDayOffset = DateUtil.getFirstDayOffset(date, me.weekStartDay),
             vdom           = me.vdom,
             i              = 0,
-            day, j, row;
+            day, j, month, row, year;
 
-        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: 'long'});
+        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: 'short'});
 
         date.setDate(1 - firstDayOffset);
 
-        for (; i < 30; i++) {
+        for (; i < 50; i++) {
             row = {cls: ['neo-week'], cn: []};
 
             for (j=0; j < 7; j++) {
                 day = date.getDate();
 
                 if (day === 1) {
+                    month = me.intlFormat_month.format(date);
+                    year  = date.getFullYear();
+
                     vdom.cn[1].cn.push({
                         cls: ['neo-month-header'],
                         cn : [{
                             cls : ['neo-month-header-content'],
-                            html: me.intlFormat_month.format(date)
+                            html: `<span class="neo-bold">${month}</span> ${year}`
                         }]
                     });
                 }
