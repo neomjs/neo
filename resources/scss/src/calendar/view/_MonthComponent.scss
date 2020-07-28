@@ -6,11 +6,19 @@
         align-items  : stretch;
         border-bottom: 1px solid #ddd;
         display      : flex;
-        height       : 3em;
+        height       : 4em;
 
         .neo-day-name {
-            border-right: 1px solid #ddd;
-            flex-basis  : calc(100% / 7);
+            align-items    : flex-end;
+            border-right   : 1px solid #ddd;
+            display        : flex;
+            flex-basis     : calc(100% / 7);
+            justify-content: flex-end;
+            padding        : .3em;
+
+            &:last-child {
+                border-right: 1px solid transparent;
+            }
         }
     }
 }
