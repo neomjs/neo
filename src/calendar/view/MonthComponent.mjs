@@ -114,6 +114,13 @@ class MonthComponent extends Component {
 
             vdom.cn[1].cn.push(row);
 
+            if (!(i % 3)) {
+                vdom.cn[1].cn.push({
+                    cls : ['neo-month-header'],
+                    html: 'January'
+                });
+            }
+
             for (j=0; j < 7; j++) {
                 row.cn.push({
                     cls : ['neo-day'],

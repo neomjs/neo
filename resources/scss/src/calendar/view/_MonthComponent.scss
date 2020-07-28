@@ -8,6 +8,7 @@
         flex          : 1 1 100%;
         flex-direction: column;
         overflow-y    : auto;
+        position      : relative;
 
         .neo-day {
             border-right   : 1px solid #ddd;
@@ -19,6 +20,13 @@
             &:nth-child(7n) {
                 border-right: 1px solid transparent;
             }
+        }
+
+        .neo-month-header {
+            height  : 1em;
+            position: sticky;
+            top     : 0;
+            z-index : 2;
         }
 
         .neo-week {
