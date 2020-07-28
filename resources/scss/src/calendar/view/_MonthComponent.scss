@@ -23,10 +23,12 @@
         }
 
         .neo-month-header {
-            height  : 1em;
-            position: sticky;
-            top     : 0;
-            z-index : 2;
+            background-color: #3c3f41;
+            color           : red;
+            height          : 0;
+            position        : sticky;
+            top             : 0;
+            z-index         : 2;
         }
 
         .neo-week {
