@@ -39,6 +39,10 @@ class MonthComponent extends Component {
          */
         eventStore_: null,
         /**
+         * @member {String} locale_=Neo.config.locale
+         */
+        locale_: Neo.config.locale,
+        /**
          * @member {Object} vdom
          */
         vdom: {
@@ -71,14 +75,20 @@ class MonthComponent extends Component {
      */
     createHeader() {
         let me   = this,
+            date = me.currentDate, // cloned
+            dt   = new Intl.DateTimeFormat(me.locale, {weekday: 'short'}),
             vdom = me.vdom,
             i    = 0;
+
+        date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
         for (; i < 7; i++) {
             vdom.cn[0].cn.push({
                 cls : ['neo-day-name'],
-                html: 'Mon'
+                html: dt.format(date)
             });
+
+            date.setDate(date.getDate() + 1);
         }
 
         me.vdom = vdom;
