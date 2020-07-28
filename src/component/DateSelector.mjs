@@ -710,6 +710,10 @@ class DateSelector extends Component {
         me.value = DateUtil.convertToyyyymmdd(date);
     }
 
+    /**
+     *
+     * @param {Object} data
+     */
     onComponentWheel(data) {
         let me         = this,
             wheelDelta = me.mouseWheelDelta,

@@ -52,7 +52,7 @@ class MonthComponent extends Component {
                 cls: ['neo-days-header'],
                 cn : []
             }, {
-                cls: ['neo-days']
+                cls: ['neo-c-m-scrollcontainer']
             }]
         },
         /**
@@ -68,8 +68,18 @@ class MonthComponent extends Component {
      */
     constructor(config) {
         super(config);
-        this.updateHeader(true);
-        this.createContent();
+
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push({
+            wheel: {fn: me.onWheel, scope: me}
+        });
+
+        me.domListeners = domListeners;
+
+        me.updateHeader(true);
+        me.createContent();
     }
 
     /**
@@ -159,6 +169,14 @@ class MonthComponent extends Component {
         }
 
         me[silent ? '_vdom' : 'vdom'] = vdom;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onWheel(data) {
+        console.log('onWheel', data);
     }
 
     /**
