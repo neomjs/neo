@@ -103,13 +103,17 @@ class MonthComponent extends Component {
             date = me.currentDate, // cloned
             vdom = me.vdom,
             i    = 0,
-            j;
+            j, row;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
-        for (; i < 7; i++) {
-            for (j=0; j < 30; j++) {
-                vdom.cn[1].cn.push({
+        for (; i < 30; i++) {
+            row = {cls: ['neo-week'], cn: []};
+
+            vdom.cn[1].cn.push(row);
+
+            for (j=0; j < 7; j++) {
+                row.cn.push({
                     cls : ['neo-day'],
                     html: i
                 });

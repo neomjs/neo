@@ -4,24 +4,28 @@
     flex-direction: column;
 
     .neo-days {
-        align-content: flex-start;
-        display      : flex;
-        flex         : 1;
-        flex-wrap    : wrap;
-        overflow-y   : auto;
+        display   : flex;
+        flex      : 1 1 100%;
+        flex-direction: column;
+        overflow-y: auto;
 
         .neo-day {
-            border-bottom  : 1px solid #ddd;
             border-right   : 1px solid #ddd;
             display        : flex;
             flex-basis     : calc(100% / 7);
-            height         : 8em;
             justify-content: flex-end;
             padding        : .3em;
 
             &:nth-child(7n) {
                 border-right: 1px solid transparent;
             }
+        }
+
+        .neo-week {
+            align-content: flex-start;
+            border-bottom: 1px solid #ddd;
+            display      : flex;
+            height       : 8em;
         }
     }
 
