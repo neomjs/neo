@@ -67,7 +67,7 @@ class MonthComponent extends Component {
      */
     constructor(config) {
         super(config);
-        this.createHeader();
+        this.updateHeader(true);
         this.createContent();
     }
 
@@ -99,8 +99,9 @@ class MonthComponent extends Component {
 
     /**
      *
+     * @param {Boolean} [create=false]
      */
-    createHeader() {
+    updateHeader(create=false) {
         let me   = this,
             date = me.currentDate, // cloned
             dt   = new Intl.DateTimeFormat(me.locale, {weekday: 'short'}),
@@ -110,10 +111,14 @@ class MonthComponent extends Component {
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
         for (; i < 7; i++) {
-            vdom.cn[0].cn.push({
-                cls : ['neo-day-name'],
-                html: dt.format(date)
-            });
+            if (create) {
+                vdom.cn[0].cn.push({
+                    cls : ['neo-day-name'],
+                    html: dt.format(date)
+                });
+            } else {
+                vdom.cn[0].cn[i].html = dt.format(date);
+            }
 
             date.setDate(date.getDate() + 1);
         }
