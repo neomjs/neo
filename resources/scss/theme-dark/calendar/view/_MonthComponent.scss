@@ -1,0 +1,21 @@
+$neoMap: map-merge($neoMap, (
+    'c-m-background-color': #2b2b2b,
+    'c-m-border-color'    : #3c3f41,
+    'c-m-day-name-color'  : #ccc,
+    'c-m-day-number-color': #bbb,
+    'c-m-month-name-color': #eee,
+    'c-m-year-color'      : #ccc,
+    'c-m-weekend-background-color': rgba(50, 50, 60, .35)
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-dark { // .neo-calendar-monthcomponent
+        --c-m-background-color        : #{neo(c-m-background-color)};
+        --c-m-border-color            : #{neo(c-m-border-color)};
+        --c-m-day-name-color          : #{neo(c-m-day-name-color)};
+        --c-m-day-number-color        : #{neo(c-m-day-number-color)};
+        --c-m-month-name-color        : #{neo(c-m-month-name-color)};
+        --c-m-year-color              : #{neo(c-m-year-color)};
+        --c-m-weekend-background-color: #{neo(c-m-weekend-background-color)};
+    }
+}

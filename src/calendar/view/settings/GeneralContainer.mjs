@@ -36,7 +36,7 @@ class GeneralContainer extends Container {
             labelText : 'baseFontSize',
             labelWidth: 110,
             listeners : {change: me.onBaseFontSizeChange, scope: me},
-            maxValue  : 30,
+            maxValue  : 20,
             minValue  : 10,
             name      : 'baseFontSize',
             value     : calendar.baseFontSize

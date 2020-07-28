@@ -1,5 +1,6 @@
 import {default as Component} from '../../component/Base.mjs';
 import DateUtil               from '../../util/Date.mjs';
+import {default as VDomUtil}  from '../../util/VDom.mjs';
 
 const todayDate = new Date();
 
@@ -51,8 +52,7 @@ class MonthComponent extends Component {
                 cls: ['neo-days-header'],
                 cn : []
             }, {
-                cls: ['neo-days'],
-                cn : []
+                cls: ['neo-days']
             }]
         },
         /**
@@ -80,6 +80,7 @@ class MonthComponent extends Component {
      */
     afterSetLocale(value, oldValue) {
         if (oldValue !== undefined) {
+            this.updateMonthNames(true);
             this.updateHeader();
         }
     }
@@ -92,20 +93,24 @@ class MonthComponent extends Component {
      */
     afterSetWeekStartDay(value, oldValue) {
         if (oldValue !== undefined) {
+            this.createContent(true);
             this.updateHeader();
         }
     }
 
     /**
      *
+     * @param {Boolean} [silent=false]
      */
-    createContent() {
+    createContent(silent=false) {
         let me             = this,
             date           = me.currentDate, // cloned
             firstDayOffset = DateUtil.getFirstDayOffset(date, me.weekStartDay),
             vdom           = me.vdom,
             i              = 0,
-            day, j, month, row, year;
+            day, dayCls, j, row, weekDay;
+
+        vdom.cn[1].cn = [];
 
         me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: 'short'});
 
@@ -118,20 +123,32 @@ class MonthComponent extends Component {
                 day = date.getDate();
 
                 if (day === 1) {
-                    month = me.intlFormat_month.format(date);
-                    year  = date.getFullYear();
-
                     vdom.cn[1].cn.push({
                         cls: ['neo-month-header'],
                         cn : [{
-                            cls : ['neo-month-header-content'],
-                            html: `<span class="neo-bold">${month}</span> ${year}`
+                            cls: ['neo-month-header-content'],
+                            cn : [{
+                                tag : 'span',
+                                cls : ['neo-month-name'],
+                                flag: 'month-name',
+                                html: me.intlFormat_month.format(date)
+                            }, {
+                                vtype: 'text',
+                                html : ` ${date.getFullYear()}`
+                            }]
                         }]
                     });
                 }
 
+                dayCls  = ['neo-day'];
+                weekDay = date.getDay();
+
+                if (weekDay === 0 || weekDay === 6) {
+                    dayCls.push('neo-weekend');
+                }
+
                 row.cn.push({
-                    cls : ['neo-day'],
+                    cls : dayCls,
                     html: day
                 });
 
@@ -141,7 +158,7 @@ class MonthComponent extends Component {
             vdom.cn[1].cn.push(row);
         }
 
-        me.vdom = vdom;
+        me[silent ? '_vdom' : 'vdom'] = vdom;
     }
 
     /**
@@ -171,6 +188,26 @@ class MonthComponent extends Component {
         }
 
         me.vdom = vdom;
+    }
+
+    /**
+     *
+     * @param {Boolean} [silent=false]
+     */
+    updateMonthNames(silent=false) {
+        let me     = this,
+            date   = me.currentDate, // cloned
+            vdom   = me.vdom,
+            months = VDomUtil.getFlags(vdom, 'month-name');
+
+        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: 'short'});
+
+        months.forEach(month => {
+            month.html = me.intlFormat_month.format(date);
+            date.setMonth(date.getMonth() + 1);
+        });
+
+        me[silent ? '_vdom' : 'vdom'] = vdom;
     }
 }
 

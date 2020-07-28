@@ -1,10 +1,11 @@
 .neo-calendar-monthcomponent {
-    color         : #666;
-    display       : flex;
-    flex-direction: column;
+    background-color: v(c-m-background-color);
+    display         : flex;
+    flex-direction  : column;
+    position        : relative;
 
-    .neo-bold {
-        color      : #444;
+    .neo-month-name {
+        color      : v(c-m-month-name-color);
         font-weight: bold;
     }
 
@@ -13,10 +14,12 @@
         flex          : 1 1 100%;
         flex-direction: column;
         overflow-y    : auto;
+        padding-top   : 3.75em;
         position      : relative;
 
         .neo-day {
-            border-right   : 1px solid #ddd;
+            border-right   : 1px solid v(c-m-border-color);
+            color          : v(c-m-day-number-color);
             display        : flex;
             flex-basis     : calc(100% / 7);
             justify-content: flex-end;
@@ -31,34 +34,43 @@
             font-size: 1.6em;
             height   : 0;
             position : sticky;
-            top      : 0;
-            width    : 5.5em;
-            z-index  : 2;
+            top      : -2.3em;
+            width    : 5.8em;
+            z-index  : 3;
         }
 
         .neo-month-header-content {
-            background-color: #fff;
-            color           : #1c60a0;
+            background-color: v(c-m-background-color);
+            color           : v(c-m-year-color);
             padding-left    : calc(.3em / 1.6);
         }
 
         .neo-week {
             align-content: flex-start;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid v(c-m-border-color);
             display      : flex;
-            height       : 8em;
+            flex         : 1 0 16%;
+        }
+
+        .neo-weekend {
+            background-color: v(c-m-weekend-background-color);
         }
     }
 
     .neo-days-header {
-        align-items  : stretch;
-        border-bottom: 1px solid #ddd;
-        display      : flex;
-        height       : 5em;
+        align-items     : stretch;
+        background-color: v(c-m-background-color);
+        border-bottom   : 1px solid v(c-m-border-color);
+        display         : flex;
+        height          : 3.75em;
+        position        : absolute;
+        width           : 100%;
+        z-index         : 2;
 
         .neo-day-name {
             align-items    : flex-end;
             border-right   : 1px solid transparent;
+            color          : v(c-m-day-name-color);
             display        : flex;
             flex-basis     : calc(100% / 7);
             justify-content: flex-end;
