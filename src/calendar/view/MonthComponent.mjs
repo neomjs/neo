@@ -1,5 +1,6 @@
 import {default as Component} from '../../component/Base.mjs';
 import DateUtil               from '../../util/Date.mjs';
+import {default as VDomUtil}  from '../../util/VDom.mjs';
 
 const todayDate = new Date();
 
@@ -80,6 +81,7 @@ class MonthComponent extends Component {
      */
     afterSetLocale(value, oldValue) {
         if (oldValue !== undefined) {
+            this.updateMonthNames(true);
             this.updateHeader();
         }
     }
@@ -125,6 +127,7 @@ class MonthComponent extends Component {
                             cn : [{
                                 tag : 'span',
                                 cls : ['neo-month-name'],
+                                flag: 'month-name',
                                 html: me.intlFormat_month.format(date)
                             }, {
                                 vtype: 'text',
@@ -182,6 +185,26 @@ class MonthComponent extends Component {
         }
 
         me.vdom = vdom;
+    }
+
+    /**
+     *
+     * @param {Boolean} [silent=false]
+     */
+    updateMonthNames(silent=false) {
+        let me     = this,
+            date   = me.currentDate, // cloned
+            vdom   = me.vdom,
+            months = VDomUtil.getFlags(vdom, 'month-name');
+
+        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: 'short'});
+
+        months.forEach(month => {
+            month.html = me.intlFormat_month.format(date);
+            date.setMonth(date.getMonth() + 1);
+        });
+
+        me[silent ? '_vdom' : 'vdom'] = vdom;
     }
 }
 
