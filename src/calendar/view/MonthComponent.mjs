@@ -125,7 +125,7 @@ class MonthComponent extends Component {
                         cls: ['neo-month-header'],
                         cn : [{
                             cls : ['neo-month-header-content'],
-                            html: `<span class="neo-bold">${month}</span> ${year}`
+                            html: `<span class="neo-month-name">${month}</span> ${year}`
                         }]
                     });
                 }

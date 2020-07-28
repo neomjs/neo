@@ -1,11 +1,13 @@
 $neoMap: map-merge($neoMap, (
     'c-m-background-color': #2b2b2b,
-    'c-m-border-color'    : #3c3f41
+    'c-m-border-color'    : #3c3f41,
+    'c-m-month-name-color': #ddd
 ));
 
 @if $useCss4Vars == true {
     :root .neo-theme-dark { // .neo-calendar-monthcomponent
         --c-m-background-color: #{neo(c-m-background-color)};
         --c-m-border-color    : #{neo(c-m-border-color)};
+        --c-m-month-name-color: #{neo(c-m-month-name-color)};
     }
 }

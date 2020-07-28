@@ -5,8 +5,8 @@
     flex-direction  : column;
     position        : relative;
 
-    .neo-bold {
-        color      : #444;
+    .neo-month-name {
+        color      : v(c-m-month-name-color);
         font-weight: bold;
     }
 
