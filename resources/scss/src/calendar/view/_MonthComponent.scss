@@ -4,10 +4,10 @@
     flex-direction: column;
 
     .neo-days {
-        display   : flex;
-        flex      : 1 1 100%;
+        display       : flex;
+        flex          : 1 1 100%;
         flex-direction: column;
-        overflow-y: auto;
+        overflow-y    : auto;
 
         .neo-day {
             border-right   : 1px solid #ddd;

@@ -1,4 +1,5 @@
 import {default as Component} from '../../component/Base.mjs';
+import DateUtil               from '../../util/Date.mjs';
 
 const todayDate = new Date();
 
@@ -99,13 +100,14 @@ class MonthComponent extends Component {
      *
      */
     createContent() {
-        let me   = this,
-            date = me.currentDate, // cloned
-            vdom = me.vdom,
-            i    = 0,
+        let me             = this,
+            date           = me.currentDate, // cloned
+            firstDayOffset = DateUtil.getFirstDayOffset(date, me.weekStartDay),
+            vdom           = me.vdom,
+            i              = 0,
             j, row;
 
-        date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
+        date.setDate(1 - firstDayOffset);
 
         for (; i < 30; i++) {
             row = {cls: ['neo-week'], cn: []};
@@ -115,11 +117,11 @@ class MonthComponent extends Component {
             for (j=0; j < 7; j++) {
                 row.cn.push({
                     cls : ['neo-day'],
-                    html: i
+                    html: date.getDate()
                 });
-            }
 
-            date.setDate(date.getDate() + 1);
+                date.setDate(date.getDate() + 1);
+            }
         }
 
         me.vdom = vdom;
