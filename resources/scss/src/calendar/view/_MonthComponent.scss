@@ -14,7 +14,7 @@
         flex          : 1 1 100%;
         flex-direction: column;
         overflow-y    : auto;
-        padding-top   : 5em;
+        padding-top   : 3.75em;
         position      : relative;
 
         .neo-day {
@@ -34,7 +34,7 @@
             font-size: 1.6em;
             height   : 0;
             position : sticky;
-            top      : -3em;
+            top      : -2.3em;
             width    : 4.7em;
             z-index  : 3;
         }
@@ -62,7 +62,7 @@
         background-color: v(c-m-background-color);
         border-bottom   : 1px solid v(c-m-border-color);
         display         : flex;
-        height          : 5em;
+        height          : 3.75em;
         position        : absolute;
         width           : 100%;
         z-index         : 2;
