@@ -1,11 +1,12 @@
 import CalendarsContainer           from './view/CalendarsContainer.mjs';
 import {default as CalendarStore}   from './store/Calendars.mjs';
 import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
-import {default as Component}       from '../component/Base.mjs'; // todo: remove
 import {default as Container}       from '../container/Base.mjs';
 import DateSelector                 from '../component/DateSelector.mjs';
 import DateUtil                     from '../util/Date.mjs';
+import DayComponent                 from './view/DayComponent.mjs';
 import {default as EventStore}      from './store/Events.mjs';
+import MonthComponent               from './view/MonthComponent.mjs';
 import SettingsContainer            from './view/SettingsContainer.mjs';
 import Toolbar                      from '../container/Toolbar.mjs';
 import WeekComponent                from './view/WeekComponent.mjs';
@@ -42,7 +43,7 @@ class MainContainer extends Container {
          * The currently active view. Must be a value included inside the views config.
          * @member {String} activeView_='week'
          */
-        activeView_: 'year',
+        activeView_: 'month',
         /**
          * Scale the calendar with using s different base font-size
          * @member {Number|null} baseFontSize_=null
@@ -78,6 +79,14 @@ class MainContainer extends Container {
          */
         dateSelectorConfig: null,
         /**
+         * @member {Neo.calendar.view.DayComponent|null} dayComponent=null
+         */
+        dayComponent: null,
+        /**
+         * @member {Object|null} dayComponentConfig=null
+         */
+        dayComponentConfig: null,
+        /**
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
         eventStore_: null,
@@ -94,6 +103,14 @@ class MainContainer extends Container {
          * @member {String} locale_=Neo.config.locale
          */
         locale_: Neo.config.locale,
+        /**
+         * @member {Neo.calendar.view.MonthComponent|null} monthComponent=null
+         */
+        monthComponent: null,
+        /**
+         * @member {Object|null} monthComponentConfig=null
+         */
+        monthComponentConfig: null,
         /**
          * @member {Number} settingsContainerWidth=300
          */
@@ -203,9 +220,7 @@ class MainContainer extends Container {
      */
     afterSetLocale(value, oldValue) {
         if (oldValue !== undefined) {
-            this.dateSelector .locale = value;
-            this.weekComponent.locale = value;
-            this.yearComponent.locale = value;
+            this.setViewConfig('locale', value);
         }
     }
 
@@ -257,18 +272,13 @@ class MainContainer extends Container {
 
     /**
      * Triggered after the weekStartDay config got changed
-     * todo: Only update the active view, adjust the state on card change
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
      */
     afterSetWeekStartDay(value, oldValue) {
         if (oldValue !== undefined) {
-            let me = this;
-
-            me.dateSelector .weekStartDay = value;
-            me.weekComponent.weekStartDay = value;
-            me.yearComponent.weekStartDay = value;
+            this.setViewConfig('weekStartDay', value);
         }
     }
 
@@ -477,31 +487,33 @@ class MainContainer extends Container {
             cards = [],
             cmp;
 
+        const defaultConfig = {
+            currentDate : me.currentDate,
+            eventStore  : me.eventStore,
+            locale      : me.locale,
+            weekStartDay: me.weekStartDay
+        };
+
         const map = {
             day: {
-                module: Component,
-                html  : 'Day',
-                style : {padding: '20px'}
+                module: DayComponent,
+                style : {padding: '20px'},
+                ...defaultConfig,
+                ...me.dayComponentConfig || {}
             },
             month: {
-                module: Component,
-                html  : 'Month',
-                style : {padding: '20px'}
+                module: MonthComponent,
+                ...defaultConfig,
+                ...me.monthComponentConfig || {}
             },
             week: {
                 module      : WeekComponent,
-                currentDate : me.currentDate,
-                eventStore  : me.eventStore,
-                locale      : me.locale,
-                weekStartDay: me.weekStartDay,
+                ...defaultConfig,
                 ...me.weekComponentConfig || {}
             },
             year: {
                 module      : YearComponent,
-                currentDate : me.currentDate,
-                eventStore  : me.eventStore,
-                locale      : me.locale,
-                weekStartDay: me.weekStartDay,
+                ...defaultConfig,
                 ...me.yearComponentConfig || {}
             }
         }
@@ -524,6 +536,7 @@ class MainContainer extends Container {
         me.calendarsContainer = null;
         me.dateSelector       = null;
         me.dayComponent       = null;
+        me.monthComponent     = null;
         me.weekComponent      = null;
         me.yearComponent      = null;
 
@@ -581,6 +594,21 @@ class MainContainer extends Container {
      */
     onTodayButtonClick(data) {
         this.currentDate = todayDate;
+    }
+
+    /**
+     * Sets a config for the DateSelector and all views (cards)
+     * @param {String} key
+     * @param {*} value
+     */
+    setViewConfig(key, value) {
+        let me = this;
+
+        me.dateSelector[key] = value;
+
+        me.views.forEach(view => {
+            me[`${view}Component`][key] = value;
+        });
     }
 
     /**

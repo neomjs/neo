@@ -254,8 +254,8 @@ class YearComponent extends Component {
 
     /**
      * Triggered after the weekStartDay config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * @param {Number} value
+     * @param {Number} oldValue
      * @protected
      */
     afterSetWeekStartDay(value, oldValue) {
@@ -447,10 +447,10 @@ class YearComponent extends Component {
     }
 
     /**
-     * @param {Boolean} silent true to update the vdom silently
+     * @param {Boolean} [silent=false] true to update the vdom silently
      * @param {Object} [containerEl]
      */
-    createMonths(silent, containerEl) {
+    createMonths(silent=false, containerEl) {
         let me             = this,
             currentDate    = me.currentDate, // cloned
             vdom           = me.vdom,

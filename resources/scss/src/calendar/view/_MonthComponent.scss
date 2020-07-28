@@ -1,0 +1,68 @@
+.neo-calendar-monthcomponent {
+    color         : #666;
+    display       : flex;
+    flex-direction: column;
+
+    .neo-bold {
+        color      : #444;
+        font-weight: bold;
+    }
+
+    .neo-days {
+        display       : flex;
+        flex          : 1 1 100%;
+        flex-direction: column;
+        overflow-y    : auto;
+        position      : relative;
+
+        .neo-day {
+            border-right   : 1px solid #ddd;
+            display        : flex;
+            flex-basis     : calc(100% / 7);
+            justify-content: flex-end;
+            padding        : .3em;
+
+            &:nth-child(7n) {
+                border-right: 1px solid transparent;
+            }
+        }
+
+        .neo-month-header {
+            font-size: 1.6em;
+            height   : 0;
+            position : sticky;
+            top      : 0;
+            width    : 5.5em;
+            z-index  : 2;
+        }
+
+        .neo-month-header-content {
+            background-color: #fff;
+            color           : #1c60a0;
+            padding-left    : calc(.3em / 1.6);
+        }
+
+        .neo-week {
+            align-content: flex-start;
+            border-bottom: 1px solid #ddd;
+            display      : flex;
+            height       : 8em;
+        }
+    }
+
+    .neo-days-header {
+        align-items  : stretch;
+        border-bottom: 1px solid #ddd;
+        display      : flex;
+        height       : 5em;
+
+        .neo-day-name {
+            align-items    : flex-end;
+            border-right   : 1px solid transparent;
+            display        : flex;
+            flex-basis     : calc(100% / 7);
+            justify-content: flex-end;
+            padding        : .3em;
+        }
+    }
+}
