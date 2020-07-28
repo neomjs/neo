@@ -2,6 +2,7 @@
     color         : #666;
     display       : flex;
     flex-direction: column;
+    position      : relative;
 
     .neo-bold {
         color      : #444;
@@ -13,6 +14,7 @@
         flex          : 1 1 100%;
         flex-direction: column;
         overflow-y    : auto;
+        padding-top   : 5em;
         position      : relative;
 
         .neo-day {
@@ -31,9 +33,9 @@
             font-size: 1.6em;
             height   : 0;
             position : sticky;
-            top      : 0;
-            width    : 5.5em;
-            z-index  : 2;
+            top      : -3em;
+            width    : 5em;
+            z-index  : 3;
         }
 
         .neo-month-header-content {
@@ -46,15 +48,19 @@
             align-content: flex-start;
             border-bottom: 1px solid #ddd;
             display      : flex;
-            height       : 8em;
+            height       : 12em;
         }
     }
 
     .neo-days-header {
-        align-items  : stretch;
-        border-bottom: 1px solid #ddd;
-        display      : flex;
-        height       : 5em;
+        align-items     : stretch;
+        background-color: #fff;
+        border-bottom   : 1px solid #ddd;
+        display         : flex;
+        height          : 5em;
+        position        : absolute;
+        width           : 100%;
+        z-index         : 2;
 
         .neo-day-name {
             align-items    : flex-end;
