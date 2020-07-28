@@ -220,9 +220,13 @@ class MainContainer extends Container {
      */
     afterSetLocale(value, oldValue) {
         if (oldValue !== undefined) {
-            this.dateSelector .locale = value;
-            this.weekComponent.locale = value;
-            this.yearComponent.locale = value;
+            let me = this;
+
+            me.dateSelector  .locale = value;
+            me.dayComponent  .locale = value;
+            me.monthComponent.locale = value;
+            me.weekComponent .locale = value;
+            me.yearComponent .locale = value;
         }
     }
 

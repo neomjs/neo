@@ -72,6 +72,18 @@ class MonthComponent extends Component {
     }
 
     /**
+     * Triggered after the locale config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLocale(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.updateHeader();
+        }
+    }
+
+    /**
      *
      */
     createContent() {
