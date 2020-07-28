@@ -495,34 +495,33 @@ class MainContainer extends Container {
             cards = [],
             cmp;
 
+        const defaultConfig = {
+            currentDate : me.currentDate,
+            eventStore  : me.eventStore,
+            locale      : me.locale,
+            weekStartDay: me.weekStartDay
+        };
+
         const map = {
             day: {
                 module: DayComponent,
                 style : {padding: '20px'},
+                ...defaultConfig,
                 ...me.dayComponentConfig || {}
             },
             month: {
                 module: MonthComponent,
-                currentDate : me.currentDate,
-                eventStore  : me.eventStore,
-                locale      : me.locale,
-                weekStartDay: me.weekStartDay,
+                ...defaultConfig,
                 ...me.monthComponentConfig || {}
             },
             week: {
                 module      : WeekComponent,
-                currentDate : me.currentDate,
-                eventStore  : me.eventStore,
-                locale      : me.locale,
-                weekStartDay: me.weekStartDay,
+                ...defaultConfig,
                 ...me.weekComponentConfig || {}
             },
             year: {
                 module      : YearComponent,
-                currentDate : me.currentDate,
-                eventStore  : me.eventStore,
-                locale      : me.locale,
-                weekStartDay: me.weekStartDay,
+                ...defaultConfig,
                 ...me.yearComponentConfig || {}
             }
         }
