@@ -52,8 +52,7 @@ class MonthComponent extends Component {
                 cls: ['neo-days-header'],
                 cn : []
             }, {
-                cls: ['neo-days'],
-                cn : []
+                cls: ['neo-days']
             }]
         },
         /**
@@ -94,20 +93,24 @@ class MonthComponent extends Component {
      */
     afterSetWeekStartDay(value, oldValue) {
         if (oldValue !== undefined) {
+            this.createContent(true);
             this.updateHeader();
         }
     }
 
     /**
      *
+     * @param {Boolean} [silent=false]
      */
-    createContent() {
+    createContent(silent=false) {
         let me             = this,
             date           = me.currentDate, // cloned
             firstDayOffset = DateUtil.getFirstDayOffset(date, me.weekStartDay),
             vdom           = me.vdom,
             i              = 0,
             day, dayCls, j, row, weekDay;
+
+        vdom.cn[1].cn = [];
 
         me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: 'short'});
 
@@ -155,7 +158,7 @@ class MonthComponent extends Component {
             vdom.cn[1].cn.push(row);
         }
 
-        me.vdom = vdom;
+        me[silent ? '_vdom' : 'vdom'] = vdom;
     }
 
     /**
