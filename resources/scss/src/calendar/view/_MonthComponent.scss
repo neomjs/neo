@@ -1,8 +1,9 @@
 .neo-calendar-monthcomponent {
-    color         : #666;
-    display       : flex;
-    flex-direction: column;
-    position      : relative;
+    background-color: v(c-m-background-color);
+    color           : #666;
+    display         : flex;
+    flex-direction  : column;
+    position        : relative;
 
     .neo-bold {
         color      : #444;
@@ -39,7 +40,7 @@
         }
 
         .neo-month-header-content {
-            background-color: #fff;
+            background-color: v(c-m-background-color);
             color           : #1c60a0;
             padding-left    : calc(.3em / 1.6);
         }
@@ -54,7 +55,7 @@
 
     .neo-days-header {
         align-items     : stretch;
-        background-color: #fff;
+        background-color: v(c-m-background-color);
         border-bottom   : 1px solid v(c-m-border-color);
         display         : flex;
         height          : 5em;

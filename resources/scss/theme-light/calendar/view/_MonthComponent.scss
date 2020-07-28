@@ -1,9 +1,11 @@
 $neoMap: map-merge($neoMap, (
-    'c-m-border-color': #ddd
+    'c-m-background-color': #fff,
+    'c-m-border-color'    : #ddd
 ));
 
 @if $useCss4Vars == true {
     :root .neo-theme-light { // .neo-calendar-monthcomponent
-        --c-m-border-color: #{neo(c-m-border-color)};
+        --c-m-background-color: #{neo(c-m-background-color)};
+        --c-m-border-color    : #{neo(c-m-border-color)};
     }
 }
