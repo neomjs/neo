@@ -220,13 +220,7 @@ class MainContainer extends Container {
      */
     afterSetLocale(value, oldValue) {
         if (oldValue !== undefined) {
-            let me = this;
-
-            me.dateSelector  .locale = value;
-            me.dayComponent  .locale = value;
-            me.monthComponent.locale = value;
-            me.weekComponent .locale = value;
-            me.yearComponent .locale = value;
+            this.setViewConfig('locale', value);
         }
     }
 
@@ -284,13 +278,7 @@ class MainContainer extends Container {
      */
     afterSetWeekStartDay(value, oldValue) {
         if (oldValue !== undefined) {
-            let me = this;
-
-            me.dateSelector  .weekStartDay = value;
-            me.dayComponent  .weekStartDay = value;
-            me.monthComponent.weekStartDay = value;
-            me.weekComponent .weekStartDay = value;
-            me.yearComponent .weekStartDay = value;
+            this.setViewConfig('weekStartDay', value);
         }
     }
 
@@ -606,6 +594,21 @@ class MainContainer extends Container {
      */
     onTodayButtonClick(data) {
         this.currentDate = todayDate;
+    }
+
+    /**
+     * Sets a config for the DateSelector and all views (cards)
+     * @param {String} key
+     * @param {*} value
+     */
+    setViewConfig(key, value) {
+        let me = this;
+
+        me.dateSelector[key] = value;
+
+        me.views.forEach(view => {
+            me[`${view}Component`][key] = value;
+        });
     }
 
     /**
