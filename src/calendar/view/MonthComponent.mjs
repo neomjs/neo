@@ -105,7 +105,7 @@ class MonthComponent extends Component {
             firstDayOffset = DateUtil.getFirstDayOffset(date, me.weekStartDay),
             vdom           = me.vdom,
             i              = 0,
-            day, j, month, row, year;
+            day, dayCls, j, month, row, weekDay, year;
 
         me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: 'short'});
 
@@ -130,8 +130,15 @@ class MonthComponent extends Component {
                     });
                 }
 
+                dayCls  = ['neo-day'];
+                weekDay = date.getDay();
+
+                if (weekDay === 0 || weekDay === 6) {
+                    dayCls.push('neo-weekend');
+                }
+
                 row.cn.push({
-                    cls : ['neo-day'],
+                    cls : dayCls,
                     html: day
                 });
 
