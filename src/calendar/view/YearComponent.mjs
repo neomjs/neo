@@ -254,8 +254,8 @@ class YearComponent extends Component {
 
     /**
      * Triggered after the weekStartDay config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * @param {Number} value
+     * @param {Number} oldValue
      * @protected
      */
     afterSetWeekStartDay(value, oldValue) {
