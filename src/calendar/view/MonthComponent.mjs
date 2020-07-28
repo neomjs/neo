@@ -39,19 +39,52 @@ class MonthComponent extends Component {
          */
         eventStore_: null,
         /**
-         * @member {String} html='Month'
-         */
-        html: 'Month', // todo: remove
-        /**
          * @member {Object} vdom
          */
-        vdom: {},
+        vdom: {
+            cn: [{
+                cls: ['neo-content-wrapper'],
+                cn : [{
+                    cls: ['neo-days-header'],
+                    cn : []
+                }, {
+                    cls: ['neo-days']
+                }]
+            }]
+        },
         /**
          * 0-6 => Sun-Sat
          * @member {Number} weekStartDay_=0
          */
         weekStartDay_: 0
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+        this.createHeader();
+    }
+
+    /**
+     *
+     */
+    createHeader() {
+        let me   = this,
+            vdom = me.vdom,
+            i    = 0;
+
+        for (; i < 7; i++) {
+            vdom.cn[0].cn[0].cn.push({
+                cls : ['neo-day-name'],
+                html: 'Mon'
+            });
+        }
+
+        me.vdom = vdom;
+    }
 }
 
 Neo.applyClassConfig(MonthComponent);
