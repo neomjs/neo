@@ -1,7 +1,8 @@
 $neoMap: map-merge($neoMap, (
     'c-m-background-color': #fff,
     'c-m-border-color'    : #ddd,
-    'c-m-month-name-color': #444
+    'c-m-month-name-color': #444,
+    'c-m-year-color'      : #1c60a0
 ));
 
 @if $useCss4Vars == true {
@@ -9,5 +10,6 @@ $neoMap: map-merge($neoMap, (
         --c-m-background-color: #{neo(c-m-background-color)};
         --c-m-border-color    : #{neo(c-m-border-color)};
         --c-m-month-name-color: #{neo(c-m-month-name-color)};
+        --c-m-year-color      : #{neo(c-m-year-color)};
     }
 }

@@ -41,7 +41,7 @@
 
         .neo-month-header-content {
             background-color: v(c-m-background-color);
-            color           : #1c60a0;
+            color           : v(c-m-year-color);
             padding-left    : calc(.3em / 1.6);
         }
 
