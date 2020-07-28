@@ -1,0 +1,16 @@
+.neo-calendar-monthcomponent {
+    display       : flex;
+    flex-direction: column;
+
+    .neo-days-header {
+        align-items  : stretch;
+        border-bottom: 1px solid #ddd;
+        display      : flex;
+        height       : 3em;
+
+        .neo-day-name {
+            border-right: 1px solid #ddd;
+            flex-basis  : calc(100% / 7);
+        }
+    }
+}

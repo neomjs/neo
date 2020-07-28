@@ -42,14 +42,12 @@ class MonthComponent extends Component {
          * @member {Object} vdom
          */
         vdom: {
-            cn: [{
-                cls: ['neo-content-wrapper'],
-                cn : [{
-                    cls: ['neo-days-header'],
-                    cn : []
-                }, {
-                    cls: ['neo-days']
-                }]
+            cls: ['neo-content-wrapper'],
+            cn : [{
+                cls: ['neo-days-header'],
+                cn : []
+            }, {
+                cls: ['neo-days']
             }]
         },
         /**
@@ -77,7 +75,7 @@ class MonthComponent extends Component {
             i    = 0;
 
         for (; i < 7; i++) {
-            vdom.cn[0].cn[0].cn.push({
+            vdom.cn[0].cn.push({
                 cls : ['neo-day-name'],
                 html: 'Mon'
             });

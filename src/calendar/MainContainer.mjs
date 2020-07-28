@@ -503,7 +503,10 @@ class MainContainer extends Container {
             },
             month: {
                 module: MonthComponent,
-                style : {padding: '20px'},
+                currentDate : me.currentDate,
+                eventStore  : me.eventStore,
+                locale      : me.locale,
+                weekStartDay: me.weekStartDay,
                 ...me.monthComponentConfig || {}
             },
             week: {
