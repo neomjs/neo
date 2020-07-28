@@ -119,8 +119,11 @@ class MonthComponent extends Component {
 
                 if (day === 1) {
                     vdom.cn[1].cn.push({
-                        cls : ['neo-month-header'],
-                        html: me.intlFormat_month.format(date)
+                        cls: ['neo-month-header'],
+                        cn : [{
+                            cls : ['neo-month-header-content'],
+                            html: me.intlFormat_month.format(date)
+                        }]
                     });
                 }
 
