@@ -41,6 +41,13 @@ class MonthComponent extends Component {
          */
         eventStore_: null,
         /**
+         * Internal flag to store the header height in px after getting mounted.
+         * Needed for the infinite scrolling
+         * @member {Number|null} headerHeight=null
+         * @protected
+         */
+        headerHeight: null,
+        /**
          * @member {String} locale_=Neo.config.locale
          */
         locale_: Neo.config.locale,
@@ -52,7 +59,7 @@ class MonthComponent extends Component {
                 cls: ['neo-days-header'],
                 cn : []
             }, {
-                cls: ['neo-days']
+                cls: ['neo-c-m-scrollcontainer']
             }]
         },
         /**
@@ -68,8 +75,43 @@ class MonthComponent extends Component {
      */
     constructor(config) {
         super(config);
-        this.updateHeader(true);
-        this.createContent();
+
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push({
+            wheel: {fn: me.onWheel, scope: me}
+        });
+
+        me.domListeners = domListeners;
+
+        me.updateHeader(true);
+        me.createContent();
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        if (value) {
+            setTimeout(() => {
+                let me = this;
+
+                Neo.main.DomAccess.getBoundingClientRect({
+                    id: [me.vdom.cn[1].id, me.vdom.cn[0].id]
+                }).then(data => {
+                    me.headerHeight = data[1].height;
+
+                    Neo.main.DomAccess.scrollTopBy({
+                        id   : me.vdom.cn[1].id,
+                        value: data[0].height - data[1].height
+                    });
+                });
+            }, 20);
+        }
     }
 
     /**
@@ -103,62 +145,169 @@ class MonthComponent extends Component {
      * @param {Boolean} [silent=false]
      */
     createContent(silent=false) {
-        let me             = this,
-            date           = me.currentDate, // cloned
-            firstDayOffset = DateUtil.getFirstDayOffset(date, me.weekStartDay),
-            vdom           = me.vdom,
-            i              = 0,
-            day, dayCls, j, row, weekDay;
+        let me   = this,
+            date = me.currentDate, // cloned
+            vdom = me.vdom,
+            i    = 0,
+            firstDayOffset, row;
 
         vdom.cn[1].cn = [];
 
         me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: 'short'});
 
+        firstDayOffset = DateUtil.getFirstDayOffset(date, me.weekStartDay);
+
         date.setDate(1 - firstDayOffset);
 
-        for (; i < 50; i++) {
-            row = {cls: ['neo-week'], cn: []};
+        date.setDate(date.getDate() - 6 * 7);
 
-            for (j=0; j < 7; j++) {
-                day = date.getDate();
+        for (; i < 18; i++) {
+            row = me.createWeek(DateUtil.clone(date));
 
-                if (day === 1) {
-                    vdom.cn[1].cn.push({
-                        cls: ['neo-month-header'],
-                        cn : [{
-                            cls: ['neo-month-header-content'],
-                            cn : [{
-                                tag : 'span',
-                                cls : ['neo-month-name'],
-                                flag: 'month-name',
-                                html: me.intlFormat_month.format(date)
-                            }, {
-                                vtype: 'text',
-                                html : ` ${date.getFullYear()}`
-                            }]
-                        }]
-                    });
-                }
-
-                dayCls  = ['neo-day'];
-                weekDay = date.getDay();
-
-                if (weekDay === 0 || weekDay === 6) {
-                    dayCls.push('neo-weekend');
-                }
-
-                row.cn.push({
-                    cls : dayCls,
-                    html: day
-                });
-
-                date.setDate(date.getDate() + 1);
+            if (row.header) {
+                vdom.cn[1].cn.push(row.header);
             }
 
-            vdom.cn[1].cn.push(row);
+            vdom.cn[1].cn.push(row.row);
+
+            date.setDate(date.getDate() + 7);
         }
 
         me[silent ? '_vdom' : 'vdom'] = vdom;
+    }
+
+    /**
+     *
+     * @param {Date} date
+     * @returns {Object}
+     */
+    createWeek(date) {
+        let me     = this,
+            i      = 0,
+            header = null,
+            day, dayCls, row, weekDay;
+
+        row = {
+            flag: DateUtil.convertToyyyymmdd(date),
+            cls : ['neo-week'],
+            cn  : []
+        };
+
+        for (; i < 7; i++) {
+            day = date.getDate();
+
+            if (day === 1) {
+                header = {
+                    cls: ['neo-month-header'],
+                    cn : [{
+                        cls: ['neo-month-header-content'],
+                        cn : [{
+                            tag : 'span',
+                            cls : ['neo-month-name'],
+                            flag: 'month-name',
+                            html: me.intlFormat_month.format(date)
+                        }, {
+                            vtype: 'text',
+                            html : ` ${date.getFullYear()}`
+                        }]
+                    }]
+                };
+            }
+
+            dayCls  = ['neo-day'];
+            weekDay = date.getDay();
+
+            if (weekDay === 0 || weekDay === 6) {
+                dayCls.push('neo-weekend');
+            }
+
+            row.cn.push({
+                cls : dayCls,
+                html: day
+            });
+
+            date.setDate(date.getDate() + 1);
+        }
+
+        return {
+            header: header,
+            row   : row
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onWheel(data) {
+        if (Math.abs(data.deltaY) > Math.abs(data.deltaX)) {
+            let me        = this,
+                vdom      = me.vdom,
+                container = vdom.cn[1],
+                i         = 0,
+                date, len, week;
+
+            // console.log(data.scrollTop, Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6));
+
+            if (data.deltaY > 0 && Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6) > 11) {
+                date = new Date(container.cn[container.cn.length - 1].flag);
+
+                for (; i < 6; i++) {
+                    if (container.cn[1].cls.includes('neo-month-header')) {
+                        container.cn.splice(1, 1);
+                    }
+
+                    container.cn.shift();
+
+                    date.setDate(date.getDate() + 7);
+
+                    week = me.createWeek(DateUtil.clone(date));
+
+                    if (week.header) {
+                        container.cn.push(week.header);
+                    }
+
+                    container.cn.push(week.row);
+                }
+
+                me.vdom = vdom;
+            }
+
+            else if (data.deltaY < 0 && Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6) < 1) {
+                if (container.cn[0].flag) {
+                    date = new Date(container.cn[0].flag);
+                } else {
+                    date = new Date(container.cn[1].flag);
+                }
+
+                for (; i < 6; i++) {
+                    len = container.cn.length;
+
+                    if (container.cn[len - 2].cls.includes('neo-month-header')) {
+                        container.cn.splice(len - 2, 1);
+                    }
+
+                    container.cn.pop();
+
+                    date.setDate(date.getDate() - 7);
+
+                    week = me.createWeek(DateUtil.clone(date));
+
+                    container.cn.unshift(week.row);
+
+                    if (week.header) {
+                        container.cn.unshift(week.header);
+                    }
+                }
+
+                me.promiseVdomUpdate(me.vdom).then(() => {
+                    Neo.main.DomAccess.scrollTopTo({
+                        id   : me.vdom.cn[1].id,
+                        value: data.clientHeight - me.headerHeight
+                    });
+                });
+            }
+        }
     }
 
     /**

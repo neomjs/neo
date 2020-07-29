@@ -9,7 +9,7 @@
         font-weight: bold;
     }
 
-    .neo-days {
+    .neo-c-m-scrollcontainer {
         display       : flex;
         flex          : 1 1 100%;
         flex-direction: column;
@@ -49,7 +49,7 @@
             align-content: flex-start;
             border-bottom: 1px solid v(c-m-border-color);
             display      : flex;
-            flex         : 1 0 16%;
+            flex         : 1 0 (100% / 6);
         }
 
         .neo-weekend {

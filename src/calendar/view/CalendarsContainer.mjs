@@ -50,17 +50,24 @@ class CalendarsContainer extends Container {
         let me    = this,
             items = [];
 
-        data.forEach(item => {
-            items.push({
-                checked       : item.active,
-                valueLabelText: item.name
+        if (!me.mounted && me.rendering) {
+            const listenerId = me.on('rendered', () => {
+                me.un('rendered', listenerId);
+                me.onStoreLoad(data);
             });
-        });
+        } else {
+            data.forEach(item => {
+                items.push({
+                    checked       : item.active,
+                    valueLabelText: item.name
+                });
+            });
 
-        me._items = items;
+            me._items = items;
 
-        me.parseItemConfigs(items);
-        me.createItems();
+            me.parseItemConfigs(items);
+            me.createItems();
+        }
     }
 }
 

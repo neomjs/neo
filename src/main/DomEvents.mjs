@@ -28,6 +28,7 @@ const touchEvents = [
 
 // wheel events fire very often, so we limit the targets to avoid unnecessary post messages from main to the app worker
 const globalWheelTargets = [
+    'neo-c-m-scrollcontainer',
     'neo-circle-component',
     'neo-dateselector',
     'neo-gallery',
@@ -36,8 +37,14 @@ const globalWheelTargets = [
 
 // separated from globalWheelTargets => performance
 const globalWheelTargetsBuffer = {
-    'neo-dateselector': 300 // buffer in ms
+    'neo-c-m-scrollcontainer': 100,
+    'neo-dateselector'       : 300 // buffer in ms
 };
+
+// separated from globalWheelTargets => performance
+const globalWheelTargetsKeepEvent = [
+    'neo-c-m-scrollcontainer'
+];
 
 const lastWheelEvent = {
     date  : null,
@@ -447,11 +454,14 @@ class DomEvents extends Base {
      * @param {Object} event
      */
     onWheel(event) {
-        let targetCls     = this.testPathInclusion(event, globalWheelTargets),
-            preventUpdate = false;
+        let target        = this.testPathInclusion(event, globalWheelTargets),
+            preventUpdate = false,
+            targetCls;
 
-        if (targetCls) {
-            if (globalWheelTargetsBuffer[targetCls]) {
+        if (target) {
+            targetCls = target.cls;
+
+            if (globalWheelTargetsBuffer[target.cls]) {
                 let date = new Date();
 
                 if (lastWheelEvent.date && lastWheelEvent.target === targetCls && date - lastWheelEvent.date < globalWheelTargetsBuffer[targetCls]) {
@@ -469,13 +479,19 @@ class DomEvents extends Base {
 
                 this.sendMessageToApp({
                     ...this.getEventData(event),
-                    deltaX: deltaX,
-                    deltaY: deltaY,
-                    deltaZ: deltaZ
+                    clientHeight: target.node.clientHeight,
+                    clientWidth : target.node.clientWidth,
+                    deltaX      : deltaX,
+                    deltaY      : deltaY,
+                    deltaZ      : deltaZ,
+                    scrollLeft  : target.node.scrollLeft,
+                    scrollTop   : target.node.scrollTop
                 });
             }
 
-            event.preventDefault();
+            if (!globalWheelTargetsKeepEvent.includes(targetCls)) {
+                event.preventDefault();
+            }
         }
     }
 
@@ -585,7 +601,7 @@ class DomEvents extends Base {
      *
      * @param {Object} event
      * @param {Object} targetArray
-     * @returns {String|Boolean} target cls if found, false otherwise
+     * @returns {Object|Boolean} target cls if found, false otherwise
      */
     testPathInclusion(event, targetArray) {
         let countTargets = targetArray.length,
@@ -599,7 +615,10 @@ class DomEvents extends Base {
 
             for (j=0; j < countTargets; j++) {
                 if (node.classList && node.classList.contains(targetArray[j])) {
-                    return targetArray[j];
+                    return {
+                        cls : targetArray[j],
+                        node: node
+                    };
                 }
             }
         }

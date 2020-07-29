@@ -39,7 +39,10 @@ class DomAccess extends Base {
                 'getAttributes',
                 'getBoundingClientRect',
                 'scrollIntoView',
+                'scrollTopBy',
                 'scrollToTableRow',
+                'scrollTopBy',
+                'scrollTopTo',
                 'selectNode',
                 'setStyle',
                 'windowScrollTo'
@@ -393,6 +396,40 @@ class DomAccess extends Base {
      *
      * @param {Object} data
      * @param {String} data.id
+     * @param {Number} data.value
+     * @returns {Object} obj.id => the passed id
+     */
+    scrollTopBy(data) {
+        let node = this.getElement(data.id);
+
+        if (node) {
+            node.scrollTop += data.value;
+        }
+
+        return {id: data.id};
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Number} data.value
+     * @returns {Object} obj.id => the passed id
+     */
+    scrollTopTo(data) {
+        let node = this.getElement(data.id);
+
+        if (node) {
+            node.scrollTop = data.value;
+        }
+
+        return {id: data.id};
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
      * @param {String} [data.behavior='smooth']
      * @param {String} [data.offset=34]
      * @returns {Object} obj.id => the passed id
@@ -435,7 +472,6 @@ class DomAccess extends Base {
 
         return {id: data.id};
     }
-
 
     /**
      * Not recommended to use => stick to vdom updates.

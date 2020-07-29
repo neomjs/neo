@@ -651,6 +651,18 @@ class Helper extends Base {
                                         indexDelta += returnValue.indexDelta;
                                     }
                                 }
+
+                                if (indexDelta < 0) {
+                                    // this case happens for infinite scrolling upwards:
+                                    // add new nodes at the start, remove nodes at the end
+                                    for (i=value.length + indexDelta; i < oldVnode.childNodes.length; i++) {
+                                        deltas.push({
+                                            action: 'removeNode',
+                                            id    : oldVnode.childNodes[i].id
+                                        });
+                                    }
+                                }
+
                                 break;
                             case 'nodeName':
                             case 'innerHTML':
