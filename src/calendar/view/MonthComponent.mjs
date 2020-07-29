@@ -69,8 +69,9 @@ class MonthComponent extends Component {
             cn : [{
                 cls: ['neo-days-header'],
                 cn : [{
-                    cls: ['neo-static-header'],
-                    cn : [{
+                    cls  : ['neo-static-header'],
+                    style: {},
+                    cn   : [{
                         tag : 'span',
                         cls : ['neo-month-name'],
                         flag: 'month-name',
@@ -333,6 +334,7 @@ class MonthComponent extends Component {
             if (!me.isScrolling) {
                 me.isScrolling = true;
                 NeoArray.add(me.vdom.cn[1].cls, 'neo-is-scrolling');console.log('###add cls');
+                me.vdom.cn[0].cn[0].style.opacity = 0;
                 me.vdom = vdom;
             }
 
@@ -345,6 +347,7 @@ class MonthComponent extends Component {
 
                 vdom = me.vdom;
                 NeoArray.remove(me.vdom.cn[1].cls, 'neo-is-scrolling');
+                me.vdom.cn[0].cn[0].style.opacity = 1;
                 me.vdom = vdom;
             }, 300);
         }
@@ -360,11 +363,11 @@ class MonthComponent extends Component {
             date = me.currentDate, // cloned
             dt   = new Intl.DateTimeFormat(me.locale, {weekday: 'short'}),
             vdom = me.vdom,
-            i    = 0;
+            i    = 1;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
-        for (; i < 7; i++) {
+        for (; i < 8; i++) {
             if (create) {
                 vdom.cn[0].cn.push({
                     cls : ['neo-day-name'],
