@@ -342,16 +342,39 @@ class MonthComponent extends Component {
                 clearTimeout(me.scrollTaskId);
             }
 
-            me.scrollTaskId = setTimeout(() => {
-                me.isScrolling = false;
+            me.scrollTaskId = setTimeout(me.onWheelEnd.bind(me), 300);
+        }
+    }
 
-                vdom = me.vdom;
-                NeoArray.remove(me.vdom.cn[1].cls, 'neo-is-scrolling');
-                me.vdom.cn[0].cn[0].style.opacity = 1;
-                me.vdom = vdom;
-            }, 300);
+    /**
+     *
+     */
+    onWheelEnd() {
+        let me     = this,
+            vdom   = me.vdom,
+            header = vdom.cn[0].cn[0],
+            i      = 6,
+            date, flag;
+
+        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: 'short'});
+        me.isScrolling      = false;
+
+        for (; i < 12; i++) {
+            flag = vdom.cn[1].cn[i].flag;
+
+            if (flag) {
+                date = new Date(flag);
+                date.setMonth(date.getMonth() + 1);
+                header.cn[0].html = me.intlFormat_month.format(date);
+                header.cn[1].html = ` ${date.getFullYear()}`;
+                break;
+            }
         }
 
+        NeoArray.remove(vdom.cn[1].cls, 'neo-is-scrolling');
+        header.style.opacity = 1;
+
+        me.vdom = vdom;
     }
 
     /**
