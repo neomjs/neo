@@ -41,6 +41,13 @@ class MonthComponent extends Component {
          */
         eventStore_: null,
         /**
+         * Internal flag to store the header height in px after getting mounted.
+         * Needed for the infinite scrolling
+         * @member {Number|null} headerHeight=null
+         * @protected
+         */
+        headerHeight: null,
+        /**
          * @member {String} locale_=Neo.config.locale
          */
         locale_: Neo.config.locale,
@@ -97,6 +104,8 @@ class MonthComponent extends Component {
                     id: [me.vdom.cn[1].id, me.vdom.cn[0].id]
                 }).then(data => {
                     let vdom = me.vdom;
+
+                    me.headerHeight = data[1].height;
 
                     console.log(data);
                     console.log(data[0].height, data[1].height);
