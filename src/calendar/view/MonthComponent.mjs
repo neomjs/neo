@@ -107,8 +107,6 @@ class MonthComponent extends Component {
 
                     me.headerHeight = data[1].height;
 
-                    console.log(data);
-                    console.log(data[0].height, data[1].height);
                     vdom.cn[1].scrollTop = data[0].height - data[1].height;
                     me.vdom = vdom;
                 });
@@ -164,13 +162,15 @@ class MonthComponent extends Component {
         date.setDate(date.getDate() - 6 * 7);
 
         for (; i < 18; i++) {
-            row = me.createWeek(date);
+            row = me.createWeek(DateUtil.clone(date));
 
             if (row.header) {
                 vdom.cn[1].cn.push(row.header);
             }
 
             vdom.cn[1].cn.push(row.row);
+
+            date.setDate(date.getDate() + 7);
         }
 
         me[silent ? '_vdom' : 'vdom'] = vdom;
@@ -187,7 +187,11 @@ class MonthComponent extends Component {
             header = null,
             day, dayCls, row, weekDay;
 
-        row = {cls: ['neo-week'], cn: []};
+        row = {
+            flag: DateUtil.convertToyyyymmdd(date),
+            cls : ['neo-week'],
+            cn  : []
+        };
 
         for (; i < 7; i++) {
             day = date.getDate();
@@ -242,31 +246,59 @@ class MonthComponent extends Component {
                 container   = vdom.cn[1],
                 scrollValue = null,
                 i           = 0,
-                len;
+                date, len, week;
 
-            console.log('onWheel', data.scrollTop, Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6));
+            // console.log(data.scrollTop, Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6));
 
             if (data.deltaY > 0 && Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6) > 11) {
+                date = new Date(container.cn[container.cn.length - 1].flag);
+
                 for (; i < 6; i++) {
                     if (container.cn[1].cls.includes('neo-month-header')) {
-                        container.cn.push(container.cn.splice(1, 1)[0]);
+                        container.cn.splice(1, 1);
                     }
 
-                    container.cn.push(container.cn.shift());
+                    container.cn.shift();
+
+                    date.setDate(date.getDate() + 7);
+
+                    week = me.createWeek(DateUtil.clone(date));
+
+                    if (week.header) {
+                        container.cn.push(week.header);
+                    }
+
+                    container.cn.push(week.row);
                 }
 
-                scrollValue = me.headerHeight - data.clientHeight;
+                scrollValue = data.clientHeight - me.headerHeight;
             }
 
             else if (data.deltaY < 0 && Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6) < 1) {
+                if (container.cn[0].flag) {
+                    date = new Date(container.cn[0].flag);
+                } else {
+                    date = new Date(container.cn[1].flag);
+                }
+
                 for (; i < 6; i++) {
                     len = container.cn.length;
 
                     if (container.cn[len - 2].cls.includes('neo-month-header')) {
-                        container.cn.unshift(container.cn.splice(len - 2, 1)[0]);
+                        container.cn.splice(len - 2, 1);
                     }
 
-                    container.cn.unshift(container.cn.pop());
+                    container.cn.pop();
+
+                    date.setDate(date.getDate() - 7);
+
+                    week = me.createWeek(DateUtil.clone(date));
+
+                    container.cn.unshift(week.row);
+
+                    if (week.header) {
+                        container.cn.unshift(week.header);
+                    }
                 }
 
                 scrollValue = me.headerHeight - data.clientHeight;
