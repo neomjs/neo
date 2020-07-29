@@ -103,12 +103,12 @@ class MonthComponent extends Component {
                 Neo.main.DomAccess.getBoundingClientRect({
                     id: [me.vdom.cn[1].id, me.vdom.cn[0].id]
                 }).then(data => {
-                    let vdom = me.vdom;
-
                     me.headerHeight = data[1].height;
 
-                    vdom.cn[1].scrollTop = data[0].height - data[1].height;
-                    me.vdom = vdom;
+                    Neo.main.DomAccess.scrollTopBy({
+                        id   : me.vdom.cn[1].id,
+                        value: data[0].height - data[1].height
+                    });
                 });
             }, 20);
         }
@@ -241,11 +241,10 @@ class MonthComponent extends Component {
      */
     onWheel(data) {
         if (Math.abs(data.deltaY) > Math.abs(data.deltaX)) {
-            let me          = this,
-                vdom        = me.vdom,
-                container   = vdom.cn[1],
-                scrollValue = null,
-                i           = 0,
+            let me        = this,
+                vdom      = me.vdom,
+                container = vdom.cn[1],
+                i         = 0,
                 date, len, week;
 
             // console.log(data.scrollTop, Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6));
@@ -271,7 +270,7 @@ class MonthComponent extends Component {
                     container.cn.push(week.row);
                 }
 
-                scrollValue = data.clientHeight - me.headerHeight;
+                me.vdom = vdom;
             }
 
             else if (data.deltaY < 0 && Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6) < 1) {
@@ -301,14 +300,10 @@ class MonthComponent extends Component {
                     }
                 }
 
-                scrollValue = me.headerHeight - data.clientHeight;
-            }
-
-            if (scrollValue !== null) {
                 me.promiseVdomUpdate(me.vdom).then(() => {
-                    Neo.main.DomAccess.scrollTopBy({
+                    Neo.main.DomAccess.scrollTopTo({
                         id   : me.vdom.cn[1].id,
-                        value: scrollValue
+                        value: data.clientHeight - me.headerHeight
                     });
                 });
             }

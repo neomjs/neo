@@ -42,6 +42,7 @@ class DomAccess extends Base {
                 'scrollTopBy',
                 'scrollToTableRow',
                 'scrollTopBy',
+                'scrollTopTo',
                 'selectNode',
                 'setStyle',
                 'windowScrollTo'
@@ -403,6 +404,23 @@ class DomAccess extends Base {
 
         if (node) {
             node.scrollTop += data.value;
+        }
+
+        return {id: data.id};
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     * @param {Number} data.value
+     * @returns {Object} obj.id => the passed id
+     */
+    scrollTopTo(data) {
+        let node = this.getElement(data.id);
+
+        if (node) {
+            node.scrollTop = data.value;
         }
 
         return {id: data.id};
