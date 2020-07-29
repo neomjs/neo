@@ -100,6 +100,9 @@ class MonthComponent extends Component {
         super(config);
 
         let me           = this,
+            date         = me.currentDate, // cloned
+            vdom         = me.vdom,
+            header       = vdom.cn[0].cn[0],
             domListeners = me.domListeners;
 
         domListeners.push({
@@ -107,6 +110,12 @@ class MonthComponent extends Component {
         });
 
         me.domListeners = domListeners;
+
+        // todo: update the format in a central spot
+        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: 'short'});
+
+        header.cn[0].html = me.intlFormat_month.format(date);
+        header.cn[1].html = ` ${date.getFullYear()}`;
 
         me.updateHeader(true);
         me.createContent();
