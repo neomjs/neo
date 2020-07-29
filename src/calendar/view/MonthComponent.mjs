@@ -344,7 +344,7 @@ class MonthComponent extends Component {
 
             if (!me.isScrolling) {
                 me.isScrolling = true;
-                NeoArray.add(me.vdom.cn[1].cls, 'neo-is-scrolling');console.log('###add cls');
+                NeoArray.add(me.vdom.cn[1].cls, 'neo-is-scrolling');
                 me.vdom.cn[0].cn[0].style.opacity = 0;
                 me.vdom = vdom;
             }
