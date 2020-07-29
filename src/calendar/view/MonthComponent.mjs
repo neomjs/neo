@@ -163,7 +163,7 @@ class MonthComponent extends Component {
 
         date.setDate(date.getDate() - 6 * 7);
 
-        for (; i < 15; i++) {
+        for (; i < 18; i++) {
             row = {cls: ['neo-week'], cn: []};
 
             for (j=0; j < 7; j++) {
@@ -214,15 +214,16 @@ class MonthComponent extends Component {
      */
     onWheel(data) {
         if (Math.abs(data.deltaY) > Math.abs(data.deltaX)) {
-            let me        = this,
-                vdom      = me.vdom,
-                container = vdom.cn[1],
-                i         = 0;
+            let me          = this,
+                vdom        = me.vdom,
+                container   = vdom.cn[1],
+                scrollValue = null,
+                i           = 0,
+                len;
 
-            console.log('onWheel', data.scrollTop, Math.round(data.scrollTop / data.clientHeight * 6));
-            console.log(data.deltaY);
+            console.log('onWheel', data.scrollTop, Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6));
 
-            if (data.deltaY > 0 && Math.round(data.scrollTop / data.clientHeight * 6) > 8) {
+            if (data.deltaY > 0 && Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6) > 11) {
                 for (; i < 6; i++) {
                     if (container.cn[1].cls.includes('neo-month-header')) {
                         container.cn.push(container.cn.splice(1, 1)[0]);
@@ -231,9 +232,30 @@ class MonthComponent extends Component {
                     container.cn.push(container.cn.shift());
                 }
 
-                container.scrollTop = 0;
-console.log(me.vnode);
-                me.vdom = vdom;
+                scrollValue = me.headerHeight - data.clientHeight;
+            }
+
+            else if (data.deltaY < 0 && Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6) < 1) {
+                for (; i < 6; i++) {
+                    len = container.cn.length;
+
+                    if (container.cn[len - 2].cls.includes('neo-month-header')) {
+                        container.cn.unshift(container.cn.splice(len - 2, 1)[0]);
+                    }
+
+                    container.cn.unshift(container.cn.pop());
+                }
+
+                scrollValue = me.headerHeight - data.clientHeight;
+            }
+
+            if (scrollValue !== null) {
+                me.promiseVdomUpdate(me.vdom).then(() => {
+                    Neo.main.DomAccess.scrollTopBy({
+                        id   : me.vdom.cn[1].id,
+                        value: scrollValue
+                    });
+                });
             }
         }
     }
