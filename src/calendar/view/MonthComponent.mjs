@@ -211,7 +211,7 @@ class MonthComponent extends Component {
             day, dayCls, row, weekDay;
 
         row = {
-            flag: DateUtil.convertToyyyymmdd(date),
+            flag: DateUtil.convertToyyyymmdd(date), // todo: check if a row contains the day 1 => prio for the month
             cls : ['neo-week'],
             cn  : []
         };
