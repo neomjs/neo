@@ -371,7 +371,7 @@ class MonthComponent extends Component {
         me.isScrolling      = false;
 
         for (; i < 12; i++) {
-            flag = vdom.cn[1].cn[i].flag;
+            flag = vdom.cn[1].cn[i].flag; // todo: #989 => get the date of the first fully visible row for the header
 
             if (flag) {
                 date = new Date(flag);
