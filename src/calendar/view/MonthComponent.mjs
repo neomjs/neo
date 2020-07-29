@@ -386,6 +386,8 @@ class MonthComponent extends Component {
         header.style.opacity = 1;
 
         me.vdom = vdom;
+
+        // todo: #990 => scroll the view to the closest row
     }
 
     /**
