@@ -322,11 +322,7 @@ class Helper extends Base {
                         }
                         break;
                     default:
-                        if (key === 'scrollLeft' || key === 'scrollTop') {
-                            node.attributes[key] = value;
-                        } else {
-                            node.attributes[key] = value + '';
-                        }
+                        node.attributes[key] = value + '';
                         break;
                 }
             }
@@ -629,7 +625,7 @@ class Helper extends Base {
                                     delta.attributes = attributes;
 
                                     Object.entries(attributes).forEach(([key, value]) => {
-                                        if (key === 'scrollLeft' || key === 'scrollTop' || value === null) {
+                                        if (value === null) {
                                             delete newVnode.attributes[key];
                                         }
                                     });
@@ -655,6 +651,18 @@ class Helper extends Base {
                                         indexDelta += returnValue.indexDelta;
                                     }
                                 }
+
+                                if (indexDelta < 0) {
+                                    // this case happens for infinite scrolling upwards:
+                                    // add new nodes at the start, remove nodes at the end
+                                    for (i=value.length + indexDelta; i < oldVnode.childNodes.length; i++) {
+                                        deltas.push({
+                                            action: 'removeNode',
+                                            id    : oldVnode.childNodes[i].id
+                                        });
+                                    }
+                                }
+
                                 break;
                             case 'nodeName':
                             case 'innerHTML':
