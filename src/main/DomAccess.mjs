@@ -43,7 +43,6 @@ class DomAccess extends Base {
                 'scrollToTableRow',
                 'scrollTopBy',
                 'selectNode',
-                'setAttributes',
                 'setStyle',
                 'windowScrollTo'
             ]
@@ -455,28 +454,6 @@ class DomAccess extends Base {
 
         return {id: data.id};
     }
-
-
-    /**
-     * Not recommended to use => stick to vdom updates.
-     * Can be handy for infinite scrolling though.
-     * @param {Object} data
-     * @param {String} data.id
-     * @param {Object} data.attributes
-     * @returns {Object} obj.id => the passed id
-     */
-    setAttributes(data) {
-        let node = this.getElement(data.id);
-
-        if (node) {
-            Object.entries(data.attributes).forEach(([key, value]) => {
-                node[key] = value;
-            });
-        }
-
-        return {id: data.id};
-    }
-
 
     /**
      * Not recommended to use => stick to vdom updates.
