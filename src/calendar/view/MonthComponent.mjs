@@ -83,6 +83,31 @@ class MonthComponent extends Component {
     }
 
     /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        if (value) {
+            setTimeout(() => {
+                let me = this;
+
+                Neo.main.DomAccess.getBoundingClientRect({
+                    id: [me.vdom.cn[1].id, me.vdom.cn[0].id]
+                }).then(data => {
+                    let vdom = me.vdom;
+
+                    console.log(data);
+                    console.log(data[0].height, data[1].height);
+                    vdom.cn[1].scrollTop = data[0].height - data[1].height;
+                    me.vdom = vdom;
+                });
+            }, 20);
+        }
+    }
+
+    /**
      * Triggered after the locale config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -115,18 +140,21 @@ class MonthComponent extends Component {
     createContent(silent=false) {
         let me             = this,
             date           = me.currentDate, // cloned
-            firstDayOffset = DateUtil.getFirstDayOffset(date, me.weekStartDay),
             vdom           = me.vdom,
             i              = 0,
-            day, dayCls, j, row, weekDay;
+            day, dayCls, firstDayOffset, j, prevRows, row, weekDay;
 
         vdom.cn[1].cn = [];
 
         me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: 'short'});
 
+        firstDayOffset = DateUtil.getFirstDayOffset(date, me.weekStartDay);
+
         date.setDate(1 - firstDayOffset);
 
-        for (; i < 50; i++) {
+        date.setDate(date.getDate() - 6 * 7);
+
+        for (; i < 15; i++) {
             row = {cls: ['neo-week'], cn: []};
 
             for (j=0; j < 7; j++) {
@@ -176,7 +204,29 @@ class MonthComponent extends Component {
      * @param {Object} data
      */
     onWheel(data) {
-        console.log('onWheel', data);
+        if (Math.abs(data.deltaY) > Math.abs(data.deltaX)) {
+            let me        = this,
+                vdom      = me.vdom,
+                container = vdom.cn[1],
+                i         = 0;
+
+            console.log('onWheel', data.scrollTop, Math.round(data.scrollTop / data.clientHeight * 6));
+            console.log(data.deltaY);
+
+            if (data.deltaY > 0 && Math.round(data.scrollTop / data.clientHeight * 6) > 8) {
+                for (; i < 6; i++) {
+                    if (container.cn[1].cls.includes('neo-month-header')) {
+                        container.cn.push(container.cn.splice(1, 1)[0]);
+                    }
+
+                    container.cn.push(container.cn.shift());
+                }
+
+                container.scrollTop = 0;
+console.log(me.vnode);
+                me.vdom = vdom;
+            }
+        }
     }
 
     /**

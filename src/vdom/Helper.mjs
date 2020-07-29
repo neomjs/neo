@@ -322,7 +322,11 @@ class Helper extends Base {
                         }
                         break;
                     default:
-                        node.attributes[key] = value + '';
+                        if (key === 'scrollLeft' || key === 'scrollTop') {
+                            node.attributes[key] = value;
+                        } else {
+                            node.attributes[key] = value + '';
+                        }
                         break;
                 }
             }
@@ -625,7 +629,7 @@ class Helper extends Base {
                                     delta.attributes = attributes;
 
                                     Object.entries(attributes).forEach(([key, value]) => {
-                                        if (value === null) {
+                                        if (key === 'scrollLeft' || key === 'scrollTop' || value === null) {
                                             delete newVnode.attributes[key];
                                         }
                                     });
