@@ -4,11 +4,6 @@
     flex-direction  : column;
     position        : relative;
 
-    .neo-month-name {
-        color      : v(c-m-month-name-color);
-        font-weight: bold;
-    }
-
     .neo-c-m-scrollcontainer {
         display       : flex;
         flex          : 1 1 100%;
@@ -85,5 +80,20 @@
             justify-content: flex-end;
             padding        : .3em;
         }
+
+        .neo-static-header {
+            position: absolute;
+        }
+    }
+
+    .neo-month-name {
+        color      : v(c-m-month-name-color);
+        font-weight: bold;
+    }
+
+    .neo-static-header {
+        color       : v(c-m-year-color);
+        font-size   : 1.6em;
+        padding-left: calc(.3em / 1.6);
     }
 }

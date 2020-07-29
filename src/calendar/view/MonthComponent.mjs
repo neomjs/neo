@@ -68,7 +68,18 @@ class MonthComponent extends Component {
         vdom: {
             cn : [{
                 cls: ['neo-days-header'],
-                cn : []
+                cn : [{
+                    cls: ['neo-static-header'],
+                    cn : [{
+                        tag : 'span',
+                        cls : ['neo-month-name'],
+                        flag: 'month-name',
+                        html: 'Jan'
+                    }, {
+                        vtype: 'text',
+                        html : ' 2020'
+                    }]
+                }]
             }, {
                 cls: ['neo-c-m-scrollcontainer']
             }]
