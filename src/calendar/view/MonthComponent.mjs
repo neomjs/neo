@@ -147,11 +147,11 @@ class MonthComponent extends Component {
      * @param {Boolean} [silent=false]
      */
     createContent(silent=false) {
-        let me             = this,
-            date           = me.currentDate, // cloned
-            vdom           = me.vdom,
-            i              = 0,
-            day, dayCls, firstDayOffset, j, prevRows, row, weekDay;
+        let me   = this,
+            date = me.currentDate, // cloned
+            vdom = me.vdom,
+            i    = 0,
+            firstDayOffset, row;
 
         vdom.cn[1].cn = [];
 
@@ -164,48 +164,71 @@ class MonthComponent extends Component {
         date.setDate(date.getDate() - 6 * 7);
 
         for (; i < 18; i++) {
-            row = {cls: ['neo-week'], cn: []};
+            row = me.createWeek(date);
 
-            for (j=0; j < 7; j++) {
-                day = date.getDate();
-
-                if (day === 1) {
-                    vdom.cn[1].cn.push({
-                        cls: ['neo-month-header'],
-                        cn : [{
-                            cls: ['neo-month-header-content'],
-                            cn : [{
-                                tag : 'span',
-                                cls : ['neo-month-name'],
-                                flag: 'month-name',
-                                html: me.intlFormat_month.format(date)
-                            }, {
-                                vtype: 'text',
-                                html : ` ${date.getFullYear()}`
-                            }]
-                        }]
-                    });
-                }
-
-                dayCls  = ['neo-day'];
-                weekDay = date.getDay();
-
-                if (weekDay === 0 || weekDay === 6) {
-                    dayCls.push('neo-weekend');
-                }
-
-                row.cn.push({
-                    cls : dayCls,
-                    html: day
-                });
-
-                date.setDate(date.getDate() + 1);
+            if (row.header) {
+                vdom.cn[1].cn.push(row.header);
             }
 
-            vdom.cn[1].cn.push(row);
+            vdom.cn[1].cn.push(row.row);
         }
 
         me[silent ? '_vdom' : 'vdom'] = vdom;
+    }
+
+    /**
+     *
+     * @param {Date} date
+     * @returns {Object}
+     */
+    createWeek(date) {
+        let me     = this,
+            i      = 0,
+            header = null,
+            day, dayCls, row, weekDay;
+
+        row = {cls: ['neo-week'], cn: []};
+
+        for (; i < 7; i++) {
+            day = date.getDate();
+
+            if (day === 1) {
+                header = {
+                    cls: ['neo-month-header'],
+                    cn : [{
+                        cls: ['neo-month-header-content'],
+                        cn : [{
+                            tag : 'span',
+                            cls : ['neo-month-name'],
+                            flag: 'month-name',
+                            html: me.intlFormat_month.format(date)
+                        }, {
+                            vtype: 'text',
+                            html : ` ${date.getFullYear()}`
+                        }]
+                    }]
+                };
+            }
+
+            dayCls  = ['neo-day'];
+            weekDay = date.getDay();
+
+            if (weekDay === 0 || weekDay === 6) {
+                dayCls.push('neo-weekend');
+            }
+
+            row.cn.push({
+                cls : dayCls,
+                html: day
+            });
+
+            date.setDate(date.getDate() + 1);
+        }
+
+        return {
+            header: header,
+            row   : row
+        }
     }
 
     /**
