@@ -43,6 +43,11 @@
             background-color: v(c-m-background-color);
             color           : v(c-m-year-color);
             padding-left    : calc(.3em / 1.6);
+
+            box-shadow:
+                0 0 1.56em 1.56em #fff,
+                0 0 2.34em 2em #f0f,
+                0 0 3.5em 2.34em #0ff
         }
 
         .neo-week {
