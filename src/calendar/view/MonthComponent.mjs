@@ -1,5 +1,6 @@
 import {default as Component} from '../../component/Base.mjs';
 import DateUtil               from '../../util/Date.mjs';
+import NeoArray               from '../../util/Array.mjs';
 import {default as VDomUtil}  from '../../util/VDom.mjs';
 
 const todayDate = new Date();
@@ -48,9 +49,19 @@ class MonthComponent extends Component {
          */
         headerHeight: null,
         /**
+         * @member {Boolean} isScrolling=false
+         * @protected
+         */
+        isScrolling: false,
+        /**
          * @member {String} locale_=Neo.config.locale
          */
         locale_: Neo.config.locale,
+        /**
+         * @member {String|null} scrollTask=null
+         * @protected
+         */
+        scrollTaskId: null,
         /**
          * @member {Object} vdom
          */
@@ -245,7 +256,7 @@ class MonthComponent extends Component {
                 vdom      = me.vdom,
                 container = vdom.cn[1],
                 i         = 0,
-                date, len, week;
+                date, len, scrollTo, week;
 
             // console.log(data.scrollTop, Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6));
 
@@ -307,7 +318,26 @@ class MonthComponent extends Component {
                     });
                 });
             }
+
+            if (!me.isScrolling) {
+                me.isScrolling = true;
+                NeoArray.add(me.vdom.cn[1].cls, 'neo-is-scrolling');console.log('###add cls');
+                me.vdom = vdom;
+            }
+
+            if (me.scrollTaskId) {
+                clearTimeout(me.scrollTaskId);
+            }
+
+            me.scrollTaskId = setTimeout(() => {
+                me.isScrolling = false;
+
+                vdom = me.vdom;
+                NeoArray.remove(me.vdom.cn[1].cls, 'neo-is-scrolling');
+                me.vdom = vdom;
+            }, 300);
         }
+
     }
 
     /**
