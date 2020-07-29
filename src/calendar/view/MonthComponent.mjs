@@ -211,7 +211,7 @@ class MonthComponent extends Component {
             day, dayCls, row, weekDay;
 
         row = {
-            flag: DateUtil.convertToyyyymmdd(date), // todo: check if a row contains the day 1 => prio for the month
+            flag: DateUtil.convertToyyyymmdd(date),
             cls : ['neo-week'],
             cn  : []
         };
@@ -220,6 +220,8 @@ class MonthComponent extends Component {
             day = date.getDate();
 
             if (day === 1) {
+                row.flag = DateUtil.convertToyyyymmdd(date); // the first day of a month wins
+
                 header = {
                     cls: ['neo-month-header'],
                     cn : [{
