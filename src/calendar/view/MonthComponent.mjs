@@ -38,6 +38,12 @@ class MonthComponent extends Component {
          */
         currentDate_: null,
         /**
+         * The format of the column headers.
+         * Valid values are: narrow, short & long
+         * @member {String} dayNameFormat_='short'
+         */
+        dayNameFormat_: 'short',
+        /**
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
         eventStore_: null,
