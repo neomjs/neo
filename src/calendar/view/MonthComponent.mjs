@@ -64,9 +64,9 @@ class MonthComponent extends Component {
         scrollTaskId: null,
         /**
          * True to use box shadows for the months while scrolling
-         * @member {Boolean} useScrollBoxShadows=true
+         * @member {Boolean} useScrollBoxShadows_=true
          */
-        useScrollBoxShadows: true,
+        useScrollBoxShadows_: true,
         /**
          * @member {Object} vdom
          */
@@ -162,6 +162,20 @@ class MonthComponent extends Component {
             this.updateMonthNames(true);
             this.updateHeader();
         }
+    }
+
+    /**
+     * Triggered after the useScrollBoxShadows config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseScrollBoxShadows(value, oldValue) {
+        let me   = this,
+            vdom = me.vdom;
+
+        NeoArray[value ? 'add' : 'remove'](me.vdom.cn[1], 'neo-scroll-shadows');
+        me.vdom = vdom;
     }
 
     /**
