@@ -60,6 +60,11 @@ class MonthComponent extends Component {
          */
         intlFormat_day: null,
         /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_month=null
+         * @protected
+         */
+        intlFormat_month: null,
+        /**
          * @member {Boolean} isScrolling=false
          * @protected
          */
@@ -131,9 +136,6 @@ class MonthComponent extends Component {
 
         me.domListeners = domListeners;
 
-        // todo: update the format in a central spot
-        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: 'short'});
-
         header.cn[0].html = me.intlFormat_month.format(date);
         header.cn[1].html = ` ${date.getFullYear()}`;
 
@@ -196,6 +198,22 @@ class MonthComponent extends Component {
     }
 
     /**
+     * Triggered after the monthNameFormat config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetMonthNameFormat(value, oldValue) {
+        let me = this;
+
+        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: value});
+
+        if (oldValue !== undefined) {
+            me.updateMonthNames();
+        }
+    }
+
+    /**
      * Triggered after the useScrollBoxShadows config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -254,8 +272,6 @@ class MonthComponent extends Component {
             firstDayOffset, row;
 
         vdom.cn[1].cn = [];
-
-        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: 'short'});
 
         firstDayOffset = DateUtil.getFirstDayOffset(date, me.weekStartDay);
 
@@ -437,8 +453,7 @@ class MonthComponent extends Component {
             i      = 6,
             date, flag;
 
-        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: 'short'});
-        me.isScrolling      = false;
+        me.isScrolling = false;
 
         for (; i < 12; i++) {
             flag = vdom.cn[1].cn[i].flag; // todo: #989 => get the date of the first fully visible row for the header
@@ -497,8 +512,6 @@ class MonthComponent extends Component {
             date   = me.currentDate, // cloned
             vdom   = me.vdom,
             months = VDomUtil.getFlags(vdom, 'month-name');
-
-        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: 'short'});
 
         months.forEach(month => {
             month.html = me.intlFormat_month.format(date);
