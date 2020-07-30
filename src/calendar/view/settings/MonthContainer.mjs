@@ -37,15 +37,6 @@ class MonthContainer extends Container {
             monthComponent = me.getMonthComponent();
 
         me.items = [{
-            module        : CheckBoxField,
-            checked       : monthComponent.useScrollBoxShadows,
-            flex          : 'none',
-            hideLabel     : true,
-            hideValueLabel: false,
-            listeners     : {change: me.onConfigChange, scope: me},
-            name          : 'useScrollBoxShadows',
-            valueLabelText: 'useScrollBoxShadows'
-        }, {
             module        : RadioField,
             checked       : monthComponent.dayNameFormat === 'narrow',
             fieldValue    : 'narrow',
@@ -55,7 +46,6 @@ class MonthContainer extends Container {
             labelWidth    : labelWidth,
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'cm_dayNameFormat',
-            style         : {marginTop: '10px'},
             valueLabelText: 'narrow'
         }, {
             module        : RadioField,
@@ -105,6 +95,16 @@ class MonthContainer extends Container {
             name          : 'cm_monthNameFormat',
             style         : {marginTop: '5px'},
             valueLabelText: 'long'
+        }, {
+            module        : CheckBoxField,
+            checked       : monthComponent.useScrollBoxShadows,
+            flex          : 'none',
+            hideLabel     : true,
+            hideValueLabel: false,
+            listeners     : {change: me.onConfigChange, scope: me},
+            name          : 'useScrollBoxShadows',
+            style         : {marginTop: '10px'},
+            valueLabelText: 'useScrollBoxShadows'
         }];
 
         super.createItems();
