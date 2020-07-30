@@ -55,6 +55,11 @@ class MonthComponent extends Component {
          */
         headerHeight: null,
         /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_day=null
+         * @protected
+         */
+        intlFormat_day: null,
+        /**
          * @member {Boolean} isScrolling=false
          * @protected
          */
@@ -128,6 +133,19 @@ class MonthComponent extends Component {
 
         me.updateHeader(true);
         me.createContent();
+    }
+
+    /**
+     * Triggered after the dayNameFormat config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetDayNameFormat(value, oldValue) {
+        let me = this;
+
+        me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
+        me.updateHeader();
     }
 
     /**
