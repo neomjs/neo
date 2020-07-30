@@ -223,6 +223,16 @@ class MonthComponent extends Component {
     }
 
     /**
+     * Triggered before the monthNameFormat config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetMonthNameFormat(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'monthNameFormat', DateUtil.prototype.monthNameFormats);
+    }
+
+    /**
      *
      * @param {Boolean} [silent=false]
      */
