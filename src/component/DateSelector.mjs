@@ -83,6 +83,11 @@ class DateSelector extends Component {
          */
         mouseWheelDelta: 1,
         /**
+         * True to scroll new years in from the top
+         * @member {Boolean} scrollNewYearFromTop=false
+         */
+        scrollNewYearFromTop: false,
+        /**
          * Either pass a selection.Model module, an instance or a config object
          * @member {Object|Neo.selection.Model} selectionModel_=null
          */
@@ -472,7 +477,7 @@ class DateSelector extends Component {
      */
     changeYear(increment) {
         let me = this,
-            vdom, y;
+            scrollFromTop, vdom, y;
 
         if (!me.useAnimations) {
             me.recreateContent(0, increment);
@@ -483,8 +488,9 @@ class DateSelector extends Component {
                 Neo.main.DomAccess.getBoundingClientRect({
                     id: me.getCenterContentEl().id
                 }).then(data => {
-                    vdom = me.vdom;
-                    y    = increment < 0 ? 0 : -data.height;
+                    scrollFromTop = me.scrollNewYearFromTop && increment < 0 || !me.scrollNewYearFromTop && increment > 0;
+                    vdom          = me.vdom;
+                    y             = scrollFromTop ? 0 : -data.height;
 
                     vdom.cn.push({
                         cls: ['neo-relative'],
@@ -506,16 +512,16 @@ class DateSelector extends Component {
                     me.updateHeaderYear(increment, true);
 
                     me.createDayViewContent(true, vdom.cn[2].cn[0].cn[0]);
-                    vdom.cn[2].cn[0].cn[increment < 0 ? 'unshift' : 'push'](vdom.cn[1]);
+                    vdom.cn[2].cn[0].cn[scrollFromTop ? 'unshift' : 'push'](vdom.cn[1]);
                     vdom.cn.splice(1, 1);
 
                     me.promiseVdomUpdate(vdom).then(() => {
-                        y = increment < 0 ? -data.height : 0;
+                        y = scrollFromTop ? -data.height : 0;
                         vdom.cn[1].cn[0].style.transform = `translateY(${y}px)`;
                         me.vdom = vdom;
 
                         setTimeout(() => {
-                            vdom.cn[1] = vdom.cn[1].cn[0].cn[increment < 0 ? 1 : 0];
+                            vdom.cn[1] = vdom.cn[1].cn[0].cn[scrollFromTop ? 1 : 0];
                             me.triggerVdomUpdate();
                         }, 300);
                     });
