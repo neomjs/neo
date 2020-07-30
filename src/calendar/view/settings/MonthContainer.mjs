@@ -1,5 +1,6 @@
 import {default as CheckBoxField} from '../../../form/field/CheckBox.mjs';
 import {default as Container}     from '../../../container/Base.mjs';
+import {default as RadioField}    from '../../../form/field/Radio.mjs';
 
 /**
  * @class Neo.calendar.view.settings.MonthContainer
@@ -36,6 +37,42 @@ class MonthContainer extends Container {
             labelWidth: 170,
             listeners : {change: me.onConfigChange, scope: me},
             name      : 'useScrollBoxShadows'
+        }, {
+            module        : RadioField,
+            checked       : monthComponent.dayNameFormat === 'narrow',
+            fieldValue    : 'narrow',
+            flex          : 'none',
+            hideValueLabel: false,
+            labelText     : 'dayNameFormat',
+            labelWidth    : 170,
+            listeners     : {change: me.onRadioChange, scope: me},
+            name          : 'dayNameFormat',
+            style         : {marginTop: '10px'},
+            valueLabelText: 'narrow'
+        }, {
+            module        : RadioField,
+            checked       : monthComponent.dayNameFormat === 'short',
+            fieldValue    : 'short',
+            flex          : 'none',
+            hideValueLabel: false,
+            labelText     : '',
+            labelWidth    : 170,
+            listeners     : {change: me.onRadioChange, scope: me},
+            name          : 'dayNameFormat',
+            style         : {marginTop: '5px'},
+            valueLabelText: 'short'
+        }, {
+            module        : RadioField,
+            checked       : monthComponent.dayNameFormat === 'long',
+            fieldValue    : 'long',
+            flex          : 'none',
+            hideValueLabel: false,
+            labelText     : '',
+            labelWidth    : 170,
+            listeners     : {change: me.onRadioChange, scope: me},
+            name          : 'dayNameFormat',
+            style         : {marginTop: '5px'},
+            valueLabelText: 'long'
         }];
     }
 
@@ -53,6 +90,16 @@ class MonthContainer extends Container {
      */
     onConfigChange(data) {
         this.getMonthComponent()[data.component.name] = data.value;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onRadioChange(data) {
+        if (data.value) {
+            this.getMonthComponent()[data.component.name] = data.component.fieldValue;
+        }
     }
 }
 

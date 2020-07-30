@@ -145,7 +145,10 @@ class MonthComponent extends Component {
         let me = this;
 
         me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
-        me.updateHeader();
+
+        if (oldValue !== undefined) {
+            me.updateHeader();
+        }
     }
 
     /**
@@ -438,7 +441,6 @@ class MonthComponent extends Component {
     updateHeader(create=false) {
         let me   = this,
             date = me.currentDate, // cloned
-            dt   = new Intl.DateTimeFormat(me.locale, {weekday: 'short'}),
             vdom = me.vdom,
             i    = 1;
 
@@ -448,10 +450,10 @@ class MonthComponent extends Component {
             if (create) {
                 vdom.cn[0].cn.push({
                     cls : ['neo-day-name'],
-                    html: dt.format(date)
+                    html: me.intlFormat_day.format(date)
                 });
             } else {
-                vdom.cn[0].cn[i].html = dt.format(date);
+                vdom.cn[0].cn[i].html = me.intlFormat_day.format(date);
             }
 
             date.setDate(date.getDate() + 1);
