@@ -85,11 +85,9 @@ class MonthComponent extends Component {
                     cn   : [{
                         tag : 'span',
                         cls : ['neo-month-name'],
-                        flag: 'month-name',
-                        html: 'Jan'
+                        flag: 'month-name'
                     }, {
-                        vtype: 'text',
-                        html : ' 2020'
+                        vtype: 'text'
                     }]
                 }]
             }, {
