@@ -265,6 +265,16 @@ class YearComponent extends Component {
     }
 
     /**
+     * Triggered before the dayNameFormat config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetDayNameFormat(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'dayNameFormat', DateUtil.prototype.dayNameFormats);
+    }
+
+    /**
      * Triggered before the monthNameFormat config gets changed
      * @param {String} value
      * @param {String} oldValue
