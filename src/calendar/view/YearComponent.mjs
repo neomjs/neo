@@ -79,6 +79,11 @@ class YearComponent extends Component {
          */
         monthNameFormat_: 'long',
         /**
+         * True to scroll new years in from the top
+         * @member {Boolean} scrollNewYearFromTop=false
+         */
+        scrollNewYearFromTop: false,
+        /**
          * True to show borders for the calendar month cells
          * @member {Boolean} showCellBorders_=false
          */
@@ -299,7 +304,7 @@ class YearComponent extends Component {
      */
     changeYear(increment) {
         let me = this,
-            vdom, y;
+            scrollFromTop, vdom, y;
 
         if (!me.useAnimations) {
             // me.recreateContent(increment); // todo
@@ -310,8 +315,9 @@ class YearComponent extends Component {
                 Neo.main.DomAccess.getBoundingClientRect({
                     id: me.id
                 }).then(data => {
-                    vdom = me.vdom;
-                    y    = increment < 0 ? 0 : -data.height;
+                    scrollFromTop = me.scrollNewYearFromTop && increment < 0 || !me.scrollNewYearFromTop && increment > 0;
+                    vdom          = me.vdom;
+                    y             = scrollFromTop ? 0 : -data.height;
 
                     vdom.cn.push({
                         cls: ['neo-relative'],
@@ -335,16 +341,16 @@ class YearComponent extends Component {
                     });
 
                     me.createMonths(true, vdom.cn[1].cn[0].cn[0].cn[1]);
-                    vdom.cn[1].cn[0].cn[increment < 0 ? 'unshift' : 'push'](vdom.cn[0]);
+                    vdom.cn[1].cn[0].cn[scrollFromTop ? 'unshift' : 'push'](vdom.cn[0]);
                     vdom.cn.splice(0, 1);
 
                     me.promiseVdomUpdate(vdom).then(() => {
-                        y = increment < 0 ? -data.height : 0;
+                        y = scrollFromTop ? -data.height : 0;
                         vdom.cn[0].cn[0].style.transform = `translateY(${y}px)`;
                         me.vdom = vdom;
 
                         setTimeout(() => {
-                            vdom.cn[0] = vdom.cn[0].cn[0].cn[increment < 0 ? 1 : 0];
+                            vdom.cn[0] = vdom.cn[0].cn[0].cn[scrollFromTop ? 1 : 0];
                             me.triggerVdomUpdate();
                         }, 300);
                     });
