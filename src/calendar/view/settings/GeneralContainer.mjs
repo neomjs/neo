@@ -25,7 +25,13 @@ class GeneralContainer extends Container {
      */
     constructor(config) {
         super(config);
+        this.createItems();
+    }
 
+    /**
+     *
+     */
+    createItems() {
         let me       = this,
             calendar = me.up('calendar-maincontainer');
 
@@ -125,6 +131,8 @@ class GeneralContainer extends Container {
             style         : {marginTop: '5px'},
             valueLabelText: 'Monday'
         }];
+
+        super.createItems();
     }
 
     /**
