@@ -63,6 +63,11 @@ class MonthComponent extends Component {
          */
         scrollTaskId: null,
         /**
+         * True to use box shadows for the months while scrolling
+         * @member {Boolean} useScrollBoxShadows=true
+         */
+        useScrollBoxShadows: true,
+        /**
          * @member {Object} vdom
          */
         vdom: {
