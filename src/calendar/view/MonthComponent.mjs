@@ -174,7 +174,7 @@ class MonthComponent extends Component {
         let me   = this,
             vdom = me.vdom;
 
-        NeoArray[value ? 'add' : 'remove'](me.vdom.cn[1], 'neo-scroll-shadows');
+        NeoArray[value ? 'add' : 'remove'](me.vdom.cn[1].cls, 'neo-scroll-shadows');
         me.vdom = vdom;
     }
 
