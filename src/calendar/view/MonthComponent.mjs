@@ -160,6 +160,40 @@ class MonthComponent extends Component {
     }
 
     /**
+     * Triggered after the locale config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLocale(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.intlFormat_day   = new Intl.DateTimeFormat(value, {weekday: me.dayNameFormat});
+            me.intlFormat_month = new Intl.DateTimeFormat(value, {month  : me.monthNameFormat});
+
+            me.updateMonthNames(true);
+            me.updateHeader();
+        }
+    }
+
+    /**
+     * Triggered after the monthNameFormat config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetMonthNameFormat(value, oldValue) {
+        let me = this;
+
+        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: value});
+
+        if (oldValue !== undefined) {
+            me.updateMonthNames();
+        }
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -181,35 +215,6 @@ class MonthComponent extends Component {
                     });
                 });
             }, 20);
-        }
-    }
-
-    /**
-     * Triggered after the locale config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetLocale(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.updateMonthNames(true);
-            this.updateHeader();
-        }
-    }
-
-    /**
-     * Triggered after the monthNameFormat config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetMonthNameFormat(value, oldValue) {
-        let me = this;
-
-        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: value});
-
-        if (oldValue !== undefined) {
-            me.updateMonthNames();
         }
     }
 
