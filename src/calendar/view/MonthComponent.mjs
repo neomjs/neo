@@ -69,6 +69,12 @@ class MonthComponent extends Component {
          */
         locale_: Neo.config.locale,
         /**
+         * The format of the month header names.
+         * Valid values are: narrow, short & long
+         * @member {String} monthNameFormat_='long'
+         */
+        monthNameFormat_: 'short',
+        /**
          * @member {String|null} scrollTask=null
          * @protected
          */
