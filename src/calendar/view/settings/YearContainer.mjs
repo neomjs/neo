@@ -25,7 +25,13 @@ class YearContainer extends Container {
      */
     constructor(config) {
         super(config);
+        this.createItems();
+    }
 
+    /**
+     *
+     */
+    createItems() {
         let me            = this,
             yearComponent = me.getYearComponent();
 
@@ -80,6 +86,8 @@ class YearContainer extends Container {
             name      : 'sixWeeksPerMonth',
             style     : {marginTop: '10px'}
         }];
+
+        super.createItems();
     }
 
     /**
