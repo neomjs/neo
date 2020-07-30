@@ -25,7 +25,10 @@ class MonthContainer extends Container {
      */
     constructor(config) {
         super(config);
+        this.createItems();
+    }
 
+    createItems() {
         let me             = this,
             labelWidth     = 140,
             monthComponent = me.getMonthComponent();
@@ -48,7 +51,7 @@ class MonthContainer extends Container {
             labelText     : 'dayNameFormat',
             labelWidth    : labelWidth,
             listeners     : {change: me.onRadioChange, scope: me},
-            name          : 'dayNameFormat',
+            name          : 'cm_dayNameFormat',
             style         : {marginTop: '10px'},
             valueLabelText: 'narrow'
         }, {
@@ -60,7 +63,7 @@ class MonthContainer extends Container {
             labelText     : '',
             labelWidth    : labelWidth,
             listeners     : {change: me.onRadioChange, scope: me},
-            name          : 'dayNameFormat',
+            name          : 'cm_dayNameFormat',
             style         : {marginTop: '5px'},
             valueLabelText: 'short'
         }, {
@@ -72,7 +75,7 @@ class MonthContainer extends Container {
             labelText     : '',
             labelWidth    : labelWidth,
             listeners     : {change: me.onRadioChange, scope: me},
-            name          : 'dayNameFormat',
+            name          : 'cm_dayNameFormat',
             style         : {marginTop: '5px'},
             valueLabelText: 'long'
         }, {
@@ -100,6 +103,8 @@ class MonthContainer extends Container {
             style         : {marginTop: '5px'},
             valueLabelText: 'long'
         }];
+
+        super.createItems();
     }
 
     /**
