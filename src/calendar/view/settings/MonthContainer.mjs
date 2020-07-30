@@ -28,6 +28,9 @@ class MonthContainer extends Container {
         this.createItems();
     }
 
+    /**
+     *
+     */
     createItems() {
         let me             = this,
             labelWidth     = 140,

@@ -49,9 +49,11 @@
         .neo-month-header-content {
             background-color: v(c-m-background-color);
             color           : v(c-m-year-color);
+            min-width       : fit-content;
             opacity         : 0;
-            padding-left    : calc(.3em / 1.6);
+            padding         : 0 calc(.3em / 1.6);
             transition      : opacity 200ms ease-in-out;
+            white-space     : nowrap;
         }
 
         .neo-week {
