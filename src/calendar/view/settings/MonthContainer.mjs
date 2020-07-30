@@ -27,6 +27,7 @@ class MonthContainer extends Container {
         super(config);
 
         let me             = this,
+            labelWidth     = 140,
             monthComponent = me.getMonthComponent();
 
         me.items = [{
@@ -45,7 +46,7 @@ class MonthContainer extends Container {
             flex          : 'none',
             hideValueLabel: false,
             labelText     : 'dayNameFormat',
-            labelWidth    : 130,
+            labelWidth    : labelWidth,
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'dayNameFormat',
             style         : {marginTop: '10px'},
@@ -57,7 +58,7 @@ class MonthContainer extends Container {
             flex          : 'none',
             hideValueLabel: false,
             labelText     : '',
-            labelWidth    : 130,
+            labelWidth    : labelWidth,
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'dayNameFormat',
             style         : {marginTop: '5px'},
@@ -69,9 +70,33 @@ class MonthContainer extends Container {
             flex          : 'none',
             hideValueLabel: false,
             labelText     : '',
-            labelWidth    : 130,
+            labelWidth    : labelWidth,
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'dayNameFormat',
+            style         : {marginTop: '5px'},
+            valueLabelText: 'long'
+        }, {
+            module        : RadioField,
+            checked       : monthComponent.monthNameFormat === 'short',
+            fieldValue    : 'short',
+            flex          : 'none',
+            hideValueLabel: false,
+            labelText     : 'monthNameFormat',
+            labelWidth    : labelWidth,
+            listeners     : {change: me.onRadioChange, scope: me},
+            name          : 'cm_monthNameFormat',
+            style         : {marginTop: '10px'},
+            valueLabelText: 'short'
+        }, {
+            module        : RadioField,
+            checked       : monthComponent.monthNameFormat === 'long',
+            fieldValue    : 'long',
+            flex          : 'none',
+            hideValueLabel: false,
+            labelText     : '',
+            labelWidth    : labelWidth,
+            listeners     : {change: me.onRadioChange, scope: me},
+            name          : 'cm_monthNameFormat',
             style         : {marginTop: '5px'},
             valueLabelText: 'long'
         }];
@@ -99,7 +124,13 @@ class MonthContainer extends Container {
      */
     onRadioChange(data) {
         if (data.value) {
-            this.getMonthComponent()[data.component.name] = data.component.fieldValue;
+            let name = data.component.name;
+
+            if (name.startsWith('cm_')) {
+                name = name.substring(3);
+            }
+
+            this.getMonthComponent()[name] = data.component.fieldValue;
         }
     }
 }
