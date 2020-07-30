@@ -30,13 +30,14 @@ class MonthContainer extends Container {
             monthComponent = me.getMonthComponent();
 
         me.items = [{
-            module    : CheckBoxField,
-            checked   : monthComponent.useScrollBoxShadows,
-            flex      : 'none',
-            labelText : 'useScrollBoxShadows',
-            labelWidth: 170,
-            listeners : {change: me.onConfigChange, scope: me},
-            name      : 'useScrollBoxShadows'
+            module        : CheckBoxField,
+            checked       : monthComponent.useScrollBoxShadows,
+            flex          : 'none',
+            hideLabel     : true,
+            hideValueLabel: false,
+            listeners     : {change: me.onConfigChange, scope: me},
+            name          : 'useScrollBoxShadows',
+            valueLabelText: 'useScrollBoxShadows'
         }, {
             module        : RadioField,
             checked       : monthComponent.dayNameFormat === 'narrow',
@@ -44,7 +45,7 @@ class MonthContainer extends Container {
             flex          : 'none',
             hideValueLabel: false,
             labelText     : 'dayNameFormat',
-            labelWidth    : 170,
+            labelWidth    : 130,
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'dayNameFormat',
             style         : {marginTop: '10px'},
@@ -56,7 +57,7 @@ class MonthContainer extends Container {
             flex          : 'none',
             hideValueLabel: false,
             labelText     : '',
-            labelWidth    : 170,
+            labelWidth    : 130,
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'dayNameFormat',
             style         : {marginTop: '5px'},
@@ -68,7 +69,7 @@ class MonthContainer extends Container {
             flex          : 'none',
             hideValueLabel: false,
             labelText     : '',
-            labelWidth    : 170,
+            labelWidth    : 130,
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'dayNameFormat',
             style         : {marginTop: '5px'},
