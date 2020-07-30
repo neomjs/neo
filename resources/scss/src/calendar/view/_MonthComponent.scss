@@ -4,11 +4,6 @@
     flex-direction  : column;
     position        : relative;
 
-    .neo-month-name {
-        color      : v(c-m-month-name-color);
-        font-weight: bold;
-    }
-
     .neo-c-m-scrollcontainer {
         display       : flex;
         flex          : 1 1 100%;
@@ -16,6 +11,18 @@
         overflow-y    : auto;
         padding-top   : 3.75em;
         position      : relative;
+
+        &.neo-is-scrolling {
+            .neo-month-header-content {
+                opacity: 1;
+            }
+        }
+
+        &.neo-scroll-shadows {
+            .neo-month-header-content {
+                box-shadow: v(c-m-scroll-box-shadow);
+            }
+        }
 
         .neo-day {
             border-right   : 1px solid v(c-m-border-color);
@@ -42,7 +49,11 @@
         .neo-month-header-content {
             background-color: v(c-m-background-color);
             color           : v(c-m-year-color);
-            padding-left    : calc(.3em / 1.6);
+            min-width       : fit-content;
+            opacity         : 0;
+            padding         : 0 calc(.3em / 1.6);
+            transition      : opacity 200ms ease-in-out;
+            white-space     : nowrap;
         }
 
         .neo-week {
@@ -76,5 +87,20 @@
             justify-content: flex-end;
             padding        : .3em;
         }
+
+        .neo-static-header {
+            position: absolute;
+        }
+    }
+
+    .neo-month-name {
+        color      : v(c-m-month-name-color);
+        font-weight: bold;
+    }
+
+    .neo-static-header {
+        color       : v(c-m-year-color);
+        font-size   : 1.6em;
+        padding-left: calc(.3em / 1.6);
     }
 }

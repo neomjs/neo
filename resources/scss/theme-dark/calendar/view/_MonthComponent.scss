@@ -1,11 +1,12 @@
 $neoMap: map-merge($neoMap, (
-    'c-m-background-color': #2b2b2b,
-    'c-m-border-color'    : #3c3f41,
-    'c-m-day-name-color'  : #ccc,
-    'c-m-day-number-color': #bbb,
-    'c-m-month-name-color': #eee,
-    'c-m-year-color'      : #ccc,
-    'c-m-weekend-background-color': rgba(50, 50, 60, .35)
+    'c-m-background-color'        : #2b2b2b,
+    'c-m-border-color'            : #3c3f41,
+    'c-m-day-name-color'          : #ccc,
+    'c-m-day-number-color'        : #bbb,
+    'c-m-month-name-color'        : #fff,
+    'c-m-scroll-box-shadow'       : '0 0 1.56em 0.78em #fff, 0 0 3.9em 1.95em #1c60a0',
+    'c-m-weekend-background-color': rgba(50, 50, 60, .35),
+    'c-m-year-color'              : #ccc,
 ));
 
 @if $useCss4Vars == true {
@@ -15,7 +16,8 @@ $neoMap: map-merge($neoMap, (
         --c-m-day-name-color          : #{neo(c-m-day-name-color)};
         --c-m-day-number-color        : #{neo(c-m-day-number-color)};
         --c-m-month-name-color        : #{neo(c-m-month-name-color)};
-        --c-m-year-color              : #{neo(c-m-year-color)};
+        --c-m-scroll-box-shadow       : #{neo(c-m-scroll-box-shadow)};
         --c-m-weekend-background-color: #{neo(c-m-weekend-background-color)};
+        --c-m-year-color              : #{neo(c-m-year-color)};
     }
 }

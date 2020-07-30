@@ -112,6 +112,11 @@ class MainContainer extends Container {
          */
         monthComponentConfig: null,
         /**
+         * True to scroll new years in from the top
+         * @member {Boolean} scrollNewYearFromTop_=false
+         */
+        scrollNewYearFromTop_: false,
+        /**
          * @member {Number} settingsContainerWidth=300
          */
         settingsContainerWidth: 310,
@@ -250,6 +255,19 @@ class MainContainer extends Container {
             style.marginRight = value ? '0': `-${this.settingsContainerWidth}px`;
 
             settingsContainer.style = style;
+        }
+    }
+
+    /**
+     * Triggered after the scrollNewYearFromTop config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetScrollNewYearFromTop(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.dateSelector .scrollNewYearFromTop = value;
+            this.yearComponent.scrollNewYearFromTop = value;
         }
     }
 
@@ -413,13 +431,14 @@ class MainContainer extends Container {
         });
 
         me.dateSelector = Neo.create({
-            module      : DateSelector,
-            flex        : 'none',
-            height      : me.sideBarWidth,
-            listeners   : {change: me.onDateSelectorChange, scope: me},
-            locale      : me.locale,
-            value       : DateUtil.convertToyyyymmdd(me.currentDate),
-            weekStartDay: me.weekStartDay,
+            module              : DateSelector,
+            flex                : 'none',
+            height              : me.sideBarWidth,
+            listeners           : {change: me.onDateSelectorChange, scope: me},
+            locale              : me.locale,
+            scrollNewYearFromTop: me.scrollNewYearFromTop,
+            value               : DateUtil.convertToyyyymmdd(me.currentDate),
+            weekStartDay        : me.weekStartDay,
             ...me.dateSelectorConfig || {}
         });
 
@@ -512,7 +531,8 @@ class MainContainer extends Container {
                 ...me.weekComponentConfig || {}
             },
             year: {
-                module      : YearComponent,
+                module              : YearComponent,
+                scrollNewYearFromTop: me.scrollNewYearFromTop,
                 ...defaultConfig,
                 ...me.yearComponentConfig || {}
             }

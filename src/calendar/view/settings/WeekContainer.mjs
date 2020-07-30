@@ -34,7 +34,13 @@ class WeekContainer extends Container {
      */
     constructor(config) {
         super(config);
+        this.createItems();
+    }
 
+    /**
+     *
+     */
+    createItems() {
         let me            = this,
             weekComponent = me.getWeekComponent(),
             timeAxis      = weekComponent.timeAxis;
@@ -103,6 +109,8 @@ class WeekContainer extends Container {
             name          : 'timeAxisPosition',
             valueLabelText: 'end'
         }];
+
+        super.createItems();
     }
 
     /**

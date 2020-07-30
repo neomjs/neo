@@ -25,8 +25,15 @@ class YearContainer extends Container {
      */
     constructor(config) {
         super(config);
+        this.createItems();
+    }
 
+    /**
+     *
+     */
+    createItems() {
         let me            = this,
+            labelWidth    = 160,
             yearComponent = me.getYearComponent();
 
         me.items = [{
@@ -36,7 +43,7 @@ class YearContainer extends Container {
             flex          : 'none',
             hideValueLabel: false,
             labelText     : 'monthNameFormat',
-            labelWidth    : 160,
+            labelWidth    : labelWidth,
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'monthNameFormat',
             valueLabelText: 'short'
@@ -47,7 +54,7 @@ class YearContainer extends Container {
             flex          : 'none',
             hideValueLabel: false,
             labelText     : '',
-            labelWidth    : 160,
+            labelWidth    : labelWidth,
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'monthNameFormat',
             style         : {marginTop: '5px'},
@@ -57,7 +64,7 @@ class YearContainer extends Container {
             checked   : yearComponent.showCellBorders,
             flex      : 'none',
             labelText : 'showCellBorders',
-            labelWidth: 160,
+            labelWidth: labelWidth,
             listeners : {change: me.onConfigChange, scope: me},
             name      : 'showCellBorders',
             style     : {marginTop: '10px'}
@@ -66,7 +73,7 @@ class YearContainer extends Container {
             checked   : yearComponent.showWeekNumbers,
             flex      : 'none',
             labelText : 'showWeekNumbers',
-            labelWidth: 160,
+            labelWidth: labelWidth,
             listeners : {change: me.onConfigChange, scope: me},
             name      : 'showWeekNumbers',
             style     : {marginTop: '10px'}
@@ -75,16 +82,18 @@ class YearContainer extends Container {
             checked   : yearComponent.sixWeeksPerMonth,
             flex      : 'none',
             labelText : 'sixWeeksPerMonth',
-            labelWidth: 160,
+            labelWidth: labelWidth,
             listeners : {change: me.onConfigChange, scope: me},
             name      : 'sixWeeksPerMonth',
             style     : {marginTop: '10px'}
         }];
+
+        super.createItems();
     }
 
     /**
      *
-     * @return {Neo.calendar.view.WeekComponent}
+     * @return {Neo.calendar.view.YearComponent}
      */
     getYearComponent() {
         return this.up('calendar-maincontainer').yearComponent;

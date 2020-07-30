@@ -1,5 +1,6 @@
 import {default as Component} from '../../component/Base.mjs';
 import DateUtil               from '../../util/Date.mjs';
+import NeoArray               from '../../util/Array.mjs';
 import {default as VDomUtil}  from '../../util/VDom.mjs';
 
 const todayDate = new Date();
@@ -37,6 +38,12 @@ class MonthComponent extends Component {
          */
         currentDate_: null,
         /**
+         * The format of the column headers.
+         * Valid values are: narrow, short & long
+         * @member {String} dayNameFormat_='short'
+         */
+        dayNameFormat_: 'short',
+        /**
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
         eventStore_: null,
@@ -48,16 +55,57 @@ class MonthComponent extends Component {
          */
         headerHeight: null,
         /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_day=null
+         * @protected
+         */
+        intlFormat_day: null,
+        /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_month=null
+         * @protected
+         */
+        intlFormat_month: null,
+        /**
+         * @member {Boolean} isScrolling=false
+         * @protected
+         */
+        isScrolling: false,
+        /**
          * @member {String} locale_=Neo.config.locale
          */
         locale_: Neo.config.locale,
+        /**
+         * The format of the month header names.
+         * Valid values are: narrow, short & long
+         * @member {String} monthNameFormat_='long'
+         */
+        monthNameFormat_: 'short',
+        /**
+         * @member {String|null} scrollTask=null
+         * @protected
+         */
+        scrollTaskId: null,
+        /**
+         * True to use box shadows for the months while scrolling
+         * @member {Boolean} useScrollBoxShadows_=true
+         */
+        useScrollBoxShadows_: true,
         /**
          * @member {Object} vdom
          */
         vdom: {
             cn : [{
                 cls: ['neo-days-header'],
-                cn : []
+                cn : [{
+                    cls  : ['neo-static-header'],
+                    style: {},
+                    cn   : [{
+                        tag : 'span',
+                        cls : ['neo-month-name'],
+                        flag: 'month-name'
+                    }, {
+                        vtype: 'text'
+                    }]
+                }]
             }, {
                 cls: ['neo-c-m-scrollcontainer']
             }]
@@ -77,6 +125,9 @@ class MonthComponent extends Component {
         super(config);
 
         let me           = this,
+            date         = me.currentDate, // cloned
+            vdom         = me.vdom,
+            header       = vdom.cn[0].cn[0],
             domListeners = me.domListeners;
 
         domListeners.push({
@@ -85,8 +136,61 @@ class MonthComponent extends Component {
 
         me.domListeners = domListeners;
 
+        header.cn[0].html = me.intlFormat_month.format(date);
+        header.cn[1].html = ` ${date.getFullYear()}`;
+
         me.updateHeader(true);
         me.createContent();
+    }
+
+    /**
+     * Triggered after the dayNameFormat config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetDayNameFormat(value, oldValue) {
+        let me = this;
+
+        me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
+
+        if (oldValue !== undefined) {
+            me.updateHeader();
+        }
+    }
+
+    /**
+     * Triggered after the locale config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLocale(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.intlFormat_day   = new Intl.DateTimeFormat(value, {weekday: me.dayNameFormat});
+            me.intlFormat_month = new Intl.DateTimeFormat(value, {month  : me.monthNameFormat});
+
+            me.updateMonthNames(true);
+            me.updateHeader();
+        }
+    }
+
+    /**
+     * Triggered after the monthNameFormat config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetMonthNameFormat(value, oldValue) {
+        let me = this;
+
+        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: value});
+
+        if (oldValue !== undefined) {
+            me.updateMonthNames();
+        }
     }
 
     /**
@@ -115,16 +219,17 @@ class MonthComponent extends Component {
     }
 
     /**
-     * Triggered after the locale config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * Triggered after the useScrollBoxShadows config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
      * @protected
      */
-    afterSetLocale(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.updateMonthNames(true);
-            this.updateHeader();
-        }
+    afterSetUseScrollBoxShadows(value, oldValue) {
+        let me   = this,
+            vdom = me.vdom;
+
+        NeoArray[value ? 'add' : 'remove'](me.vdom.cn[1].cls, 'neo-scroll-shadows');
+        me.vdom = vdom;
     }
 
     /**
@@ -141,6 +246,26 @@ class MonthComponent extends Component {
     }
 
     /**
+     * Triggered before the dayNameFormat config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetDayNameFormat(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'dayNameFormat', DateUtil.prototype.dayNameFormats);
+    }
+
+    /**
+     * Triggered before the monthNameFormat config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetMonthNameFormat(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'monthNameFormat', DateUtil.prototype.monthNameFormats);
+    }
+
+    /**
      *
      * @param {Boolean} [silent=false]
      */
@@ -152,8 +277,6 @@ class MonthComponent extends Component {
             firstDayOffset, row;
 
         vdom.cn[1].cn = [];
-
-        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: 'short'});
 
         firstDayOffset = DateUtil.getFirstDayOffset(date, me.weekStartDay);
 
@@ -197,6 +320,8 @@ class MonthComponent extends Component {
             day = date.getDate();
 
             if (day === 1) {
+                row.flag = DateUtil.convertToyyyymmdd(date); // the first day of a month wins
+
                 header = {
                     cls: ['neo-month-header'],
                     cn : [{
@@ -245,7 +370,7 @@ class MonthComponent extends Component {
                 vdom      = me.vdom,
                 container = vdom.cn[1],
                 i         = 0,
-                date, len, week;
+                date, len, scrollTo, week;
 
             // console.log(data.scrollTop, Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6));
 
@@ -307,7 +432,52 @@ class MonthComponent extends Component {
                     });
                 });
             }
+
+            if (!me.isScrolling) {
+                me.isScrolling = true;
+                NeoArray.add(me.vdom.cn[1].cls, 'neo-is-scrolling');
+                me.vdom.cn[0].cn[0].style.opacity = 0;
+                me.vdom = vdom;
+            }
+
+            if (me.scrollTaskId) {
+                clearTimeout(me.scrollTaskId);
+            }
+
+            me.scrollTaskId = setTimeout(me.onWheelEnd.bind(me), 300);
         }
+    }
+
+    /**
+     *
+     */
+    onWheelEnd() {
+        let me     = this,
+            vdom   = me.vdom,
+            header = vdom.cn[0].cn[0],
+            i      = 6,
+            date, flag;
+
+        me.isScrolling = false;
+
+        for (; i < 12; i++) {
+            flag = vdom.cn[1].cn[i].flag; // todo: #989 => get the date of the first fully visible row for the header
+
+            if (flag) {
+                date = new Date(flag);
+                date.setMonth(date.getMonth() + 1);
+                header.cn[0].html = me.intlFormat_month.format(date);
+                header.cn[1].html = ` ${date.getFullYear()}`;
+                break;
+            }
+        }
+
+        NeoArray.remove(vdom.cn[1].cls, 'neo-is-scrolling');
+        header.style.opacity = 1;
+
+        me.vdom = vdom;
+
+        // todo: #990 => scroll the view to the closest row
     }
 
     /**
@@ -317,20 +487,19 @@ class MonthComponent extends Component {
     updateHeader(create=false) {
         let me   = this,
             date = me.currentDate, // cloned
-            dt   = new Intl.DateTimeFormat(me.locale, {weekday: 'short'}),
             vdom = me.vdom,
-            i    = 0;
+            i    = 1;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
-        for (; i < 7; i++) {
+        for (; i < 8; i++) {
             if (create) {
                 vdom.cn[0].cn.push({
                     cls : ['neo-day-name'],
-                    html: dt.format(date)
+                    html: me.intlFormat_day.format(date)
                 });
             } else {
-                vdom.cn[0].cn[i].html = dt.format(date);
+                vdom.cn[0].cn[i].html = me.intlFormat_day.format(date);
             }
 
             date.setDate(date.getDate() + 1);
@@ -348,8 +517,6 @@ class MonthComponent extends Component {
             date   = me.currentDate, // cloned
             vdom   = me.vdom,
             months = VDomUtil.getFlags(vdom, 'month-name');
-
-        me.intlFormat_month = new Intl.DateTimeFormat(me.locale, {month: 'short'});
 
         months.forEach(month => {
             month.html = me.intlFormat_month.format(date);

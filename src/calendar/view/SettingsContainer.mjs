@@ -1,5 +1,6 @@
 import {default as Container}    from '../../container/Base.mjs';
 import GeneralContainer          from './settings/GeneralContainer.mjs';
+import MonthContainer            from './settings/MonthContainer.mjs';
 import {default as TabContainer} from '../../tab/Container.mjs';
 import WeekContainer             from './settings/WeekContainer.mjs';
 import YearContainer             from './settings/YearContainer.mjs';
@@ -70,9 +71,8 @@ class SettingsContainer extends Container {
                     text: 'Week'
                 }
             }, {
-                ntype: 'component',
-                html : 'Month',
-                style: {padding: '20px'},
+                module: MonthContainer,
+                style : {padding: '20px'},
 
                 tabButtonConfig: {
                     text: 'Month'

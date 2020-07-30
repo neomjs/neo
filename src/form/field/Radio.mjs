@@ -85,7 +85,10 @@ class Radio extends CheckBox {
 
                 // keep the vdom & vnode in sync for future updates
                 item.vdom.cn[1].checked = false;
-                item.vnode.childNodes[1].attributes.checked = 'false';
+
+                if (item.vnode) {
+                    item.vnode.childNodes[1].attributes.checked = 'false';
+                }
 
                 item.fire('change', {
                     component: me,

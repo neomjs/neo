@@ -1,3 +1,4 @@
+import {default as CheckBoxField} from '../../../form/field/CheckBox.mjs';
 import {default as Container}   from '../../../container/Base.mjs';
 import {default as NumberField} from '../../../form/field/Number.mjs';
 import {default as RadioField}  from '../../../form/field/Radio.mjs';
@@ -25,7 +26,13 @@ class GeneralContainer extends Container {
      */
     constructor(config) {
         super(config);
+        this.createItems();
+    }
 
+    /**
+     *
+     */
+    createItems() {
         let me       = this,
             calendar = me.up('calendar-maincontainer');
 
@@ -35,7 +42,7 @@ class GeneralContainer extends Container {
             flex      : 'none',
             labelText : 'baseFontSize',
             labelWidth: 110,
-            listeners : {change: me.onBaseFontSizeChange, scope: me},
+            listeners : {change: me.onConfigChange, scope: me},
             maxValue  : 20,
             minValue  : 10,
             name      : 'baseFontSize',
@@ -124,14 +131,26 @@ class GeneralContainer extends Container {
             name          : 'weekStartDay',
             style         : {marginTop: '5px'},
             valueLabelText: 'Monday'
+        }, {
+            module        : CheckBoxField,
+            checked       : calendar.scrollNewYearFromTop,
+            flex          : 'none',
+            hideLabel     : true,
+            hideValueLabel: false,
+            listeners     : {change: me.onConfigChange, scope: me},
+            name          : 'scrollNewYearFromTop',
+            style         : {marginTop: '10px'},
+            valueLabelText: 'scrollNewYearFromTop'
         }];
+
+        super.createItems();
     }
 
     /**
      *
      * @param {Object} data
      */
-    onBaseFontSizeChange(data) {
+    onConfigChange(data) {
         this.up('calendar-maincontainer')[data.component.name] = data.value;
     }
 

@@ -80,9 +80,10 @@ class CheckBox extends Base {
         let me           = this,
             domListeners = Neo.clone(me.domListeners, true),
             vdom         = me.vdom,
-            inputEl      = vdom.cn[1];
+            inputEl      = vdom.cn[1],
+            valueLabel   = vdom.cn[2];
 
-        inputEl.id = me.id + '-input';
+        inputEl.id = valueLabel.for = me.id + '-input';
         me.vdom = vdom;
 
         domListeners.push({
