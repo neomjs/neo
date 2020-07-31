@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Jul 31, 2020",
+        "id"          : 17,
+        "image"       : "removing-non-visible-views-from-the-dom.png",
+        "name"        : "Removing non visible views from the DOM while still being able to alter their state",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/creating-a-responsive-multithreading-website-for-desktop-mobile-8da990ae5bf3?source=friends_link&sk=91bf4b80d62944d54ac28d23d0ca9be3"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Jul 15, 2020",
         "id"          : 16,
         "image"       : "creating-a-responsive-multithreading-website-for-desktop-mobile.png",
