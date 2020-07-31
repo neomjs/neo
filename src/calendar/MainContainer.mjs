@@ -112,6 +112,11 @@ class MainContainer extends Container {
          */
         monthComponentConfig: null,
         /**
+         * True to only keep the active view inside the DOM
+         * @member {Boolean} removeInactiveCards=true
+         */
+        removeInactiveCards: true,
+        /**
          * True to scroll new years in from the top
          * @member {Boolean} scrollNewYearFromTop_=false
          */
@@ -463,7 +468,11 @@ class MainContainer extends Container {
                 module: Container,
                 flex  : 1,
                 items : me.createViews(),
-                layout: {ntype: 'card', activeIndex: me.views.indexOf(me.activeView)}
+                layout: {
+                    ntype              : 'card',
+                    activeIndex        : me.views.indexOf(me.activeView),
+                    removeInactiveCards: me.removeInactiveCards
+                }
             }]
         }];
 
