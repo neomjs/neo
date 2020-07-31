@@ -41,6 +41,8 @@ class SettingsContainer extends Container {
 
         let me = this;
 
+        me.vdom.removeDom = true;
+
         me.items = [{
             ntype : 'component',
             cls   : ['neo-header'],
@@ -86,6 +88,48 @@ class SettingsContainer extends Container {
                 }
             }]
         }];
+    }
+
+    /**
+     *
+     * @param {String} width
+     */
+    collapse(width) {
+        let me    = this,
+            style = me.style || {},
+            vdom;
+
+        style.marginRight = `-${width}px`;
+        me._style = style;      // silent update
+        me._vdom.style = style; // silent update
+
+        Neo.getComponent(me.parentId).promiseVdomUpdate().then(() => {
+            setTimeout(() => {
+                vdom = me.vdom;
+                vdom.removeDom = true;
+                me.vdom = vdom;
+            }, 400);
+        });
+    }
+
+    /**
+     *
+     */
+    expand() {
+        let me = this,
+            style;
+
+        delete me.vdom.removeDom;
+
+        Neo.getComponent(me.parentId).promiseVdomUpdate().then(() => {
+            me.mounted = true;
+
+            setTimeout(() => {
+                style = me.style || {}
+                style.marginRight = '0px';
+                me.style = style;
+            }, 50);
+        });
     }
 }
 
