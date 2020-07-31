@@ -178,7 +178,9 @@ class Base extends Component {
                 len   = items.length;
 
             for (; i < len; i++) {
-                items[i].mounted = value;
+                if (!items[i].vdom.removeDom) {
+                    items[i].mounted = value;
+                }
             }
         }
     }
