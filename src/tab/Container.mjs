@@ -117,18 +117,20 @@ class Container extends BaseContainer {
      * @protected
      */
     afterSetActiveIndex(value, oldValue) {
-        let me            = this,
-            cardContainer = Neo.getComponent(me.cardContainerId);
+        if (oldValue !== undefined) {
+            let me            = this,
+                cardContainer = Neo.getComponent(me.cardContainerId);
 
-        if (cardContainer && value > -1) {
-            me.updateTabButtons();
+            if (cardContainer && value > -1) {
+                me.updateTabButtons();
 
-            cardContainer.layout.activeIndex = value;
+                cardContainer.layout.activeIndex = value;
 
-            me.fire('activeIndexChange', {
-                oldValue: oldValue,
-                value   : value
-            });
+                me.fire('activeIndexChange', {
+                    oldValue: oldValue,
+                    value   : value
+                });
+            }
         }
     }
 
@@ -180,7 +182,7 @@ class Container extends BaseContainer {
      * @protected
      */
     afterSetUseActiveTabIndicator(value, oldValue) {
-        if (Neo.isDefined(oldValue)) {
+        if (oldValue !== undefined) {
             this.getTabBar()  .useActiveTabIndicator = value;
             this.getTabStrip().useActiveTabIndicator = value;
         }
