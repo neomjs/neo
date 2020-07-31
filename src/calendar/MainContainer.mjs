@@ -249,12 +249,30 @@ class MainContainer extends Container {
      */
     afterSetSettingsExpanded(value, oldValue) {
         if (Neo.isBoolean(oldValue)) {
-            let settingsContainer = this.items[1].items[2],
-                style             = settingsContainer.style;
+            let me                = this,
+                settingsContainer = me.items[1].items[2],
+                style;
 
-            style.marginRight = value ? '0': `-${this.settingsContainerWidth}px`;
+            if (value) {
+                settingsContainer.vdom.removeDom = false;
 
-            settingsContainer.style = style;
+                me.promiseVdomUpdate().then(() => {
+                    setTimeout(() => {
+                        style = settingsContainer.style || {}
+                        style.marginRight = '0px';
+                        settingsContainer.style = style;
+                    }, 50);
+                });
+            } else {
+                style = settingsContainer.style || {};
+                style.marginRight = `-${me.settingsContainerWidth}px`;
+                settingsContainer.style = style;
+
+                setTimeout(() => {
+                    settingsContainer.vdom.removeDom = true;
+                    me.promiseVdomUpdate();
+                }, 400);
+            }
         }
     }
 
