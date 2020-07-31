@@ -322,7 +322,9 @@ class Helper extends Base {
                         }
                         break;
                     default:
-                        node.attributes[key] = value + '';
+                        if (key !== 'removeDom') { // could be set to false
+                            node.attributes[key] = value + '';
+                        }
                         break;
                 }
             }
@@ -613,7 +615,7 @@ class Helper extends Base {
 
                                 Object.entries(value).forEach(([key, value]) => {
                                     if (!(oldVnode.attributes.hasOwnProperty(key) && oldVnode.attributes[key] === value)) {
-                                        if (value !== '' && Neo.isEmpty(value)) {
+                                        if (Neo.isEmpty(value)) {
                                             // ignore empty arrays & objects
                                         } else {
                                             attributes[key] = value;
