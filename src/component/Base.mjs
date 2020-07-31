@@ -372,7 +372,7 @@ class Base extends CoreBase {
             oldStyle;
 
         if (me.mounted) {
-            oldStyle = me._style;
+            oldStyle = {...me._style};
         }
 
         me._style = value;
@@ -638,7 +638,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetVnode(value, oldValue) {
-        if (value) {
+        if (oldValue !== undefined) {
             this.syncVnodeTree();
         }
     }
@@ -1147,10 +1147,10 @@ class Base extends CoreBase {
     syncVnodeTree(vnode=this.vnode) {
         let me    = this,
             debug = false,
-            childVnode;
+            childVnode, start;
 
         if (debug) {
-            let start = performance.now();
+            start = performance.now();
         }
 
         me.syncVdomIds();
@@ -1177,8 +1177,15 @@ class Base extends CoreBase {
 
         // keep the vnode parent tree in sync
         ComponentManager.getParents(me).forEach((component, index) => {
+            if (!me.vnode) {
+                if (index === 0 && !VNodeUtil.removeChildVnode(component.vnode, me.id)) {
+                    // This can fail, in case the vnode is already removed (not an issue, better safe than sorry)
+                    // console.warn('syncVnodeTree: Could not remove the parent vnode for', me.id, component);
+                }
+            }
+
             // check for dynamically rendered components which get inserted into the component tree
-            if (index === 0 && me.vnode.outerHTML) {
+            else if (index === 0 && me.vnode.outerHTML) {
                 // console.log('dyn item', me.vnode, me.parentIndex);
                 component.vnode.childNodes.splice(me.parentIndex || 0, 0, me.vnode);
             }
@@ -1334,7 +1341,7 @@ class Base extends CoreBase {
             }
 
             Neo.vdom.Helper.update(opts).then(data => {
-                // console.log('Component vnode updated', data.vnode);
+                // console.log('Component vnode updated', data);
                 me.vnode          = data.vnode;
                 me.isVdomUpdating = false;
 

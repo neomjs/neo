@@ -231,8 +231,8 @@ class DeltaUpdates extends Base {
         deltas = Array.isArray(deltas) ? deltas : [deltas];
         len    = deltas.length;
 
-        if (me.logDeltaUpdates) {
-            me.countDeltas += (data.deltas && data.deltas.length || 0);
+        if (me.logDeltaUpdates && len > 0) {
+            me.countDeltas += (len || 0);
             me.countUpdates++;
             console.log('update ' + me.countUpdates, 'total deltas ', me.countDeltas, Neo.clone(data, true));
         }

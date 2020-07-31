@@ -171,6 +171,38 @@ class VNode extends Base {
     }
 
     /**
+     * Removes a child vnode inside a vnode tree by a given id
+     * @param {Object} vnode
+     * @param {String} id
+     * @returns {Boolean} true in case the node was found and removed
+     */
+    static removeChildVnode(vnode, id) {
+        let childNodes = vnode.childNodes || [],
+            i          = 0,
+            len        = childNodes.length,
+            childNode;
+
+        if (vnode.id === id) {
+            throw new Error('removeChildVnode: target id matches the root vnode id: ' + id);
+        }
+
+        for (; i < len; i++) {
+            childNode = childNodes[i];
+
+            if (childNode.id === id) {
+                childNodes.splice(i, 1);
+                return true;
+            }
+
+            if (VNode.removeChildVnode(childNode, id)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Replaces a child vnode inside a vnode tree by a given id
      * @param {Object} vnode
      * @param {String} id

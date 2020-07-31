@@ -112,6 +112,11 @@ class MainContainer extends Container {
          */
         monthComponentConfig: null,
         /**
+         * True to only keep the active view inside the DOM
+         * @member {Boolean} removeInactiveCards=true
+         */
+        removeInactiveCards: true,
+        /**
          * True to scroll new years in from the top
          * @member {Boolean} scrollNewYearFromTop_=false
          */
@@ -249,12 +254,14 @@ class MainContainer extends Container {
      */
     afterSetSettingsExpanded(value, oldValue) {
         if (Neo.isBoolean(oldValue)) {
-            let settingsContainer = this.items[1].items[2],
-                style             = settingsContainer.style;
+            let me                = this,
+                settingsContainer = me.items[1].items[2];
 
-            style.marginRight = value ? '0': `-${this.settingsContainerWidth}px`;
-
-            settingsContainer.style = style;
+            if (value) {
+                settingsContainer.expand();
+            } else {
+                settingsContainer.collapse(me.settingsContainerWidth);
+            }
         }
     }
 
@@ -461,7 +468,11 @@ class MainContainer extends Container {
                 module: Container,
                 flex  : 1,
                 items : me.createViews(),
-                layout: {ntype: 'card', activeIndex: me.views.indexOf(me.activeView)}
+                layout: {
+                    ntype              : 'card',
+                    activeIndex        : me.views.indexOf(me.activeView),
+                    removeInactiveCards: me.removeInactiveCards
+                }
             }]
         }];
 

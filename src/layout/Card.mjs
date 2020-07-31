@@ -43,7 +43,13 @@ class Card extends Base {
          * Change this value to activate a different card.
          * @member {Number} activeIndex_=0
          */
-        activeIndex_: 0
+        activeIndex_: 0,
+        /*
+         * Remove the DOM of inactive cards.
+         * This will keep the instances & vdom trees
+         * @member {Boolean} removeInactiveCards=false
+         */
+        removeInactiveCards: false
     }}
 
     /**
@@ -57,10 +63,11 @@ class Card extends Base {
         let me        = this,
             container = Neo.getComponent(me.containerId),
             sCfg      = me.getStaticConfig(),
-            isActiveIndex, cls, items;
+            isActiveIndex, cls, items, vdom;
 
         if (container) {
             items = container.items;
+            vdom  = container.vdom;
 
             if (!items[value]) {
                 Neo.error('Trying to activate a non existing card', value, items);
@@ -73,8 +80,18 @@ class Card extends Base {
                 NeoArray.remove(cls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
                 NeoArray.add(   cls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
 
-                item.cls = cls;
+                if (me.removeInactiveCards) {
+                    item._cls = cls; // silent update
+                    item.vdom.cls = cls;
+                    item.vdom.removeDom = !isActiveIndex;
+                } else {
+                    item.cls = cls;
+                }
             });
+
+            if (me.removeInactiveCards) {
+                container.vdom = vdom;
+            }
         }
     }
 
@@ -84,14 +101,22 @@ class Card extends Base {
      * @param index
      */
     applyChildAttributes(child, index) {
-        let me       = this,
-            sCfg     = me.getStaticConfig(),
-            childCls = child.cls;
+        let me            = this,
+            isActiveIndex = me.activeIndex === index,
+            sCfg          = me.getStaticConfig(),
+            childCls      = child.cls,
+            vdom          = child.vdom;
 
         NeoArray.add(childCls, sCfg.itemCls);
-        NeoArray.add(childCls, me.activeIndex === index ? sCfg.activeItemCls : sCfg.inactiveItemCls);
+        NeoArray.add(childCls, isActiveIndex ? sCfg.activeItemCls : sCfg.inactiveItemCls);
 
-        child.cls = childCls;
+        if (me.removeInactiveCards) {
+            child._cls = childCls; // silent update
+            vdom.removeDom = !isActiveIndex;
+            child.vdom = vdom;
+        } else {
+            child.cls = childCls;
+        }
     }
 
     /**
