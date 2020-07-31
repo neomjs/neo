@@ -1179,7 +1179,8 @@ class Base extends CoreBase {
         ComponentManager.getParents(me).forEach((component, index) => {
             if (!me.vnode) {
                 if (index === 0 && !VNodeUtil.removeChildVnode(component.vnode, me.id)) {
-                    console.warn('syncVnodeTree: Could not remove the parent vnode for', me.id, component);
+                    // This can fail, in case the vnode is already removed (not an issue, better safe than sorry)
+                    // console.warn('syncVnodeTree: Could not remove the parent vnode for', me.id, component);
                 }
             }
 
