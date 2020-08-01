@@ -46,7 +46,7 @@ class ContentTabContainer extends Container {
          */
         items: [{
             ntype: 'component',
-            html : 'Welcome to the neoteric docs!',
+            html : 'Welcome to the neo.mjs docs!',
             style: {padding: '20px'},
 
             tabButtonConfig: {
