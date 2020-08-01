@@ -8,6 +8,10 @@
     text-align      : center;
     transform-style : preserve-3d;
 
+    &:focus {
+        outline: 0;
+    }
+
     .contacts-gallery-panel {
         transform : translateZ(0px);
     }

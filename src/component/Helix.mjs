@@ -295,7 +295,7 @@ class Helix extends Component {
         }
 
         // load data for the example collection
-        if (me.store instanceof Store !== true) {
+        if (!(me.store instanceof Store)) {
             me.loadData();
         }
     }

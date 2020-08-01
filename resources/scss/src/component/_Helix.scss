@@ -12,6 +12,10 @@
 
     -webkit-tap-highlight-color: transparent;
 
+    &:focus {
+        outline: 0;
+    }
+
     &.neo-transition-100 {
         .neo-helix-item {
             transition: all 0.1s ease-in-out !important;
