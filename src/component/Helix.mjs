@@ -581,7 +581,8 @@ class Helix extends Component {
             angle, item, matrixItems, transformStyle, vdomItem, c, s, x, y, z;
 
         if (!me.mounted) {
-            me.on('mounted', () => {
+            const listenerId = me.on('mounted', () => {
+                me.un('mounted', listenerId);
                 setTimeout(() => {
                     me.createItems(startIndex);
                 }, 100);
