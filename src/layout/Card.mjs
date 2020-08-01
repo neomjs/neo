@@ -47,9 +47,9 @@ class Card extends Base {
         /*
          * Remove the DOM of inactive cards.
          * This will keep the instances & vdom trees
-         * @member {Boolean} removeInactiveCards=false
+         * @member {Boolean} removeInactiveCards=true
          */
-        removeInactiveCards: false
+        removeInactiveCards: true
     }}
 
     /**
@@ -82,8 +82,18 @@ class Card extends Base {
 
                 if (me.removeInactiveCards) {
                     item._cls = cls; // silent update
-                    item.vdom.cls = cls;
-                    item.vdom.removeDom = !isActiveIndex;
+                    item.getVdomRoot().cls = cls;
+
+                    if (isActiveIndex) {
+                        item.vdom.removeDom = false;
+
+                        setTimeout(() => {
+                            item.mounted = true;
+                        }, 100);
+                    } else {
+                        item.mounted = false;
+                        item.vdom.removeDom = true;
+                    }
                 } else {
                     item.cls = cls;
                 }

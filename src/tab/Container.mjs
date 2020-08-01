@@ -71,9 +71,9 @@ class Container extends BaseContainer {
         /*
          * Remove the DOM of inactive cards (TabContainer Body).
          * This will keep the instances & vdom trees
-         * @member {Boolean} removeInactiveCards=false
+         * @member {Boolean} removeInactiveCards=true
          */
-        removeInactiveCards: false,
+        removeInactiveCards: true,
         /**
          * @member {String|null} tabBarId=null
          */
