@@ -122,6 +122,10 @@ class MainContainer extends Container {
          */
         scrollNewYearFromTop_: false,
         /**
+         * @member {Object|null} settingsContainerConfig=null
+         */
+        settingsContainerConfig: null,
+        /**
          * @member {Number} settingsContainerWidth=300
          */
         settingsContainerWidth: 310,
@@ -285,13 +289,36 @@ class MainContainer extends Container {
      * @protected
      */
     afterSetSideBarExpanded(value, oldValue) {
-        if (Neo.isBoolean(oldValue)) {
-            let sideBar = this.items[1].items[0],
-                style   = sideBar.style || {};
+        if (oldValue !== undefined) {
+            let me      = this,
+                sideBar = me.items[1].items[0],
+                style   = sideBar.style || {},
+                vdom;
 
-            style.marginLeft = value ? '0': `-${this.sideBarWidth}px`;
+            if (value) {
+                delete sideBar.vdom.removeDom;
 
-            sideBar.style = style;
+                me.promiseVdomUpdate().then(() => {
+                    sideBar.mounted = true;
+
+                    setTimeout(() => {
+                        style.marginLeft = '0px';
+                        sideBar.style = style;
+                    }, 50);
+                });
+            } else {
+                style.marginLeft    = `-${me.sideBarWidth}px`;
+                sideBar._style      = style; // silent update
+                sideBar._vdom.style = style; // silent update
+
+                me.promiseVdomUpdate().then(() => {
+                    setTimeout(() => {
+                        vdom = sideBar.vdom;
+                        vdom.removeDom = true;
+                        sideBar.vdom = vdom;
+                    }, 400);
+                });
+            }
         }
     }
 
@@ -479,8 +506,10 @@ class MainContainer extends Container {
         if (me.useSettingsContainer) {
             me.items[1].items.push({
                 module: SettingsContainer,
-                style : {marginRight: me.settingsExpanded ? '0': `-${me.settingsContainerWidth}px`},
-                width : me.settingsContainerWidth
+                removeInactiveCards: me.removeInactiveCards,
+                style              : {marginRight: me.settingsExpanded ? '0' : `-${me.settingsContainerWidth}px`},
+                width              : me.settingsContainerWidth,
+                ...me.settingsContainerConfig
             });
         }
     }

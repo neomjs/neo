@@ -29,7 +29,12 @@ class SettingsContainer extends Container {
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
          */
-        layout: {ntype: 'vbox', align: 'stretch'}
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * True to only keep the active view inside the DOM
+         * @member {Boolean} removeInactiveCards=true
+         */
+        removeInactiveCards: true
     }}
 
     /**
@@ -38,10 +43,37 @@ class SettingsContainer extends Container {
      */
     constructor(config) {
         super(config);
+        this.vdom.removeDom = true;
+        this.createItems();
+    }
 
+    /**
+     *
+     * @param {Number} width
+     */
+    collapse(width) {
+        let me    = this,
+            style = me.style || {},
+            vdom;
+
+        style.marginRight = `-${width}px`;
+        me._style      = style; // silent update
+        me._vdom.style = style; // silent update
+
+        Neo.getComponent(me.parentId).promiseVdomUpdate().then(() => {
+            setTimeout(() => {
+                vdom = me.vdom;
+                vdom.removeDom = true;
+                me.vdom = vdom;
+            }, 400);
+        });
+    }
+
+    /**
+     *
+     */
+    createItems() {
         let me = this;
-
-        me.vdom.removeDom = true;
 
         me.items = [{
             ntype : 'component',
@@ -49,8 +81,10 @@ class SettingsContainer extends Container {
             height: 48,
             html  : '<i class="fa fa-cog"></i>Settings'
         }, {
-            module: TabContainer,
-            items : [{
+            module             : TabContainer,
+            removeInactiveCards: me.removeInactiveCards,
+
+            items: [{
                 module: GeneralContainer,
                 style : {padding: '20px'},
 
@@ -88,28 +122,8 @@ class SettingsContainer extends Container {
                 }
             }]
         }];
-    }
 
-    /**
-     *
-     * @param {String} width
-     */
-    collapse(width) {
-        let me    = this,
-            style = me.style || {},
-            vdom;
-
-        style.marginRight = `-${width}px`;
-        me._style = style;      // silent update
-        me._vdom.style = style; // silent update
-
-        Neo.getComponent(me.parentId).promiseVdomUpdate().then(() => {
-            setTimeout(() => {
-                vdom = me.vdom;
-                vdom.removeDom = true;
-                me.vdom = vdom;
-            }, 400);
-        });
+        super.createItems();
     }
 
     /**

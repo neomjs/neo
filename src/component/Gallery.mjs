@@ -309,7 +309,7 @@ class Gallery extends Component {
                     me.offsetHeight = data.attributes.offsetHeight;
                     me.offsetWidth  = data.attributes.offsetWidth;
 
-                    if (me.selectOnMount) {
+                    if (me.selectOnMount || me.selectionModel.hasSelection()) {
                         let selection = me.selectionModel.getSelection(),
                             key       = selection.length > 0 && selection[0];
 
@@ -322,7 +322,9 @@ class Gallery extends Component {
                         me.selectionModel.select(key);
                     }
                 });
-            }, 200);
+            }, 300);
+        } else {
+            this.selectionModel.items = [];
         }
     }
 

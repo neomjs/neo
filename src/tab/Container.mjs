@@ -68,6 +68,12 @@ class Container extends BaseContainer {
          * @member {Boolean} plain_=true
          */
         plain_: true,
+        /*
+         * Remove the DOM of inactive cards (TabContainer Body).
+         * This will keep the instances & vdom trees
+         * @member {Boolean} removeInactiveCards=true
+         */
+        removeInactiveCards: true,
         /**
          * @member {String|null} tabBarId=null
          */
@@ -247,7 +253,7 @@ class Container extends BaseContainer {
             id                   : me.cardContainerId,
             itemDefaults         : me.itemDefaults,
             items                : tabComponents,
-            layout               : {ntype: 'card', activeIndex: me.activeIndex},
+            layout               : {ntype: 'card', activeIndex: me.activeIndex, removeInactiveCards: me.removeInactiveCards},
             useActiveTabIndicator: me.useActiveTabIndicator,
             ...me.contentContainerDefaults || {}
         }];
@@ -444,7 +450,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Gets triggered once a dynamically added tabheader button gets mounted
+     * Gets triggered once a dynamically added header.Button gets mounted
      * in case activateInsertedTabs is set to true
      * @param {String} buttonId
      * @protected

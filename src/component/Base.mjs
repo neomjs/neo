@@ -593,19 +593,21 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetMounted(value, oldValue) {
-        let me = this;
+        if (oldValue !== undefined) {
+            let me = this;
 
-        if (value) {
-            me.hasBeenMounted = true;
+            if (value) {
+                me.hasBeenMounted = true;
 
-            if (me.domListeners && me.domListeners.length > 0) {
-                // todo: the main thread reply of mount arrives after pushing the task into the queue which does not ensure the dom is mounted
-                setTimeout(() => {
-                    DomEventManager.mountDomListeners(me);
-                }, 50);
+                if (me.domListeners && me.domListeners.length > 0) {
+                    // todo: the main thread reply of mount arrives after pushing the task into the queue which does not ensure the dom is mounted
+                    setTimeout(() => {
+                        DomEventManager.mountDomListeners(me);
+                    }, 50);
+                }
+
+                me.fire('mounted', me.id);
             }
-
-            me.fire('mounted', me.id);
         }
     }
 
@@ -907,7 +909,7 @@ class Base extends CoreBase {
      */
     mount() {
         let me = this,
-            child, childIds, i, len;
+            child, childIds;
 
         if (!me.vnode) {
             throw new Error('Component vnode must be generated before mounting, use Component.render()');

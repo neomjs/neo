@@ -231,19 +231,17 @@ class GalleryModel extends Model {
     /**
      *
      * @param {String} itemId
-     * @param {Boolean} [toggleSelection=true]
      */
-    select(itemId, toggleSelection=true) {
-        let me         = this,
-            view       = me.view,
-            isSelected = toggleSelection === false ? false : me.items.includes(itemId),
-            oldItems   = [...me.items],
-            deltas     = [],
-            vnodeId    = view.getItemVnodeId(itemId);
+    select(itemId) {
+        let me       = this,
+            view     = me.view,
+            oldItems = [...me.items],
+            deltas   = [],
+            vnodeId  = view.getItemVnodeId(itemId);
 
         if (me.singleSelect) {
             me.items.forEach(item => {
-                if (item[view.keyProperty] !== itemId) {
+                if (item !== itemId) {console.log(item, itemId)
                     deltas.push({
                         id : view.getItemVnodeId(item),
                         cls: {
@@ -260,20 +258,23 @@ class GalleryModel extends Model {
         deltas.push({
             id : vnodeId,
             cls: {
-                add   : isSelected ? [] : ['neo-selected'],
-                remove: isSelected ? ['neo-selected'] : []
+                add: ['neo-selected']
             }
         });
 
-        NeoArray[isSelected ? 'remove' : 'add'](me.items, itemId);
+        NeoArray['add'](me.items, itemId);
 
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'updateDom',
-            appName: view.appName,
-            deltas : deltas
-        }).then(() => {
+        if (deltas.length > 0 && view.mounted) {
+            Neo.currentWorker.promiseMessage('main', {
+                action : 'updateDom',
+                appName: view.appName,
+                deltas : deltas
+            }).then(() => {
+                me.fire('selectionChange', me.items, oldItems);
+            });
+        } else if (view.mounted) {
             me.fire('selectionChange', me.items, oldItems);
-        });
+        }
     }
 
     /**

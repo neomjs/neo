@@ -370,12 +370,14 @@ class MonthComponent extends Component {
                 vdom      = me.vdom,
                 container = vdom.cn[1],
                 i         = 0,
-                date, len, scrollTo, week;
+                date, len, week;
 
             // console.log(data.scrollTop, Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6));
 
             if (data.deltaY > 0 && Math.round(data.scrollTop / (data.clientHeight - me.headerHeight) * 6) > 11) {
                 date = new Date(container.cn[container.cn.length - 1].flag);
+
+                date.setDate(date.getDate() - (date.getDay() - me.weekStartDay));
 
                 for (; i < 6; i++) {
                     if (container.cn[1].cls.includes('neo-month-header')) {
@@ -404,6 +406,8 @@ class MonthComponent extends Component {
                 } else {
                     date = new Date(container.cn[1].flag);
                 }
+
+                date.setDate(date.getDate() - (date.getDay() - me.weekStartDay));
 
                 for (; i < 6; i++) {
                     len = container.cn.length;

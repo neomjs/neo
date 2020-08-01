@@ -733,11 +733,15 @@ class DateSelector extends Component {
             else if (data.deltaX <= -wheelDelta) {monthIncrement = -1;}
         }
 
-        if (Neo.isNumber(monthIncrement)) {
+        if (yearIncrement && !me.scrollNewYearFromTop) {
+            yearIncrement *= -1;
+        }
+
+        if (monthIncrement) {
             date = me.currentDate; // cloned
             date.setMonth(date.getMonth() + monthIncrement);
             me.value = DateUtil.convertToyyyymmdd(date);
-        } else if (Neo.isNumber(yearIncrement)) {
+        } else if (yearIncrement) {
             date = me.currentDate; // cloned
             date.setFullYear(date.getFullYear() + yearIncrement);
             me.value = DateUtil.convertToyyyymmdd(date);

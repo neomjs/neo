@@ -21,7 +21,7 @@ class MainContainerController extends Component {
 
     /**
      *
-     * @param record
+     * @param {Object} record
      */
     onApiListLeafClick(record) {
         let me                  = this,
@@ -41,7 +41,7 @@ class MainContainerController extends Component {
 
     /**
      *
-     * @param record
+     * @param {Object} record
      */
     onExamplesListLeafClick(record) {
         let me                  = this,
@@ -105,7 +105,7 @@ class MainContainerController extends Component {
      * @param {Object} value
      * @param {Object} oldValue
      */
-    onHashChange(value, oldValue) {console.log('onHashChange', value);
+    onHashChange(value, oldValue) {
         let me                  = this,
             hash                = value && value.hash,
             contentTabContainer = me.getReference('content-tabcontainer'),
@@ -113,7 +113,7 @@ class MainContainerController extends Component {
             record, tab;
 
         if (hash && hash.hasOwnProperty('viewSource')) {
-            record = structureStore.find('className', hash.viewSource)[0];console.log(record);
+            record = structureStore.find('className', hash.viewSource)[0];
 
             if (record) {
                 tab = contentTabContainer.add({
