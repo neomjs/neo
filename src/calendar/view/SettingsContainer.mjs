@@ -57,7 +57,7 @@ class SettingsContainer extends Container {
             vdom;
 
         style.marginRight = `-${width}px`;
-        me._style = style;      // silent update
+        me._style      = style; // silent update
         me._vdom.style = style; // silent update
 
         Neo.getComponent(me.parentId).promiseVdomUpdate().then(() => {
