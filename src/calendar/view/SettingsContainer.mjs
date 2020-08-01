@@ -29,7 +29,12 @@ class SettingsContainer extends Container {
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
          */
-        layout: {ntype: 'vbox', align: 'stretch'}
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * True to only keep the active view inside the DOM
+         * @member {Boolean} removeInactiveCards=true
+         */
+        removeInactiveCards: true
     }}
 
     /**
@@ -49,8 +54,10 @@ class SettingsContainer extends Container {
             height: 48,
             html  : '<i class="fa fa-cog"></i>Settings'
         }, {
-            module: TabContainer,
-            items : [{
+            module             : TabContainer,
+            removeInactiveCards: me.removeInactiveCards,
+
+            items: [{
                 module: GeneralContainer,
                 style : {padding: '20px'},
 

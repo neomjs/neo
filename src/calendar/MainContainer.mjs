@@ -479,8 +479,9 @@ class MainContainer extends Container {
         if (me.useSettingsContainer) {
             me.items[1].items.push({
                 module: SettingsContainer,
-                style : {marginRight: me.settingsExpanded ? '0': `-${me.settingsContainerWidth}px`},
-                width : me.settingsContainerWidth
+                removeInactiveCards: me.removeInactiveCards,
+                style              : {marginRight: me.settingsExpanded ? '0' : `-${me.settingsContainerWidth}px`},
+                width              : me.settingsContainerWidth
             });
         }
     }
