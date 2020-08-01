@@ -450,7 +450,7 @@ class Container extends BaseContainer {
     }
 
     /**
-     * Gets triggered once a dynamically added tabheader button gets mounted
+     * Gets triggered once a dynamically added header.Button gets mounted
      * in case activateInsertedTabs is set to true
      * @param {String} buttonId
      * @protected

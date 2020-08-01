@@ -909,7 +909,7 @@ class Base extends CoreBase {
      */
     mount() {
         let me = this,
-            child, childIds, i, len;
+            child, childIds;
 
         if (!me.vnode) {
             throw new Error('Component vnode must be generated before mounting, use Component.render()');
