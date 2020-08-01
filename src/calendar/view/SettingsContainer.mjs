@@ -43,10 +43,37 @@ class SettingsContainer extends Container {
      */
     constructor(config) {
         super(config);
+        this.vdom.removeDom = true;
+        this.createItems();
+    }
 
+    /**
+     *
+     * @param {Number} width
+     */
+    collapse(width) {
+        let me    = this,
+            style = me.style || {},
+            vdom;
+
+        style.marginRight = `-${width}px`;
+        me._style = style;      // silent update
+        me._vdom.style = style; // silent update
+
+        Neo.getComponent(me.parentId).promiseVdomUpdate().then(() => {
+            setTimeout(() => {
+                vdom = me.vdom;
+                vdom.removeDom = true;
+                me.vdom = vdom;
+            }, 400);
+        });
+    }
+
+    /**
+     *
+     */
+    createItems() {
         let me = this;
-
-        me.vdom.removeDom = true;
 
         me.items = [{
             ntype : 'component',
@@ -95,28 +122,8 @@ class SettingsContainer extends Container {
                 }
             }]
         }];
-    }
 
-    /**
-     *
-     * @param {String} width
-     */
-    collapse(width) {
-        let me    = this,
-            style = me.style || {},
-            vdom;
-
-        style.marginRight = `-${width}px`;
-        me._style = style;      // silent update
-        me._vdom.style = style; // silent update
-
-        Neo.getComponent(me.parentId).promiseVdomUpdate().then(() => {
-            setTimeout(() => {
-                vdom = me.vdom;
-                vdom.removeDom = true;
-                me.vdom = vdom;
-            }, 400);
-        });
+        super.createItems();
     }
 
     /**
