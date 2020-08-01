@@ -122,6 +122,10 @@ class MainContainer extends Container {
          */
         scrollNewYearFromTop_: false,
         /**
+         * @member {Object|null} settingsContainerConfig=null
+         */
+        settingsContainerConfig: null,
+        /**
          * @member {Number} settingsContainerWidth=300
          */
         settingsContainerWidth: 310,
@@ -481,7 +485,8 @@ class MainContainer extends Container {
                 module: SettingsContainer,
                 removeInactiveCards: me.removeInactiveCards,
                 style              : {marginRight: me.settingsExpanded ? '0' : `-${me.settingsContainerWidth}px`},
-                width              : me.settingsContainerWidth
+                width              : me.settingsContainerWidth,
+                ...me.settingsContainerConfig
             });
         }
     }
