@@ -68,6 +68,12 @@ class Container extends BaseContainer {
          * @member {Boolean} plain_=true
          */
         plain_: true,
+        /*
+         * Remove the DOM of inactive cards (TabContainer Body).
+         * This will keep the instances & vdom trees
+         * @member {Boolean} removeInactiveCards=false
+         */
+        removeInactiveCards: false,
         /**
          * @member {String|null} tabBarId=null
          */
@@ -247,7 +253,7 @@ class Container extends BaseContainer {
             id                   : me.cardContainerId,
             itemDefaults         : me.itemDefaults,
             items                : tabComponents,
-            layout               : {ntype: 'card', activeIndex: me.activeIndex},
+            layout               : {ntype: 'card', activeIndex: me.activeIndex, removeInactiveCards: me.removeInactiveCards},
             useActiveTabIndicator: me.useActiveTabIndicator,
             ...me.contentContainerDefaults || {}
         }];
