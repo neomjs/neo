@@ -53,6 +53,8 @@
         flex-direction: column;
         position      : relative;
 
+
+
         &:last-child {
             border-right: 1px solid transparent;
         }
@@ -103,6 +105,10 @@
         justify-content : center;
         padding-bottom  : 0.3125em;
         padding-top     : 0.625em;
+
+        &:first-child {
+            margin-left: 50px;
+        }
 
         &:hover {
             .neo-date {

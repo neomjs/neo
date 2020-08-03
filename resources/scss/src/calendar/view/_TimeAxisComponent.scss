@@ -3,6 +3,8 @@
     background-position-x: 100%;
     background-position-y: 0;
     background-repeat    : repeat-y;
+    border-right         : 1px solid v(c-w-border-color);
+    box-shadow           : -1px 0 0 v(c-w-header-background-color); // hack for the annoying 1px gap
     flex                 : none;
     left                 : 0;
     margin-top           : -1px;
