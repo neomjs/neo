@@ -94,22 +94,25 @@ class WeekComponent extends Component {
             }, {
                 cls: ['neo-c-w-body'],
                 cn : [{
-                    cls: ['neo-cw-body-and-header'],
+                    cls  : ['neo-cw-body-and-header'],
+                    flag : 'neo-cw-body-and-header',
+                    style: {},
                     cn : [{
                         cls : ['neo-header-row'],
                         cn  : [],
                         flag: 'neo-header-row'
                     }, {
-                        cls: ['neo-c-w-content'],
-                        cn : [{
+                        cls  : ['neo-c-w-content'],
+                        flag : 'neo-c-w-content',
+                        style: {},
+                        cn   : [{
                             cls  : ['neo-c-w-background'],
                             flag : 'neo-c-w-background',
                             style: {}
                         }, {
                             cls  : ['neo-c-w-column-container'],
                             cn   : [],
-                            flag : 'neo-c-w-content',
-                            style: {}
+                            flag : 'neo-c-w-column-container'
                         }]
                     }]
                 }]
@@ -140,7 +143,7 @@ class WeekComponent extends Component {
             ...me.timeAxisConfig || {}
         });
 
-        me.vdom.cn[1].cn[me.timeAxisPosition === 'start' ? 'unshift' : 'push'](me.timeAxis.vdom);
+        me.getColumnContainer().cn[me.timeAxisPosition === 'start' ? 'unshift' : 'push'](me.timeAxis.vdom);
 
         me.updateHeader(true);
 
@@ -181,8 +184,8 @@ class WeekComponent extends Component {
         });
 
         Object.assign(me.getVdomContent().style, {
-            height   : `calc(4.7em + ${height}px)`,
-            maxHeight: `calc(4.7em + ${height}px)`
+            height   : `${height}px`,
+            maxHeight: `${height}px`
         });
 
         me[silent ? '_vdom' : 'vdom'] = vdom;
@@ -294,6 +297,20 @@ class WeekComponent extends Component {
     /**
      *
      */
+    getBodyHeaderContainer() {
+        return VDomUtil.getByFlag(this.vdom, 'neo-cw-body-and-header');
+    }
+
+    /**
+     *
+     */
+    getColumnContainer() {
+        return VDomUtil.getByFlag(this.vdom, 'neo-c-w-column-container');
+    }
+
+    /**
+     *
+     */
     getVdomContent() {
         return VDomUtil.getByFlag(this.vdom, 'neo-c-w-content');
     }
@@ -335,13 +352,17 @@ class WeekComponent extends Component {
             date       = DateUtil.clone(me.firstColumnDate),
             eventStore = me.eventStore,
             vdom       = me.vdom,
-            content    = me.getVdomContent(),
+            content    = me.getColumnContainer(),
             j          = 0,
             len        = eventStore.getCount(),
             column, duration, height, i, record, startHours, top;
 
         // remove previous events from the vdom
-        content.cn.forEach(item => item.cn = []);
+        content.cn.forEach((item, index) => {
+            if (index !== 0) {
+                item.cn = [];
+            }
+        });
 
         for (; j < 21; j++) {
             column = content.cn[j];
@@ -390,7 +411,7 @@ class WeekComponent extends Component {
         let me      = this,
             date    = me.currentDate, // cloned
             vdom    = me.vdom,
-            content = me.getVdomContent(),
+            content = me.getColumnContainer(),
             i       = 0,
             columnCls, currentDate, currentDay, dateCls;
 

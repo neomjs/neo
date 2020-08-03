@@ -1,10 +1,14 @@
 .neo-calendar-timeaxis {
+    background-color     : v(c-w-header-background-color);
     background-position-x: 100%;
     background-position-y: 0;
     background-repeat    : repeat-y;
     flex                 : none;
-    margin-top           : calc(4.7em - 1px);
+    left                 : 0;
+    margin-top           : -1px;
+    position             : sticky;
     width                : 50px;
+    z-index              : 150;
 
     .neo-c-w-timeaxis-item {
         align-items    : center;
