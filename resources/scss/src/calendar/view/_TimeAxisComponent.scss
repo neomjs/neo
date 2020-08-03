@@ -3,13 +3,14 @@
     background-position-y: 0;
     background-repeat    : repeat-y;
     flex                 : none;
+    margin-top           : 4.7em;
     width                : 50px;
 
     .neo-c-w-timeaxis-item {
         align-items    : center;
         color          : #999;
         display        : flex;
-        font-size      : 10px;
+        font-size      : 0.625em;
         justify-content: center;
     }
 }

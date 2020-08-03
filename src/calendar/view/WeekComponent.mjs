@@ -96,12 +96,14 @@ class WeekComponent extends Component {
                 cn : [{
                     cls: ['neo-c-w-content'],
                     cn : [{
-                        cls: ['neo-c-w-background'],
+                        cls  : ['neo-c-w-background'],
+                        flag : 'neo-c-w-background',
                         style: {}
                     }, {
-                        cls : ['neo-c-w-column-container'],
-                        cn  : [],
-                        flag: 'neo-c-w-content'
+                        cls  : ['neo-c-w-column-container'],
+                        cn   : [],
+                        flag : 'neo-c-w-content',
+                        style: {}
                     }]
                 }]
             }]
@@ -151,6 +153,7 @@ class WeekComponent extends Component {
         let me          = this,
             rowHeight   = data.rowHeight,
             rowsPerItem = data.rowsPerItem,
+            height      = data.totalHeight - rowHeight,
             vdom        = me.vdom,
             i           = 0,
             gradient    = [];
@@ -166,8 +169,13 @@ class WeekComponent extends Component {
         Object.assign(me.getBackgroundContainer().style, {
             backgroundImage: `linear-gradient(${gradient.join(',')})`,
             backgroundSize : `1px ${rowsPerItem * rowHeight + rowsPerItem}px`,
-            height         : `${data.totalHeight - rowHeight}px`,
-            maxHeight      : `${data.totalHeight - rowHeight}px`
+            height         : `${height}px`,
+            maxHeight      : `${height}px`
+        });
+
+        Object.assign(me.getVdomContent().style, {
+            height   : `calc(4.7em + ${height}px)`,
+            maxHeight: `calc(4.7em + ${height}px)`
         });
 
         me[silent ? '_vdom' : 'vdom'] = vdom;
@@ -280,14 +288,7 @@ class WeekComponent extends Component {
      *
      */
     getBackgroundContainer() {
-        return this.vdom.cn[1].cn[0].cn[0];
-    }
-
-    /**
-     *
-     */
-    getColumnContainer() {
-        return VDomUtil.getByFlag(this.vdom, 'neo-c-w-content');
+        return VDomUtil.getByFlag(this.vdom, 'neo-c-w-background');
     }
 
     /**
