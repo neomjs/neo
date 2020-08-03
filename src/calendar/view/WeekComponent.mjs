@@ -90,20 +90,27 @@ class WeekComponent extends Component {
          */
         vdom: {
             cn: [{
-                cls: ['neo-header-row']
+                cls: ['neo-header']
             }, {
                 cls: ['neo-c-w-body'],
                 cn : [{
-                    cls: ['neo-c-w-content'],
+                    cls: ['neo-cw-body-and-header'],
                     cn : [{
-                        cls  : ['neo-c-w-background'],
-                        flag : 'neo-c-w-background',
-                        style: {}
+                        cls : ['neo-header-row'],
+                        cn  : [],
+                        flag: 'neo-header-row'
                     }, {
-                        cls  : ['neo-c-w-column-container'],
-                        cn   : [],
-                        flag : 'neo-c-w-content',
-                        style: {}
+                        cls: ['neo-c-w-content'],
+                        cn : [{
+                            cls  : ['neo-c-w-background'],
+                            flag : 'neo-c-w-background',
+                            style: {}
+                        }, {
+                            cls  : ['neo-c-w-column-container'],
+                            cn   : [],
+                            flag : 'neo-c-w-content',
+                            style: {}
+                        }]
                     }]
                 }]
             }]
@@ -295,7 +302,7 @@ class WeekComponent extends Component {
      *
      */
     getVdomHeaderRow() {
-        return this.vdom.cn[0];
+        return VDomUtil.getByFlag(this.vdom, 'neo-header-row');
     }
 
     /**
@@ -334,7 +341,7 @@ class WeekComponent extends Component {
             column, duration, height, i, record, startHours, top;
 
         // remove previous events from the vdom
-        content.cn.forEach(item => item.cn[1].cn = []);
+        content.cn.forEach(item => item.cn = []);
 
         for (; j < 21; j++) {
             column = content.cn[j];
@@ -353,7 +360,7 @@ class WeekComponent extends Component {
                         // console.log(j, record);
                         // console.log(top);
 
-                        column.cn[1].cn.push({
+                        column.cn.push({
                             cls : ['neo-event'],
                             id  : me.id + '__' + record[eventStore.keyProperty],
                             html: record.title,
@@ -417,19 +424,17 @@ class WeekComponent extends Component {
 
             if (create) {
                 content.cn.push({
-                    cls: columnCls,
+                    cls: columnCls
+                });
+
+                me.getVdomHeaderRow().cn.push({
+                    cls: ['neo-header-row-item'],
                     cn : [{
-                        cls: ['neo-header-row-item'],
-                        cn : [{
-                            cls : ['neo-day'],
-                            html: dt.format(date)
-                        }, {
-                            cls : dateCls,
-                            html: currentDate
-                        }]
+                        cls : ['neo-day'],
+                        html: dt.format(date)
                     }, {
-                        cls: ['neo-event-container'],
-                        cn : []
+                        cls : dateCls,
+                        html: currentDate
                     }]
                 });
             } else {
