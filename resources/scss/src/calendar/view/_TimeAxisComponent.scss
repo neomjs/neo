@@ -3,7 +3,7 @@
     background-position-y: 0;
     background-repeat    : repeat-y;
     flex                 : none;
-    margin-top           : 4.7em;
+    margin-top           : calc(4.7em - 1px);
     width                : 50px;
 
     .neo-c-w-timeaxis-item {
