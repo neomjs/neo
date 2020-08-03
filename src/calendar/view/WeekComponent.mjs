@@ -90,17 +90,21 @@ class WeekComponent extends Component {
          */
         vdom: {
             cn: [{
-                cls: ['neo-header-row'],
-                cn : [{
-                    cls: ['neo-top-left-corner']
-                }]
+                cls: ['neo-header-row']
             }, {
                 cls: ['neo-c-w-body'],
                 cn : [{
-                    cls  : ['neo-c-w-content'],
-                    cn   : [],
-                    flag : 'neo-c-w-content',
-                    style: {}
+                    cls: ['neo-c-w-content'],
+                    cn : [{
+                        cls  : ['neo-c-w-background'],
+                        flag : 'neo-c-w-background',
+                        style: {}
+                    }, {
+                        cls  : ['neo-c-w-column-container'],
+                        cn   : [],
+                        flag : 'neo-c-w-content',
+                        style: {}
+                    }]
                 }]
             }]
         },
@@ -149,6 +153,7 @@ class WeekComponent extends Component {
         let me          = this,
             rowHeight   = data.rowHeight,
             rowsPerItem = data.rowsPerItem,
+            height      = data.totalHeight - rowHeight,
             vdom        = me.vdom,
             i           = 0,
             gradient    = [];
@@ -161,11 +166,16 @@ class WeekComponent extends Component {
             );
         }
 
-        Object.assign(me.getVdomContent().style, {
+        Object.assign(me.getBackgroundContainer().style, {
             backgroundImage: `linear-gradient(${gradient.join(',')})`,
             backgroundSize : `1px ${rowsPerItem * rowHeight + rowsPerItem}px`,
-            height         : `${data.totalHeight - rowHeight}px`,
-            maxHeight      : `${data.totalHeight - rowHeight}px`
+            height         : `${height}px`,
+            maxHeight      : `${height}px`
+        });
+
+        Object.assign(me.getVdomContent().style, {
+            height   : `calc(4.7em + ${height}px)`,
+            maxHeight: `calc(4.7em + ${height}px)`
         });
 
         me[silent ? '_vdom' : 'vdom'] = vdom;
@@ -200,21 +210,14 @@ class WeekComponent extends Component {
      * @protected
      */
     afterSetTimeAxisPosition(value, oldValue) {
-        let me        = this,
-            cls       = me.cls,
-            vdom      = me.vdom,
-            headerRow = me.getVdomHeaderRow();
+        let me   = this,
+            cls  = me.cls,
+            vdom = me.vdom;
 
         NeoArray[value === 'end' ? 'add' : 'remove'](cls,  'neo-timeaxis-end');
 
         if (oldValue !== undefined) {
             vdom.cn[1].cn.unshift(vdom.cn[1].cn.pop()); // switch the order of the 2 items
-
-            if (value === 'end') {
-                headerRow.cn.push(headerRow.cn.shift());
-            } else {
-                headerRow.cn.unshift(headerRow.cn.pop());
-            }
         }
 
         me._cls = cls;
@@ -277,6 +280,13 @@ class WeekComponent extends Component {
     /**
      *
      */
+    getBackgroundContainer() {
+        return VDomUtil.getByFlag(this.vdom, 'neo-c-w-background');
+    }
+
+    /**
+     *
+     */
     getVdomContent() {
         return VDomUtil.getByFlag(this.vdom, 'neo-c-w-content');
     }
@@ -324,9 +334,9 @@ class WeekComponent extends Component {
             column, duration, height, i, record, startHours, top;
 
         // remove previous events from the vdom
-        content.cn.forEach(item => item.cn = []);
+        content.cn.forEach(item => item.cn[1].cn = []);
 
-        for (; j < 7; j++) {
+        for (; j < 21; j++) {
             column = content.cn[j];
 
             for (i = 0; i < len; i++) {
@@ -343,7 +353,7 @@ class WeekComponent extends Component {
                         // console.log(j, record);
                         // console.log(top);
 
-                        column.cn.push({
+                        column.cn[1].cn.push({
                             cls : ['neo-event'],
                             id  : me.id + '__' + record[eventStore.keyProperty],
                             html: record.title,
@@ -370,13 +380,12 @@ class WeekComponent extends Component {
      * @param {Boolean} [create=false]
      */
     updateHeader(create=false) {
-        let me        = this,
-            date      = me.currentDate, // cloned
-            vdom      = me.vdom,
-            content   = me.getVdomContent(),
-            headerRow = me.getVdomHeaderRow(),
-            i         = 0,
-            columnCls, currentDate, currentDay, dateCls, index;
+        let me      = this,
+            date    = me.currentDate, // cloned
+            vdom    = me.vdom,
+            content = me.getVdomContent(),
+            i       = 0,
+            columnCls, currentDate, currentDay, dateCls;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
@@ -386,7 +395,7 @@ class WeekComponent extends Component {
             weekday: me.dayNameFormat
         });
 
-        for (; i < 7; i++) {
+        for (; i < 21; i++) {
             columnCls   = ['neo-c-w-column'];
             currentDate = date.getDate();
             currentDay  = date.getDay();
@@ -408,37 +417,33 @@ class WeekComponent extends Component {
 
             if (create) {
                 content.cn.push({
-                    cls: columnCls
-                });
-
-                headerRow.cn.push({
-                    cls: ['neo-header-row-item'],
+                    cls: columnCls,
                     cn : [{
-                        cls : ['neo-day'],
-                        html: dt.format(date)
+                        cls: ['neo-header-row-item'],
+                        cn : [{
+                            cls : ['neo-day'],
+                            html: dt.format(date)
+                        }, {
+                            cls : dateCls,
+                            html: currentDate
+                        }]
                     }, {
-                        cls : dateCls,
-                        html: currentDate
+                        cls: ['neo-event-container'],
+                        cn : []
                     }]
                 });
             } else {
                 content.cn[i].cls = columnCls;
 
-                index = me.timeAxisPosition === 'end' ? i : (i + 1);
+                content.cn[i].cn[0].cn[0].html = dt.format(date);
 
-                headerRow.cn[index].cn[0].html = dt.format(date);
-
-                Object.assign(headerRow.cn[index].cn[1], {
+                Object.assign(content.cn[i].cn[0].cn[1], {
                     cls : dateCls,
                     html: currentDate
                 });
             }
 
             date.setDate(date.getDate() + 1);
-        }
-
-        if (create && me.timeAxisPosition === 'end') {
-            headerRow.cn.push(headerRow.cn.shift());
         }
 
         me.vdom = vdom;

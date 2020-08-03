@@ -123,26 +123,27 @@ class TimeAxisComponent extends Component {
                 i, itemStyle;
 
             Object.assign(vdom.style, {
-                backgroundImage: `linear-gradient(var(--c-w-background-color) ${itemHeight-1}px, var(--c-w-border-color) 1px)`,
-                backgroundSize : `0.4em ${itemHeight}px`,
-                height         : `${totalHeight}px`,
-                maxHeight      : `${totalHeight}px`
+                backgroundImage    : `linear-gradient(var(--c-w-background-color) ${itemHeight - 1}px, var(--c-w-border-color) 1px)`,
+                backgroundPositionY: `${-itemHeight + 1}px`,
+                backgroundSize     : `0.4em ${itemHeight}px`,
+                height             : `${totalHeight}px`,
+                maxHeight          : `${totalHeight}px`
             });
 
-            for (i=0; i < 24; i++) {
+            for (i=0; i < 25; i++) {
                 itemStyle = {
                     height: `${itemHeight}px`
                 };
 
                 if (i === startTime) {
-                    itemStyle.marginTop = `${rowHeight * (rowsPerItem === 1 ? 0.5 : rowsPerItem === 2 ? 1 : 2)}px`;
+                    itemStyle.marginTop = `${-2 - rowHeight * (rowsPerItem === 1 ? 0.5 : rowsPerItem === 2 ? 1 : 2)}px`;
                 } else {
                     delete itemStyle.marginTop;
                 }
 
                 vdom.cn[i].style = itemStyle;
 
-                vdom.cn[i].removeDom = (i < startTime || i >= endTime);
+                vdom.cn[i].removeDom = (i < startTime || i - 1 >= endTime);
             }
 
             me.totalHeight = totalHeight;
@@ -190,7 +191,7 @@ class TimeAxisComponent extends Component {
 
         vdom.cn = [];
 
-        for (i=1; i < 25; i++) {
+        for (i=0; i < 25; i++) {
             html = i === 24 ? '00:00' : (i < 10 ? '0' : '') + i + ':00';
 
             vdom.cn.push({

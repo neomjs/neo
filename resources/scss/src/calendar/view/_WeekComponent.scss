@@ -12,25 +12,48 @@
 
     &.neo-timeaxis-end {
         .neo-c-w-column{
+            .neo-event-container {
+                border-left : 1px solid v(c-w-border-color);
+                border-right: none;
+            }
+
+            &:first-child {
+                .neo-event-container {
+                    border-left: 1px solid transparent;
+                }
+            }
+
+            &:last-child {
+                .neo-event-container {
+                    border-right: none;
+                }
+            };
+        }
+
+        .neo-c-w-content {
             border-left : none;
             border-right: 1px solid v(c-w-border-color);
         }
+    }
 
-        .neo-header-row-item {
-            &:nth-child(2) {
-                border-left: none;
-            }
-
-            &:nth-last-child(2) {
-                border-right: 1px solid v(c-w-border-color);
-            }
-        }
+    .neo-c-w-background {
+        position: absolute;
+        bottom  : 0;
+        left    : 0;
+        right   : 0;
+        top     : 4.7em;
     }
 
     .neo-c-w-column{
-        border-left: 1px solid v(c-w-border-color);
-        flex       : 1;
-        position   : relative;
+        display       : flex;
+        flex          : 1 0 calc(100% / 7);
+        flex-direction: column;
+
+        &:last-child {
+            .neo-event-container {
+                border-right: 1px solid transparent;
+            }
+        }
 
         &.neo-weekend {
             background-color: v(c-w-weekend-background-color);
@@ -49,29 +72,41 @@
         }
     }
 
+    .neo-c-w-column-container {
+        align-items: stretch;
+        display    : flex;
+        flex       : 1;
+        overflow-x : auto;
+        overflow-y : hidden;
+        position   : relative;
+    }
+
     .neo-c-w-content {
-        align-items          : stretch;
-        background-position-y: 0;
-        display              : flex;
-        flex                 : 1;
-        overflow             : hidden;
+        border-left: 1px solid v(c-w-border-color);
+        display    : flex;
+        flex       : 1;
+        height     : fit-content;
+        position   : relative;
+    }
+
+    .neo-event-container {
+        border-right: 1px solid v(c-w-border-color);
+        flex        : 1 1 100%;
+        position    : relative;
     }
 
     .neo-header-row-item {
-        align-items    : center;
-        border-bottom  : 1px solid v(c-w-border-color);
-        border-left    : 1px solid transparent;
-        cursor         : pointer;
-        display        : flex;
-        flex           : 1;
-        flex-direction : column;
-        justify-content: center;
-        padding-bottom : 5px;
-        padding-top    : 10px;
-
-        &:nth-child(2) {
-            border-left: 1px solid v(c-w-border-color);
-        }
+        align-items     : center;
+        background-color: v(c-w-header-background-color);
+        border-bottom   : 1px solid v(c-w-border-color);
+        cursor          : pointer;
+        display         : flex;
+        flex            : none;
+        flex-direction  : column;
+        height          : 4.7em; // we need a fixed height for the bg margin top
+        justify-content : center;
+        padding-bottom  : 0.3125em;
+        padding-top     : 0.625em;
 
         &:hover {
             .neo-date {
