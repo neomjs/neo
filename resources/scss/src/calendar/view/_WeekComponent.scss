@@ -1,3 +1,4 @@
+
 .neo-calendar-weekcomponent {
     align-items   : stretch;
     display       : flex;
@@ -7,20 +8,26 @@
         align-items: stretch;
         display    : flex;
         flex       : 1;
-        overflow   : hidden;
+        overflow-y : auto;
     }
 
     &.neo-timeaxis-end {
         .neo-c-w-column{
-            border-left : 1px solid v(c-w-border-color);
-            border-right: none;
+            .neo-event-container {
+                border-left : 1px solid v(c-w-border-color);
+                border-right: none;
+            }
 
             &:first-child {
-                border-left: 1px solid transparent;
+                .neo-event-container {
+                    border-left: 1px solid transparent;
+                }
             }
 
             &:last-child {
-                border-right: none;
+                .neo-event-container {
+                    border-right: none;
+                }
             };
         }
 
@@ -35,25 +42,18 @@
         bottom  : 0;
         left    : 0;
         right   : 0;
-        top     : 0;
-    }
-
-    .neo-cw-body-and-header {
-        display       : flex;
-        flex          : 1 1 100%;
-        flex-direction: column;
-        overflow-x    : auto;
+        top     : 4.7em;
     }
 
     .neo-c-w-column{
-        border-right  : 1px solid v(c-w-border-color);
         display       : flex;
         flex          : 1 0 calc(100% / 7);
         flex-direction: column;
-        position      : relative;
 
         &:last-child {
-            border-right: 1px solid transparent;
+            .neo-event-container {
+                border-right: 1px solid transparent;
+            }
         }
 
         &.neo-weekend {
@@ -76,7 +76,9 @@
     .neo-c-w-column-container {
         align-items: stretch;
         display    : flex;
-        flex       : 1 1 100%;
+        flex       : 1;
+        overflow-x : auto;
+        overflow-y : hidden;
         position   : relative;
     }
 
@@ -85,9 +87,13 @@
         display    : flex;
         flex       : 1;
         height     : fit-content;
-        overflow-x : hidden;
-        overflow-y : auto;
         position   : relative;
+    }
+
+    .neo-event-container {
+        border-right: 1px solid v(c-w-border-color);
+        flex        : 1 1 100%;
+        position    : relative;
     }
 
     .neo-header-row-item {
@@ -96,7 +102,7 @@
         border-bottom   : 1px solid v(c-w-border-color);
         cursor          : pointer;
         display         : flex;
-        flex            : 1 0 calc(100% / 7);
+        flex            : none;
         flex-direction  : column;
         height          : 4.7em; // we need a fixed height for the bg margin top
         justify-content : center;
@@ -135,8 +141,10 @@
     }
 
     .neo-header-row {
-        display: flex;
-        flex   : none;
+        align-items    : stretch;
+        display        : flex;
+        flex           : none;
+        justify-content: center;
     }
 
     .neo-top-left-corner {
