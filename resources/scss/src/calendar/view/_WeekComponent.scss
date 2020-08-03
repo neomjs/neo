@@ -29,7 +29,7 @@
 
     .neo-c-w-column{
         border-left: 1px solid v(c-w-border-color);
-        flex       : 1;
+        flex       : 1 0 calc(100% / 7);
         position   : relative;
 
         &.neo-weekend {
@@ -54,7 +54,8 @@
         background-position-y: 0;
         display              : flex;
         flex                 : 1;
-        overflow             : hidden;
+        overflow-x           : auto;
+        overflow-y           : hidden;
     }
 
     .neo-header-row-item {
