@@ -12,25 +12,40 @@
 
     &.neo-timeaxis-end {
         .neo-c-w-column{
+            border-left : 1px solid v(c-w-border-color);
+            border-right: none;
+
+            &:first-child {
+                border-left: 1px solid transparent;
+            }
+
+            &:last-child {
+                border-right: none;
+            };
+        }
+
+        .neo-c-w-content {
             border-left : none;
             border-right: 1px solid v(c-w-border-color);
         }
+    }
 
-        .neo-header-row-item {
-            &:nth-child(2) {
-                border-left: none;
-            }
-
-            &:nth-last-child(2) {
-                border-right: 1px solid v(c-w-border-color);
-            }
-        }
+    .neo-c-w-background {
+        position: absolute;
+        bottom  : 0;
+        left    : 0;
+        right   : 0;
+        top     : 4.7em;
     }
 
     .neo-c-w-column{
-        border-left: 1px solid v(c-w-border-color);
-        flex       : 1 0 calc(100% / 7);
-        position   : relative;
+        border-right: 1px solid v(c-w-border-color);
+        flex        : 1 0 calc(100% / 7);
+        position    : relative;
+
+        &:last-child {
+            border-right: 1px solid transparent;
+        }
 
         &.neo-weekend {
             background-color: v(c-w-weekend-background-color);
@@ -49,14 +64,6 @@
         }
     }
 
-    .neo-c-w-background {
-        position: absolute;
-        bottom  : 0;
-        left    : 0;
-        right   : 0;
-        top     : 4.7em;
-    }
-
     .neo-c-w-column-container {
         align-items: stretch;
         display    : flex;
@@ -67,16 +74,17 @@
     }
 
     .neo-c-w-content {
-        display : flex;
-        flex    : 1;
-        position: relative;
+        border-left: 1px solid v(c-w-border-color);
+        display    : flex;
+        flex       : 1;
+        height     : fit-content;
+        position   : relative;
     }
 
     .neo-header-row-item {
         align-items     : center;
         background-color: #fff;
         border-bottom   : 1px solid v(c-w-border-color);
-        border-left     : 1px solid transparent;
         cursor          : pointer;
         display         : flex;
         flex            : 1;
@@ -85,10 +93,6 @@
         justify-content : center;
         padding-bottom  : 0.3125em;
         padding-top     : 0.625em;
-
-        &:nth-child(2) {
-            border-left: 1px solid v(c-w-border-color);
-        }
 
         &:hover {
             .neo-date {
