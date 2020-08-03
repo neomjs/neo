@@ -210,21 +210,14 @@ class WeekComponent extends Component {
      * @protected
      */
     afterSetTimeAxisPosition(value, oldValue) {
-        let me        = this,
-            cls       = me.cls,
-            vdom      = me.vdom,
-            headerRow = me.getVdomHeaderRow();
+        let me   = this,
+            cls  = me.cls,
+            vdom = me.vdom;
 
         NeoArray[value === 'end' ? 'add' : 'remove'](cls,  'neo-timeaxis-end');
 
         if (oldValue !== undefined) {
             vdom.cn[1].cn.unshift(vdom.cn[1].cn.pop()); // switch the order of the 2 items
-
-            if (value === 'end') {
-                headerRow.cn.push(headerRow.cn.shift());
-            } else {
-                headerRow.cn.unshift(headerRow.cn.pop());
-            }
         }
 
         me._cls = cls;
