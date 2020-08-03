@@ -94,6 +94,8 @@ class WeekComponent extends Component {
             }, {
                 cls: ['neo-c-w-body'],
                 cn : [{
+                    cls: ['neo-scroll-overlay']
+                }, {
                     cls  : ['neo-cw-body-and-header'],
                     flag : 'neo-cw-body-and-header',
                     style: {},

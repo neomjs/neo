@@ -3,6 +3,7 @@
     display       : flex;
     flex-direction: column;
     overflow      : hidden;
+    position      : relative;
 
     .neo-c-w-body {
         align-items: stretch;
@@ -147,6 +148,16 @@
         position: sticky;
         top     : 0;
         z-index : 100;
+    }
+
+    .neo-scroll-overlay {
+        background-color: v(c-w-header-background-color);
+        height          : 4.4em;
+        left            : 0;
+        position        : absolute;
+        top             : 0;
+        width           : 51px;
+        z-index         : 500;
     }
 
     .neo-top-left-corner {
