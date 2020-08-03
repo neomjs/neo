@@ -90,15 +90,16 @@
     }
 
     .neo-header-row-item {
-        align-items    : center;
-        border-bottom  : 1px solid v(c-w-border-color);
-        cursor         : pointer;
-        display        : flex;
-        flex-direction : column;
-        height         : 4.7em; // we need a fixed height for the bg margin top
-        justify-content: center;
-        padding-bottom : 0.3125em;
-        padding-top    : 0.625em;
+        align-items     : center;
+        background-color: v(c-w-header-background-color);
+        border-bottom   : 1px solid v(c-w-border-color);
+        cursor          : pointer;
+        display         : flex;
+        flex-direction  : column;
+        height          : 4.7em; // we need a fixed height for the bg margin top
+        justify-content : center;
+        padding-bottom  : 0.3125em;
+        padding-top     : 0.625em;
 
         &:hover {
             .neo-date {
