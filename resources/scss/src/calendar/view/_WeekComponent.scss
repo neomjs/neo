@@ -2,31 +2,27 @@
     align-items   : stretch;
     display       : flex;
     flex-direction: column;
+    overflow      : hidden;
+    position      : relative;
 
     .neo-c-w-body {
         align-items: stretch;
         display    : flex;
-        flex       : 1;
-        overflow-y : auto;
+        flex       : 1 0 100%;
+        overflow   : hidden;
     }
 
     &.neo-timeaxis-end {
         .neo-c-w-column{
-            .neo-event-container {
-                border-left : 1px solid v(c-w-border-color);
-                border-right: none;
-            }
+            border-left : 1px solid v(c-w-border-color);
+            border-right: none;
 
             &:first-child {
-                .neo-event-container {
-                    border-left: 1px solid transparent;
-                }
+                border-left: 1px solid transparent;
             }
 
             &:last-child {
-                .neo-event-container {
-                    border-right: none;
-                }
+                border-right: none;
             };
         }
 
@@ -41,18 +37,27 @@
         bottom  : 0;
         left    : 0;
         right   : 0;
-        top     : 4.7em;
+        top     : 0;
+    }
+
+    .neo-cw-body-and-header {
+        display       : flex;
+        flex          : 1 1 100%;
+        flex-direction: column;
+        overflow      : auto;
     }
 
     .neo-c-w-column{
+        border-right  : 1px solid v(c-w-border-color);
         display       : flex;
-        flex          : 1 0 calc(100% / 7);
+        flex          : 1 0 calc(100% / 21);
         flex-direction: column;
+        position      : relative;
+
+
 
         &:last-child {
-            .neo-event-container {
-                border-right: 1px solid transparent;
-            }
+            border-right: 1px solid transparent;
         }
 
         &.neo-weekend {
@@ -75,24 +80,24 @@
     .neo-c-w-column-container {
         align-items: stretch;
         display    : flex;
-        flex       : 1;
-        overflow-x : auto;
-        overflow-y : hidden;
+        flex       : 1 0 100%;
+    }
+
+    .neo-c-w-column-content-container {
+        align-items: stretch;
+        display    : flex;
+        flex       : 1 0 100%;
         position   : relative;
     }
 
     .neo-c-w-content {
         border-left: 1px solid v(c-w-border-color);
         display    : flex;
-        flex       : 1;
+        flex       : 1 0 100%;
         height     : fit-content;
+        //overflow-x : hidden;
+        //overflow-y : auto;
         position   : relative;
-    }
-
-    .neo-event-container {
-        border-right: 1px solid v(c-w-border-color);
-        flex        : 1 1 100%;
-        position    : relative;
     }
 
     .neo-header-row-item {
@@ -101,7 +106,7 @@
         border-bottom   : 1px solid v(c-w-border-color);
         cursor          : pointer;
         display         : flex;
-        flex            : none;
+        flex            : 1 0 calc(100% / 7);
         flex-direction  : column;
         height          : 4.7em; // we need a fixed height for the bg margin top
         justify-content : center;
@@ -140,10 +145,22 @@
     }
 
     .neo-header-row {
-        align-items    : stretch;
-        display        : flex;
-        flex           : none;
-        justify-content: center;
+        display    : flex;
+        flex       : none;
+        margin-left: 50px;
+        position   : sticky;
+        top        : 0;
+        z-index    : 100;
+    }
+
+    .neo-scroll-overlay {
+        background-color: v(c-w-header-background-color);
+        height          : 4.4em;
+        left            : 0;
+        position        : absolute;
+        top             : 0;
+        width           : 51px;
+        z-index         : 500;
     }
 
     .neo-top-left-corner {
