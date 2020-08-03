@@ -232,6 +232,10 @@ class WeekComponent extends Component {
                 let me = this,
                     vdom;
 
+                // without manually assigning width values for the column container,
+                // the sticky positioned timeAxis will get pushed out of the visible
+                // area once the 7th column got scrolled out
+
                 Neo.main.DomAccess.getBoundingClientRect({
                     id: me.getColumnContentContainer().id
                 }).then(data => {
