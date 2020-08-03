@@ -101,8 +101,9 @@
         border-bottom   : 1px solid v(c-w-border-color);
         cursor          : pointer;
         display         : flex;
+        flex            : none;
         flex-direction  : column;
-        height          : 4.95em; // we need a fixed height for the bg margin top
+        height          : 4.7em; // we need a fixed height for the bg margin top
         justify-content : center;
         padding-bottom  : 0.3125em;
         padding-top     : 0.625em;
