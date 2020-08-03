@@ -380,13 +380,12 @@ class WeekComponent extends Component {
      * @param {Boolean} [create=false]
      */
     updateHeader(create=false) {
-        let me        = this,
-            date      = me.currentDate, // cloned
-            vdom      = me.vdom,
-            content   = me.getVdomContent(),
-            headerRow = me.getVdomHeaderRow(),
-            i         = 0,
-            columnCls, currentDate, currentDay, dateCls, index;
+        let me      = this,
+            date    = me.currentDate, // cloned
+            vdom    = me.vdom,
+            content = me.getVdomContent(),
+            i       = 0,
+            columnCls, currentDate, currentDay, dateCls;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
@@ -433,21 +432,15 @@ class WeekComponent extends Component {
             } else {
                 content.cn[i].cls = columnCls;
 
-                index = me.timeAxisPosition === 'end' ? i : (i + 1);
+                content.cn[i].cn[0].cn[0].html = dt.format(date);
 
-                headerRow.cn[index].cn[0].html = dt.format(date);
-
-                Object.assign(headerRow.cn[index].cn[1], {
+                Object.assign(content.cn[i].cn[0].cn[1], {
                     cls : dateCls,
                     html: currentDate
                 });
             }
 
             date.setDate(date.getDate() + 1);
-        }
-
-        if (create && me.timeAxisPosition === 'end') {
-            headerRow.cn.push(headerRow.cn.shift());
         }
 
         me.vdom = vdom;
