@@ -90,17 +90,19 @@ class WeekComponent extends Component {
          */
         vdom: {
             cn: [{
-                cls: ['neo-header-row'],
-                cn : [{
-                    cls: ['neo-top-left-corner']
-                }]
+                cls: ['neo-header-row']
             }, {
                 cls: ['neo-c-w-body'],
                 cn : [{
-                    cls  : ['neo-c-w-content'],
-                    cn   : [],
-                    flag : 'neo-c-w-content',
-                    style: {}
+                    cls: ['neo-c-w-content'],
+                    cn : [{
+                        cls: ['neo-c-w-background'],
+                        style: {}
+                    }, {
+                        cls : ['neo-c-w-column-container'],
+                        cn  : [],
+                        flag: 'neo-c-w-content'
+                    }]
                 }]
             }]
         },
@@ -161,7 +163,7 @@ class WeekComponent extends Component {
             );
         }
 
-        Object.assign(me.getVdomContent().style, {
+        Object.assign(me.getBackgroundContainer().style, {
             backgroundImage: `linear-gradient(${gradient.join(',')})`,
             backgroundSize : `1px ${rowsPerItem * rowHeight + rowsPerItem}px`,
             height         : `${data.totalHeight - rowHeight}px`,
@@ -277,6 +279,20 @@ class WeekComponent extends Component {
     /**
      *
      */
+    getBackgroundContainer() {
+        return this.vdom.cn[1].cn[0].cn[0];
+    }
+
+    /**
+     *
+     */
+    getColumnContainer() {
+        return VDomUtil.getByFlag(this.vdom, 'neo-c-w-content');
+    }
+
+    /**
+     *
+     */
     getVdomContent() {
         return VDomUtil.getByFlag(this.vdom, 'neo-c-w-content');
     }
@@ -324,7 +340,7 @@ class WeekComponent extends Component {
             column, duration, height, i, record, startHours, top;
 
         // remove previous events from the vdom
-        content.cn.forEach(item => item.cn = []);
+        content.cn.forEach(item => item.cn = [item.cn[0]]);
 
         for (; j < 21; j++) {
             column = content.cn[j];
@@ -408,17 +424,16 @@ class WeekComponent extends Component {
 
             if (create) {
                 content.cn.push({
-                    cls: columnCls
-                });
-
-                headerRow.cn.push({
-                    cls: ['neo-header-row-item'],
+                    cls: columnCls,
                     cn : [{
-                        cls : ['neo-day'],
-                        html: dt.format(date)
-                    }, {
-                        cls : dateCls,
-                        html: currentDate
+                        cls: ['neo-header-row-item'],
+                        cn : [{
+                            cls : ['neo-day'],
+                            html: dt.format(date)
+                        }, {
+                            cls : dateCls,
+                            html: currentDate
+                        }]
                     }]
                 });
             } else {
