@@ -334,7 +334,7 @@ class WeekComponent extends Component {
             column, duration, height, i, record, startHours, top;
 
         // remove previous events from the vdom
-        content.cn.forEach(item => item.cn = [item.cn[0]]);
+        content.cn.forEach(item => item.cn[1].cn = []);
 
         for (; j < 21; j++) {
             column = content.cn[j];
@@ -353,7 +353,7 @@ class WeekComponent extends Component {
                         // console.log(j, record);
                         // console.log(top);
 
-                        column.cn.push({
+                        column.cn[1].cn.push({
                             cls : ['neo-event'],
                             id  : me.id + '__' + record[eventStore.keyProperty],
                             html: record.title,
@@ -427,6 +427,9 @@ class WeekComponent extends Component {
                             cls : dateCls,
                             html: currentDate
                         }]
+                    }, {
+                        cls: ['neo-event-container'],
+                        cn : []
                     }]
                 });
             } else {

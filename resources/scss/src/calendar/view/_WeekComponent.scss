@@ -39,12 +39,14 @@
     }
 
     .neo-c-w-column{
-        border-right: 1px solid v(c-w-border-color);
-        flex        : 1 0 calc(100% / 7);
-        position    : relative;
+        display       : flex;
+        flex          : 1 0 calc(100% / 7);
+        flex-direction: column;
 
         &:last-child {
-            border-right: 1px solid transparent;
+            .neo-event-container {
+                border-right: 1px solid transparent;
+            }
         }
 
         &.neo-weekend {
@@ -81,12 +83,17 @@
         position   : relative;
     }
 
+    .neo-event-container {
+        border-right: 1px solid v(c-w-border-color);
+        flex        : 1 1 100%;
+        position    : relative;
+    }
+
     .neo-header-row-item {
         align-items    : center;
         border-bottom  : 1px solid v(c-w-border-color);
         cursor         : pointer;
         display        : flex;
-        flex           : 1;
         flex-direction : column;
         height         : 4.7em; // we need a fixed height for the bg margin top
         justify-content: center;
