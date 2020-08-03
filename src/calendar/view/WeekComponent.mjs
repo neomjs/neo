@@ -216,6 +216,30 @@ class WeekComponent extends Component {
     }
 
     /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        if (value) {
+            setTimeout(() => {
+                let me = this,
+                    vdom;
+
+                Neo.main.DomAccess.getBoundingClientRect({
+                    id: me.getColumnContainer().id
+                }).then(data => {
+                    console.log(data);
+                    vdom = me.vdom;
+                    me.getBackgroundContainer().style.width = `${3 * data.width + 52}px`;
+                    me.vdom = vdom;
+                });
+            }, 20);
+        }
+    }
+
+    /**
      * Triggered after the timeAxisPosition config got changed
      * @param {String} value
      * @param {String} oldValue
