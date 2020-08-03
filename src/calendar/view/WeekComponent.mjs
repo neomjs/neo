@@ -326,7 +326,7 @@ class WeekComponent extends Component {
         // remove previous events from the vdom
         content.cn.forEach(item => item.cn = []);
 
-        for (; j < 7; j++) {
+        for (; j < 21; j++) {
             column = content.cn[j];
 
             for (i = 0; i < len; i++) {
@@ -386,7 +386,7 @@ class WeekComponent extends Component {
             weekday: me.dayNameFormat
         });
 
-        for (; i < 7; i++) {
+        for (; i < 21; i++) {
             columnCls   = ['neo-c-w-column'];
             currentDate = date.getDate();
             currentDay  = date.getDay();
