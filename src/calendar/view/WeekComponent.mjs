@@ -113,9 +113,13 @@ class WeekComponent extends Component {
                             style: {}
                         }, {
                             cls  : ['neo-c-w-column-container'],
-                            cn   : [],
                             flag : 'neo-c-w-column-container',
-                            style: {}
+                            style: {},
+                            cn   : [{
+                                cls : ['neo-c-w-column-content-container'],
+                                flag: 'neo-c-w-column-content-container',
+                                cn  : []
+                            }],
                         }]
                     }]
                 }]
@@ -229,14 +233,13 @@ class WeekComponent extends Component {
                     vdom;
 
                 Neo.main.DomAccess.getBoundingClientRect({
-                    id: me.getColumnContainer().id
+                    id: me.getColumnContentContainer().id
                 }).then(data => {
-                    let width = 3 * data.width + 52;
+                    let width = 3 * data.width;
 
                     vdom = me.vdom;
-                    me.getBackgroundContainer().style.width = `${width}px`;
-                    me.getColumnContainer()    .style.width = `${width}px`;
-                    me.getVdomContent()        .style.width = `${width}px`;
+                    me.getBackgroundContainer().style.width = `${width -  94}px`;
+                    me.getVdomContent()        .style.width = `${width - 144}px`;
                     me.vdom = vdom;
                 });
             }, 20);
@@ -341,6 +344,13 @@ class WeekComponent extends Component {
     /**
      *
      */
+    getColumnContentContainer() {
+        return VDomUtil.getByFlag(this.vdom, 'neo-c-w-column-content-container');
+    }
+
+    /**
+     *
+     */
     getVdomContent() {
         return VDomUtil.getByFlag(this.vdom, 'neo-c-w-content');
     }
@@ -382,17 +392,13 @@ class WeekComponent extends Component {
             date       = DateUtil.clone(me.firstColumnDate),
             eventStore = me.eventStore,
             vdom       = me.vdom,
-            content    = me.getColumnContainer(),
+            content    = me.getColumnContentContainer(),
             j          = 0,
             len        = eventStore.getCount(),
             column, duration, height, i, record, startHours, top;
 
         // remove previous events from the vdom
-        content.cn.forEach((item, index) => {
-            if (index !== 0) {
-                item.cn = [];
-            }
-        });
+        content.cn.forEach(item => item.cn = []);
 
         for (; j < 21; j++) {
             column = content.cn[j];
@@ -441,7 +447,7 @@ class WeekComponent extends Component {
         let me      = this,
             date    = me.currentDate, // cloned
             vdom    = me.vdom,
-            content = me.getColumnContainer(),
+            content = me.getColumnContentContainer(),
             i       = 0,
             columnCls, currentDate, currentDay, dateCls;
 

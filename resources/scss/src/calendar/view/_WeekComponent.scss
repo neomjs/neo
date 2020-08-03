@@ -81,6 +81,12 @@
         align-items: stretch;
         display    : flex;
         flex       : 1 0 100%;
+    }
+
+    .neo-c-w-column-content-container {
+        align-items: stretch;
+        display    : flex;
+        flex       : 1 0 100%;
         position   : relative;
     }
 
@@ -106,10 +112,6 @@
         justify-content : center;
         padding-bottom  : 0.3125em;
         padding-top     : 0.625em;
-
-        &:first-child {
-            margin-left: 50px;
-        }
 
         &:hover {
             .neo-date {
@@ -143,11 +145,12 @@
     }
 
     .neo-header-row {
-        display: flex;
-        flex   : none;
-        position: sticky;
-        top     : 0;
-        z-index : 100;
+        display    : flex;
+        flex       : none;
+        margin-left: 50px;
+        position   : sticky;
+        top        : 0;
+        z-index    : 100;
     }
 
     .neo-scroll-overlay {
