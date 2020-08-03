@@ -114,7 +114,8 @@ class WeekComponent extends Component {
                         }, {
                             cls  : ['neo-c-w-column-container'],
                             cn   : [],
-                            flag : 'neo-c-w-column-container'
+                            flag : 'neo-c-w-column-container',
+                            style: {}
                         }]
                     }]
                 }]
@@ -230,9 +231,12 @@ class WeekComponent extends Component {
                 Neo.main.DomAccess.getBoundingClientRect({
                     id: me.getColumnContainer().id
                 }).then(data => {
-                    console.log(data);
+                    let width = 3 * data.width + 52;
+
                     vdom = me.vdom;
-                    me.getBackgroundContainer().style.width = `${3 * data.width + 52}px`;
+                    me.getBackgroundContainer().style.width = `${width}px`;
+                    me.getColumnContainer()    .style.width = `${width}px`;
+                    me.getVdomContent()        .style.width = `${width}px`;
                     me.vdom = vdom;
                 });
             }, 20);

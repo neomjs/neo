@@ -50,7 +50,7 @@
     .neo-c-w-column{
         border-right  : 1px solid v(c-w-border-color);
         display       : flex;
-        flex          : 1 0 calc(100% / 7);
+        flex          : 1 0 calc(100% / 21);
         flex-direction: column;
         position      : relative;
 
@@ -80,7 +80,7 @@
     .neo-c-w-column-container {
         align-items: stretch;
         display    : flex;
-        flex       : 1 1 100%;
+        flex       : 1 0 100%;
         position   : relative;
     }
 
