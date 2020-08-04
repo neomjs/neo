@@ -95,7 +95,7 @@ class WeekComponent extends Component {
                 cls: ['neo-scroll-overlay']
             }, {
                 cls  : ['neo-c-w-scrollcontainer'],
-                flag : 'neo-cw-body-and-header',
+                flag : 'neo-c-w-scrollcontainer',
                 style: {},
                 cn   : [{
                     cls : ['neo-header-row'],
@@ -227,7 +227,7 @@ class WeekComponent extends Component {
                 }).then(data => {
                     Neo.main.DomAccess.scrollBy({
                         direction: 'left',
-                        id       : me.getBodyAndHeaderContainer().id,
+                        id       : me.getScrollContainer().id,
                         value    : data.width / 3
                     });
                 });
@@ -313,13 +313,6 @@ class WeekComponent extends Component {
     /**
      *
      */
-    getBodyAndHeaderContainer() {
-        return VDomUtil.getByFlag(this.vdom, 'neo-cw-body-and-header');
-    }
-
-    /**
-     *
-     */
     getColumnContainer() {
         return VDomUtil.getByFlag(this.vdom, 'neo-c-w-column-container');
     }
@@ -329,6 +322,13 @@ class WeekComponent extends Component {
      */
     getColumnTimeAxisContainer() {
         return VDomUtil.getByFlag(this.vdom, 'neo-c-w-column-timeaxis-container');
+    }
+
+    /**
+     *
+     */
+    getScrollContainer() {
+        return VDomUtil.getByFlag(this.vdom, 'neo-c-w-scrollcontainer');
     }
 
     /**
