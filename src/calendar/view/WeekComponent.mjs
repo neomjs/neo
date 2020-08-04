@@ -71,6 +71,11 @@ class WeekComponent extends Component {
          */
         headerCreated: false,
         /**
+         * @member {Boolean} isUpdating=false
+         * @protected
+         */
+        isUpdating: false,
+        /**
          * @member {Object} timeAxis=null
          */
         timeAxis: null,
@@ -302,6 +307,57 @@ class WeekComponent extends Component {
 
     /**
      *
+     * @param {Date} date
+     * @returns {Object}
+     */
+    createColumnAndHeader(date) {
+        let me          = this,
+            columnCls   = ['neo-c-w-column'],
+            currentDate = date.getDate(),
+            currentDay  = date.getDay(),
+            dateCls     = ['neo-date'],
+            column, header;
+
+        const dt = new Intl.DateTimeFormat(Neo.config.locale, {
+            weekday: me.dayNameFormat
+        });
+
+        if (currentDay === 0 || currentDay === 6) {
+            columnCls.push('neo-weekend');
+        } else {
+            NeoArray.remove(columnCls, 'neo-weekend');
+        }
+
+        if (currentDate        === today.day   &&
+            date.getMonth()    === today.month &&
+            date.getFullYear() === today.year) {
+            dateCls.push('neo-today');
+        }
+
+        column = {
+            cls : columnCls,
+            flag: DateUtil.convertToyyyymmdd(date)
+        };
+
+        header = {
+            cls: ['neo-header-row-item'],
+            cn : [{
+                cls : ['neo-day'],
+                html: dt.format(date)
+            }, {
+                cls : dateCls,
+                html: currentDate
+            }]
+        };
+
+        return {
+            column: column,
+            header: header
+        };
+    }
+
+    /**
+     *
      */
     destroy(...args) {
         this.eventStore = null;
@@ -361,21 +417,52 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onWheel(data) {
-        if (Math.abs(data.deltaX) > Math.abs(data.deltaY)) {
+        if (!this.isUpdating && Math.abs(data.deltaX) > Math.abs(data.deltaY)) {
             let me            = this,
                 vdom          = me.vdom,
+                columns       = me.getColumnContainer(),
                 container     = me.getScrollContainer(),
+                header        = me.getHeaderContainer(),
                 i             = 0,
                 timeAxisWidth = 50,
-                date, len, week;
+                config, date;
 
-            console.log(data.scrollLeft, Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 6));
+            console.log(data.scrollLeft, Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 7));
 
-            if (data.deltaX > 0 && Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 6) > 11) {
-                console.log('### extend range');
+            if (data.deltaX > 0 && Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 7) > 13) {
+                console.log('### extend range', columns.cn);
+                console.log(timeAxisWidth -data.clientWidth);
+
+                me.isUpdating = true;
+
+                date = new Date(columns.cn[columns.cn.length - 1].flag);
+
+                columns.cn.splice(0, 7);
+                header.cn.splice(0, 7);
+
+                for (; i < 7; i++) {
+                    date.setDate(date.getDate() + 1);
+
+                    config= me.createColumnAndHeader(date);
+
+                    columns.cn.push(config.column);
+                    header.cn.push(config.header);
+                }
+
+                me.promiseVdomUpdate().then(() => {
+                    Neo.main.DomAccess.scrollBy({
+                        direction: 'left',
+                        id       : me.getScrollContainer().id,
+                        value    : timeAxisWidth -data.clientWidth
+                    }).then(() => {
+                        me.isUpdating = false;
+                        console.log('done');
+                    });
+                });
             }
 
-            else if (data.deltaX < 0 && Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 6) < 1) {
+            else if (data.deltaX < 0 && Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 7) < 1) {
+                me.isUpdating = true;
                 console.log('### reduce range');
             }
         }
@@ -483,7 +570,8 @@ class WeekComponent extends Component {
 
             if (create) {
                 content.cn.push({
-                    cls: columnCls
+                    cls : columnCls,
+                    flag: DateUtil.convertToyyyymmdd(date)
                 });
 
                 header.cn.push({
@@ -497,7 +585,8 @@ class WeekComponent extends Component {
                     }]
                 });
             } else {
-                content.cn[i].cls = columnCls;
+                content.cn[i].cls  = columnCls;
+                content.cn[i].flag = DateUtil.convertToyyyymmdd(date);
 
                 header.cn[i].cn[0].html = dt.format(date);
 
