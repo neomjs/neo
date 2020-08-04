@@ -23,6 +23,16 @@
             border-left : none;
             border-right: 1px solid v(c-w-border-color);
         }
+
+        .neo-header-row {
+            margin-left : unset;
+            margin-right: 50px;
+        }
+
+        .neo-scroll-overlay {
+            left : unset;
+            right: 0;
+        }
     }
 
     .neo-cw-body-and-header {
@@ -37,6 +47,7 @@
         display       : flex;
         flex          : 1 0 calc(100% / 21);
         flex-direction: column;
+        overflow      : hidden;
         position      : relative;
 
         &:last-child {
@@ -134,10 +145,5 @@
         top             : 0;
         width           : 51px;
         z-index         : 500;
-    }
-
-    .neo-top-left-corner {
-        border-bottom: 1px solid v(c-w-border-color);
-        width        : 50px;
     }
 }
