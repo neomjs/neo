@@ -106,10 +106,10 @@ class WeekComponent extends Component {
                     flag : 'neo-c-w-column-container',
                     style: {},
                     cn   : [{
-                        cls : ['neo-c-w-column-container'],
-                        flag: 'neo-c-w-column-content-container',
+                        cls  : ['neo-c-w-column-container'],
+                        flag : 'neo-c-w-column-content-container',
                         style: {},
-                        cn  : []
+                        cn   : []
                     }],
                 }]
             }]
@@ -174,9 +174,7 @@ class WeekComponent extends Component {
 
         Object.assign(me.getColumnContentContainer().style, {
             backgroundImage: `linear-gradient(${gradient.join(',')})`,
-            backgroundSize : `1px ${rowsPerItem * rowHeight + rowsPerItem}px`,
-            height         : `${height}px`,
-            maxHeight      : `${height}px`
+            backgroundSize : `1px ${rowsPerItem * rowHeight + rowsPerItem}px`
         });
 
         me[silent ? '_vdom' : 'vdom'] = vdom;
