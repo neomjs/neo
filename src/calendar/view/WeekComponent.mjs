@@ -452,7 +452,7 @@ class WeekComponent extends Component {
                 me.promiseVdomUpdate().then(() => {
                     Neo.main.DomAccess.scrollBy({
                         direction: 'left',
-                        id       : me.getScrollContainer().id,
+                        id       : container.id,
                         value    : timeAxisWidth -data.clientWidth
                     }).then(() => {
                         me.isUpdating = false;
@@ -464,6 +464,31 @@ class WeekComponent extends Component {
             else if (data.deltaX < 0 && Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 7) < 1) {
                 me.isUpdating = true;
                 console.log('### reduce range');
+
+                date = new Date(columns.cn[0].flag);
+
+                columns.cn.length = 14;
+                header.cn.length = 14;
+
+                for (; i < 7; i++) {
+                    date.setDate(date.getDate() - 1);
+
+                    config= me.createColumnAndHeader(date);
+
+                    columns.cn.unshift(config.column);
+                    header.cn.unshift(config.header);
+                }
+
+                me.promiseVdomUpdate().then(() => {
+                    Neo.main.DomAccess.scrollBy({
+                        direction: 'left',
+                        id       : container.id,
+                        value    : data.clientWidth - timeAxisWidth
+                    }).then(() => {
+                        me.isUpdating = false;
+                        console.log('done');
+                    });
+                });
             }
         }
     }
