@@ -203,35 +203,6 @@ class WeekComponent extends Component {
     }
 
     /**
-     * Triggered after the mounted config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetMounted(value, oldValue) {
-        if (value) {
-            setTimeout(() => {
-                let me = this,
-                    vdom;
-
-                // without manually assigning width values for the column container,
-                // the sticky positioned timeAxis will get pushed out of the visible
-                // area once the 7th column got scrolled out
-
-                Neo.main.DomAccess.getBoundingClientRect({
-                    id: me.getColumnContentContainer().id
-                }).then(data => {
-                    let width = 3 * data.width + 50;
-
-                    vdom = me.vdom;
-                    me.getColumnContainer().style.width = `${width}px`;
-                    me.vdom = vdom;
-                });
-            }, 20);
-        }
-    }
-
-    /**
      * Triggered after the timeAxisPosition config got changed
      * @param {String} value
      * @param {String} oldValue
