@@ -362,7 +362,22 @@ class WeekComponent extends Component {
      */
     onWheel(data) {
         if (Math.abs(data.deltaX) > Math.abs(data.deltaY)) {
-            console.log('onWheelX', data);
+            let me            = this,
+                vdom          = me.vdom,
+                container     = me.getScrollContainer(),
+                i             = 0,
+                timeAxisWidth = 50,
+                date, len, week;
+
+            console.log(data.scrollLeft, Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 6));
+
+            if (data.deltaX > 0 && Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 6) > 11) {
+                console.log('### extend range');
+            }
+
+            else if (data.deltaX < 0 && Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 6) < 1) {
+                console.log('### reduce range');
+            }
         }
     }
 
