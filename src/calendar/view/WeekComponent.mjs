@@ -103,11 +103,11 @@ class WeekComponent extends Component {
                     flag: 'neo-header-row'
                 }, {
                     cls  : ['neo-c-w-column-timeaxis-container'],
-                    flag : 'neo-c-w-column-container',
+                    flag : 'neo-c-w-column-timeaxis-container',
                     style: {},
                     cn   : [{
                         cls  : ['neo-c-w-column-container'],
-                        flag : 'neo-c-w-column-content-container',
+                        flag : 'neo-c-w-column-container',
                         style: {},
                         cn   : []
                     }],
@@ -139,7 +139,7 @@ class WeekComponent extends Component {
             ...me.timeAxisConfig || {}
         });
 
-        me.getColumnContainer().cn[me.timeAxisPosition === 'start' ? 'unshift' : 'push'](me.timeAxis.vdom);
+        me.getColumnTimeAxisContainer().cn[me.timeAxisPosition === 'start' ? 'unshift' : 'push'](me.timeAxis.vdom);
 
         me.updateHeader(true);
 
@@ -172,7 +172,7 @@ class WeekComponent extends Component {
             );
         }
 
-        Object.assign(me.getColumnContentContainer().style, {
+        Object.assign(me.getColumnContainer().style, {
             backgroundImage: `linear-gradient(${gradient.join(',')})`,
             backgroundSize : `1px ${rowsPerItem * rowHeight + rowsPerItem}px`,
             height         : `${height}px`,
@@ -211,14 +211,15 @@ class WeekComponent extends Component {
      * @protected
      */
     afterSetTimeAxisPosition(value, oldValue) {
-        let me   = this,
-            cls  = me.cls,
-            vdom = me.vdom;
+        let me                = this,
+            cls               = me.cls,
+            vdom              = me.vdom,
+            timeAxisContainer = me.getColumnTimeAxisContainer();
 
         NeoArray[value === 'end' ? 'add' : 'remove'](cls,  'neo-timeaxis-end');
 
         if (oldValue !== undefined) {
-            vdom.cn[1].cn.unshift(vdom.cn[1].cn.pop()); // switch the order of the 2 items
+            timeAxisContainer.cn.unshift(timeAxisContainer.cn.pop()); // switch the order of the 2 items
         }
 
         me._cls = cls;
@@ -281,13 +282,6 @@ class WeekComponent extends Component {
     /**
      *
      */
-    getBackgroundContainer() {
-        return VDomUtil.getByFlag(this.vdom, 'neo-c-w-background');
-    }
-
-    /**
-     *
-     */
     getColumnContainer() {
         return VDomUtil.getByFlag(this.vdom, 'neo-c-w-column-container');
     }
@@ -295,15 +289,8 @@ class WeekComponent extends Component {
     /**
      *
      */
-    getColumnContentContainer() {
-        return VDomUtil.getByFlag(this.vdom, 'neo-c-w-column-content-container');
-    }
-
-    /**
-     *
-     */
-    getVdomContent() {
-        return VDomUtil.getByFlag(this.vdom, 'neo-c-w-content');
+    getColumnTimeAxisContainer() {
+        return VDomUtil.getByFlag(this.vdom, 'neo-c-w-column-timeaxis-container');
     }
 
     /**
@@ -343,7 +330,7 @@ class WeekComponent extends Component {
             date       = DateUtil.clone(me.firstColumnDate),
             eventStore = me.eventStore,
             vdom       = me.vdom,
-            content    = me.getColumnContentContainer(),
+            content    = me.getColumnContainer(),
             j          = 0,
             len        = eventStore.getCount(),
             column, duration, height, i, record, startHours, top;
@@ -398,7 +385,7 @@ class WeekComponent extends Component {
         let me      = this,
             date    = me.currentDate, // cloned
             vdom    = me.vdom,
-            content = me.getColumnContentContainer(),
+            content = me.getColumnContainer(),
             i       = 0,
             columnCls, currentDate, currentDay, dateCls;
 
