@@ -126,8 +126,8 @@ class TimeAxisComponent extends Component {
                 backgroundImage    : `linear-gradient(var(--c-w-background-color) ${itemHeight - 1}px, var(--c-w-border-color) 1px)`,
                 backgroundPositionY: `${-itemHeight + 1}px`,
                 backgroundSize     : `0.4em ${itemHeight}px`,
-                height             : `${totalHeight}px`,
-                maxHeight          : `${totalHeight}px`
+                height             : `${totalHeight - rowHeight + 1}px`,
+                maxHeight          : `${totalHeight - rowHeight + 1}px`
             });
 
             for (i=0; i < 25; i++) {
@@ -145,8 +145,6 @@ class TimeAxisComponent extends Component {
 
                 vdom.cn[i].removeDom = (i < startTime || i - 1 >= endTime);
             }
-
-            me.totalHeight = totalHeight;
 
             // silent update: the view containing this component will trigger the vdom update
             me._vdom = vdom;

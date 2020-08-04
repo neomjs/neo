@@ -92,36 +92,25 @@ class WeekComponent extends Component {
             cn: [{
                 cls: ['neo-header']
             }, {
-                cls: ['neo-c-w-body'],
-                cn : [{
-                    cls: ['neo-scroll-overlay']
+                cls: ['neo-scroll-overlay']
+            }, {
+                cls  : ['neo-cw-body-and-header'],
+                flag : 'neo-cw-body-and-header',
+                style: {},
+                cn   : [{
+                    cls : ['neo-header-row'],
+                    cn  : [],
+                    flag: 'neo-header-row'
                 }, {
-                    cls  : ['neo-cw-body-and-header'],
-                    flag : 'neo-cw-body-and-header',
+                    cls  : ['neo-c-w-column-timeaxis-container'],
+                    flag : 'neo-c-w-column-container',
                     style: {},
-                    cn : [{
-                        cls : ['neo-header-row'],
-                        cn  : [],
-                        flag: 'neo-header-row'
-                    }, {
-                        cls  : ['neo-c-w-content'],
-                        flag : 'neo-c-w-content',
+                    cn   : [{
+                        cls  : ['neo-c-w-column-container'],
+                        flag : 'neo-c-w-column-content-container',
                         style: {},
-                        cn   : [{
-                            cls  : ['neo-c-w-background'],
-                            flag : 'neo-c-w-background',
-                            style: {}
-                        }, {
-                            cls  : ['neo-c-w-column-container'],
-                            flag : 'neo-c-w-column-container',
-                            style: {},
-                            cn   : [{
-                                cls : ['neo-c-w-column-content-container'],
-                                flag: 'neo-c-w-column-content-container',
-                                cn  : []
-                            }],
-                        }]
-                    }]
+                        cn   : []
+                    }],
                 }]
             }]
         },
@@ -183,16 +172,11 @@ class WeekComponent extends Component {
             );
         }
 
-        Object.assign(me.getBackgroundContainer().style, {
+        Object.assign(me.getColumnContentContainer().style, {
             backgroundImage: `linear-gradient(${gradient.join(',')})`,
             backgroundSize : `1px ${rowsPerItem * rowHeight + rowsPerItem}px`,
             height         : `${height}px`,
             maxHeight      : `${height}px`
-        });
-
-        Object.assign(me.getVdomContent().style, {
-            height   : `${height}px`,
-            maxHeight: `${height}px`
         });
 
         me[silent ? '_vdom' : 'vdom'] = vdom;
@@ -218,32 +202,6 @@ class WeekComponent extends Component {
      */
     afterSetEventStore(value, oldValue) {
         // console.log('afterSetEventStore', value);
-    }
-
-    /**
-     * Triggered after the mounted config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetMounted(value, oldValue) {
-        if (value) {
-            setTimeout(() => {
-                let me = this,
-                    vdom;
-
-                Neo.main.DomAccess.getBoundingClientRect({
-                    id: me.getColumnContentContainer().id
-                }).then(data => {
-                    let width = 3 * data.width;
-
-                    vdom = me.vdom;
-                    me.getBackgroundContainer().style.width = `${width -  94}px`;
-                    me.getVdomContent()        .style.width = `${width - 144}px`;
-                    me.vdom = vdom;
-                });
-            }, 20);
-        }
     }
 
     /**
@@ -325,13 +283,6 @@ class WeekComponent extends Component {
      */
     getBackgroundContainer() {
         return VDomUtil.getByFlag(this.vdom, 'neo-c-w-background');
-    }
-
-    /**
-     *
-     */
-    getBodyHeaderContainer() {
-        return VDomUtil.getByFlag(this.vdom, 'neo-cw-body-and-header');
     }
 
     /**

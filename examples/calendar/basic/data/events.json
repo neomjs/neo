@@ -5,8 +5,8 @@
         "id"        : 1,
         "calendarId": 1,
         "description": "Description Text",
-        "endDate"    : "Wed Jul 20 2020 16:45:00 GMT+0200",
-        "startDate"  : "Wed Jul 20 2020 09:15:00 GMT+0200",
+        "endDate"    : "Mon Jul 20 2020 16:45:00 GMT+0200",
+        "startDate"  : "Mon Jul 20 2020 09:15:00 GMT+0200",
         "title"      : "Coding"
     },
     {
@@ -25,8 +25,18 @@
         "id"        : 3,
         "calendarId": 1,
         "description": "Description Text 3",
-        "endDate"    : "Wed Jul 23 2020 14:00:00 GMT+0200",
-        "startDate"  : "Wed Jul 23 2020 12:00:00 GMT+0200",
+        "endDate"    : "Thu Jul 23 2020 14:00:00 GMT+0200",
+        "startDate"  : "Thu Jul 23 2020 12:00:00 GMT+0200",
         "title"      : "Lunch Break 2"
+    },
+    {
+        "attendees" : ["Tobias"],
+        "allDay"    : false,
+        "id"        : 4,
+        "calendarId": 1,
+        "description": "Description Text 3",
+        "endDate"    : "Wed Jul 29 2020 14:00:00 GMT+0200",
+        "startDate"  : "Wed Jul 29 2020 12:00:00 GMT+0200",
+        "title"      : "Lunch Break 3"
     }
 ]
