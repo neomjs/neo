@@ -174,7 +174,9 @@ class WeekComponent extends Component {
 
         Object.assign(me.getColumnContentContainer().style, {
             backgroundImage: `linear-gradient(${gradient.join(',')})`,
-            backgroundSize : `1px ${rowsPerItem * rowHeight + rowsPerItem}px`
+            backgroundSize : `1px ${rowsPerItem * rowHeight + rowsPerItem}px`,
+            height         : `${height}px`,
+            maxHeight      : `${height}px`
         });
 
         me[silent ? '_vdom' : 'vdom'] = vdom;
