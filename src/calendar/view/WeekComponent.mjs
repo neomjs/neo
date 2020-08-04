@@ -327,15 +327,15 @@ class WeekComponent extends Component {
     /**
      *
      */
-    getScrollContainer() {
-        return VDomUtil.getByFlag(this.vdom, 'neo-c-w-scrollcontainer');
+    getHeaderContainer() {
+        return VDomUtil.getByFlag(this.vdom, 'neo-header-row');
     }
 
     /**
      *
      */
-    getVdomHeaderRow() {
-        return VDomUtil.getByFlag(this.vdom, 'neo-header-row');
+    getScrollContainer() {
+        return VDomUtil.getByFlag(this.vdom, 'neo-c-w-scrollcontainer');
     }
 
     /**
@@ -432,7 +432,7 @@ class WeekComponent extends Component {
             date    = me.currentDate, // cloned
             vdom    = me.vdom,
             content = me.getColumnContainer(),
-            header  = me.getVdomHeaderRow(),
+            header  = me.getHeaderContainer(),
             i       = 0,
             columnCls, currentDate, currentDay, dateCls;
 
