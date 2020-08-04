@@ -94,7 +94,7 @@ class WeekComponent extends Component {
             }, {
                 cls: ['neo-scroll-overlay']
             }, {
-                cls  : ['neo-cw-body-and-header'],
+                cls  : ['neo-c-w-scrollcontainer'],
                 flag : 'neo-cw-body-and-header',
                 style: {},
                 cn   : [{
@@ -128,7 +128,14 @@ class WeekComponent extends Component {
     constructor(config) {
         super(config);
 
-        let me = this;
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push({
+            wheel: {fn: me.onWheel, scope: me}
+        });
+
+        me.domListeners = domListeners;
 
         me.timeAxis = Neo.create(TimeAxisComponent, {
             parentId : me.id,
@@ -347,6 +354,14 @@ class WeekComponent extends Component {
         if (me.headerCreated) {
             me.updateEvents();
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onWheel(data) {
+        console.log('onWheel', data);
     }
 
     /**

@@ -29,6 +29,7 @@ const touchEvents = [
 // wheel events fire very often, so we limit the targets to avoid unnecessary post messages from main to the app worker
 const globalWheelTargets = [
     'neo-c-m-scrollcontainer',
+    'neo-c-w-scrollcontainer',
     'neo-circle-component',
     'neo-dateselector',
     'neo-gallery',
@@ -38,12 +39,14 @@ const globalWheelTargets = [
 // separated from globalWheelTargets => performance
 const globalWheelTargetsBuffer = {
     'neo-c-m-scrollcontainer': 100,
+    'neo-c-w-scrollcontainer': 100,
     'neo-dateselector'       : 300 // buffer in ms
 };
 
 // separated from globalWheelTargets => performance
 const globalWheelTargetsKeepEvent = [
-    'neo-c-m-scrollcontainer'
+    'neo-c-m-scrollcontainer',
+    'neo-c-w-scrollcontainer'
 ];
 
 const lastWheelEvent = {
