@@ -386,6 +386,7 @@ class WeekComponent extends Component {
             date    = me.currentDate, // cloned
             vdom    = me.vdom,
             content = me.getColumnContainer(),
+            header  = me.getVdomHeaderRow(),
             i       = 0,
             columnCls, currentDate, currentDay, dateCls;
 
@@ -422,7 +423,7 @@ class WeekComponent extends Component {
                     cls: columnCls
                 });
 
-                me.getVdomHeaderRow().cn.push({
+                header.cn.push({
                     cls: ['neo-header-row-item'],
                     cn : [{
                         cls : ['neo-day'],
@@ -435,9 +436,9 @@ class WeekComponent extends Component {
             } else {
                 content.cn[i].cls = columnCls;
 
-                content.cn[i].cn[0].cn[0].html = dt.format(date);
+                header.cn[i].cn[0].html = dt.format(date);
 
-                Object.assign(content.cn[i].cn[0].cn[1], {
+                Object.assign(header.cn[i].cn[1], {
                     cls : dateCls,
                     html: currentDate
                 });
