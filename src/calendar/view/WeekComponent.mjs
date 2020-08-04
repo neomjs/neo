@@ -552,7 +552,7 @@ class WeekComponent extends Component {
             i       = 0,
             columnCls, currentDate, currentDay, dateCls;
 
-        date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
+        date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay - 7);
 
         me.firstColumnDate = DateUtil.clone(date);
 
