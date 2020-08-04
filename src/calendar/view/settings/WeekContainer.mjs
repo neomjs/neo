@@ -65,7 +65,7 @@ class WeekContainer extends Container {
             minValue : '14:00',
             name     : 'endTime',
             stepSize : 60 * 60, // 1h
-            value    : timeAxis.endTime !== '24:00' ? timeAxis.endTime : undefined
+            value    : timeAxis.endTime !== '24:00' ? timeAxis.endTime : null
         }, {
             module              : NumberField,
             clearable           : true,
