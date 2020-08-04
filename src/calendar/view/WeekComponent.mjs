@@ -361,7 +361,9 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onWheel(data) {
-        console.log('onWheel', data);
+        if (Math.abs(data.deltaX) > Math.abs(data.deltaY)) {
+            console.log('onWheelX', data);
+        }
     }
 
     /**
