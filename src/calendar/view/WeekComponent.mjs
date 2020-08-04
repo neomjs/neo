@@ -419,22 +419,16 @@ class WeekComponent extends Component {
     onWheel(data) {
         if (!this.isUpdating && Math.abs(data.deltaX) > Math.abs(data.deltaY)) {
             let me            = this,
-                vdom          = me.vdom,
                 columns       = me.getColumnContainer(),
-                container     = me.getScrollContainer(),
                 header        = me.getHeaderContainer(),
                 i             = 0,
                 timeAxisWidth = 50,
-                config, date;
+                width         = data.clientWidth - timeAxisWidth,
+                config, date, scrollValue;
 
-            console.log(data.scrollLeft, Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 7));
+            // console.log(data.scrollLeft, Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 7));
 
-            if (data.deltaX > 0 && Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 7) > 13) {
-                console.log('### extend range', columns.cn);
-                console.log(timeAxisWidth -data.clientWidth);
-
-                me.isUpdating = true;
-
+            if (data.deltaX > 0 && Math.round(data.scrollLeft / width * 7) > 13) {
                 date = new Date(columns.cn[columns.cn.length - 1].flag);
 
                 columns.cn.splice(0, 7);
@@ -449,22 +443,10 @@ class WeekComponent extends Component {
                     header.cn.push(config.header);
                 }
 
-                me.promiseVdomUpdate().then(() => {
-                    Neo.main.DomAccess.scrollBy({
-                        direction: 'left',
-                        id       : container.id,
-                        value    : timeAxisWidth -data.clientWidth
-                    }).then(() => {
-                        me.isUpdating = false;
-                        console.log('done');
-                    });
-                });
+                scrollValue = -width;
             }
 
-            else if (data.deltaX < 0 && Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 7) < 1) {
-                me.isUpdating = true;
-                console.log('### reduce range');
-
+            else if (data.deltaX < 0 && Math.round(data.scrollLeft / width * 7) < 1) {
                 date = new Date(columns.cn[0].flag);
 
                 columns.cn.length = 14;
@@ -479,14 +461,19 @@ class WeekComponent extends Component {
                     header.cn.unshift(config.header);
                 }
 
+                scrollValue = width;
+            }
+
+            if (scrollValue) {
+                me.isUpdating = true;
+
                 me.promiseVdomUpdate().then(() => {
                     Neo.main.DomAccess.scrollBy({
                         direction: 'left',
-                        id       : container.id,
-                        value    : data.clientWidth - timeAxisWidth
+                        id       : me.getScrollContainer().id,
+                        value    : scrollValue
                     }).then(() => {
                         me.isUpdating = false;
-                        console.log('done');
                     });
                 });
             }
