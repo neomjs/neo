@@ -205,6 +205,30 @@ class WeekComponent extends Component {
     }
 
     /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        if (value) {
+            setTimeout(() => {
+                let me = this;
+
+                Neo.main.DomAccess.getBoundingClientRect({
+                    id: me.getColumnContainer().id
+                }).then(data => {
+                    Neo.main.DomAccess.scrollBy({
+                        direction: 'left',
+                        id       : me.getBodyAndHeaderContainer().id,
+                        value    : data.width / 3
+                    });
+                });
+            }, 20);
+        }
+    }
+
+    /**
      * Triggered after the timeAxisPosition config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -277,6 +301,13 @@ class WeekComponent extends Component {
         this.timeAxis   = null;
 
         super.destroy(...args);
+    }
+
+    /**
+     *
+     */
+    getBodyAndHeaderContainer() {
+        return VDomUtil.getByFlag(this.vdom, 'neo-cw-body-and-header');
     }
 
     /**
