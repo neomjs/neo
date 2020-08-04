@@ -38,11 +38,10 @@ class DomAccess extends Base {
                 'focus',
                 'getAttributes',
                 'getBoundingClientRect',
+                'scrollBy',
                 'scrollIntoView',
-                'scrollTopBy',
+                'scrollTo',
                 'scrollToTableRow',
-                'scrollTopBy',
-                'scrollTopTo',
                 'selectNode',
                 'setStyle',
                 'windowScrollTo'
@@ -395,15 +394,16 @@ class DomAccess extends Base {
     /**
      *
      * @param {Object} data
+     * @param {String} data.direction left, top
      * @param {String} data.id
      * @param {Number} data.value
      * @returns {Object} obj.id => the passed id
      */
-    scrollTopBy(data) {
+    scrollBy(data) {
         let node = this.getElement(data.id);
 
         if (node) {
-            node.scrollTop += data.value;
+            node[`scroll${Neo.capitalize(data.direction)}`] += data.value;
         }
 
         return {id: data.id};
@@ -412,15 +412,16 @@ class DomAccess extends Base {
     /**
      *
      * @param {Object} data
+     * @param {String} data.direction left, top
      * @param {String} data.id
      * @param {Number} data.value
      * @returns {Object} obj.id => the passed id
      */
-    scrollTopTo(data) {
+    scrollTo(data) {
         let node = this.getElement(data.id);
 
         if (node) {
-            node.scrollTop = data.value;
+            node[`scroll${Neo.capitalize(data.direction)}`] = data.value;
         }
 
         return {id: data.id};

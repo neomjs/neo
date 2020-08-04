@@ -209,9 +209,10 @@ class MonthComponent extends Component {
                 }).then(data => {
                     me.headerHeight = data[1].height;
 
-                    Neo.main.DomAccess.scrollTopBy({
-                        id   : me.vdom.cn[1].id,
-                        value: data[0].height - data[1].height
+                    Neo.main.DomAccess.scrollBy({
+                        direction: 'top',
+                        id       : me.vdom.cn[1].id,
+                        value    : data[0].height - data[1].height
                     });
                 });
             }, 20);
@@ -430,9 +431,10 @@ class MonthComponent extends Component {
                 }
 
                 me.promiseVdomUpdate(me.vdom).then(() => {
-                    Neo.main.DomAccess.scrollTopTo({
-                        id   : me.vdom.cn[1].id,
-                        value: data.clientHeight - me.headerHeight
+                    Neo.main.DomAccess.scrollTo({
+                        direction: 'top',
+                        id       : me.vdom.cn[1].id,
+                        value    : data.clientHeight - me.headerHeight
                     });
                 });
             }
