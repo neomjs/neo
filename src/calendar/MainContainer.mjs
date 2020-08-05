@@ -134,9 +134,9 @@ class MainContainer extends Container {
          */
         settingsExpanded_: false,
         /**
-         * @member {Boolean} showWeekends_=false
+         * @member {Boolean} showWeekends_=true
          */
-        showWeekends_: false,
+        showWeekends_: true,
         /**
          * @member {Boolean} sideBarExpanded_=true
          */
