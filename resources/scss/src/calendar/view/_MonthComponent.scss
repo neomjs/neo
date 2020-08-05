@@ -28,11 +28,11 @@
             border-right   : 1px solid v(c-m-border-color);
             color          : v(c-m-day-number-color);
             display        : flex;
-            flex-basis     : calc(100% / 7);
+            flex           : 1 1 100%;
             justify-content: flex-end;
             padding        : .3em;
 
-            &:nth-child(7n) {
+            &:last-child {
                 border-right: 1px solid transparent;
             }
         }
