@@ -256,8 +256,8 @@ class MainContainer extends Container {
 
     /**
      * Triggered after the showWeekends config got changed
-     * @param {Date} value
-     * @param {Date} oldValue
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
      * @protected
      */
     afterSetShowWeekends(value, oldValue) {
