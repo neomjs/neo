@@ -595,7 +595,9 @@ class YearComponent extends Component {
      * @param {Object} data
      */
     onWheel(data) {
-        console.log('onWheel', data);
+        if (Math.abs(data.deltaY) > Math.abs(data.deltaX)) {
+            console.log('onWheel', data);
+        }
     }
 
     /**
