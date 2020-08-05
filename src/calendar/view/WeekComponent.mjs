@@ -216,6 +216,22 @@ class WeekComponent extends Component {
     }
 
     /**
+     * Triggered after the dayNameFormat config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetDayNameFormat(value, oldValue) {
+        let me = this;
+
+        me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
+
+        if (oldValue !== undefined) {
+            me.updateHeader();
+        }
+    }
+
+    /**
      * Triggered after the eventStore config got changed
      * @param {String} value
      * @param {String} oldValue
