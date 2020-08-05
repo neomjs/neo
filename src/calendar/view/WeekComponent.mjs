@@ -71,6 +71,11 @@ class WeekComponent extends Component {
          */
         headerCreated: false,
         /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_day=null
+         * @protected
+         */
+        intlFormat_day: null,
+        /**
          * @member {Boolean} isUpdating=false
          * @protected
          */
