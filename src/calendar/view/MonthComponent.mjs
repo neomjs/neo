@@ -224,6 +224,18 @@ class MonthComponent extends Component {
     }
 
     /**
+     * Triggered after the showWeekends config got changed
+     * @param {Date} value
+     * @param {Date} oldValue
+     * @protected
+     */
+    afterSetShowWeekends(value, oldValue) {
+        if (oldValue !== undefined) {
+            console.log('afterSetShowWeekends', value);
+        }
+    }
+
+    /**
      * Triggered after the useScrollBoxShadows config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -313,7 +325,7 @@ class MonthComponent extends Component {
         let me     = this,
             i      = 0,
             header = null,
-            day, dayCls, row, weekDay;
+            day, dayConfig, row, weekDay;
 
         row = {
             flag: DateUtil.convertToyyyymmdd(date),
@@ -344,17 +356,22 @@ class MonthComponent extends Component {
                 };
             }
 
-            dayCls  = ['neo-day'];
+            dayConfig = {
+                cls : ['neo-day'],
+                html: day
+            };
+
             weekDay = date.getDay();
 
             if (weekDay === 0 || weekDay === 6) {
-                dayCls.push('neo-weekend');
+                dayConfig.cls.push('neo-weekend');
+
+                if (!me.showWeekends) {
+                    dayConfig.removeDom = true;
+                }
             }
 
-            row.cn.push({
-                cls : dayCls,
-                html: day
-            });
+            row.cn.push(dayConfig);
 
             date.setDate(date.getDate() + 1);
         }
