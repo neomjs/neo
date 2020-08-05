@@ -262,12 +262,7 @@ class MainContainer extends Container {
      */
     afterSetShowWeekends(value, oldValue) {
         if (oldValue !== undefined) {
-            let me = this;
-
-            me.monthComponent.showWeekends = value;
-            me.weekComponent .showWeekends = value;
-            me.yearComponent .showWeekends = value;
-            me.dateSelector  .showWeekends = value;
+            this.setViewConfig('showWeekends', value);
         }
     }
 
