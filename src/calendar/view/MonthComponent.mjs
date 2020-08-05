@@ -231,8 +231,28 @@ class MonthComponent extends Component {
      */
     afterSetShowWeekends(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('afterSetShowWeekends', value);
-            this.updateHeader();
+            let me   = this,
+                vdom = me.vdom,
+                i, item;
+
+            vdom.cn[1].cn.forEach(row => {
+                if (row.flag) {
+                    for (i=0; i < 7; i++) {
+                        item = row.cn[i];
+
+                        if (item.cls.includes('neo-weekend')) {
+                            if (value) {
+                                delete item.removeDom;
+                            } else {
+                                item.removeDom = true;
+                            }
+                        }
+                    }
+                }
+            });
+
+            // triggers the vdom update
+            me.updateHeader();
         }
     }
 
