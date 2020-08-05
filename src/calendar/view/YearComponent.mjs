@@ -242,7 +242,8 @@ class YearComponent extends Component {
                 }
             }
 
-            me.vdom = vdom;
+            // triggers the vdom update
+            me.updateDayNamesRows(me.dayNameFormat, '');
         }
     }
 
@@ -598,13 +599,22 @@ class YearComponent extends Component {
             let date = me.currentDate, // cloned
                 vdom = me.vdom,
                 i    = 1,
-                j;
+                day, j, node;
 
             date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
             for (; i < 8; i++) {
                 for (j=0; j < 12; j++) {
-                    vdom.cn[0].cn[1].cn[j].cn[1].cn[i].html = me.intlFormat_day.format(date);
+                    day  = date.getDay();
+                    node = vdom.cn[0].cn[1].cn[j].cn[1].cn[i];
+
+                    node.html = me.intlFormat_day.format(date);
+
+                    if (!me.showWeekends && (day === 0 || day === 6)) {
+                        node.removeDom = true;
+                    } else {
+                        delete node.removeDom;
+                    }
                 }
 
                 date.setDate(date.getDate() + 1);
