@@ -94,6 +94,10 @@ class YearComponent extends Component {
          */
         showDisabledDays_: true,
         /**
+         * @member {Boolean} showWeekends_=true
+         */
+        showWeekends_: true,
+        /**
          * True to show the week number as the first column of each month
          * @member {Boolean} showWeekNumbers_=true
          */
