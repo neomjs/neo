@@ -298,7 +298,9 @@ class DateSelector extends Component {
      */
     afterSetShowWeekends(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('afterSetShowWeekends', value);
+            let me = this;
+
+            me.updateHeaderDays(me.dayNameFormat, '');
         }
     }
 
@@ -853,12 +855,25 @@ class DateSelector extends Component {
             let centerEl = me.getCenterContentEl().cn[0],
                 date     = me.currentDate, // cloned
                 vdom     = me.vdom,
-                i        = 0;
+                i        = 0,
+                day, node;
 
             date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
             for (; i < 7; i++) {
-                centerEl.cn[i].cn[0].html = me.intlFormat_day.format(date);
+                node = centerEl.cn[i];
+
+                node.cn[0].html = me.intlFormat_day.format(date);
+
+                day = date.getDay();
+
+                if (day === 0 || day === 6) {
+                    if (me.showWeekends) {
+                        delete node.removeDom
+                    } else {
+                        node.removeDom = true;
+                    }
+                }
 
                 date.setDate(date.getDate() + 1);
             }
