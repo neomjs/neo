@@ -343,10 +343,6 @@ class WeekComponent extends Component {
             dateCls     = ['neo-date'],
             column, header;
 
-        const dt = new Intl.DateTimeFormat(Neo.config.locale, {
-            weekday: me.dayNameFormat
-        });
-
         if (currentDay === 0 || currentDay === 6) {
             columnCls.push('neo-weekend');
         } else {
@@ -368,7 +364,7 @@ class WeekComponent extends Component {
             cls: ['neo-header-row-item'],
             cn : [{
                 cls : ['neo-day'],
-                html: dt.format(date)
+                html: me.intlFormat_day.format(date)
             }, {
                 cls : dateCls,
                 html: currentDate
@@ -581,10 +577,6 @@ class WeekComponent extends Component {
 
         me.firstColumnDate = DateUtil.clone(date);
 
-        const dt = new Intl.DateTimeFormat(Neo.config.locale, {
-            weekday: me.dayNameFormat
-        });
-
         for (; i < 21; i++) {
             columnCls   = ['neo-c-w-column'];
             currentDate = date.getDate();
@@ -615,7 +607,7 @@ class WeekComponent extends Component {
                     cls: ['neo-header-row-item'],
                     cn : [{
                         cls : ['neo-day'],
-                        html: dt.format(date)
+                        html: me.intlFormat_day.format(date)
                     }, {
                         cls : dateCls,
                         html: currentDate
@@ -625,7 +617,7 @@ class WeekComponent extends Component {
                 content.cn[i].cls  = columnCls;
                 content.cn[i].flag = DateUtil.convertToyyyymmdd(date);
 
-                header.cn[i].cn[0].html = dt.format(date);
+                header.cn[i].cn[0].html = me.intlFormat_day.format(date);
 
                 Object.assign(header.cn[i].cn[1], {
                     cls : dateCls,
