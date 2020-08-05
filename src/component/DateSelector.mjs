@@ -556,18 +556,27 @@ class DateSelector extends Component {
             date = DateUtil.clone(me.currentDate),
             i    = 0,
             len  = 7,
-            row  = {cls: ['neo-row', 'neo-header-row'], cn: []};
+            row  = {cls: ['neo-row', 'neo-header-row'], cn: []},
+            config, day;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
         for (; i < len; i++) {
-            row.cn.push({
+            config = {
                 cls: ['neo-cell'],
                 cn : [{
                     cls : ['neo-cell-content'],
                     html: me.intlFormat_day.format(date)
                 }]
-            });
+            };
+
+            day = date.getDay();
+
+            if (!me.showWeekends && (day === 0 || day === 6)) {
+                config.removeDom = true;
+            }
+
+            row.cn.push(config);
 
             date.setDate(date.getDate() + 1);
         }
