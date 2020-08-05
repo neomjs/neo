@@ -103,6 +103,10 @@ class DateSelector extends Component {
          */
         showDisabledDays_: true,
         /**
+         * @member {Boolean} showWeekends_=true
+         */
+        showWeekends_: true,
+        /**
          * True to use sliding animations
          * @member {Boolean} useAnimations=true
          */
