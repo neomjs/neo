@@ -227,7 +227,7 @@ class YearComponent extends Component {
                 itemCn = vdom.cn[0].cn[1].cn[i].cn;
                 len    = itemCn.length;
 
-                for (j = 1; j < len; j++) { // weeks
+                for (j=1; j < len; j++) { // weeks
                     for (k=1; k < 8; k++) { // days
                         item = itemCn[j].cn[k];
 
@@ -407,15 +407,24 @@ class YearComponent extends Component {
         let me   = this,
             date = me.currentDate, // cloned
             i    = 0,
-            row  = {cls: ['neo-calendar-week'], cn: [{cls: ['neo-cell', 'neo-top-left-spacer']}]};
+            row  = {cls: ['neo-calendar-week'], cn: [{cls: ['neo-cell', 'neo-top-left-spacer']}]},
+            day, node;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
         for (; i < 7; i++) {
-            row.cn.push({
+            node = {
                 cls : ['neo-cell', 'neo-weekday-cell'],
                 html: me.intlFormat_day.format(date)
-            });
+            };
+
+            day = date.getDay();
+
+            if (!me.showWeekends && (day === 0 || day === 6)) {
+                node.removeDom = true;
+            }
+
+            row.cn.push(node);
 
             date.setDate(date.getDate() + 1);
         }
@@ -483,6 +492,10 @@ class YearComponent extends Component {
 
                 if (dateDay === 0 || dateDay === 6) {
                     config.cls.push('neo-weekend');
+
+                    if (!me.showWeekends) {
+                        config.removeDom = true;
+                    }
                 }
 
                 if (today.year === currentYear && today.month === currentMonth && today.day === day) {
