@@ -94,6 +94,10 @@ class YearComponent extends Component {
          */
         showDisabledDays_: true,
         /**
+         * @member {Boolean} showWeekends_=true
+         */
+        showWeekends_: true,
+        /**
          * True to show the week number as the first column of each month
          * @member {Boolean} showWeekNumbers_=true
          */
@@ -134,8 +138,18 @@ class YearComponent extends Component {
      */
     constructor(config) {
         super(config);
-        this.updateHeaderYear();
-        this.createMonths();
+
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push({
+            wheel: {fn: me.onWheel, scope: me}
+        });
+
+        me.domListeners = domListeners;
+
+        me.updateHeaderYear();
+        me.createMonths();
     }
 
     /**
@@ -204,6 +218,43 @@ class YearComponent extends Component {
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-show-cell-borders');
         this.cls = cls;
+    }
+
+    /**
+     * Triggered after the showWeekends config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowWeekends(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me   = this,
+                vdom = me.vdom,
+                i    = 0,
+                item, itemCn, j, k, len;
+
+            for (; i < 12; i++) { // months
+                itemCn = vdom.cn[0].cn[1].cn[i].cn;
+                len    = itemCn.length;
+
+                for (j=1; j < len; j++) { // weeks
+                    for (k=1; k < 8; k++) { // days
+                        item = itemCn[j].cn[k];
+
+                        if (item.cls.includes('neo-weekend')) {
+                            if (value) {
+                                delete item.removeDom;
+                            } else {
+                                item.removeDom = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // triggers the vdom update
+            me.updateDayNamesRows(me.dayNameFormat, '');
+        }
     }
 
     /**
@@ -366,15 +417,24 @@ class YearComponent extends Component {
         let me   = this,
             date = me.currentDate, // cloned
             i    = 0,
-            row  = {cls: ['neo-calendar-week'], cn: [{cls: ['neo-cell', 'neo-top-left-spacer']}]};
+            row  = {cls: ['neo-calendar-week'], cn: [{cls: ['neo-cell', 'neo-top-left-spacer']}]},
+            day, node;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
         for (; i < 7; i++) {
-            row.cn.push({
+            node = {
                 cls : ['neo-cell', 'neo-weekday-cell'],
                 html: me.intlFormat_day.format(date)
-            });
+            };
+
+            day = date.getDay();
+
+            if (!me.showWeekends && (day === 0 || day === 6)) {
+                node.removeDom = true;
+            }
+
+            row.cn.push(node);
 
             date.setDate(date.getDate() + 1);
         }
@@ -402,7 +462,7 @@ class YearComponent extends Component {
             columns        = 7,
             i              = 0,
             weekDate       = DateUtil.clone(currentDate),
-            cellCls, cellId, cls, day, hasContent, j, row, rows;
+            cellId, config, dateDay, day, hasContent, j, row, rows;
 
         rows = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
         day  = 1 - firstDayOffset;
@@ -426,34 +486,41 @@ class YearComponent extends Component {
 
             for (j=0; j < columns; j++) {
                 hasContent = day > 0 && day <= daysInMonth;
-                cellCls    = hasContent ? ['neo-cell'] : ['neo-cell', 'neo-disabled'];
                 cellId     = me.getCellId(currentYear, currentMonth + 1, day);
-                cls        = ['neo-cell-content'];
+                dateDay    = date.getDay();
 
-                if (today.year === currentYear && today.month === currentMonth && today.day === day) {
-                    cls.push('neo-today');
-                }
-
-                if (valueYear === currentYear && valueMonth === currentMonth && day === currentDay) {
-                    cellCls.push('neo-selected');
-                }
-
-                row.cn.push({
+                config = {
                     id      : cellId,
-                    cls     : cellCls,
+                    cls     : hasContent ? ['neo-cell'] : ['neo-cell', 'neo-disabled'],
                     tabIndex: hasContent ? -1 : null,
 
                     cn: [{
-                        cls : cls,
+                        cls : ['neo-cell-content'],
                         html: hasContent ? day : me.showDisabledDays ? date.getDate() : ''
                     }]
-                });
+                };
+
+                if (dateDay === 0 || dateDay === 6) {
+                    config.cls.push('neo-weekend');
+
+                    if (!me.showWeekends) {
+                        config.removeDom = true;
+                    }
+                }
+
+                if (today.year === currentYear && today.month === currentMonth && today.day === day) {
+                    config.cn[0].cls.push('neo-today');
+                }
+
+                if (valueYear === currentYear && valueMonth === currentMonth && day === currentDay) {
+                    config.cls.push('neo-selected');
+                }
+
+                row.cn.push(config);
+
+                date.setDate(date.getDate() + 1);
 
                 day++;
-
-                if (me.showDisabledDays) {
-                    date.setDate(date.getDate() + 1);
-                }
             }
 
             containerEl.cn.push(row);
@@ -524,6 +591,21 @@ class YearComponent extends Component {
     }
 
     /**
+     *
+     * @param {Object} data
+     */
+    onWheel(data) {
+        if (Math.abs(data.deltaY) > Math.abs(data.deltaX)) {
+            let me          = this,
+                currentDate = me.currentDate; // cloned
+
+            currentDate.setFullYear(currentDate.getFullYear() + (data.deltaY > 0 ? 1 : -1));
+
+            me.currentDate = currentDate;
+        }
+    }
+
+    /**
      * Triggers a vdom update & sets isUpdating
      * @param {Boolean} [silent=false]
      * @protected
@@ -555,13 +637,22 @@ class YearComponent extends Component {
             let date = me.currentDate, // cloned
                 vdom = me.vdom,
                 i    = 1,
-                j;
+                day, j, node;
 
             date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
             for (; i < 8; i++) {
                 for (j=0; j < 12; j++) {
-                    vdom.cn[0].cn[1].cn[j].cn[1].cn[i].html = me.intlFormat_day.format(date);
+                    day  = date.getDay();
+                    node = vdom.cn[0].cn[1].cn[j].cn[1].cn[i];
+
+                    node.html = me.intlFormat_day.format(date);
+
+                    if (!me.showWeekends && (day === 0 || day === 6)) {
+                        node.removeDom = true;
+                    } else {
+                        delete node.removeDom;
+                    }
                 }
 
                 date.setDate(date.getDate() + 1);
