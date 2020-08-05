@@ -255,6 +255,23 @@ class MainContainer extends Container {
     }
 
     /**
+     * Triggered after the showWeekends config got changed
+     * @param {Date} value
+     * @param {Date} oldValue
+     * @protected
+     */
+    afterSetShowWeekends(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.monthComponent.showWeekends = value;
+            me.weekComponent .showWeekends = value;
+            me.yearComponent .showWeekends = value;
+            me.dateSelector  .showWeekends = value;
+        }
+    }
+
+    /**
      * Triggered after the settingsExpanded config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
