@@ -232,6 +232,7 @@ class MonthComponent extends Component {
     afterSetShowWeekends(value, oldValue) {
         if (oldValue !== undefined) {
             console.log('afterSetShowWeekends', value);
+            this.updateHeader();
         }
     }
 
@@ -515,18 +516,37 @@ class MonthComponent extends Component {
         let me   = this,
             date = me.currentDate, // cloned
             vdom = me.vdom,
-            i    = 1;
+            i    = 1,
+            day, node;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
         for (; i < 8; i++) {
+            day = date.getDay();
+
             if (create) {
-                vdom.cn[0].cn.push({
+                node = {
                     cls : ['neo-day-name'],
                     html: me.intlFormat_day.format(date)
-                });
+                };
+
+                if (!me.showWeekends && (day === 0 || day === 6)) {
+                    node.removeDom = true;
+                }
+
+                vdom.cn[0].cn.push(node);
             } else {
-                vdom.cn[0].cn[i].html = me.intlFormat_day.format(date);
+                node = vdom.cn[0].cn[i];
+
+                node.html = me.intlFormat_day.format(date);
+
+                if (day === 0 || day === 6) {
+                    if (me.showWeekends) {
+                        delete node.removeDom;
+                    } else {
+                        node.removeDom = true;
+                    }
+                }
             }
 
             date.setDate(date.getDate() + 1);

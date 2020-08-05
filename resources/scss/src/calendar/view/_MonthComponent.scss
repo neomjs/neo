@@ -83,7 +83,7 @@
             border-right   : 1px solid transparent;
             color          : v(c-m-day-name-color);
             display        : flex;
-            flex-basis     : calc(100% / 7);
+            flex           : 1 1 100%;
             justify-content: flex-end;
             padding        : .3em;
         }
