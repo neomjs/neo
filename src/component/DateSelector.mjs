@@ -595,6 +595,7 @@ class DateSelector extends Component {
             currentDay      = currentDate.getDate(),
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),
+            date            = me.currentDate, // cloned
             valueDate       = new Date(me.value),
             valueMonth      = valueDate.getMonth(),
             valueYear       = valueDate.getFullYear(),
@@ -605,11 +606,13 @@ class DateSelector extends Component {
             centerEl        = containerEl || me.getCenterContentEl(),
             columns         = 7,
             i               = 0,
-            cellCls, cellId, cls, day, disabledDate, hasContent, j, row, rows;
+            cellId, config, dateDay, day, hasContent, j, row, rows;
 
         firstDayOffset = firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
         rows           = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
         day            = 1 - firstDayOffset;
+
+        date.setDate(day);
 
         centerEl.cn.push(me.createDayNamesRow());
 
@@ -618,33 +621,36 @@ class DateSelector extends Component {
 
             for (j=0; j < columns; j++) {
                 hasContent = day > 0 && day <= daysInMonth;
-                cellCls    = hasContent ? ['neo-cell'] : ['neo-cell', 'neo-disabled'];
                 cellId     = me.getCellId(currentYear, currentMonth + 1, day);
-                cls        = ['neo-cell-content'];
+
+                dateDay = date.getDay();
+
+                config = {
+                    id      : cellId,
+                    cls     : hasContent ? ['neo-cell'] : ['neo-cell', 'neo-disabled'],
+                    tabIndex: hasContent ? -1 : null,
+                    cn: [{
+                        cls : ['neo-cell-content'],
+                        html: hasContent ? day : me.showDisabledDays ? date.getDate() : ''
+                    }]
+                }
+
+                if (!me.showWeekends && (dateDay === 0 || dateDay === 6)) {
+                    config.removeDom = true;
+                }
 
                 if (today.year === currentYear && today.month === currentMonth && today.day === day) {
-                    cls.push('neo-today');
+                    config.cn[0].cls.push('neo-today');
                 }
 
                 if (valueYear === currentYear && valueMonth === currentMonth && day === currentDay) {
-                    cellCls.push('neo-selected');
+                    config.cls.push('neo-selected');
                     me.selectionModel.items = [cellId]; // silent update
                 }
 
-                if (me.showDisabledDays && !hasContent) {
-                    disabledDate = me.currentDate; // cloned
-                    disabledDate.setDate(day);
-                }
+                row.cn.push(config);
 
-                row.cn.push({
-                    id      : cellId,
-                    cls     : cellCls,
-                    tabIndex: hasContent ? -1 : null,
-                    cn: [{
-                        cls : cls,
-                        html: hasContent ? day : me.showDisabledDays ? disabledDate.getDate() : ''
-                    }]
-                });
+                date.setDate(date.getDate() + 1);
 
                 day++;
             }
