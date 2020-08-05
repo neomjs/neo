@@ -596,7 +596,12 @@ class YearComponent extends Component {
      */
     onWheel(data) {
         if (Math.abs(data.deltaY) > Math.abs(data.deltaX)) {
-            console.log('onWheel', data);
+            let me          = this,
+                currentDate = me.currentDate; // cloned
+
+            currentDate.setFullYear(currentDate.getFullYear() + (data.deltaY > 0 ? 1 : -1));
+
+            me.currentDate = currentDate;
         }
     }
 
