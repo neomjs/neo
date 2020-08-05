@@ -85,6 +85,10 @@ class MonthComponent extends Component {
          */
         scrollTaskId: null,
         /**
+         * @member {Boolean} showWeekends_=true
+         */
+        showWeekends_: true,
+        /**
          * True to use box shadows for the months while scrolling
          * @member {Boolean} useScrollBoxShadows_=true
          */
