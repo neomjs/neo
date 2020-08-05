@@ -108,23 +108,21 @@ class WeekComponent extends Component {
             }, {
                 cls: ['neo-scroll-overlay']
             }, {
-                cls  : ['neo-c-w-scrollcontainer'],
-                flag : 'neo-c-w-scrollcontainer',
-                style: {},
-                cn   : [{
+                cls : ['neo-c-w-scrollcontainer'],
+                flag: 'neo-c-w-scrollcontainer',
+                cn  : [{
                     cls : ['neo-header-row'],
                     cn  : [],
                     flag: 'neo-header-row'
                 }, {
-                    cls  : ['neo-c-w-column-timeaxis-container'],
-                    flag : 'neo-c-w-column-timeaxis-container',
-                    style: {},
-                    cn   : [{
+                    cls : ['neo-c-w-column-timeaxis-container'],
+                    flag: 'neo-c-w-column-timeaxis-container',
+                    cn  : [{
                         cls  : ['neo-c-w-column-container'],
                         flag : 'neo-c-w-column-container',
                         style: {},
                         cn   : []
-                    }],
+                    }]
                 }]
             }]
         },
