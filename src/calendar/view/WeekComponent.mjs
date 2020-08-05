@@ -76,6 +76,10 @@ class WeekComponent extends Component {
          */
         isUpdating: false,
         /**
+         * @member {String} locale_=Neo.config.locale
+         */
+        locale_: Neo.config.locale,
+        /**
          * @member {Object} timeAxis=null
          */
         timeAxis: null,
