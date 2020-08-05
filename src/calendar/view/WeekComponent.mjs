@@ -221,6 +221,22 @@ class WeekComponent extends Component {
     }
 
     /**
+     * Triggered after the locale config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLocale(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.intlFormat_day = new Intl.DateTimeFormat(value, {weekday: me.dayNameFormat});
+
+            me.updateHeader();
+        }
+    }
+
+    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
