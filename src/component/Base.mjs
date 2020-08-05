@@ -1134,6 +1134,14 @@ class Base extends CoreBase {
     }
 
     /**
+     * Convenience shortcut calling set() with the silent flag
+     * @param {Object} values={}
+     */
+    setSilent(values={}) {
+        return this.set(values, true);
+    }
+
+    /**
      * Placeholder method for util.VDom.syncVdomIds to allow overriding (disabling) it
      * @param {Neo.vdom.VNode} [vnode=this.vnode]
      * @param {Object} [vdom=this.vdom]

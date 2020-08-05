@@ -43,7 +43,7 @@ class MainContainer extends Container {
          * The currently active view. Must be a value included inside the views config.
          * @member {String} activeView_='week'
          */
-        activeView_: 'week',
+        activeView_: 'month',
         /**
          * Scale the calendar with using s different base font-size
          * @member {Number|null} baseFontSize_=null
@@ -133,6 +133,10 @@ class MainContainer extends Container {
          * @member {Boolean} settingsExpanded_=false
          */
         settingsExpanded_: false,
+        /**
+         * @member {Boolean} showWeekends_=true
+         */
+        showWeekends_: true,
         /**
          * @member {Boolean} sideBarExpanded_=true
          */
@@ -247,6 +251,18 @@ class MainContainer extends Container {
     afterSetEventStore(value, oldValue) {
         if (oldValue !== undefined) {
             this.weekComponent.eventStore = value;
+        }
+    }
+
+    /**
+     * Triggered after the showWeekends config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowWeekends(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.setViewConfig('showWeekends', value);
         }
     }
 
@@ -471,6 +487,7 @@ class MainContainer extends Container {
             listeners           : {change: me.onDateSelectorChange, scope: me},
             locale              : me.locale,
             scrollNewYearFromTop: me.scrollNewYearFromTop,
+            showWeekends        : me.showWeekends,
             value               : DateUtil.convertToyyyymmdd(me.currentDate),
             weekStartDay        : me.weekStartDay,
             ...me.dateSelectorConfig || {}
@@ -550,6 +567,7 @@ class MainContainer extends Container {
             currentDate : me.currentDate,
             eventStore  : me.eventStore,
             locale      : me.locale,
+            showWeekends: me.showWeekends,
             weekStartDay: me.weekStartDay
         };
 
@@ -566,7 +584,7 @@ class MainContainer extends Container {
                 ...me.monthComponentConfig || {}
             },
             week: {
-                module      : WeekComponent,
+                module: WeekComponent,
                 ...defaultConfig,
                 ...me.weekComponentConfig || {}
             },

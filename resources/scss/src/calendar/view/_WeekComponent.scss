@@ -19,11 +19,6 @@
             };
         }
 
-        .neo-c-w-content {
-            border-left : none;
-            border-right: 1px solid v(c-w-border-color);
-        }
-
         .neo-header-row {
             margin-left : unset;
             margin-right: 50px;
@@ -35,7 +30,7 @@
         }
     }
 
-    .neo-cw-body-and-header {
+    .neo-c-w-scrollcontainer {
         display       : flex;
         flex          : 1 1 100%;
         flex-direction: column;

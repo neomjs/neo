@@ -103,6 +103,10 @@ class DateSelector extends Component {
          */
         showDisabledDays_: true,
         /**
+         * @member {Boolean} showWeekends_=true
+         */
+        showWeekends_: true,
+        /**
          * True to use sliding animations
          * @member {Boolean} useAnimations=true
          */
@@ -163,6 +167,9 @@ class DateSelector extends Component {
         me.createDayViewContent(false);
     }
 
+    /**
+     *
+     */
     onConstructed() {
         super.onConstructed();
 
@@ -283,6 +290,40 @@ class DateSelector extends Component {
     afterSetShowDisabledDays(value, oldValue) {
         if (oldValue !== undefined) {
             this.recreateDayViewContent();
+        }
+    }
+
+    /**
+     * Triggered after the showWeekends config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowWeekends(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me  = this,
+                len = 7,
+                i, item;
+
+            me.getCenterContentEl().cn.forEach((row, index) => {
+                // ignore the header
+                if (index > 0) {
+                    for (i=0; i < len; i++) {
+                        item = row.cn[i];
+
+                        if (item.cls.includes('neo-weekend')) {
+                            if (value) {
+                                delete item.removeDom;
+                            } else {
+                                item.removeDom = true;
+                            }
+                        }
+                    }
+                }
+            });
+
+            // triggers the vdom update
+            me.updateHeaderDays(me.dayNameFormat, '');
         }
     }
 
@@ -540,18 +581,27 @@ class DateSelector extends Component {
             date = DateUtil.clone(me.currentDate),
             i    = 0,
             len  = 7,
-            row  = {cls: ['neo-row', 'neo-header-row'], cn: []};
+            row  = {cls: ['neo-row', 'neo-header-row'], cn: []},
+            config, day;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
         for (; i < len; i++) {
-            row.cn.push({
+            config = {
                 cls: ['neo-cell'],
                 cn : [{
                     cls : ['neo-cell-content'],
                     html: me.intlFormat_day.format(date)
                 }]
-            });
+            };
+
+            day = date.getDay();
+
+            if (!me.showWeekends && (day === 0 || day === 6)) {
+                config.removeDom = true;
+            }
+
+            row.cn.push(config);
 
             date.setDate(date.getDate() + 1);
         }
@@ -570,6 +620,7 @@ class DateSelector extends Component {
             currentDay      = currentDate.getDate(),
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),
+            date            = me.currentDate, // cloned
             valueDate       = new Date(me.value),
             valueMonth      = valueDate.getMonth(),
             valueYear       = valueDate.getFullYear(),
@@ -580,11 +631,13 @@ class DateSelector extends Component {
             centerEl        = containerEl || me.getCenterContentEl(),
             columns         = 7,
             i               = 0,
-            cellCls, cellId, cls, day, disabledDate, hasContent, j, row, rows;
+            cellId, config, dateDay, day, hasContent, j, row, rows;
 
         firstDayOffset = firstDayOffset < 0 ? firstDayOffset + 7 : firstDayOffset;
         rows           = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
         day            = 1 - firstDayOffset;
+
+        date.setDate(day);
 
         centerEl.cn.push(me.createDayNamesRow());
 
@@ -593,33 +646,40 @@ class DateSelector extends Component {
 
             for (j=0; j < columns; j++) {
                 hasContent = day > 0 && day <= daysInMonth;
-                cellCls    = hasContent ? ['neo-cell'] : ['neo-cell', 'neo-disabled'];
                 cellId     = me.getCellId(currentYear, currentMonth + 1, day);
-                cls        = ['neo-cell-content'];
+
+                dateDay = date.getDay();
+
+                config = {
+                    id      : cellId,
+                    cls     : hasContent ? ['neo-cell'] : ['neo-cell', 'neo-disabled'],
+                    tabIndex: hasContent ? -1 : null,
+                    cn: [{
+                        cls : ['neo-cell-content'],
+                        html: hasContent ? day : me.showDisabledDays ? date.getDate() : ''
+                    }]
+                }
+
+                if (dateDay === 0 || dateDay === 6) {
+                    if (!me.showWeekends) {
+                        config.removeDom = true;
+                    }
+
+                    config.cls.push('neo-weekend');
+                }
 
                 if (today.year === currentYear && today.month === currentMonth && today.day === day) {
-                    cls.push('neo-today');
+                    config.cn[0].cls.push('neo-today');
                 }
 
                 if (valueYear === currentYear && valueMonth === currentMonth && day === currentDay) {
-                    cellCls.push('neo-selected');
+                    config.cls.push('neo-selected');
                     me.selectionModel.items = [cellId]; // silent update
                 }
 
-                if (me.showDisabledDays && !hasContent) {
-                    disabledDate = me.currentDate; // cloned
-                    disabledDate.setDate(day);
-                }
+                row.cn.push(config);
 
-                row.cn.push({
-                    id      : cellId,
-                    cls     : cellCls,
-                    tabIndex: hasContent ? -1 : null,
-                    cn: [{
-                        cls : cls,
-                        html: hasContent ? day : me.showDisabledDays ? disabledDate.getDate() : ''
-                    }]
-                });
+                date.setDate(date.getDate() + 1);
 
                 day++;
             }
@@ -822,12 +882,23 @@ class DateSelector extends Component {
             let centerEl = me.getCenterContentEl().cn[0],
                 date     = me.currentDate, // cloned
                 vdom     = me.vdom,
-                i        = 0;
+                i        = 0,
+                day, node;
 
             date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
             for (; i < 7; i++) {
-                centerEl.cn[i].cn[0].html = me.intlFormat_day.format(date);
+                node = centerEl.cn[i];
+
+                node.cn[0].html = me.intlFormat_day.format(date);
+
+                day = date.getDay();
+
+                if (!me.showWeekends && (day === 0 || day === 6)) {
+                    node.removeDom = true;
+                } else {
+                    delete node.removeDom;
+                }
 
                 date.setDate(date.getDate() + 1);
             }

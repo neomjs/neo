@@ -71,6 +71,20 @@ class WeekComponent extends Component {
          */
         headerCreated: false,
         /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_day=null
+         * @protected
+         */
+        intlFormat_day: null,
+        /**
+         * @member {Boolean} isUpdating=false
+         * @protected
+         */
+        isUpdating: false,
+        /**
+         * @member {String} locale_=Neo.config.locale
+         */
+        locale_: Neo.config.locale,
+        /**
          * @member {Object} timeAxis=null
          */
         timeAxis: null,
@@ -94,23 +108,21 @@ class WeekComponent extends Component {
             }, {
                 cls: ['neo-scroll-overlay']
             }, {
-                cls  : ['neo-cw-body-and-header'],
-                flag : 'neo-cw-body-and-header',
-                style: {},
-                cn   : [{
+                cls : ['neo-c-w-scrollcontainer'],
+                flag: 'neo-c-w-scrollcontainer',
+                cn  : [{
                     cls : ['neo-header-row'],
-                    cn  : [],
-                    flag: 'neo-header-row'
+                    flag: 'neo-header-row',
+                    cn  : []
                 }, {
-                    cls  : ['neo-c-w-column-timeaxis-container'],
-                    flag : 'neo-c-w-column-timeaxis-container',
-                    style: {},
-                    cn   : [{
+                    cls : ['neo-c-w-column-timeaxis-container'],
+                    flag: 'neo-c-w-column-timeaxis-container',
+                    cn  : [{
                         cls  : ['neo-c-w-column-container'],
                         flag : 'neo-c-w-column-container',
                         style: {},
                         cn   : []
-                    }],
+                    }]
                 }]
             }]
         },
@@ -128,7 +140,14 @@ class WeekComponent extends Component {
     constructor(config) {
         super(config);
 
-        let me = this;
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push({
+            wheel: {fn: me.onWheel, scope: me}
+        });
+
+        me.domListeners = domListeners;
 
         me.timeAxis = Neo.create(TimeAxisComponent, {
             parentId : me.id,
@@ -195,6 +214,22 @@ class WeekComponent extends Component {
     }
 
     /**
+     * Triggered after the dayNameFormat config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetDayNameFormat(value, oldValue) {
+        let me = this;
+
+        me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
+
+        if (oldValue !== undefined) {
+            me.updateHeader();
+        }
+    }
+
+    /**
      * Triggered after the eventStore config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -202,6 +237,46 @@ class WeekComponent extends Component {
      */
     afterSetEventStore(value, oldValue) {
         // console.log('afterSetEventStore', value);
+    }
+
+    /**
+     * Triggered after the locale config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetLocale(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.intlFormat_day = new Intl.DateTimeFormat(value, {weekday: me.dayNameFormat});
+
+            me.updateHeader();
+        }
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        if (value) {
+            setTimeout(() => {
+                let me = this;
+
+                Neo.main.DomAccess.getBoundingClientRect({
+                    id: me.getColumnContainer().id
+                }).then(data => {
+                    Neo.main.DomAccess.scrollBy({
+                        direction: 'left',
+                        id       : me.getScrollContainer().id,
+                        value    : data.width / 3
+                    });
+                });
+            }, 20);
+        }
     }
 
     /**
@@ -271,6 +346,53 @@ class WeekComponent extends Component {
 
     /**
      *
+     * @param {Date} date
+     * @returns {Object}
+     */
+    createColumnAndHeader(date) {
+        let me          = this,
+            columnCls   = ['neo-c-w-column'],
+            currentDate = date.getDate(),
+            currentDay  = date.getDay(),
+            dateCls     = ['neo-date'],
+            column, header;
+
+        if (currentDay === 0 || currentDay === 6) {
+            columnCls.push('neo-weekend');
+        } else {
+            NeoArray.remove(columnCls, 'neo-weekend');
+        }
+
+        if (currentDate        === today.day   &&
+            date.getMonth()    === today.month &&
+            date.getFullYear() === today.year) {
+            dateCls.push('neo-today');
+        }
+
+        column = {
+            cls : columnCls,
+            flag: DateUtil.convertToyyyymmdd(date)
+        };
+
+        header = {
+            cls: ['neo-header-row-item'],
+            cn : [{
+                cls : ['neo-day'],
+                html: me.intlFormat_day.format(date)
+            }, {
+                cls : dateCls,
+                html: currentDate
+            }]
+        };
+
+        return {
+            column: column,
+            header: header
+        };
+    }
+
+    /**
+     *
      */
     destroy(...args) {
         this.eventStore = null;
@@ -296,8 +418,15 @@ class WeekComponent extends Component {
     /**
      *
      */
-    getVdomHeaderRow() {
+    getHeaderContainer() {
         return VDomUtil.getByFlag(this.vdom, 'neo-header-row');
+    }
+
+    /**
+     *
+     */
+    getScrollContainer() {
+        return VDomUtil.getByFlag(this.vdom, 'neo-c-w-scrollcontainer');
     }
 
     /**
@@ -315,6 +444,74 @@ class WeekComponent extends Component {
 
         if (me.headerCreated) {
             me.updateEvents();
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onWheel(data) {
+        if (!this.isUpdating && Math.abs(data.deltaX) > Math.abs(data.deltaY)) {
+            let me            = this,
+                columns       = me.getColumnContainer(),
+                header        = me.getHeaderContainer(),
+                i             = 0,
+                timeAxisWidth = 50,
+                width         = data.clientWidth - timeAxisWidth,
+                config, date, scrollValue;
+
+            // console.log(data.scrollLeft, Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 7));
+
+            if (data.deltaX > 0 && Math.round(data.scrollLeft / width * 7) > 13) {
+                date = new Date(columns.cn[columns.cn.length - 1].flag);
+
+                columns.cn.splice(0, 7);
+                header.cn.splice(0, 7);
+
+                for (; i < 7; i++) {
+                    date.setDate(date.getDate() + 1);
+
+                    config= me.createColumnAndHeader(date);
+
+                    columns.cn.push(config.column);
+                    header.cn.push(config.header);
+                }
+
+                scrollValue = -width;
+            }
+
+            else if (data.deltaX < 0 && Math.round(data.scrollLeft / width * 7) < 1) {
+                date = new Date(columns.cn[0].flag);
+
+                columns.cn.length = 14;
+                header.cn.length = 14;
+
+                for (; i < 7; i++) {
+                    date.setDate(date.getDate() - 1);
+
+                    config= me.createColumnAndHeader(date);
+
+                    columns.cn.unshift(config.column);
+                    header.cn.unshift(config.header);
+                }
+
+                scrollValue = width;
+            }
+
+            if (scrollValue) {
+                me.isUpdating = true;
+
+                me.promiseVdomUpdate().then(() => {
+                    Neo.main.DomAccess.scrollBy({
+                        direction: 'left',
+                        id       : me.getScrollContainer().id,
+                        value    : scrollValue
+                    }).then(() => {
+                        me.isUpdating = false;
+                    });
+                });
+            }
         }
     }
 
@@ -386,17 +583,13 @@ class WeekComponent extends Component {
             date    = me.currentDate, // cloned
             vdom    = me.vdom,
             content = me.getColumnContainer(),
-            header  = me.getVdomHeaderRow(),
+            header  = me.getHeaderContainer(),
             i       = 0,
             columnCls, currentDate, currentDay, dateCls;
 
-        date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
+        date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay - 7);
 
         me.firstColumnDate = DateUtil.clone(date);
-
-        const dt = new Intl.DateTimeFormat(Neo.config.locale, {
-            weekday: me.dayNameFormat
-        });
 
         for (; i < 21; i++) {
             columnCls   = ['neo-c-w-column'];
@@ -420,23 +613,25 @@ class WeekComponent extends Component {
 
             if (create) {
                 content.cn.push({
-                    cls: columnCls
+                    cls : columnCls,
+                    flag: DateUtil.convertToyyyymmdd(date)
                 });
 
                 header.cn.push({
                     cls: ['neo-header-row-item'],
                     cn : [{
                         cls : ['neo-day'],
-                        html: dt.format(date)
+                        html: me.intlFormat_day.format(date)
                     }, {
                         cls : dateCls,
                         html: currentDate
                     }]
                 });
             } else {
-                content.cn[i].cls = columnCls;
+                content.cn[i].cls  = columnCls;
+                content.cn[i].flag = DateUtil.convertToyyyymmdd(date);
 
-                header.cn[i].cn[0].html = dt.format(date);
+                header.cn[i].cn[0].html = me.intlFormat_day.format(date);
 
                 Object.assign(header.cn[i].cn[1], {
                     cls : dateCls,

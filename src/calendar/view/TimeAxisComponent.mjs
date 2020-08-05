@@ -41,7 +41,7 @@ class TimeAxisComponent extends Component {
          * Valid values: 15, 30, 60
          * @member {Number} interval_=30
          */
-        interval_: 15,
+        interval_: 30,
         /**
          * @member {Number} rowHeight_=20
          */

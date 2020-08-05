@@ -133,6 +133,16 @@ class GeneralContainer extends Container {
             valueLabelText: 'Monday'
         }, {
             module        : CheckBoxField,
+            checked       : calendar.showWeekends,
+            flex          : 'none',
+            hideLabel     : true,
+            hideValueLabel: false,
+            listeners     : {change: me.onConfigChange, scope: me},
+            name          : 'showWeekends',
+            style         : {marginTop: '10px'},
+            valueLabelText: 'showWeekends'
+        }, {
+            module        : CheckBoxField,
             checked       : calendar.scrollNewYearFromTop,
             flex          : 'none',
             hideLabel     : true,

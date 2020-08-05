@@ -85,6 +85,10 @@ class MonthComponent extends Component {
          */
         scrollTaskId: null,
         /**
+         * @member {Boolean} showWeekends_=true
+         */
+        showWeekends_: true,
+        /**
          * True to use box shadows for the months while scrolling
          * @member {Boolean} useScrollBoxShadows_=true
          */
@@ -209,12 +213,46 @@ class MonthComponent extends Component {
                 }).then(data => {
                     me.headerHeight = data[1].height;
 
-                    Neo.main.DomAccess.scrollTopBy({
-                        id   : me.vdom.cn[1].id,
-                        value: data[0].height - data[1].height
+                    Neo.main.DomAccess.scrollBy({
+                        direction: 'top',
+                        id       : me.vdom.cn[1].id,
+                        value    : data[0].height - data[1].height
                     });
                 });
             }, 20);
+        }
+    }
+
+    /**
+     * Triggered after the showWeekends config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowWeekends(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me   = this,
+                vdom = me.vdom,
+                i, item;
+
+            vdom.cn[1].cn.forEach(row => {
+                if (row.flag) {
+                    for (i=0; i < 7; i++) {
+                        item = row.cn[i];
+
+                        if (item.cls.includes('neo-weekend')) {
+                            if (value) {
+                                delete item.removeDom;
+                            } else {
+                                item.removeDom = true;
+                            }
+                        }
+                    }
+                }
+            });
+
+            // triggers the vdom update
+            me.updateHeader();
         }
     }
 
@@ -308,7 +346,7 @@ class MonthComponent extends Component {
         let me     = this,
             i      = 0,
             header = null,
-            day, dayCls, row, weekDay;
+            day, dayConfig, row, weekDay;
 
         row = {
             flag: DateUtil.convertToyyyymmdd(date),
@@ -339,17 +377,22 @@ class MonthComponent extends Component {
                 };
             }
 
-            dayCls  = ['neo-day'];
+            dayConfig = {
+                cls : ['neo-day'],
+                html: day
+            };
+
             weekDay = date.getDay();
 
             if (weekDay === 0 || weekDay === 6) {
-                dayCls.push('neo-weekend');
+                dayConfig.cls.push('neo-weekend');
+
+                if (!me.showWeekends) {
+                    dayConfig.removeDom = true;
+                }
             }
 
-            row.cn.push({
-                cls : dayCls,
-                html: day
-            });
+            row.cn.push(dayConfig);
 
             date.setDate(date.getDate() + 1);
         }
@@ -430,9 +473,10 @@ class MonthComponent extends Component {
                 }
 
                 me.promiseVdomUpdate(me.vdom).then(() => {
-                    Neo.main.DomAccess.scrollTopTo({
-                        id   : me.vdom.cn[1].id,
-                        value: data.clientHeight - me.headerHeight
+                    Neo.main.DomAccess.scrollTo({
+                        direction: 'top',
+                        id       : me.vdom.cn[1].id,
+                        value    : data.clientHeight - me.headerHeight
                     });
                 });
             }
@@ -492,18 +536,35 @@ class MonthComponent extends Component {
         let me   = this,
             date = me.currentDate, // cloned
             vdom = me.vdom,
-            i    = 1;
+            i    = 1,
+            day, node;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
         for (; i < 8; i++) {
+            day = date.getDay();
+
             if (create) {
-                vdom.cn[0].cn.push({
+                node = {
                     cls : ['neo-day-name'],
                     html: me.intlFormat_day.format(date)
-                });
+                };
+
+                if (!me.showWeekends && (day === 0 || day === 6)) {
+                    node.removeDom = true;
+                }
+
+                vdom.cn[0].cn.push(node);
             } else {
-                vdom.cn[0].cn[i].html = me.intlFormat_day.format(date);
+                node = vdom.cn[0].cn[i];
+
+                node.html = me.intlFormat_day.format(date);
+
+                if (!me.showWeekends && (day === 0 || day === 6)) {
+                    node.removeDom = true;
+                } else {
+                    delete node.removeDom;
+                }
             }
 
             date.setDate(date.getDate() + 1);
