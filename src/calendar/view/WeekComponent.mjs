@@ -112,8 +112,8 @@ class WeekComponent extends Component {
                 flag: 'neo-c-w-scrollcontainer',
                 cn  : [{
                     cls : ['neo-header-row'],
-                    cn  : [],
-                    flag: 'neo-header-row'
+                    flag: 'neo-header-row',
+                    cn  : []
                 }, {
                     cls : ['neo-c-w-column-timeaxis-container'],
                     flag: 'neo-c-w-column-timeaxis-container',
