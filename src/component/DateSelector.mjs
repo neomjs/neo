@@ -167,6 +167,9 @@ class DateSelector extends Component {
         me.createDayViewContent(false);
     }
 
+    /**
+     *
+     */
     onConstructed() {
         super.onConstructed();
 
@@ -298,8 +301,28 @@ class DateSelector extends Component {
      */
     afterSetShowWeekends(value, oldValue) {
         if (oldValue !== undefined) {
-            let me = this;
+            let me  = this,
+                len = 7,
+                i, item;
 
+            me.getCenterContentEl().cn.forEach((row, index) => {
+                // ignore the header
+                if (index > 0) {
+                    for (i=0; i < len; i++) {
+                        item = row.cn[i];
+
+                        if (item.cls.includes('neo-weekend')) {
+                            if (value) {
+                                delete item.removeDom;
+                            } else {
+                                item.removeDom = true;
+                            }
+                        }
+                    }
+                }
+            });
+
+            // triggers the vdom update
             me.updateHeaderDays(me.dayNameFormat, '');
         }
     }
@@ -637,8 +660,12 @@ class DateSelector extends Component {
                     }]
                 }
 
-                if (!me.showWeekends && (dateDay === 0 || dateDay === 6)) {
-                    config.removeDom = true;
+                if (dateDay === 0 || dateDay === 6) {
+                    if (!me.showWeekends) {
+                        config.removeDom = true;
+                    }
+
+                    config.cls.push('neo-weekend');
                 }
 
                 if (today.year === currentYear && today.month === currentMonth && today.day === day) {
