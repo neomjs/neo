@@ -218,7 +218,31 @@ class YearComponent extends Component {
      */
     afterSetShowWeekends(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('afterSetShowWeekends', value);
+            let me   = this,
+                vdom = me.vdom,
+                i    = 0,
+                item, itemCn, j, k, len;
+
+            for (; i < 12; i++) { // months
+                itemCn = vdom.cn[0].cn[1].cn[i].cn;
+                len    = itemCn.length;
+
+                for (j = 1; j < len; j++) { // weeks
+                    for (k=1; k < 8; k++) { // days
+                        item = itemCn[j].cn[k];
+
+                        if (item.cls.includes('neo-weekend')) {
+                            if (value) {
+                                delete item.removeDom;
+                            } else {
+                                item.removeDom = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            me.vdom = vdom;
         }
     }
 
@@ -418,7 +442,7 @@ class YearComponent extends Component {
             columns        = 7,
             i              = 0,
             weekDate       = DateUtil.clone(currentDate),
-            cellCls, cellId, cls, day, hasContent, j, row, rows;
+            cellId, config, dateDay, day, hasContent, j, row, rows;
 
         rows = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
         day  = 1 - firstDayOffset;
@@ -442,34 +466,37 @@ class YearComponent extends Component {
 
             for (j=0; j < columns; j++) {
                 hasContent = day > 0 && day <= daysInMonth;
-                cellCls    = hasContent ? ['neo-cell'] : ['neo-cell', 'neo-disabled'];
                 cellId     = me.getCellId(currentYear, currentMonth + 1, day);
-                cls        = ['neo-cell-content'];
+                dateDay    = date.getDay();
 
-                if (today.year === currentYear && today.month === currentMonth && today.day === day) {
-                    cls.push('neo-today');
-                }
-
-                if (valueYear === currentYear && valueMonth === currentMonth && day === currentDay) {
-                    cellCls.push('neo-selected');
-                }
-
-                row.cn.push({
+                config = {
                     id      : cellId,
-                    cls     : cellCls,
+                    cls     : hasContent ? ['neo-cell'] : ['neo-cell', 'neo-disabled'],
                     tabIndex: hasContent ? -1 : null,
 
                     cn: [{
-                        cls : cls,
+                        cls : ['neo-cell-content'],
                         html: hasContent ? day : me.showDisabledDays ? date.getDate() : ''
                     }]
-                });
+                };
+
+                if (dateDay === 0 || dateDay === 6) {
+                    config.cls.push('neo-weekend');
+                }
+
+                if (today.year === currentYear && today.month === currentMonth && today.day === day) {
+                    config.cn[0].cls.push('neo-today');
+                }
+
+                if (valueYear === currentYear && valueMonth === currentMonth && day === currentDay) {
+                    config.cls.push('neo-selected');
+                }
+
+                row.cn.push(config);
+
+                date.setDate(date.getDate() + 1);
 
                 day++;
-
-                if (me.showDisabledDays) {
-                    date.setDate(date.getDate() + 1);
-                }
             }
 
             containerEl.cn.push(row);
