@@ -487,6 +487,7 @@ class MainContainer extends Container {
             listeners           : {change: me.onDateSelectorChange, scope: me},
             locale              : me.locale,
             scrollNewYearFromTop: me.scrollNewYearFromTop,
+            showWeekends        : me.showWeekends,
             value               : DateUtil.convertToyyyymmdd(me.currentDate),
             weekStartDay        : me.weekStartDay,
             ...me.dateSelectorConfig || {}
@@ -566,6 +567,7 @@ class MainContainer extends Container {
             currentDate : me.currentDate,
             eventStore  : me.eventStore,
             locale      : me.locale,
+            showWeekends: me.showWeekends,
             weekStartDay: me.weekStartDay
         };
 
@@ -582,7 +584,7 @@ class MainContainer extends Container {
                 ...me.monthComponentConfig || {}
             },
             week: {
-                module      : WeekComponent,
+                module: WeekComponent,
                 ...defaultConfig,
                 ...me.weekComponentConfig || {}
             },
