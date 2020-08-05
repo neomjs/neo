@@ -894,12 +894,10 @@ class DateSelector extends Component {
 
                 day = date.getDay();
 
-                if (day === 0 || day === 6) {
-                    if (me.showWeekends) {
-                        delete node.removeDom
-                    } else {
-                        node.removeDom = true;
-                    }
+                if (!me.showWeekends && (day === 0 || day === 6)) {
+                    node.removeDom = true;
+                } else {
+                    delete node.removeDom;
                 }
 
                 date.setDate(date.getDate() + 1);

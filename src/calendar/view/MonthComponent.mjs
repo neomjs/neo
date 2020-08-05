@@ -560,12 +560,10 @@ class MonthComponent extends Component {
 
                 node.html = me.intlFormat_day.format(date);
 
-                if (day === 0 || day === 6) {
-                    if (me.showWeekends) {
-                        delete node.removeDom;
-                    } else {
-                        node.removeDom = true;
-                    }
+                if (!me.showWeekends && (day === 0 || day === 6)) {
+                    node.removeDom = true;
+                } else {
+                    delete node.removeDom;
                 }
             }
 
