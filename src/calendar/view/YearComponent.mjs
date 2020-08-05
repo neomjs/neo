@@ -211,6 +211,18 @@ class YearComponent extends Component {
     }
 
     /**
+     * Triggered after the showWeekends config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowWeekends(value, oldValue) {
+        if (oldValue !== undefined) {
+            console.log('afterSetShowWeekends', value);
+        }
+    }
+
+    /**
      * Triggered after the showWeekNumbers config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
