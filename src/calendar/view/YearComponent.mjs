@@ -138,8 +138,18 @@ class YearComponent extends Component {
      */
     constructor(config) {
         super(config);
-        this.updateHeaderYear();
-        this.createMonths();
+
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push({
+            wheel: {fn: me.onWheel, scope: me}
+        });
+
+        me.domListeners = domListeners;
+
+        me.updateHeaderYear();
+        me.createMonths();
     }
 
     /**
@@ -578,6 +588,14 @@ class YearComponent extends Component {
         }
 
         return this.id + '__' + year + '-' + month + '-' + day;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onWheel(data) {
+        console.log('onWheel', data);
     }
 
     /**

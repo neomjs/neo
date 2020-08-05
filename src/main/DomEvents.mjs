@@ -30,6 +30,7 @@ const touchEvents = [
 const globalWheelTargets = [
     'neo-c-m-scrollcontainer',
     'neo-c-w-scrollcontainer',
+    'neo-calendar-yearcomponent',
     'neo-circle-component',
     'neo-dateselector',
     'neo-gallery',
@@ -37,10 +38,12 @@ const globalWheelTargets = [
 ];
 
 // separated from globalWheelTargets => performance
+// buffer in ms
 const globalWheelTargetsBuffer = {
-    'neo-c-m-scrollcontainer': 100,
-    'neo-c-w-scrollcontainer': 100,
-    'neo-dateselector'       : 300 // buffer in ms
+    'neo-c-m-scrollcontainer'   : 100,
+    'neo-c-w-scrollcontainer'   : 100,
+    'neo-calendar-yearcomponent': 300,
+    'neo-dateselector'          : 300
 };
 
 // separated from globalWheelTargets => performance
