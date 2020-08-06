@@ -47,6 +47,20 @@ class Toolbar extends BaseToolbar {
     }}
 
     /**
+     * Triggered after the showHeaderFilters config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowHeaderFilters(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.items.forEach(item => {
+                item.showHeaderFilter = value
+            });
+        }
+    }
+
+    /**
      *
      * @param {String} dock
      * @returns {String} layoutConfig
