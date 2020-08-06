@@ -212,7 +212,7 @@ class DomEvent extends Base {
                 eventName = event.eventName;
 
                 if (eventName && (event.local || !globalDomEvents.includes(eventName))) {
-                    console.log('localEvents', eventName);
+                    // console.log('localEvents', eventName);
 
                     localEvents.push({
                         name   : eventName,

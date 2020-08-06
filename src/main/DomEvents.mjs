@@ -180,9 +180,9 @@ class DomEvents extends Base {
                 eventName: event.type,
 
                 data: {
+                    ...me.getEventData(event),
                     id   : target.id,
-                    path : (event.path || event.composedPath()).map(e => e.id), // FF does not support composedPath()
-                    value: target.value,
+                    value: target.value
                 }
             };
 
