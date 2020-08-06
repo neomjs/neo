@@ -214,6 +214,10 @@ class Button extends BaseButton {
                 me.filterField = Neo.create(TextField, {
                     flag     : 'filter-field',
                     hideLabel: true,
+                    listeners: {
+                        change: me.onFilterChange,
+                        scope : me
+                    },
                     style    : {
                         marginLeft : '.5em',
                         marginRight: '.5em'
@@ -331,6 +335,14 @@ class Button extends BaseButton {
         me.onDragLeave();
         headerToolbar.switchItems(me.id, data.srcId);
         tableContainer.createViewData(tableContainer.store.data);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onFilterChange(data) {
+        console.log('onFilterChange', data);
     }
 
     /**
