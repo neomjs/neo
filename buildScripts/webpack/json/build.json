@@ -129,6 +129,11 @@
             "output": "/examples/table/container/",
             "title": "Neo TableContainer"
         },
+        "tableFiltering": {
+            "input": "examples/tableFiltering.mjs",
+            "output": "/examples/tableFiltering/",
+            "title": "Neo Table Filtering"
+        },
         "tablePerformance": {
             "bodyTag": "<body style='margin: 10px'><div id='main-container'></div><br><div id='main-container2'></div><br><div id='main-container3'></div>",
             "input": "examples/TablePerformance.mjs",
