@@ -211,6 +211,10 @@ class Filter extends Base {
     }
 
     static ['like'](a, b) {
+        if (!b) {
+            return true;
+        }
+
         return a.toLowerCase().includes(b.toLowerCase());
     }
 }
