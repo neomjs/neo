@@ -85,7 +85,7 @@ class ColumnModel extends Model {
             columnNodeIds, index, tbodyNode;
 
         if (id) {
-            index         = ColumnModel.getColumnIndex(id, me.view.columns);
+            index         = ColumnModel.getColumnIndex(id, me.view.items[0].items);
             tbodyNode     = VDomUtil.findVdomChild(me.view.vdom, {tag: 'tbody'}).vdom;
             columnNodeIds = VDomUtil.getColumnNodesIds(tbodyNode, index);
 

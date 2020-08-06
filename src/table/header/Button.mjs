@@ -284,7 +284,8 @@ class Button extends BaseButton {
             headerToolbar  = Neo.getComponent(me.parentId),
             tableContainer = Neo.getComponent(headerToolbar.parentId);
 
-        Neo.getComponent(data.srcId).onDragEnd();
+        delete Neo.getComponent(data.srcId).getVdomRoot().style.opacity;
+
         me.onDragLeave();
         headerToolbar.switchItems(me.id, data.srcId);
         tableContainer.createViewData(tableContainer.store.data);

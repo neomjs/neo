@@ -45,7 +45,7 @@ class DomEvent extends Base {
          */
         ntype: 'dom-event-manager',
         /**
-         * @member {Object} listeners={}
+         * @member {Object} items={}
          * @protected
          */
         items: {},
@@ -204,23 +204,23 @@ class DomEvent extends Base {
      * @protected
      */
     mountDomListeners(component) {
-        let listeners   = component.domListeners,
-            localEvents = [],
-            event, eventName;
+        let listeners   = this.items[component.id],
+            localEvents = [];
 
-        Object.keys(listeners).forEach(eventId => {
-            event     = listeners[eventId];
-            eventName = event.eventName;
+        Object.entries(listeners).forEach(([eventName, value]) => {
+            value.forEach(event => {
+                eventName = event.eventName;
 
-            if (eventName && (event.local || !globalDomEvents.includes(eventName))) {
-                console.log('localEvents', eventName);
+                if (eventName && (event.local || !globalDomEvents.includes(eventName))) {
+                    // console.log('localEvents', eventName);
 
-                localEvents.push({
-                    name   : eventName,
-                    handler: 'domEventListener',
-                    vnodeId: event.vnodeId
-                });
-            }
+                    localEvents.push({
+                        name   : eventName,
+                        handler: 'domEventListener',
+                        vnodeId: event.vnodeId
+                    });
+                }
+            });
         });
 
         if (localEvents.length > 0) {
@@ -244,6 +244,7 @@ class DomEvent extends Base {
      * @param {Boolean} config.local
      * @param {Number} config.opts
      * @param {Number} config.originalConfig
+     * @param {String} config.ownerId
      * @param {Number} config.priority
      * @param {Object} config.scope
      * @param {String} config.vnodeId
@@ -299,10 +300,12 @@ class DomEvent extends Base {
         listenerConfig = {
             bubble        : config.hasOwnProperty('bubble') ? config.bubble : opts.hasOwnProperty('bubble') ? opts.bubble : true,
             delegate      : config.delegate,
+            eventName     : eventName,
             fn            : fn,
             id            : listenerId,
             mounted       : !config.local && globalDomEvents.includes(eventName),
             originalConfig: config.originalConfig,
+            ownerId       : config.ownerId,
             priority      : config.priority || 1,
             scope         : scope,
             vnodeId       : config.vnodeId
@@ -341,6 +344,12 @@ class DomEvent extends Base {
         }
     }
 
+    /**
+     *
+     * @param {Neo.component.Base} component
+     * @param {Object[]} domListeners
+     * @param {Object[]} oldDomListeners
+     */
     updateDomListeners(component, domListeners, oldDomListeners) {
         let me                  = this,
             registeredListeners = me.items[component.id] || {},
@@ -375,6 +384,7 @@ class DomEvent extends Base {
                             id            : component.id,
                             opts          : value,
                             originalConfig: domListener,
+                            ownerId       : component.id,
                             scope         : domListener.scope || component,
                             vnodeId       : value.vnodeId || component.id
                         });

@@ -135,7 +135,7 @@ class Container extends BaseContainer {
 
         me.vdom.id = me.id + 'wrapper';
 
-        me.createColumns(me.columns);
+        me.createColumns(me.columns);console.log(me);
     }
 
     /**
@@ -428,15 +428,6 @@ class Container extends BaseContainer {
      */
     onStoreRecordChange(opts) {
         Neo.getComponent(this.viewId).onStoreRecordChange(opts);
-    }
-
-    /**
-     *
-     * @param {Array} items
-     * @protected
-     */
-    onToolbarItemsCreated(items) {
-        this.columns = items;
     }
 
     /**
