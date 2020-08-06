@@ -37,12 +37,13 @@ class MainContainer extends Viewport {
                 valueLabelText: 'Show Filters'
             }]
         }, {
-            module        : TableContainer,
-            id            : 'myTableStoreContainer',
-            selectionModel: CellModel,
-            store         : MainStore,
-            width         : '100%',
-            wrapperStyle  : {height: '300px'},
+            module           : TableContainer,
+            id               : 'myTableStoreContainer',
+            selectionModel   : CellModel,
+            showHeaderFilters: true,
+            store            : MainStore,
+            width            : '100%',
+            wrapperStyle     : {height: '300px'},
 
             columns: [{
                 text     : 'Firstname',
