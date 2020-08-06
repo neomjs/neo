@@ -176,6 +176,18 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Triggered after the showHeaderFilters config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowHeaderFilters(value, oldValue) {
+        if (oldValue !== undefined) {
+            Neo.getComponent(this.headerToolbarId).showHeaderFilters = value;
+        }
+    }
+
+    /**
      * Triggered after the useCustomScrollbars config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
