@@ -66,6 +66,10 @@ class Button extends BaseButton {
          */
         rendererScope: null,
         /**
+         * @member {Boolean} showHeaderFilter_=false
+         */
+        showHeaderFilter_: false,
+        /**
          * @member {String} _vdom
          */
         _vdom: {
@@ -129,20 +133,16 @@ class Button extends BaseButton {
     }
 
     /**
-     * Triggered after the draggable config got changed
+     * Triggered after the showHeaderFilter config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetDraggable(value, oldValue) {
+    afterSetShowHeaderFilter(value, oldValue) {
         let me   = this,
             vdom = me.vdom;
 
-        if (value === true) {
-            me.getVdomRoot().draggable = true;
-        } else {
-            delete me.getVdomRoot().draggable;
-        }
+        console.log('afterSetShowHeaderFilter', value);
 
         me.vdom = vdom;
     }
@@ -187,6 +187,25 @@ class Button extends BaseButton {
                 property : me.dataField
             });
         }
+    }
+
+    /**
+     * Triggered after the draggable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDraggable(value, oldValue) {
+        let me   = this,
+            vdom = me.vdom;
+
+        if (value === true) {
+            me.getVdomRoot().draggable = true;
+        } else {
+            delete me.getVdomRoot().draggable;
+        }
+
+        me.vdom = vdom;
     }
 
     /**
