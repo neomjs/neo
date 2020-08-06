@@ -65,7 +65,8 @@ class MainContainer extends Viewport {
                 dataField: 'country'
             }, {
                 text     : 'Online',
-                dataField: 'isOnline'
+                dataField: 'isOnline',
+                renderer : data => `<i class="fa fa-${data.value ? 'check' : 'times'}"></i>`
             }]
         }]
     }}
