@@ -208,6 +208,8 @@ class DomEvent extends Base {
             localEvents = [],
             event, eventName;
 
+        //console.log('mountDomListeners', this.map);
+
         Object.keys(listeners).forEach(eventId => {
             event     = listeners[eventId];
             eventName = event.eventName;
@@ -244,6 +246,7 @@ class DomEvent extends Base {
      * @param {Boolean} config.local
      * @param {Number} config.opts
      * @param {Number} config.originalConfig
+     * @param {String} config.ownerId
      * @param {Number} config.priority
      * @param {Object} config.scope
      * @param {String} config.vnodeId
@@ -303,6 +306,7 @@ class DomEvent extends Base {
             id            : listenerId,
             mounted       : !config.local && globalDomEvents.includes(eventName),
             originalConfig: config.originalConfig,
+            ownerId       : config.ownerId,
             priority      : config.priority || 1,
             scope         : scope,
             vnodeId       : config.vnodeId
@@ -341,6 +345,12 @@ class DomEvent extends Base {
         }
     }
 
+    /**
+     *
+     * @param {Neo.component.Base} component
+     * @param {Object[]} domListeners
+     * @param {Object[]} oldDomListeners
+     */
     updateDomListeners(component, domListeners, oldDomListeners) {
         let me                  = this,
             registeredListeners = me.items[component.id] || {},
@@ -375,6 +385,7 @@ class DomEvent extends Base {
                             id            : component.id,
                             opts          : value,
                             originalConfig: domListener,
+                            ownerId       : component.id,
                             scope         : domListener.scope || component,
                             vnodeId       : value.vnodeId || component.id
                         });
