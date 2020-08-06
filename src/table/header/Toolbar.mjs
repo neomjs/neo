@@ -31,6 +31,10 @@ class Toolbar extends BaseToolbar {
             ntype : 'table-header-button'
         },
         /**
+         * @member {Boolean} showHeaderFilters_=false
+         */
+        showHeaderFilters_: false,
+        /**
          * @member {Object} _vdom={tag: 'thead',cn : [{tag: 'tr',cn : []}]}
          */
         _vdom: {
@@ -82,10 +86,13 @@ class Toolbar extends BaseToolbar {
      *
      */
     createItems() {
+        let me = this;
+
+        me.itemDefaults.showHeaderFilter = me.showHeaderFilters;
+
         super.createItems();
 
-        let me             = this,
-            dockLeftWidth  = 0,
+        let dockLeftWidth  = 0,
             dockRightWidth = 0,
             items          = me.items,
             len            = items.length,
