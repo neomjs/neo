@@ -51,6 +51,11 @@ class Button extends BaseButton {
          */
         draggable_: true,
         /**
+         * @member {Object} editorFieldConfig=null
+         * @protected
+         */
+        editorFieldConfig: null,
+        /**
          * @member {Neo.form.field.Base|null} filterField=null
          * @protected
          */
@@ -228,7 +233,8 @@ class Button extends BaseButton {
                     style: {
                         marginLeft : '.5em',
                         marginRight: '.5em'
-                    }
+                    },
+                    ...me.editorFieldConfig || {}
                 });
 
                 me.vdom.cn.push(me.filterField.vdom);
