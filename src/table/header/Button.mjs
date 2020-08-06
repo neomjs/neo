@@ -259,6 +259,17 @@ class Button extends BaseButton {
     }
 
     /**
+     *
+     */
+    destroy(...args) {
+        if (this.filterField) {
+            this.filterField.destroy();
+        }
+
+        super.destroy(...args);
+    }
+
+    /**
      * @protected
      */
     onButtonClick() {
