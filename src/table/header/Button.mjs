@@ -38,6 +38,10 @@ class Button extends BaseButton {
          */
         cls: ['neo-table-header-button'],
         /**
+         * @member {String|null} dataField=null
+         */
+        dataField: null,
+        /**
          * Sort direction when clicking on an unsorted button
          * @member {String} defaultSortDirection='ASC'
          */
@@ -215,7 +219,7 @@ class Button extends BaseButton {
                     flag     : 'filter-field',
                     hideLabel: true,
                     listeners: {
-                        change: me.onFilterChange,
+                        change: me.changeFilter,
                         scope : me
                     },
                     style    : {
@@ -341,8 +345,31 @@ class Button extends BaseButton {
      *
      * @param {Object} data
      */
-    onFilterChange(data) {
-        console.log('onFilterChange', data);
+    changeFilter(data) {
+        console.log('changeFilter', data);
+
+        let me             = this,
+            tableContainer = me.up('table-container'),
+            store          = tableContainer && tableContainer.store,
+            filter, filters;
+
+        if (store) {
+            filter = store.getFilter(me.dataField);
+
+            if (!filter) {
+                filters = store.filters;
+
+                filters.push({
+                    property: me.dataField,
+                    operator: 'like',
+                    value   : data.value
+                });
+
+                store.filters = filters;
+            } else {
+                filter.value = data.value;
+            }
+        }
     }
 
     /**
