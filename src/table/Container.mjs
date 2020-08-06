@@ -273,6 +273,7 @@ class Container extends BaseContainer {
 
         value = ClassSystemUtil.beforeSetInstance(value, Store, {
             listeners: {
+                filter      : me.onStoreFilter,
                 load        : me.onStoreLoad,
                 recordChange: me.onStoreRecordChange,
                 scope       : me
@@ -406,6 +407,13 @@ class Container extends BaseContainer {
         me.store.sort(opts);
         me.removeSortingCss(opts.property);
         me.onStoreLoad(me.store.items);
+    }
+
+    /**
+     *
+     */
+    onStoreFilter() {
+        this.onStoreLoad(this.store.items);
     }
 
     /**
