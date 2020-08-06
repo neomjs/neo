@@ -59,13 +59,14 @@
     }
 
     th {
-        border-bottom: v(table-container-header-cell-border-bottom);
-        border-right : 1px solid v(table-container-border-color);
-        border-top   : 1px solid v(table-container-border-color);
-        padding      : 0;
-        position     : sticky;
-        top          : 0;
-        z-index      : 10;
+        background-color: v(table-container-cell-background-color);
+        border-bottom   : v(table-container-header-cell-border-bottom);
+        border-right    : 1px solid v(table-container-border-color);
+        border-top      : 1px solid v(table-container-border-color);
+        padding         : 0;
+        position        : sticky;
+        top             : 0;
+        z-index         : 10;
 
         &.neo-locked {
             z-index: 30;
