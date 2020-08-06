@@ -14,16 +14,16 @@ class MainStore extends Store {
         model      : Model,
 
         data: [
-            {country: 'Germany',  firstname: 'Tobias',  githubId: 'tobiu',         lastname: 'Uhlig'},
-            {country: 'USA',      firstname: 'Rich',    githubId: 'rwaters',       lastname: 'Waters'},
-            {country: 'Germany',  firstname: 'Nils',    githubId: 'mrsunshine',    lastname: 'Dehl'},
-            {country: 'USA',      firstname: 'Gerard',  githubId: 'camtnbikerrwc', lastname: 'Horan'},
-            {country: 'Slovakia', firstname: 'Jozef',   githubId: 'jsakalos',      lastname: 'Sakalos'},
-            {country: 'Germany',  firstname: 'Bastian', githubId: 'bhaustein',     lastname: 'Haustein'},
-            {country: 'USA',      firstname: 'Durlabh', githubId: 'durlabhjain',   lastname: 'Jain'},
-            {country: 'Canada',   firstname: 'Kevin',   githubId: 'keckeroo',      lastname: 'Cassidy'},
-            {country: 'UK',       firstname: 'Nikola',  githubId: 'boemska-nik',   lastname: 'Markovic'},
-            {country: 'USA',      firstname: 'Hyle',    githubId: 'hylec',         lastname: 'Campbell'}
+            {country: 'Germany',  firstname: 'Tobias',  githubId: 'tobiu',         isOnline: true,  lastname: 'Uhlig'},
+            {country: 'USA',      firstname: 'Rich',    githubId: 'rwaters',       isOnline: false, lastname: 'Waters'},
+            {country: 'Germany',  firstname: 'Nils',    githubId: 'mrsunshine',    isOnline: true,  lastname: 'Dehl'},
+            {country: 'USA',      firstname: 'Gerard',  githubId: 'camtnbikerrwc', isOnline: true,  lastname: 'Horan'},
+            {country: 'Slovakia', firstname: 'Jozef',   githubId: 'jsakalos',      isOnline: false, lastname: 'Sakalos'},
+            {country: 'Germany',  firstname: 'Bastian', githubId: 'bhaustein',     isOnline: false, lastname: 'Haustein'},
+            {country: 'USA',      firstname: 'Durlabh', githubId: 'durlabhjain',   isOnline: true,  lastname: 'Jain'},
+            {country: 'Canada',   firstname: 'Kevin',   githubId: 'keckeroo',      isOnline: true,  lastname: 'Cassidy'},
+            {country: 'UK',       firstname: 'Nikola',  githubId: 'boemska-nik',   isOnline: true,  lastname: 'Markovic'},
+            {country: 'USA',      firstname: 'Hyle',    githubId: 'hylec',         isOnline: false, lastname: 'Campbell'}
         ]
     }}
 }
