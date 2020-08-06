@@ -232,7 +232,7 @@ class Button extends BaseButton {
             } else {
                 delete me.filterField.vdom.removeDom;
             }
-        } else {
+        } else if (me.filterField) {
             me.filterField.vdom.removeDom = true;
         }
 
