@@ -37,7 +37,7 @@ class MainContainer extends Viewport {
                 ntype       : 'button',
                 iconCls     : 'fa fa-edit',
                 style       : {marginRight: '10px'},
-                text        : 'Change Cell Value',
+                text        : 'Change First Cell Value',
                 domListeners: {
                     click: {
                         fn: function () {
