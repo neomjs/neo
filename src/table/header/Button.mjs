@@ -209,8 +209,6 @@ class Button extends BaseButton {
         let me   = this,
             vdom = me.vdom;
 
-        console.log('afterSetShowHeaderFilter', value);
-
         if (value) {
             if (!me.filterField) {
                 me.filterField = Neo.create(TextField, {
@@ -223,7 +221,11 @@ class Button extends BaseButton {
                 });
 
                 me.vdom.cn.push(me.filterField.vdom);
+            } else {
+                delete me.filterField.vdom.removeDom;
             }
+        } else {
+            me.filterField.vdom.removeDom = true;
         }
 
         me.vdom = vdom;
