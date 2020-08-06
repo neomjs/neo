@@ -1,5 +1,6 @@
 import {default as BaseButton} from '../../component/Button.mjs';
 import NeoArray                from '../../util/Array.mjs';
+import {default as TextField}  from '../../form/field/Text.mjs';
 
 /**
  * @class Neo.table.header.Button
@@ -45,6 +46,11 @@ class Button extends BaseButton {
          * @member {Boolean} draggable_=true
          */
         draggable_: true,
+        /**
+         * @member {Neo.form.field.Base|null} filterField=null
+         * @protected
+         */
+        filterField: null,
         /**
          * @member {String} iconCls='fa fa-arrow-circle-up'
          */
@@ -133,16 +139,20 @@ class Button extends BaseButton {
     }
 
     /**
-     * Triggered after the showHeaderFilter config got changed
+     * Triggered after the draggable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetShowHeaderFilter(value, oldValue) {
+    afterSetDraggable(value, oldValue) {
         let me   = this,
             vdom = me.vdom;
 
-        console.log('afterSetShowHeaderFilter', value);
+        if (value === true) {
+            me.getVdomRoot().draggable = true;
+        } else {
+            delete me.getVdomRoot().draggable;
+        }
 
         me.vdom = vdom;
     }
@@ -190,19 +200,30 @@ class Button extends BaseButton {
     }
 
     /**
-     * Triggered after the draggable config got changed
+     * Triggered after the showHeaderFilter config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetDraggable(value, oldValue) {
+    afterSetShowHeaderFilter(value, oldValue) {
         let me   = this,
             vdom = me.vdom;
 
-        if (value === true) {
-            me.getVdomRoot().draggable = true;
-        } else {
-            delete me.getVdomRoot().draggable;
+        console.log('afterSetShowHeaderFilter', value);
+
+        if (value) {
+            if (!me.filterField) {
+                me.filterField = Neo.create(TextField, {
+                    flag     : 'filter-field',
+                    hideLabel: true,
+                    style    : {
+                        marginLeft : '.5em',
+                        marginRight: '.5em'
+                    }
+                });
+
+                me.vdom.cn.push(me.filterField.vdom);
+            }
         }
 
         me.vdom = vdom;
