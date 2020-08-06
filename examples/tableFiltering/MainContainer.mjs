@@ -63,6 +63,9 @@ class MainContainer extends Viewport {
             }, {
                 text     : 'Country',
                 dataField: 'country'
+            }, {
+                text     : 'Online',
+                dataField: 'isOnline'
             }]
         }]
     }}
