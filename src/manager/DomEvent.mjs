@@ -45,7 +45,7 @@ class DomEvent extends Base {
          */
         ntype: 'dom-event-manager',
         /**
-         * @member {Object} listeners={}
+         * @member {Object} items={}
          * @protected
          */
         items: {},
@@ -204,25 +204,23 @@ class DomEvent extends Base {
      * @protected
      */
     mountDomListeners(component) {
-        let listeners   = component.domListeners,
-            localEvents = [],
-            event, eventName;
+        let listeners   = this.items[component.id],
+            localEvents = [];
 
-        //console.log('mountDomListeners', this.map);
+        Object.entries(listeners).forEach(([eventName, value]) => {
+            value.forEach(event => {
+                eventName = event.eventName;
 
-        Object.keys(listeners).forEach(eventId => {
-            event     = listeners[eventId];
-            eventName = event.eventName;
+                if (eventName && (event.local || !globalDomEvents.includes(eventName))) {
+                    console.log('localEvents', eventName);
 
-            if (eventName && (event.local || !globalDomEvents.includes(eventName))) {
-                console.log('localEvents', eventName);
-
-                localEvents.push({
-                    name   : eventName,
-                    handler: 'domEventListener',
-                    vnodeId: event.vnodeId
-                });
-            }
+                    localEvents.push({
+                        name   : eventName,
+                        handler: 'domEventListener',
+                        vnodeId: event.vnodeId
+                    });
+                }
+            });
         });
 
         if (localEvents.length > 0) {
@@ -302,6 +300,7 @@ class DomEvent extends Base {
         listenerConfig = {
             bubble        : config.hasOwnProperty('bubble') ? config.bubble : opts.hasOwnProperty('bubble') ? opts.bubble : true,
             delegate      : config.delegate,
+            eventName     : eventName,
             fn            : fn,
             id            : listenerId,
             mounted       : !config.local && globalDomEvents.includes(eventName),
