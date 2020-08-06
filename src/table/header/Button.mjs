@@ -215,14 +215,17 @@ class Button extends BaseButton {
 
         if (value) {
             if (!me.filterField) {
-                me.filterField = Neo.create(TextField, {
+                me.filterField = Neo.create({
+                    module   : TextField,
                     flag     : 'filter-field',
                     hideLabel: true,
+
                     listeners: {
                         change: me.changeFilter,
                         scope : me
                     },
-                    style    : {
+
+                    style: {
                         marginLeft : '.5em',
                         marginRight: '.5em'
                     }
@@ -346,8 +349,6 @@ class Button extends BaseButton {
      * @param {Object} data
      */
     changeFilter(data) {
-        console.log('changeFilter', data);
-
         let me             = this,
             tableContainer = me.up('table-container'),
             store          = tableContainer && tableContainer.store,
