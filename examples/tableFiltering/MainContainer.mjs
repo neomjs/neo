@@ -34,11 +34,17 @@ class MainContainer extends Viewport {
                 checked       : true,
                 hideLabel     : true,
                 hideValueLabel: false,
-                valueLabelText: 'Show Filters'
+                valueLabelText: 'Show Filters',
+
+                listeners: {
+                    change: function(opts) {
+                        Neo.getComponent('myTableFilterContainer').showHeaderFilters = opts.value;
+                    }
+                }
             }]
         }, {
             module           : TableContainer,
-            id               : 'myTableStoreContainer',
+            id               : 'myTableFilterContainer',
             selectionModel   : CellModel,
             showHeaderFilters: true,
             store            : MainStore,
