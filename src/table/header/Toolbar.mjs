@@ -31,6 +31,10 @@ class Toolbar extends BaseToolbar {
             ntype : 'table-header-button'
         },
         /**
+         * @member {Boolean} showHeaderFilters_=false
+         */
+        showHeaderFilters_: false,
+        /**
          * @member {Object} _vdom={tag: 'thead',cn : [{tag: 'tr',cn : []}]}
          */
         _vdom: {
@@ -41,6 +45,27 @@ class Toolbar extends BaseToolbar {
             }]
         }
     }}
+
+    /**
+     * Triggered after the showHeaderFilters config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowHeaderFilters(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me   = this,
+                vdom = me.vdom;
+
+            me.items.forEach(item => {
+                item.setSilent({
+                    showHeaderFilter: value
+                });
+            });
+
+            me.vdom = vdom;
+        }
+    }
 
     /**
      *
@@ -82,10 +107,13 @@ class Toolbar extends BaseToolbar {
      *
      */
     createItems() {
+        let me = this;
+
+        me.itemDefaults.showHeaderFilter = me.showHeaderFilters;
+
         super.createItems();
 
-        let me             = this,
-            dockLeftWidth  = 0,
+        let dockLeftWidth  = 0,
             dockRightWidth = 0,
             items          = me.items,
             len            = items.length,

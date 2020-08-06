@@ -74,6 +74,10 @@ class Container extends BaseContainer {
          */
         selectionModel_: null,
         /**
+         * @member {Boolean} showHeaderFilters_=false
+         */
+        showHeaderFilters_: false,
+        /**
          * @member {Neo.data.Store} store_=null
          */
         store_: null,
@@ -122,8 +126,9 @@ class Container extends BaseContainer {
         me.viewId          = Neo.getId('table-view');
 
         me.items = [{
-            module: header.Toolbar,
-            id    : me.headerToolbarId,
+            module           : header.Toolbar,
+            id               : me.headerToolbarId,
+            showHeaderFilters: me.showHeaderFilters,
             ...me.headerToolbarConfig || {}
         }, {
             module     : View,
@@ -167,6 +172,18 @@ class Container extends BaseContainer {
     afterSetSelectionModel(value, oldValue) {
         if (this.rendered) {
             value.register(this);
+        }
+    }
+
+    /**
+     * Triggered after the showHeaderFilters config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowHeaderFilters(value, oldValue) {
+        if (oldValue !== undefined) {
+            Neo.getComponent(this.headerToolbarId).showHeaderFilters = value;
         }
     }
 
@@ -256,6 +273,7 @@ class Container extends BaseContainer {
 
         value = ClassSystemUtil.beforeSetInstance(value, Store, {
             listeners: {
+                filter      : me.onStoreFilter,
                 load        : me.onStoreLoad,
                 recordChange: me.onStoreRecordChange,
                 scope       : me
@@ -389,6 +407,13 @@ class Container extends BaseContainer {
         me.store.sort(opts);
         me.removeSortingCss(opts.property);
         me.onStoreLoad(me.store.items);
+    }
+
+    /**
+     *
+     */
+    onStoreFilter() {
+        this.onStoreLoad(this.store.items);
     }
 
     /**

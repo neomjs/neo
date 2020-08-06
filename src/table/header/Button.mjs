@@ -1,5 +1,6 @@
 import {default as BaseButton} from '../../component/Button.mjs';
 import NeoArray                from '../../util/Array.mjs';
+import {default as TextField}  from '../../form/field/Text.mjs';
 
 /**
  * @class Neo.table.header.Button
@@ -37,6 +38,10 @@ class Button extends BaseButton {
          */
         cls: ['neo-table-header-button'],
         /**
+         * @member {String|null} dataField=null
+         */
+        dataField: null,
+        /**
          * Sort direction when clicking on an unsorted button
          * @member {String} defaultSortDirection='ASC'
          */
@@ -45,6 +50,11 @@ class Button extends BaseButton {
          * @member {Boolean} draggable_=true
          */
         draggable_: true,
+        /**
+         * @member {Neo.form.field.Base|null} filterField=null
+         * @protected
+         */
+        filterField: null,
         /**
          * @member {String} iconCls='fa fa-arrow-circle-up'
          */
@@ -65,6 +75,10 @@ class Button extends BaseButton {
          * @member {Neo.core.Base|null} rendererScope=null
          */
         rendererScope: null,
+        /**
+         * @member {Boolean} showHeaderFilter_=false
+         */
+        showHeaderFilter_: false,
         /**
          * @member {String} _vdom
          */
@@ -190,6 +204,42 @@ class Button extends BaseButton {
     }
 
     /**
+     * Triggered after the showHeaderFilter config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowHeaderFilter(value, oldValue) {
+        let me   = this,
+            vdom = me.vdom;
+
+        if (value) {
+            if (!me.filterField) {
+                me.filterField = Neo.create(TextField, {
+                    flag     : 'filter-field',
+                    hideLabel: true,
+                    listeners: {
+                        change: me.changeFilter,
+                        scope : me
+                    },
+                    style    : {
+                        marginLeft : '.5em',
+                        marginRight: '.5em'
+                    }
+                });
+
+                me.vdom.cn.push(me.filterField.vdom);
+            } else {
+                delete me.filterField.vdom.removeDom;
+            }
+        } else if (me.filterField) {
+            me.filterField.vdom.removeDom = true;
+        }
+
+        me.vdom = vdom;
+    }
+
+    /**
      * Triggered before the align config gets changed
      * @param {String} value
      * @param {String} oldValue
@@ -289,6 +339,37 @@ class Button extends BaseButton {
         me.onDragLeave();
         headerToolbar.switchItems(me.id, data.srcId);
         tableContainer.createViewData(tableContainer.store.data);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    changeFilter(data) {
+        console.log('changeFilter', data);
+
+        let me             = this,
+            tableContainer = me.up('table-container'),
+            store          = tableContainer && tableContainer.store,
+            filter, filters;
+
+        if (store) {
+            filter = store.getFilter(me.dataField);
+
+            if (!filter) {
+                filters = store.filters;
+
+                filters.push({
+                    property: me.dataField,
+                    operator: 'like',
+                    value   : data.value
+                });
+
+                store.filters = filters;
+            } else {
+                filter.value = data.value;
+            }
+        }
     }
 
     /**

@@ -160,7 +160,7 @@ class Filter extends Base {
     }
 
     /**
-     * Checks if a colletion item matches this filter
+     * Checks if a collection item matches this filter
      * @param {Object} item The current collection item
      * @param {Array} filteredItems If the collection filterMode is not primitive contains the items which passed
      * the previous filters, otherwise all collection items
@@ -211,6 +211,10 @@ class Filter extends Base {
     }
 
     static ['like'](a, b) {
+        if (!b) {
+            return true;
+        }
+
         return a.toLowerCase().includes(b.toLowerCase());
     }
 }
