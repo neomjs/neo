@@ -66,7 +66,19 @@ class MainContainer extends Viewport {
             }, {
                 text     : 'Online',
                 dataField: 'isOnline',
-                renderer : data => `<i class="fa fa-${data.value ? 'check' : 'times'}"></i>`
+                renderer : data => `<i class="fa fa-${data.value ? 'check' : 'times'}"></i>`,
+
+                editorFieldConfig: {
+                    module: CheckBox,
+
+                    style: { // todo => scss
+                        alignItems    : 'center',
+                        display       : 'flex',
+                        height        : '37px',
+                        justifyContent: 'start',
+                        marginLeft    : '5px'
+                    }
+                }
             }]
         }]
     }}
