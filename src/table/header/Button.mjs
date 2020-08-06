@@ -224,6 +224,7 @@ class Button extends BaseButton {
                     module   : TextField,
                     flag     : 'filter-field',
                     hideLabel: true,
+                    parentId : me.id,
 
                     listeners: {
                         change: me.changeFilter,
