@@ -74,6 +74,10 @@ class Container extends BaseContainer {
          */
         selectionModel_: null,
         /**
+         * @member {Boolean} showHeaderFilters_=false
+         */
+        showHeaderFilters_: false,
+        /**
          * @member {Neo.data.Store} store_=null
          */
         store_: null,
@@ -122,8 +126,9 @@ class Container extends BaseContainer {
         me.viewId          = Neo.getId('table-view');
 
         me.items = [{
-            module: header.Toolbar,
-            id    : me.headerToolbarId,
+            module           : header.Toolbar,
+            id               : me.headerToolbarId,
+            showHeaderFilters: me.showHeaderFilters,
             ...me.headerToolbarConfig || {}
         }, {
             module     : View,
