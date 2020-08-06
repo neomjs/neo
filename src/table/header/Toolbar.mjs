@@ -54,9 +54,16 @@ class Toolbar extends BaseToolbar {
      */
     afterSetShowHeaderFilters(value, oldValue) {
         if (oldValue !== undefined) {
-            this.items.forEach(item => {
-                item.showHeaderFilter = value
+            let me   = this,
+                vdom = me.vdom;
+
+            me.items.forEach(item => {
+                item.setSilent({
+                    showHeaderFilter: value
+                });
             });
+
+            me.vdom = vdom;
         }
     }
 
