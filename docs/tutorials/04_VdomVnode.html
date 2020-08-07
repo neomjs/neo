@@ -28,17 +28,20 @@
         <span class="neo-button-text" id="neo-vnode-1001">Hello World</span>
     </button>
     <p>Available properties for each vdom object are:</p>
-    <pre><code>{String}        tag|nodeName   the tag of the node
+    <pre><code>{String}        tag|nodeName   the tag of the node, defaults to 'div'
 {String}        html|innerHTML node.innerHTML
 {Array}         cn             child nodes
 {Array|String}  cls            node.className
 {String}        flag           pseudo-attribute to find nodes via util.VDom.getByFlag() or util.VDom.getFlags()
 {Number|String} height         shortcut for style.height, defaults to px
 {String}        id             the dom id, will get auto-populated if not set (e.g. neo-vnode-1)
+{Number|String} maxHeight      shortcut for style.maxHeight, defaults to px
+{Number|String} maxWidth       shortcut for style.maxWidth, defaults to px
 {Number|String} minHeight      shortcut for style.minHeight, defaults to px
 {Number|String} minWidth       shortcut for style.minWidth, defaults to px
 {Object|String} style          camel cased style definitions
 {Boolean}       removeDom      pseudo-attribute to remove a node from the VNode tree
+{String}        vtype          'text' => inline text, positioned before or after nodes
 {Number|String} width          shortcut for style.width, defaults to px
 </code></pre>
     <p>For more details, take a look at:
