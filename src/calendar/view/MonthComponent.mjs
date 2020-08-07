@@ -97,7 +97,7 @@ class MonthComponent extends Component {
          * @member {Object} vdom
          */
         vdom: {
-            cn : [{
+            cn: [{
                 cls: ['neo-days-header'],
                 cn : [{
                     cls  : ['neo-static-header'],
