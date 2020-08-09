@@ -46,9 +46,9 @@ class Filter extends Base {
         filterBy_: null,
         /**
          * True means not filtering out items in case the value is '', null, [] or {}
-         * @member {Boolean} includeEmptyValues=false
+         * @member {Boolean} includeEmptyValues=true
          */
-        includeEmptyValues: false,
+        includeEmptyValues: true,
         /**
          * Set this flag to true before starting bulk updates (e.g. changing property & value)
          * to prevent multiple change events
@@ -211,10 +211,6 @@ class Filter extends Base {
     }
 
     static ['like'](a, b) {
-        if (!b) {
-            return true;
-        }
-
         return a.toLowerCase().includes(b.toLowerCase());
     }
 }
