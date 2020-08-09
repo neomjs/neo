@@ -17,13 +17,16 @@ class MainModel extends Model {
             type: 'String'
         }, {
             name: 'id',
-            type: 'Integer'
+            type: 'Int'
         }, {
             name: 'isOnline',
             type: 'Boolean'
         }, {
             name: 'lastname',
             type: 'String'
+        }, {
+            name: 'luckyNumber',
+            type: 'Int'
         }, {
             name: 'specialDate',
             type: 'Date'

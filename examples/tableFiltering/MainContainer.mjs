@@ -3,6 +3,7 @@ import CheckBox                 from '../../src/form/field/CheckBox.mjs';
 import {default as DateField}   from '../../src/form/field/Date.mjs';
 import DateUtil                 from '../../src/util/Date.mjs';
 import MainStore                from './MainStore.mjs';
+import {default as NumberField} from '../../src/form/field/Number.mjs';
 import {default as SelectField} from '../../src/form/field/Select.mjs';
 import TableContainer           from '../../src/table/Container.mjs';
 import Viewport                 from '../../src/container/Viewport.mjs';
@@ -82,6 +83,16 @@ class MainContainer extends Viewport {
                             }]
                         }
                     }
+                }
+            }, {
+                dataField   : 'luckyNumber',
+                filterConfig: {operator: '==='},
+                text        : 'Lucky Number',
+
+                editorFieldConfig: {
+                    module  : NumberField,
+                    maxValue: 10,
+                    minValue: 1
                 }
             }, {
                 dataField   : 'specialDate',
