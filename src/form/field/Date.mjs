@@ -1,5 +1,6 @@
 import DateSelector             from '../../component/DateSelector.mjs'
 import {default as DateTrigger} from './trigger/Date.mjs'
+import DateUtil                 from '../../util/Date.mjs';
 import Picker                   from './Picker.mjs';
 import {default as VDomUtil}    from '../../util/VDom.mjs';
 
@@ -7,7 +8,7 @@ import {default as VDomUtil}    from '../../util/VDom.mjs';
  * @class Neo.form.field.Date
  * @extends Neo.form.field.Picker
  */
-class Date extends Picker {
+class DateField extends Picker {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.Date'
@@ -69,7 +70,7 @@ class Date extends Picker {
 
         me.dateSelector = Neo.create(DateSelector, {
             dayNameFormat: 'short',
-            value        : me.value,
+            value        : me.value  || DateUtil.convertToyyyymmdd(new Date()),
             ...me.dateSelectorConfig || {}
         });
 
@@ -95,7 +96,7 @@ class Date extends Picker {
      * @param {Object} data
      * @protected
      */
-    onContainerKeyDownEscape() {
+    onContainerKeyDownEscape(data) {
         let me = this;
 
         me.hidePicker();
@@ -156,6 +157,6 @@ class Date extends Picker {
     }
 }
 
-Neo.applyClassConfig(Date);
+Neo.applyClassConfig(DateField);
 
-export {Date as default};
+export {DateField as default};
