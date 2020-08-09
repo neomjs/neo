@@ -59,9 +59,6 @@ class MainContainer extends Viewport {
                 text     : 'Lastname',
                 dataField: 'lastname'
             }, {
-                text     : 'Github Id',
-                dataField: 'githubId'
-            }, {
                 text     : 'Country',
                 dataField: 'country',
 
