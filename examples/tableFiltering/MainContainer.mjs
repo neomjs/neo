@@ -1,5 +1,7 @@
 import CellModel                from '../../src/selection/table/CellModel.mjs';
 import CheckBox                 from '../../src/form/field/CheckBox.mjs';
+import {default as DateField}   from '../../src/form/field/Date.mjs';
+import DateUtil                 from '../../src/util/Date.mjs';
 import MainStore                from './MainStore.mjs';
 import {default as SelectField} from '../../src/form/field/Select.mjs';
 import TableContainer           from '../../src/table/Container.mjs';
@@ -80,6 +82,15 @@ class MainContainer extends Viewport {
                             }]
                         }
                     }
+                }
+            }, {
+                text        : 'Special Date',
+                dataField   : 'specialDate',
+                filterConfig: {operator: '==='},
+                renderer    : data => DateUtil.convertToyyyymmdd(data.value),
+
+                editorFieldConfig: {
+                    module: DateField
                 }
             }, {
                 text        : 'Online',
