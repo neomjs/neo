@@ -16,6 +16,9 @@ class MainModel extends Model {
             name: 'firstname',
             type: 'String'
         }, {
+            name: 'id',
+            type: 'Integer'
+        }, {
             name: 'githubId',
             type: 'String'
         }, {
