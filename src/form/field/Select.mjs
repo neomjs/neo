@@ -155,11 +155,19 @@ class Select extends Picker {
      * @protected
      */
     afterSetValue(value, oldValue, preventFilter=false) {
+        let me = this;
+
+        me.silentVdomUpdate = true;
+
         super.afterSetValue(value, oldValue);
+        me.updateTypeAheadValue();
 
         if (!preventFilter) {
             this.updateValue();
         }
+
+        me.silentVdomUpdate = false;
+        me.promiseVdomUpdate();
     }
 
     /**
