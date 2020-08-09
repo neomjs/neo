@@ -55,14 +55,14 @@ class MainContainer extends Viewport {
             wrapperStyle     : {height: '300px'},
 
             columns: [{
-                text     : 'Firstname',
-                dataField: 'firstname'
+                dataField: 'firstname',
+                text     : 'Firstname'
             }, {
-                text     : 'Lastname',
-                dataField: 'lastname'
+                dataField: 'lastname',
+                text     : 'Lastname'
             }, {
-                text     : 'Country',
                 dataField: 'country',
+                text     : 'Country',
 
                 editorFieldConfig: {
                     module: SelectField,
@@ -84,19 +84,19 @@ class MainContainer extends Viewport {
                     }
                 }
             }, {
-                text        : 'Special Date',
                 dataField   : 'specialDate',
                 filterConfig: {operator: '==='},
                 renderer    : data => DateUtil.convertToyyyymmdd(data.value),
+                text        : 'Special Date',
 
                 editorFieldConfig: {
                     module: DateField
                 }
             }, {
-                text        : 'Online',
                 dataField   : 'isOnline',
                 filterConfig: {operator: '==='},
                 renderer    : data => `<i class="fa fa-${data.value ? 'check' : 'times'}"></i>`,
+                text        : 'Online',
 
                 editorFieldConfig: {
                     module: CheckBox,
