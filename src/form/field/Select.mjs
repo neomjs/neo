@@ -1,6 +1,7 @@
 import {default as ClassSystemUtil} from '../../util/ClassSystem.mjs';
 import {default as List}            from '../../list/Base.mjs';
 import Picker                       from './Picker.mjs';
+import Store                        from '../../data/Store.mjs';
 import {default as VDomUtil}        from '../../util/VDom.mjs';
 
 /**
@@ -173,7 +174,7 @@ class Select extends Picker {
             oldValue.destroy();
         }
 
-        return ClassSystemUtil.beforeSetInstance(value);
+        return ClassSystemUtil.beforeSetInstance(value, Store);
     }
 
     /**
