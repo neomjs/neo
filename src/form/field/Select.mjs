@@ -154,20 +154,12 @@ class Select extends Picker {
      * @param {Boolean} [preventFilter=false]
      * @protected
      */
-    afterSetValue(value, oldValue, preventFilter=false) {
-        let me = this;
-
-        me.silentVdomUpdate = true;
-
+    afterSetValue(value, oldValue, preventFilter=false) {console.log('afterSetValue', value);
         super.afterSetValue(value, oldValue);
-        me.updateTypeAheadValue();
 
         if (!preventFilter) {
             this.updateValue();
         }
-
-        me.silentVdomUpdate = false;
-        me.promiseVdomUpdate();
     }
 
     /**
@@ -345,8 +337,10 @@ class Select extends Picker {
             value    = record[me.displayField];
 
         if (me.value !== value) {
-            me._value = value;
-            me.getInputHintEl().value = '';
+            me.hintRecordId = null;
+            me._value       = value;
+            me.getInputHintEl().value = null;
+
             me.afterSetValue(value, oldValue, true); // prevent the list from getting filtered
 
             me.fire('select', {
