@@ -1,8 +1,9 @@
-import CellModel      from '../../src/selection/table/CellModel.mjs';
-import CheckBox       from '../../src/form/field/CheckBox.mjs';
-import MainStore      from './MainStore.mjs';
-import TableContainer from '../../src/table/Container.mjs';
-import Viewport       from '../../src/container/Viewport.mjs';
+import CellModel                from '../../src/selection/table/CellModel.mjs';
+import CheckBox                 from '../../src/form/field/CheckBox.mjs';
+import MainStore                from './MainStore.mjs';
+import {default as SelectField} from '../../src/form/field/Select.mjs';
+import TableContainer           from '../../src/table/Container.mjs';
+import Viewport                 from '../../src/container/Viewport.mjs';
 
 /**
  * @class TableFiltering.MainContainer
@@ -62,7 +63,27 @@ class MainContainer extends Viewport {
                 dataField: 'githubId'
             }, {
                 text     : 'Country',
-                dataField: 'country'
+                dataField: 'country',
+
+                editorFieldConfig: {
+                    module: SelectField,
+
+                    store: {
+                        autoLoad   : true,
+                        keyProperty: 'name',
+                        url        : '../../resources/examples/data/countries.json',
+
+                        model: {
+                            fields: [{
+                                name: 'code',
+                                type: 'String'
+                            }, {
+                                name: 'name',
+                                type: 'String'
+                            }]
+                        }
+                    }
+                }
             }, {
                 text        : 'Online',
                 dataField   : 'isOnline',
