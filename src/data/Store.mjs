@@ -210,7 +210,7 @@ class Store extends Base {
             oldValue.destroy();
         }
 
-        return ClassSystemUtil.beforeSetInstance(value);
+        return ClassSystemUtil.beforeSetInstance(value, Model);
     }
 
     /**
