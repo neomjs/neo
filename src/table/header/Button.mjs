@@ -52,9 +52,12 @@ class Button extends BaseButton {
         draggable_: true,
         /**
          * @member {Object} editorFieldConfig=null
-         * @protected
          */
         editorFieldConfig: null,
+        /**
+         * @member {Object} filterConfig=null
+         */
+        filterConfig: null,
         /**
          * @member {Neo.form.field.Base|null} filterField=null
          * @protected
@@ -381,7 +384,8 @@ class Button extends BaseButton {
                 filters.push({
                     property: me.dataField,
                     operator: 'like',
-                    value   : data.value
+                    value   : data.value,
+                    ...me.filterConfig || {}
                 });
 
                 store.filters = filters;
