@@ -64,9 +64,10 @@ class MainContainer extends Viewport {
                 text     : 'Country',
                 dataField: 'country'
             }, {
-                text     : 'Online',
-                dataField: 'isOnline',
-                renderer : data => `<i class="fa fa-${data.value ? 'check' : 'times'}"></i>`,
+                text        : 'Online',
+                dataField   : 'isOnline',
+                filterConfig: {operator: '==='},
+                renderer    : data => `<i class="fa fa-${data.value ? 'check' : 'times'}"></i>`,
 
                 editorFieldConfig: {
                     module: CheckBox,
