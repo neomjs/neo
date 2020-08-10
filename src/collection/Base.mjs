@@ -269,28 +269,37 @@ class Base extends CoreBase {
             hasMatch, i;
 
         value.forEach((key, index) => {
-            if (!(key instanceof Sorter)) {
-                if (oldValue) {
-                    hasMatch = false;
-                    i        = 0;
+            if (oldValue) {
+                hasMatch = false;
+                i        = 0;
 
-                    for (; i < len; i++) {
-                        if (oldValue[i].operator === (key.operator || '===') &&
-                            oldValue[i].property === key.property &&
-                            oldValue[i].value    === key.value
-                        ) {
-                            value[index] = oldValue[i];
-                            hasMatch = true;
-                            oldValue.splice(i, 1);
-                            len--;
-                            break;
-                        }
+                for (; i < len; i++) {
+                    if (oldValue[i] === key) {
+                        oldValue[i].set({
+                            operator: key.operator,
+                            property: key.property,
+                            value   : key.value
+                        });
+
+                        hasMatch = true;
+                        break;
+                    } else if (
+                        oldValue[i].operator === (key.operator || '===') &&
+                        oldValue[i].property === key.property &&
+                        oldValue[i].value    === key.value
+                    ) {
+                        hasMatch = true;
+                        break;
                     }
                 }
+            }
 
-                if (!hasMatch) {
-                    value[index] = Neo.create(Filter, key);
-                }
+            if (!hasMatch) {
+                value[index] = Neo.create(Filter, key);
+            } else {
+                value[index] = oldValue[i];
+                oldValue.splice(i, 1);
+                len--;
             }
         });
 
