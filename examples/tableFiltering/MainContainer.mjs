@@ -1,7 +1,7 @@
 import BooleanContainer         from '../../src/filter/BooleanContainer.mjs';
 import CellModel                from '../../src/selection/table/CellModel.mjs';
 import CheckBox                 from '../../src/form/field/CheckBox.mjs';
-import {default as DateField}   from '../../src/form/field/Date.mjs';
+import DateContainer            from '../../src/filter/DateContainer.mjs';
 import DateUtil                 from '../../src/util/Date.mjs';
 import MainStore                from './MainStore.mjs';
 import NumberContainer          from '../../src/filter/NumberContainer.mjs';
@@ -93,10 +93,6 @@ class MainContainer extends Viewport {
                 editorConfig: {
                     module: NumberContainer,
 
-                    buttonConfig: {
-                        operators: ['===', '>', '<']
-                    },
-
                     fieldConfig: {
                         maxValue: 10,
                         minValue: 1
@@ -104,12 +100,17 @@ class MainContainer extends Viewport {
                 }
             }, {
                 dataField   : 'specialDate',
+                flex        : 2,
                 filterConfig: {operator: '==='},
                 renderer    : data => DateUtil.convertToyyyymmdd(data.value),
                 text        : 'Special Date',
 
                 editorConfig: {
-                    module: DateField
+                    module: DateContainer,
+
+                    fieldConfig: {
+                        matchPickerWidth: false
+                    }
                 }
             }, {
                 dataField   : 'isOnline',
