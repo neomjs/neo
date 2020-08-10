@@ -23,6 +23,20 @@ class ToggleOperatorsButton extends Button {
     }}
 
     /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me = this;
+
+        me.handler = me.onButtonClick;
+
+        me.text = '==='; // todo
+    }
+
+    /**
      * Triggered after the value config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
