@@ -7,10 +7,10 @@
         "image"       : "your-benefits-of-working-with-json-based-virtual-dom.png",
         "name"        : "Your benefits of working with JSON based virtual DOM",
         "provider"    : "Medium",
-        "publisher"   : "",
-        "selectedInto": [],
-        "type"        : "Blog Post",
-        "url"         : "https://medium.com/@tobiasuhlig/your-benefits-of-working-with-json-based-virtual-dom-7318a983da9e?source=friends_link&sk=e513e83c36f05337810e62ab8e5df8e8"
+        "publisher"   : "DataSeries",
+        "selectedInto": ["Javascript"],
+        "type"        : "Tutorial",
+        "url"         : "https://medium.com/dataseries/your-benefits-of-working-with-json-based-virtual-dom-7318a983da9e?source=friends_link&sk=e513e83c36f05337810e62ab8e5df8e8"
     },
     {
         "author"      : "Tobias Uhlig",

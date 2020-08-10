@@ -1,8 +1,13 @@
-import CellModel      from '../../src/selection/table/CellModel.mjs';
-import CheckBox       from '../../src/form/field/CheckBox.mjs';
-import MainStore      from './MainStore.mjs';
-import TableContainer from '../../src/table/Container.mjs';
-import Viewport       from '../../src/container/Viewport.mjs';
+import BooleanContainer         from '../../src/filter/BooleanContainer.mjs';
+import CellModel                from '../../src/selection/table/CellModel.mjs';
+import CheckBox                 from '../../src/form/field/CheckBox.mjs';
+import {default as DateField}   from '../../src/form/field/Date.mjs';
+import DateUtil                 from '../../src/util/Date.mjs';
+import MainStore                from './MainStore.mjs';
+import {default as NumberField} from '../../src/form/field/Number.mjs';
+import {default as SelectField} from '../../src/form/field/Select.mjs';
+import TableContainer           from '../../src/table/Container.mjs';
+import Viewport                 from '../../src/container/Viewport.mjs';
 
 /**
  * @class TableFiltering.MainContainer
@@ -52,32 +57,61 @@ class MainContainer extends Viewport {
             wrapperStyle     : {height: '300px'},
 
             columns: [{
-                text     : 'Firstname',
-                dataField: 'firstname'
+                dataField: 'firstname',
+                text     : 'Firstname'
             }, {
-                text     : 'Lastname',
-                dataField: 'lastname'
+                dataField: 'lastname',
+                text     : 'Lastname'
             }, {
-                text     : 'Github Id',
-                dataField: 'githubId'
-            }, {
+                dataField: 'country',
                 text     : 'Country',
-                dataField: 'country'
-            }, {
-                text     : 'Online',
-                dataField: 'isOnline',
-                renderer : data => `<i class="fa fa-${data.value ? 'check' : 'times'}"></i>`,
 
                 editorFieldConfig: {
-                    module: CheckBox,
+                    module: SelectField,
 
-                    style: { // todo => scss
-                        alignItems    : 'center',
-                        display       : 'flex',
-                        height        : '37px',
-                        justifyContent: 'start',
-                        marginLeft    : '5px'
+                    store: {
+                        autoLoad   : true,
+                        keyProperty: 'name',
+                        url        : '../../resources/examples/data/countries.json',
+
+                        model: {
+                            fields: [{
+                                name: 'code',
+                                type: 'String'
+                            }, {
+                                name: 'name',
+                                type: 'String'
+                            }]
+                        }
                     }
+                }
+            }, {
+                dataField   : 'luckyNumber',
+                filterConfig: {operator: '==='},
+                text        : 'Lucky Number',
+
+                editorFieldConfig: {
+                    module  : NumberField,
+                    maxValue: 10,
+                    minValue: 1
+                }
+            }, {
+                dataField   : 'specialDate',
+                filterConfig: {operator: '==='},
+                renderer    : data => DateUtil.convertToyyyymmdd(data.value),
+                text        : 'Special Date',
+
+                editorFieldConfig: {
+                    module: DateField
+                }
+            }, {
+                dataField   : 'isOnline',
+                filterConfig: {operator: '==='},
+                renderer    : data => `<i class="fa fa-${data.value ? 'check' : 'times'}"></i>`,
+                text        : 'Online',
+
+                editorFieldConfig: {
+                    module: BooleanContainer
                 }
             }]
         }]

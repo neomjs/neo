@@ -1,6 +1,7 @@
 import {default as ClassSystemUtil} from '../../util/ClassSystem.mjs';
 import {default as List}            from '../../list/Base.mjs';
 import Picker                       from './Picker.mjs';
+import Store                        from '../../data/Store.mjs';
 import {default as VDomUtil}        from '../../util/VDom.mjs';
 
 /**
@@ -153,7 +154,7 @@ class Select extends Picker {
      * @param {Boolean} [preventFilter=false]
      * @protected
      */
-    afterSetValue(value, oldValue, preventFilter=false) {
+    afterSetValue(value, oldValue, preventFilter=false) {console.log('afterSetValue', value);
         super.afterSetValue(value, oldValue);
 
         if (!preventFilter) {
@@ -173,7 +174,7 @@ class Select extends Picker {
             oldValue.destroy();
         }
 
-        return ClassSystemUtil.beforeSetInstance(value);
+        return ClassSystemUtil.beforeSetInstance(value, Store);
     }
 
     /**
@@ -336,8 +337,10 @@ class Select extends Picker {
             value    = record[me.displayField];
 
         if (me.value !== value) {
-            me._value = value;
-            me.getInputHintEl().value = '';
+            me.hintRecordId = null;
+            me._value       = value;
+            me.getInputHintEl().value = null;
+
             me.afterSetValue(value, oldValue, true); // prevent the list from getting filtered
 
             me.fire('select', {

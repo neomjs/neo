@@ -136,6 +136,10 @@ class Util extends Base {
             return value.length === 0;
         }
 
+        if (value instanceof Date) {
+            return false;
+        }
+
         if (Util.isObject(value)) {
             return Object.keys(value).length === 0;
         }
