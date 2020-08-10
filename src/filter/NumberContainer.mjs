@@ -47,9 +47,9 @@ class NumberContainer extends Container {
     }}
 
     /**
-     * Triggered after the value config got changed
-     * @param {Boolean|null} value
-     * @param {Boolean|null} oldValue
+     * Triggered after the operator config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
      */
     afterSetOperator(value, oldValue) {
         if (oldValue !== undefined) {
