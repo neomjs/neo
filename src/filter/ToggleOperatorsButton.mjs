@@ -38,7 +38,7 @@ class ToggleOperatorsButton extends Button {
 
         me.handler = me.onButtonClick;
 
-        me.text = '==='; // todo
+        me.text = me.value || me.operators[0];
     }
 
     /**
