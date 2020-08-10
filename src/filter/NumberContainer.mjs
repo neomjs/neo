@@ -37,10 +37,29 @@ class NumberContainer extends Container {
          */
         numberFieldConfig: null,
         /**
+         * @member {String|null} operator_=null
+         */
+        operator_: null,
+        /**
          * @member {Boolean|null} value_=null
          */
         value_: null
     }}
+
+    /**
+     * Triggered after the value config got changed
+     * @param {Boolean|null} value
+     * @param {Boolean|null} oldValue
+     */
+    afterSetOperator(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.fire('operatorChange', {
+                component: this,
+                oldValue : oldValue,
+                value    : value
+            });
+        }
+    }
 
     /**
      * Triggered after the value config got changed
@@ -64,14 +83,16 @@ class NumberContainer extends Container {
         let me = this;
 
         me.items = [{
-            module: ToggleOperatorsButton,
-            flex  : 'none',
+            module   : ToggleOperatorsButton,
+            flex     : 'none',
+            listeners: {change: me.onOperatorChange, scope: me},
+            value    : me.operator,
             ...me.buttonConfig || {}
         }, {
             module   : Number,
             flex     : '1 1 auto',
             hideLabel: true,
-            listeners: {change: me.onNumberFieldChange, scope: me},
+            listeners: {change: me.onValueChange, scope: me},
             ...me.numberFieldConfig || {}
         }];
 
@@ -82,7 +103,15 @@ class NumberContainer extends Container {
      *
      * @param {Object} data
      */
-    onNumberFieldChange(data) {
+    onOperatorChange(data) {
+        this.operator = data.component.value;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onValueChange(data) {
         this.value = data.component.value;
     }
 }
