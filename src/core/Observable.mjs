@@ -38,6 +38,10 @@ class Observable extends Base {
         me.listeners = {};
 
         if (listeners) {
+            if (Neo.isObject(listeners)) {
+                listeners = {...listeners};
+            }
+
             me.addListener(listeners);
         }
 
