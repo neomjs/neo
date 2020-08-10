@@ -36,7 +36,7 @@ class BooleanContainer extends Container {
      * @param {Boolean|null} value
      * @param {Boolean|null} oldValue
      */
-    afterSetValue(value, oldValue) {console.log(value, oldValue);
+    afterSetValue(value, oldValue) {console.log('afterSetValue', value, oldValue);
         if (oldValue !== undefined) {
             this.fire('change', {
                 component: this,
@@ -62,14 +62,17 @@ class BooleanContainer extends Container {
 
         me.items = [{
             ...defaults,
+            checked       : me.value === true,
             fieldValue    : true,
             valueLabelText: '<i class="fa fa-check"></i>'
         }, {
             ...defaults,
+            checked       : me.value === false,
             fieldValue    : false,
             valueLabelText: '<i class="fa fa-times"></i>'
         }, {
             ...defaults,
+            checked       : me.value === null,
             fieldValue    : null,
             valueLabelText: '<i class="fa fa-check"></i> <i class="fa fa-times"></i>'
         }];
@@ -82,7 +85,7 @@ class BooleanContainer extends Container {
      * @param {Object} data
      */
     onRadioChange(data) {
-        if (data.value) {console.log(data.component.fieldValue);
+        if (data.value) {
             this.value = data.component.fieldValue;
         }
     }

@@ -111,11 +111,7 @@ class MainContainer extends Viewport {
                 text        : 'Online',
 
                 editorFieldConfig: {
-                    module: BooleanContainer,
-
-                    style: { // todo: scss
-                        height: '37px'
-                    }
+                    module: BooleanContainer
                 }
             }]
         }]
