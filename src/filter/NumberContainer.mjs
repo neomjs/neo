@@ -28,9 +28,9 @@ class NumberContainer extends Container {
          */
         cls: ['neo-filter-numbercontainer'],
         /**
-         * @member {Object} layout={ntype: 'hbox', align: 'center'}
+         * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
          */
-        layout: {ntype: 'hbox', align: 'center'},
+        layout: {ntype: 'hbox', align: 'stretch'},
         /**
          * Pass config to the Number Field
          * @member {Object|null} numberFieldConfig=null
@@ -65,6 +65,7 @@ class NumberContainer extends Container {
 
         me.items = [{
             module: ToggleOperatorsButton,
+            flex  : 'none',
             ...me.buttonConfig || {}
         }, {
             module   : Number,
