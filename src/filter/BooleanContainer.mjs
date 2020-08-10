@@ -38,21 +38,35 @@ class BooleanContainer extends Container {
             module        : Radio,
             hideLabel     : true,
             hideValueLabel: false,
+            listeners     : {change: me.onRadioChange, scope: me},
             name          : me.id
         };
 
         me.items = [{
             ...defaults,
+            fieldValue    : true,
             valueLabelText: '<i class="fa fa-check"></i>'
         }, {
             ...defaults,
+            fieldValue    : false,
             valueLabelText: '<i class="fa fa-times"></i>'
         }, {
             ...defaults,
+            fieldValue    : null,
             valueLabelText: '<i class="fa fa-check"></i> <i class="fa fa-times"></i>'
         }];
 
         super.createItems();
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onRadioChange(data) {
+        if (data.value) {
+            console.log('onRadioChange', data.component.fieldValue);
+        }
     }
 }
 
