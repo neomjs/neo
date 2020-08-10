@@ -1,3 +1,4 @@
+import BooleanContainer         from '../../src/filter/BooleanContainer.mjs';
 import CellModel                from '../../src/selection/table/CellModel.mjs';
 import CheckBox                 from '../../src/form/field/CheckBox.mjs';
 import {default as DateField}   from '../../src/form/field/Date.mjs';
@@ -110,14 +111,10 @@ class MainContainer extends Viewport {
                 text        : 'Online',
 
                 editorFieldConfig: {
-                    module: CheckBox,
+                    module: BooleanContainer,
 
-                    style: { // todo => scss
-                        alignItems    : 'center',
-                        display       : 'flex',
-                        height        : '37px',
-                        justifyContent: 'start',
-                        marginLeft    : '5px'
+                    style: { // todo: scss
+                        height: '37px'
                     }
                 }
             }]
