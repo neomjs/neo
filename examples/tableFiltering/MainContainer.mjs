@@ -1,10 +1,10 @@
 import BooleanContainer         from '../../src/filter/BooleanContainer.mjs';
 import CellModel                from '../../src/selection/table/CellModel.mjs';
 import CheckBox                 from '../../src/form/field/CheckBox.mjs';
-import {default as DateField}   from '../../src/form/field/Date.mjs';
+import DateContainer            from '../../src/filter/DateContainer.mjs';
 import DateUtil                 from '../../src/util/Date.mjs';
 import MainStore                from './MainStore.mjs';
-import {default as NumberField} from '../../src/form/field/Number.mjs';
+import NumberContainer          from '../../src/filter/NumberContainer.mjs';
 import {default as SelectField} from '../../src/form/field/Select.mjs';
 import TableContainer           from '../../src/table/Container.mjs';
 import Viewport                 from '../../src/container/Viewport.mjs';
@@ -66,7 +66,7 @@ class MainContainer extends Viewport {
                 dataField: 'country',
                 text     : 'Country',
 
-                editorFieldConfig: {
+                editorConfig: {
                     module: SelectField,
 
                     store: {
@@ -90,19 +90,27 @@ class MainContainer extends Viewport {
                 filterConfig: {operator: '==='},
                 text        : 'Lucky Number',
 
-                editorFieldConfig: {
-                    module  : NumberField,
-                    maxValue: 10,
-                    minValue: 1
+                editorConfig: {
+                    module: NumberContainer,
+
+                    fieldConfig: {
+                        maxValue: 10,
+                        minValue: 1
+                    }
                 }
             }, {
                 dataField   : 'specialDate',
+                flex        : 2,
                 filterConfig: {operator: '==='},
                 renderer    : data => DateUtil.convertToyyyymmdd(data.value),
                 text        : 'Special Date',
 
-                editorFieldConfig: {
-                    module: DateField
+                editorConfig: {
+                    module: DateContainer,
+
+                    fieldConfig: {
+                        matchPickerWidth: false
+                    }
                 }
             }, {
                 dataField   : 'isOnline',
@@ -110,7 +118,7 @@ class MainContainer extends Viewport {
                 renderer    : data => `<i class="fa fa-${data.value ? 'check' : 'times'}"></i>`,
                 text        : 'Online',
 
-                editorFieldConfig: {
+                editorConfig: {
                     module: BooleanContainer
                 }
             }]

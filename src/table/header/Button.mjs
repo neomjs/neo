@@ -51,9 +51,9 @@ class Button extends BaseButton {
          */
         draggable_: true,
         /**
-         * @member {Object} editorFieldConfig=null
+         * @member {Object} editorConfig=null
          */
-        editorFieldConfig: null,
+        editorConfig: null,
         /**
          * @member {Object} filterConfig=null
          */
@@ -230,15 +230,16 @@ class Button extends BaseButton {
                     parentId : me.id,
 
                     listeners: {
-                        change: me.changeFilter,
-                        scope : me
+                        change        : me.changeFilterValue,
+                        operatorChange: me.changeFilterOperator,
+                        scope         : me
                     },
 
                     style: {
                         marginLeft : '.5em',
                         marginRight: '.5em'
                     },
-                    ...me.editorFieldConfig || {}
+                    ...me.editorConfig || {}
                 });
 
                 me.vdom.cn.push(me.filterField.vdom);
@@ -369,7 +370,38 @@ class Button extends BaseButton {
      *
      * @param {Object} data
      */
-    changeFilter(data) {
+    changeFilterOperator(data) {
+        let me             = this,
+            tableContainer = me.up('table-container'),
+            store          = tableContainer && tableContainer.store,
+            operator       = data.value,
+            filter, filters;
+
+        if (store) {
+            filter = store.getFilter(me.dataField);
+
+            if (!filter) {
+                filters = store.filters;
+
+                filters.push({
+                    property: me.dataField,
+                    operator: operator,
+                    value   : null,
+                    ...me.filterConfig || {}
+                });
+
+                store.filters = filters;
+            } else {
+                filter.operator = operator;
+            }
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    changeFilterValue(data) {
         let me             = this,
             tableContainer = me.up('table-container'),
             store          = tableContainer && tableContainer.store,

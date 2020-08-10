@@ -120,6 +120,7 @@ class Base {
      * @param {String|Number} oldValue
      * @param {String} name config name
      * @param {Array|String} [staticName=name + 's'] name of the static config array
+     * @returns {String|Number} value or oldValue
      */
     beforeSetEnumValue(value, oldValue, name, staticName = name + 's') {
         const values = Array.isArray(staticName) ? staticName : this.getStaticConfig(staticName);
