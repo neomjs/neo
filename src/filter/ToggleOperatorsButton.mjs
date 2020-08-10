@@ -1,4 +1,5 @@
 import Button from '../component/Button.mjs';
+import Filter from '../collection/Filter.mjs';
 
 /**
  * @class Neo.filter.ToggleOperatorsButton
@@ -53,6 +54,27 @@ class ToggleOperatorsButton extends Button {
                 value    : value
             });
         }
+    }
+
+    /**
+     * Triggered before the operators config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetOperators(value, oldValue) {
+        if (Array.isArray(value)) {
+            let i   = 0,
+                len = value.length;
+
+            for (; i < len; i++) {
+                if (this.beforeSetEnumValue(value[i], oldValue, 'operators', Filter.operators) !== value[i]) {
+                    return oldValue;
+                }
+            }
+        }
+
+        return value;
     }
 
     /**

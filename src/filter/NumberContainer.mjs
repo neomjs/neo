@@ -19,6 +19,11 @@ class NumberContainer extends Container {
          */
         ntype: 'filter-numbercontainer',
         /**
+         * Pass config to the ToggleOperatorsButton
+         * @member {Object|null} buttonConfig=null
+         */
+        buttonConfig: null,
+        /**
          * @member {Array} cls=['neo-filter-numbercontainer']
          */
         cls: ['neo-filter-numbercontainer'],
@@ -27,7 +32,7 @@ class NumberContainer extends Container {
          */
         layout: {ntype: 'hbox', align: 'center'},
         /**
-         * Pass config to the Radio Fields
+         * Pass config to the Number Field
          * @member {Object|null} numberFieldConfig=null
          */
         numberFieldConfig: null,
@@ -59,7 +64,8 @@ class NumberContainer extends Container {
         let me = this;
 
         me.items = [{
-            module: ToggleOperatorsButton
+            module: ToggleOperatorsButton,
+            ...me.buttonConfig || {}
         }, {
             module   : Number,
             flex     : '1 1 auto',

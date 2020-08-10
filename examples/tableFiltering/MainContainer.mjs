@@ -93,6 +93,10 @@ class MainContainer extends Viewport {
                 editorConfig: {
                     module: NumberContainer,
 
+                    buttonConfig: {
+                        operators: ['===', '>', '<']
+                    },
+
                     numberFieldConfig: {
                         maxValue: 10,
                         minValue: 1
