@@ -23,10 +23,28 @@ class BooleanContainer extends Container {
         cls: ['neo-filter-booleancontainer'],
         /**
          * @member {Object} layout={ntype: 'hbox', align: 'center'}
-         * @protected
          */
-        layout: {ntype: 'hbox', align: 'center'}
+        layout: {ntype: 'hbox', align: 'center'},
+        /**
+         * @member {Boolean|null} value_=null
+         */
+        value_: null
     }}
+
+    /**
+     * Triggered after the value config got changed
+     * @param {Boolean|null} value
+     * @param {Boolean|null} oldValue
+     */
+    afterSetValue(value, oldValue) {console.log(value, oldValue);
+        if (oldValue !== undefined) {
+            this.fire('change', {
+                component: this,
+                oldValue : oldValue,
+                value    : value
+            });
+        }
+    }
 
     /**
      *
@@ -64,8 +82,8 @@ class BooleanContainer extends Container {
      * @param {Object} data
      */
     onRadioChange(data) {
-        if (data.value) {
-            console.log('onRadioChange', data.component.fieldValue);
+        if (data.value) {console.log(data.component.fieldValue);
+            this.value = data.component.fieldValue;
         }
     }
 }
