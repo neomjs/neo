@@ -36,7 +36,7 @@ class BooleanContainer extends Container {
      * @param {Boolean|null} value
      * @param {Boolean|null} oldValue
      */
-    afterSetValue(value, oldValue) {console.log('afterSetValue', value, oldValue);
+    afterSetValue(value, oldValue) {
         if (oldValue !== undefined) {
             this.fire('change', {
                 component: this,
