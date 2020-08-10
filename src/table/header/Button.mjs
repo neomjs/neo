@@ -381,7 +381,7 @@ class Button extends BaseButton {
             model  = store.model;
             field  = model && model.getField(me.dataField);
 
-            if (field.type.toLowerCase() === 'date') {
+            if (value && field.type.toLowerCase() === 'date') {
                 value = new Date(value);
             }
 
