@@ -327,25 +327,32 @@ class Base extends CoreBase {
             hasMatch, i;
 
         value.forEach((key, index) => {
-            if (!(key instanceof Sorter)) {
-                if (oldValue) {
-                    hasMatch = false;
-                    i        = 0;
+            if (oldValue) {
+                hasMatch = false;
+                i        = 0;
 
-                    for (; i < len; i++) {
-                        if (oldValue[i].property === key.property && oldValue[i].direction === key.direction) {
-                            value[index] = oldValue[i];
-                            hasMatch = true;
-                            oldValue.splice(i, 1);
-                            len--;
-                            break;
-                        }
+                for (; i < len; i++) {
+                    if (oldValue[i] === key) {
+                        oldValue[i].set({
+                            direction: key.direction,
+                            property : key.property
+                        });
+
+                        hasMatch = true;
+                        break;
+                    } else if (oldValue[i].property === key.property && oldValue[i].direction === key.direction) {
+                        hasMatch = true;
+                        break;
                     }
                 }
+            }
 
-                if (!hasMatch) {
-                    value[index] = Neo.create(Sorter, key);
-                }
+            if (!hasMatch) {
+                value[index] = Neo.create(Sorter, key);
+            } else {
+                value[index] = oldValue[i];
+                oldValue.splice(i, 1);
+                len--;
             }
         });
 
