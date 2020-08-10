@@ -48,8 +48,12 @@ class ToggleOperatorsButton extends Button {
      */
     afterSetValue(value, oldValue) {
         if (oldValue !== undefined) {
-            this.fire('change', {
-                component: this,
+            let me = this;
+
+            me.text = value;
+
+            me.fire('change', {
+                component: me,
                 oldValue : oldValue,
                 value    : value
             });
@@ -82,7 +86,10 @@ class ToggleOperatorsButton extends Button {
      * @param {Object} data
      */
     onButtonClick(data) {
-        console.log('onButtonClick', data)
+        let me    = this,
+            index = (me.operators.indexOf(data.component.text) + 1) % me.operators.length;
+
+        me.value = me.operators[index];
     }
 }
 
