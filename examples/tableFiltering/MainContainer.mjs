@@ -97,7 +97,7 @@ class MainContainer extends Viewport {
                         operators: ['===', '>', '<']
                     },
 
-                    numberFieldConfig: {
+                    fieldConfig: {
                         maxValue: 10,
                         minValue: 1
                     }

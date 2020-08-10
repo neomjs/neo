@@ -28,14 +28,18 @@ class NumberContainer extends Container {
          */
         cls: ['neo-filter-numbercontainer'],
         /**
+         * @member {Neo.form.field.Base} fieldModule=Number
+         */
+        fieldModule: Number,
+        /**
          * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
          * Pass config to the Number Field
-         * @member {Object|null} numberFieldConfig=null
+         * @member {Object|null} fieldConfig=null
          */
-        numberFieldConfig: null,
+        fieldConfig: null,
         /**
          * @member {String|null} operator_=null
          */
@@ -89,11 +93,11 @@ class NumberContainer extends Container {
             value    : me.operator,
             ...me.buttonConfig || {}
         }, {
-            module   : Number,
+            module   : me.fieldModule,
             flex     : '1 1 auto',
             hideLabel: true,
             listeners: {change: me.onValueChange, scope: me},
-            ...me.numberFieldConfig || {}
+            ...me.fieldConfig || {}
         }];
 
         super.createItems();
