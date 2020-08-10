@@ -39,13 +39,13 @@ class BooleanContainer extends Container {
 
         me.items = [{
             ...defaults,
-            valueLabelText: 'true'
+            valueLabelText: '<i class="fa fa-check"></i>'
         }, {
             ...defaults,
-            valueLabelText: 'false'
+            valueLabelText: '<i class="fa fa-times"></i>'
         }, {
             ...defaults,
-            valueLabelText: 'both'
+            valueLabelText: '<i class="fa fa-check"></i> <i class="fa fa-times"></i>'
         }];
 
         super.createItems();
