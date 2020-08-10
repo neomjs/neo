@@ -27,9 +27,9 @@ class NumberContainer extends Container {
         layout: {ntype: 'hbox', align: 'center'},
         /**
          * Pass config to the Radio Fields
-         * @member {Object|null} numberConfig=null
+         * @member {Object|null} numberFieldConfig=null
          */
-        numberConfig: null,
+        numberFieldConfig: null,
         /**
          * @member {Boolean|null} value_=null
          */
@@ -58,9 +58,11 @@ class NumberContainer extends Container {
         let me = this;
 
         me.items = [{
-            module: Number,
+            module   : Number,
+            flex     : '1 1 auto',
+            hideLabel: true,
             listeners: {change: me.onNumberFieldChange, scope: me},
-            ...numberConfig || {}
+            ...me.numberFieldConfig || {}
         }];
 
         super.createItems();
@@ -71,9 +73,7 @@ class NumberContainer extends Container {
      * @param {Object} data
      */
     onNumberFieldChange(data) {
-        if (data.value) {
-            this.value = data.component.fieldValue;
-        }
+        this.value = data.component.value;
     }
 }
 
