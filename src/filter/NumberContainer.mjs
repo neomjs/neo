@@ -1,5 +1,6 @@
 import {default as Container} from '../container/Base.mjs';
 import Number                 from '../form/field/Number.mjs';
+import ToggleOperatorsButton  from './ToggleOperatorsButton.mjs';
 
 /**
  * @class Neo.filter.NumberContainer
@@ -58,6 +59,8 @@ class NumberContainer extends Container {
         let me = this;
 
         me.items = [{
+            module: ToggleOperatorsButton
+        }, {
             module   : Number,
             flex     : '1 1 auto',
             hideLabel: true,
