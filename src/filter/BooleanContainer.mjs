@@ -18,10 +18,10 @@ class BooleanContainer extends Container {
          */
         ntype: 'filter-booleancontainer',
         /**
-         * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
+         * @member {Object} layout={ntype: 'hbox', align: 'center'}
          * @protected
          */
-        layout: {ntype: 'hbox', align: 'stretch'}
+        layout: {ntype: 'hbox', align: 'center'}
     }}
 
     /**
