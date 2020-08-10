@@ -3,6 +3,10 @@
         .neo-radio-input {
             margin-right: 0;
 
+            &::after {
+                width: 18px;
+            }
+
             &:checked {
                 &::after {
                     content    : "\f192";
