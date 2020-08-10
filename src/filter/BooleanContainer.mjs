@@ -26,6 +26,11 @@ class BooleanContainer extends Container {
          */
         layout: {ntype: 'hbox', align: 'center'},
         /**
+         * Pass config to the Radio Fields
+         * @member {Object|null} radioConfig=null
+         */
+        radioConfig: null,
+        /**
          * @member {Boolean|null} value_=null
          */
         value_: null
@@ -64,17 +69,20 @@ class BooleanContainer extends Container {
             ...defaults,
             checked       : me.value === true,
             fieldValue    : true,
-            valueLabelText: '<i class="fa fa-check"></i>'
+            valueLabelText: '<i class="fa fa-check"></i>',
+            ...me.radioConfig || {}
         }, {
             ...defaults,
             checked       : me.value === false,
             fieldValue    : false,
-            valueLabelText: '<i class="fa fa-times"></i>'
+            valueLabelText: '<i class="fa fa-times"></i>',
+            ...me.radioConfig || {}
         }, {
             ...defaults,
             checked       : me.value === null,
             fieldValue    : null,
-            valueLabelText: '<i class="fa fa-check"></i> <i class="fa fa-times"></i>'
+            valueLabelText: '<i class="fa fa-check"></i> <i class="fa fa-times"></i>',
+            ...me.radioConfig || {}
         }];
 
         super.createItems();
