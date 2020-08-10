@@ -16,14 +16,20 @@ class MainModel extends Model {
             name: 'firstname',
             type: 'String'
         }, {
-            name: 'githubId',
-            type: 'String'
+            name: 'id',
+            type: 'Int'
         }, {
             name: 'isOnline',
             type: 'Boolean'
         }, {
             name: 'lastname',
             type: 'String'
+        }, {
+            name: 'luckyNumber',
+            type: 'Int'
+        }, {
+            name: 'specialDate',
+            type: 'Date'
         }]
     }}
 }

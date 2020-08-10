@@ -52,9 +52,12 @@ class Button extends BaseButton {
         draggable_: true,
         /**
          * @member {Object} editorFieldConfig=null
-         * @protected
          */
         editorFieldConfig: null,
+        /**
+         * @member {Object} filterConfig=null
+         */
+        filterConfig: null,
         /**
          * @member {Neo.form.field.Base|null} filterField=null
          * @protected
@@ -370,10 +373,17 @@ class Button extends BaseButton {
         let me             = this,
             tableContainer = me.up('table-container'),
             store          = tableContainer && tableContainer.store,
-            filter, filters;
+            value          = data.value,
+            field, filter, filters, model;
 
         if (store) {
             filter = store.getFilter(me.dataField);
+            model  = store.model;
+            field  = model && model.getField(me.dataField);
+
+            if (value && field.type.toLowerCase() === 'date') {
+                value = new Date(value);
+            }
 
             if (!filter) {
                 filters = store.filters;
@@ -381,12 +391,13 @@ class Button extends BaseButton {
                 filters.push({
                     property: me.dataField,
                     operator: 'like',
-                    value   : data.value
+                    value   : value,
+                    ...me.filterConfig || {}
                 });
 
                 store.filters = filters;
             } else {
-                filter.value = data.value;
+                filter.value = value;
             }
         }
     }

@@ -87,7 +87,7 @@ class Radio extends CheckBox {
                 item.vdom.cn[1].checked = false;
 
                 if (item.vnode) {
-                    item.vnode.childNodes[1].attributes.checked = 'false';
+                    item.vnode.childNodes[me.hideLabel ? 0 : 1].attributes.checked = 'false';
                 }
 
                 item.fire('change', {

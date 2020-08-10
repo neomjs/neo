@@ -46,9 +46,9 @@ class Filter extends Base {
         filterBy_: null,
         /**
          * True means not filtering out items in case the value is '', null, [] or {}
-         * @member {Boolean} includeEmptyValues=false
+         * @member {Boolean} includeEmptyValues=true
          */
-        includeEmptyValues: false,
+        includeEmptyValues: true,
         /**
          * Set this flag to true before starting bulk updates (e.g. changing property & value)
          * to prevent multiple change events
@@ -168,7 +168,8 @@ class Filter extends Base {
      * @returns {Boolean}
      */
     isFiltered(item, filteredItems, allItems) {
-        let me = this;
+        let me = this,
+            filterValue, recordValue;
 
         if (me._disabled) {
             return false;
@@ -181,7 +182,15 @@ class Filter extends Base {
         if (me._filterBy) {
             return me.filterBy.call(me.scope || me, item, filteredItems, allItems);
         } else {
-            return !Filter[me._operator](item[me._property], me._value);
+            filterValue = me._value;
+            recordValue = item[me._property];
+
+            if (filterValue instanceof Date && recordValue instanceof Date) {
+                filterValue = filterValue.valueOf();
+                recordValue = recordValue.valueOf();
+            }
+
+            return !Filter[me._operator](recordValue, filterValue);
         }
     }
 
@@ -211,10 +220,6 @@ class Filter extends Base {
     }
 
     static ['like'](a, b) {
-        if (!b) {
-            return true;
-        }
-
         return a.toLowerCase().includes(b.toLowerCase());
     }
 }

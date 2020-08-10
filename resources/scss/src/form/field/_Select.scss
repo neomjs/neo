@@ -24,6 +24,8 @@
     }
 
     .neo-list {
+        text-align: left;
+
         .neo-highlight-search {
             background-color: v(selectfield-list-search-background-color);
             color           : v(selectfield-list-search-color) !important;
@@ -39,5 +41,6 @@
     .neo-picker-container {
         border       : v(selectfield-picker-container-border);
         border-radius: v(selectfield-picker-container-border-radius);
+        font-weight  : 400;
     }
 }
