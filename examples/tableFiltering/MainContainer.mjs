@@ -66,7 +66,7 @@ class MainContainer extends Viewport {
                 dataField: 'country',
                 text     : 'Country',
 
-                editorFieldConfig: {
+                editorConfig: {
                     module: SelectField,
 
                     store: {
@@ -90,7 +90,7 @@ class MainContainer extends Viewport {
                 filterConfig: {operator: '==='},
                 text        : 'Lucky Number',
 
-                editorFieldConfig: {
+                editorConfig: {
                     module  : NumberField,
                     maxValue: 10,
                     minValue: 1
@@ -101,7 +101,7 @@ class MainContainer extends Viewport {
                 renderer    : data => DateUtil.convertToyyyymmdd(data.value),
                 text        : 'Special Date',
 
-                editorFieldConfig: {
+                editorConfig: {
                     module: DateField
                 }
             }, {
@@ -110,7 +110,7 @@ class MainContainer extends Viewport {
                 renderer    : data => `<i class="fa fa-${data.value ? 'check' : 'times'}"></i>`,
                 text        : 'Online',
 
-                editorFieldConfig: {
+                editorConfig: {
                     module: BooleanContainer
                 }
             }]

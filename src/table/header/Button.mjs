@@ -51,9 +51,9 @@ class Button extends BaseButton {
          */
         draggable_: true,
         /**
-         * @member {Object} editorFieldConfig=null
+         * @member {Object} editorConfig=null
          */
-        editorFieldConfig: null,
+        editorConfig: null,
         /**
          * @member {Object} filterConfig=null
          */
@@ -238,7 +238,7 @@ class Button extends BaseButton {
                         marginLeft : '.5em',
                         marginRight: '.5em'
                     },
-                    ...me.editorFieldConfig || {}
+                    ...me.editorConfig || {}
                 });
 
                 me.vdom.cn.push(me.filterField.vdom);
