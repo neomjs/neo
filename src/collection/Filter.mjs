@@ -168,7 +168,8 @@ class Filter extends Base {
      * @returns {Boolean}
      */
     isFiltered(item, filteredItems, allItems) {
-        let me = this;
+        let me = this,
+            filterValue, recordValue;
 
         if (me._disabled) {
             return false;
@@ -181,7 +182,15 @@ class Filter extends Base {
         if (me._filterBy) {
             return me.filterBy.call(me.scope || me, item, filteredItems, allItems);
         } else {
-            return !Filter[me._operator](item[me._property], me._value);
+            filterValue = me._value;
+            recordValue = item[me._property];
+
+            if (filterValue instanceof Date && recordValue instanceof Date) {
+                filterValue = filterValue.valueOf();
+                recordValue = recordValue.valueOf();
+            }
+
+            return !Filter[me._operator](recordValue, filterValue);
         }
     }
 
