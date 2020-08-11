@@ -593,9 +593,15 @@ class WeekComponent extends Component {
                         // console.log(top);
 
                         column.cn.push({
-                            cls : ['neo-event', 'neo-draggable'],
-                            id  : me.id + '__' + record[eventStore.keyProperty],
-                            html: record.title,
+                            cls: ['neo-event', 'neo-draggable'],
+                            id : me.id + '__' + record[eventStore.keyProperty],
+                            cn : [{
+                                cls : ['neo-event-time'],
+                                html: '08:00'
+                            }, {
+                                cls : ['neo-event-title'],
+                                html: record.title
+                            }],
 
                             style: {
                                 height: `calc(${height}% - 2px)`,

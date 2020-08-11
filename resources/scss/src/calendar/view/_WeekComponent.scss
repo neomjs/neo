@@ -54,15 +54,25 @@
         }
 
         .neo-event {
-            background-color: rgba(255, 0, 0, 0.2);
+            background-color: rgba(255, 0, 0, 0.1);
             border-left     : 2px solid red;
             border-right    : 1px solid transparent;
-            padding         : 5px;
+            font-size       : .8em;
+            padding         : .2em .4em;;
             position        : absolute;
 
             transition-duration       : 400ms;
             transition-property       : height, top, width;
             transition-timing-function: ease-out;
+        }
+
+        .neo-event-time {
+            color: red;
+        }
+
+        .neo-event-title {
+            color      : red;
+            font-weight: bold;
         }
     }
 
