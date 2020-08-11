@@ -35,6 +35,15 @@ class Base extends CoreBase {
     }}
 
     /**
+     *
+     * @param config
+     */
+    constructor(config) {
+        super(config);
+        this.attach();
+    }
+
+    /**
      * Attaches sensors event listeners to the DOM
      */
     attach() {}
