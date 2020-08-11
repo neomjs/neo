@@ -142,12 +142,11 @@ class Mouse extends Base {
      */
     onMouseUp(event) {
         if (event.button === 0) {
-            let me  = this,
-                rem = document.removeEventListener;
+            let me = this;
 
-            rem('dragstart', preventDefault);
-            rem('mousemove', me.onDistanceChange);
-            rem('mouseup',   me.onMouseUp);
+            document.removeEventListener('dragstart', preventDefault);
+            document.removeEventListener('mousemove', me.onDistanceChange);
+            document.removeEventListener('mouseup',   me.onMouseUp);
 
             if (me.dragging) {
                 let element = me.currentElement,
@@ -162,8 +161,8 @@ class Mouse extends Base {
                     type         : 'drag:end'
                 });
 
-                rem('contextmenu', preventDefault, true);
-                rem('mousemove',   me.onMouseMove);
+                document.removeEventListener('contextmenu', preventDefault, true);
+                document.removeEventListener('mousemove',   me.onMouseMove);
 
                 Object.assign(me, {
                     currentElement: null,
