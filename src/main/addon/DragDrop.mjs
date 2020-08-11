@@ -51,7 +51,7 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragEnd(event) {
-        console.log('onDragEnd', event);
+        console.log('drag:end', event);
     }
 
     /**
@@ -59,7 +59,7 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragMove(event) {
-        console.log('onDragMove', event);
+        console.log('drag:move', event);
     }
 
     /**
@@ -67,7 +67,7 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragStart(event) {
-        console.log('onDragStart', event);
+        console.log('drag:start', event);
     }
 }
 

@@ -109,7 +109,7 @@ class Mouse extends Base {
                     startEvent    : event
                 });
 
-                document.addEventListener('dragstart', preventNativeDragStart);
+                document.addEventListener('dragstart', preventDefault);
                 document.addEventListener('mousemove', me.onDistanceChange);
                 document.addEventListener('mouseup',   me.onMouseUp);
 
@@ -124,6 +124,14 @@ class Mouse extends Base {
      *
      * @param {MouseEvent} event
      */
+    onMouseMove(event) {
+        console.log('onMouseMove', event);
+    }
+
+    /**
+     *
+     * @param {MouseEvent} event
+     */
     onMouseUp(event) {
         if (event.button !== 0) {
             return;
@@ -131,7 +139,7 @@ class Mouse extends Base {
 console.log('onMouseUp');
         let me = this;
 
-        document.removeEventListener('dragstart', preventNativeDragStart);
+        document.removeEventListener('dragstart', preventDefault);
         document.removeEventListener('mousemove', me.onDistanceChange);
         document.removeEventListener('mouseup',   me.onMouseUp);
     }
@@ -140,11 +148,29 @@ console.log('onMouseUp');
      *
      */
     startDrag() {
-        console.log('startDrag');
+        let me         = this,
+            element    = me.currentElement,
+            startEvent = me.startEvent;
+
+        me.trigger(element, {
+            clientX: startEvent.clientX,
+            clientY: startEvent.clientY,
+            element,
+            originalEvent: startEvent,
+            target: startEvent.target,
+            type: 'drag:start'
+        });
+
+        me.dragging = true;
+
+        if (me.dragging) {
+            document.addEventListener('contextmenu', preventDefault, true);
+            document.addEventListener('mousemove',   me.onMouseMove);
+        }
     }
 }
 
-function preventNativeDragStart(event) {
+function preventDefault(event) {
     event.preventDefault();
 }
 

@@ -59,7 +59,7 @@ class Base extends CoreBase {
     /**
      * Triggers a custom event on the target element
      * @param {HTMLElement} element - Element to trigger event on
-     * @param {Event} sensorEvent - Sensor event to trigger
+     * @param {Object} sensorEvent - Sensor event to trigger
      * @returns {Event}
      */
     trigger(element, sensorEvent) {
