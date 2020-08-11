@@ -50,8 +50,8 @@ class DragDrop extends Base {
     getEventData(event) {
         return {
             ...DomEvents.getEventData(event.detail.originalEvent),
-            clientX: event.clientX,
-            clientY: event.clientY
+            clientX: event.detail.clientX,
+            clientY: event.detail.clientY
         };
     }
 
