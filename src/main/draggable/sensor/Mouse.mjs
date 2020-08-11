@@ -101,6 +101,7 @@ class Mouse extends Base {
     onMouseDown(event) {
         if (event.button === 0 && !event.ctrlKey && !event.metaKey) {
             let me     = this,
+                add    = document.addEventListener,
                 target = DomEvents.testPathInclusion(event, me.dragTargetClasses);
 
             if (target) {
@@ -112,9 +113,9 @@ class Mouse extends Base {
                     startEvent    : event
                 });
 
-                document.addEventListener('dragstart', preventDefault);
-                document.addEventListener('mousemove', me.onDistanceChange);
-                document.addEventListener('mouseup',   me.onMouseUp);
+                add('dragstart', preventDefault);
+                add('mousemove', me.onDistanceChange);
+                add('mouseup',   me.onMouseUp);
 
                 me.mouseDownTimeout = window.setTimeout(() => {
                     me.onDistanceChange({pageX: me.pageX, pageY: me.pageY});
@@ -150,15 +151,37 @@ class Mouse extends Base {
      * @param {MouseEvent} event
      */
     onMouseUp(event) {
-        if (event.button !== 0) {
-            return;
+        if (event.button === 0) {
+            let me  = this,
+                rem = document.removeEventListener;
+
+            rem('dragstart', preventDefault);
+            rem('mousemove', me.onDistanceChange);
+            rem('mouseup',   me.onMouseUp);
+
+            if (me.dragging) {
+                let element = me.currentElement,
+                    target  = document.elementFromPoint(event.clientX, event.clientY);
+
+                me.trigger(element, {
+                    clientX      : event.clientX,
+                    clientY      : event.clientY,
+                    element,
+                    originalEvent: event,
+                    target,
+                    type         : 'drag:end'
+                });
+
+                rem('contextmenu', preventDefault, true);
+                rem('mousemove',   me.onMouseMove);
+
+                Object.assign(me, {
+                    currentElement: null,
+                    dragging      : false,
+                    startEvent    : null
+                });
+            }
         }
-
-        let me = this;
-
-        document.removeEventListener('dragstart', preventDefault);
-        document.removeEventListener('mousemove', me.onDistanceChange);
-        document.removeEventListener('mouseup',   me.onMouseUp);
     }
 
     /**
@@ -166,6 +189,7 @@ class Mouse extends Base {
      */
     startDrag() {
         let me         = this,
+            add        = document.addEventListener,
             element    = me.currentElement,
             startEvent = me.startEvent;
 
@@ -181,8 +205,8 @@ class Mouse extends Base {
         me.dragging = true;
 
         if (me.dragging) {
-            document.addEventListener('contextmenu', preventDefault, true);
-            document.addEventListener('mousemove',   me.onMouseMove);
+            add('contextmenu', preventDefault, true);
+            add('mousemove',   me.onMouseMove);
         }
     }
 }
