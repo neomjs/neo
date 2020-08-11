@@ -1,3 +1,24 @@
 .neo-calendar-calendarscontainer {
     margin: 10px;
+
+    .neo-checkboxfield {
+        align-items: center;
+        display    : flex;
+
+        .neo-checkbox-input {
+            &:checked {
+                &::after {
+                    content    : "\f14a";
+                    font-weight: 600;
+                }
+            }
+
+            &::after {
+                color      : v(checkboxfield-checked-color);
+                content    : "\f0c8";
+                font-size  : 20px;
+                font-weight: 600;
+            }
+        }
+    }
 }
