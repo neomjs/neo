@@ -145,8 +145,8 @@ class WeekComponent extends Component {
 
         domListeners.push(
             {'drag:move' : me.onColumnDragMove,  scope: me, delegate: '.neo-c-w-column'},
-            {'drag:move' : me.onEventDragStart,  scope: me, delegate: '.neo-event'},
-            {'drag:start': me.onColumnDragMove,  scope: me, delegate: '.neo-c-w-column'},
+            {'drag:move' : me.onEventDragMove,   scope: me, delegate: '.neo-event'},
+            {'drag:start': me.onColumnDragStart, scope: me, delegate: '.neo-c-w-column'},
             {'drag:start': me.onEventDragStart,  scope: me, delegate: '.neo-event'},
             {wheel       : me.onWheel,           scope: me}
         );
