@@ -1,5 +1,7 @@
 import Base from './Base.mjs';
 
+const onMouseDown = Symbol('onMouseDown');
+
 /**
  * @class Neo.main.draggable.sensor.Mouse
  * @extends Neo.main.draggable.sensor.Base
@@ -31,14 +33,22 @@ class Mouse extends Base {
      * Attaches sensors event listeners to the DOM
      */
     attach() {
-        // todo
+        document.addEventListener('mousedown', this[onMouseDown].bind(this), true);
     }
 
     /**
      * Detaches sensors event listeners from the DOM
      */
     detach() {
-        // todo
+        document.removeEventListener('mousedown', this[onMouseDown].bind(this), true);
+    }
+
+    /**
+     *
+     * @param {MouseEvent} event
+     */
+    [onMouseDown](event) {
+        console.log('onMouseDown', event);
     }
 }
 
