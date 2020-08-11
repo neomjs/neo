@@ -40,11 +40,10 @@ class Base extends CoreBase {
 
     /**
      *
-     * @param config
      */
-    constructor(config) {
-        super(config);
+    onConstructed() {
         this.attach();
+        super.onConstructed();
     }
 
     /**
