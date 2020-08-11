@@ -553,10 +553,9 @@ class WeekComponent extends Component {
                         // console.log(top);
 
                         column.cn.push({
-                            cls      : ['neo-event'],
-                            draggable: true,
-                            id       : me.id + '__' + record[eventStore.keyProperty],
-                            html     : record.title,
+                            cls : ['neo-event'],
+                            id  : me.id + '__' + record[eventStore.keyProperty],
+                            html: record.title,
 
                             style: {
                                 height: `calc(${height}% - 2px)`,
@@ -614,9 +613,8 @@ class WeekComponent extends Component {
 
             if (create) {
                 content.cn.push({
-                    cls      : columnCls,
-                    draggable: true,
-                    flag     : DateUtil.convertToyyyymmdd(date)
+                    cls : columnCls,
+                    flag: DateUtil.convertToyyyymmdd(date)
                 });
 
                 header.cn.push({
