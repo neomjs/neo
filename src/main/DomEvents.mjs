@@ -6,6 +6,7 @@ const globalDomEvents = [
     {name: 'change',      handler: 'onChange'},
     {name: 'click',       handler: 'onClick'},
     {name: 'contextmenu', handler: 'onContextMenu'},
+    {name: 'dragstart',   handler: 'onDragStart',  options: {capture: true}},
     {name: 'focusin',     handler: 'onFocusIn'},
     {name: 'focusout',    handler: 'onFocusOut'},
     {name: 'input',       handler: 'onChange'},
@@ -378,6 +379,16 @@ class DomEvents extends Base {
     onDragOver(event) {
         event.dataTransfer.dropEffect = 'move';
         //console.log('onDragOver', event);
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onDragStart(event) {
+        console.log('onDragStart', event);
+        this.sendMessageToApp(this.getEventData(event));
+        event.preventDefault();
     }
 
     /**
