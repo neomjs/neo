@@ -46,16 +46,7 @@ class Mouse extends Base {
      */
     constructor(config) {
         super(config);
-
-        let me = this;
-
-        // we need the scope enforcement globally, otherwise we can no longer remove the listeners
-        Object.assign(me, {
-            onDistanceChange: me.onDistanceChange.bind(me),
-            onMouseDown     : me.onMouseDown     .bind(me),
-            onMouseMove     : me.onMouseMove     .bind(me),
-            onMouseUp       : me.onMouseUp       .bind(me)
-        });
+        Neo.bindMethods(this, ['onDistanceChange', 'onMouseDown', 'onMouseMove', 'onMouseUp']);
     }
 
     /**
@@ -101,7 +92,6 @@ class Mouse extends Base {
     onMouseDown(event) {
         if (event.button === 0 && !event.ctrlKey && !event.metaKey) {
             let me     = this,
-                add    = document.addEventListener,
                 target = DomEvents.testPathInclusion(event, me.dragTargetClasses);
 
             if (target) {
@@ -113,9 +103,9 @@ class Mouse extends Base {
                     startEvent    : event
                 });
 
-                add('dragstart', preventDefault);
-                add('mousemove', me.onDistanceChange);
-                add('mouseup',   me.onMouseUp);
+                document.addEventListener('dragstart', preventDefault);
+                document.addEventListener('mousemove', me.onDistanceChange);
+                document.addEventListener('mouseup',   me.onMouseUp);
 
                 me.mouseDownTimeout = window.setTimeout(() => {
                     me.onDistanceChange({pageX: me.pageX, pageY: me.pageY});
@@ -189,7 +179,6 @@ class Mouse extends Base {
      */
     startDrag() {
         let me         = this,
-            add        = document.addEventListener,
             element    = me.currentElement,
             startEvent = me.startEvent;
 
@@ -205,8 +194,8 @@ class Mouse extends Base {
         me.dragging = true;
 
         if (me.dragging) {
-            add('contextmenu', preventDefault, true);
-            add('mousemove',   me.onMouseMove);
+            document.addEventListener('contextmenu', preventDefault, true);
+            document.addEventListener('mousemove',   me.onMouseMove);
         }
     }
 }

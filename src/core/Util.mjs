@@ -29,6 +29,17 @@ class Util extends Base {
     }}
 
     /**
+     *
+     * @param {Object} scope
+     * @param {String[]} values
+     */
+    static bindMethods(scope, values) {
+        values.forEach(value => {
+            scope[value] = scope[value].bind(scope);
+        });
+    }
+
+    /**
      * Converts a styles object which can use camelcase syntax into a styles string
      * @param {Object} styles The styles object
      * @returns {String} The styles string (DOM ready)
@@ -213,6 +224,7 @@ Neo.applyClassConfig(Util);
 
 // aliases
 Neo.applyFromNs(Neo, Util, {
+    bindMethods      : 'bindMethods',
     createStyleObject: 'createStyleObject',
     createStyles     : 'createStyles',
     capitalize       : 'capitalize',
