@@ -13,9 +13,21 @@ class Mouse extends Base {
          */
         className: 'Neo.main.draggable.sensor.Mouse',
         /**
-         * @member {Number} mouseDownTimeout=0
+         * @member {Number} delay=0
          */
-        mouseDownTimeout: 0,
+        delay: 0,
+        /**
+         * @member {Number} minDistance=0
+         */
+        minDistance: 0,
+        /**
+         * @member {Number} mouseDownTime=0
+         */
+        mouseDownTime: 0,
+        /**
+         * @member {Number|null} mouseDownTimeout=null
+         */
+        mouseDownTimeout: null,
         /**
          * @member {Number|null} pageX=null
          * @protected
@@ -70,14 +82,29 @@ class Mouse extends Base {
      * @param {MouseEvent} event
      */
     onMouseDown(event) {
-        let me     = this,
-            target = DomEvents.testPathInclusion(event, me.dragTargetClasses);
+        if (event.button === 0 && !event.ctrlKey && !event.metaKey) {
+            let me     = this,
+                target = DomEvents.testPathInclusion(event, me.dragTargetClasses);
 
-        if (target) {
-            console.log('onMouseDown', target, event);
-            document.addEventListener('dragstart', preventNativeDragStart);
-            document.addEventListener('mousemove', me.onDistanceChange);
-            document.addEventListener('mouseup',   me.onMouseUp);
+            if (target) {
+                console.log('onMouseDown', target, event);
+
+                Object.assign(me, {
+                    currentElement: target.node,
+                    mouseDownTime : Date.now(),
+                    pageX         : event.pageX,
+                    pageY         : event.pageY,
+                    startEvent    : event
+                });
+
+                document.addEventListener('dragstart', preventNativeDragStart);
+                document.addEventListener('mousemove', me.onDistanceChange);
+                document.addEventListener('mouseup',   me.onMouseUp);
+
+                me.mouseDownTimeout = window.setTimeout(() => {
+                    me.onDistanceChange({pageX: me.pageX, pageY: me.pageY});
+                }, me.delay);
+            }
         }
     }
 
