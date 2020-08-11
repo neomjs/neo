@@ -64,6 +64,19 @@
             transition-duration       : 400ms;
             transition-property       : height, top, width;
             transition-timing-function: ease-out;
+
+            &:focus {
+                background-color: rgba(255, 0, 0, 0.6);
+                outline         : 0;
+
+                .neo-event-time {
+                    color: #fff;
+                }
+
+                .neo-event-title {
+                    color: #fff;
+                }
+            }
         }
 
         .neo-event-time {
