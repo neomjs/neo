@@ -1,4 +1,5 @@
 import Base                     from '../../core/Base.mjs';
+import DomEvents                from '../DomEvents.mjs';
 import {default as MouseSensor} from '../draggable/sensor/Mouse.mjs';
 
 /**
@@ -46,12 +47,23 @@ class DragDrop extends Base {
         document.addEventListener('drag:start', me.onDragStart.bind(me), true);
     }
 
+    getEventData(event) {
+        return {
+            ...DomEvents.getEventData(event.detail.originalEvent),
+            clientX: event.clientX,
+            clientY: event.clientY
+        };
+    }
+
     /**
      *
      * @param {Object} event
      */
     onDragEnd(event) {
-        console.log('drag:end', event);
+        DomEvents.sendMessageToApp({
+            ...this.getEventData(event),
+            type: 'drag:end'
+        });
     }
 
     /**
@@ -59,7 +71,10 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragMove(event) {
-        console.log('drag:move', event);
+        DomEvents.sendMessageToApp({
+            ...this.getEventData(event),
+            type: 'drag:move'
+        });
     }
 
     /**
@@ -67,7 +82,10 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragStart(event) {
-        console.log('drag:start', event);
+        DomEvents.sendMessageToApp({
+            ...this.getEventData(event),
+            type: 'drag:start'
+        });
     }
 }
 
