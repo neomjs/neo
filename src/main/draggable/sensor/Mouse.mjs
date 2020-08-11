@@ -12,6 +12,10 @@ class Mouse extends Base {
          */
         className: 'Neo.main.draggable.sensor.Mouse',
         /**
+         * @member {Number} mouseDownTimeout=0
+         */
+        mouseDownTimeout: 0,
+        /**
          * @member {Number|null} pageX=null
          * @protected
          */
