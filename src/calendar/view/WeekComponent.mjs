@@ -143,9 +143,11 @@ class WeekComponent extends Component {
         let me           = this,
             domListeners = me.domListeners;
 
-        domListeners.push({
-            wheel: {fn: me.onWheel, scope: me}
-        });
+        domListeners.push(
+            {'drag:start': me.onColumnDragStart, scope: me, delegate: '.neo-c-w-column'},
+            {'drag:start': me.onEventDragStart,  scope: me, delegate: '.neo-event'},
+            {wheel       : me.onWheel,           scope: me}
+        );
 
         me.domListeners = domListeners;
 
@@ -351,7 +353,7 @@ class WeekComponent extends Component {
      */
     createColumnAndHeader(date) {
         let me          = this,
-            columnCls   = ['neo-c-w-column'],
+            columnCls   = ['neo-c-w-column', 'neo-draggable'],
             currentDate = date.getDate(),
             currentDay  = date.getDay(),
             dateCls     = ['neo-date'],
@@ -427,6 +429,24 @@ class WeekComponent extends Component {
      */
     getScrollContainer() {
         return VDomUtil.getByFlag(this.vdom, 'neo-c-w-scrollcontainer');
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onColumnDragStart(data) {
+        if (!data.path[0].cls.includes('neo-event')) {
+            console.log('onColumnDragStart', data);
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onEventDragStart(data) {
+        console.log('onEventDragStart', data);
     }
 
     /**
@@ -553,7 +573,7 @@ class WeekComponent extends Component {
                         // console.log(top);
 
                         column.cn.push({
-                            cls : ['neo-draggable', 'neo-event'],
+                            cls : ['neo-event', 'neo-draggable'],
                             id  : me.id + '__' + record[eventStore.keyProperty],
                             html: record.title,
 
@@ -592,7 +612,7 @@ class WeekComponent extends Component {
         me.firstColumnDate = DateUtil.clone(date);
 
         for (; i < 21; i++) {
-            columnCls   = ['neo-c-w-column'];
+            columnCls   = ['neo-c-w-column', 'neo-draggable'];
             currentDate = date.getDate();
             currentDay  = date.getDay();
             dateCls     = ['neo-date'];
