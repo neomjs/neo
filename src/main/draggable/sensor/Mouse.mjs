@@ -74,7 +74,21 @@ class Mouse extends Base {
      * @param {MouseEvent} event
      */
     onDistanceChange(event) {
-        console.log('onDistanceChange', event);
+        let me = this;
+
+        if (me.currentElement) {
+            const {pageX, pageY}    = event,
+                  timeElapsed       = Date.now() - me.mouseDownTime,
+                  distanceTravelled = DomEvents.getDistance(me.startEvent.pageX, me.startEvent.pageY, pageX, pageY) || 0;
+
+            Object.assign(me, {pageX, pageY});
+
+            if (timeElapsed >= me.delay && distanceTravelled >= me.minDistance) {
+                window.clearTimeout(me.mouseDownTimeout);
+                document.removeEventListener('mousemove', me.onDistanceChange);
+                me.startDrag();
+            }
+        }
     }
 
     /**
@@ -87,8 +101,6 @@ class Mouse extends Base {
                 target = DomEvents.testPathInclusion(event, me.dragTargetClasses);
 
             if (target) {
-                console.log('onMouseDown', target, event);
-
                 Object.assign(me, {
                     currentElement: target.node,
                     mouseDownTime : Date.now(),
@@ -122,6 +134,13 @@ console.log('onMouseUp');
         document.removeEventListener('dragstart', preventNativeDragStart);
         document.removeEventListener('mousemove', me.onDistanceChange);
         document.removeEventListener('mouseup',   me.onMouseUp);
+    }
+
+    /**
+     *
+     */
+    startDrag() {
+        console.log('startDrag');
     }
 }
 
