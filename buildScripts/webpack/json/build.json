@@ -25,6 +25,7 @@
         },
         "calendarBasic": {
             "input": "examples/calendar/Basic.mjs",
+            "mainThreadAddons": "'DragDrop', 'Stylesheet'",
             "output": "/examples/calendar/basic/",
             "title": "neo.mjs Calendar Basic"
         },
