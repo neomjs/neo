@@ -144,7 +144,9 @@ class WeekComponent extends Component {
             domListeners = me.domListeners;
 
         domListeners.push(
-            {'drag:start': me.onColumnDragStart, scope: me, delegate: '.neo-c-w-column'},
+            {'drag:move' : me.onColumnDragMove,  scope: me, delegate: '.neo-c-w-column'},
+            {'drag:move' : me.onEventDragStart,  scope: me, delegate: '.neo-event'},
+            {'drag:start': me.onColumnDragMove,  scope: me, delegate: '.neo-c-w-column'},
             {'drag:start': me.onEventDragStart,  scope: me, delegate: '.neo-event'},
             {wheel       : me.onWheel,           scope: me}
         );
@@ -435,10 +437,28 @@ class WeekComponent extends Component {
      *
      * @param {Object} data
      */
+    onColumnDragMove(data) {
+        if (!data.path[0].cls.includes('neo-event')) {
+            console.log('onColumnDragMove', data);
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onColumnDragStart(data) {
         if (!data.path[0].cls.includes('neo-event')) {
             console.log('onColumnDragStart', data);
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onEventDragMove(data) {
+        console.log('onEventDragMove', data);
     }
 
     /**
