@@ -26,7 +26,42 @@ class DragDrop extends Base {
      */
     constructor(config) {
         super(config);
-        console.log('main.addon.DragDrop ctor');
+        this.addGlobalEventListeners();
+    }
+
+    /**
+     *
+     */
+    addGlobalEventListeners() {
+        let me = this;
+
+        document.addEventListener('drag:end',   me.onDragEnd  .bind(me), true);
+        document.addEventListener('drag:move',  me.onDragMove .bind(me), true);
+        document.addEventListener('drag:start', me.onDragStart.bind(me), true);
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onDragEnd(event) {
+        console.log('onDragEnd', event);
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onDragMove(event) {
+        console.log('onDragMove', event);
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onDragStart(event) {
+        console.log('onDragStart', event);
     }
 }
 
