@@ -36,19 +36,13 @@ class Base extends CoreBase {
 
     /**
      * Attaches sensors event listeners to the DOM
-     * @returns {Neo.main.draggable.sensor.Base}
      */
-    attach() {
-        return this;
-    }
+    attach() {}
 
     /**
      * Detaches sensors event listeners from the DOM
-     * @returns {Neo.main.draggable.sensor.Base}
      */
-    detach() {
-        return this;
-    }
+    detach() {}
 
     /**
      * Triggers a custom event on the target element
