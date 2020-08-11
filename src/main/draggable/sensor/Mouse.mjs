@@ -52,6 +52,7 @@ class Mouse extends Base {
         // we need the scope enforcement globally, otherwise we can no longer remove the listeners
         me.onDistanceChange = me.onDistanceChange.bind(me);
         me.onMouseDown      = me.onMouseDown     .bind(me);
+        me.onMouseMove      = me.onMouseMove     .bind(me);
         me.onMouseUp        = me.onMouseUp       .bind(me);
     }
 
@@ -125,7 +126,21 @@ class Mouse extends Base {
      * @param {MouseEvent} event
      */
     onMouseMove(event) {
-        console.log('onMouseMove', event);
+        let me = this;
+
+        if (me.dragging) {
+            let element = me.currentElement,
+                target  = document.elementFromPoint(event.clientX, event.clientY);
+
+            me.trigger(element, {
+                clientX      : event.clientX,
+                clientY      : event.clientY,
+                element,
+                originalEvent: event,
+                target,
+                type         : 'drag:move'
+            });
+        }
     }
 
     /**
@@ -136,7 +151,7 @@ class Mouse extends Base {
         if (event.button !== 0) {
             return;
         }
-console.log('onMouseUp');
+
         let me = this;
 
         document.removeEventListener('dragstart', preventDefault);
@@ -153,12 +168,12 @@ console.log('onMouseUp');
             startEvent = me.startEvent;
 
         me.trigger(element, {
-            clientX: startEvent.clientX,
-            clientY: startEvent.clientY,
+            clientX      : startEvent.clientX,
+            clientY      : startEvent.clientY,
             element,
             originalEvent: startEvent,
-            target: startEvent.target,
-            type: 'drag:start'
+            target       : startEvent.target,
+            type         : 'drag:start'
         });
 
         me.dragging = true;
