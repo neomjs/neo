@@ -553,7 +553,7 @@ class WeekComponent extends Component {
                         // console.log(top);
 
                         column.cn.push({
-                            cls : ['neo-event'],
+                            cls : ['neo-draggable', 'neo-event'],
                             id  : me.id + '__' + record[eventStore.keyProperty],
                             html: record.title,
 

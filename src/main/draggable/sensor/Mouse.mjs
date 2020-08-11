@@ -1,4 +1,5 @@
-import Base from './Base.mjs';
+import Base      from './Base.mjs';
+import DomEvents from '../../DomEvents.mjs';
 
 const onMouseDown = Symbol('onMouseDown');
 
@@ -48,7 +49,11 @@ class Mouse extends Base {
      * @param {MouseEvent} event
      */
     [onMouseDown](event) {
-        console.log('onMouseDown', event);
+        let me = this;
+
+        if (DomEvents.testPathInclusion(event, ['neo-draggable'])) {
+            console.log('onMouseDown', event);
+        }
     }
 }
 

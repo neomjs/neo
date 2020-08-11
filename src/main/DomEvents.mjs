@@ -607,7 +607,7 @@ class DomEvents extends Base {
      *
      * @param {Object} event
      * @param {Object} targetArray
-     * @returns {Object|Boolean} target cls if found, false otherwise
+     * @returns {Object|Boolean} target cls & node if found, false otherwise
      */
     testPathInclusion(event, targetArray) {
         let countTargets = targetArray.length,
