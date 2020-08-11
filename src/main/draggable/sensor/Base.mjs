@@ -18,6 +18,10 @@ class Base extends CoreBase {
          */
         currentElement: null,
         /**
+         * @member {String[]} dragTargetClasses=['neo-draggable']
+         */
+        dragTargetClasses: ['neo-draggable'],
+        /**
          * @member {Boolean} isDragging=false
          * @protected
          */
