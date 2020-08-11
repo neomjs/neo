@@ -50,10 +50,12 @@ class Mouse extends Base {
         let me = this;
 
         // we need the scope enforcement globally, otherwise we can no longer remove the listeners
-        me.onDistanceChange = me.onDistanceChange.bind(me);
-        me.onMouseDown      = me.onMouseDown     .bind(me);
-        me.onMouseMove      = me.onMouseMove     .bind(me);
-        me.onMouseUp        = me.onMouseUp       .bind(me);
+        Object.assign(me, {
+            onDistanceChange: me.onDistanceChange.bind(me),
+            onMouseDown     : me.onMouseDown     .bind(me),
+            onMouseMove     : me.onMouseMove     .bind(me),
+            onMouseUp       : me.onMouseUp       .bind(me)
+        });
     }
 
     /**
