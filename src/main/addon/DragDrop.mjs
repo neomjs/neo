@@ -26,6 +26,7 @@ class DragDrop extends Base {
      */
     constructor(config) {
         super(config);
+        console.log('main.addon.DragDrop ctor');
     }
 }
 
