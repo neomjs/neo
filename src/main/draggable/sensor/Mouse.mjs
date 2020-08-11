@@ -49,10 +49,11 @@ class Mouse extends Base {
      * @param {MouseEvent} event
      */
     [onMouseDown](event) {
-        let me = this;
+        let me     = this,
+            target = DomEvents.testPathInclusion(event, me.dragTargetClasses);
 
-        if (DomEvents.testPathInclusion(event, ['neo-draggable'])) {
-            console.log('onMouseDown', event);
+        if (target) {
+            console.log('onMouseDown', target, event);
         }
     }
 }
