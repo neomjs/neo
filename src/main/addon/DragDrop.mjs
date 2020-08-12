@@ -80,6 +80,8 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragEnd(event) {
+        this.dragProxyElement = null;
+
         DomEvents.sendMessageToApp({
             ...this.getEventData(event),
             type: 'drag:end'
@@ -94,18 +96,14 @@ class DragDrop extends Base {
         let me = this;
 
         if (me.dragProxyElement) {
-            function move() {
-                me.dragProxyElement.style.left = `${event.detail.clientX}px`;
-                me.dragProxyElement.style.top  = `${event.detail.clientY}px`;
-            }
-
-            requestAnimationFrame(move);
+            me.dragProxyElement.style.left = `${event.detail.clientX}px`;
+            me.dragProxyElement.style.top  = `${event.detail.clientY}px`;
         }
 
-        /*DomEvents.sendMessageToApp({
+        DomEvents.sendMessageToApp({
             ...me.getEventData(event),
             type: 'drag:move'
-        });*/
+        });
     }
 
     /**
