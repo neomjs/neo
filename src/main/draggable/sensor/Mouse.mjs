@@ -130,6 +130,7 @@ class Mouse extends Base {
                 clientY      : event.clientY,
                 element,
                 originalEvent: event,
+                path         : me.startEvent.path || me.startEvent.composedPath(),
                 target,
                 type         : 'drag:move'
             });
@@ -159,6 +160,7 @@ class Mouse extends Base {
                     clientY      : event.clientY,
                     element,
                     originalEvent: event,
+                    path         : me.startEvent.path || me.startEvent.composedPath(),
                     target,
                     type         : 'drag:end'
                 });
@@ -190,6 +192,7 @@ class Mouse extends Base {
             clientY      : startEvent.clientY,
             element,
             originalEvent: startEvent,
+            path         : startEvent.path || startEvent.composedPath(),
             target       : startEvent.target,
             type         : 'drag:start'
         });
