@@ -23,10 +23,26 @@ class DragZone extends Base {
         dragElement: null
     }}
 
+    /**
+     *
+     */
     dragEnd() {
         console.log('dragEnd');
     }
 
+    /**
+     *
+     * @param {Object} data
+     * @param {Number} data.clientX
+     * @param {Number} data.clientY
+     */
+    dragMove(data) {
+        console.log('dragMove', data);
+    }
+
+    /**
+     *
+     */
     dragStart() {
         console.log('dragStart');
     }
