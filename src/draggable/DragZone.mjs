@@ -39,7 +39,15 @@ class DragZone extends Base {
         /**
          * @member {Boolean} moveInMainThread=true
          */
-        moveInMainThread: true,
+        moveInMainThread: false,
+        /**
+         * @member {Number} offsetX=0
+         */
+        offsetX: 0,
+        /**
+         * @member {Number} offsetY=0
+         */
+        offsetY: 0,
         /**
          * @member {String} proxyParentId='document.body'
          */
@@ -66,10 +74,11 @@ class DragZone extends Base {
         let me = this;
 
         me.dragProxy = Neo.create({
-            module  : DragProxyComponent,
-            appName : me.appName,
-            parentId: me.proxyParentId,
-            vdom    : {cn: [VDomUtil.clone(me.dragElement)]},
+            module          : DragProxyComponent,
+            appName         : me.appName,
+            moveInMainThread: me.moveInMainThread,
+            parentId        : me.proxyParentId,
+            vdom            : {cn: [VDomUtil.clone(me.dragElement)]},
 
             style: {
                 height: `${data.height}px`,
@@ -114,8 +123,8 @@ class DragZone extends Base {
         if (!me.moveInMainThread && me.dragProxy) {
             style = me.dragProxy.style;
 
-            style.left = `${data.clientX}px`;
-            style.top  = `${data.clientY}px`;
+            style.left = `${data.clientX - me.offsetX}px`;
+            style.top  = `${data.clientY - me.offsetY}px`;
 
             me.dragProxy.style = style;
         }
@@ -123,14 +132,18 @@ class DragZone extends Base {
 
     /**
      *
+     * @param {Object} data
      */
-    dragStart() {
+    dragStart(data) {
         let me = this;
 
         Neo.main.DomAccess.getBoundingClientRect({
             id: me.dragElement.id
-        }).then(data => {
-            me.createDragProxy(data);
+        }).then(rect => {
+            me.offsetX = data.clientX - rect.left;
+            me.offsetY = data.clientY - rect.top;
+
+            me.createDragProxy(rect);
         });
     }
 }

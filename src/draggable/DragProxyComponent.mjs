@@ -27,7 +27,11 @@ class DragProxyComponent extends Base {
         /**
          * @member {String[]} cls=['neo-dragproxy']
          */
-        cls: ['neo-dragproxy']
+        cls: ['neo-dragproxy'],
+        /**
+         * @member {Boolean} moveInMainThread=true
+         */
+        moveInMainThread: true
     }}
 
     /**
@@ -47,9 +51,11 @@ class DragProxyComponent extends Base {
      * @param {String} id
      */
     onMounted(id) {
-        Neo.main.addon.DragDrop.setDragProxyElement({
-            id: id
-        });
+        if (this.moveInMainThread) {
+            Neo.main.addon.DragDrop.setDragProxyElement({
+                id: id
+            });
+        }
     }
 }
 

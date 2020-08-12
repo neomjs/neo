@@ -512,7 +512,7 @@ class WeekComponent extends Component {
             me.eventDragZone.dragElement = dragElement;
         }
 
-        me.eventDragZone.dragStart();
+        me.eventDragZone.dragStart(data);
     }
 
     /**
