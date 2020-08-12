@@ -492,6 +492,17 @@ class WeekComponent extends Component {
      */
     onEventDragStart(data) {
         console.log('onEventDragStart', data);
+
+        let me = this;
+
+        if (!me.eventDragZone) {
+            me.eventDragZone = Neo.create({
+                module     : DragZone,
+                dragElement: {} // todo
+            });
+        } else {
+            me.eventDragZone.dragElement = {}; // todo
+        }
     }
 
     /**
