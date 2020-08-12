@@ -22,7 +22,11 @@ class DragZone extends Base {
          * The vdom (tree) of the element you want to drag
          * @member {Object|null} dragElement=null
          */
-        dragElement: null
+        dragElement: null,
+        /**
+         * @member {Neo.component.Base|null} dragProxy=null
+         */
+        dragProxy: null
     }}
 
     /**
@@ -49,7 +53,14 @@ class DragZone extends Base {
         let me    = this,
             clone = VDomUtil.clone(me.dragElement);
 
-        console.log(clone);
+        me.dragProxy = Neo.create({
+            module: DragProxyComponent,
+            vdom  : {
+                cn: [clone]
+            }
+        });
+
+        console.log(me.dragProxy);
     }
 }
 
