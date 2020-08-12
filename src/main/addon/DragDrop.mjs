@@ -16,15 +16,25 @@ class DragDrop extends Base {
              */
             className: 'Neo.main.addon.DragDrop',
             /**
-             * @member {Boolean} singleton=true
-             * @protected
-             */
-            singleton: true,
-            /**
              * @member {String|null} dragProxyId=null
              * @protected
              */
-            dragProxyId: null
+            dragProxyId: null,
+            /**
+             * Remote method access for other workers
+             * @member {Object} remote
+             * @protected
+             */
+            remote: {
+                app: [
+                    'setDragProxyId'
+                ]
+            },
+            /**
+             * @member {Boolean} singleton=true
+             * @protected
+             */
+            singleton: true
         }
     }
 
@@ -96,6 +106,14 @@ class DragDrop extends Base {
             ...this.getEventData(event),
             type: 'drag:start'
         });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    setDragProxyId(data) {
+        console.log('setDragProxyId', data);
     }
 }
 
