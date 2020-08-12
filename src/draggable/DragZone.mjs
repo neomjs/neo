@@ -19,6 +19,11 @@ class DragZone extends Base {
          */
         ntype: 'dragzone',
         /**
+         * The name of the App this instance belongs to
+         * @member {String|null} appName=null
+         */
+        appName: null,
+        /**
          * The vdom (tree) of the element you want to drag
          * @member {Object|null} dragElement=null
          */

@@ -500,6 +500,7 @@ class WeekComponent extends Component {
         if (!me.eventDragZone) {
             me.eventDragZone = Neo.create({
                 module     : DragZone,
+                appName    : me.appName,
                 dragElement: dragElement
             });
         } else {
