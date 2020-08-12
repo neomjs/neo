@@ -39,7 +39,7 @@ class DragZone extends Base {
         /**
          * @member {Boolean} moveInMainThread=true
          */
-        moveInMainThread: false,
+        moveInMainThread: true,
         /**
          * @member {Number} offsetX=0
          */

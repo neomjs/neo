@@ -21,6 +21,14 @@ class DragDrop extends Base {
              */
             dragProxyElement: null,
             /**
+             * @member {Number} offsetX=0
+             */
+            offsetX: 0,
+            /**
+             * @member {Number} offsetY=0
+             */
+            offsetY: 0,
+            /**
              * Remote method access for other workers
              * @member {Object} remote
              * @protected
@@ -62,6 +70,11 @@ class DragDrop extends Base {
         document.addEventListener('drag:start', me.onDragStart.bind(me), true);
     }
 
+    /**
+     *
+     * @param {Event} event
+     * @returns {Object}
+     */
     getEventData(event) {
         const e = {
             ...DomEvents.getEventData(event.detail.originalEvent),
@@ -96,8 +109,8 @@ class DragDrop extends Base {
         let me = this;
 
         if (me.dragProxyElement) {
-            me.dragProxyElement.style.left = `${event.detail.clientX}px`;
-            me.dragProxyElement.style.top  = `${event.detail.clientY}px`;
+            me.dragProxyElement.style.left = `${event.detail.clientX - me.offsetX}px`;
+            me.dragProxyElement.style.top  = `${event.detail.clientY - me.offsetY}px`;
         }
 
         DomEvents.sendMessageToApp({
@@ -111,6 +124,12 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragStart(event) {
+        let me   = this,
+            rect = event.target.getBoundingClientRect();
+
+        me.offsetX = event.detail.clientX - rect.left;
+        me.offsetY = event.detail.clientY - rect.top;
+
         DomEvents.sendMessageToApp({
             ...this.getEventData(event),
             type: 'drag:start'
@@ -122,7 +141,7 @@ class DragDrop extends Base {
      * @param {Object} data
      * @param {String} data.id
      */
-    setDragProxyElement(data) {
+    setDragProxyElement(data) {console.log(data);
         this.dragProxyElement = document.getElementById(data.id);
     }
 }
