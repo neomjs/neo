@@ -78,10 +78,19 @@ class DragZone extends Base {
     }
 
     /**
+     * Override for using custom animations
+     */
+    destroyDragProxy() {
+        this.dragProxy.destroy(true);
+    }
+
+    /**
      *
      */
     dragEnd() {
-        console.log('dragEnd');
+        if (this.dragProxy) {
+            this.destroyDragProxy();
+        }
     }
 
     /**

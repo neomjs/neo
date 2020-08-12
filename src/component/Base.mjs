@@ -810,11 +810,18 @@ class Base extends CoreBase {
             parent, parentVdom;
 
         if (updateParentVdom && me.parentId) {
-            parent     = Neo.getComponent(me.parentId);
-            parentVdom = parent.vdom;
+            if (me.parentId === 'document.body') {
+                Neo.currentWorker.promiseMessage('main', {
+                    action: 'updateDom',
+                    deltas: [{action: 'removeNode', id: me.id}]
+                });
+            } else {
+                parent     = Neo.getComponent(me.parentId);
+                parentVdom = parent.vdom;
 
-            VDomUtil.removeVdomChild(parentVdom, me.id);
-            parent[silent ? '_vdom' : 'vdom'] = parentVdom;
+                VDomUtil.removeVdomChild(parentVdom, me.id);
+                parent[silent ? '_vdom' : 'vdom'] = parentVdom;
+            }
         }
 
         ComponentManager.unregister(this);
