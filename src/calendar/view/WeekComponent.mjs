@@ -501,7 +501,11 @@ class WeekComponent extends Component {
             me.eventDragZone = Neo.create({
                 module     : DragZone,
                 appName    : me.appName,
-                dragElement: dragElement
+                dragElement: dragElement,
+
+                dragProxyConfig: {
+                    cls: ['neo-dragproxy', 'neo-calendar-weekcomponent']
+                }
             });
         } else {
             me.eventDragZone.dragElement = dragElement;

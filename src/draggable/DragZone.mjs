@@ -31,7 +31,11 @@ class DragZone extends Base {
         /**
          * @member {Neo.component.Base|null} dragProxy=null
          */
-        dragProxy: null
+        dragProxy: null,
+        /**
+         * @member {Object|null} dragProxyConfig=null
+         */
+        dragProxyConfig: null
     }}
 
     /**
@@ -64,7 +68,9 @@ class DragZone extends Base {
 
             vdom: {
                 cn: [clone]
-            }
+            },
+
+            ...me.dragProxyConfig || {}
         });
 
         console.log(me.dragProxy);
