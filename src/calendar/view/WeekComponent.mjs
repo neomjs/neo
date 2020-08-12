@@ -56,6 +56,10 @@ class WeekComponent extends Component {
          */
         dayNameFormat_: 'short',
         /**
+         * @member {Neo.draggable.DragZone|null} eventDragZone=null
+         */
+        eventDragZone: null,
+        /**
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
         eventStore_: null,
