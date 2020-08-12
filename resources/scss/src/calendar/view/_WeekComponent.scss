@@ -52,43 +52,6 @@
         &.neo-weekend {
             background-color: v(c-w-weekend-background-color);
         }
-
-        .neo-event {
-            background-color: rgba(255, 0, 0, 0.1);
-            border-left     : 2px solid red;
-            border-right    : 1px solid transparent;
-            font-size       : .8em;
-            padding         : .2em .4em;;
-            position        : absolute;
-
-            transition-duration       : 400ms;
-            transition-property       : height, top, width;
-            transition-timing-function: ease-out;
-
-            &:focus {
-                background-color: rgba(255, 0, 0, 0.6);
-                outline         : 0;
-
-                .neo-event-time {
-                    color: #fff;
-                }
-
-                .neo-event-title {
-                    color: #fff;
-                }
-            }
-        }
-
-        .neo-event-time {
-            color         : red;
-            pointer-events: none;
-        }
-
-        .neo-event-title {
-            color         : red;
-            font-weight   : bold;
-            pointer-events: none;
-        }
     }
 
     .neo-c-w-column-timeaxis-container {
@@ -102,6 +65,43 @@
         align-items: stretch;
         display    : flex;
         flex       : 1 1 100%;
+    }
+
+    .neo-event {
+        background-color: rgba(255, 0, 0, 0.1);
+        border-left     : 2px solid red;
+        border-right    : 1px solid transparent;
+        font-size       : .8em;
+        padding         : .2em .4em;;
+        position        : absolute;
+
+        transition-duration       : 400ms;
+        transition-property       : height, top, width;
+        transition-timing-function: ease-out;
+
+        &:focus {
+            background-color: rgba(255, 0, 0, 0.6);
+            outline         : 0;
+
+            .neo-event-time {
+                color: #fff;
+            }
+
+            .neo-event-title {
+                color: #fff;
+            }
+        }
+    }
+
+    .neo-event-time {
+        color         : red;
+        pointer-events: none;
+    }
+
+    .neo-event-title {
+        color         : red;
+        font-weight   : bold;
+        pointer-events: none;
     }
 
     .neo-header-row-item {
