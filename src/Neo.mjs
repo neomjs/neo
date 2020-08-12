@@ -224,7 +224,7 @@ Neo = self.Neo = Object.assign({
      * @param {Boolean} [ignoreNeoInstances=false] returns existing instances if set to true
      * @returns {Object|Array|*} the cloned input
      */
-    clone(obj, deep, ignoreNeoInstances) {
+    clone(obj, deep=false, ignoreNeoInstances=false) {
         let out;
 
         if (Array.isArray(obj)) {
