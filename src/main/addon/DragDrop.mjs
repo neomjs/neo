@@ -91,17 +91,15 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragMove(event) {
-        let me = this,
-            style;
+        let me = this;
 
         if (me.dragProxyElement) {
+            function move() {
+                me.dragProxyElement.style.left = `${event.detail.clientX}px`;
+                me.dragProxyElement.style.top  = `${event.detail.clientY}px`;
+            }
 
-            style = me.dragProxyElement.style;
-
-            Object.assign(style, {
-                left: `${event.detail.clientX}px`,
-                top : `${event.detail.clientY}px`
-            });
+            requestAnimationFrame(move);
         }
 
         /*DomEvents.sendMessageToApp({
