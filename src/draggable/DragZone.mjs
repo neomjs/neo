@@ -40,6 +40,18 @@ class DragZone extends Base {
 
     /**
      *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        if (!Neo.main.addon.DragDrop) {
+            throw new Error('You can not use Neo.draggable.DragZone without adding Neo.main.addon.DragDrop to the main thread addons');
+        }
+    }
+
+    /**
+     *
      */
     dragEnd() {
         console.log('dragEnd');
