@@ -17,8 +17,8 @@ class DragZone extends Base {
          */
         ntype: 'dragzone',
         /**
-         * @member {Neo.component.Base|null} dragElement=null
-         * @protected
+         * The vdom (tree) of the element you want to drag
+         * @member {Object|null} dragElement=null
          */
         dragElement: null
     }}
