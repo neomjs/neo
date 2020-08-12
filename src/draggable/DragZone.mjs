@@ -39,7 +39,11 @@ class DragZone extends Base {
         /**
          * @member {Boolean} moveInMainThread=true
          */
-        moveInMainThread: true
+        moveInMainThread: true,
+        /**
+         * @member {String} proxyParentId='document.body'
+         */
+        proxyParentId: 'document.body'
     }}
 
     /**
@@ -62,9 +66,10 @@ class DragZone extends Base {
         let me = this;
 
         me.dragProxy = Neo.create({
-            module : DragProxyComponent,
-            appName: me.appName,
-            vdom   : {cn: [VDomUtil.clone(me.dragElement)]},
+            module  : DragProxyComponent,
+            appName : me.appName,
+            parentId: me.proxyParentId,
+            vdom    : {cn: [VDomUtil.clone(me.dragElement)]},
 
             style: {
                 height: `${data.height}px`,

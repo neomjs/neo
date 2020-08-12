@@ -27,11 +27,7 @@ class DragProxyComponent extends Base {
         /**
          * @member {String[]} cls=['neo-dragproxy']
          */
-        cls: ['neo-dragproxy'],
-        /**
-         * @member {String} parentId='document.body'
-         */
-        parentId: 'document.body'
+        cls: ['neo-dragproxy']
     }}
 
     /**
