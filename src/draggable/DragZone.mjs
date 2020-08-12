@@ -62,6 +62,17 @@ class DragZone extends Base {
         let me    = this,
             clone = VDomUtil.clone(me.dragElement);
 
+        clone.style = clone.style || {};
+
+        Object.assign(clone.style, {
+            height: '100%',
+            left  : 0,
+            top   : 0,
+            width : '100%'
+        });
+
+        console.log(clone);
+
         me.dragProxy = Neo.create({
             module : DragProxyComponent,
             appName: me.appName,
