@@ -1,4 +1,8 @@
 .neo-dragproxy {
     position: absolute;
     z-index : 1000;
+
+    > * {
+        position: relative !important;
+    }
 }
