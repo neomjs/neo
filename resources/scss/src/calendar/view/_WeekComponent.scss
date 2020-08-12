@@ -93,15 +93,15 @@
         }
     }
 
-    .neo-event-time {
+    .neo-event-time,
+    .neo-event-title {
         color         : red;
         pointer-events: none;
+        user-select   : none;
     }
 
     .neo-event-title {
-        color         : red;
-        font-weight   : bold;
-        pointer-events: none;
+        font-weight: bold;
     }
 
     .neo-header-row-item {
