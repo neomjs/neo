@@ -1,4 +1,5 @@
 import Base                  from '../core/Base.mjs';
+import DragProxyComponent    from './DragProxyComponent.mjs';
 import {default as VDomUtil} from '../util/VDom.mjs';
 
 /**

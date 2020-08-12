@@ -2,7 +2,7 @@ import Base from '../component/Base.mjs';
 
 /**
  * @class Neo.draggable.DragProxyComponent
- * @extends Neo.core.Base
+ * @extends Neo.component.Base
  */
 class DragProxyComponent extends Base {
     static getConfig() {return {
