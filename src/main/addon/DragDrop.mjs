@@ -16,10 +16,10 @@ class DragDrop extends Base {
              */
             className: 'Neo.main.addon.DragDrop',
             /**
-             * @member {String|null} dragProxyId=null
+             * @member {HTMLElement|null} dragProxyElement=null
              * @protected
              */
-            dragProxyId: null,
+            dragProxyElement: null,
             /**
              * Remote method access for other workers
              * @member {Object} remote
@@ -27,7 +27,7 @@ class DragDrop extends Base {
              */
             remote: {
                 app: [
-                    'setDragProxyId'
+                    'setDragProxyElement'
                 ]
             },
             /**
@@ -91,10 +91,23 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragMove(event) {
-        DomEvents.sendMessageToApp({
-            ...this.getEventData(event),
+        let me = this,
+            style;
+
+        if (me.dragProxyElement) {
+
+            style = me.dragProxyElement.style;
+
+            Object.assign(style, {
+                left: `${event.detail.clientX}px`,
+                top : `${event.detail.clientY}px`
+            });
+        }
+
+        /*DomEvents.sendMessageToApp({
+            ...me.getEventData(event),
             type: 'drag:move'
-        });
+        });*/
     }
 
     /**
@@ -111,9 +124,10 @@ class DragDrop extends Base {
     /**
      *
      * @param {Object} data
+     * @param {String} data.id
      */
-    setDragProxyId(data) {
-        console.log('setDragProxyId', data);
+    setDragProxyElement(data) {
+        this.dragProxyElement = document.getElementById(data.id);
     }
 }
 

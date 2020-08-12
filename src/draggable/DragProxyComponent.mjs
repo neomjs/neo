@@ -51,7 +51,7 @@ class DragProxyComponent extends Base {
      * @param {String} id
      */
     onMounted(id) {
-        Neo.main.addon.DragDrop.setDragProxyId({
+        Neo.main.addon.DragDrop.setDragProxyElement({
             id: id
         });
     }
