@@ -35,7 +35,11 @@ class DragZone extends Base {
         /**
          * @member {Object|null} dragProxyConfig=null
          */
-        dragProxyConfig: null
+        dragProxyConfig: null,
+        /**
+         * @member {Boolean} moveInMainThread=true
+         */
+        moveInMainThread: true
     }}
 
     /**
@@ -67,7 +71,7 @@ class DragZone extends Base {
         let me = this,
             style;
 
-        if (me.dragProxy) {
+        if (!me.moveInMainThread && me.dragProxy) {
             style = me.dragProxy.style;
 
             style.left = `${data.clientX}px`;
@@ -101,8 +105,6 @@ class DragZone extends Base {
 
                 ...me.dragProxyConfig || {}
             });
-
-            console.log(me.dragProxy);
         });
     }
 }
