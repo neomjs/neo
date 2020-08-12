@@ -15,7 +15,7 @@ class Mouse extends Base {
         /**
          * @member {Number} delay=0
          */
-        delay: 0,
+        delay: 200,
         /**
          * @member {Number} minDistance=0
          */
@@ -78,7 +78,7 @@ class Mouse extends Base {
             Object.assign(me, {pageX, pageY});
 
             if (timeElapsed >= me.delay && distanceTravelled >= me.minDistance) {
-                window.clearTimeout(me.mouseDownTimeout);
+                clearTimeout(me.mouseDownTimeout);
                 document.removeEventListener('mousemove', me.onDistanceChange);
                 me.startDrag();
             }
@@ -144,6 +144,8 @@ class Mouse extends Base {
         if (event.button === 0) {
             let me = this;
 
+            clearTimeout(me.mouseDownTimeout);
+
             document.removeEventListener('dragstart', preventDefault);
             document.removeEventListener('mousemove', me.onDistanceChange);
             document.removeEventListener('mouseup',   me.onMouseUp);
@@ -170,6 +172,8 @@ class Mouse extends Base {
                     startEvent    : null
                 });
             }
+
+            me.dragging = false;
         }
     }
 
