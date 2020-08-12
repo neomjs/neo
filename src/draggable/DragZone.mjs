@@ -1,4 +1,5 @@
-import Base from '../core/Base.mjs';
+import Base                  from '../core/Base.mjs';
+import {default as VDomUtil} from '../util/VDom.mjs';
 
 /**
  * @class Neo.draggable.DragZone
@@ -37,14 +38,17 @@ class DragZone extends Base {
      * @param {Number} data.clientY
      */
     dragMove(data) {
-        console.log('dragMove', data, this.dragElement);
+        console.log('dragMove', data);
     }
 
     /**
      *
      */
     dragStart() {
-        console.log('dragStart');
+        let me    = this,
+            clone = VDomUtil.clone(me.dragElement);
+
+        console.log(clone);
     }
 }
 
