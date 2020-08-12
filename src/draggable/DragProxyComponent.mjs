@@ -33,6 +33,28 @@ class DragProxyComponent extends Base {
          */
         parentId: 'document.body'
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me = this;
+
+        me.on('mounted', me.onMounted, me);
+    }
+
+    /**
+     *
+     * @param {String} id
+     */
+    onMounted(id) {
+        Neo.main.addon.DragDrop.setDragProxyId({
+            id: id
+        });
+    }
 }
 
 Neo.applyClassConfig(DragProxyComponent);
