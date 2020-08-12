@@ -37,7 +37,7 @@ class DragZone extends Base {
      * @param {Number} data.clientY
      */
     dragMove(data) {
-        console.log('dragMove', data);
+        console.log('dragMove', data, this.dragElement);
     }
 
     /**

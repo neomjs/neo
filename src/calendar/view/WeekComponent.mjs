@@ -494,17 +494,16 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onEventDragStart(data) {
-        console.log('onEventDragStart', data);
-
-        let me = this;
+        let me          = this,
+            dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom;
 
         if (!me.eventDragZone) {
             me.eventDragZone = Neo.create({
                 module     : DragZone,
-                dragElement: {} // todo
+                dragElement: dragElement
             });
         } else {
-            me.eventDragZone.dragElement = {}; // todo
+            me.eventDragZone.dragElement = dragElement;
         }
 
         me.eventDragZone.dragStart();
