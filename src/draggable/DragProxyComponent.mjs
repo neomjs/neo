@@ -15,7 +15,11 @@ class DragProxyComponent extends Base {
          * @member {String} ntype='dragproxy'
          * @protected
          */
-        ntype: 'dragproxy'
+        ntype: 'dragproxy',
+        /**
+         * @member {String[]} cls=['neo-dragproxy']
+         */
+        cls: ['neo-dragproxy']
     }}
 }
 
