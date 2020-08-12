@@ -19,7 +19,12 @@ class DragDrop extends Base {
              * @member {Boolean} singleton=true
              * @protected
              */
-            singleton: true
+            singleton: true,
+            /**
+             * @member {String|null} dragProxyId=null
+             * @protected
+             */
+            dragProxyId: null
         }
     }
 
