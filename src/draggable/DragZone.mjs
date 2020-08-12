@@ -93,8 +93,11 @@ class DragZone extends Base {
      *
      */
     dragEnd() {
-        if (this.dragProxy) {
-            this.destroyDragProxy();
+        let me = this;
+
+        if (me.dragProxy) {
+            me.destroyDragProxy();
+            me.dragProxy = null;
         }
     }
 
@@ -122,26 +125,12 @@ class DragZone extends Base {
      *
      */
     dragStart() {
-        let me    = this,
-            clone = VDomUtil.clone(me.dragElement);
+        let me = this;
 
         Neo.main.DomAccess.getBoundingClientRect({
             id: me.dragElement.id
         }).then(data => {
-            me.dragProxy = Neo.create({
-                module : DragProxyComponent,
-                appName: me.appName,
-                vdom   : {cn: [clone]},
-
-                style: {
-                    height: `${data.height}px`,
-                    left  : `${data.left}px`,
-                    top   : `${data.top}px`,
-                    width : `${data.width}px`
-                },
-
-                ...me.dragProxyConfig || {}
-            });
+            me.createDragProxy(data);
         });
     }
 }
