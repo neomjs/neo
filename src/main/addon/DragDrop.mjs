@@ -16,6 +16,29 @@ class DragDrop extends Base {
              */
             className: 'Neo.main.addon.DragDrop',
             /**
+             * @member {HTMLElement|null} dragProxyElement=null
+             * @protected
+             */
+            dragProxyElement: null,
+            /**
+             * @member {Number} offsetX=0
+             */
+            offsetX: 0,
+            /**
+             * @member {Number} offsetY=0
+             */
+            offsetY: 0,
+            /**
+             * Remote method access for other workers
+             * @member {Object} remote
+             * @protected
+             */
+            remote: {
+                app: [
+                    'setDragProxyElement'
+                ]
+            },
+            /**
              * @member {Boolean} singleton=true
              * @protected
              */
@@ -47,12 +70,22 @@ class DragDrop extends Base {
         document.addEventListener('drag:start', me.onDragStart.bind(me), true);
     }
 
+    /**
+     *
+     * @param {Event} event
+     * @returns {Object}
+     */
     getEventData(event) {
-        return {
+        const e = {
             ...DomEvents.getEventData(event.detail.originalEvent),
             clientX: event.detail.clientX,
             clientY: event.detail.clientY
         };
+
+        e.targetPath = e.path;
+        e.path       = event.path.map(e => DomEvents.getTargetData(e))
+
+        return e;
     }
 
     /**
@@ -60,6 +93,8 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragEnd(event) {
+        this.dragProxyElement = null;
+
         DomEvents.sendMessageToApp({
             ...this.getEventData(event),
             type: 'drag:end'
@@ -71,8 +106,15 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragMove(event) {
+        let me = this;
+
+        if (me.dragProxyElement) {
+            me.dragProxyElement.style.left = `${event.detail.clientX - me.offsetX}px`;
+            me.dragProxyElement.style.top  = `${event.detail.clientY - me.offsetY}px`;
+        }
+
         DomEvents.sendMessageToApp({
-            ...this.getEventData(event),
+            ...me.getEventData(event),
             type: 'drag:move'
         });
     }
@@ -82,10 +124,25 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragStart(event) {
+        let me   = this,
+            rect = event.target.getBoundingClientRect();
+
+        me.offsetX = event.detail.clientX - rect.left;
+        me.offsetY = event.detail.clientY - rect.top;
+
         DomEvents.sendMessageToApp({
             ...this.getEventData(event),
             type: 'drag:start'
         });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    setDragProxyElement(data) {console.log(data);
+        this.dragProxyElement = document.getElementById(data.id);
     }
 }
 

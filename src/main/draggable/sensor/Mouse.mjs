@@ -15,7 +15,7 @@ class Mouse extends Base {
         /**
          * @member {Number} delay=0
          */
-        delay: 0,
+        delay: 200,
         /**
          * @member {Number} minDistance=0
          */
@@ -78,7 +78,7 @@ class Mouse extends Base {
             Object.assign(me, {pageX, pageY});
 
             if (timeElapsed >= me.delay && distanceTravelled >= me.minDistance) {
-                window.clearTimeout(me.mouseDownTimeout);
+                clearTimeout(me.mouseDownTimeout);
                 document.removeEventListener('mousemove', me.onDistanceChange);
                 me.startDrag();
             }
@@ -130,6 +130,7 @@ class Mouse extends Base {
                 clientY      : event.clientY,
                 element,
                 originalEvent: event,
+                path         : me.startEvent.path || me.startEvent.composedPath(),
                 target,
                 type         : 'drag:move'
             });
@@ -142,12 +143,13 @@ class Mouse extends Base {
      */
     onMouseUp(event) {
         if (event.button === 0) {
-            let me  = this,
-                rem = document.removeEventListener;
+            let me = this;
 
-            rem('dragstart', preventDefault);
-            rem('mousemove', me.onDistanceChange);
-            rem('mouseup',   me.onMouseUp);
+            clearTimeout(me.mouseDownTimeout);
+
+            document.removeEventListener('dragstart', preventDefault);
+            document.removeEventListener('mousemove', me.onDistanceChange);
+            document.removeEventListener('mouseup',   me.onMouseUp);
 
             if (me.dragging) {
                 let element = me.currentElement,
@@ -158,12 +160,13 @@ class Mouse extends Base {
                     clientY      : event.clientY,
                     element,
                     originalEvent: event,
+                    path         : me.startEvent.path || me.startEvent.composedPath(),
                     target,
                     type         : 'drag:end'
                 });
 
-                rem('contextmenu', preventDefault, true);
-                rem('mousemove',   me.onMouseMove);
+                document.removeEventListener('contextmenu', preventDefault, true);
+                document.removeEventListener('mousemove',   me.onMouseMove);
 
                 Object.assign(me, {
                     currentElement: null,
@@ -171,6 +174,8 @@ class Mouse extends Base {
                     startEvent    : null
                 });
             }
+
+            me.dragging = false;
         }
     }
 
@@ -187,6 +192,7 @@ class Mouse extends Base {
             clientY      : startEvent.clientY,
             element,
             originalEvent: startEvent,
+            path         : startEvent.path || startEvent.composedPath(),
             target       : startEvent.target,
             type         : 'drag:start'
         });

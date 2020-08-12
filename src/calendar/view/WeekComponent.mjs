@@ -1,5 +1,6 @@
 import {default as Component} from '../../component/Base.mjs';
 import DateUtil               from '../../util/Date.mjs';
+import DragZone               from '../../draggable/DragZone.mjs';
 import NeoArray               from '../../util/Array.mjs';
 import TimeAxisComponent      from './TimeAxisComponent.mjs';
 import {default as VDomUtil}  from '../../util/VDom.mjs';
@@ -54,6 +55,10 @@ class WeekComponent extends Component {
          * @member {String} dayNameFormat_='short'
          */
         dayNameFormat_: 'short',
+        /**
+         * @member {Neo.draggable.DragZone|null} eventDragZone=null
+         */
+        eventDragZone: null,
         /**
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
@@ -144,6 +149,8 @@ class WeekComponent extends Component {
             domListeners = me.domListeners;
 
         domListeners.push(
+            {'drag:end'  : me.onColumnDragEnd,   scope: me, delegate: '.neo-c-w-column'},
+            {'drag:end'  : me.onEventDragEnd,    scope: me, delegate: '.neo-event'},
             {'drag:move' : me.onColumnDragMove,  scope: me, delegate: '.neo-c-w-column'},
             {'drag:move' : me.onEventDragMove,   scope: me, delegate: '.neo-event'},
             {'drag:start': me.onColumnDragStart, scope: me, delegate: '.neo-c-w-column'},
@@ -437,6 +444,16 @@ class WeekComponent extends Component {
      *
      * @param {Object} data
      */
+    onColumnDragEnd(data) {
+        if (!data.path[0].cls.includes('neo-event')) {
+            console.log('onColumnDragEnd', data);
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onColumnDragMove(data) {
         if (!data.path[0].cls.includes('neo-event')) {
             console.log('onColumnDragMove', data);
@@ -457,8 +474,19 @@ class WeekComponent extends Component {
      *
      * @param {Object} data
      */
+    onEventDragEnd(data) {
+        this.eventDragZone.dragEnd();
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onEventDragMove(data) {
-        console.log('onEventDragMove', data);
+        this.eventDragZone.dragMove({
+            clientX: data.clientX,
+            clientY: data.clientY
+        });
     }
 
     /**
@@ -466,7 +494,25 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onEventDragStart(data) {
-        console.log('onEventDragStart', data);
+        let me          = this,
+            id          = data.path[0].id,
+            dragElement = VDomUtil.findVdomChild(me.vdom, id).vdom;
+
+        if (!me.eventDragZone) {
+            me.eventDragZone = Neo.create({
+                module     : DragZone,
+                appName    : me.appName,
+                dragElement: dragElement,
+
+                dragProxyConfig: {
+                    cls: ['neo-dragproxy', 'neo-calendar-weekcomponent']
+                }
+            });
+        } else {
+            me.eventDragZone.dragElement = dragElement;
+        }
+
+        me.eventDragZone.dragStart(data);
     }
 
     /**
@@ -593,9 +639,17 @@ class WeekComponent extends Component {
                         // console.log(top);
 
                         column.cn.push({
-                            cls : ['neo-event', 'neo-draggable'],
-                            id  : me.id + '__' + record[eventStore.keyProperty],
-                            html: record.title,
+                            cls     : ['neo-event', 'neo-draggable'],
+                            id      : me.id + '__' + record[eventStore.keyProperty],
+                            tabIndex: -1,
+
+                            cn: [{
+                                cls : ['neo-event-time'],
+                                html: '08:00'
+                            }, {
+                                cls : ['neo-event-title'],
+                                html: record.title
+                            }],
 
                             style: {
                                 height: `calc(${height}% - 2px)`,

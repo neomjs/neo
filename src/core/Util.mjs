@@ -40,39 +40,12 @@ class Util extends Base {
     }
 
     /**
-     * Converts a styles object which can use camelcase syntax into a styles string
-     * @param {Object} styles The styles object
-     * @returns {String} The styles string (DOM ready)
-     */
-    static createStyles(styles) {
-        let style = '';
-
-        Object.entries(styles).forEach(([key, value]) => {
-            if (value !== undefined && value !== null) {
-                style += Util.decamel(key) + ':' + value + ';';
-            }
-        });
-
-        return style;
-    }
-
-    /**
      * Makes the first character of a string uppercase
      * @param {String} string
      * @returns {Boolean|String} Returns false for non string inputs
      */
     static capitalize(string) {
         return Util.isString(string) && string[0].toUpperCase() + string.slice(1);
-    }
-
-    /**
-     * Transforms all uppercase characters of a string into lowercase.
-     * Does not touch special characters.
-     * @param {String} value The input containing uppercase characters
-     * @returns {String} The lowercase output
-     */
-    static decamel(value) {
-        return value.replace(Util.decamelRegEx, '$1-$2').toLowerCase();
     }
 
     /**
@@ -108,6 +81,33 @@ class Util extends Base {
             }
             return obj;
         }, {});
+    }
+
+    /**
+     * Converts a styles object which can use camelcase syntax into a styles string
+     * @param {Object} styles The styles object
+     * @returns {String} The styles string (DOM ready)
+     */
+    static createStyles(styles) {
+        let style = '';
+
+        Object.entries(styles).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) {
+                style += Util.decamel(key) + ':' + value + ';';
+            }
+        });
+
+        return style;
+    }
+
+    /**
+     * Transforms all uppercase characters of a string into lowercase.
+     * Does not touch special characters.
+     * @param {String} value The input containing uppercase characters
+     * @returns {String} The lowercase output
+     */
+    static decamel(value) {
+        return value.replace(Util.decamelRegEx, '$1-$2').toLowerCase();
     }
 
     /**

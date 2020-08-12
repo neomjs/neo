@@ -14,6 +14,28 @@ class VDom extends Base {
     }}
 
     /**
+     *
+     * @param {Object} vdom
+     * @param {Boolean} [removeIds=true]
+     * @returns {Object} cloned vdom
+     */
+    static clone(vdom, removeIds=true) {
+        const clone = Neo.clone(vdom); // non deep
+
+        if (removeIds) {
+            delete clone.id;
+        }
+
+        if (clone.cn) {
+            clone.cn.forEach((item, index) => {
+                clone.cn[index] = VDom.clone(item);
+            });
+        }
+
+        return clone;
+    }
+
+    /**
      * Search vdom child nodes by id or opts object for a given vdom tree
      * @param {Object} vdom
      * @param {Object|String} opts Either an object containing vdom node attributes or a string based id
