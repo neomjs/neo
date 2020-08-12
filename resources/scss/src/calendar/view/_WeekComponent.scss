@@ -80,12 +80,14 @@
         }
 
         .neo-event-time {
-            color: red;
+            color         : red;
+            pointer-events: none;
         }
 
         .neo-event-title {
-            color      : red;
-            font-weight: bold;
+            color         : red;
+            font-weight   : bold;
+            pointer-events: none;
         }
     }
 
