@@ -141,7 +141,7 @@ class DragDrop extends Base {
      * @param {Object} data
      * @param {String} data.id
      */
-    setDragProxyElement(data) {console.log(data);
+    setDragProxyElement(data) {
         this.dragProxyElement = document.getElementById(data.id);
     }
 }
