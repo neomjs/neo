@@ -80,11 +80,13 @@ class Helper extends Base {
      */
     create(opts) {
         let me          = this,
+            appName     = opts.appName,
             autoMount   = opts.autoMount === true,
             parentId    = opts.parentId,
             parentIndex = opts.parentIndex,
             node;
 
+        delete opts.appName;
         delete opts.autoMount;
         delete opts.parentId;
         delete opts.parentIndex;
@@ -93,6 +95,7 @@ class Helper extends Base {
         node.outerHTML = me.createStringFromVnode(node);
 
         if (autoMount) {
+            node.appName     = appName;
             node.autoMount   = true;
             node.parentId    = parentId;
             node.parentIndex = parentIndex;
