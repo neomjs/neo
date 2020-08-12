@@ -1,5 +1,6 @@
 import {default as Component} from '../../component/Base.mjs';
 import DateUtil               from '../../util/Date.mjs';
+import DragZone               from '../../draggable/DragZone.mjs';
 import NeoArray               from '../../util/Array.mjs';
 import TimeAxisComponent      from './TimeAxisComponent.mjs';
 import {default as VDomUtil}  from '../../util/VDom.mjs';
