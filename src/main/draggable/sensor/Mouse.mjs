@@ -13,7 +13,7 @@ class Mouse extends Base {
          */
         className: 'Neo.main.draggable.sensor.Mouse',
         /**
-         * @member {Number} delay=0
+         * @member {Number} delay=200
          */
         delay: 200,
         /**
