@@ -56,6 +56,29 @@ class DragZone extends Base {
 
     /**
      *
+     * @param {Object} data
+     */
+    createDragProxy(data) {
+        let me = this;
+
+        me.dragProxy = Neo.create({
+            module : DragProxyComponent,
+            appName: me.appName,
+            vdom   : {cn: [VDomUtil.clone(me.dragElement)]},
+
+            style: {
+                height: `${data.height}px`,
+                left  : `${data.left}px`,
+                top   : `${data.top}px`,
+                width : `${data.width}px`
+            },
+
+            ...me.dragProxyConfig || {}
+        });
+    }
+
+    /**
+     *
      */
     dragEnd() {
         console.log('dragEnd');
