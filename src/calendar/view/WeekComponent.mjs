@@ -475,7 +475,7 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onEventDragEnd(data) {
-        console.log('onEventDragEnd', data);
+        this.eventDragZone.dragEnd();
     }
 
     /**
@@ -503,6 +503,8 @@ class WeekComponent extends Component {
         } else {
             me.eventDragZone.dragElement = {}; // todo
         }
+
+        me.eventDragZone.dragStart();
     }
 
     /**

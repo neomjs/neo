@@ -22,6 +22,14 @@ class DragZone extends Base {
          */
         dragElement: null
     }}
+
+    dragEnd() {
+        console.log('dragEnd');
+    }
+
+    dragStart() {
+        console.log('dragStart');
+    }
 }
 
 Neo.applyClassConfig(DragZone);
