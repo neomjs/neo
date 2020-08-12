@@ -17,6 +17,14 @@ class DragProxyComponent extends Base {
          */
         ntype: 'dragproxy',
         /**
+         * @member {Boolean} autoMount=true
+         */
+        autoMount: true,
+        /**
+         * @member {Boolean} autoRender=true
+         */
+        autoRender: true,
+        /**
          * @member {String[]} cls=['neo-dragproxy']
          */
         cls: ['neo-dragproxy'],
