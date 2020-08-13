@@ -75,7 +75,7 @@ class WeekEventDragZone extends DragZone {
             path = data.targetPath,
             i    = 0,
             len  = path.length,
-            position, style;
+            intervalHeight, intervals, position, style;
 
         for (; i < len; i++) {
             if (path[i].cls.includes('neo-c-w-column')) {
@@ -85,15 +85,20 @@ class WeekEventDragZone extends DragZone {
         }
 
         if (!me.moveInMainThread && me.dragProxy) {
-            position = Math.min(me.columnHeight, data.clientY - me.columnTop);
+            intervals      = (me.endTime - me.startTime) * 4; // 15 minutes each
+            intervalHeight = me.columnHeight / intervals;
+
+            position = Math.min(me.columnHeight, data.clientY - me.offsetY - me.columnTop);
             position = Math.max(0, position);
+            position = position / me.columnHeight * 100;
 
             console.log(position, me.columnHeight);
+            console.log(intervalHeight);
 
             style = me.dragProxy.style;
 
             if (me.moveVertical) {
-                style.top = `${data.clientY - me.offsetY}px`;
+                style.top = `calc(${position}% + 1px)`;
             }
 
             me.dragProxy.style = style;

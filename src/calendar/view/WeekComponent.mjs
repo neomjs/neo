@@ -493,14 +493,17 @@ class WeekComponent extends Component {
     onEventDragStart(data) {
         let me          = this,
             id          = data.path[0].id,
-            dragElement = VDomUtil.findVdomChild(me.vdom, id).vdom;
+            dragElement = VDomUtil.findVdomChild(me.vdom, id).vdom,
+            timeAxis    = me.timeAxis;
 
         if (!me.eventDragZone) {
             me.eventDragZone = Neo.create({
                 module       : WeekEventDragZone,
                 appName      : me.appName,
                 dragElement  : dragElement,
+                endTime      : timeAxis.getTime(timeAxis.endTime),
                 proxyParentId: data.path[1].id,
+                startTime    : timeAxis.getTime(timeAxis.startTime),
 
                 dragProxyConfig: {
                     style: {
