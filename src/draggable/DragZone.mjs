@@ -84,14 +84,15 @@ class DragZone extends Base {
      * @param {Object} data
      */
     createDragProxy(data) {
-        let me = this;
+        let me    = this,
+            clone = VDomUtil.clone(me.dragElement);
 
         me.dragProxy = Neo.create({
             module          : DragProxyComponent,
             appName         : me.appName,
             moveInMainThread: me.moveInMainThread,
             parentId        : me.proxyParentId,
-            vdom            : {cn: [VDomUtil.clone(me.dragElement)]},
+            vdom            : me.useProxyWrapper ? {cn: [clone]} : clone,
 
             style: {
                 height: `${data.height}px`,
