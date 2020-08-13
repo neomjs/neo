@@ -25,6 +25,10 @@ class WeekEventDragZone extends DragZone {
          */
         columnTop: 0,
         /**
+         * @member {Number} startTime=0
+         */
+        endTime: 0,
+        /**
          * @member {Boolean} moveHorizontal=false
          */
         moveHorizontal: false,
@@ -32,6 +36,10 @@ class WeekEventDragZone extends DragZone {
          * @member {Boolean} moveInMainThread=false
          */
         moveInMainThread: false,
+        /**
+         * @member {Number} startTime=0
+         */
+        startTime: 0,
         /**
          * @member {Boolean} useProxyWrapper=false
          */
@@ -62,12 +70,12 @@ class WeekEventDragZone extends DragZone {
      *
      * @param {Object} data
      */
-    dragMove(data) {console.log(data.clientY)
+    dragMove(data) {
         let me   = this,
             path = data.targetPath,
             i    = 0,
             len  = path.length,
-            style;
+            position, style;
 
         for (; i < len; i++) {
             if (path[i].cls.includes('neo-c-w-column')) {
@@ -77,6 +85,11 @@ class WeekEventDragZone extends DragZone {
         }
 
         if (!me.moveInMainThread && me.dragProxy) {
+            position = Math.min(me.columnHeight, data.clientY - me.columnTop);
+            position = Math.max(0, position);
+
+            console.log(position, me.columnHeight);
+
             style = me.dragProxy.style;
 
             if (me.moveVertical) {
