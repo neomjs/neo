@@ -1,21 +1,21 @@
-import {default as BaseDragZone} from '../../draggable/DragZone.mjs';
+import DragZone from '../../draggable/DragZone.mjs';
 
 /**
- * @class Neo.calendar.draggable.DragZone
+ * @class Neo.calendar.draggable.WeekEventDragZone
  * @extends Neo.draggable.DragZone
  */
-class DragZone extends BaseDragZone {
+class WeekEventDragZone extends DragZone {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.calendar.draggable.DragZone'
+         * @member {String} className='Neo.calendar.draggable.WeekEventDragZone'
          * @protected
          */
-        className: 'Neo.calendar.draggable.DragZone',
+        className: 'Neo.calendar.draggable.WeekEventDragZone',
         /**
-         * @member {String} ntype='calendar-dragzone'
+         * @member {String} ntype='calendar-week-event-dragzone'
          * @protected
          */
-        ntype: 'calendar-dragzone',
+        ntype: 'calendar-week-event-dragzone',
         /**
          * @member {Boolean} moveInMainThread=false
          */
@@ -23,6 +23,6 @@ class DragZone extends BaseDragZone {
     }}
 }
 
-Neo.applyClassConfig(DragZone);
+Neo.applyClassConfig(WeekEventDragZone);
 
-export {DragZone as default};
+export {WeekEventDragZone as default};
