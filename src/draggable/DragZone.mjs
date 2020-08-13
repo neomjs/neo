@@ -49,9 +49,9 @@ class DragZone extends Base {
          */
         offsetY: 0,
         /**
-         * @member {String} proxyParentId='document.body'
+         * @member {String} proxyParentId_='document.body'
          */
-        proxyParentId: 'document.body'
+        proxyParentId_: 'document.body'
     }}
 
     /**
