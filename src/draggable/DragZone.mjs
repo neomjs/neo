@@ -37,9 +37,17 @@ class DragZone extends Base {
          */
         dragProxyConfig: null,
         /**
+         * @member {Boolean} moveHorizontal=true
+         */
+        moveHorizontal: true,
+        /**
          * @member {Boolean} moveInMainThread=true
          */
         moveInMainThread: true,
+        /**
+         * @member {Boolean} moveVertical=true
+         */
+        moveVertical: true,
         /**
          * @member {Number} offsetX=0
          */
@@ -123,8 +131,13 @@ class DragZone extends Base {
         if (!me.moveInMainThread && me.dragProxy) {
             style = me.dragProxy.style;
 
-            style.left = `${data.clientX - me.offsetX}px`;
-            style.top  = `${data.clientY - me.offsetY}px`;
+            if (me.moveHorizontal) {
+                style.left = `${data.clientX - me.offsetX}px`;
+            }
+
+            if (me.moveVertical) {
+                style.top = `${data.clientY - me.offsetY}px`;
+            }
 
             me.dragProxy.style = style;
         }
