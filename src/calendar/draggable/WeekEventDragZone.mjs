@@ -17,6 +17,14 @@ class WeekEventDragZone extends DragZone {
          */
         ntype: 'calendar-week-event-dragzone',
         /**
+         * @member {Number} columnHeight=0
+         */
+        columnHeight: 0,
+        /**
+         * @member {Number} columnTop=0
+         */
+        columnTop: 0,
+        /**
          * @member {Boolean} moveHorizontal=false
          */
         moveHorizontal: false,
@@ -54,7 +62,7 @@ class WeekEventDragZone extends DragZone {
      *
      * @param {Object} data
      */
-    dragMove(data) {
+    dragMove(data) {console.log(data.clientY)
         let me   = this,
             path = data.targetPath,
             i    = 0,
@@ -77,6 +85,27 @@ class WeekEventDragZone extends DragZone {
 
             me.dragProxy.style = style;
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    dragStart(data) {console.log(data.path[1]);
+        let me = this;
+
+        Neo.main.DomAccess.getBoundingClientRect({
+            id: [me.dragElement.id, data.path[1].id]
+        }).then(rects => {
+            Object.assign(me, {
+                columnHeight: rects[1].height,
+                columnTop   : rects[1].top,
+                offsetX     : data.clientX - rects[0].left,
+                offsetY     : data.clientY - rects[0].top
+            });
+
+            me.createDragProxy(rects[0]);
+        });
     }
 }
 
