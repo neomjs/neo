@@ -47,13 +47,6 @@ class WeekEventDragZone extends DragZone {
     }
 
     /**
-     * Override for using custom animations
-     */
-    destroyDragProxy() {
-        //this.dragProxy.destroy(true);
-    }
-
-    /**
      *
      * @param {Object} data
      */

@@ -103,7 +103,12 @@ class DragZone extends Base {
      * Override for using custom animations
      */
     destroyDragProxy() {
-        this.dragProxy.destroy(true);
+        Neo.currentWorker.promiseMessage('main', {
+            action: 'updateDom',
+            deltas: [{action: 'removeNode', id: this.dragProxy.id}]
+        });
+
+        this.dragProxy.destroy();
     }
 
     /**
