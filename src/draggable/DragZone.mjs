@@ -59,7 +59,12 @@ class DragZone extends Base {
         /**
          * @member {String} proxyParentId_='document.body'
          */
-        proxyParentId_: 'document.body'
+        proxyParentId_: 'document.body',
+        /**
+         * True creates a position:absolute wrapper div which contains the cloned element
+         * @member {Boolean} useProxyWrapper=true
+         */
+        useProxyWrapper: true
     }}
 
     /**
