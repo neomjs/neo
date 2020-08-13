@@ -34,7 +34,15 @@ class WeekEventDragZone extends DragZone {
      */
     afterSetProxyParentId(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('afterSetProxyParentId', value);
+            Neo.currentWorker.promiseMessage('main', {
+                action: 'updateDom',
+                deltas: [{
+                    action  : 'moveNode',
+                    id      : this.dragProxy.id,
+                    index   : 0,
+                    parentId: value
+                }]
+            });
         }
     }
 
