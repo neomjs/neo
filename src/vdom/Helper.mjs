@@ -379,7 +379,7 @@ class Helper extends Base {
 
             // use case: calendar week view => move an event into a column on the right side
 
-            if (movedNode) {console.log('m', oldVnode.id);
+            if (movedNode) {
                 deltas.push({
                     action: 'moveNode',
                     id      : oldVnode.id,
@@ -416,7 +416,7 @@ class Helper extends Base {
                  // console.log('movedOldNode', movedOldNode);
 
                 if (!movedNode && !movedOldNode) {
-                    console.log('replace node', oldVnode.id, '('+newVnode.id+')');
+                    // console.log('replace node', oldVnode.id, '('+newVnode.id+')');
 
                     deltas.push({
                         action: 'removeNode',
