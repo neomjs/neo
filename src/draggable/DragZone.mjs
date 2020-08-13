@@ -90,8 +90,8 @@ class DragZone extends Base {
 
             style: {
                 height: `${data.height}px`,
-                left  : `${data.left}px`,
-                top   : `${data.top}px`,
+                left  : `${me.moveHorizontal ? data.left : 0}px`,
+                top   : `${me.moveVertical   ? data.top  : 0}px`,
                 width : `${data.width}px`
             },
 
