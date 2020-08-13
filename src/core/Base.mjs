@@ -198,29 +198,6 @@ class Base {
     }
 
     /**
-     *
-     */
-    processConfigs() {
-        let me   = this,
-            keys = Object.keys(me[configSymbol]);
-
-        // We do not want to iterate over the keys, since 1 config can remove more than 1 key (beforeSetX, afterSetX)
-        if (keys.length > 0) {
-            // The hasOwnProperty check is intended for configs without a trailing underscore
-            // => they could already got assigned inside an afterSet-method
-            if (!me.hasOwnProperty(keys[0])) {
-                me[keys[0]] = me[configSymbol][keys[0]];
-            }
-
-            // there is a delete call inside the config getter as well (Neo.mjs => autoGenerateGetSet())
-            // we need to keep this one for configs, which do not use getters (no trailing underscore)
-            delete me[configSymbol][keys[0]];
-
-            me.processConfigs();
-        }
-    }
-
-    /**
      * Does get triggered with a delay to ensure that Neo.workerId & Neo.worker.Manager are defined
      * Remote method access via promises
      */
@@ -269,6 +246,31 @@ class Base {
     }
 
     /**
+     * When using set(), configs without a trailing underscore can already be assigned,
+     * so the hasOwnProperty() check will return true
+     * @param {Boolean} [forceAssign=false]
+     */
+    processConfigs(forceAssign=false) {
+        let me   = this,
+            keys = Object.keys(me[configSymbol]);
+
+        // We do not want to iterate over the keys, since 1 config can remove more than 1 key (beforeSetX, afterSetX)
+        if (keys.length > 0) {
+            // The hasOwnProperty check is intended for configs without a trailing underscore
+            // => they could already got assigned inside an afterSet-method
+            if (forceAssign || !me.hasOwnProperty(keys[0])) {
+                me[keys[0]] = me[configSymbol][keys[0]];
+            }
+
+            // there is a delete call inside the config getter as well (Neo.mjs => autoGenerateGetSet())
+            // we need to keep this one for configs, which do not use getters (no trailing underscore)
+            delete me[configSymbol][keys[0]];
+
+            me.processConfigs(forceAssign);
+        }
+    }
+
+    /**
      *
      * @param {String} className
      * @param {Object} remote
@@ -306,7 +308,7 @@ class Base {
 
         Object.assign(me[configSymbol], values);
 
-        me.processConfigs();
+        me.processConfigs(true);
     }
 
     /**
