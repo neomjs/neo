@@ -1,9 +1,9 @@
 import {default as Component} from '../../component/Base.mjs';
 import DateUtil               from '../../util/Date.mjs';
-import DragZone               from '../../draggable/DragZone.mjs';
 import NeoArray               from '../../util/Array.mjs';
 import TimeAxisComponent      from './TimeAxisComponent.mjs';
 import {default as VDomUtil}  from '../../util/VDom.mjs';
+import WeekEventDragZone      from '../draggable/WeekEventDragZone.mjs';
 
 const todayDate = new Date();
 
@@ -500,7 +500,7 @@ class WeekComponent extends Component {
 
         if (!me.eventDragZone) {
             me.eventDragZone = Neo.create({
-                module     : DragZone,
+                module     : WeekEventDragZone,
                 appName    : me.appName,
                 dragElement: dragElement,
 
