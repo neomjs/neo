@@ -90,10 +90,8 @@ class WeekEventDragZone extends DragZone {
 
             position = Math.min(me.columnHeight, data.clientY - me.offsetY - me.columnTop);
             position = Math.max(0, position);
+            position = Math.floor(position / intervalHeight) * intervalHeight; // snap to valid intervals
             position = position / me.columnHeight * 100;
-
-            console.log(position, me.columnHeight);
-            console.log(intervalHeight);
 
             style = me.dragProxy.style;
 
