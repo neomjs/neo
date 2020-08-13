@@ -496,16 +496,20 @@ class WeekComponent extends Component {
             dragElement = VDomUtil.findVdomChild(me.vdom, id).vdom,
             timeAxis    = me.timeAxis;
 
+        const config = {
+            dragElement  : dragElement,
+            endTime      : timeAxis.getTime(timeAxis.endTime),
+            eventRecord  : me.eventStore.get(dragElement.flag),
+            proxyParentId: data.path[1].id,
+            startTime    : timeAxis.getTime(timeAxis.startTime)
+        };
+
         if (!me.eventDragZone) {
             me.eventDragZone = Neo.create({
-                module       : WeekEventDragZone,
-                appName      : me.appName,
-                dragElement  : dragElement,
-                endTime      : timeAxis.getTime(timeAxis.endTime),
-                eventRecord  : me.eventStore.get(dragElement.flag),
-                owner        : me,
-                proxyParentId: data.path[1].id,
-                startTime    : timeAxis.getTime(timeAxis.startTime),
+                module : WeekEventDragZone,
+                appName: me.appName,
+                owner  : me,
+                ...config,
 
                 dragProxyConfig: {
                     style: {
@@ -515,7 +519,7 @@ class WeekComponent extends Component {
                 }
             });
         } else {
-            me.eventDragZone.dragElement = dragElement;
+            me.eventDragZone.set(config);
         }
 
         me.eventDragZone.dragStart(data);
@@ -622,7 +626,7 @@ class WeekComponent extends Component {
             content    = me.getColumnContainer(),
             j          = 0,
             len        = eventStore.getCount(),
-            column, duration, height, i, record, startHours, top;
+            column, duration, height, i, record, recordKey, startHours, top;
 
         // remove previous events from the vdom
         content.cn.forEach(item => item.cn = []);
@@ -636,6 +640,7 @@ class WeekComponent extends Component {
                 // todo: we need a check for date overlaps => startDate < current day, endDate >= current day
                 if (DateUtil.matchDate(date, record.startDate)) {
                     if (DateUtil.matchDate(date, record.endDate)) {
+                        recordKey  = record[eventStore.keyProperty];
                         duration   = (record.endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
                         height     = Math.round(duration / totalTime * 100 * 1000) / 1000;
                         startHours = (record.startDate.getHours() * 60 + record.startDate.getMinutes()) / 60;
@@ -647,15 +652,17 @@ class WeekComponent extends Component {
                         column.cn.push({
                             cls     : ['neo-event', 'neo-draggable'],
                             flag    : record[eventStore.keyProperty],
-                            id      : me.id + '__' + record[eventStore.keyProperty],
+                            id      : me.id + '__' + recordKey,
                             tabIndex: -1,
 
                             cn: [{
                                 cls : ['neo-event-time'],
-                                html: '08:00'
+                                html: '08:00',
+                                id  : me.id + '__time__' + recordKey
                             }, {
                                 cls : ['neo-event-title'],
-                                html: record.title
+                                html: record.title,
+                                id  : me.id + '__title__' + recordKey
                             }],
 
                             style: {

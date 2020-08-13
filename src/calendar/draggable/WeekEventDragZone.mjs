@@ -66,7 +66,7 @@ class WeekEventDragZone extends DragZone {
      * @protected
      */
     afterSetProxyParentId(value, oldValue) {
-        if (oldValue !== undefined) {
+        if (value && oldValue !== undefined) {
             Neo.currentWorker.promiseMessage('main', {
                 action: 'updateDom',
                 deltas: [{
@@ -114,14 +114,14 @@ class WeekEventDragZone extends DragZone {
             len  = path.length,
             intervalHeight, intervals, position, style;
 
-        for (; i < len; i++) {
-            if (path[i].cls.includes('neo-c-w-column')) {
-                me.proxyParentId = path[i].id;
-                break;
+        if (me.dragProxy) {
+            for (; i < len; i++) {
+                if (path[i].cls.includes('neo-c-w-column')) {
+                    me.proxyParentId = path[i].id;
+                    break;
+                }
             }
-        }
 
-        if (!me.moveInMainThread && me.dragProxy) {
             intervals      = (me.endTime - me.startTime) * 4; // 15 minutes each
             intervalHeight = me.columnHeight / intervals;
 
