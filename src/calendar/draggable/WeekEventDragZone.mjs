@@ -48,12 +48,20 @@ class WeekEventDragZone extends DragZone {
     /**
      *
      * @param {Object} data
-     * @param {Number} data.clientX
-     * @param {Number} data.clientY
      */
     dragMove(data) {
-        let me = this,
+        let me   = this,
+            path = data.targetPath,
+            i    = 0,
+            len  = path.length,
             style;
+
+        for (; i < len; i++) {
+            if (path[i].cls.includes('neo-c-w-column')) {
+                me.proxyParentId = path[i].id;
+                break;
+            }
+        }
 
         if (!me.moveInMainThread && me.dragProxy) {
             style = me.dragProxy.style;

@@ -483,10 +483,7 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onEventDragMove(data) {
-        this.eventDragZone.dragMove({
-            clientX: data.clientX,
-            clientY: data.clientY
-        });
+        this.eventDragZone.dragMove(data);
     }
 
     /**

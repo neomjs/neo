@@ -121,8 +121,6 @@ class DragZone extends Base {
     /**
      *
      * @param {Object} data
-     * @param {Number} data.clientX
-     * @param {Number} data.clientY
      */
     dragMove(data) {
         let me = this,
