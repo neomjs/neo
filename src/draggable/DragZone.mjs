@@ -37,9 +37,17 @@ class DragZone extends Base {
          */
         dragProxyConfig: null,
         /**
+         * @member {Boolean} moveHorizontal=true
+         */
+        moveHorizontal: true,
+        /**
          * @member {Boolean} moveInMainThread=true
          */
         moveInMainThread: true,
+        /**
+         * @member {Boolean} moveVertical=true
+         */
+        moveVertical: true,
         /**
          * @member {Number} offsetX=0
          */
@@ -49,9 +57,14 @@ class DragZone extends Base {
          */
         offsetY: 0,
         /**
-         * @member {String} proxyParentId='document.body'
+         * @member {String} proxyParentId_='document.body'
          */
-        proxyParentId: 'document.body'
+        proxyParentId_: 'document.body',
+        /**
+         * True creates a position:absolute wrapper div which contains the cloned element
+         * @member {Boolean} useProxyWrapper=true
+         */
+        useProxyWrapper: true
     }}
 
     /**
@@ -71,31 +84,43 @@ class DragZone extends Base {
      * @param {Object} data
      */
     createDragProxy(data) {
-        let me = this;
+        let me    = this,
+            clone = VDomUtil.clone(me.dragElement);
 
-        me.dragProxy = Neo.create({
+        const config = {
             module          : DragProxyComponent,
             appName         : me.appName,
             moveInMainThread: me.moveInMainThread,
             parentId        : me.proxyParentId,
-            vdom            : {cn: [VDomUtil.clone(me.dragElement)]},
+            vdom            : me.useProxyWrapper ? {cn: [clone]} : clone,
 
             style: {
                 height: `${data.height}px`,
-                left  : `${data.left}px`,
-                top   : `${data.top}px`,
+                left  : `${me.moveHorizontal ? data.left : 0}px`,
+                top   : `${me.moveVertical   ? data.top  : 0}px`,
                 width : `${data.width}px`
             },
 
             ...me.dragProxyConfig || {}
-        });
+        };
+
+        if (!me.useProxyWrapper) {
+            config.cls = clone.cls;
+        }
+
+        me.dragProxy = Neo.create(config);
     }
 
     /**
      * Override for using custom animations
      */
     destroyDragProxy() {
-        this.dragProxy.destroy(true);
+        Neo.currentWorker.promiseMessage('main', {
+            action: 'updateDom',
+            deltas: [{action: 'removeNode', id: this.dragProxy.id}]
+        });
+
+        this.dragProxy.destroy();
     }
 
     /**
@@ -113,8 +138,6 @@ class DragZone extends Base {
     /**
      *
      * @param {Object} data
-     * @param {Number} data.clientX
-     * @param {Number} data.clientY
      */
     dragMove(data) {
         let me = this,
@@ -123,8 +146,13 @@ class DragZone extends Base {
         if (!me.moveInMainThread && me.dragProxy) {
             style = me.dragProxy.style;
 
-            style.left = `${data.clientX - me.offsetX}px`;
-            style.top  = `${data.clientY - me.offsetY}px`;
+            if (me.moveHorizontal) {
+                style.left = `${data.clientX - me.offsetX}px`;
+            }
+
+            if (me.moveVertical) {
+                style.top = `${data.clientY - me.offsetY}px`;
+            }
 
             me.dragProxy.style = style;
         }

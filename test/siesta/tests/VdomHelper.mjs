@@ -549,6 +549,6 @@ StartTest(t => {
             {attributes: {tabIndex: '-1'}, childNodes: [], className: ['neo-list-item'], id: 'neo-list-1__tobiu',         innerHTML: 'Tobias',  nodeName: 'li', style: {}, vtype: 'vnode'}
         ], 'vnode got updated successfully');
 
-        console.log(deltas);
+        // console.log(deltas);
     });
 });

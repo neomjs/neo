@@ -361,22 +361,52 @@ class Helper extends Base {
         // console.log('createDeltas', newVnode && newVnode.id, oldVnode && oldVnode.id, newVnode, oldVnode);
 
         if (newVnode && !oldVnode) { // new node at top level or at the end of a child array
-            // console.log('insertNode', newVnode);
+            movedOldNode = me.findVnode(oldVnodeRoot, newVnode.id, oldVnode);
 
-            deltas.push({
-                action   : 'insertNode',
-                id       : newVnode.id,
-                index    : index,
-                outerHTML: me.createStringFromVnode(newVnode),
-                parentId : parentId
-            });
+            if (!movedOldNode) {
+                // console.log('insertNode', newVnode);
+
+                deltas.push({
+                    action   : 'insertNode',
+                    id       : newVnode.id,
+                    index    : index,
+                    outerHTML: me.createStringFromVnode(newVnode),
+                    parentId : parentId
+                });
+            }
         } else if (!newVnode && oldVnode) {
-            // console.log('top level removed node', oldVnode.id, oldVnode);
+            movedNode = me.findVnode(newVnodeRoot, oldVnode.id, newVnode);
 
-            deltas.push({
-                action: 'removeNode',
-                id    : oldVnode.id
-            });
+            // use case: calendar week view => move an event into a column on the right side
+
+            if (movedNode) {
+                deltas.push({
+                    action: 'moveNode',
+                    id      : oldVnode.id,
+                    index   : movedNode.index,
+                    parentId: movedNode.parentNode.id
+                });
+
+                movedOldNode = me.findVnode(oldVnodeRoot, movedNode.parentNode.id);
+
+                me.createDeltas({
+                    deltas      : deltas,
+                    newVnode    : movedNode.vnode,
+                    newVnodeRoot: newVnodeRoot,
+                    oldVnode    : oldVnode,
+                    oldVnodeRoot: oldVnodeRoot,
+                    parentId    : movedNode.parentNode.id
+                });
+
+                movedOldNode.vnode.childNodes.splice(movedNode.index, 0, movedNode.vnode);
+            } else {
+                // console.log('top level removed node', oldVnode.id, oldVnode);
+
+                deltas.push({
+                    action: 'removeNode',
+                    id    : oldVnode.id
+                });
+            }
         } else {
             if (newVnode && oldVnode && newVnode.id !== oldVnode.id) {
                 movedNode    = me.findVnode(newVnodeRoot, oldVnode.id, newVnode);
@@ -563,12 +593,14 @@ class Helper extends Base {
                         }
                     }
 
-                    deltas.push({
-                        action: 'moveNode',
-                        id      : movedNode.vnode.id,
-                        index   : movedNode.index,
-                        parentId: movedNode.parentNode.id
-                    });
+                    if (newVnodeDetails.parentNode.childNodes[movedNode.index].id !== movedNode.vnode.id) {
+                        deltas.push({
+                            action: 'moveNode',
+                            id      : movedNode.vnode.id,
+                            index   : movedNode.index,
+                            parentId: movedNode.parentNode.id
+                        });
+                    }
 
                     me.createDeltas({
                         deltas      : deltas,
