@@ -86,13 +86,19 @@ class WeekEventDragZone extends DragZone {
     dragEnd() {
         super.dragEnd();
 
-        let me      = this,
-            newDate = new Date(VDomUtil.findVdomChild(me.owner.vdom, me.proxyParentId).vdom.flag);
+        let me       = this,
+            startDate = new Date(VDomUtil.findVdomChild(me.owner.vdom, me.proxyParentId).vdom.flag),
+            duration  = (me.eventRecord.endDate - me.eventRecord.startDate) / 60 / 1000, // minutes
+            endDate;
 
-        newDate.setHours(me.startTime);
-        newDate.setMinutes(me.currentInterval * 15);
+        startDate.setHours(me.startTime);
+        startDate.setMinutes(me.currentInterval * 15);
 
-        me.eventRecord.startDate = newDate;
+        endDate = new Date(startDate.valueOf());
+        endDate.setMinutes(endDate.getMinutes() + duration);
+
+        me.eventRecord.endDate   = endDate;
+        me.eventRecord.startDate = startDate;
 
         me.owner.updateEvents();
     }
