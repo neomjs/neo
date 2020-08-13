@@ -23,7 +23,11 @@ class WeekEventDragZone extends DragZone {
         /**
          * @member {Boolean} moveInMainThread=false
          */
-        moveInMainThread: false
+        moveInMainThread: false,
+        /**
+         * @member {Boolean} useProxyWrapper=false
+         */
+        useProxyWrapper: false
     }}
 
     /**

@@ -87,7 +87,7 @@ class DragZone extends Base {
         let me    = this,
             clone = VDomUtil.clone(me.dragElement);
 
-        me.dragProxy = Neo.create({
+        const config = {
             module          : DragProxyComponent,
             appName         : me.appName,
             moveInMainThread: me.moveInMainThread,
@@ -102,7 +102,13 @@ class DragZone extends Base {
             },
 
             ...me.dragProxyConfig || {}
-        });
+        };
+
+        if (!me.useProxyWrapper) {
+            config.cls = clone.cls;
+        }
+
+        me.dragProxy = Neo.create(config);
     }
 
     /**
