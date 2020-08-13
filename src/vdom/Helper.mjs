@@ -386,7 +386,7 @@ class Helper extends Base {
                  // console.log('movedOldNode', movedOldNode);
 
                 if (!movedNode && !movedOldNode) {
-                    // console.log('replace node', oldVnode.id, '('+newVnode.id+')');
+                    console.log('replace node', oldVnode.id, '('+newVnode.id+')');
 
                     deltas.push({
                         action: 'removeNode',

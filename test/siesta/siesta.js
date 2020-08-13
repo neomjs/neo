@@ -19,7 +19,8 @@ project.configure({
 project.plan(
     'tests/ClassSystem.mjs',
     'tests/CollectionBase.mjs',
-    'tests/VdomHelper.mjs'
+    'tests/VdomHelper.mjs',
+    'tests/VdomCalendar.mjs'
 );
 
 project.start();
