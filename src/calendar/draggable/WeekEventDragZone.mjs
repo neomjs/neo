@@ -21,6 +21,18 @@ class WeekEventDragZone extends DragZone {
          */
         moveInMainThread: false
     }}
+
+    /**
+     * Triggered after the proxyParentId config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetProxyParentId(value, oldValue) {
+        if (oldValue !== undefined) {
+            console.log('afterSetProxyParentId', value);
+        }
+    }
 }
 
 Neo.applyClassConfig(WeekEventDragZone);
