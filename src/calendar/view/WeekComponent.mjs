@@ -503,7 +503,10 @@ class WeekComponent extends Component {
                 proxyParentId: data.path[1].id,
 
                 dragProxyConfig: {
-                    cls: ['neo-dragproxy', 'neo-calendar-weekcomponent']
+                    style: {
+                        transition: 'none',
+                        willChange: 'height'
+                    }
                 }
             });
         } else {
