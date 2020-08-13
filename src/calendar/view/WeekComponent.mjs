@@ -502,6 +502,8 @@ class WeekComponent extends Component {
                 appName      : me.appName,
                 dragElement  : dragElement,
                 endTime      : timeAxis.getTime(timeAxis.endTime),
+                eventRecord  : me.eventStore.get(dragElement.flag),
+                owner        : me,
                 proxyParentId: data.path[1].id,
                 startTime    : timeAxis.getTime(timeAxis.startTime),
 
@@ -644,6 +646,7 @@ class WeekComponent extends Component {
 
                         column.cn.push({
                             cls     : ['neo-event', 'neo-draggable'],
+                            flag    : record[eventStore.keyProperty],
                             id      : me.id + '__' + record[eventStore.keyProperty],
                             tabIndex: -1,
 

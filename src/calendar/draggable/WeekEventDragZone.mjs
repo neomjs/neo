@@ -1,4 +1,5 @@
-import DragZone from '../../draggable/DragZone.mjs';
+import DragZone              from '../../draggable/DragZone.mjs';
+import {default as VDomUtil} from '../../util/VDom.mjs';
 
 /**
  * @class Neo.calendar.draggable.WeekEventDragZone
@@ -25,9 +26,17 @@ class WeekEventDragZone extends DragZone {
          */
         columnTop: 0,
         /**
+         * @member {Number} currentInterval=0
+         */
+        currentInterval: 0,
+        /**
          * @member {Number} startTime=0
          */
         endTime: 0,
+        /**
+         * @member {Object} eventRecord=null
+         */
+        eventRecord: null,
         /**
          * @member {Boolean} moveHorizontal=false
          */
@@ -36,6 +45,10 @@ class WeekEventDragZone extends DragZone {
          * @member {Boolean} moveInMainThread=false
          */
         moveInMainThread: false,
+        /**
+         * @member {Neo.calendar.view.WeekComponent} owner=null
+         */
+        owner: null,
         /**
          * @member {Number} startTime=0
          */
@@ -67,6 +80,24 @@ class WeekEventDragZone extends DragZone {
     }
 
     /**
+     * DragEnd equals drop, since we can only drag to valid positions
+     * todo: ESC key
+     */
+    dragEnd() {
+        super.dragEnd();
+
+        let me      = this,
+            newDate = new Date(VDomUtil.findVdomChild(me.owner.vdom, me.proxyParentId).vdom.flag);
+
+        newDate.setHours(me.startTime);
+        newDate.setMinutes(me.currentInterval * 15);
+
+        me.eventRecord.startDate = newDate;
+
+        me.owner.updateEvents();
+    }
+
+    /**
      *
      * @param {Object} data
      */
@@ -90,7 +121,10 @@ class WeekEventDragZone extends DragZone {
 
             position = Math.min(me.columnHeight, data.clientY - me.offsetY - me.columnTop);
             position = Math.max(0, position);
-            position = Math.floor(position / intervalHeight) * intervalHeight; // snap to valid intervals
+
+            me.currentInterval = Math.floor(position / intervalHeight);
+
+            position = me.currentInterval * intervalHeight; // snap to valid intervals
             position = position / me.columnHeight * 100;
 
             style = me.dragProxy.style;
@@ -107,7 +141,7 @@ class WeekEventDragZone extends DragZone {
      *
      * @param {Object} data
      */
-    dragStart(data) {console.log(data.path[1]);
+    dragStart(data) {
         let me = this;
 
         Neo.main.DomAccess.getBoundingClientRect({
