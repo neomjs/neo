@@ -129,18 +129,22 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragMove(event) {
-        let me = this;
+        let me = this,
+            data;
+
+        if (me.scrollContainerElement) {
+            data = me.scrollContainer({
+                clientX: event.detail.clientX,
+                clientY: event.detail.clientY
+            });
+
+            event.detail.clientX = data.clientX;
+            event.detail.clientY = data.clientY;
+        }
 
         if (me.dragProxyElement) {
             me.dragProxyElement.style.left = `${event.detail.clientX - me.offsetX}px`;
             me.dragProxyElement.style.top  = `${event.detail.clientY - me.offsetY}px`;
-        }
-
-        if (me.scrollContainerElement) {
-            me.scrollContainer({
-                clientX: event.detail.clientX,
-                clientY: event.detail.clientY
-            });
         }
 
         DomEvents.sendMessageToApp({
@@ -171,32 +175,37 @@ class DragDrop extends Base {
      * @param {Object} data
      * @param {Number} data.clientX
      * @param {Number} data.clientY
+     * @returns {Object}
      */
     scrollContainer(data) {
-        let me      = this,
-            clientX = me.clientX,
-            clientY = me.clientY,
-            deltaX  = data.clientX - clientX,
-            deltaY  = data.clientY - clientY,
-            gap     = 250,
-            rect    = me.scrollContainerRect;
+        let me     = this,
+            deltaX = data.clientX - me.clientX,
+            deltaY = data.clientY - me.clientY,
+            el     = me.scrollContainerElement,
+            gap    = 250,
+            rect   = me.scrollContainerRect;
+
+        me.clientX =  data.clientX;
+        me.clientY =  data.clientY;
 
         if (
             (deltaX < 0 && data.clientX < rect.left  + gap) ||
             (deltaX > 0 && data.clientX > rect.right - gap)
         ) {
-            me.scrollContainerElement.scrollLeft += ((data.clientX - clientX) * 3);
+            el.scrollLeft += (deltaX * 3); // todo: scrollFactorLeft
         }
 
         if (
             (deltaY < 0 && data.clientY < rect.top    + gap) ||
             (deltaY > 0 && data.clientY > rect.bottom - gap)
         ) {
-            me.scrollContainerElement.scrollTop += (data.clientY - clientY);
+            el.scrollTop += deltaY;
         }
 
-        me.clientX = data.clientX;
-        me.clientY = data.clientY;
+        return {
+            clientX: me.clientX + el.scrollLeft,
+            clientY: me.clientY + el.scrollTop
+        };
     }
 
     /**
