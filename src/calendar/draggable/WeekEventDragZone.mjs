@@ -119,11 +119,12 @@ class WeekEventDragZone extends DragZone {
      * @param {Object} data
      */
     dragMove(data) {
-        let me   = this,
-            path = data.targetPath,
-            i    = 0,
-            len  = path.length,
-            intervalHeight, intervals, position, startDate, style, vdom;
+        let me          = this,
+            path        = data.targetPath,
+            i           = 0,
+            len         = path.length,
+            oldInterval = me.currentInterval,
+            intervalHeight, intervals, position, startTime, style, vdom;
 
         if (me.dragProxy) {
             for (; i < len; i++) {
@@ -144,24 +145,27 @@ class WeekEventDragZone extends DragZone {
             // events must not end after the last visible interval
             me.currentInterval = Math.min(me.currentInterval, intervals - (me.eventDuration / 15));
 
-            startDate = new Date(me.eventRecord.startDate.valueOf());
-            startDate.setHours(me.startTime);
-            startDate.setMinutes(me.currentInterval * 15);
+            if (oldInterval !== me.currentInterval) {
+                startTime = new Date(me.eventRecord.startDate.valueOf());
+                startTime.setHours(me.startTime);
+                startTime.setMinutes(me.currentInterval * 15);
+                startTime = me.owner.intlFormat_time.format(startTime);
 
-            position = me.currentInterval * intervalHeight; // snap to valid intervals
-            position = position / me.columnHeight * 100;
+                position = me.currentInterval * intervalHeight; // snap to valid intervals
+                position = position / me.columnHeight * 100;
 
-            style = me.dragProxy.style;
-            vdom = me.dragProxy.vdom;
+                style = me.dragProxy.style;
+                vdom = me.dragProxy.vdom;
 
-            vdom.cn[0].html = me.owner.intlFormat_time.format(startDate);
+                vdom.cn[0].html = startTime;
 
-            if (me.moveVertical) {
-                style.top = `calc(${position}% + 1px)`;
+                if (me.moveVertical) {
+                    style.top = `calc(${position}% + 1px)`;
+                }
+
+                me.dragProxy._style = style; // silent update
+                me.dragProxy.vdom   = vdom;
             }
-
-            me.dragProxy._style = style; // silent update
-            me.dragProxy.vdom   = vdom;
         }
     }
 
