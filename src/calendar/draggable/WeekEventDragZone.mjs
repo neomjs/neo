@@ -103,6 +103,11 @@ class WeekEventDragZone extends DragZone {
         endDate = new Date(startDate.valueOf());
         endDate.setMinutes(endDate.getMinutes() + me.eventDuration);
 
+        // if an event ends at 24:00, change it to 23:59 => otherwise the day increases by 1
+        if (endDate.getHours() === 0 && endDate.getMinutes() === 0) {
+            endDate.setMinutes(endDate.getMinutes() - 1);
+        }
+
         me.eventRecord.endDate   = endDate;
         me.eventRecord.startDate = startDate;
 
