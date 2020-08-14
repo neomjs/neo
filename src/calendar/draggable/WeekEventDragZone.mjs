@@ -123,7 +123,7 @@ class WeekEventDragZone extends DragZone {
             path = data.targetPath,
             i    = 0,
             len  = path.length,
-            intervalHeight, intervals, position, style;
+            intervalHeight, intervals, position, startDate, style, vdom;
 
         if (me.dragProxy) {
             for (; i < len; i++) {
@@ -144,16 +144,24 @@ class WeekEventDragZone extends DragZone {
             // events must not end after the last visible interval
             me.currentInterval = Math.min(me.currentInterval, intervals - (me.eventDuration / 15));
 
+            startDate = new Date(me.eventRecord.startDate.valueOf());
+            startDate.setHours(me.startTime);
+            startDate.setMinutes(me.currentInterval * 15);
+
             position = me.currentInterval * intervalHeight; // snap to valid intervals
             position = position / me.columnHeight * 100;
 
             style = me.dragProxy.style;
+            vdom = me.dragProxy.vdom;
+
+            vdom.cn[0].html = me.owner.intlFormat_time.format(startDate);
 
             if (me.moveVertical) {
                 style.top = `calc(${position}% + 1px)`;
             }
 
-            me.dragProxy.style = style;
+            me.dragProxy._style = style; // silent update
+            me.dragProxy.vdom   = vdom;
         }
     }
 
