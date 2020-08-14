@@ -29,6 +29,14 @@ class DragDrop extends Base {
              */
             clientY: 0,
             /**
+             * @member {Number} initialScrollLeft=0
+             */
+            initialScrollLeft: 0,
+            /**
+             * @member {Number} initialScrollTop=0
+             */
+            initialScrollTop: 0,
+            /**
              * @member {Number} offsetX=0
              */
             offsetX: 0,
@@ -114,6 +122,8 @@ class DragDrop extends Base {
 
         Object.assign(me, {
             dragProxyElement      : null,
+            initialScrollLeft     : 0,
+            initialScrollTop      : 0,
             scrollContainerElement: null,
             scrollContainerRect   : null
         });
@@ -203,8 +213,8 @@ class DragDrop extends Base {
         }
 
         return {
-            clientX: me.clientX + el.scrollLeft,
-            clientY: me.clientY + el.scrollTop
+            clientX: me.clientX + el.scrollLeft - me.initialScrollLeft,
+            clientY: me.clientY + el.scrollTop  - me.initialScrollTop
         };
     }
 
@@ -223,10 +233,15 @@ class DragDrop extends Base {
      * @param {String} data.id
      */
     setScrollContainer(data) {
-        let me = this;
+        let me   = this,
+            node = document.getElementById(data.id);
 
-        me.scrollContainerElement = document.getElementById(data.id);
-        me.scrollContainerRect    = me.scrollContainerElement.getBoundingClientRect();
+        Object.assign(me, {
+            scrollContainerElement: node,
+            scrollContainerRect   : node.getBoundingClientRect(),
+            initialScrollLeft     : node.scrollLeft,
+            initialScrollTop      : node.scrollTop,
+        });
     }
 }
 
