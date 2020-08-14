@@ -34,6 +34,11 @@ class WeekEventDragZone extends DragZone {
          */
         endTime: 0,
         /**
+         * time in minutes
+         * @member {Number} eventDuration=0
+         */
+        eventDuration: 0,
+        /**
          * @member {Object} eventRecord=null
          */
         eventRecord: null,
@@ -88,16 +93,20 @@ class WeekEventDragZone extends DragZone {
     dragEnd() {
         super.dragEnd();
 
-        let me       = this,
+        let me        = this,
             startDate = new Date(VDomUtil.findVdomChild(me.owner.vdom, me.proxyParentId).vdom.flag),
-            duration  = (me.eventRecord.endDate - me.eventRecord.startDate) / 60 / 1000, // minutes
             endDate;
 
         startDate.setHours(me.startTime);
         startDate.setMinutes(me.currentInterval * 15);
 
         endDate = new Date(startDate.valueOf());
-        endDate.setMinutes(endDate.getMinutes() + duration);
+        endDate.setMinutes(endDate.getMinutes() + me.eventDuration);
+
+        // if an event ends at 24:00, change it to 23:59 => otherwise the day increases by 1
+        if (endDate.getHours() === 0 && endDate.getMinutes() === 0) {
+            endDate.setMinutes(endDate.getMinutes() - 1);
+        }
 
         me.eventRecord.endDate   = endDate;
         me.eventRecord.startDate = startDate;
@@ -110,11 +119,12 @@ class WeekEventDragZone extends DragZone {
      * @param {Object} data
      */
     dragMove(data) {
-        let me   = this,
-            path = data.targetPath,
-            i    = 0,
-            len  = path.length,
-            intervalHeight, intervals, position, style;
+        let me          = this,
+            path        = data.targetPath,
+            i           = 0,
+            len         = path.length,
+            oldInterval = me.currentInterval,
+            intervalHeight, intervals, position, startTime, style, vdom;
 
         if (me.dragProxy) {
             for (; i < len; i++) {
@@ -132,16 +142,30 @@ class WeekEventDragZone extends DragZone {
 
             me.currentInterval = Math.floor(position / intervalHeight);
 
-            position = me.currentInterval * intervalHeight; // snap to valid intervals
-            position = position / me.columnHeight * 100;
+            // events must not end after the last visible interval
+            me.currentInterval = Math.min(me.currentInterval, intervals - (me.eventDuration / 15));
 
-            style = me.dragProxy.style;
+            if (oldInterval !== me.currentInterval) {
+                startTime = new Date(me.eventRecord.startDate.valueOf());
+                startTime.setHours(me.startTime);
+                startTime.setMinutes(me.currentInterval * 15);
+                startTime = me.owner.intlFormat_time.format(startTime);
 
-            if (me.moveVertical) {
-                style.top = `calc(${position}% + 1px)`;
+                position = me.currentInterval * intervalHeight; // snap to valid intervals
+                position = position / me.columnHeight * 100;
+
+                style = me.dragProxy.style;
+                vdom = me.dragProxy.vdom;
+
+                vdom.cn[0].html = startTime;
+
+                if (me.moveVertical) {
+                    style.top = `calc(${position}% + 1px)`;
+                }
+
+                me.dragProxy._style = style; // silent update
+                me.dragProxy.vdom   = vdom;
             }
-
-            me.dragProxy.style = style;
         }
     }
 
@@ -156,10 +180,11 @@ class WeekEventDragZone extends DragZone {
             id: [me.dragElement.id, data.path[1].id]
         }).then(rects => {
             Object.assign(me, {
-                columnHeight: rects[1].height,
-                columnTop   : rects[1].top,
-                offsetX     : data.clientX - rects[0].left,
-                offsetY     : data.clientY - rects[0].top
+                columnHeight : rects[1].height,
+                columnTop    : rects[1].top,
+                eventDuration: (me.eventRecord.endDate - me.eventRecord.startDate) / 60 / 1000,
+                offsetX      : data.clientX - rects[0].left,
+                offsetY      : data.clientY - rects[0].top
             });
 
             me.createDragProxy(rects[0]);

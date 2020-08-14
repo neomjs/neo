@@ -81,6 +81,11 @@ class WeekComponent extends Component {
          */
         intlFormat_day: null,
         /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_time=null
+         * @protected
+         */
+        intlFormat_time: null,
+        /**
          * @member {Boolean} isUpdating=false
          * @protected
          */
@@ -104,6 +109,10 @@ class WeekComponent extends Component {
          * @member {String} timeAxisPosition_='start'
          */
         timeAxisPosition_: 'start',
+        /**
+         * @member {Object} timeFormat_=null
+         */
+        timeFormat_: {hour: '2-digit', minute: '2-digit'},
         /**
          * @member {Object} vdom
          */
@@ -260,7 +269,8 @@ class WeekComponent extends Component {
         if (oldValue !== undefined) {
             let me = this;
 
-            me.intlFormat_day = new Intl.DateTimeFormat(value, {weekday: me.dayNameFormat});
+            me.intlFormat_day  = new Intl.DateTimeFormat(value, {weekday: me.dayNameFormat});
+            me.intlFormat_time = new Intl.DateTimeFormat(value, me.timeFormat);
 
             me.updateHeader();
         }
@@ -310,6 +320,18 @@ class WeekComponent extends Component {
 
         me._cls = cls;
         me.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the timeFormat config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterSetTimeFormat(value, oldValue) {
+        let me = this;
+
+        me.intlFormat_time = new Intl.DateTimeFormat(me.locale, value);
     }
 
     /**
@@ -657,7 +679,7 @@ class WeekComponent extends Component {
 
                             cn: [{
                                 cls : ['neo-event-time'],
-                                html: '08:00',
+                                html: me.intlFormat_time.format(record.startDate),
                                 id  : me.id + '__time__' + recordKey
                             }, {
                                 cls : ['neo-event-title'],
