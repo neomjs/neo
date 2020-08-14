@@ -52,6 +52,10 @@ class DragDrop extends Base {
              */
             scrollContainerElement: null,
             /**
+             * @member {DOMRect|null} scrollContainerRect=null
+             */
+            scrollContainerRect: null,
+            /**
              * @member {Boolean} singleton=true
              * @protected
              */
@@ -108,8 +112,11 @@ class DragDrop extends Base {
     onDragEnd(event) {
         let me = this;
 
-        me.dragProxyElement       = null;
-        me.scrollContainerElement = null;
+        Object.assign(me, {
+            dragProxyElement      : null,
+            scrollContainerElement: null,
+            scrollContainerRect   : null
+        });
 
         DomEvents.sendMessageToApp({
             ...me.getEventData(event),
@@ -122,9 +129,7 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragMove(event) {
-        let me      = this,
-            clientX = me.clientX,
-            clientY = me.clientY;
+        let me = this;
 
         if (me.dragProxyElement) {
             me.dragProxyElement.style.left = `${event.detail.clientX - me.offsetX}px`;
@@ -132,12 +137,10 @@ class DragDrop extends Base {
         }
 
         if (me.scrollContainerElement) {
-            me.scrollContainerElement.scrollLeft += ((event.detail.clientX - clientX) * 3);
-
-            console.log(event.detail.clientX - clientX);
-
-            me.clientX = event.detail.clientX;
-            me.clientY = event.detail.clientY;
+            me.scrollContainer({
+                clientX: event.detail.clientX,
+                clientY: event.detail.clientY
+            });
         }
 
         DomEvents.sendMessageToApp({
@@ -166,6 +169,39 @@ class DragDrop extends Base {
     /**
      *
      * @param {Object} data
+     * @param {Number} data.clientX
+     * @param {Number} data.clientY
+     */
+    scrollContainer(data) {
+        let me      = this,
+            clientX = me.clientX,
+            clientY = me.clientY,
+            deltaX  = data.clientX - clientX,
+            deltaY  = data.clientY - clientY,
+            gap     = 250,
+            rect    = me.scrollContainerRect;
+
+        if (
+            (deltaX < 0 && data.clientX < rect.left  + gap) ||
+            (deltaX > 0 && data.clientX > rect.right - gap)
+        ) {
+            me.scrollContainerElement.scrollLeft += ((data.clientX - clientX) * 3);
+        }
+
+        if (
+            (deltaY < 0 && data.clientY < rect.top    + gap) ||
+            (deltaY > 0 && data.clientY > rect.bottom - gap)
+        ) {
+            me.scrollContainerElement.scrollTop += (data.clientY - clientY);
+        }
+
+        me.clientX = data.clientX;
+        me.clientY = data.clientY;
+    }
+
+    /**
+     *
+     * @param {Object} data
      * @param {String} data.id
      */
     setDragProxyElement(data) {
@@ -178,7 +214,10 @@ class DragDrop extends Base {
      * @param {String} data.id
      */
     setScrollContainer(data) {
-        this.scrollContainerElement = document.getElementById(data.id);
+        let me = this;
+
+        me.scrollContainerElement = document.getElementById(data.id);
+        me.scrollContainerRect    = me.scrollContainerElement.getBoundingClientRect();
     }
 }
 
