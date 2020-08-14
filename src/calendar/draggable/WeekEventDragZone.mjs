@@ -34,6 +34,11 @@ class WeekEventDragZone extends DragZone {
          */
         endTime: 0,
         /**
+         * time in minutes
+         * @member {Number} eventDuration=0
+         */
+        eventDuration: 0,
+        /**
          * @member {Object} eventRecord=null
          */
         eventRecord: null,
@@ -88,16 +93,15 @@ class WeekEventDragZone extends DragZone {
     dragEnd() {
         super.dragEnd();
 
-        let me       = this,
+        let me        = this,
             startDate = new Date(VDomUtil.findVdomChild(me.owner.vdom, me.proxyParentId).vdom.flag),
-            duration  = (me.eventRecord.endDate - me.eventRecord.startDate) / 60 / 1000, // minutes
             endDate;
 
         startDate.setHours(me.startTime);
         startDate.setMinutes(me.currentInterval * 15);
 
         endDate = new Date(startDate.valueOf());
-        endDate.setMinutes(endDate.getMinutes() + duration);
+        endDate.setMinutes(endDate.getMinutes() + me.duration);
 
         me.eventRecord.endDate   = endDate;
         me.eventRecord.startDate = startDate;
@@ -156,10 +160,11 @@ class WeekEventDragZone extends DragZone {
             id: [me.dragElement.id, data.path[1].id]
         }).then(rects => {
             Object.assign(me, {
-                columnHeight: rects[1].height,
-                columnTop   : rects[1].top,
-                offsetX     : data.clientX - rects[0].left,
-                offsetY     : data.clientY - rects[0].top
+                columnHeight : rects[1].height,
+                columnTop    : rects[1].top,
+                eventDuration: (me.eventRecord.endDate - me.eventRecord.startDate) / 60 / 1000,
+                offsetX      : data.clientX - rects[0].left,
+                offsetY      : data.clientY - rects[0].top
             });
 
             me.createDragProxy(rects[0]);
