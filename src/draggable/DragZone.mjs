@@ -89,7 +89,7 @@ class DragZone extends Base {
      * @param {String} oldValue
      * @protected
      */
-    afterSetScrollContainerId(value, oldValue) {console.log('afterSetScrollContainerId', value);
+    afterSetScrollContainerId(value, oldValue) {
         if (value) {
             Neo.main.addon.DragDrop.setScrollContainer({
                 id: value
