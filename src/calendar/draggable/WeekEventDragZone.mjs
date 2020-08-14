@@ -101,7 +101,7 @@ class WeekEventDragZone extends DragZone {
         startDate.setMinutes(me.currentInterval * 15);
 
         endDate = new Date(startDate.valueOf());
-        endDate.setMinutes(endDate.getMinutes() + me.duration);
+        endDate.setMinutes(endDate.getMinutes() + me.eventDuration);
 
         me.eventRecord.endDate   = endDate;
         me.eventRecord.startDate = startDate;
@@ -135,6 +135,9 @@ class WeekEventDragZone extends DragZone {
             position = Math.max(0, position);
 
             me.currentInterval = Math.floor(position / intervalHeight);
+
+            // events must not end after the last visible interval
+            me.currentInterval = Math.min(me.currentInterval, intervals - (me.eventDuration / 15));
 
             position = me.currentInterval * intervalHeight; // snap to valid intervals
             position = position / me.columnHeight * 100;
