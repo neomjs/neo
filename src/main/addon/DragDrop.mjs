@@ -21,6 +21,22 @@ class DragDrop extends Base {
              */
             dragProxyElement: null,
             /**
+             * @member {Number} clientX=0
+             */
+            clientX: 0,
+            /**
+             * @member {Number} clientY=0
+             */
+            clientY: 0,
+            /**
+             * @member {Number} initialScrollLeft=0
+             */
+            initialScrollLeft: 0,
+            /**
+             * @member {Number} initialScrollTop=0
+             */
+            initialScrollTop: 0,
+            /**
              * @member {Number} offsetX=0
              */
             offsetX: 0,
@@ -35,9 +51,18 @@ class DragDrop extends Base {
              */
             remote: {
                 app: [
-                    'setDragProxyElement'
+                    'setDragProxyElement',
+                    'setScrollContainer'
                 ]
             },
+            /**
+             * @member {HTMLElement|null} scrollContainerElement=null
+             */
+            scrollContainerElement: null,
+            /**
+             * @member {DOMRect|null} scrollContainerRect=null
+             */
+            scrollContainerRect: null,
             /**
              * @member {Boolean} singleton=true
              * @protected
@@ -93,10 +118,18 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragEnd(event) {
-        this.dragProxyElement = null;
+        let me = this;
+
+        Object.assign(me, {
+            dragProxyElement      : null,
+            initialScrollLeft     : 0,
+            initialScrollTop      : 0,
+            scrollContainerElement: null,
+            scrollContainerRect   : null
+        });
 
         DomEvents.sendMessageToApp({
-            ...this.getEventData(event),
+            ...me.getEventData(event),
             type: 'drag:end'
         });
     }
@@ -106,7 +139,18 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragMove(event) {
-        let me = this;
+        let me = this,
+            data;
+
+        if (me.scrollContainerElement) {
+            data = me.scrollContainer({
+                clientX: event.detail.clientX,
+                clientY: event.detail.clientY
+            });
+
+            event.detail.clientX = data.clientX;
+            event.detail.clientY = data.clientY;
+        }
 
         if (me.dragProxyElement) {
             me.dragProxyElement.style.left = `${event.detail.clientX - me.offsetX}px`;
@@ -139,10 +183,65 @@ class DragDrop extends Base {
     /**
      *
      * @param {Object} data
+     * @param {Number} data.clientX
+     * @param {Number} data.clientY
+     * @returns {Object}
+     */
+    scrollContainer(data) {
+        let me     = this,
+            deltaX = data.clientX - me.clientX,
+            deltaY = data.clientY - me.clientY,
+            el     = me.scrollContainerElement,
+            gap    = 250,
+            rect   = me.scrollContainerRect;
+
+        me.clientX =  data.clientX;
+        me.clientY =  data.clientY;
+
+        if (
+            (deltaX < 0 && data.clientX < rect.left  + gap) ||
+            (deltaX > 0 && data.clientX > rect.right - gap)
+        ) {
+            el.scrollLeft += (deltaX * 3); // todo: scrollFactorLeft
+        }
+
+        if (
+            (deltaY < 0 && data.clientY < rect.top    + gap) ||
+            (deltaY > 0 && data.clientY > rect.bottom - gap)
+        ) {
+            el.scrollTop += deltaY;
+        }
+
+        return {
+            clientX: me.clientX + el.scrollLeft - me.initialScrollLeft,
+            clientY: me.clientY + el.scrollTop  - me.initialScrollTop
+        };
+    }
+
+    /**
+     *
+     * @param {Object} data
      * @param {String} data.id
      */
     setDragProxyElement(data) {
         this.dragProxyElement = document.getElementById(data.id);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    setScrollContainer(data) {
+        let me   = this,
+            node = document.getElementById(data.id);
+
+        Object.assign(me, {
+            scrollContainerElement: node,
+            scrollContainerRect   : node.getBoundingClientRect(),
+            initialScrollLeft     : node.scrollLeft,
+            initialScrollTop      : node.scrollTop,
+        });
     }
 }
 
