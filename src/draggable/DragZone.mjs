@@ -151,6 +151,8 @@ class DragZone extends Base {
             me.destroyDragProxy();
             me.dragProxy = null;
         }
+
+        me.scrollContainerId = null;
     }
 
     /**
