@@ -21,6 +21,14 @@ class DragDrop extends Base {
              */
             dragProxyElement: null,
             /**
+             * @member {Number} clientX=0
+             */
+            clientX: 0,
+            /**
+             * @member {Number} clientY=0
+             */
+            clientY: 0,
+            /**
              * @member {Number} offsetX=0
              */
             offsetX: 0,
@@ -35,9 +43,14 @@ class DragDrop extends Base {
              */
             remote: {
                 app: [
-                    'setDragProxyElement'
+                    'setDragProxyElement',
+                    'setScrollContainer'
                 ]
             },
+            /**
+             * @member {HTMLElement|null} scrollContainerElement=null
+             */
+            scrollContainerElement: null,
             /**
              * @member {Boolean} singleton=true
              * @protected
@@ -93,10 +106,13 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragEnd(event) {
-        this.dragProxyElement = null;
+        let me = this;
+
+        me.dragProxyElement       = null;
+        me.scrollContainerElement = null;
 
         DomEvents.sendMessageToApp({
-            ...this.getEventData(event),
+            ...me.getEventData(event),
             type: 'drag:end'
         });
     }
@@ -106,11 +122,22 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragMove(event) {
-        let me = this;
+        let me      = this,
+            clientX = me.clientX,
+            clientY = me.clientY;
 
         if (me.dragProxyElement) {
             me.dragProxyElement.style.left = `${event.detail.clientX - me.offsetX}px`;
             me.dragProxyElement.style.top  = `${event.detail.clientY - me.offsetY}px`;
+        }
+
+        if (me.scrollContainerElement) {
+            me.scrollContainerElement.scrollLeft += ((event.detail.clientX - clientX) * 3);
+
+            console.log(event.detail.clientX - clientX);
+
+            me.clientX = event.detail.clientX;
+            me.clientY = event.detail.clientY;
         }
 
         DomEvents.sendMessageToApp({
@@ -143,6 +170,15 @@ class DragDrop extends Base {
      */
     setDragProxyElement(data) {
         this.dragProxyElement = document.getElementById(data.id);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    setScrollContainer(data) {
+        this.scrollContainerElement = document.getElementById(data.id);
     }
 }
 

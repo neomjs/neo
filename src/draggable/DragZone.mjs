@@ -61,6 +61,10 @@ class DragZone extends Base {
          */
         proxyParentId_: 'document.body',
         /**
+         * @member {String|null} scrollContainerId_=null
+         */
+        scrollContainerId_: null,
+        /**
          * True creates a position:absolute wrapper div which contains the cloned element
          * @member {Boolean} useProxyWrapper=true
          */
@@ -76,6 +80,20 @@ class DragZone extends Base {
 
         if (!Neo.main.addon.DragDrop) {
             throw new Error('You can not use Neo.draggable.DragZone without adding Neo.main.addon.DragDrop to the main thread addons');
+        }
+    }
+
+    /**
+     * Triggered after the scrollContainerId config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetScrollContainerId(value, oldValue) {console.log('afterSetScrollContainerId', value);
+        if (value) {
+            Neo.main.addon.DragDrop.setScrollContainer({
+                id: value
+            });
         }
     }
 
