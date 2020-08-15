@@ -22,7 +22,7 @@ class Range extends Number {
          */
         clearable: false,
         /**
-         * @member {Array} cls=['neo-rangefield','neo-textfield']
+         * @member {String[]} cls=['neo-rangefield','neo-textfield']
          */
         cls: ['neo-rangefield', 'neo-textfield'],
         /**
@@ -72,7 +72,7 @@ class Range extends Number {
     }
 
     /**
-     *
+     * Triggered after the tickmarks config got changed
      * @param {Array} value
      * @param {Array} oldValue
      * @protected
