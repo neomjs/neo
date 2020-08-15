@@ -129,7 +129,7 @@ class Dialog extends Panel {
     maximize(data) {
         let me = this;
 
-        console.log(data);
+        data.component.iconCls = me.maximized ? 'far fa-window-maximize' : 'far fa-window-minimize';
 
         me.maximized = !me.maximized;
     }
