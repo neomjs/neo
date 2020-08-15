@@ -72,12 +72,15 @@ class WeekEventDragZone extends DragZone {
      */
     afterSetProxyParentId(value, oldValue) {
         if (value && oldValue !== undefined) {
-            if (this.dragProxy) {
+            let me = this;
+
+            // check if the node did not get removed yet
+            if (me.dragProxy && me.dragProxy.vdom.cn[0].id) {
                 Neo.currentWorker.promiseMessage('main', {
                     action: 'updateDom',
                     deltas: [{
                         action  : 'moveNode',
-                        id      : this.dragProxy.id,
+                        id      : me.dragProxy.id,
                         index   : 0,
                         parentId: value
                     }]
@@ -154,16 +157,19 @@ class WeekEventDragZone extends DragZone {
                 position = me.currentInterval * intervalHeight; // snap to valid intervals
                 position = position / me.columnHeight * 100;
 
-                Neo.currentWorker.promiseMessage('main', {
-                    action: 'updateDom',
-                    deltas: [{
-                        id       : me.dragProxy.vdom.cn[0].id,
-                        innerHTML: startTime
-                    }, {
-                        id   : me.dragProxy.id,
-                        style: {top: `calc(${position}% + 1px)`}
-                    }]
-                });
+                // check if the node did not get removed yet
+                if (me.dragProxy.vdom.cn[0].id) {
+                    Neo.currentWorker.promiseMessage('main', {
+                        action: 'updateDom',
+                        deltas: [{
+                            id       : me.dragProxy.vdom.cn[0].id,
+                            innerHTML: startTime
+                        }, {
+                            id   : me.dragProxy.id,
+                            style: {top: `calc(${position}% + 1px)`}
+                        }]
+                    });
+                }
             }
         }
     }
