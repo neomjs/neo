@@ -777,9 +777,11 @@ class WeekComponent extends Component {
                     }]
                 });
             } else {
-                content.cn[i].cls  = columnCls;
-                content.cn[i].flag = DateUtil.convertToyyyymmdd(date);
-                content.cn[i].id   = me.getColumnId(date);
+                Object.assign(content.cn[i], {
+                    cls : columnCls,
+                    flag: DateUtil.convertToyyyymmdd(date),
+                    id  : me.getColumnId(date)
+                });
 
                 header.cn[i].cn[0].html = me.intlFormat_day.format(date);
 
