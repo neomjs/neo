@@ -5,14 +5,27 @@
     top      : 50%;
     transform: translate(-50%, -50%);
 
+    &.neo-maximized {
+        height   : 98% !important;
+        left     : 1%;
+        top      : 1%;
+        transform: none;
+        width    : 98% !important;
+    }
+
     &.neo-panel {
         .neo-header-toolbar {
             border       : none;
             border-bottom: 1px solid v(dialog-border-color);
 
             .neo-button {
-                border : 0;
-                padding: 0;
+                border      : 0;
+                margin-right: 0.3em;
+                padding     : 0;
+
+                &:last-child {
+                    margin-right: 0;
+                }
             }
 
             .neo-button-glyph {

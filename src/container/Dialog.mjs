@@ -1,5 +1,6 @@
 import Panel    from './Panel.mjs';
 import Floating from '../util/Floating.mjs';
+import NeoArray from '../util/Array.mjs';
 
 /**
  * @class Neo.container.Dialog
@@ -37,6 +38,10 @@ class Dialog extends Panel {
          */
         draggable_: true,
         /**
+         * @member {Boolean} draggable_=false
+         */
+        maximized_: false,
+        /**
          * @member {Array} mixins
          * @protected
          */
@@ -73,6 +78,20 @@ class Dialog extends Panel {
     }
 
     /**
+     * Triggered after the maximized config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMaximized(value, oldValue) {
+        let me  = this,
+            cls = me.cls;
+
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-maximized');
+        me.cls = cls;
+    }
+
+    /**
      * todo: add an animation in case the dialog has an animation origin
      */
     close() {
@@ -105,21 +124,14 @@ class Dialog extends Panel {
     }
 
     /**
-     *
+     * @param {Object} data
      */
-    maximize() {
-        let me    = this,
-            style = me.style || {};
+    maximize(data) {
+        let me = this;
 
-        Object.assign(style, {
-            height   : '98%',
-            left     : '1%',
-            top      : '1%',
-            transform: 'none',
-            width    : '98%'
-        });
+        console.log(data);
 
-        me.style = style;
+        me.maximized = !me.maximized;
     }
 }
 
