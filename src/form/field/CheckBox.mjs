@@ -119,7 +119,7 @@ class CheckBox extends Base {
     }
 
     /**
-     *
+     * Triggered after the hideLabel config got changed
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -132,7 +132,7 @@ class CheckBox extends Base {
     }
 
     /**
-     *
+     * Triggered after the hideLabelValue config got changed
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -145,7 +145,7 @@ class CheckBox extends Base {
     }
 
     /**
-     *
+     * Triggered after the inputType config got changed
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -158,7 +158,7 @@ class CheckBox extends Base {
     }
 
     /**
-     *
+     * Triggered after the labelText config got changed
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -171,7 +171,7 @@ class CheckBox extends Base {
     }
 
     /**
-     *
+     * Triggered after the labelWidth config got changed
      * @param {Number|String} value
      * @param {Number|String} oldValue
      * @protected
@@ -187,7 +187,7 @@ class CheckBox extends Base {
     }
 
     /**
-     *
+     * Triggered after the name config got changed
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -200,7 +200,7 @@ class CheckBox extends Base {
     }
 
     /**
-     *
+     * Triggered after the value config got changed
      * @param {String} value
      * @param {String} oldValue
      * @protected
@@ -217,7 +217,7 @@ class CheckBox extends Base {
     }
 
     /**
-     *
+     * Triggered after the valueLabel config got changed
      * @param {String} value
      * @param {String} oldValue
      * @protected
