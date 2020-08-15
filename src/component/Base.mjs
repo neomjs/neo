@@ -166,6 +166,11 @@ class Base extends CoreBase {
          */
         needsVdomUpdate: false,
         /**
+         * The parent component id or document.body
+         * @member {String} parentId='document.body'
+         */
+        parentId: 'document.body',
+        /**
          * True in case the component is rendering the vnode
          * @member {Boolean} rendering_=false
          * @protected
@@ -808,7 +813,7 @@ class Base extends CoreBase {
     destroy(updateParentVdom=false, silent=false) {
         let me = this,
             parent, parentVdom;
-
+console.log(updateParentVdom, me.parentId);
         if (updateParentVdom && me.parentId) {
             if (me.parentId === 'document.body') {
                 Neo.currentWorker.promiseMessage('main', {

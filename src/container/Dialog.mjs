@@ -28,10 +28,10 @@ class Dialog extends Panel {
          */
         autoRender: true,
         /**
-         * @member {String[]} cls=['neo-window','neo-panel','neo-container']
+         * @member {String[]} cls=['neo-dialog','neo-panel','neo-container']
          * @protected
          */
-        cls: ['neo-window', 'neo-panel', 'neo-container'],
+        cls: ['neo-dialog', 'neo-panel', 'neo-container'],
         /**
          * @member {Boolean} draggable_=true
          */
@@ -52,7 +52,13 @@ class Dialog extends Panel {
         this.createHeader();
     }
 
-    afterSetDraggable(value) {
+    /**
+     * Triggered after the draggable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDraggable(value, oldValue) {
         let me       = this,
             vdom     = me.vdom,
             vdomRoot = me.getVdomRoot();
@@ -64,6 +70,13 @@ class Dialog extends Panel {
         }
 
         me.vdom = vdom;
+    }
+
+    /**
+     * todo: add an animation in case the dialog has an animation origin
+     */
+    close() {
+        this.destroy(true);
     }
 
     /**
@@ -79,7 +92,8 @@ class Dialog extends Panel {
                 ntype: 'label',
                 text : 'Dialog Title'
             }, '->', {
-                iconCls: 'far fa-window-close'
+                iconCls: 'far fa-window-close',
+                handler: me.close.bind(me)
             }]
         });
 
