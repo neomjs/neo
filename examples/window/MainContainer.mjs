@@ -13,9 +13,19 @@ class MainContainer extends Toolbar {
 
         autoMount: true,
         layout   : 'base',
-        style    : {margin: '20px'},
+        style    : {margin: '20px'}
+    }}
 
-        items: [{
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me = this;
+
+        me.items = [{
             module : Button,
             iconCls: 'fa fa-window-maximize',
             text   : 'Show Window',
@@ -33,10 +43,19 @@ class MainContainer extends Toolbar {
             }
         }, '->', {
             module : Button,
+            handler: me.switchTheme,
             iconCls: 'fa fa-moon',
             text   : 'Dark Theme'
-        }]
-    }}
+        }];
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    switchTheme(data) {
+        console.log('switchTheme', data);
+    }
 }
 
 Neo.applyClassConfig(MainContainer);
