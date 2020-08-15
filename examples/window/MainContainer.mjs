@@ -13,31 +13,25 @@ class MainContainer extends Container {
 
         autoMount: true,
         layout   : 'base',
+        style    : {margin: '20px'},
 
-        style: {
-            margin: '20px'
-        },
+        items: [{
+            module : Button,
+            iconCls: 'fa fa-home',
+            text   : 'Show Window',
 
-        items: [
-            {
-                ntype: 'button',
+            domListeners: {
+                click: {
+                    fn: function (data) {
+                        let window = Neo.create(DemoWindow, {
+                            appName: this.appName
+                        });
 
-                iconCls  : 'fa fa-home',
-                text     : 'Show Window',
-
-                domListeners: {
-                    click: {
-                        fn: function (data) {
-                            let window = Neo.create(DemoWindow, {
-                                appName: this.appName
-                            });
-
-                            console.log(window);
-                        }
+                        console.log(window);
                     }
                 }
             }
-        ]
+        }]
     }}
 }
 

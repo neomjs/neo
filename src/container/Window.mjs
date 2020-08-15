@@ -18,6 +18,11 @@ class Window extends Panel {
          */
         ntype: 'window',
         /**
+         * @member {Boolean} autoRender=true
+         * @protected
+         */
+        autoRender: true,
+        /**
          * @member {Boolean} autoMount=true
          * @protected
          */
@@ -40,25 +45,19 @@ class Window extends Panel {
          * @member {Array} headers
          * @protected
          */
-        headers: [
-            {
-                dock : 'top',
-                items: [
-                    {
-                        ntype: 'label',
-                        text : 'Window Title'
-                    },
-                    {
-                        ntype: 'component',
-                        flex : 1
-                    },
-                    {
-                        iconCls: 'fas fa-window-close',
-                        text   : 'Close'
-                    }
-                ]
-            }
-        ]
+        headers: [{
+            dock : 'top',
+            items: [{
+                ntype: 'label',
+                text : 'Window Title'
+            }, {
+                ntype: 'component',
+                flex : 1
+            }, {
+                iconCls: 'fas fa-window-close',
+                text   : 'Close'
+            }]
+        }]
     }}
 
     afterSetDraggable(value) {
