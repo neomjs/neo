@@ -66,7 +66,7 @@ class Time extends Picker {
          * Defaults to 1min
          * @member {Number} stepSize_=60*5
          */
-        stepSize_: 60*5, // 5min
+        stepSize_: 60 * 5, // 5min
         /**
          * @member {Object|Object[]} triggers=[{module: TimeTrigger}]
          * @protected
@@ -78,7 +78,7 @@ class Time extends Picker {
 
     /**
      *
-     * @param config
+     * @param {Object} config
      */
     constructor(config) {
         super(config);
@@ -111,6 +111,7 @@ class Time extends Picker {
     }
 
     /**
+     * Triggered after the maxValue config got changed
      * @param {Text} value
      * @param {Text} oldValue
      * @protected
@@ -120,6 +121,7 @@ class Time extends Picker {
     }
 
     /**
+     * Triggered after the minValue config got changed
      * @param {Text} value
      * @param {Text} oldValue
      * @protected
@@ -129,6 +131,7 @@ class Time extends Picker {
     }
 
     /**
+     * Triggered after the stepSize config got changed
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
@@ -159,6 +162,7 @@ class Time extends Picker {
      * @param {String} value
      * @param {String} oldValue
      * @protected
+     * @returns {String}
      */
     beforeSetMaxValue(value, oldValue) {
         // todo: check format => '08:00'
@@ -170,6 +174,7 @@ class Time extends Picker {
      * @param {String} value
      * @param {String} oldValue
      * @protected
+     * @returns {String}
      */
     beforeSetMinValue(value, oldValue) {
         // todo: check format => '08:00'
