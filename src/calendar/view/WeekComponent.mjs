@@ -456,6 +456,14 @@ class WeekComponent extends Component {
     }
 
     /**
+     * Used inside createId() as the default value passed to the IdGenerator.
+     * @returns {String}
+     */
+    getIdKey() {
+        return 'c-w';
+    }
+
+    /**
      *
      */
     getScrollContainer() {
