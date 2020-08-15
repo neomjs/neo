@@ -2,21 +2,21 @@ import Panel    from './Panel.mjs';
 import Floating from '../util/Floating.mjs';
 
 /**
- * @class Neo.container.Window
+ * @class Neo.container.Dialog
  * @extends Neo.container.Panel
  */
-class Window extends Panel {
+class Dialog extends Panel {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.container.Window'
+         * @member {String} className='Neo.container.Dialog'
          * @protected
          */
-        className: 'Neo.container.Window',
+        className: 'Neo.container.Dialog',
         /**
-         * @member {String} ntype='window'
+         * @member {String} ntype='dialog'
          * @protected
          */
-        ntype: 'window',
+        ntype: 'dialog',
         /**
          * @member {Boolean} autoMount=true
          * @protected
@@ -77,7 +77,7 @@ class Window extends Panel {
             dock : 'top',
             items: [{
                 ntype: 'label',
-                text : 'Window Title'
+                text : 'Dialog Title'
             }, '->', {
                 iconCls: 'far fa-window-close'
             }]
@@ -87,6 +87,6 @@ class Window extends Panel {
     }
 }
 
-Neo.applyClassConfig(Window);
+Neo.applyClassConfig(Dialog);
 
-export {Window as default};
+export {Dialog as default};

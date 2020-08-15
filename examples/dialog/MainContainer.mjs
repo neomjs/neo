@@ -1,14 +1,14 @@
 import Button     from '../../src/component/Button.mjs';
 import Toolbar    from '../../src/container/Toolbar.mjs';
-import DemoWindow from './DemoWindow.mjs';
+import DemoDialog from './DemoWindow.mjs';
 
 /**
- * @class Window.MainContainer
+ * @class Dialog.MainContainer
  * @extends Neo.container.Toolbar
  */
 class MainContainer extends Toolbar {
     static getConfig() {return {
-        className: 'Window.MainContainer',
+        className: 'Dialog.MainContainer',
         ntype    : 'main-container',
 
         autoMount: true,
@@ -27,9 +27,9 @@ class MainContainer extends Toolbar {
 
         me.items = [{
             module : Button,
-            handler: me.createWindow.bind(me),
+            handler: me.createDialog.bind(me),
             iconCls: 'fa fa-window-maximize',
-            text   : 'Create Window',
+            text   : 'Create Dialog',
         }, '->', {
             module : Button,
             handler: MainContainer.switchTheme.bind(me),
@@ -42,8 +42,8 @@ class MainContainer extends Toolbar {
      *
      * @param {Object} data
      */
-    createWindow(data) {
-        Neo.create(DemoWindow, {
+    createDialog(data) {
+        Neo.create(DemoDialog, {
             appName: this.appName
         });
     }
