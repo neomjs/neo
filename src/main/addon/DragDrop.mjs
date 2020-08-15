@@ -64,6 +64,14 @@ class DragDrop extends Base {
              */
             scrollContainerRect: null,
             /**
+             * @member {Number} scrollFactorLeft=1
+             */
+            scrollFactorLeft: 1,
+            /**
+             * @member {Number} scrollFactorTop=1
+             */
+            scrollFactorTop: 1,
+            /**
              * @member {Boolean} singleton=true
              * @protected
              */
