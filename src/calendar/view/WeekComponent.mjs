@@ -443,6 +443,15 @@ class WeekComponent extends Component {
 
     /**
      *
+     * @param {Date} date
+     * @returns {String}
+     */
+    getColumnId(date) {
+        return `${this.id}_column_${DateUtil.convertToyyyymmdd(date)}`;
+    }
+
+    /**
+     *
      */
     getColumnTimeAxisContainer() {
         return VDomUtil.getByFlag(this.vdom, 'neo-c-w-column-timeaxis-container');
@@ -724,7 +733,7 @@ class WeekComponent extends Component {
             content = me.getColumnContainer(),
             header  = me.getHeaderContainer(),
             i       = 0,
-            columnCls, currentDate, currentDay, dateCls, ymd;
+            columnCls, currentDate, currentDay, dateCls;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay - 7);
 
@@ -750,13 +759,11 @@ class WeekComponent extends Component {
                 NeoArray.remove(dateCls, 'neo-today');
             }
 
-            ymd = DateUtil.convertToyyyymmdd(date);
-
             if (create) {
                 content.cn.push({
                     cls : columnCls,
-                    flag: ymd,
-                    id  : me.id + '__' + ymd
+                    flag: DateUtil.convertToyyyymmdd(date),
+                    id  : me.getColumnId(date)
                 });
 
                 header.cn.push({
@@ -771,8 +778,8 @@ class WeekComponent extends Component {
                 });
             } else {
                 content.cn[i].cls  = columnCls;
-                content.cn[i].flag = ymd;
-                content.cn[i].id   = me.id + '__' + ymd;
+                content.cn[i].flag = DateUtil.convertToyyyymmdd(date);
+                content.cn[i].id   = me.getColumnId(date);
 
                 header.cn[i].cn[0].html = me.intlFormat_day.format(date);
 
