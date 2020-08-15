@@ -26,9 +26,9 @@ class Floating extends Base {
          */
         animateTargetId: null,
         /**
-         * @member {Boolean} modal_=false
+         * @member {Boolean} modal=false
          */
-        modal_: false
+        modal: false
     }}
 }
 
