@@ -53,19 +53,17 @@ class MainContainer extends Toolbar {
      * @param {Object} data
      */
     static switchTheme(data) {
-        let button = data.component,
-            buttonText, iconCls, oldTheme, theme;
+        let button     = data.component,
+            buttonText = 'Theme Light',
+            iconCls    = 'fa fa-sun',
+            oldTheme   = 'neo-theme-light',
+            theme      = 'neo-theme-dark';
 
         if (button.text === 'Theme Light') {
-            buttonText  = 'Theme Dark';
-            iconCls     = 'fa fa-moon';
-            oldTheme    = 'neo-theme-dark';
-            theme       = 'neo-theme-light';
-        } else {
-            buttonText  = 'Theme Light';
-            iconCls     = 'fa fa-sun';
-            oldTheme    = 'neo-theme-light';
-            theme       = 'neo-theme-dark';
+            buttonText = 'Theme Dark';
+            iconCls    = 'fa fa-moon';
+            oldTheme   = 'neo-theme-dark';
+            theme      = 'neo-theme-light';
         }
 
         Neo.main.DomAccess.setBodyCls({
