@@ -19,12 +19,12 @@ class Base extends Component {
         ntype: 'basefield',
         /**
          * @member {*} value_=null
-         * @protected
          */
         value_: null
     }}
 
     /**
+     * Triggered after the value config got changed
      * @param {*} value
      * @param {*} oldValue
      */
