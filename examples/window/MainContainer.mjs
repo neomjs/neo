@@ -27,14 +27,14 @@ class MainContainer extends Toolbar {
 
         me.items = [{
             module : Button,
-            handler: me.createWindow,
+            handler: me.createWindow.bind(me),
             iconCls: 'fa fa-window-maximize',
             text   : 'Create Window',
         }, '->', {
             module : Button,
-            handler: me.switchTheme,
+            handler: MainContainer.switchTheme.bind(me),
             iconCls: 'fa fa-moon',
-            text   : 'Dark Theme'
+            text   : 'Theme Dark'
         }];
     }
 
@@ -52,8 +52,31 @@ class MainContainer extends Toolbar {
      *
      * @param {Object} data
      */
-    switchTheme(data) {
-        console.log('switchTheme', data);
+    static switchTheme(data) {
+        let button = data.component,
+            buttonText, iconCls, oldTheme, theme;
+
+        if (button.text === 'Theme Light') {
+            buttonText  = 'Theme Dark';
+            iconCls     = 'fa fa-moon';
+            oldTheme    = 'neo-theme-dark';
+            theme       = 'neo-theme-light';
+        } else {
+            buttonText  = 'Theme Light';
+            iconCls     = 'fa fa-sun';
+            oldTheme    = 'neo-theme-light';
+            theme       = 'neo-theme-dark';
+        }
+
+        Neo.main.DomAccess.setBodyCls({
+            add   : [theme],
+            remove: [oldTheme]
+        });
+
+        button.set({
+            iconCls: iconCls,
+            text   : buttonText
+        });
     }
 }
 
