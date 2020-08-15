@@ -6,6 +6,7 @@ const globalDomEvents = [
     {name: 'change',      handler: 'onChange'},
     {name: 'click',       handler: 'onClick'},
     {name: 'contextmenu', handler: 'onContextMenu'},
+    {name: 'dblclick',    handler: 'onDoubleClick'},
     {name: 'focusin',     handler: 'onFocusIn'},
     {name: 'focusout',    handler: 'onFocusOut'},
     {name: 'input',       handler: 'onChange'},
@@ -351,7 +352,7 @@ class DomEvents extends Base {
      *
      * @param {Object} event
      */
-    onClick(event) {
+    onDoubleClick(event) {
         let me = this;
 
         me.sendMessageToApp(me.getMouseEventData(event));
@@ -381,6 +382,20 @@ class DomEvents extends Base {
     onDomContentLoaded() {
         this.addGlobalDomListeners();
         this.fire('domContentLoaded');
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onClick(event) {
+        let me = this;
+
+        me.sendMessageToApp(me.getMouseEventData(event));
+
+        if (me.testPathInclusion(event, preventClickTargets)) {
+            event.preventDefault();
+        }
     }
 
     /**
