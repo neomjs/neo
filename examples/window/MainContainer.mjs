@@ -1,12 +1,12 @@
-import Button                 from '../../src/component/Button.mjs';
-import {default as Container} from '../../src/container/Base.mjs';
-import DemoWindow             from './DemoWindow.mjs';
+import Button     from '../../src/component/Button.mjs';
+import Toolbar    from '../../src/container/Toolbar.mjs';
+import DemoWindow from './DemoWindow.mjs';
 
 /**
  * @class TestApp.MainContainer
- * @extends Neo.container.Base
+ * @extends Neo.container.Toolbar
  */
-class MainContainer extends Container {
+class MainContainer extends Toolbar {
     static getConfig() {return {
         className: 'TestApp.MainContainer',
         ntype    : 'main-container',
@@ -17,7 +17,7 @@ class MainContainer extends Container {
 
         items: [{
             module : Button,
-            iconCls: 'fa fa-home',
+            iconCls: 'fa fa-window-maximize',
             text   : 'Show Window',
 
             domListeners: {
@@ -31,6 +31,10 @@ class MainContainer extends Container {
                     }
                 }
             }
+        }, '->', {
+            module : Button,
+            iconCls: 'fa fa-moon',
+            text   : 'Dark Theme'
         }]
     }}
 }

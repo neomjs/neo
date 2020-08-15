@@ -18,15 +18,15 @@ class Window extends Panel {
          */
         ntype: 'window',
         /**
-         * @member {Boolean} autoRender=true
-         * @protected
-         */
-        autoRender: true,
-        /**
          * @member {Boolean} autoMount=true
          * @protected
          */
         autoMount: true,
+        /**
+         * @member {Boolean} autoRender=true
+         * @protected
+         */
+        autoRender: true,
         /**
          * @member {String[]} cls=['neo-window','neo-panel','neo-container']
          * @protected
@@ -54,8 +54,7 @@ class Window extends Panel {
                 ntype: 'component',
                 flex : 1
             }, {
-                iconCls: 'fas fa-window-close',
-                text   : 'Close'
+                iconCls: 'far fa-window-close'
             }]
         }]
     }}
