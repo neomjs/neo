@@ -40,24 +40,17 @@ class Window extends Panel {
          * @member {Array} mixins
          * @protected
          */
-        mixins: [Floating],
-        /**
-         * @member {Array} headers
-         * @protected
-         */
-        headers: [{
-            dock : 'top',
-            items: [{
-                ntype: 'label',
-                text : 'Window Title'
-            }, {
-                ntype: 'component',
-                flex : 1
-            }, {
-                iconCls: 'far fa-window-close'
-            }]
-        }]
+        mixins: [Floating]
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+        this.createHeader();
+    }
 
     afterSetDraggable(value) {
         let me       = this,
@@ -71,6 +64,26 @@ class Window extends Panel {
         }
 
         me.vdom = vdom;
+    }
+
+    /**
+     *
+     */
+    createHeader() {
+        let me      = this,
+            headers = me.headers || [];
+
+        headers.unshift({
+            dock : 'top',
+            items: [{
+                ntype: 'label',
+                text : 'Window Title'
+            }, '->', {
+                iconCls: 'far fa-window-close'
+            }]
+        });
+
+        me.headers = headers;
     }
 }
 
