@@ -53,7 +53,7 @@ class Model extends Base {
     /**
      * Finds a field config by a given field name
      * @param {String} key
-     * @return {Object|null} The field config object or null if no match was found
+     * @returns {Object|null} The field config object or null if no match was found
      */
     getField(key) {
         let me  = this,

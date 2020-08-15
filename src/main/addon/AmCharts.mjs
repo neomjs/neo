@@ -197,7 +197,7 @@ class AmCharts extends Base {
     /**
      *
      * @param {String} id
-     * @return {Boolean}
+     * @returns {Boolean}
      */
     hasChart(id) {
         return !!this.charts[id];

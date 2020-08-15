@@ -216,7 +216,7 @@ class DomAccess extends Base {
     /**
      *
      * @param {String} nodeId
-     * @return {HTMLElement}
+     * @returns {HTMLElement}
      * @protected
      */
     getElement(nodeId) {
@@ -226,7 +226,7 @@ class DomAccess extends Base {
     /**
      *
      * @param {String} [nodeId='body']
-     * @return {HTMLElement}
+     * @returns {HTMLElement}
      * @protected
      */
     getElementOrBody(nodeId) {
@@ -241,7 +241,7 @@ class DomAccess extends Base {
      * Include a script into the document.head
      * @param {String} src
      * @param {Boolean} [async=true]
-     * @return {Promise<unknown>}
+     * @returns {Promise<unknown>}
      */
     loadScript(src, async=true) {
         let script;
@@ -263,7 +263,7 @@ class DomAccess extends Base {
     /**
      * Include a link into the document.head
      * @param {String} href
-     * @return {Promise<unknown>}
+     * @returns {Promise<unknown>}
      */
     loadStylesheet(href) {
         let link;

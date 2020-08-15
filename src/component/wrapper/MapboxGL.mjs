@@ -297,7 +297,7 @@ class MapboxGL extends Component {
     /**
      *
      * @param {Object[]} data
-     * @return {Object} Object matching the geojson format
+     * @returns {Object} Object matching the geojson format
      */
     convertToGeoJson(data) {
         const geoJson = {

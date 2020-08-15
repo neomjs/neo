@@ -93,7 +93,7 @@ class YearContainer extends Container {
 
     /**
      *
-     * @return {Neo.calendar.view.YearComponent}
+     * @returns {Neo.calendar.view.YearComponent}
      */
     getYearComponent() {
         return this.up('calendar-maincontainer').yearComponent;

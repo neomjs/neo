@@ -290,7 +290,7 @@ class MapboxGL extends Base {
     /**
      *
      * @param {String} id
-     * @return {Boolean}
+     * @returns {Boolean}
      */
     hasMap(id) {
         return !!this.maps[id];

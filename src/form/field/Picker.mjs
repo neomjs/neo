@@ -85,7 +85,7 @@ class Picker extends Text {
 
     /**
      *
-     * @return {Neo.container.Base}
+     * @returns {Neo.container.Base}
      */
     createPicker() {
         let me              = this,
@@ -153,7 +153,7 @@ class Picker extends Text {
 
     /**
      * Returns the picker instance and creates it in case it does not exist yet
-     * @return {Neo.container.Base}
+     * @returns {Neo.container.Base}
      */
     getPicker() {
         let me = this;

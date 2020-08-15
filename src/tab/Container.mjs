@@ -265,7 +265,7 @@ class Container extends BaseContainer {
 
     /**
      * Returns the card matching this.activeIndex
-     * @return {Neo.component.Base|null}
+     * @returns {Neo.component.Base|null}
      */
     getActiveCard() {
         return this.getCardContainer().items[this.activeIndex] || null;
@@ -274,7 +274,7 @@ class Container extends BaseContainer {
     /**
      * Returns a card by a given index
      * @param {Number} index
-     * @return {Neo.component.Base|null}
+     * @returns {Neo.component.Base|null}
      */
     getCard(index) {
         return this.getCardContainer().items[index] || null;
