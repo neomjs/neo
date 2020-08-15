@@ -142,7 +142,7 @@ class Base {
     createId(id) {
         let me = this;
 
-        me.id = id || IdGenerator.getId(me.ntype);
+        me.id = id || IdGenerator.getId(me.getIdKey());
 
         if (Base.instanceManagerAvailable === true) {
             Neo.manager.Instance.register(me);
@@ -173,6 +173,15 @@ class Base {
                 delete me[key];
             }
         });
+    }
+
+    /**
+     * Used inside createId() as the default value passed to the IdGenerator.
+     * Override this method as needed.
+     * @returns {String}
+     */
+    getIdKey() {
+        return this.ntype;
     }
 
     /**

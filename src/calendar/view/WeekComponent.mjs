@@ -342,7 +342,7 @@ class WeekComponent extends Component {
      */
     afterSetWeekStartDay(value, oldValue) {
         if (oldValue !== undefined) {
-            this.updateHeader();
+            this.updateHeader(false, true);
             this.updateEvents();
         }
     }
@@ -443,6 +443,24 @@ class WeekComponent extends Component {
 
     /**
      *
+     * @param {Date} date
+     * @returns {String}
+     */
+    getColumnId(date) {
+        return `${this.id}_col_${DateUtil.convertToyyyymmdd(date)}`;
+    }
+
+    /**
+     *
+     * @param {Date} date
+     * @returns {String}
+     */
+    getColumnHeaderId(date) {
+        return `${this.id}_ch_${DateUtil.convertToyyyymmdd(date)}`;
+    }
+
+    /**
+     *
      */
     getColumnTimeAxisContainer() {
         return VDomUtil.getByFlag(this.vdom, 'neo-c-w-column-timeaxis-container');
@@ -453,6 +471,14 @@ class WeekComponent extends Component {
      */
     getHeaderContainer() {
         return VDomUtil.getByFlag(this.vdom, 'neo-header-row');
+    }
+
+    /**
+     * Used inside createId() as the default value passed to the IdGenerator.
+     * @returns {String}
+     */
+    getIdKey() {
+        return 'c-w';
     }
 
     /**
@@ -701,22 +727,22 @@ class WeekComponent extends Component {
             date.setDate(date.getDate() + 1);
         }
 
-        // console.log(content);
         me.vdom = vdom;
     }
 
     /**
      *
      * @param {Boolean} [create=false]
+     * @param {Boolean} [silent=false]
      */
-    updateHeader(create=false) {
+    updateHeader(create=false, silent=false) {
         let me      = this,
             date    = me.currentDate, // cloned
             vdom    = me.vdom,
             content = me.getColumnContainer(),
             header  = me.getHeaderContainer(),
             i       = 0,
-            columnCls, currentDate, currentDay, dateCls;
+            columnCls, currentDate, currentDay, dateCls, headerId;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay - 7);
 
@@ -742,38 +768,53 @@ class WeekComponent extends Component {
                 NeoArray.remove(dateCls, 'neo-today');
             }
 
+            headerId = me.getColumnHeaderId(date);
+
             if (create) {
                 content.cn.push({
                     cls : columnCls,
-                    flag: DateUtil.convertToyyyymmdd(date)
+                    flag: DateUtil.convertToyyyymmdd(date),
+                    id  : me.getColumnId(date)
                 });
 
                 header.cn.push({
                     cls: ['neo-header-row-item'],
+                    id : headerId,
                     cn : [{
                         cls : ['neo-day'],
-                        html: me.intlFormat_day.format(date)
+                        html: me.intlFormat_day.format(date),
+                        id  : `${headerId}_day`
                     }, {
                         cls : dateCls,
-                        html: currentDate
+                        html: currentDate,
+                        id  : `${headerId}_date`
                     }]
                 });
             } else {
-                content.cn[i].cls  = columnCls;
-                content.cn[i].flag = DateUtil.convertToyyyymmdd(date);
+                Object.assign(content.cn[i], {
+                    cls : columnCls,
+                    flag: DateUtil.convertToyyyymmdd(date),
+                    id  : me.getColumnId(date)
+                });
 
-                header.cn[i].cn[0].html = me.intlFormat_day.format(date);
+                header.cn[i].id = headerId;
+
+                Object.assign(header.cn[i].cn[0], {
+                    html: me.intlFormat_day.format(date),
+                    id  : `${headerId}_day`
+                });
 
                 Object.assign(header.cn[i].cn[1], {
                     cls : dateCls,
-                    html: currentDate
+                    html: currentDate,
+                    id  : `${headerId}_date`
                 });
             }
 
             date.setDate(date.getDate() + 1);
         }
 
-        me.vdom = vdom;
+        me[silent ? '_vdom' : 'vdom'] = vdom;
     }
 }
 
