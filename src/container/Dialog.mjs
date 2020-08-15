@@ -93,12 +93,33 @@ class Dialog extends Panel {
                 ntype: 'label',
                 text : 'Dialog Title'
             }, '->', {
+                iconCls: 'far fa-window-maximize',
+                handler: me.maximize.bind(me)
+            }, {
                 iconCls: 'far fa-window-close',
                 handler: me.close.bind(me)
             }]
         });
 
         me.headers = headers;
+    }
+
+    /**
+     *
+     */
+    maximize() {
+        let me    = this,
+            style = me.style || {};
+
+        Object.assign(style, {
+            height   : '98%',
+            left     : '1%',
+            top      : '1%',
+            transform: 'none',
+            width    : '98%'
+        });
+
+        me.style = style;
     }
 }
 
