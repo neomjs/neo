@@ -13,42 +13,20 @@ StartTest(t => {
 
         vdom = {
             id: 'neo-calendar-week',
-            cn: [{
-                cls: ['neo-c-w-column'],
-                id : 'neo-column-1',
-                cn : [{
-                    cls: ['neo-event'],
-                    id : 'neo-event-1'
-                }]
-            }, {
-                cls: ['neo-c-w-column'],
-                id : 'neo-column-2',
-                cn : [{
-                    cls: ['neo-event'],
-                    id : 'neo-event-2'
-                }]
-            }]
+            cn: [
+                {id: 'neo-column-1', cls: ['neo-c-w-column'], cn : [{id: 'neo-event-1', cls: ['neo-event']}]},
+                {id: 'neo-column-2', cls: ['neo-c-w-column'], cn : [{id: 'neo-event-2', cls: ['neo-event']}]}
+            ]
         };
 
         vnode = VdomHelper.create(vdom);
 
         vdom = {
             id: 'neo-calendar-week',
-            cn: [{
-                cls: ['neo-c-w-column'],
-                id : 'neo-column-1',
-                cn : []
-            }, {
-                cls: ['neo-c-w-column'],
-                id : 'neo-column-2',
-                cn : [{
-                    cls: ['neo-event', 'foo'],
-                    id : 'neo-event-1'
-                }, {
-                    cls: ['neo-event'],
-                    id : 'neo-event-2'
-                }]
-            }]
+            cn: [
+                {id: 'neo-column-1', cls: ['neo-c-w-column'], cn : []},
+                {id: 'neo-column-2', cls: ['neo-c-w-column'], cn : [{id: 'neo-event-1', cls: ['neo-event', 'foo']}, {id: 'neo-event-2', cls: ['neo-event']}]}
+            ]
         };
 
         output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
@@ -62,21 +40,10 @@ StartTest(t => {
 
         vdom = {
             id: 'neo-calendar-week',
-            cn: [{
-                cls: ['neo-c-w-column'],
-                id : 'neo-column-1',
-                cn : [{
-                    cls: ['neo-event'],
-                    id : 'neo-event-1'
-                }]
-            }, {
-                cls: ['neo-c-w-column'],
-                id : 'neo-column-2',
-                cn : [{
-                    cls: ['neo-event'],
-                    id : 'neo-event-2'
-                }]
-            }]
+            cn: [
+                {id: 'neo-column-1', cls: ['neo-c-w-column'], cn : [{id: 'neo-event-1', cls: ['neo-event']}]},
+                {id: 'neo-column-2', cls: ['neo-c-w-column'], cn : [{id: 'neo-event-2', cls: ['neo-event']}]}
+            ]
         };
 
         output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
@@ -93,42 +60,20 @@ StartTest(t => {
 
         vdom = {
             id: 'neo-calendar-week',
-            cn: [{
-                cls: ['neo-c-w-column'],
-                id : 'neo-column-1',
-                cn : [{
-                    cls: ['neo-event'],
-                    id : 'neo-event-1'
-                }]
-            }, {
-                cls: ['neo-c-w-column'],
-                id : 'neo-column-2',
-                cn : [{
-                    cls: ['neo-event'],
-                    id : 'neo-event-2'
-                }]
-            }]
+            cn: [
+                {id: 'neo-column-1', cls: ['neo-c-w-column'], cn : [{id: 'neo-event-1', cls: ['neo-event']}]},
+                {id: 'neo-column-2', cls: ['neo-c-w-column'], cn : [{id: 'neo-event-2', cls: ['neo-event']}]}
+            ]
         };
 
         vnode = VdomHelper.create(vdom);
 
         vdom = {
             id: 'neo-calendar-week',
-            cn: [{
-                cls: ['neo-c-w-column'],
-                id : 'neo-column-1',
-                cn : [{
-                    cls: ['neo-event', 'foo'],
-                    id : 'neo-event-2'
-                }, {
-                    cls: ['neo-event'],
-                    id : 'neo-event-1'
-                }]
-            }, {
-                cls: ['neo-c-w-column'],
-                id : 'neo-column-2',
-                cn : []
-            }]
+            cn: [
+                {id: 'neo-column-1', cls: ['neo-c-w-column'], cn : [{id: 'neo-event-2', cls: ['neo-event', 'foo']}, {id: 'neo-event-1', cls: ['neo-event']}]},
+                {id: 'neo-column-2', cls: ['neo-c-w-column'], cn : []}
+            ]
         };
 
         output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
@@ -142,21 +87,10 @@ StartTest(t => {
 
         vdom = {
             id: 'neo-calendar-week',
-            cn: [{
-                cls: ['neo-c-w-column'],
-                id : 'neo-column-1',
-                cn : [{
-                    cls: ['neo-event'],
-                    id : 'neo-event-1'
-                }]
-            }, {
-                cls: ['neo-c-w-column'],
-                id : 'neo-column-2',
-                cn : [{
-                    cls: ['neo-event'],
-                    id : 'neo-event-2'
-                }]
-            }]
+            cn: [
+                {id: 'neo-column-1', cls: ['neo-c-w-column'], cn : [{id: 'neo-event-1', cls: ['neo-event']}]},
+                {id: 'neo-column-2', cls: ['neo-c-w-column'], cn : [{id: 'neo-event-2', cls: ['neo-event']}]}
+            ]
         };
 
         output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
