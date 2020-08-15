@@ -19,14 +19,14 @@ class Container extends BaseContainer {
          */
         ntype: 'form-container',
         /**
-         * @member {Array} cls=['neo-form-container'],
+         * @member {String[]} cls=['neo-form-container'],
          * @protected
          */
         cls: ['neo-form-container'],
         /**
-         * @member {Object} _vdom={tag: 'form',cn: []}
+         * @member {Object} vdom={tag: 'form',cn: []}
          */
-        _vdom: {
+        vdom: {
             tag: 'form',
             cn : []
         }
@@ -34,7 +34,7 @@ class Container extends BaseContainer {
 
     /**
      *
-     * @returns {Array} fields
+     * @returns {Neo.form.field.Base[]} fields
      */
     getFields() {
         let children = ComponentManager.getChildren(this),
