@@ -1,6 +1,15 @@
 .neo-dialog {
+    border   : 1px solid v(dialog-border-color);
     position : fixed;
     left     : 50%;
     top      : 50%;
     transform: translate(-50%, -50%);
+
+    &.neo-panel {
+        .neo-header-toolbar {
+            border       : none;
+            border-bottom: 1px solid v(dialog-border-color);
+            color        : v(dialog-header-color);
+        }
+    }
 }

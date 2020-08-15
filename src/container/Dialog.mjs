@@ -87,6 +87,7 @@ class Dialog extends Panel {
             headers = me.headers || [];
 
         headers.unshift({
+            cls  : ['neo-header-toolbar', 'neo-toolbar'],
             dock : 'top',
             items: [{
                 ntype: 'label',

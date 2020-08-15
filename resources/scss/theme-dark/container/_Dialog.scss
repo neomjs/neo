@@ -1,0 +1,11 @@
+$neoMap: map-merge($neoMap, (
+    'dialog-border-color': #3c3f41,
+    'dialog-header-color': #bbb
+));
+
+@if $useCss4Vars == true {
+    :root .neo-theme-dark { // .neo-dialog
+        --dialog-border-color: #{neo(dialog-border-color)};
+        --dialog-header-color: #{neo(dialog-header-color)};
+    }
+}
