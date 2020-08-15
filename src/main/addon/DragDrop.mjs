@@ -52,7 +52,9 @@ class DragDrop extends Base {
             remote: {
                 app: [
                     'setDragProxyElement',
-                    'setScrollContainer'
+                    'setScrollContainer',
+                    'setScrollFactorLeft',
+                    'setScrollFactorTop'
                 ]
             },
             /**
@@ -133,7 +135,9 @@ class DragDrop extends Base {
             initialScrollLeft     : 0,
             initialScrollTop      : 0,
             scrollContainerElement: null,
-            scrollContainerRect   : null
+            scrollContainerRect   : null,
+            setScrollFactorLeft   : 1,
+            scrollFactorTop       : 1
         });
 
         DomEvents.sendMessageToApp({
@@ -210,14 +214,14 @@ class DragDrop extends Base {
             (deltaX < 0 && data.clientX < rect.left  + gap) ||
             (deltaX > 0 && data.clientX > rect.right - gap)
         ) {
-            el.scrollLeft += (deltaX * 3); // todo: scrollFactorLeft
+            el.scrollLeft += (deltaX * me.scrollFactorLeft);
         }
 
         if (
             (deltaY < 0 && data.clientY < rect.top    + gap) ||
             (deltaY > 0 && data.clientY > rect.bottom - gap)
         ) {
-            el.scrollTop += deltaY;
+            el.scrollTop += (deltaY * me.scrollFactorTop);
         }
 
         return {
@@ -250,6 +254,24 @@ class DragDrop extends Base {
             initialScrollLeft     : node.scrollLeft,
             initialScrollTop      : node.scrollTop,
         });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Number} data.value
+     */
+    setScrollFactorLeft(data) {
+        this.scrollFactorLeft = data.value;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Number} data.value
+     */
+    setScrollFactorTop(data) {
+        this.scrollFactorTop = data.value;
     }
 }
 

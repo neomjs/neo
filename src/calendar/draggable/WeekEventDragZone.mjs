@@ -55,6 +55,10 @@ class WeekEventDragZone extends DragZone {
          */
         owner: null,
         /**
+         * @member {Number} scrollFactorLeft=3
+         */
+        scrollFactorLeft: 3,
+        /**
          * @member {Number} startTime=0
          */
         startTime: 0,
