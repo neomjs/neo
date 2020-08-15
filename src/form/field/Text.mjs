@@ -50,7 +50,7 @@ class Text extends Base {
          */
         clearToOriginalValue_: false,
         /**
-         * @member {Array} cls=['neo-textfield']
+         * @member {String[]} cls=['neo-textfield']
          */
         cls: ['neo-textfield'],
         /**
@@ -471,6 +471,7 @@ class Text extends Base {
      * @param {String} value
      * @param {String} oldValue
      * @protected
+     * @returns {String}
      */
     beforeSetLabelPosition(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'labelPosition');
@@ -482,6 +483,7 @@ class Text extends Base {
      * @param {Object[]} oldValue
      * @returns {Object[]} the parsed triggers config
      * @protected
+     * @returns {Object|Object[]}
      */
     beforeSetTriggers(value, oldValue) {
         if (!value) {
@@ -563,7 +565,7 @@ class Text extends Base {
 
     /**
      *
-     * @return {String}
+     * @returns {String}
      */
     getInputElId() {
         return this.id + '-input';
