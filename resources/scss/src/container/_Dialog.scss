@@ -9,7 +9,19 @@
         .neo-header-toolbar {
             border       : none;
             border-bottom: 1px solid v(dialog-border-color);
-            color        : v(dialog-header-color);
+
+            .neo-button {
+                border : 0;
+                padding: 0;
+            }
+
+            .neo-button-glyph {
+                font-size: 1.8em;
+            }
+
+            .neo-panel-header-text {
+                color: v(dialog-header-color);
+            }
         }
     }
 }
