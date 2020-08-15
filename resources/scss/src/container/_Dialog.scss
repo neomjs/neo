@@ -5,8 +5,8 @@
     top      : 50%;
     transform: translate(-50%, -50%);
 
-    transition-duration: 200ms;
-    transition-property: height, left, top, transform, width;
+    transition-duration       : 200ms;
+    transition-property       : height, left, top, transform, width;
     transition-timing-function: ease-out;
 
     &.neo-maximized {
