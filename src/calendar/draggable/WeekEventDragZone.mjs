@@ -197,6 +197,7 @@ class WeekEventDragZone extends DragZone {
             });
 
             me.createDragProxy(rects[0]);
+            me.dragMove(data);
         });
     }
 }
