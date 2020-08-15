@@ -136,7 +136,7 @@ class TableContainerController extends ComponentController {
      *
      * @param {Object} record
      * @protected
-     * @return {Object}
+     * @returns {Object}
      */
     static assignFieldsOrNull(record) {
         return {

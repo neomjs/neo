@@ -156,7 +156,7 @@ class CountryHelix extends Helix {
     /**
      *
      * @param {String} name
-     * @return {String} url
+     * @returns {String} url
      */
     getCountryFlagUrl(name) {
         const map = {
