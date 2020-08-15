@@ -342,7 +342,7 @@ class WeekComponent extends Component {
      */
     afterSetWeekStartDay(value, oldValue) {
         if (oldValue !== undefined) {
-            this.updateHeader();
+            this.updateHeader(false, true);
             this.updateEvents();
         }
     }
@@ -718,15 +718,15 @@ class WeekComponent extends Component {
             date.setDate(date.getDate() + 1);
         }
 
-        // console.log(content);
         me.vdom = vdom;
     }
 
     /**
      *
      * @param {Boolean} [create=false]
+     * @param {Boolean} [silent=false]
      */
-    updateHeader(create=false) {
+    updateHeader(create=false, silent=false) {
         let me      = this,
             date    = me.currentDate, // cloned
             vdom    = me.vdom,
@@ -794,7 +794,7 @@ class WeekComponent extends Component {
             date.setDate(date.getDate() + 1);
         }
 
-        me.vdom = vdom;
+        me[silent ? '_vdom' : 'vdom'] = vdom;
     }
 }
 
