@@ -724,7 +724,7 @@ class WeekComponent extends Component {
             content = me.getColumnContainer(),
             header  = me.getHeaderContainer(),
             i       = 0,
-            columnCls, currentDate, currentDay, dateCls;
+            columnCls, currentDate, currentDay, dateCls, ymd;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay - 7);
 
@@ -750,10 +750,13 @@ class WeekComponent extends Component {
                 NeoArray.remove(dateCls, 'neo-today');
             }
 
+            ymd = DateUtil.convertToyyyymmdd(date);
+
             if (create) {
                 content.cn.push({
                     cls : columnCls,
-                    flag: DateUtil.convertToyyyymmdd(date)
+                    flag: ymd,
+                    id  : me.id + '__' + ymd
                 });
 
                 header.cn.push({
@@ -768,7 +771,8 @@ class WeekComponent extends Component {
                 });
             } else {
                 content.cn[i].cls  = columnCls;
-                content.cn[i].flag = DateUtil.convertToyyyymmdd(date);
+                content.cn[i].flag = ymd;
+                content.cn[i].id   = me.id + '__' + ymd;
 
                 header.cn[i].cn[0].html = me.intlFormat_day.format(date);
 
