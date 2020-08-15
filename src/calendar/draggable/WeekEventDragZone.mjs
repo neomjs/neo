@@ -154,17 +154,16 @@ class WeekEventDragZone extends DragZone {
                 position = me.currentInterval * intervalHeight; // snap to valid intervals
                 position = position / me.columnHeight * 100;
 
-                style = me.dragProxy.style;
-                vdom = me.dragProxy.vdom;
-
-                vdom.cn[0].html = startTime;
-
-                if (me.moveVertical) {
-                    style.top = `calc(${position}% + 1px)`;
-                }
-
-                me.dragProxy._style = style; // silent update
-                me.dragProxy.vdom   = vdom;
+                Neo.currentWorker.promiseMessage('main', {
+                    action: 'updateDom',
+                    deltas: [{
+                        id       : me.dragProxy.vdom.cn[0].id,
+                        innerHTML: startTime
+                    }, {
+                        id   : me.dragProxy.id,
+                        style: {top: `calc(${position}% + 1px)`}
+                    }]
+                });
             }
         }
     }
