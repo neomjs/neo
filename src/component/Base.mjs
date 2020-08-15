@@ -813,7 +813,7 @@ class Base extends CoreBase {
     destroy(updateParentVdom=false, silent=false) {
         let me = this,
             parent, parentVdom;
-console.log(updateParentVdom, me.parentId);
+
         if (updateParentVdom && me.parentId) {
             if (me.parentId === 'document.body') {
                 Neo.currentWorker.promiseMessage('main', {
