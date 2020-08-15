@@ -1,16 +1,14 @@
 import Window from '../../src/container/Window.mjs';
 
 /**
- * @class TestApp.DemoWindow
+ * @class Window.DemoWindow
  * @extends Neo.container.Window
  */
 class DemoWindow extends Window {
     static getConfig() {return {
-        className: 'TestApp.DemoWindow',
-        ntype    : 'demo-window',
+        className: 'Window.DemoWindow',
         height   : 500,
         width    : 500
-
     }}
 }
 
