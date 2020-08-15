@@ -447,7 +447,16 @@ class WeekComponent extends Component {
      * @returns {String}
      */
     getColumnId(date) {
-        return `${this.id}_column_${DateUtil.convertToyyyymmdd(date)}`;
+        return `${this.id}_col_${DateUtil.convertToyyyymmdd(date)}`;
+    }
+
+    /**
+     *
+     * @param {Date} date
+     * @returns {String}
+     */
+    getColumnHeaderId(date) {
+        return `${this.id}_ch_${DateUtil.convertToyyyymmdd(date)}`;
     }
 
     /**
@@ -733,7 +742,7 @@ class WeekComponent extends Component {
             content = me.getColumnContainer(),
             header  = me.getHeaderContainer(),
             i       = 0,
-            columnCls, currentDate, currentDay, dateCls;
+            columnCls, currentDate, currentDay, dateCls, headerId;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay - 7);
 
@@ -759,6 +768,8 @@ class WeekComponent extends Component {
                 NeoArray.remove(dateCls, 'neo-today');
             }
 
+            headerId = me.getColumnHeaderId(date);
+
             if (create) {
                 content.cn.push({
                     cls : columnCls,
@@ -768,12 +779,15 @@ class WeekComponent extends Component {
 
                 header.cn.push({
                     cls: ['neo-header-row-item'],
+                    id : headerId,
                     cn : [{
                         cls : ['neo-day'],
-                        html: me.intlFormat_day.format(date)
+                        html: me.intlFormat_day.format(date),
+                        id  : `${headerId}_day`
                     }, {
                         cls : dateCls,
-                        html: currentDate
+                        html: currentDate,
+                        id  : `${headerId}_date`
                     }]
                 });
             } else {
@@ -783,11 +797,17 @@ class WeekComponent extends Component {
                     id  : me.getColumnId(date)
                 });
 
-                header.cn[i].cn[0].html = me.intlFormat_day.format(date);
+                header.cn[i].id = headerId;
+
+                Object.assign(header.cn[i].cn[0], {
+                    html: me.intlFormat_day.format(date),
+                    id  : `${headerId}_day`
+                });
 
                 Object.assign(header.cn[i].cn[1], {
                     cls : dateCls,
-                    html: currentDate
+                    html: currentDate,
+                    id  : `${headerId}_date`
                 });
             }
 
