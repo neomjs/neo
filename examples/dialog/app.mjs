@@ -2,9 +2,8 @@ import MainContainer from './MainContainer.mjs';
 
 Neo.onStart = function() {
     Neo.app({
-        appPath : 'examples/window/',
+        appPath : 'examples/dialog/',
         mainView: MainContainer,
-        name    : 'TestApp',
-        parentId: 'main-container'
+        name    : 'Dialog'
     });
 };

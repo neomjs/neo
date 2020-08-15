@@ -158,13 +158,14 @@ class WeekComponent extends Component {
             domListeners = me.domListeners;
 
         domListeners.push(
-            {'drag:end'  : me.onColumnDragEnd,   scope: me, delegate: '.neo-c-w-column'},
-            {'drag:end'  : me.onEventDragEnd,    scope: me, delegate: '.neo-event'},
-            {'drag:move' : me.onColumnDragMove,  scope: me, delegate: '.neo-c-w-column'},
-            {'drag:move' : me.onEventDragMove,   scope: me, delegate: '.neo-event'},
-            {'drag:start': me.onColumnDragStart, scope: me, delegate: '.neo-c-w-column'},
-            {'drag:start': me.onEventDragStart,  scope: me, delegate: '.neo-event'},
-            {wheel       : me.onWheel,           scope: me}
+            {dblclick    : me.onEventDoubleClick, scope: me, delegate: '.neo-event'},
+            {'drag:end'  : me.onColumnDragEnd,    scope: me, delegate: '.neo-c-w-column'},
+            {'drag:end'  : me.onEventDragEnd,     scope: me, delegate: '.neo-event'},
+            {'drag:move' : me.onColumnDragMove,   scope: me, delegate: '.neo-c-w-column'},
+            {'drag:move' : me.onEventDragMove,    scope: me, delegate: '.neo-event'},
+            {'drag:start': me.onColumnDragStart,  scope: me, delegate: '.neo-c-w-column'},
+            {'drag:start': me.onEventDragStart,   scope: me, delegate: '.neo-event'},
+            {wheel       : me.onWheel,            scope: me}
         );
 
         me.domListeners = domListeners;
@@ -516,6 +517,14 @@ class WeekComponent extends Component {
         if (!data.path[0].cls.includes('neo-event')) {
             console.log('onColumnDragStart', data);
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onEventDoubleClick(data) {
+        console.log('onEventDoubleClick', data);
     }
 
     /**

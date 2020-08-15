@@ -166,6 +166,11 @@ class Base extends CoreBase {
          */
         needsVdomUpdate: false,
         /**
+         * The parent component id or document.body
+         * @member {String} parentId='document.body'
+         */
+        parentId: 'document.body',
+        /**
          * True in case the component is rendering the vnode
          * @member {Boolean} rendering_=false
          * @protected

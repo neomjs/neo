@@ -43,6 +43,7 @@ class DomAccess extends Base {
                 'scrollTo',
                 'scrollToTableRow',
                 'selectNode',
+                'setBodyCls',
                 'setStyle',
                 'windowScrollTo'
             ]
@@ -472,6 +473,16 @@ class DomAccess extends Base {
         }
 
         return {id: data.id};
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String[]} data.add
+     * @param {Object[]} data.remove
+     */
+    setBodyCls(data) {
+        document.body.classList.remove(...data.remove || []);
+        document.body.classList.add(...data.add || []);
     }
 
     /**
