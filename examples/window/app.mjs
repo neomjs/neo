@@ -4,7 +4,6 @@ Neo.onStart = function() {
     Neo.app({
         appPath : 'examples/window/',
         mainView: MainContainer,
-        name    : 'TestApp',
-        parentId: 'main-container'
+        name    : 'TestApp'
     });
 };
