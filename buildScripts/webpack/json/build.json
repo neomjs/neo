@@ -72,6 +72,11 @@
             "output": "/examples/component/dateSelector/",
             "title": "Neo DateSelector"
         },
+        "dialog": {
+            "input": "examples/Dialog.mjs",
+            "output": "/examples/dialog/",
+            "title": "Neo Dialog"
+        },
         "docs": {
             "input": "docs/app.mjs",
             "mainThreadAddons": "'HighlightJS', 'Stylesheet'",
@@ -166,12 +171,6 @@
             "input": "examples/Viewport.mjs",
             "output": "/examples/viewport/",
             "title": "Neo Viewport"
-        },
-        "window": {
-            "bodyTag": "<body style='margin: 10px'><p>Neo Window</p><div id='main-container'></div>",
-            "input": "examples/Window.mjs",
-            "output": "/examples/window/",
-            "title": "Neo Window"
         }
     }
 }

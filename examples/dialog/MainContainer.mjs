@@ -1,6 +1,6 @@
 import Button     from '../../src/component/Button.mjs';
 import Toolbar    from '../../src/container/Toolbar.mjs';
-import DemoDialog from './DemoWindow.mjs';
+import DemoDialog from './DemoDialog.mjs';
 
 /**
  * @class Dialog.MainContainer
