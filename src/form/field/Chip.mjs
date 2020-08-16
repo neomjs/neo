@@ -23,16 +23,6 @@ class Chip extends Select {
             useCheckBoxes: true
         }
     }}
-
-    /**
-     *
-     * @param config
-     */
-    constructor(config) {
-        super(config);
-
-        let me = this;
-    }
 }
 
 Neo.applyClassConfig(Chip);

@@ -237,7 +237,7 @@ class RecordFactory extends Base {
      * todo: parse value for more field types
      * @param {Object} field
      * @param {*} value
-     * @return {*}
+     * @returns {*}
      */
     parseRecordValue(field, value) {
         const type = field.type && field.type.toLowerCase();

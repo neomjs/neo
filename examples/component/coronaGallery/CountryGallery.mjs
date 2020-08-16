@@ -145,7 +145,7 @@ class CountryGallery extends Gallery {
     /**
      *
      * @param {String} name
-     * @return {String} url
+     * @returns {String} url
      */
     getCountryFlagUrl(name) {
         const map = {

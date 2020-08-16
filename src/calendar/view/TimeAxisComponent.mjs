@@ -201,7 +201,7 @@ class TimeAxisComponent extends Component {
 
     /**
      * Calculates the amount of rows related to the interval config
-     * @return {Number}
+     * @returns {Number}
      */
     getRowsPerItem() {
         return this.interval === 60 ? 1 : this.interval === 30 ? 2 : 4;
@@ -210,7 +210,7 @@ class TimeAxisComponent extends Component {
     /**
      * Calculates the time for the end- or startTime
      * @param {String} value
-     * @return {Number}
+     * @returns {Number}
      */
     getTime(value) {
         return value.split(':').map(Number)[0];

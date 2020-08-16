@@ -37,7 +37,7 @@ class DateUtil extends Base {
     /**
      * Clones a Date instance using the same value
      * @param {Date} date
-     * @return {Date} the cloned date object
+     * @returns {Date} the cloned date object
      */
     static clone(date) {
         return new Date(date.valueOf());
@@ -46,7 +46,7 @@ class DateUtil extends Base {
     /**
      * Returns the yyyy-mm-dd formatted value of a given Date instance
      * @param {Date} date
-     * @return {String} the yyyy-mm-dd formatted date
+     * @returns {String} the yyyy-mm-dd formatted date
      */
     static convertToyyyymmdd(date) {
         return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().split('T')[0];

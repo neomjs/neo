@@ -188,7 +188,7 @@ class View extends Component {
      *
      * @param {Object} record
      * @param {String} dataField
-     * @return {String}
+     * @returns {String}
      */
     getCellId(record, dataField) {
         return this.id + '__' + record[this.store.keyProperty] + '__' + dataField;
@@ -198,7 +198,7 @@ class View extends Component {
      * Override this method to apply custom CSS rules to table rows
      * @param {Object} record
      * @param {Number} rowIndex
-     * @return {String[]}
+     * @returns {String[]}
      */
     getTrClass(record, rowIndex) {
         return ['neo-table-row'];

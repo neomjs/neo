@@ -1,5 +1,6 @@
 import Panel    from './Panel.mjs';
 import Floating from '../util/Floating.mjs';
+import NeoArray from '../util/Array.mjs';
 
 /**
  * @class Neo.container.Dialog
@@ -37,6 +38,10 @@ class Dialog extends Panel {
          */
         draggable_: true,
         /**
+         * @member {Boolean} draggable_=false
+         */
+        maximized_: false,
+        /**
          * @member {Array} mixins
          * @protected
          */
@@ -73,6 +78,20 @@ class Dialog extends Panel {
     }
 
     /**
+     * Triggered after the maximized config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMaximized(value, oldValue) {
+        let me  = this,
+            cls = me.cls;
+
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-maximized');
+        me.cls = cls;
+    }
+
+    /**
      * todo: add an animation in case the dialog has an animation origin
      */
     close() {
@@ -87,17 +106,32 @@ class Dialog extends Panel {
             headers = me.headers || [];
 
         headers.unshift({
+            cls  : ['neo-header-toolbar', 'neo-toolbar'],
             dock : 'top',
             items: [{
                 ntype: 'label',
                 text : 'Dialog Title'
             }, '->', {
+                iconCls: 'far fa-window-maximize',
+                handler: me.maximize.bind(me)
+            }, {
                 iconCls: 'far fa-window-close',
                 handler: me.close.bind(me)
             }]
         });
 
         me.headers = headers;
+    }
+
+    /**
+     * @param {Object} data
+     */
+    maximize(data) {
+        let me = this;
+
+        data.component.iconCls = me.maximized ? 'far fa-window-maximize' : 'far fa-window-minimize';
+
+        me.maximized = !me.maximized;
     }
 }
 

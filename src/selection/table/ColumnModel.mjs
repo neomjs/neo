@@ -44,7 +44,7 @@ class ColumnModel extends Model {
     /**
      *
      * @param {Object} eventPath
-     * @return {String|null} cellId
+     * @returns {String|null} cellId
      */
     static getCellId(eventPath) {
         let id   = null,
@@ -65,7 +65,7 @@ class ColumnModel extends Model {
      * todo: move to table.Container or view
      * @param {String} cellId
      * @param {Array} columns
-     * @return {Number} index
+     * @returns {Number} index
      */
     static getColumnIndex(cellId, columns) {
         let idArray       = cellId.split('__'),

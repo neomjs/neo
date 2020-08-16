@@ -199,7 +199,7 @@ class VDom extends Base {
      * @param {Object} vdom
      * @param {String} flag
      * @param {Array} [matchArray]
-     * @return {Array} an array of vdom nodes which match the flag
+     * @returns {Array} an array of vdom nodes which match the flag
      */
     static getFlags(vdom, flag, matchArray) {
         if (!matchArray) {

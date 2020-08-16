@@ -22,7 +22,7 @@ class Select extends Picker {
          */
         ntype: 'selectfield',
         /**
-         * @member {Array} cls=['neo-selectfield', 'neo-pickerfield', 'neo-textfield']
+         * @member {String[]} cls=['neo-selectfield', 'neo-pickerfield', 'neo-textfield']
          */
         cls: ['neo-selectfield', 'neo-pickerfield', 'neo-textfield'],
         /**
@@ -206,7 +206,7 @@ class Select extends Picker {
 
     /**
      *
-     * @return {Object}
+     * @returns {Object}
      */
     getInputHintEl() {
         let el = VDomUtil.findVdomChild(this.vdom, this.getInputHintId());
@@ -215,7 +215,7 @@ class Select extends Picker {
 
     /**
      *
-     * @return {String}
+     * @returns {String}
      */
     getInputHintId() {
         return this.id + '__input-hint'
@@ -223,7 +223,7 @@ class Select extends Picker {
 
     /**
      * Returns the first selected record or null
-     * return {Object}
+     * returns {Object}
      */
     getRecord() {
         const list      = this.list,

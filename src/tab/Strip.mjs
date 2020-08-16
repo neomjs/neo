@@ -92,7 +92,7 @@ class Strip extends Component {
 
     /**
      *
-     * @return {Neo.tab.header.Button}
+     * @returns {Neo.tab.header.Button}
      */
     getActiveTab() {
         let me           = this,

@@ -43,7 +43,7 @@ class Radio extends CheckBox {
     }}
 
     /**
-     *
+     * Triggered after the checked config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected

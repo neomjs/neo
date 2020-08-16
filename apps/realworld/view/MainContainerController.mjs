@@ -135,7 +135,7 @@ class MainContainerController extends ComponentController {
     /**
      *
      * @param {Number} id
-     * @return {Promise<any>}
+     * @returns {Promise<any>}
      */
     deleteComment(id) {
         let me   = this,

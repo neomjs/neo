@@ -207,7 +207,7 @@ class DeltaUpdates extends Base {
 
     /**
      * @param {String} html representing a single element
-     * @return {ChildNode}
+     * @returns {ChildNode}
      */
     htmlStringToElement(html) {
         const template = document.createElement('template');

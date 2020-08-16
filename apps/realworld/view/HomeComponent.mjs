@@ -376,7 +376,7 @@ class HomeComponent extends Component {
 
     /**
      *
-     * @return {Object} vdom
+     * @returns {Object} vdom
      */
     getContainer() {
         let el = VDomUtil.findVdomChild(this.vdom, {cls: 'col-md-9'});

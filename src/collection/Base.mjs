@@ -786,7 +786,7 @@ class Base extends CoreBase {
 
     /**
      *
-     * @return {Number}
+     * @returns {Number}
      */
     getCountMutations() {
         return this[countMutations];
@@ -795,7 +795,7 @@ class Base extends CoreBase {
     /**
      * Returns the first matching filter for the given property config
      * @param {String} property
-     * @return {Neo.collection.Filter|null}
+     * @returns {Neo.collection.Filter|null}
      */
     getFilter(property) {
         let filters = this.filters || [],

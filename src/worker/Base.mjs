@@ -76,7 +76,7 @@ class Base extends CoreBase {
     /**
      *
      * @param {Object} opts
-     * @return {Object|null}
+     * @returns {Object|null}
      */
     getPort(opts) {
         let returnPort = null,

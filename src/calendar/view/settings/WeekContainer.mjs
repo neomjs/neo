@@ -115,7 +115,7 @@ class WeekContainer extends Container {
 
     /**
      *
-     * @return {Neo.calendar.view.TimeAxisComponent}
+     * @returns {Neo.calendar.view.TimeAxisComponent}
      */
     getTimeAxis() {
         return this.getWeekComponent().timeAxis;
@@ -123,7 +123,7 @@ class WeekContainer extends Container {
 
     /**
      *
-     * @return {Neo.calendar.view.WeekComponent}
+     * @returns {Neo.calendar.view.WeekComponent}
      */
     getWeekComponent() {
         return this.up('calendar-maincontainer').weekComponent;

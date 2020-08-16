@@ -112,7 +112,7 @@ class MonthContainer extends Container {
 
     /**
      *
-     * @return {Neo.calendar.view.MonthComponent}
+     * @returns {Neo.calendar.view.MonthComponent}
      */
     getMonthComponent() {
         return this.up('calendar-maincontainer').monthComponent;

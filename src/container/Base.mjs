@@ -310,7 +310,7 @@ class Base extends Component {
     /**
      * Finds the index of a direct child component inside this.items.
      * @param {Neo.component.Base|String} itemId Either the item reference or the item id
-     * @return {Number} -1 in case no match was found
+     * @returns {Number} -1 in case no match was found
      */
     indexOf(itemId) {
         let me  = this,

@@ -85,7 +85,7 @@ class Picker extends Text {
 
     /**
      *
-     * @return {Neo.container.Base}
+     * @returns {Neo.container.Base}
      */
     createPicker() {
         let me              = this,
@@ -104,13 +104,17 @@ class Picker extends Text {
         });
     }
 
+    /**
+     *
+     * @param {Boolean} silent
+     */
     applyClientRects(silent) {
-        let me              = this,
-            bodyRect        = me.clientRects[2],
-            inputRect       = me.clientRects[1],
-            triggerRect     = me.clientRects[0],
-            vdom            = me.picker.vdom,
-            width           = me.matchPickerWidth ? (inputRect.width - 1) : me.pickerWidth;
+        let me          = this,
+            bodyRect    = me.clientRects[2],
+            inputRect   = me.clientRects[1],
+            triggerRect = me.clientRects[0],
+            vdom        = me.picker.vdom,
+            width       = me.matchPickerWidth ? (inputRect.width - 1) : me.pickerWidth;
 
         me.pickerWidth = width;
 
@@ -125,7 +129,7 @@ class Picker extends Text {
 
     /**
      *
-     * @return {null}
+     * @returns {null}
      */
     createPickerComponent() {
         return null;
@@ -149,7 +153,7 @@ class Picker extends Text {
 
     /**
      * Returns the picker instance and creates it in case it does not exist yet
-     * @return {Neo.container.Base}
+     * @returns {Neo.container.Base}
      */
     getPicker() {
         let me = this;

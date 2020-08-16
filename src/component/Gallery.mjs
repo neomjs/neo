@@ -419,7 +419,7 @@ class Gallery extends Component {
 
     /**
      *
-     * @return {*}
+     * @returns {*}
      */
     beforeGetItemTpl() {
         return Neo.clone(this._itemTpl, true);

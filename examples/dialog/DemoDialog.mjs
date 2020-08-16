@@ -7,8 +7,8 @@ import Dialog from '../../src/container/Dialog.mjs';
 class DemoDialog extends Dialog {
     static getConfig() {return {
         className: 'Dialog.DemoWindow',
-        height   : 500,
-        width    : 500
+        height   : '40%',
+        width    : '40%'
     }}
 }
 
