@@ -342,7 +342,18 @@ class Base extends Panel {
      * @param data
      */
     onDragStart(data) {
-        console.log('onDragStart', data);
+        let me = this;
+
+        if (!me.dragZone) {
+            me.dragZone = Neo.create({
+                module     : DragZone,
+                appName    : me.appName,
+                dragElement: me.vdom,
+                owner      : me
+            });
+        }
+
+        me.dragZone.dragStart(data);
     }
 }
 
