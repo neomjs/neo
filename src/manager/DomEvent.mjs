@@ -335,6 +335,7 @@ class DomEvent extends Base {
      * @returns {Boolean} true in case the listener did exist and got removed
      */
     unregister(config, scope) {
+        // todo
         console.log('unregister', config);
         console.log(this.generateListenerConfig(config, scope));
         return;
