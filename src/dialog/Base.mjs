@@ -41,9 +41,17 @@ class Base extends Panel {
          */
         draggable_: true,
         /**
+         * @member {String} maximizeCls='far fa-window-maximize'
+         */
+        maximizeCls: 'far fa-window-maximize',
+        /**
          * @member {Boolean} draggable_=false
          */
-        maximized_: false
+        maximized_: false,
+        /**
+         * @member {String} minimizeCls='far fa-window-minimize'
+         */
+        minimizeCls: 'far fa-window-minimize'
     }}
 
     /**
@@ -127,7 +135,7 @@ class Base extends Panel {
     maximize(data) {
         let me = this;
 
-        data.component.iconCls = me.maximized ? 'far fa-window-maximize' : 'far fa-window-minimize';
+        data.component.iconCls = me.maximized ? me.maximizeCls : me.minimizeCls;
 
         me.maximized = !me.maximized;
     }
