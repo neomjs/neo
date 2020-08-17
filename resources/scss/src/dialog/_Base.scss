@@ -28,6 +28,12 @@
     transition-property       : height, left, top, transform, width;
     transition-timing-function: ease-out;
 
+    &.neo-draggable {
+        .neo-header-toolbar {
+            cursor: move;
+        }
+    }
+
     &.neo-maximized {
         height   : 98% !important;
         left     : 1%;
@@ -57,7 +63,9 @@
             }
 
             .neo-panel-header-text {
-                color: v(dialog-header-color);
+                color         : v(dialog-header-color);
+                pointer-events: none;
+                user-select   : none;
             }
         }
     }

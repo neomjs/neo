@@ -1,3 +1,4 @@
+import DragZone from '../draggable/DragZone.mjs';
 import Panel    from '../container/Panel.mjs';
 import NeoArray from '../util/Array.mjs';
 
@@ -77,17 +78,11 @@ class Base extends Panel {
      * @protected
      */
     afterSetDraggable(value, oldValue) {
-        let me       = this,
-            vdom     = me.vdom,
-            vdomRoot = me.getVdomRoot();
+        let me  = this,
+            cls = me.cls;
 
-        if (value === true) {
-            vdomRoot.draggable = true;
-        } else {
-            delete vdomRoot.draggable;
-        }
-
-        me.vdom = vdom;
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-draggable');
+        me.cls = cls;
     }
 
     /**
