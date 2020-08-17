@@ -1,5 +1,4 @@
 import Base                   from './Base.mjs';
-import {default as VDomUtil}  from '../util/VDom.mjs';
 import {default as VNodeUtil} from '../util/VNode.mjs';
 
 /**
@@ -60,7 +59,7 @@ class Component extends Base {
         configLength = configArray.length;
 
         configArray.forEach(([key, value]) => {
-            if (component.hasOwnProperty(key) && component[key] === value) {
+            if (component[key] === value) {
                 matchArray.push(true);
             }
         });
@@ -220,7 +219,7 @@ class Component extends Base {
             matchArray = [];
 
             configArray.forEach(([key, value]) => {
-                if (component.hasOwnProperty(key) && component[key] === value) {
+                if (component[key] === value) {
                     matchArray.push(true);
                 }
             });

@@ -30,8 +30,8 @@
 
     &.neo-maximized {
         height   : 98% !important;
-        left     : 1%;
-        top      : 1%;
+        left     : 1%  !important;
+        top      : 1%  !important;
         transform: none;
         width    : 98% !important;
     }
@@ -40,6 +40,10 @@
         .neo-header-toolbar {
             border       : none;
             border-bottom: 1px solid v(dialog-border-color);
+
+            &.neo-draggable {
+                cursor: move;
+            }
 
             .neo-button {
                 border      : 0;
@@ -57,7 +61,9 @@
             }
 
             .neo-panel-header-text {
-                color: v(dialog-header-color);
+                color         : v(dialog-header-color);
+                pointer-events: none;
+                user-select   : none;
             }
         }
     }

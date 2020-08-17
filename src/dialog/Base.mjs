@@ -1,3 +1,4 @@
+import DragZone from '../draggable/DragZone.mjs';
 import Panel    from '../container/Panel.mjs';
 import NeoArray from '../util/Array.mjs';
 
@@ -23,12 +24,10 @@ class Base extends Panel {
         animateTargetId: null,
         /**
          * @member {Boolean} autoMount=true
-         * @protected
          */
         autoMount: true,
         /**
          * @member {Boolean} autoRender=true
-         * @protected
          */
         autoRender: true,
         /**
@@ -41,11 +40,24 @@ class Base extends Panel {
          */
         draggable_: true,
         /**
+         * @member {Boolean} dragListenersAdded=false
+         * @protected
+         */
+        dragListenersAdded: false,
+        /**
+         * @member {Neo.draggable.DragZone|null} dragZone=null
+         */
+        dragZone: null,
+        /**
+         * @member {Neo.container.Toolbar|null} headerToolbar=null
+         */
+        headerToolbar: null,
+        /**
          * @member {String} maximizeCls='far fa-window-maximize'
          */
         maximizeCls: 'far fa-window-maximize',
         /**
-         * @member {Boolean} draggable_=false
+         * @member {Boolean} maximized_=false
          */
         maximized_: false,
         /**
@@ -71,23 +83,44 @@ class Base extends Panel {
     }
 
     /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        me.headerToolbar = me.down({
+            id: me.getHeaderToolbarId()
+        });
+    }
+
+    /**
      * Triggered after the draggable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetDraggable(value, oldValue) {
-        let me       = this,
-            vdom     = me.vdom,
-            vdomRoot = me.getVdomRoot();
+        let me           = this,
+            domListeners = me.domListeners,
+            cls;
 
-        if (value === true) {
-            vdomRoot.draggable = true;
-        } else {
-            delete vdomRoot.draggable;
+        if (oldValue !== undefined && me.headerToolbar) {
+            cls = me.headerToolbar.cls;
+            NeoArray[value ? 'add' : 'remove'](cls, 'neo-draggable');
+            me.cls = cls;
         }
 
-        me.vdom = vdom;
+        if (value && !me.dragListenersAdded) {
+            domListeners.push(
+                {'drag:end'  : me.onDragEnd,   scope: me, delegate: '.neo-header-toolbar'},
+                {'drag:start': me.onDragStart, scope: me, delegate: '.neo-header-toolbar'}
+            );
+
+            me.domListeners       = domListeners;
+            me.dragListenersAdded = true; // todo: multi window apps
+        }
     }
 
     /**
@@ -243,11 +276,17 @@ class Base extends Panel {
      */
     createHeader() {
         let me      = this,
+            cls     = ['neo-header-toolbar', 'neo-toolbar'],
             headers = me.headers || [];
 
+        if (me.draggable) {
+            cls.push('neo-draggable');
+        }
+
         headers.unshift({
-            cls  : ['neo-header-toolbar', 'neo-toolbar'],
+            cls  : cls,
             dock : 'top',
+            id   : me.getHeaderToolbarId(),
             items: [{
                 ntype: 'label',
                 text : 'Dialog Title'
@@ -272,6 +311,14 @@ class Base extends Panel {
     }
 
     /**
+     * Returns the id of the header toolbar
+     * @returns {String}
+     */
+    getHeaderToolbarId() {
+        return this.id + '-header-toolbar';
+    }
+
+    /**
      * @param {Object} data
      */
     maximize(data) {
@@ -280,6 +327,58 @@ class Base extends Panel {
         data.component.iconCls = me.maximized ? me.maximizeCls : me.minimizeCls;
 
         me.maximized = !me.maximized;
+    }
+
+    /**
+     *
+     * @param data
+     */
+    onDragEnd(data) {
+        let me = this,
+            style;
+
+        Neo.main.DomAccess.getBoundingClientRect({
+            id: me.dragZone.dragProxy.id
+        }).then(rect => {
+            style = me.style;
+
+            Object.assign(style, {
+                height   : `${rect.height}px`,
+                left     : `${rect.left}px`,
+                opacity  : 1,
+                top      : `${rect.top}px`,
+                transform: 'none',
+                width    : `${rect.width}px`
+            });
+
+            me.style = style;
+
+            me.dragZone.dragEnd(data);
+        });
+    }
+
+    /**
+     *
+     * @param data
+     */
+    onDragStart(data) {
+        let me    = this,
+            style = me.style || {};
+
+        if (!me.dragZone) {
+            me.dragZone = Neo.create({
+                module     : DragZone,
+                appName    : me.appName,
+                dragElement: me.vdom,
+                owner      : me
+            });
+        }
+
+        me.dragZone.dragStart(data);
+
+        style.opacity = 0.4;
+
+        me.style = style;
     }
 }
 

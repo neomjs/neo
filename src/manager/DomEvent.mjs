@@ -207,32 +207,34 @@ class DomEvent extends Base {
         let listeners   = this.items[component.id],
             localEvents = [];
 
-        Object.entries(listeners).forEach(([eventName, value]) => {
-            value.forEach(event => {
-                eventName = event.eventName;
+        if (listeners) {
+            Object.entries(listeners).forEach(([eventName, value]) => {
+                value.forEach(event => {
+                    eventName = event.eventName;
 
-                if (eventName && (event.local || !globalDomEvents.includes(eventName))) {
-                    // console.log('localEvents', eventName);
+                    if (eventName && (event.local || !globalDomEvents.includes(eventName))) {
+                        // console.log('localEvents', eventName);
 
-                    localEvents.push({
-                        name   : eventName,
-                        handler: 'domEventListener',
-                        vnodeId: event.vnodeId
-                    });
-                }
+                        localEvents.push({
+                            name   : eventName,
+                            handler: 'domEventListener',
+                            vnodeId: event.vnodeId
+                        });
+                    }
+                });
             });
-        });
 
-        if (localEvents.length > 0) {
-            Neo.worker.App.promiseMessage('main', {
-                action : 'addDomListener',
-                appName: component.appName,
-                events : localEvents
-            }).then(data => {
-                // console.log('added domListener', data);
-            }).catch(err => {
-                console.log('App: Got error attempting to add a domListener', err);
-            });
+            if (localEvents.length > 0) {
+                Neo.worker.App.promiseMessage('main', {
+                    action : 'addDomListener',
+                    appName: component.appName,
+                    events : localEvents
+                }).then(data => {
+                    // console.log('added domListener', data);
+                }).catch(err => {
+                    console.log('App: Got error attempting to add a domListener', err);
+                });
+            }
         }
     }
 
@@ -333,6 +335,7 @@ class DomEvent extends Base {
      * @returns {Boolean} true in case the listener did exist and got removed
      */
     unregister(config, scope) {
+        // todo
         console.log('unregister', config);
         console.log(this.generateListenerConfig(config, scope));
         return;

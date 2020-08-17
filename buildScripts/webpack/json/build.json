@@ -74,6 +74,7 @@
         },
         "dialog": {
             "input": "examples/Dialog.mjs",
+            "mainThreadAddons": "'DragDrop', 'Stylesheet'",
             "output": "/examples/dialog/",
             "title": "Neo Dialog"
         },
