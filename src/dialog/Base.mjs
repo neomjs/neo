@@ -1,5 +1,4 @@
 import Panel    from '../container/Panel.mjs';
-import Floating from '../util/Floating.mjs';
 import NeoArray from '../util/Array.mjs';
 
 /**
@@ -44,12 +43,7 @@ class Base extends Panel {
         /**
          * @member {Boolean} draggable_=false
          */
-        maximized_: false,
-        /**
-         * @member {Array} mixins
-         * @protected
-         */
-        mixins: [Floating]
+        maximized_: false
     }}
 
     /**
