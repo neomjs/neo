@@ -2,7 +2,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 14,
+        "id"          : 15,
         "image"       : "devmode/calendar-preview.png",
         "name"        : "Calendar Sneak Preview",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/src/calendar",
@@ -11,7 +11,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 13,
+        "id"          : 14,
         "image"       : "devmode/covidDashboard.png",
         "name"        : "Covid Dashboard",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/apps/covid",
@@ -20,7 +20,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 12,
+        "id"          : 13,
         "image"       : "devmode/realworldApp.png",
         "name"        : "RealWorld App",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/apps/realworld",
@@ -29,7 +29,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 11,
+        "id"          : 12,
         "image"       : "devmode/coronaGallery.png",
         "name"        : "COVID-19 Gallery",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/component/coronaGallery",
@@ -38,7 +38,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 10,
+        "id"          : 11,
         "image"       : "devmode/coronaHelix.png",
         "name"        : "COVID-19 Helix",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/component/coronaHelix",
@@ -47,7 +47,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop", "Mobile"],
-        "id"          : 9,
+        "id"          : 10,
         "image"       : "devmode/website.png",
         "name"        : "Neo Website App",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/apps/website",
@@ -56,11 +56,20 @@
     {
         "browsers"    : ["Chrome"],
         "environments": ["Desktop"],
-        "id"          : 8,
+        "id"          : 9,
         "image"       : "devmode/tableFiltering.png",
         "name"        : "Table Filtering",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/tableFiltering",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/examples/tableFiltering/"
+    },
+    {
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
+        "environments": ["Desktop"],
+        "id"          : 8,
+        "image"       : "devmode/dragdrop.png",
+        "name"        : "Dialog drag&drop",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/dialog",
+        "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/examples/dialog/"
     },
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],

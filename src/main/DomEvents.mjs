@@ -242,7 +242,7 @@ class DomEvents extends Base {
     }
 
     getEventData(event) {
-        let path = event.path || event.composedPath(); // FF does not support composedPath()
+        let path = event.path || event.composedPath(); // FF does not support path
 
         return {
             path     : path.map(e => this.getTargetData(e)),

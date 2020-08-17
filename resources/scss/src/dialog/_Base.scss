@@ -63,7 +63,10 @@
             .neo-panel-header-text {
                 color         : v(dialog-header-color);
                 pointer-events: none;
+                user-drag     : none; // not supported yet
                 user-select   : none;
+
+                -webkit-user-drag: none;
             }
         }
     }
