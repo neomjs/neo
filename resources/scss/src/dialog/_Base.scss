@@ -1,5 +1,9 @@
 .neo-animate-dialog {
-    background-color: red;
+    // default styling to match buttons, since this is the most common use case
+    background-color: v(button-background-color);
+    background-image: v(button-background-image);
+    border          : 1px solid v(button-active-border-color);
+
     position: fixed;
     z-index : 1000;
 
