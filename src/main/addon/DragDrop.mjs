@@ -248,7 +248,7 @@ class DragDrop extends Base {
      */
     setScrollContainer(data) {
         let me   = this,
-            node = document.getElementById(data.id);
+            node = data.id === 'document.body' ? document.body : document.getElementById(data.id);
 
         Object.assign(me, {
             scrollContainerElement: node,
