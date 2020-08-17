@@ -1,18 +1,18 @@
-import Panel    from './Panel.mjs';
+import Panel    from '../container/Panel.mjs';
 import Floating from '../util/Floating.mjs';
 import NeoArray from '../util/Array.mjs';
 
 /**
- * @class Neo.container.Dialog
+ * @class Neo.dialog.Base
  * @extends Neo.container.Panel
  */
-class Dialog extends Panel {
+class Base extends Panel {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.container.Dialog'
+         * @member {String} className='Neo.dialog.Base'
          * @protected
          */
-        className: 'Neo.container.Dialog',
+        className: 'Neo.dialog.Base',
         /**
          * @member {String} ntype='dialog'
          * @protected
@@ -135,6 +135,6 @@ class Dialog extends Panel {
     }
 }
 
-Neo.applyClassConfig(Dialog);
+Neo.applyClassConfig(Base);
 
-export {Dialog as default};
+export {Base as default};

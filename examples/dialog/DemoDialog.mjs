@@ -1,8 +1,8 @@
-import Dialog from '../../src/container/Dialog.mjs';
+import {default as Dialog} from '../../src/dialog/Base.mjs';
 
 /**
  * @class Window.DemoDialog
- * @extends Neo.container.Dialog
+ * @extends Neo.dialog.Base
  */
 class DemoDialog extends Dialog {
     static getConfig() {return {
