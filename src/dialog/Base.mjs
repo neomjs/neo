@@ -49,6 +49,10 @@ class Base extends Panel {
          */
         dragZone: null,
         /**
+         * @member {Neo.container.Toolbar|null} headerToolbar=null
+         */
+        headerToolbar: null,
+        /**
          * @member {String} maximizeCls='far fa-window-maximize'
          */
         maximizeCls: 'far fa-window-maximize',
@@ -79,6 +83,19 @@ class Base extends Panel {
     }
 
     /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        me.headerToolbar = me.down({
+            id: me.getHeaderToolbarId()
+        });
+    }
+
+    /**
      * Triggered after the draggable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -86,11 +103,14 @@ class Base extends Panel {
      */
     afterSetDraggable(value, oldValue) {
         let me           = this,
-            cls          = me.cls,
-            domListeners = me.domListeners;
+            domListeners = me.domListeners,
+            cls;
 
-        NeoArray[value ? 'add' : 'remove'](cls, 'neo-draggable');
-        me.cls = cls;
+        if (oldValue !== undefined && me.headerToolbar) {
+            cls = me.headerToolbar.cls;
+            NeoArray[value ? 'add' : 'remove'](cls, 'neo-draggable');
+            me.cls = cls;
+        }
 
         if (value && !me.dragListenersAdded) {
             domListeners.push(
@@ -256,11 +276,17 @@ class Base extends Panel {
      */
     createHeader() {
         let me      = this,
+            cls     = ['neo-header-toolbar', 'neo-toolbar'],
             headers = me.headers || [];
 
+        if (me.draggable) {
+            cls.push('neo-draggable');
+        }
+
         headers.unshift({
-            cls  : ['neo-header-toolbar', 'neo-toolbar'],
+            cls  : cls,
             dock : 'top',
+            id   : me.getHeaderToolbarId(),
             items: [{
                 ntype: 'label',
                 text : 'Dialog Title'
@@ -282,6 +308,14 @@ class Base extends Panel {
      */
     getAnimateTargetId() {
         return this.id + '-animate';
+    }
+
+    /**
+     * Returns the id of the header toolbar
+     * @returns {String}
+     */
+    getHeaderToolbarId() {
+        return this.id + '-header-toolbar';
     }
 
     /**
