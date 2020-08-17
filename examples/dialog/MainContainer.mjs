@@ -44,7 +44,8 @@ class MainContainer extends Toolbar {
      */
     createDialog(data) {
         Neo.create(DemoDialog, {
-            appName: this.appName
+            animateTargetId: data.component.id,
+            appName        : this.appName
         });
     }
 

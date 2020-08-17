@@ -1,3 +1,22 @@
+.neo-animate-dialog {
+    // default styling to match buttons, since this is the most common use case
+    background-color: v(button-background-color);
+    background-image: v(button-background-image);
+    border          : 1px solid v(button-active-border-color);
+
+    position: fixed;
+    z-index : 1000;
+
+    transition-duration       : 250ms;
+    transition-property       : height, left, top, transform, width;
+    transition-timing-function: ease-out;
+
+    &.neo-hide {
+        transform          : none !important;
+        transition-property: height, left, top, width;
+    }
+}
+
 .neo-dialog {
     border   : 1px solid v(dialog-border-color);
     position : fixed;
