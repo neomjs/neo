@@ -19,6 +19,10 @@ class Base extends Panel {
          */
         ntype: 'dialog',
         /**
+         * @member {String|null} animateTargetId=null
+         */
+        animateTargetId: null,
+        /**
          * @member {Boolean} autoMount=true
          * @protected
          */
