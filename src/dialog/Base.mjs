@@ -130,8 +130,59 @@ class Base extends Panel {
     /**
      *
      */
+    animateHide() {
+        let me      = this,
+            appName = me.appName,
+            id      = me.getAnimateTargetId();
+
+        Neo.main.DomAccess.getBoundingClientRect({
+            id: [me.id, me.animateTargetId]
+        }).then(rects => {
+            Neo.currentWorker.promiseMessage('main', {
+                action  : 'mountDom',
+                appName : appName,
+                html    : `<div id="${id}" class="neo-animate-dialog neo-hide" style="height:${rects[0].height}px;left:${rects[0].left}px;top:${rects[0].top}px;width:${rects[0].width}px;"></div>`,
+                parentId: 'document.body'
+            }).then(() => {
+                setTimeout(() => {
+                    Neo.currentWorker.promiseMessage('main', {
+                        action  : 'updateDom',
+                        appName : appName,
+
+                        deltas: [{
+                            id   : id,
+                            style: {
+                                height: `${rects[1].height}px`,
+                                left  : `${rects[1].left  }px`,
+                                top   : `${rects[1].top   }px`,
+                                width : `${rects[1].width }px`,
+                            }
+                        }]
+                    }).then(() => {
+                        setTimeout(() => {
+                            Neo.currentWorker.promiseMessage('main', {
+                                action : 'updateDom',
+                                appName: appName,
+                                deltas : [{
+                                    action: 'removeNode',
+                                    id    : id
+                                }]
+                            });
+                        }, 250);
+                    });
+                }, 30);
+
+                me.destroy(true);
+            });
+        });
+    }
+
+    /**
+     *
+     */
     animateShow() {
         let me        = this,
+            appName   = me.appName,
             autoMount = me.autoMount,
             id        = me.getAnimateTargetId();
 
@@ -141,19 +192,16 @@ class Base extends Panel {
         Neo.main.DomAccess.getBoundingClientRect({
             id: me.animateTargetId
         }).then(rect => {
-            console.log(rect);
-            console.log(autoMount);
-
             Neo.currentWorker.promiseMessage('main', {
                 action  : 'mountDom',
-                appName : me.appName,
+                appName : appName,
                 html    : `<div id="${id}" class="neo-animate-dialog" style="height:${rect.height}px;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;"></div>`,
                 parentId: 'document.body'
             }).then(() => {
                 setTimeout(() => {
                     Neo.currentWorker.promiseMessage('main', {
                         action  : 'updateDom',
-                        appName : me.appName,
+                        appName : appName,
 
                         deltas: [{
                             id   : id,
@@ -166,9 +214,11 @@ class Base extends Panel {
                             }
                         }]
                     }).then(() => {
-                        setTimeout(() => {
-                            me.render(true);
-                        }, 250)
+                        if (autoMount) {
+                            setTimeout(() => {
+                                me.render(true);
+                            }, 200);
+                        }
                     });
                 }, 30);
             });
@@ -176,10 +226,16 @@ class Base extends Panel {
     }
 
     /**
-     * todo: add an animation in case the dialog has an animation origin
+     *
      */
     close() {
-        this.destroy(true);
+        let me = this;
+
+        if (me.animateTargetId) {
+            me.animateHide();
+        } else {
+            me.destroy(true);
+        }
     }
 
     /**
