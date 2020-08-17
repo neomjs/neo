@@ -60,7 +60,14 @@ class Base extends Panel {
      */
     constructor(config) {
         super(config);
-        this.createHeader();
+
+        let me = this;
+
+        me.createHeader();
+
+        if (me.animateTargetId) {
+            me.animateShow();
+        }
     }
 
     /**
@@ -95,6 +102,34 @@ class Base extends Panel {
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-maximized');
         me.cls = cls;
+    }
+
+    /**
+     *
+     */
+    animateShow() {
+        let me        = this,
+            autoMount = me.autoMount;
+
+        me.autoMount  = false;
+        me.autoRender = false;
+
+        Neo.main.DomAccess.getBoundingClientRect({
+            id: me.animateTargetId
+        }).then(rect => {
+            console.log(rect);
+            console.log(autoMount);
+
+            Neo.currentWorker.promiseMessage('main', {
+                action  : 'mountDom',
+                appName : me.appName,
+                id      : me.id + 'animate',
+                html    : `<div class="animate" style="height:${rect.height}px;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;"></div>`,
+                parentId: 'document.body'
+            }).then(() => {
+
+            });
+        });
     }
 
     /**
