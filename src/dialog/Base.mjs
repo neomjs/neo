@@ -334,7 +334,27 @@ class Base extends Panel {
      * @param data
      */
     onDragEnd(data) {
-        console.log('onDragEnd', data);
+        let me = this,
+            style;
+
+        Neo.main.DomAccess.getBoundingClientRect({
+            id: me.dragZone.dragProxy.id
+        }).then(rect => {
+            style = me.style;
+
+            Object.assign(style, {
+                height   : `${rect.height}px`,
+                left     : `${rect.left}px`,
+                opacity  : 1,
+                top      : `${rect.top}px`,
+                transform: 'none',
+                width    : `${rect.width}px`
+            });
+
+            me.style = style;
+
+            me.dragZone.dragEnd(data);
+        });
     }
 
     /**
@@ -342,7 +362,8 @@ class Base extends Panel {
      * @param data
      */
     onDragStart(data) {
-        let me = this;
+        let me    = this,
+            style = me.style || {};
 
         if (!me.dragZone) {
             me.dragZone = Neo.create({
@@ -354,6 +375,10 @@ class Base extends Panel {
         }
 
         me.dragZone.dragStart(data);
+
+        style.opacity = 0.4;
+
+        me.style = style;
     }
 }
 
