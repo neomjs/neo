@@ -105,11 +105,35 @@ class Base extends Panel {
     }
 
     /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        if (value) {
+            let me = this;
+
+            if (me.animateTargetId) {
+                Neo.currentWorker.promiseMessage('main', {
+                    action : 'updateDom',
+                    appName: me.appName,
+                    deltas : [{
+                        action: 'removeNode',
+                        id    : me.getAnimateTargetId()
+                    }]
+                });
+            }
+        }
+    }
+
+    /**
      *
      */
     animateShow() {
         let me        = this,
-            autoMount = me.autoMount;
+            autoMount = me.autoMount,
+            id        = me.getAnimateTargetId();
 
         me.autoMount  = false;
         me.autoRender = false;
@@ -123,11 +147,30 @@ class Base extends Panel {
             Neo.currentWorker.promiseMessage('main', {
                 action  : 'mountDom',
                 appName : me.appName,
-                id      : me.id + 'animate',
-                html    : `<div class="animate" style="height:${rect.height}px;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;"></div>`,
+                html    : `<div id="${id}" class="neo-animate-dialog" style="height:${rect.height}px;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;"></div>`,
                 parentId: 'document.body'
             }).then(() => {
+                setTimeout(() => {
+                    Neo.currentWorker.promiseMessage('main', {
+                        action  : 'updateDom',
+                        appName : me.appName,
 
+                        deltas: [{
+                            id   : id,
+                            style: {
+                                height   : me.height || '50%',
+                                left     : '50%',
+                                top      : '50%',
+                                transform: 'translate(-50%, -50%)',
+                                width    : me.width || '50%'
+                            }
+                        }]
+                    }).then(() => {
+                        setTimeout(() => {
+                            me.render(true);
+                        }, 250)
+                    });
+                }, 30);
             });
         });
     }
@@ -162,6 +205,14 @@ class Base extends Panel {
         });
 
         me.headers = headers;
+    }
+
+    /**
+     * Returns the id of the animation node
+     * @returns {String}
+     */
+    getAnimateTargetId() {
+        return this.id + '-animate';
     }
 
     /**

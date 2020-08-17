@@ -1,3 +1,13 @@
+.neo-animate-dialog {
+    background-color: red;
+    position: fixed;
+    z-index : 1000;
+
+    transition-duration       : 300ms;
+    transition-property       : height, left, top, transform, width;
+    transition-timing-function: ease-out;
+}
+
 .neo-dialog {
     border   : 1px solid v(dialog-border-color);
     position : fixed;
