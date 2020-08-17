@@ -24,12 +24,10 @@ class Base extends Panel {
         animateTargetId: null,
         /**
          * @member {Boolean} autoMount=true
-         * @protected
          */
         autoMount: true,
         /**
          * @member {Boolean} autoRender=true
-         * @protected
          */
         autoRender: true,
         /**
@@ -42,11 +40,20 @@ class Base extends Panel {
          */
         draggable_: true,
         /**
+         * @member {Boolean} dragListenersAdded=false
+         * @protected
+         */
+        dragListenersAdded: false,
+        /**
+         * @member {Neo.draggable.DragZone|null} dragZone=null
+         */
+        dragZone: null,
+        /**
          * @member {String} maximizeCls='far fa-window-maximize'
          */
         maximizeCls: 'far fa-window-maximize',
         /**
-         * @member {Boolean} draggable_=false
+         * @member {Boolean} maximized_=false
          */
         maximized_: false,
         /**
@@ -78,11 +85,22 @@ class Base extends Panel {
      * @protected
      */
     afterSetDraggable(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me           = this,
+            cls          = me.cls,
+            domListeners = me.domListeners;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-draggable');
         me.cls = cls;
+
+        if (value && !me.dragListenersAdded) {
+            domListeners.push(
+                {'drag:end'  : me.onDragEnd,   scope: me, delegate: '.neo-header-toolbar'},
+                {'drag:start': me.onDragStart, scope: me, delegate: '.neo-header-toolbar'}
+            );
+
+            me.domListeners       = domListeners;
+            me.dragListenersAdded = true; // todo: multi window apps
+        }
     }
 
     /**
@@ -275,6 +293,22 @@ class Base extends Panel {
         data.component.iconCls = me.maximized ? me.maximizeCls : me.minimizeCls;
 
         me.maximized = !me.maximized;
+    }
+
+    /**
+     *
+     * @param data
+     */
+    onDragEnd(data) {
+        console.log('onDragEnd', data);
+    }
+
+    /**
+     *
+     * @param data
+     */
+    onDragStart(data) {
+        console.log('onDragStart', data);
     }
 }
 

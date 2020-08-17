@@ -179,7 +179,7 @@ class DragDrop extends Base {
      *
      * @param {Object} event
      */
-    onDragStart(event) {
+    onDragStart(event) {console.log('onDragStart', event);
         let me   = this,
             rect = event.target.getBoundingClientRect();
 
