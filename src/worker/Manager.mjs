@@ -181,6 +181,8 @@ class Manager extends Base {
     detectFeatures() {
         const me = this;
 
+        Neo.config.hasTouchEvents = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
         if (window.Worker) {
             me.webWorkersEnabled = true;
         } else {
