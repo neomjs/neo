@@ -29,6 +29,10 @@ class Touch extends Base {
          */
         delay: 200,
         /**
+         * @member {Number} minDistance=0
+         */
+        minDistance: 0,
+        /**
          * @member {Number|null} pageX=null
          * @protected
          */
@@ -61,14 +65,14 @@ class Touch extends Base {
      * Attaches sensors event listeners to the DOM
      */
     attach() {
-        document.addEventListener('touchstart', this.onTouchStart, true);
+        document.addEventListener('touchstart', this.onTouchStart);
     }
 
     /**
      * Detaches sensors event listeners from the DOM
      */
     detach() {
-        document.removeEventListener('touchstart', this.onTouchStart, true);
+        document.removeEventListener('touchstart', this.onTouchStart);
     }
 
     /**
@@ -76,7 +80,22 @@ class Touch extends Base {
      * @param {TouchEvent} event
      */
     onDistanceChange(event) {
+        let me = this;
 
+        if (me.currentElement) {
+            const {pageX, pageY}    = DomEvents.getTouchCoords(event),
+                  start             = DomEvents.getTouchCoords(me.startEvent), // todo: we could store these values
+                  timeElapsed       = Date.now() - me.touchStartTime,
+                  distanceTravelled = DomEvents.getDistance(start.pageX, start.pageY, pageX, pageY) || 0;
+
+            Object.assign(me, {pageX, pageY});
+
+            if (timeElapsed >= me.delay && distanceTravelled >= me.minDistance) {
+                clearTimeout(me.tapTimeout);
+                document.removeEventListener('touchmove', me.onDistanceChange);
+                me.startDrag();
+            }
+        }
     }
 
     /**
@@ -126,9 +145,8 @@ class Touch extends Base {
 
     /**
      *
-     * @param {TouchEvent} event
      */
-    startDrag(event) {
+    startDrag() {
 
     }
 }
