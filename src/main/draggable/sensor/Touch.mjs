@@ -114,12 +114,14 @@ class Touch extends Base {
         let me = this;
 
         if (me.dragging) {
+            const {pageX, pageY} = DomEvents.getTouchCoords(event);
+
             let element = me.currentElement,
-                target  = document.elementFromPoint(event.clientX, event.clientY);
+                target  = document.elementFromPoint(pageX - window.scrollX, pageY - window.scrollY);
 
             me.trigger(element, {
-                clientX      : event.clientX,
-                clientY      : event.clientY,
+                clientX      : pageX,
+                clientY      : pageY,
                 element,
                 originalEvent: event,
                 path         : me.startEvent.path || me.startEvent.composedPath(),
