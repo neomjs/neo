@@ -36,6 +36,60 @@ class Touch extends Base {
         super(config);
         Neo.bindMethods(this, ['onDistanceChange', 'onTouchEnd', 'onTouchMove', 'onTouchStart', 'startDrag']);
     }
+
+    /**
+     * Attaches sensors event listeners to the DOM
+     */
+    attach() {
+        document.addEventListener('touchstart', this.onTouchStart, true);
+    }
+
+    /**
+     * Detaches sensors event listeners from the DOM
+     */
+    detach() {
+        document.removeEventListener('touchstart', this.onTouchStart, true);
+    }
+
+    /**
+     *
+     * @param {TouchEvent} event
+     */
+    onDistanceChange(event) {
+
+    }
+
+    /**
+     *
+     * @param {TouchEvent} event
+     */
+    onTouchEnd(event) {
+
+    }
+
+    /**
+     *
+     * @param {TouchEvent} event
+     */
+    onTouchMove(event) {
+
+    }
+
+    /**
+     *
+     * @param {TouchEvent} event
+     */
+    onTouchStart(event) {
+
+    }
+
+    /**
+     *
+     * @param {TouchEvent} event
+     */
+    startDrag(event) {
+
+    }
 }
 
 function preventDefault(event) {
