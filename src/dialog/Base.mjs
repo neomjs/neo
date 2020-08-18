@@ -210,6 +210,7 @@ class Base extends Panel {
                     });
                 }, 30);
 
+                me.fire('close');
                 me.destroy(true);
             });
         });
@@ -272,6 +273,7 @@ class Base extends Panel {
         if (me.animateTargetId) {
             me.animateHide();
         } else {
+            me.fire('close');
             me.destroy(true);
         }
     }
