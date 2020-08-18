@@ -39,6 +39,10 @@ class Touch extends Base {
          */
         pageY: null,
         /**
+         * @member {Number|null} tapTimeout=null
+         */
+        tapTimeout: null,
+        /**
          * @member {Number} touchStartTime=0
          */
         touchStartTime: 0
@@ -114,7 +118,7 @@ class Touch extends Base {
             document.addEventListener('touchcancel', me.onTouchEnd);
             document.addEventListener('touchmove',   me.onDistanceChange);
 
-            me.mouseDownTimeout = window.setTimeout(() => {
+            me.tapTimeout = setTimeout(() => {
                 me.onDistanceChange({pageX: me.pageX, pageY: me.pageY});
             }, me.delay);
         }

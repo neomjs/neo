@@ -107,7 +107,7 @@ class Mouse extends Base {
                 document.addEventListener('mousemove', me.onDistanceChange);
                 document.addEventListener('mouseup',   me.onMouseUp);
 
-                me.mouseDownTimeout = window.setTimeout(() => {
+                me.mouseDownTimeout = setTimeout(() => {
                     me.onDistanceChange({pageX: me.pageX, pageY: me.pageY});
                 }, me.delay);
             }
