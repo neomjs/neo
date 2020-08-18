@@ -324,6 +324,16 @@ class DomEvents extends Base {
     }
 
     /**
+     * Returns the first touch event found in touches or changedTouches of a TouchEvent
+     * @param {TouchEvent} event
+     * @returns {Touch}
+     */
+    getTouchCoords(event) {
+        const {touches, changedTouches} = event;
+        return (touches && touches[0]) || (changedTouches && changedTouches[0]);
+    }
+
+    /**
      * Only in use if Neo.config.useSharedWorkers = true
      * @param {Object} event
      */
