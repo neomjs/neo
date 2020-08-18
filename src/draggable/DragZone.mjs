@@ -24,6 +24,10 @@ class DragZone extends Base {
          */
         appName: null,
         /**
+         * @member {String|null} boundaryContainerId_=null
+         */
+        boundaryContainerId_: null,
+        /**
          * The vdom (tree) of the element you want to drag
          * @member {Object|null} dragElement=null
          */
