@@ -10,8 +10,10 @@ window.addEventListener('touchmove', event => {
     }
 
     // Prevent scrolling
-    event.preventDefault();
-}, {passive: false});
+    if (event.cancelable) {
+        event.preventDefault();
+    }
+}, {cancelable: true, passive: false});
 
 /**
  * @class Neo.main.draggable.sensor.Touch
@@ -192,7 +194,7 @@ class Touch extends Base {
             document.addEventListener('dragstart',   stopEvent);
             document.addEventListener('touchcancel', me.onTouchEnd);
             document.addEventListener('touchend',    me.onTouchEnd);
-            document.addEventListener('touchmove',   me.onDistanceChange);
+            document.addEventListener('touchmove',   me.onDistanceChange, {cancelable: true});
 
             me.tapTimeout = setTimeout(() => {
                 me.onDistanceChange({touches: [{pageX: me.pageX, pageY: me.pageY}]});

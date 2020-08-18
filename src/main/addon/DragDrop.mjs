@@ -1,6 +1,7 @@
 import Base                     from '../../core/Base.mjs';
 import DomEvents                from '../DomEvents.mjs';
 import {default as MouseSensor} from '../draggable/sensor/Mouse.mjs';
+import {default as TouchSensor} from '../draggable/sensor/Touch.mjs';
 
 /**
  * @class Neo.main.addon.DragDrop
@@ -98,9 +99,13 @@ class DragDrop extends Base {
         this.addGlobalEventListeners();
 
         // testing
-        const mouseSensor = Neo.create({
-            module: MouseSensor
+        Neo.create({
+            module: TouchSensor
         });
+
+        /*Neo.create({
+            module: MouseSensor
+        });*/
     }
 
     /**
