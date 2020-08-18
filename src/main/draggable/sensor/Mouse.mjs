@@ -103,7 +103,7 @@ class Mouse extends Base {
                     startEvent    : event
                 });
 
-                document.addEventListener('dragstart', preventDefault);
+                document.addEventListener('dragstart', stopEvent);
                 document.addEventListener('mousemove', me.onDistanceChange);
                 document.addEventListener('mouseup',   me.onMouseUp);
 
@@ -147,7 +147,7 @@ class Mouse extends Base {
 
             clearTimeout(me.mouseDownTimeout);
 
-            document.removeEventListener('dragstart', preventDefault);
+            document.removeEventListener('dragstart', stopEvent);
             document.removeEventListener('mousemove', me.onDistanceChange);
             document.removeEventListener('mouseup',   me.onMouseUp);
 
@@ -165,7 +165,7 @@ class Mouse extends Base {
                     type         : 'drag:end'
                 });
 
-                document.removeEventListener('contextmenu', preventDefault, true);
+                document.removeEventListener('contextmenu', stopEvent, true);
                 document.removeEventListener('mousemove',   me.onMouseMove);
 
                 Object.assign(me, {
@@ -200,14 +200,14 @@ class Mouse extends Base {
         me.dragging = true;
 
         if (me.dragging) {
-            document.addEventListener('contextmenu', preventDefault, true);
+            document.addEventListener('contextmenu', stopEvent, true);
             document.addEventListener('mousemove',   me.onMouseMove);
         }
     }
 }
 
-function preventDefault(event) {
-    event.preventDefault();
+function stopEvent(event) {
+    event.stopEvent();
 }
 
 Neo.applyClassConfig(Mouse);
