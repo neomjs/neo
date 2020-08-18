@@ -77,14 +77,14 @@ class Touch extends Base {
 
     /**
      * Detect change in distance, starting drag when both delay and distance requirements are met
-     * @param {TouchEvent} event
+     * @param {TouchEvent|Object} event - Object in case it does get trigger via the tapTimeout
      */
     onDistanceChange(event) {
         let me = this;
 
         if (me.currentElement) {
             const {pageX, pageY}    = DomEvents.getTouchCoords(event),
-                  start             = DomEvents.getTouchCoords(me.startEvent), // todo: we could store these values
+                  start             = DomEvents.getTouchCoords(me.startEvent),
                   timeElapsed       = Date.now() - me.touchStartTime,
                   distanceTravelled = DomEvents.getDistance(start.pageX, start.pageY, pageX, pageY) || 0;
 
@@ -138,7 +138,7 @@ class Touch extends Base {
             document.addEventListener('touchmove',   me.onDistanceChange);
 
             me.tapTimeout = setTimeout(() => {
-                me.onDistanceChange({pageX: me.pageX, pageY: me.pageY});
+                me.onDistanceChange({touches: [{pageX: me.pageX, pageY: me.pageY}]});
             }, me.delay);
         }
     }
@@ -147,7 +147,26 @@ class Touch extends Base {
      *
      */
     startDrag() {
+        let me         = this,
+            element    = me.currentElement,
+            startEvent = me.startEvent;
 
+        me.trigger(element, {
+            clientX      : startEvent.clientX,
+            clientY      : startEvent.clientY,
+            element,
+            originalEvent: startEvent,
+            path         : startEvent.path || startEvent.composedPath(),
+            target       : startEvent.target,
+            type         : 'drag:start'
+        });
+
+        me.dragging = true;
+
+        if (me.dragging) {
+            document.addEventListener('contextmenu', preventDefault, true);
+            document.addEventListener('mousemove',   me.onMouseMove);
+        }
     }
 }
 

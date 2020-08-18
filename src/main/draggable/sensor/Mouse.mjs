@@ -65,7 +65,7 @@ class Mouse extends Base {
 
     /**
      * Detect change in distance, starting drag when both delay and distance requirements are met
-     * @param {MouseEvent} event
+     * @param {MouseEvent|Object} event - Object in case it does get trigger via the mouseDownTimeout
      */
     onDistanceChange(event) {
         let me = this;
