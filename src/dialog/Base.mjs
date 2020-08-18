@@ -31,6 +31,11 @@ class Base extends Panel {
          */
         autoRender: true,
         /**
+         * Either a dom node id, 'document.body' or null
+         * @member {String|null} boundaryContainerId='document.body'
+         */
+        boundaryContainerId: 'document.body',
+        /**
          * @member {String[]} cls=['neo-dialog','neo-panel','neo-container']
          * @protected
          */
@@ -355,6 +360,9 @@ class Base extends Panel {
                 me.style = style;
 
                 me.dragZone.dragEnd(data);
+
+                // we need a reset, otherwise we do not get a change event for the next onDragStart() call
+                me.dragZone.boundaryContainerId = null;
             });
         }
     }
@@ -370,12 +378,14 @@ class Base extends Panel {
         if (!me.maximized) {
             if (!me.dragZone) {
                 me.dragZone = Neo.create({
-                    module     : DragZone,
-                    appName    : me.appName,
-                    boundaryContainerId: 'document.body',
-                    dragElement: me.vdom,
-                    owner      : me
+                    module             : DragZone,
+                    appName            : me.appName,
+                    boundaryContainerId: me.boundaryContainerId,
+                    dragElement        : me.vdom,
+                    owner              : me
                 });
+            } else {
+                me.dragZone.boundaryContainerId = me.boundaryContainerId;
             }
 
             me.dragZone.dragStart(data);
