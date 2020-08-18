@@ -111,7 +111,22 @@ class Touch extends Base {
      * @param {TouchEvent} event
      */
     onTouchMove(event) {
+        let me = this;
 
+        if (me.dragging) {
+            let element = me.currentElement,
+                target  = document.elementFromPoint(event.clientX, event.clientY);
+
+            me.trigger(element, {
+                clientX      : event.clientX,
+                clientY      : event.clientY,
+                element,
+                originalEvent: event,
+                path         : me.startEvent.path || me.startEvent.composedPath(),
+                target,
+                type         : 'drag:move'
+            });
+        }
     }
 
     /**
@@ -149,11 +164,12 @@ class Touch extends Base {
     startDrag() {
         let me         = this,
             element    = me.currentElement,
-            startEvent = me.startEvent;
+            startEvent = me.startEvent,
+            touch      = DomEvents.getTouchCoords(me.startEvent);
 
         me.trigger(element, {
-            clientX      : startEvent.clientX,
-            clientY      : startEvent.clientY,
+            clientX      : touch.pageX,
+            clientY      : touch.pageY,
             element,
             originalEvent: startEvent,
             path         : startEvent.path || startEvent.composedPath(),
@@ -161,12 +177,14 @@ class Touch extends Base {
             type         : 'drag:start'
         });
 
-        me.dragging = true;
+        me.dragging = true; // todo
 
         if (me.dragging) {
             document.addEventListener('contextmenu', preventDefault, true);
-            document.addEventListener('mousemove',   me.onMouseMove);
+            document.addEventListener('touchmove',   me.onTouchMove);
         }
+
+        preventScrolling = me.dragging;
     }
 }
 
