@@ -1,6 +1,18 @@
 import Base      from './Base.mjs';
 import DomEvents from '../../DomEvents.mjs';
 
+let preventScrolling = false;
+
+// WebKit requires cancelable touchmove events to be added as early as possible
+window.addEventListener('touchmove', event => {
+    if (!preventScrolling) {
+        return;
+    }
+
+    // Prevent scrolling
+    event.preventDefault();
+}, {passive: false});
+
 /**
  * @class Neo.main.draggable.sensor.Touch
  * @extends Neo.main.draggable.sensor.Base
@@ -25,7 +37,11 @@ class Touch extends Base {
          * @member {Number|null} pageY=null
          * @protected
          */
-        pageY: null
+        pageY: null,
+        /**
+         * @member {Number} touchStartTime=0
+         */
+        touchStartTime: 0
     }}
 
     /**
@@ -52,7 +68,7 @@ class Touch extends Base {
     }
 
     /**
-     *
+     * Detect change in distance, starting drag when both delay and distance requirements are met
      * @param {TouchEvent} event
      */
     onDistanceChange(event) {
@@ -80,7 +96,26 @@ class Touch extends Base {
      * @param {TouchEvent} event
      */
     onTouchStart(event) {
+        let me     = this,
+            target = DomEvents.testPathInclusion(event, me.dragTargetClasses);
 
+        if (target) {
+            Object.assign(me, {
+                currentElement: target.node,
+                pageX         : event.pageX, // todo
+                pageY         : event.pageY, // todo
+                startEvent    : event,
+                touchStartTime: Date.now()
+            });
+
+            document.addEventListener('touchend',    me.onTouchEnd);
+            document.addEventListener('touchcancel', me.onTouchEnd);
+            document.addEventListener('touchmove',   me.onDistanceChange);
+
+            me.mouseDownTimeout = window.setTimeout(() => {
+                me.onDistanceChange({pageX: me.pageX, pageY: me.pageY});
+            }, me.delay);
+        }
     }
 
     /**
