@@ -98,6 +98,12 @@ class DragDrop extends Base {
         super(config);
         this.addGlobalEventListeners();
 
+        console.log('Neo.config.hasTouchEvents', Neo.config.hasTouchEvents);
+
+        if (Neo.config.hasTouchEvents) {
+
+        }
+
         // testing
         Neo.create({
             module: TouchSensor
