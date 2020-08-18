@@ -16,10 +16,6 @@ class DragDrop extends Base {
              */
             className: 'Neo.main.addon.DragDrop',
             /**
-             * @member {HTMLElement|null} boundaryContainerElement=null
-             */
-            boundaryContainerElement: null,
-            /**
              * @member {DOMRect|null} scrollContainerRect=null
              */
             boundaryContainerRect: null,
@@ -142,15 +138,14 @@ class DragDrop extends Base {
         let me = this;
 
         Object.assign(me, {
-            boundaryContainerElement: null,
-            boundaryContainerRect   : null,
-            dragProxyElement        : null,
-            initialScrollLeft       : 0,
-            initialScrollTop        : 0,
-            scrollContainerElement  : null,
-            scrollContainerRect     : null,
-            setScrollFactorLeft     : 1,
-            scrollFactorTop         : 1
+            boundaryContainerRect : null,
+            dragProxyElement      : null,
+            initialScrollLeft     : 0,
+            initialScrollTop      : 0,
+            scrollContainerElement: null,
+            scrollContainerRect   : null,
+            setScrollFactorLeft   : 1,
+            scrollFactorTop       : 1
         });
 
         DomEvents.sendMessageToApp({
@@ -252,8 +247,7 @@ class DragDrop extends Base {
         let me   = this,
             node = data.id === 'document.body' ? document.body : document.getElementById(data.id);
 
-        me.boundaryContainerElement = node;
-        me.boundaryContainerRect    = node.getBoundingClientRect();
+        me.boundaryContainerRect = node.getBoundingClientRect();
     }
 
     /**
@@ -278,7 +272,7 @@ class DragDrop extends Base {
             scrollContainerElement: node,
             scrollContainerRect   : node.getBoundingClientRect(),
             initialScrollLeft     : node.scrollLeft,
-            initialScrollTop      : node.scrollTop,
+            initialScrollTop      : node.scrollTop
         });
     }
 
