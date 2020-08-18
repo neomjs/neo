@@ -16,6 +16,14 @@ class DragDrop extends Base {
              */
             className: 'Neo.main.addon.DragDrop',
             /**
+             * @member {HTMLElement|null} boundaryContainerElement=null
+             */
+            boundaryContainerElement: null,
+            /**
+             * @member {DOMRect|null} scrollContainerRect=null
+             */
+            boundaryContainerRect: null,
+            /**
              * @member {HTMLElement|null} dragProxyElement=null
              * @protected
              */
@@ -134,13 +142,15 @@ class DragDrop extends Base {
         let me = this;
 
         Object.assign(me, {
-            dragProxyElement      : null,
-            initialScrollLeft     : 0,
-            initialScrollTop      : 0,
-            scrollContainerElement: null,
-            scrollContainerRect   : null,
-            setScrollFactorLeft   : 1,
-            scrollFactorTop       : 1
+            boundaryContainerElement: null,
+            boundaryContainerRect   : null,
+            dragProxyElement        : null,
+            initialScrollLeft       : 0,
+            initialScrollTop        : 0,
+            scrollContainerElement  : null,
+            scrollContainerRect     : null,
+            setScrollFactorLeft     : 1,
+            scrollFactorTop         : 1
         });
 
         DomEvents.sendMessageToApp({
