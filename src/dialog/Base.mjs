@@ -372,6 +372,7 @@ class Base extends Panel {
                 me.dragZone = Neo.create({
                     module     : DragZone,
                     appName    : me.appName,
+                    boundaryContainerId: 'document.body',
                     dragElement: me.vdom,
                     owner      : me
                 });
