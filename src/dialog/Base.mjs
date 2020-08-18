@@ -337,24 +337,26 @@ class Base extends Panel {
         let me = this,
             style;
 
-        Neo.main.DomAccess.getBoundingClientRect({
-            id: me.dragZone.dragProxy.id
-        }).then(rect => {
-            style = me.style;
+        if (!me.maximized) {
+            Neo.main.DomAccess.getBoundingClientRect({
+                id: me.dragZone.dragProxy.id
+            }).then(rect => {
+                style = me.style;
 
-            Object.assign(style, {
-                height   : `${rect.height}px`,
-                left     : `${rect.left}px`,
-                opacity  : 1,
-                top      : `${rect.top}px`,
-                transform: 'none',
-                width    : `${rect.width}px`
+                Object.assign(style, {
+                    height   : `${rect.height}px`,
+                    left     : `${rect.left}px`,
+                    opacity  : 1,
+                    top      : `${rect.top}px`,
+                    transform: 'none',
+                    width    : `${rect.width}px`
+                });
+
+                me.style = style;
+
+                me.dragZone.dragEnd(data);
             });
-
-            me.style = style;
-
-            me.dragZone.dragEnd(data);
-        });
+        }
     }
 
     /**
@@ -362,23 +364,25 @@ class Base extends Panel {
      * @param data
      */
     onDragStart(data) {
-        let me    = this,
-            style = me.style || {};
+            let me    = this,
+                style = me.style || {};
 
-        if (!me.dragZone) {
-            me.dragZone = Neo.create({
-                module     : DragZone,
-                appName    : me.appName,
-                dragElement: me.vdom,
-                owner      : me
-            });
+        if (!me.maximized) {
+            if (!me.dragZone) {
+                me.dragZone = Neo.create({
+                    module     : DragZone,
+                    appName    : me.appName,
+                    dragElement: me.vdom,
+                    owner      : me
+                });
+            }
+
+            me.dragZone.dragStart(data);
+
+            style.opacity = 0.4;
+
+            me.style = style;
         }
-
-        me.dragZone.dragStart(data);
-
-        style.opacity = 0.4;
-
-        me.style = style;
     }
 }
 
