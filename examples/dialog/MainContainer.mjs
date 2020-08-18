@@ -85,7 +85,7 @@ class MainContainer extends Viewport {
      * @param {Object} data
      */
     onDragLimitChange(data) {
-        console.log('onDragLimitChange', data);
+        this.dialog.boundaryContainerId = data.value ? 'document.body' : null
     }
 
     /**
