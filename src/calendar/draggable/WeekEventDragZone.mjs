@@ -131,7 +131,7 @@ class WeekEventDragZone extends DragZone {
             i           = 0,
             len         = path.length,
             oldInterval = me.currentInterval,
-            intervalHeight, intervals, position, startTime, style, vdom;
+            intervalHeight, intervals, position, startTime;
 
         if (me.dragProxy) {
             for (; i < len; i++) {
