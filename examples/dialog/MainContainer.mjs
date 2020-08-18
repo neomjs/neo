@@ -1,4 +1,5 @@
 import Button     from '../../src/component/Button.mjs';
+import CheckBox   from '../../src/form/field/CheckBox.mjs';
 import Toolbar    from '../../src/container/Toolbar.mjs';
 import DemoDialog from './DemoDialog.mjs';
 import Viewport   from '../../src/container/Viewport.mjs';
@@ -14,7 +15,19 @@ class MainContainer extends Viewport {
 
         autoMount: true,
         layout   : 'base',
-        style    : {padding: '20px'}
+        style    : {padding: '20px'},
+
+        /**
+         * Custom config which gets passed to the dialog
+         * Either a dom node id, 'document.body' or null
+         * @member {String|null} boundaryContainerId='document.body'
+         */
+        boundaryContainerId: 'document.body',
+        /**
+         * Custom config
+         * @member {Neo.dialog.Base|null} dialog=null
+         */
+        dialog: null
     }}
 
     /**
@@ -33,6 +46,14 @@ class MainContainer extends Viewport {
                 handler: me.createDialog.bind(me),
                 iconCls: 'fa fa-window-maximize',
                 text   : 'Create Dialog',
+            }, {
+                module        : CheckBox,
+                checked       : true,
+                hideLabel     : true,
+                hideValueLabel: false,
+                listeners     : {change: me.onDragLimitChange, scope: me},
+                style         : {marginLeft: '3em'},
+                valueLabelText: 'Limit Drag&Drop to the document.body'
             }, '->', {
                 module : Button,
                 handler: MainContainer.switchTheme.bind(me),
@@ -47,10 +68,35 @@ class MainContainer extends Viewport {
      * @param {Object} data
      */
     createDialog(data) {
-        Neo.create(DemoDialog, {
-            animateTargetId: data.component.id,
-            appName        : this.appName
+        let me = this;
+
+        data.component.disabled = true;
+
+        me.dialog = Neo.create(DemoDialog, {
+            animateTargetId    : data.component.id,
+            appName            : me.appName,
+            boundaryContainerId: me.boundaryContainerId,
+            listeners          : {close: me.onWindowClose, scope: me}
         });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragLimitChange(data) {
+        console.log('onDragLimitChange', data);
+    }
+
+    /**
+     *
+     */
+    onWindowClose() {
+        let button = this.down({
+            text: 'Create Dialog'
+        });
+
+        button.disabled = false;
     }
 
     /**
