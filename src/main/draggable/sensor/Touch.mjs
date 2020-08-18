@@ -100,10 +100,12 @@ class Touch extends Base {
             target = DomEvents.testPathInclusion(event, me.dragTargetClasses);
 
         if (target) {
+            const {pageX, pageY} = DomEvents.getTouchCoords(event);
+
             Object.assign(me, {
                 currentElement: target.node,
-                pageX         : event.pageX, // todo
-                pageY         : event.pageY, // todo
+                pageX         : pageX,
+                pageY         : pageY,
                 startEvent    : event,
                 touchStartTime: Date.now()
             });
