@@ -111,7 +111,7 @@ class Touch extends Base {
 
         clearTimeout(me.tapTimeout);
 
-        document.removeEventListener('dragstart',   stopEvent);
+        document.removeEventListener('dragstart',   preventDefault);
         document.removeEventListener('touchcancel', me.onTouchEnd);
         document.removeEventListener('touchend',    me.onTouchEnd);
         document.removeEventListener('touchmove',   me.onDistanceChange);
@@ -128,13 +128,14 @@ class Touch extends Base {
                 clientX      : pageX,
                 clientY      : pageY,
                 element,
+                eventPath    : DomEvents.getPathFromElement(target),
                 originalEvent: event,
                 path         : me.startEvent.path || me.startEvent.composedPath(),
                 target,
                 type         : 'drag:end'
             });
 
-            document.removeEventListener('contextmenu', stopEvent, true);
+            document.removeEventListener('contextmenu', preventDefault, true);
             document.removeEventListener('touchmove',   me.onTouchMove);
 
             Object.assign(me, {
@@ -164,6 +165,7 @@ class Touch extends Base {
                 clientX      : pageX,
                 clientY      : pageY,
                 element,
+                eventPath    : DomEvents.getPathFromElement(target),
                 originalEvent: event,
                 path         : me.startEvent.path || me.startEvent.composedPath(),
                 target,
@@ -191,7 +193,7 @@ class Touch extends Base {
                 touchStartTime: Date.now()
             });
 
-            document.addEventListener('dragstart',   stopEvent);
+            document.addEventListener('dragstart',   preventDefault);
             document.addEventListener('touchcancel', me.onTouchEnd);
             document.addEventListener('touchend',    me.onTouchEnd);
             document.addEventListener('touchmove',   me.onDistanceChange, {cancelable: true});
@@ -224,7 +226,7 @@ class Touch extends Base {
         me.dragging = true; // todo
 
         if (me.dragging) {
-            document.addEventListener('contextmenu', stopEvent, true);
+            document.addEventListener('contextmenu', preventDefault, true);
             document.addEventListener('touchmove',   me.onTouchMove);
         }
 
@@ -232,8 +234,9 @@ class Touch extends Base {
     }
 }
 
-function stopEvent(event) {
-    event.stopEvent();
+function preventDefault(event) {
+    event.preventDefault();
+    event.stopPropagation();
 }
 
 Neo.applyClassConfig(Touch);

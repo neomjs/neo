@@ -289,6 +289,26 @@ class DomEvents extends Base {
 
     /**
      *
+     * @param {Element} element
+     * @returns {Element[]}
+     */
+    getPathFromElement(element) {
+        let path = [];
+
+        if (element) {
+            path.push(element);
+
+            while (element.parentNode) {
+                path.push(element.parentNode);
+                element = element.parentNode;
+            }
+        }
+
+        return path;
+    }
+
+    /**
+     *
      * @param {Object} node
      * @returns {Object}
      */
