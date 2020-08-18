@@ -27,6 +27,15 @@ class Touch extends Base {
          */
         pageY: null
     }}
+
+    /**
+     *
+     * @param config
+     */
+    constructor(config) {
+        super(config);
+        Neo.bindMethods(this, ['onDistanceChange', 'onTouchEnd', 'onTouchMove', 'onTouchStart', 'startDrag']);
+    }
 }
 
 function preventDefault(event) {
