@@ -110,6 +110,20 @@ class DragZone extends Base {
     }
 
     /**
+     * Triggered after the boundaryContainerId config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetBoundaryContainerId(value, oldValue) {
+        if (value) {
+            Neo.main.addon.DragDrop.setBoundaryContainer({
+                id: value
+            });
+        }
+    }
+
+    /**
      * Triggered after the scrollFactorLeft config got changed
      * @param {Number} value
      * @param {Number} oldValue
