@@ -1,19 +1,20 @@
 import Button     from '../../src/component/Button.mjs';
 import Toolbar    from '../../src/container/Toolbar.mjs';
 import DemoDialog from './DemoDialog.mjs';
+import Viewport   from '../../src/container/Viewport.mjs';
 
 /**
  * @class Dialog.MainContainer
- * @extends Neo.container.Toolbar
+ * @extends Neo.container.Viewport
  */
-class MainContainer extends Toolbar {
+class MainContainer extends Viewport {
     static getConfig() {return {
         className: 'Dialog.MainContainer',
         ntype    : 'main-container',
 
         autoMount: true,
         layout   : 'base',
-        style    : {margin: '20px'}
+        style    : {padding: '20px'}
     }}
 
     /**
@@ -26,15 +27,18 @@ class MainContainer extends Toolbar {
         let me = this;
 
         me.items = [{
-            module : Button,
-            handler: me.createDialog.bind(me),
-            iconCls: 'fa fa-window-maximize',
-            text   : 'Create Dialog',
-        }, '->', {
-            module : Button,
-            handler: MainContainer.switchTheme.bind(me),
-            iconCls: 'fa fa-moon',
-            text   : 'Theme Dark'
+            module: Toolbar,
+            items :[{
+                module : Button,
+                handler: me.createDialog.bind(me),
+                iconCls: 'fa fa-window-maximize',
+                text   : 'Create Dialog',
+            }, '->', {
+                module : Button,
+                handler: MainContainer.switchTheme.bind(me),
+                iconCls: 'fa fa-moon',
+                text   : 'Theme Dark'
+            }]
         }];
     }
 

@@ -24,6 +24,10 @@ class DragZone extends Base {
          */
         appName: null,
         /**
+         * @member {String|null} boundaryContainerId_=null
+         */
+        boundaryContainerId_: null,
+        /**
          * The vdom (tree) of the element you want to drag
          * @member {Object|null} dragElement=null
          */
@@ -100,6 +104,20 @@ class DragZone extends Base {
     afterSetScrollContainerId(value, oldValue) {
         if (value) {
             Neo.main.addon.DragDrop.setScrollContainer({
+                id: value
+            });
+        }
+    }
+
+    /**
+     * Triggered after the boundaryContainerId config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetBoundaryContainerId(value, oldValue) {
+        if (value) {
+            Neo.main.addon.DragDrop.setBoundaryContainer({
                 id: value
             });
         }

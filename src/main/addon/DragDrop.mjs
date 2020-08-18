@@ -16,10 +16,18 @@ class DragDrop extends Base {
              */
             className: 'Neo.main.addon.DragDrop',
             /**
+             * @member {DOMRect|null} scrollContainerRect=null
+             */
+            boundaryContainerRect: null,
+            /**
              * @member {HTMLElement|null} dragProxyElement=null
              * @protected
              */
             dragProxyElement: null,
+            /**
+             * @member {DOMRect|null} dragProxyRect=null
+             */
+            dragProxyRect: null,
             /**
              * @member {Number} clientX=0
              */
@@ -51,6 +59,7 @@ class DragDrop extends Base {
              */
             remote: {
                 app: [
+                    'setBoundaryContainer',
                     'setDragProxyElement',
                     'setScrollContainer',
                     'setScrollFactorLeft',
@@ -133,7 +142,9 @@ class DragDrop extends Base {
         let me = this;
 
         Object.assign(me, {
+            boundaryContainerRect : null,
             dragProxyElement      : null,
+            dragProxyRect         : null,
             initialScrollLeft     : 0,
             initialScrollTop      : 0,
             scrollContainerElement: null,
@@ -153,8 +164,10 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragMove(event) {
-        let me = this,
-            data;
+        let me        = this,
+            proxyRect = me.dragProxyRect,
+            rect      = me.boundaryContainerRect,
+            data, left, top;
 
         if (me.scrollContainerElement) {
             data = me.scrollContainer({
@@ -167,14 +180,31 @@ class DragDrop extends Base {
         }
 
         if (me.dragProxyElement) {
-            me.dragProxyElement.style.left = `${event.detail.clientX - me.offsetX}px`;
-            me.dragProxyElement.style.top  = `${event.detail.clientY - me.offsetY}px`;
-        }
+            left = event.detail.clientX - me.offsetX;
+            top  = event.detail.clientY - me.offsetY;
 
-        DomEvents.sendMessageToApp({
-            ...me.getEventData(event),
-            type: 'drag:move'
-        });
+            if (rect) {
+                if (left < rect.left) {
+                    left = rect.left;
+                } else if (left > rect.right - proxyRect.width) {
+                    left = rect.right - proxyRect.width;
+                }
+
+                if (top < rect.top) {
+                    top = rect.top;
+                } else if (top > rect.bottom - proxyRect.height) {
+                    top = rect.bottom - proxyRect.height
+                }
+            }
+
+            me.dragProxyElement.style.left = `${left}px`;
+            me.dragProxyElement.style.top  = `${top}px`;
+        } else {
+            DomEvents.sendMessageToApp({
+                ...me.getEventData(event),
+                type: 'drag:move'
+            });
+        }
     }
 
     /**
@@ -183,7 +213,7 @@ class DragDrop extends Base {
      */
     onDragStart(event) {
         let me   = this,
-            rect = event.target.getBoundingClientRect();
+            rect = me.dragProxyRect = event.target.getBoundingClientRect();
 
         me.offsetX = event.detail.clientX - rect.left;
         me.offsetY = event.detail.clientY - rect.top;
@@ -237,6 +267,18 @@ class DragDrop extends Base {
      * @param {Object} data
      * @param {String} data.id
      */
+    setBoundaryContainer(data) {
+        let me   = this,
+            node = data.id === 'document.body' ? document.body : document.getElementById(data.id);
+
+        me.boundaryContainerRect = node.getBoundingClientRect();
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.id
+     */
     setDragProxyElement(data) {
         this.dragProxyElement = document.getElementById(data.id);
     }
@@ -248,13 +290,13 @@ class DragDrop extends Base {
      */
     setScrollContainer(data) {
         let me   = this,
-            node = document.getElementById(data.id);
+            node = data.id === 'document.body' ? document.body : document.getElementById(data.id);
 
         Object.assign(me, {
             scrollContainerElement: node,
             scrollContainerRect   : node.getBoundingClientRect(),
             initialScrollLeft     : node.scrollLeft,
-            initialScrollTop      : node.scrollTop,
+            initialScrollTop      : node.scrollTop
         });
     }
 
