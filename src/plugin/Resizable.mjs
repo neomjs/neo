@@ -1,4 +1,5 @@
-import Base from './Base.mjs';
+import Base     from './Base.mjs';
+import NeoArray from '../util/Array.mjs';
 
 /**
  * @class Neo.plugin.Resizable
@@ -34,7 +35,7 @@ class Resizable extends Base {
          * @member {Number} gap=10
          * @protected
          */
-        gap: 15,
+        gap: 10,
         /**
          * @member {Object} nodeBottom=null
          * @protected
@@ -98,6 +99,21 @@ class Resizable extends Base {
 
     /**
      *
+     * @param {String} name
+     * @returns {Boolean} true
+     */
+    addNode(name) {
+        let me       = this,
+            nodeName = 'node' + Neo.capitalize(name);
+
+        me[nodeName] = {cls: ['neo-resizable', 'neo-resizable-' + name]};
+        me.owner.getVdomRoot().cn.push(me[nodeName]);
+
+        return true;
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onMouseMove(data) {
@@ -116,23 +132,41 @@ class Resizable extends Base {
             }
         }
 
-        bottom = data.clientY >= target.offsetTop  - gap + target.offsetHeight;
-        left   = data.clientX <= target.offsetLeft + gap;
-        right  = data.clientX >= target.offsetLeft - gap + target.offsetWidth;
-        top    = data.clientY <= target.offsetTop  + gap;
+        bottom = data.clientY >= target.rect.y - gap + target.rect.height;
+        left   = data.clientX <= target.rect.x + gap;
+        right  = data.clientX >= target.rect.x - gap + target.rect.width;
+        top    = data.clientY <= target.rect.y + gap;
 
-        if (bottom && !me.nodeBottom) {
-            hasChange = true;
+              if (bottom && !me.nodeBottom) {hasChange = me.addNode('bottom');}
+         else if (left   && !me.nodeLeft)   {hasChange = me.addNode('left');}
+         else if (right  && !me.nodeRight)  {hasChange = me.addNode('right');}
+         else if (top    && !me.nodeTop)    {hasChange = me.addNode('top');}
 
-            me.nodeBottom = {cls: ['neo-resizable-bottom']};
-            me.owner.getVdomRoot().cn.push(me.nodeBottom);
-        }
+             if (!bottom && me.nodeBottom) {hasChange = me.removeNode('bottom');}
+        else if (!left   && me.nodeLeft)   {hasChange = me.removeNode('left');}
+        else if (!right  && me.nodeRight)  {hasChange = me.removeNode('right');}
+        else if (!top    && me.nodeTop)    {hasChange = me.removeNode('top');}
 
         if (hasChange) {
             me.owner.vdom = vdom;
         }
 
         // console.log(bottom, left, right, top);
+    }
+
+    /**
+     *
+     * @param {String} name
+     * @returns {Boolean} true
+     */
+    removeNode(name) {
+        let me       = this,
+            nodeName = 'node' + Neo.capitalize(name);
+
+        NeoArray.remove(me.owner.getVdomRoot().cn, me[nodeName]);
+        me[nodeName] = null;
+
+        return true;
     }
 }
 

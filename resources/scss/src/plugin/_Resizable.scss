@@ -1,0 +1,32 @@
+.neo-resizable {
+    background-color: red;
+    position: absolute;
+}
+
+.neo-resizable-bottom {
+    bottom: 0;
+    cursor: s-resize;
+    height: 10px;
+    width : 100%;
+}
+
+.neo-resizable-left {
+    cursor: w-resize;
+    left  : 0;
+    height: 100%;
+    width : 10px;
+}
+
+.neo-resizable-right {
+    cursor: e-resize;
+    right : 0;
+    height : 100%;
+    width : 10px;
+}
+
+.neo-resizable-top {
+    cursor: n-resize;
+    height: 10px;
+    top   : 0;
+    width : 100%;
+}
