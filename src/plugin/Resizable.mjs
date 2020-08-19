@@ -1,8 +1,8 @@
-import Base from '../core/Base.mjs';
+import Base from './Base.mjs';
 
 /**
  * @class Neo.plugin.Resizable
- * @extends Neo.core.Base
+ * @extends Neo.plugin.Base
  */
 class Resizable extends Base {
     static getStaticConfig() {return {
@@ -29,12 +29,7 @@ class Resizable extends Base {
          * Directions into which you want to drag => resize
          * @member {String[]} directions_=['b','bl','br','l','r','t','tl','tr']
          */
-        directions_: ['b', 'bl', 'br', 'l', 'r', 't', 'tl', 'tr'],
-        /**
-         * @member {Neo.component.Base} owner=null
-         * @protected
-         */
-        owner: null
+        directions_: ['b', 'bl', 'br', 'l', 'r', 't', 'tl', 'tr']
     }}
 
     /**
