@@ -171,6 +171,12 @@ class Base extends CoreBase {
          */
         parentId: 'document.body',
         /**
+         * Array of Plugin Modules and / or config objects
+         * @member {Array|null} plugins_=null
+         * @protected
+         */
+        plugins_: null,
+        /**
          * True in case the component is rendering the vnode
          * @member {Boolean} rendering_=false
          * @protected
