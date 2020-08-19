@@ -15,6 +15,12 @@ class Resizable extends Base {
          */
         nameRegEx: /-([a-z])/g,
         /**
+         * Internal position names
+         * @member {String[]} validDirections=['bottom','bottom-left','bottom-right','left','right','top','top-left','top-right']
+         * @static
+         */
+        positions: ['bottom', 'bottom-left', 'bottom-right', 'left', 'right', 'top', 'top-left', 'top-right'],
+        /**
          * Directions into which you want to drag => resize
          * @member {String[]} validDirections=['b','bl','br','l','r','t','tl','tr']
          * @static
@@ -166,6 +172,23 @@ class Resizable extends Base {
         if (me.nodeTopRight && (!top || !right)) {h = me.removeNode('top-right');}
 
         if (h) {
+            me.owner.vdom = vdom;
+        }
+    }
+
+    /**
+     *
+     */
+    removeAllNodes() {
+        let me        = this,
+            vdom      = me.owner.vdom,
+            hasChange = false;
+
+        for (let position in Resizable.positions) {
+            hasChange = me.removeNode(position);
+        }
+
+        if (hasChange) {
             me.owner.vdom = vdom;
         }
     }
