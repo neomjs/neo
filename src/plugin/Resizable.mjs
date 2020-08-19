@@ -38,7 +38,25 @@ class Resizable extends Base {
      */
     constructor(config) {
         super(config);
-        console.log('plugin.Resizable ctor');
+
+        let me           = this,
+            domListeners = me.owner.domListeners;
+
+        domListeners.push({
+            mousemove: me.onMouseMove,
+            local    : true,
+            scope    : me
+        });
+
+        me.owner.domListeners = domListeners;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onMouseMove(data) {
+        console.log('onMouseMove', data);
     }
 }
 
