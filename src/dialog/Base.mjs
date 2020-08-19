@@ -73,8 +73,33 @@ class Base extends Panel {
         /**
          * @member {Array} plugins=[Resizable]
          */
-        plugins: [Resizable]
+        plugins: [Resizable],
+        /**
+         * @member {Object} _vdom
+         */
+        _vdom: {
+            cls: ['neo-dialog-wrapper'],
+            cn : [{
+                cn: []
+            }]
+        }
     }}
+
+    /**
+     *
+     * @returns {Object} The new vdom root
+     */
+    getVdomRoot() {
+        return this.vdom.cn[0];
+    }
+
+    /**
+     *
+     * @returns {Object} The new vnode root
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[0];
+    }
 
     /**
      *
@@ -84,6 +109,8 @@ class Base extends Panel {
         super(config);
 
         let me = this;
+
+        me.vdom.id = me.getWrapperId();
 
         me.createHeader();
 
@@ -119,7 +146,7 @@ class Base extends Panel {
         if (oldValue !== undefined && me.headerToolbar) {
             cls = me.headerToolbar.cls;
             NeoArray[value ? 'add' : 'remove'](cls, 'neo-draggable');
-            me.cls = cls;
+            me.headerToolbar.cls = cls;
         }
 
         if (value && !me.dragListenersAdded) {
@@ -140,11 +167,12 @@ class Base extends Panel {
      * @protected
      */
     afterSetMaximized(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me   = this,
+            vdom = me.vdom,
+            cls  = vdom.cls;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-maximized');
-        me.cls = cls;
+        me.vdom = vdom;
     }
 
     /**
@@ -244,7 +272,7 @@ class Base extends Panel {
                 html    : `<div id="${id}" class="neo-animate-dialog" style="height:${rect.height}px;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;"></div>`,
                 parentId: 'document.body'
             }).then(() => {
-                setTimeout(() => {
+                setTimeout(() => {console.log(me.vdom);
                     Neo.currentWorker.promiseMessage('main', {
                         action  : 'updateDom',
                         appName : appName,
@@ -252,11 +280,11 @@ class Base extends Panel {
                         deltas: [{
                             id   : id,
                             style: {
-                                height   : me.height || '50%',
+                                height   : me.wrapperStyle.height || '50%',
                                 left     : '50%',
                                 top      : '50%',
                                 transform: 'translate(-50%, -50%)',
-                                width    : me.width || '50%'
+                                width    : me.wrapperStyle.width || '50%'
                             }
                         }]
                     }).then(() => {
@@ -333,6 +361,14 @@ class Base extends Panel {
     }
 
     /**
+     * Returns the id of the header toolbar
+     * @returns {String}
+     */
+    getWrapperId() {
+        return this.id + '-wrapper';
+    }
+
+    /**
      * @param {Object} data
      */
     maximize(data) {
@@ -355,7 +391,7 @@ class Base extends Panel {
             Neo.main.DomAccess.getBoundingClientRect({
                 id: me.dragZone.dragProxy.id
             }).then(rect => {
-                style = me.style;
+                style = me.wrapperStyle;
 
                 Object.assign(style, {
                     height   : `${rect.height}px`,
@@ -366,7 +402,7 @@ class Base extends Panel {
                     width    : `${rect.width}px`
                 });
 
-                me.style = style;
+                me.wrapperStyle = style;
 
                 me.dragZone.dragEnd(data);
 
@@ -382,7 +418,7 @@ class Base extends Panel {
      */
     onDragStart(data) {
             let me    = this,
-                style = me.style || {};
+                style = me.wrapperStyle || {};
 
         if (!me.maximized) {
             if (!me.dragZone) {
@@ -401,7 +437,7 @@ class Base extends Panel {
 
             style.opacity = 0.4;
 
-            me.style = style;
+            me.wrapperStyle = style;
         }
     }
 }
