@@ -421,6 +421,8 @@ class Base extends Panel {
                 style = me.wrapperStyle || {};
 
         if (!me.maximized) {
+            me.plugins[0].removeAllNodes(); // todo: getPlugin()
+
             if (!me.dragZone) {
                 me.dragZone = Neo.create({
                     module             : DragZone,

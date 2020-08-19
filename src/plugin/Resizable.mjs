@@ -184,9 +184,9 @@ class Resizable extends Base {
             vdom      = me.owner.vdom,
             hasChange = false;
 
-        for (let position in Resizable.positions) {
+        Resizable.positions.forEach(position => {
             hasChange = me.removeNode(position);
-        }
+        });
 
         if (hasChange) {
             me.owner.vdom = vdom;
