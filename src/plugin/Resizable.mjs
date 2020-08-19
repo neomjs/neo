@@ -43,6 +43,7 @@ class Resizable extends Base {
      */
     constructor(config) {
         super(config);
+        console.log('plugin.Resizable ctor')
     }
 }
 
