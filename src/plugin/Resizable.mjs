@@ -101,10 +101,12 @@ class Resizable extends Base {
      * @param {Object} data
      */
     onMouseMove(data) {
-        let me  = this,
-            i   = 0,
-            gap = me.gap,
-            len = data.path.length,
+        let me        = this,
+            i         = 0,
+            gap       = me.gap,
+            hasChange = false,
+            len       = data.path.length,
+            vdom      = me.owner.vdom,
             bottom, left, right, target, top;
 
         for (; i < len; i++) {
@@ -119,7 +121,18 @@ class Resizable extends Base {
         right  = data.clientX >= target.offsetLeft - gap + target.offsetWidth;
         top    = data.clientY <= target.offsetTop  + gap;
 
-        console.log(bottom, left, right, top);
+        if (bottom && !me.nodeBottom) {
+            hasChange = true;
+
+            me.nodeBottom = {cls: ['neo-resizable-bottom']};
+            me.owner.getVdomRoot().cn.push(me.nodeBottom);
+        }
+
+        if (hasChange) {
+            me.owner.vdom = vdom;
+        }
+
+        // console.log(bottom, left, right, top);
     }
 }
 
