@@ -73,7 +73,10 @@ class Base extends Panel {
         /**
          * @member {Array} plugins=[Resizable]
          */
-        plugins: [Resizable],
+        plugins: [{
+            module       :Resizable,
+            delegationCls: 'neo-dialog'
+        }],
         /**
          * @member {Object} _vdom
          */

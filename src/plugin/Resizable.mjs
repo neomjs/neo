@@ -40,6 +40,11 @@ class Resizable extends Base {
          */
         ntype: 'plugin-resizable',
         /**
+         * Must be set by each owner
+         * @member {String} delegationCls=null
+         */
+        delegationCls: null,
+        /**
          * Directions into which you want to drag => resize
          * @member {String[]} directions_=['b','bl','br','l','r','t','tl','tr']
          */
@@ -140,7 +145,7 @@ class Resizable extends Base {
             bottom, left, right, target, top;
 
         for (; i < len; i++) {
-            if (data.path[i].cls.includes('neo-dialog')) {
+            if (data.path[i].cls.includes(me.delegationCls)) {
                 target = data.path[i];
                 break;
             }
