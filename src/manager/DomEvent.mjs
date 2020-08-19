@@ -279,7 +279,7 @@ class DomEvent extends Base {
         if (listeners[id][eventName]) {
             listener = listeners[id][eventName];
 
-            Object.keys(listener).forEach(key => {console.log(listener[key]);
+            Object.keys(listener).forEach(key => {
                 if (
                     listener[key].fn.toString() === fn.toString() && // todo: add a better check
                     listener[key].scope         === scope &&
