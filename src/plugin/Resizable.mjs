@@ -172,9 +172,8 @@ class Resizable extends Base {
 
         if (me.nodeBottomLeft  && (!bottom || !left))  {h = me.removeNode('bottom-left');}
         if (me.nodeBottomRight && (!bottom || !right)) {h = me.removeNode('bottom-right');}
-
-        if (me.nodeTopLeft  && (!top || !left))  {h = me.removeNode('top-left');}
-        if (me.nodeTopRight && (!top || !right)) {h = me.removeNode('top-right');}
+        if (me.nodeTopLeft     && (!top    || !left))  {h = me.removeNode('top-left');}
+        if (me.nodeTopRight    && (!top    || !right)) {h = me.removeNode('top-right');}
 
         if (h) {
             me.owner.vdom = vdom;
