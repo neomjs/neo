@@ -1,32 +1,61 @@
 .neo-resizable {
     background-color: red;
+
+    height  : 10px;
     position: absolute;
-}
+    width   : 10px;
+    z-index : 10;
 
-.neo-resizable-bottom {
-    bottom: 0;
-    cursor: s-resize;
-    height: 10px;
-    width : 100%;
-}
+    &.neo-resizable-bottom {
+        bottom: 0;
+        cursor: s-resize;
+        height: 10px;
+        width : 100%;
+    }
 
-.neo-resizable-left {
-    cursor: w-resize;
-    left  : 0;
-    height: 100%;
-    width : 10px;
-}
+    &.neo-resizable-bottom-left {
+        bottom : 0;
+        cursor : sw-resize;
+        left   : 0;
+        z-index: 20;
+    }
 
-.neo-resizable-right {
-    cursor: e-resize;
-    right : 0;
-    height : 100%;
-    width : 10px;
-}
+    &.neo-resizable-bottom-right {
+        bottom : 0;
+        cursor : se-resize;
+        right  : 0;
+        z-index: 20;
+    }
 
-.neo-resizable-top {
-    cursor: n-resize;
-    height: 10px;
-    top   : 0;
-    width : 100%;
+    &.neo-resizable-left {
+        cursor: w-resize;
+        left  : 0;
+        height: 100%;
+    }
+
+    &.neo-resizable-right {
+        cursor: e-resize;
+        right : 0;
+        height : 100%;
+    }
+
+    &.neo-resizable-top {
+        cursor: n-resize;
+        top   : 0;
+        width : 100%;
+    }
+
+    &.neo-resizable-top-left {
+        cursor : sw-resize;
+        left   : 0;
+        top    : 0;
+        z-index: 20;
+    }
+
+    &.neo-resizable-top-right {
+        cursor : se-resize;
+        right  : 0;
+        top    : 0;
+        z-index: 20;
+    }
 }
