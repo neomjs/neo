@@ -272,7 +272,7 @@ class Base extends Panel {
                 html    : `<div id="${id}" class="neo-animate-dialog" style="height:${rect.height}px;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;"></div>`,
                 parentId: 'document.body'
             }).then(() => {
-                setTimeout(() => {console.log(me.vdom);
+                setTimeout(() => {
                     Neo.currentWorker.promiseMessage('main', {
                         action  : 'updateDom',
                         appName : appName,
