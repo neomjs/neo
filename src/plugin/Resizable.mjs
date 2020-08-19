@@ -173,16 +173,20 @@ class Resizable extends Base {
     /**
      *
      * @param {String} name
-     * @returns {Boolean} true
+     * @returns {Boolean} true in case the node existed
      */
     removeNode(name) {
         let me       = this,
             nodeName = 'node' + Neo.capitalize(name.replace(Resizable.nameRegEx, (str, letter) => letter.toUpperCase()));
 
-        NeoArray.remove(me.owner.getVdomRoot().cn, me[nodeName]);
-        me[nodeName] = null;
+        if (me[nodeName]) {
+            NeoArray.remove(me.owner.getVdomRoot().cn, me[nodeName]);
+            me[nodeName] = null;
 
-        return true;
+            return true;
+        }
+
+        return false;
     }
 }
 
