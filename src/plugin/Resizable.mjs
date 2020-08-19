@@ -8,6 +8,13 @@ import NeoArray from '../util/Array.mjs';
 class Resizable extends Base {
     static getStaticConfig() {return {
         /**
+         * remove - chars
+         * @member {RegExp} nameRegEx=/-([a-z])/g
+         * @protected
+         * @static
+         */
+        nameRegEx: /-([a-z])/g,
+        /**
          * Directions into which you want to drag => resize
          * @member {String[]} validDirections=['b','bl','br','l','r','t','tl','tr']
          * @static
@@ -104,9 +111,7 @@ class Resizable extends Base {
      */
     addNode(name) {
         let me       = this,
-            nodeName = 'node' + Neo.capitalize(name.replace(/-([a-z])/g, (str, letter) => {
-                return letter.toUpperCase();
-            }));
+            nodeName = 'node' + Neo.capitalize(name.replace(Resizable.nameRegEx, (str, letter) => letter.toUpperCase()));
 
         me[nodeName] = {cls: ['neo-resizable', 'neo-resizable-' + name]};
         me.owner.getVdomRoot().cn.push(me[nodeName]);
@@ -172,9 +177,7 @@ class Resizable extends Base {
      */
     removeNode(name) {
         let me       = this,
-            nodeName = 'node' + Neo.capitalize(name.replace(/-([a-z])/g, (str, letter) => {
-                return letter.toUpperCase();
-            }));
+            nodeName = 'node' + Neo.capitalize(name.replace(Resizable.nameRegEx, (str, letter) => letter.toUpperCase()));
 
         NeoArray.remove(me.owner.getVdomRoot().cn, me[nodeName]);
         me[nodeName] = null;
