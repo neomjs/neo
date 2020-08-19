@@ -198,7 +198,9 @@ class Base extends Component {
                 len   = items.length;
 
             for (; i < len; i++) {
-                items[i].rendering = value;
+                if (!items[i].vdom.removeDom) {
+                    items[i].rendering = value;
+                }
             }
         }
     }
