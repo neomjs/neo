@@ -727,7 +727,8 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered before the keys config gets changed. Creates a KeyNavigation instance if needed.
+     * Triggered before the keys config gets changed.
+     * Creates a KeyNavigation instance if needed.
      * @param {Object} value
      * @param {Object} oldValue
      * @protected
@@ -737,16 +738,10 @@ class Base extends CoreBase {
             oldValue.destroy();
         }
 
-        if (Util.isObject(value)) {
-            if (value instanceof KeyNavigation) {
-                // use the provided instance
-            } else if (value.constructor.isClass) {
-                value = Neo.create(value);
-            }  else {
-                value = Neo.create(KeyNavigation, {
-                    keys: value
-                });
-            }
+        if (value) {
+            value = ClassSystemUtil.beforeSetInstance(value, KeyNavigation, {
+                keys: value
+            });
         }
 
         return value;
