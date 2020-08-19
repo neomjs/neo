@@ -14,6 +14,7 @@
     }
 
     &.neo-resizable-bottom-left {
+        background-color: blue;
         bottom : 0;
         cursor : sw-resize;
         left   : 0;
@@ -21,6 +22,7 @@
     }
 
     &.neo-resizable-bottom-right {
+        background-color: blue;
         bottom : 0;
         cursor : se-resize;
         right  : 0;
@@ -46,14 +48,16 @@
     }
 
     &.neo-resizable-top-left {
-        cursor : sw-resize;
+        background-color: blue;
+        cursor : nw-resize;
         left   : 0;
         top    : 0;
         z-index: 20;
     }
 
     &.neo-resizable-top-right {
-        cursor : se-resize;
+        background-color: blue;
+        cursor : ne-resize;
         right  : 0;
         top    : 0;
         z-index: 20;

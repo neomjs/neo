@@ -104,7 +104,9 @@ class Resizable extends Base {
      */
     addNode(name) {
         let me       = this,
-            nodeName = 'node' + Neo.capitalize(name);
+            nodeName = 'node' + Neo.capitalize(name.replace(/-([a-z])/g, (str, letter) => {
+                return letter.toUpperCase();
+            }));
 
         me[nodeName] = {cls: ['neo-resizable', 'neo-resizable-' + name]};
         me.owner.getVdomRoot().cn.push(me[nodeName]);
@@ -137,35 +139,25 @@ class Resizable extends Base {
         right  = data.clientX >= target.rect.x - gap + target.rect.width;
         top    = data.clientY <= target.rect.y + gap;
 
-        if (bottom) {
-            if (!me.nodeBottom) {hasChange = me.addNode('bottom');}
+        if      (bottom && left)  {if (!me.nodeBottomLeft)  {hasChange = me.addNode('bottom-left');}}
+        else if (bottom && right) {if (!me.nodeBottomRight) {hasChange = me.addNode('bottom-right');}}
+        else if (top    && left)  {if (!me.nodeTopLeft)     {hasChange = me.addNode('top-left');}}
+        else if (top    && right) {if (!me.nodeTopRight)    {hasChange = me.addNode('top-right');}}
+        else if (bottom)          {if (!me.nodeBottom)      {hasChange = me.addNode('bottom');}}
+        else if (left)            {if (!me.nodeLeft)        {hasChange = me.addNode('left');}}
+        else if (right)           {if (!me.nodeRight)       {hasChange = me.addNode('right');}}
+        else if (top)             {if (!me.nodeTop)         {hasChange = me.addNode('top');}}
 
-            if      (left  && !me.nodeBottomLeft)  {hasChange = me.addNode('bottom-left');}
-            else if (right && !me.nodeBottomRight) {hasChange = me.addNode('bottom-right');}
-        }
-        else if (left  && !me.nodeLeft)  {hasChange = me.addNode('left');}
-        else if (right && !me.nodeRight) {hasChange = me.addNode('right');}
-        else if (top) {
-            if (!me.nodeTop) {hasChange = me.addNode('top');}
+        if ((!bottom || bottom && left  || bottom && right) && me.nodeBottom) {hasChange = me.removeNode('bottom');}
+        if ((!left   || bottom && left  || top    && left)  && me.nodeLeft)   {hasChange = me.removeNode('left');}
+        if ((!right  || bottom && right || top    && right) && me.nodeRight)  {hasChange = me.removeNode('right');}
+        if ((!top    || top    && left  || top    && right) && me.nodeTop)    {hasChange = me.removeNode('top');}
 
-            if      (left  && !me.nodeTopLeft)  {hasChange = me.addNode('top-left');}
-            else if (right && !me.nodeTopRight) {hasChange = me.addNode('top-right');}
-        }
+        if ((!bottom || !left)  && me.nodeBottomLeft)  {hasChange = me.removeNode('bottom-left');}
+        if ((!bottom || !right) && me.nodeBottomRight) {hasChange = me.removeNode('bottom-right');}
 
-        if (!bottom) {
-            if (me.nodeBottom) {hasChange = me.removeNode('bottom');}
-
-            if      (!left  && me.nodeBottomLeft)  {hasChange = me.removeNode('bottom-left');}
-            else if (!right && me.nodeBottomRight) {hasChange = me.removeNode('bottom-right');}
-        }
-        else if (!left  && me.nodeLeft)  {hasChange = me.removeNode('left');}
-        else if (!right && me.nodeRight) {hasChange = me.removeNode('right');}
-        else if (!top) {
-            if (me.nodeTop) {hasChange = me.removeNode('top');}
-
-            if      (!left  && me.nodeTopLeft)  {hasChange = me.removeNode('top-left');}
-            else if (!right && me.nodeTopRight) {hasChange = me.removeNode('top-right');}
-        }
+        if ((!top || !left)  && me.nodeTopLeft)  {hasChange = me.removeNode('top-left');}
+        if ((!top || !right) && me.nodeTopRight) {hasChange = me.removeNode('top-right');}
 
         if (hasChange) {
             me.owner.vdom = vdom;
@@ -173,7 +165,6 @@ class Resizable extends Base {
 
         // console.log(bottom, left, right, top);
     }
-
     /**
      *
      * @param {String} name
@@ -181,7 +172,9 @@ class Resizable extends Base {
      */
     removeNode(name) {
         let me       = this,
-            nodeName = 'node' + Neo.capitalize(name);
+            nodeName = 'node' + Neo.capitalize(name.replace(/-([a-z])/g, (str, letter) => {
+                return letter.toUpperCase();
+            }));
 
         NeoArray.remove(me.owner.getVdomRoot().cn, me[nodeName]);
         me[nodeName] = null;
