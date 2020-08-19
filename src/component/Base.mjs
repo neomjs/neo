@@ -1,14 +1,15 @@
-import {default as CoreBase}  from '../core/Base.mjs';
-import ComponentManager       from '../manager/Component.mjs';
-import DomEventManager        from '../manager/DomEvent.mjs';
-import KeyNavigation          from '../util/KeyNavigation.mjs';
-import Logger                 from '../core/Logger.mjs';
-import NeoArray               from '../util/Array.mjs';
-import Observable             from '../core/Observable.mjs';
-import Style                  from '../util/Style.mjs';
-import Util                   from '../core/Util.mjs';
-import {default as VDomUtil}  from '../util/VDom.mjs';
-import {default as VNodeUtil} from '../util/VNode.mjs';
+import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
+import {default as CoreBase}        from '../core/Base.mjs';
+import ComponentManager             from '../manager/Component.mjs';
+import DomEventManager              from '../manager/DomEvent.mjs';
+import KeyNavigation                from '../util/KeyNavigation.mjs';
+import Logger                       from '../core/Logger.mjs';
+import NeoArray                     from '../util/Array.mjs';
+import Observable                   from '../core/Observable.mjs';
+import Style                        from '../util/Style.mjs';
+import Util                         from '../core/Util.mjs';
+import {default as VDomUtil}        from '../util/VDom.mjs';
+import {default as VNodeUtil}       from '../util/VNode.mjs';
 
 /**
  * @class Neo.component.Base
@@ -170,6 +171,12 @@ class Base extends CoreBase {
          * @member {String} parentId='document.body'
          */
         parentId: 'document.body',
+        /**
+         * Array of Plugin Modules and / or config objects
+         * @member {Array|null} plugins_=null
+         * @protected
+         */
+        plugins_: null,
         /**
          * True in case the component is rendering the vnode
          * @member {Boolean} rendering_=false
@@ -608,7 +615,7 @@ class Base extends CoreBase {
                     // todo: the main thread reply of mount arrives after pushing the task into the queue which does not ensure the dom is mounted
                     setTimeout(() => {
                         DomEventManager.mountDomListeners(me);
-                    }, 50);
+                    }, 300);
                 }
 
                 me.fire('mounted', me.id);
@@ -686,35 +693,23 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered before the controller config gets changed. Creates a ComponentController instance if needed.
+     * Triggered before the controller config gets changed.
+     * Creates a ComponentController instance if needed.
      * @param {Object} value
      * @param {Object} oldValue
+     * @returns {String} id
      * @protected
      */
     beforeSetController(value, oldValue) {
-        let me = this;
-
         if (oldValue) {
             oldValue.destroy();
         }
 
-        if (value) {
-            if (Util.isObject(value) && value instanceof Neo.controller.Component) {
-                // use the provided instance
-                value.view = me;
-            } else if ((value.prototype && value.prototype.constructor.isClass)|| Util.isString(value)) {
-                value = Neo.create(value, {
-                    view: me
-                });
-            } else if (value.ntype) {
-                value.view = me;
-                value = Neo.ntype(value);
-            }
+        value = ClassSystemUtil.beforeSetInstance(value, null, {
+            view: this
+        });
 
-            return value.id;
-        }
-
-        return value;
+        return value && value.id;
     }
 
     /**
@@ -732,7 +727,8 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered before the keys config gets changed. Creates a KeyNavigation instance if needed.
+     * Triggered before the keys config gets changed.
+     * Creates a KeyNavigation instance if needed.
      * @param {Object} value
      * @param {Object} oldValue
      * @protected
@@ -742,16 +738,28 @@ class Base extends CoreBase {
             oldValue.destroy();
         }
 
-        if (Util.isObject(value)) {
-            if (value instanceof KeyNavigation) {
-                // use the provided instance
-            } else if (value.constructor.isClass) {
-                value = Neo.create(value);
-            }  else {
-                value = Neo.create(KeyNavigation, {
-                    keys: value
+        if (value) {
+            value = ClassSystemUtil.beforeSetInstance(value, KeyNavigation, {
+                keys: value
+            });
+        }
+
+        return value;
+    }
+
+    /**
+     * Triggered before the plugins config gets changed.
+     * @param {Array} value
+     * @param {Array} oldValue
+     * @protected
+     */
+    beforeSetPlugins(value, oldValue) {
+        if (Array.isArray(value)) {
+            value.forEach((item, index) => {
+                value[index] = ClassSystemUtil.beforeSetInstance(item, null, {
+                    owner: this
                 });
-            }
+            });
         }
 
         return value;
