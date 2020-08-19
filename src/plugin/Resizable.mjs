@@ -29,7 +29,12 @@ class Resizable extends Base {
          * Directions into which you want to drag => resize
          * @member {String[]} directions_=['b','bl','br','l','r','t','tl','tr']
          */
-        directions_: ['b', 'bl', 'br', 'l', 'r', 't', 'tl', 'tr']
+        directions_: ['b', 'bl', 'br', 'l', 'r', 't', 'tl', 'tr'],
+        /**
+         * @member {Object} ownerRect=null
+         * @protected
+         */
+        ownerRect : null
     }}
 
     /**
@@ -57,6 +62,10 @@ class Resizable extends Base {
      */
     onMouseMove(data) {
         // console.log('onMouseMove', data);
+    }
+
+    onOwnerMounted() {
+        console.log('onOwnerMounted');
     }
 }
 
