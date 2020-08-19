@@ -280,11 +280,11 @@ class Base extends Panel {
                         deltas: [{
                             id   : id,
                             style: {
-                                height   : me.wrapperStyle.height || '50%',
+                                height   : me.wrapperStyle && me.wrapperStyle.height || '50%',
                                 left     : '50%',
                                 top      : '50%',
                                 transform: 'translate(-50%, -50%)',
-                                width    : me.wrapperStyle.width || '50%'
+                                width    : me.wrapperStyle && me.wrapperStyle.width || '50%'
                             }
                         }]
                     }).then(() => {
