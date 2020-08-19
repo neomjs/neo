@@ -34,7 +34,47 @@ class Resizable extends Base {
          * @member {Number} gap=10
          * @protected
          */
-        gap: 15
+        gap: 15,
+        /**
+         * @member {Object} nodeBottom=null
+         * @protected
+         */
+        nodeBottom: null,
+        /**
+         * @member {Object} nodeBottomLeft=null
+         * @protected
+         */
+        nodeBottomLeft: null,
+        /**
+         * @member {Object} nodeBottomRight=null
+         * @protected
+         */
+        nodeBottomRight: null,
+        /**
+         * @member {Object} nodeLeft=null
+         * @protected
+         */
+        nodeLeft: null,
+        /**
+         * @member {Object} nodeRight=null
+         * @protected
+         */
+        nodeRight: null,
+        /**
+         * @member {Object} nodeTop=null
+         * @protected
+         */
+        nodeTop: null,
+        /**
+         * @member {Object} nodeTopLeft=null
+         * @protected
+         */
+        nodeTopLeft: null,
+        /**
+         * @member {Object} nodeTopRight=null
+         * @protected
+         */
+        nodeTopRight: null
     }}
 
     /**
