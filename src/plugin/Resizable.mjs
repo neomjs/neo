@@ -31,10 +31,10 @@ class Resizable extends Base {
          */
         directions_: ['b', 'bl', 'br', 'l', 'r', 't', 'tl', 'tr'],
         /**
-         * @member {Object} ownerRect=null
+         * @member {Number} gap=10
          * @protected
          */
-        ownerRect : null
+        gap: 15
     }}
 
     /**
@@ -61,19 +61,25 @@ class Resizable extends Base {
      * @param {Object} data
      */
     onMouseMove(data) {
-        // console.log('onMouseMove', data);
-    }
+        let me  = this,
+            i   = 0,
+            gap = me.gap,
+            len = data.path.length,
+            bottom, left, right, target, top;
 
-    onOwnerMounted() {
-        setTimeout(() => {
-            let me = this;
+        for (; i < len; i++) {
+            if (data.path[i].cls.includes('neo-dialog')) {
+                target = data.path[i];
+                break;
+            }
+        }
 
-            Neo.main.DomAccess.getBoundingClientRect({
-                id: me.owner.id
-            }).then(rect => {
-                me.ownerRect = rect;
-            });
-        }, 20);
+        bottom = data.clientY >= target.offsetTop  - gap + target.offsetHeight;
+        left   = data.clientX <= target.offsetLeft + gap;
+        right  = data.clientX >= target.offsetLeft - gap + target.offsetWidth;
+        top    = data.clientY <= target.offsetTop  + gap;
+
+        console.log(bottom, left, right, top);
     }
 }
 
