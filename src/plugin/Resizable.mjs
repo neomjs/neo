@@ -28,9 +28,13 @@ class Resizable extends Base {
         /**
          * Directions into which you want to drag => resize
          * @member {String[]} directions_=['b','bl','br','l','r','t','tl','tr']
-         * @static
          */
-        directions_: ['b', 'bl', 'br', 'l', 'r', 't', 'tl', 'tr']
+        directions_: ['b', 'bl', 'br', 'l', 'r', 't', 'tl', 'tr'],
+        /**
+         * @member {Neo.component.Base} owner=null
+         * @protected
+         */
+        owner: null
     }}
 
     /**
