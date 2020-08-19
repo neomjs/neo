@@ -125,6 +125,7 @@ class Resizable extends Base {
      */
     onMouseMove(data) {
         let me        = this,
+            dir       = me.directions,
             i         = 0,
             gap       = me.gap,
             hasChange = false,
@@ -144,25 +145,25 @@ class Resizable extends Base {
         right  = data.clientX >= target.rect.x - gap + target.rect.width;
         top    = data.clientY <= target.rect.y + gap;
 
-        if      (bottom && left)  {if (!me.nodeBottomLeft)  {hasChange = me.addNode('bottom-left');}}
-        else if (bottom && right) {if (!me.nodeBottomRight) {hasChange = me.addNode('bottom-right');}}
-        else if (top    && left)  {if (!me.nodeTopLeft)     {hasChange = me.addNode('top-left');}}
-        else if (top    && right) {if (!me.nodeTopRight)    {hasChange = me.addNode('top-right');}}
-        else if (bottom)          {if (!me.nodeBottom)      {hasChange = me.addNode('bottom');}}
-        else if (left)            {if (!me.nodeLeft)        {hasChange = me.addNode('left');}}
-        else if (right)           {if (!me.nodeRight)       {hasChange = me.addNode('right');}}
-        else if (top)             {if (!me.nodeTop)         {hasChange = me.addNode('top');}}
+        if      (dir.includes('bl') && bottom && left)  {if (!me.nodeBottomLeft)  {hasChange = me.addNode('bottom-left');}}
+        else if (dir.includes('br') && bottom && right) {if (!me.nodeBottomRight) {hasChange = me.addNode('bottom-right');}}
+        else if (dir.includes('tl') && top    && left)  {if (!me.nodeTopLeft)     {hasChange = me.addNode('top-left');}}
+        else if (dir.includes('tr') && top    && right) {if (!me.nodeTopRight)    {hasChange = me.addNode('top-right');}}
+        else if (dir.includes('b')  && bottom)          {if (!me.nodeBottom)      {hasChange = me.addNode('bottom');}}
+        else if (dir.includes('l')  && left)            {if (!me.nodeLeft)        {hasChange = me.addNode('left');}}
+        else if (dir.includes('r')  && right)           {if (!me.nodeRight)       {hasChange = me.addNode('right');}}
+        else if (dir.includes('t')  && top)             {if (!me.nodeTop)         {hasChange = me.addNode('top');}}
 
-        if ((!bottom || bottom && left  || bottom && right) && me.nodeBottom) {hasChange = me.removeNode('bottom');}
-        if ((!left   || bottom && left  || top    && left)  && me.nodeLeft)   {hasChange = me.removeNode('left');}
-        if ((!right  || bottom && right || top    && right) && me.nodeRight)  {hasChange = me.removeNode('right');}
-        if ((!top    || top    && left  || top    && right) && me.nodeTop)    {hasChange = me.removeNode('top');}
+        if (me.nodeBottom && (!bottom || bottom && left  || bottom && right)) {hasChange = me.removeNode('bottom');}
+        if (me.nodeLeft   && (!left   || bottom && left  || top    && left))  {hasChange = me.removeNode('left');}
+        if (me.nodeRight  && (!right  || bottom && right || top    && right)) {hasChange = me.removeNode('right');}
+        if (me.nodeTop    && (!top    || top    && left  || top    && right)) {hasChange = me.removeNode('top');}
 
-        if ((!bottom || !left)  && me.nodeBottomLeft)  {hasChange = me.removeNode('bottom-left');}
-        if ((!bottom || !right) && me.nodeBottomRight) {hasChange = me.removeNode('bottom-right');}
+        if (me.nodeBottomLeft  && (!bottom || !left))  {hasChange = me.removeNode('bottom-left');}
+        if (me.nodeBottomRight && (!bottom || !right)) {hasChange = me.removeNode('bottom-right');}
 
-        if ((!top || !left)  && me.nodeTopLeft)  {hasChange = me.removeNode('top-left');}
-        if ((!top || !right) && me.nodeTopRight) {hasChange = me.removeNode('top-right');}
+        if (me.nodeTopLeft  && (!top || !left))  {hasChange = me.removeNode('top-left');}
+        if (me.nodeTopRight && (!top || !right)) {hasChange = me.removeNode('top-right');}
 
         if (hasChange) {
             me.owner.vdom = vdom;
