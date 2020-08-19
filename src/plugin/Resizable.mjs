@@ -124,13 +124,13 @@ class Resizable extends Base {
      * @param {Object} data
      */
     onMouseMove(data) {
-        let me        = this,
-            dir       = me.directions,
-            i         = 0,
-            gap       = me.gap,
-            hasChange = false,
-            len       = data.path.length,
-            vdom      = me.owner.vdom,
+        let me   = this,
+            dir  = me.directions,
+            i    = 0,
+            gap  = me.gap,
+            h    = false,
+            len  = data.path.length,
+            vdom = me.owner.vdom,
             bottom, left, right, target, top;
 
         for (; i < len; i++) {
@@ -145,32 +145,31 @@ class Resizable extends Base {
         right  = data.clientX >= target.rect.x - gap + target.rect.width;
         top    = data.clientY <= target.rect.y + gap;
 
-        if      (dir.includes('bl') && bottom && left)  {if (!me.nodeBottomLeft)  {hasChange = me.addNode('bottom-left');}}
-        else if (dir.includes('br') && bottom && right) {if (!me.nodeBottomRight) {hasChange = me.addNode('bottom-right');}}
-        else if (dir.includes('tl') && top    && left)  {if (!me.nodeTopLeft)     {hasChange = me.addNode('top-left');}}
-        else if (dir.includes('tr') && top    && right) {if (!me.nodeTopRight)    {hasChange = me.addNode('top-right');}}
-        else if (dir.includes('b')  && bottom)          {if (!me.nodeBottom)      {hasChange = me.addNode('bottom');}}
-        else if (dir.includes('l')  && left)            {if (!me.nodeLeft)        {hasChange = me.addNode('left');}}
-        else if (dir.includes('r')  && right)           {if (!me.nodeRight)       {hasChange = me.addNode('right');}}
-        else if (dir.includes('t')  && top)             {if (!me.nodeTop)         {hasChange = me.addNode('top');}}
+        if      (dir.includes('bl') && bottom && left)  {if (!me.nodeBottomLeft)  {h = me.addNode('bottom-left');}}
+        else if (dir.includes('br') && bottom && right) {if (!me.nodeBottomRight) {h = me.addNode('bottom-right');}}
+        else if (dir.includes('tl') && top    && left)  {if (!me.nodeTopLeft)     {h = me.addNode('top-left');}}
+        else if (dir.includes('tr') && top    && right) {if (!me.nodeTopRight)    {h = me.addNode('top-right');}}
+        else if (dir.includes('b')  && bottom)          {if (!me.nodeBottom)      {h = me.addNode('bottom');}}
+        else if (dir.includes('l')  && left)            {if (!me.nodeLeft)        {h = me.addNode('left');}}
+        else if (dir.includes('r')  && right)           {if (!me.nodeRight)       {h = me.addNode('right');}}
+        else if (dir.includes('t')  && top)             {if (!me.nodeTop)         {h = me.addNode('top');}}
 
-        if (me.nodeBottom && (!bottom || bottom && left  || bottom && right)) {hasChange = me.removeNode('bottom');}
-        if (me.nodeLeft   && (!left   || bottom && left  || top    && left))  {hasChange = me.removeNode('left');}
-        if (me.nodeRight  && (!right  || bottom && right || top    && right)) {hasChange = me.removeNode('right');}
-        if (me.nodeTop    && (!top    || top    && left  || top    && right)) {hasChange = me.removeNode('top');}
+        if (me.nodeBottom && (!bottom || bottom && left  || bottom && right)) {h = me.removeNode('bottom');}
+        if (me.nodeLeft   && (!left   || bottom && left  || top    && left))  {h = me.removeNode('left');}
+        if (me.nodeRight  && (!right  || bottom && right || top    && right)) {h = me.removeNode('right');}
+        if (me.nodeTop    && (!top    || top    && left  || top    && right)) {h = me.removeNode('top');}
 
-        if (me.nodeBottomLeft  && (!bottom || !left))  {hasChange = me.removeNode('bottom-left');}
-        if (me.nodeBottomRight && (!bottom || !right)) {hasChange = me.removeNode('bottom-right');}
+        if (me.nodeBottomLeft  && (!bottom || !left))  {h = me.removeNode('bottom-left');}
+        if (me.nodeBottomRight && (!bottom || !right)) {h = me.removeNode('bottom-right');}
 
-        if (me.nodeTopLeft  && (!top || !left))  {hasChange = me.removeNode('top-left');}
-        if (me.nodeTopRight && (!top || !right)) {hasChange = me.removeNode('top-right');}
+        if (me.nodeTopLeft  && (!top || !left))  {h = me.removeNode('top-left');}
+        if (me.nodeTopRight && (!top || !right)) {h = me.removeNode('top-right');}
 
-        if (hasChange) {
+        if (h) {
             me.owner.vdom = vdom;
         }
-
-        // console.log(bottom, left, right, top);
     }
+
     /**
      *
      * @param {String} name
