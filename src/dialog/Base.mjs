@@ -154,6 +154,8 @@ class Base extends Panel {
      * @protected
      */
     afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
         if (value) {
             let me = this;
 
