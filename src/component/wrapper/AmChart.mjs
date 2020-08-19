@@ -149,7 +149,9 @@ class AmChart extends Component {
                 opts.dataPath = me.dataPath;
             }
 
-            Neo.main.addon.AmCharts.create(opts).then(me.onChartMounted);
+            setTimeout(() => {
+                Neo.main.addon.AmCharts.create(opts).then(me.onChartMounted);
+            }, 50);
         }
     }
 
