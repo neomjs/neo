@@ -1,6 +1,7 @@
-import DragZone from '../draggable/DragZone.mjs';
-import Panel    from '../container/Panel.mjs';
-import NeoArray from '../util/Array.mjs';
+import DragZone  from '../draggable/DragZone.mjs';
+import Panel     from '../container/Panel.mjs';
+import NeoArray  from '../util/Array.mjs';
+import Resizable from '../plugin/Resizable.mjs';
 
 /**
  * @class Neo.dialog.Base
@@ -68,7 +69,11 @@ class Base extends Panel {
         /**
          * @member {String} minimizeCls='far fa-window-minimize'
          */
-        minimizeCls: 'far fa-window-minimize'
+        minimizeCls: 'far fa-window-minimize',
+        /**
+         * @member {Array} plugins=[Resizable]
+         */
+        plugins: [Resizable]
     }}
 
     /**
