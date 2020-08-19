@@ -137,15 +137,35 @@ class Resizable extends Base {
         right  = data.clientX >= target.rect.x - gap + target.rect.width;
         top    = data.clientY <= target.rect.y + gap;
 
-              if (bottom && !me.nodeBottom) {hasChange = me.addNode('bottom');}
-         else if (left   && !me.nodeLeft)   {hasChange = me.addNode('left');}
-         else if (right  && !me.nodeRight)  {hasChange = me.addNode('right');}
-         else if (top    && !me.nodeTop)    {hasChange = me.addNode('top');}
+        if (bottom) {
+            if (!me.nodeBottom) {hasChange = me.addNode('bottom');}
 
-             if (!bottom && me.nodeBottom) {hasChange = me.removeNode('bottom');}
-        else if (!left   && me.nodeLeft)   {hasChange = me.removeNode('left');}
-        else if (!right  && me.nodeRight)  {hasChange = me.removeNode('right');}
-        else if (!top    && me.nodeTop)    {hasChange = me.removeNode('top');}
+            if      (left  && !me.nodeBottomLeft)  {hasChange = me.addNode('bottom-left');}
+            else if (right && !me.nodeBottomRight) {hasChange = me.addNode('bottom-right');}
+        }
+        else if (left  && !me.nodeLeft)  {hasChange = me.addNode('left');}
+        else if (right && !me.nodeRight) {hasChange = me.addNode('right');}
+        else if (top) {
+            if (!me.nodeTop) {hasChange = me.addNode('top');}
+
+            if      (left  && !me.nodeTopLeft)  {hasChange = me.addNode('top-left');}
+            else if (right && !me.nodeTopRight) {hasChange = me.addNode('top-right');}
+        }
+
+        if (!bottom) {
+            if (me.nodeBottom) {hasChange = me.removeNode('bottom');}
+
+            if      (!left  && me.nodeBottomLeft)  {hasChange = me.removeNode('bottom-left');}
+            else if (!right && me.nodeBottomRight) {hasChange = me.removeNode('bottom-right');}
+        }
+        else if (!left  && me.nodeLeft)  {hasChange = me.removeNode('left');}
+        else if (!right && me.nodeRight) {hasChange = me.removeNode('right');}
+        else if (!top) {
+            if (me.nodeTop) {hasChange = me.removeNode('top');}
+
+            if      (!left  && me.nodeTopLeft)  {hasChange = me.removeNode('top-left');}
+            else if (!right && me.nodeTopRight) {hasChange = me.removeNode('top-right');}
+        }
 
         if (hasChange) {
             me.owner.vdom = vdom;
