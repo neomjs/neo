@@ -693,35 +693,23 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered before the controller config gets changed. Creates a ComponentController instance if needed.
+     * Triggered before the controller config gets changed.
+     * Creates a ComponentController instance if needed.
      * @param {Object} value
      * @param {Object} oldValue
+     * @returns {String} id
      * @protected
      */
     beforeSetController(value, oldValue) {
-        let me = this;
-
         if (oldValue) {
             oldValue.destroy();
         }
 
-        if (value) {
-            if (Util.isObject(value) && value instanceof Neo.controller.Component) {
-                // use the provided instance
-                value.view = me;
-            } else if ((value.prototype && value.prototype.constructor.isClass)|| Util.isString(value)) {
-                value = Neo.create(value, {
-                    view: me
-                });
-            } else if (value.ntype) {
-                value.view = me;
-                value = Neo.ntype(value);
-            }
+        value = ClassSystemUtil.beforeSetInstance(value, null, {
+            view: this
+        });
 
-            return value.id;
-        }
-
-        return value;
+        return value && value.id;
     }
 
     /**

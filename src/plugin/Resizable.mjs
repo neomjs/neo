@@ -21,10 +21,10 @@ class Resizable extends Base {
          */
         className: 'Neo.plugin.Resizable',
         /**
-         * @member {String} ntype='resizable'
+         * @member {String} ntype='plugin-resizable'
          * @protected
          */
-        ntype: 'resizable',
+        ntype: 'plugin-resizable',
         /**
          * Directions into which you want to drag => resize
          * @member {String[]} directions_=['b','bl','br','l','r','t','tl','tr']
@@ -38,7 +38,7 @@ class Resizable extends Base {
      */
     constructor(config) {
         super(config);
-        console.log('plugin.Resizable ctor')
+        console.log('plugin.Resizable ctor');
     }
 }
 
