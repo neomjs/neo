@@ -65,7 +65,15 @@ class Resizable extends Base {
     }
 
     onOwnerMounted() {
-        console.log('onOwnerMounted');
+        setTimeout(() => {
+            let me = this;
+
+            Neo.main.DomAccess.getBoundingClientRect({
+                id: me.owner.id
+            }).then(rect => {
+                me.ownerRect = rect;
+            });
+        }, 20);
     }
 }
 
