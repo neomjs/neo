@@ -223,7 +223,7 @@ class DomEvents extends Base {
                 me.dragElementId = target.id;
                 break;
             case 'drop':
-                if (!me.dragElementId || this.dragElementId === target.id) {
+                if (!me.dragElementId || me.dragElementId === target.id) {
                     return; // drop fires twice by default & drop should not trigger on the drag element
                 }
                 if (event.stopPropagation) {
@@ -232,6 +232,9 @@ class DomEvents extends Base {
                 event.preventDefault();
                 config.data.srcId = me.dragElementId;
                 me.dragElementId = null;
+                break;
+            case 'mousemove':
+                Object.assign(config.data, me.getMouseEventData(event));
                 break;
             default:
                 event.preventDefault();
