@@ -17,6 +17,9 @@ const globalDomEvents = [
     'change',
     'click',
     'contextmenu',
+    'drag:end',
+    'drag:move',
+    'drag:start',
     'focusin',
     'focusout',
     'input',
@@ -276,7 +279,7 @@ class DomEvent extends Base {
         if (listeners[id][eventName]) {
             listener = listeners[id][eventName];
 
-            Object.keys(listener).forEach(key => {
+            Object.keys(listener).forEach(key => {console.log(listener[key]);
                 if (
                     listener[key].fn.toString() === fn.toString() && // todo: add a better check
                     listener[key].scope         === scope &&

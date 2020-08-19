@@ -56,7 +56,7 @@ class Resizable extends Base {
      * @param {Object} data
      */
     onMouseMove(data) {
-        console.log('onMouseMove', data);
+        // console.log('onMouseMove', data);
     }
 }
 
