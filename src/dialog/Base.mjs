@@ -426,23 +426,26 @@ class Base extends Panel {
         if (!me.maximized) {
             me.plugins[0].removeAllNodes(); // todo: getPlugin()
 
-            if (!me.dragZone) {
-                me.dragZone = Neo.create({
-                    module             : DragZone,
-                    appName            : me.appName,
-                    boundaryContainerId: me.boundaryContainerId,
-                    dragElement        : me.vdom,
-                    owner              : me
-                });
-            } else {
-                me.dragZone.boundaryContainerId = me.boundaryContainerId;
-            }
+            // we need a short delay to ensure removeAllNodes() => getting the new vnode is done
+            setTimeout(() => {
+                if (!me.dragZone) {
+                    me.dragZone = Neo.create({
+                        module             : DragZone,
+                        appName            : me.appName,
+                        boundaryContainerId: me.boundaryContainerId,
+                        dragElement        : me.vdom,
+                        owner              : me
+                    });
+                } else {
+                    me.dragZone.boundaryContainerId = me.boundaryContainerId;
+                }
 
-            me.dragZone.dragStart(data);
+                me.dragZone.dragStart(data);
 
-            style.opacity = 0.4;
+                style.opacity = 0.4;
 
-            me.wrapperStyle = style;
+                me.wrapperStyle = style;
+            }, 50);
         }
     }
 }
