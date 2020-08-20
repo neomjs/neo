@@ -110,6 +110,9 @@ class Resizable extends Base {
             mousemove: me.onMouseMove,
             local    : true,
             scope    : me
+        }, {
+            mouseleave: me.onMouseLeave,
+            scope     : me
         });
 
         me.owner.domListeners = domListeners;
@@ -182,6 +185,17 @@ class Resizable extends Base {
 
     /**
      *
+     * @param {Object} data
+     */
+    onMouseLeave(data) {
+        // limit the event to delegation targets
+        if (data.path[0].cls.includes(this.delegationCls)) {
+            this.removeAllNodes();
+        }
+    }
+
+    /**
+     *
      */
     removeAllNodes() {
         let me        = this,
@@ -189,7 +203,7 @@ class Resizable extends Base {
             hasChange = false;
 
         Resizable.positions.forEach(position => {
-            hasChange = me.removeNode(position);
+            hasChange = me.removeNode(position) || hasChange;
         });
 
         if (hasChange) {
