@@ -147,39 +147,41 @@ class Resizable extends Base {
             vdom = me.owner.vdom,
             bottom, left, right, target, top;
 
-        for (; i < len; i++) {
-            if (data.path[i].cls.includes(me.delegationCls)) {
-                target = data.path[i];
-                break;
+        if (!me.owner.isDragging) {
+            for (; i < len; i++) {
+                if (data.path[i].cls.includes(me.delegationCls)) {
+                    target = data.path[i];
+                    break;
+                }
             }
-        }
 
-        bottom = data.clientY >= target.rect.y - gap + target.rect.height;
-        left   = data.clientX <= target.rect.x + gap;
-        right  = data.clientX >= target.rect.x - gap + target.rect.width;
-        top    = data.clientY <= target.rect.y + gap;
+            bottom = data.clientY >= target.rect.y - gap + target.rect.height;
+            left   = data.clientX <= target.rect.x + gap;
+            right  = data.clientX >= target.rect.x - gap + target.rect.width;
+            top    = data.clientY <= target.rect.y + gap;
 
-        if      (dir.includes('bl') && bottom && left)  {if (!me.nodeBottomLeft)  {h = me.addNode('bottom-left');}}
-        else if (dir.includes('br') && bottom && right) {if (!me.nodeBottomRight) {h = me.addNode('bottom-right');}}
-        else if (dir.includes('tl') && top    && left)  {if (!me.nodeTopLeft)     {h = me.addNode('top-left');}}
-        else if (dir.includes('tr') && top    && right) {if (!me.nodeTopRight)    {h = me.addNode('top-right');}}
-        else if (dir.includes('b')  && bottom)          {if (!me.nodeBottom)      {h = me.addNode('bottom');}}
-        else if (dir.includes('l')  && left)            {if (!me.nodeLeft)        {h = me.addNode('left');}}
-        else if (dir.includes('r')  && right)           {if (!me.nodeRight)       {h = me.addNode('right');}}
-        else if (dir.includes('t')  && top)             {if (!me.nodeTop)         {h = me.addNode('top');}}
+            if      (dir.includes('bl') && bottom && left)  {if (!me.nodeBottomLeft)  {h = me.addNode('bottom-left');}}
+            else if (dir.includes('br') && bottom && right) {if (!me.nodeBottomRight) {h = me.addNode('bottom-right');}}
+            else if (dir.includes('tl') && top    && left)  {if (!me.nodeTopLeft)     {h = me.addNode('top-left');}}
+            else if (dir.includes('tr') && top    && right) {if (!me.nodeTopRight)    {h = me.addNode('top-right');}}
+            else if (dir.includes('b')  && bottom)          {if (!me.nodeBottom)      {h = me.addNode('bottom');}}
+            else if (dir.includes('l')  && left)            {if (!me.nodeLeft)        {h = me.addNode('left');}}
+            else if (dir.includes('r')  && right)           {if (!me.nodeRight)       {h = me.addNode('right');}}
+            else if (dir.includes('t')  && top)             {if (!me.nodeTop)         {h = me.addNode('top');}}
 
-        if (me.nodeBottom && (!bottom || bottom && left  || bottom && right)) {h = me.removeNode('bottom');}
-        if (me.nodeLeft   && (!left   || bottom && left  || top    && left))  {h = me.removeNode('left');}
-        if (me.nodeRight  && (!right  || bottom && right || top    && right)) {h = me.removeNode('right');}
-        if (me.nodeTop    && (!top    || top    && left  || top    && right)) {h = me.removeNode('top');}
+            if (me.nodeBottom && (!bottom || bottom && left  || bottom && right)) {h = me.removeNode('bottom');}
+            if (me.nodeLeft   && (!left   || bottom && left  || top    && left))  {h = me.removeNode('left');}
+            if (me.nodeRight  && (!right  || bottom && right || top    && right)) {h = me.removeNode('right');}
+            if (me.nodeTop    && (!top    || top    && left  || top    && right)) {h = me.removeNode('top');}
 
-        if (me.nodeBottomLeft  && (!bottom || !left))  {h = me.removeNode('bottom-left');}
-        if (me.nodeBottomRight && (!bottom || !right)) {h = me.removeNode('bottom-right');}
-        if (me.nodeTopLeft     && (!top    || !left))  {h = me.removeNode('top-left');}
-        if (me.nodeTopRight    && (!top    || !right)) {h = me.removeNode('top-right');}
+            if (me.nodeBottomLeft  && (!bottom || !left))  {h = me.removeNode('bottom-left');}
+            if (me.nodeBottomRight && (!bottom || !right)) {h = me.removeNode('bottom-right');}
+            if (me.nodeTopLeft     && (!top    || !left))  {h = me.removeNode('top-left');}
+            if (me.nodeTopRight    && (!top    || !right)) {h = me.removeNode('top-right');}
 
-        if (h) {
-            me.owner.vdom = vdom;
+            if (h) {
+                me.owner.vdom = vdom;
+            }
         }
     }
 

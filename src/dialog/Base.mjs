@@ -59,6 +59,10 @@ class Base extends Panel {
          */
         headerToolbar: null,
         /**
+         * @member {Boolean} isDragging=false
+         */
+        isDragging: false,
+        /**
          * @member {String} maximizeCls='far fa-window-maximize'
          */
         maximizeCls: 'far fa-window-maximize',
@@ -411,6 +415,7 @@ class Base extends Panel {
 
                 // we need a reset, otherwise we do not get a change event for the next onDragStart() call
                 me.dragZone.boundaryContainerId = null;
+                me.isDragging                   = false;
             });
         }
     }
@@ -424,28 +429,26 @@ class Base extends Panel {
                 style = me.wrapperStyle || {};
 
         if (!me.maximized) {
+            me.isDragging = true;
             me.plugins[0].removeAllNodes(); // todo: getPlugin()
 
-            // we need a short delay to ensure removeAllNodes() => getting the new vnode is done
-            setTimeout(() => {
-                if (!me.dragZone) {
-                    me.dragZone = Neo.create({
-                        module             : DragZone,
-                        appName            : me.appName,
-                        boundaryContainerId: me.boundaryContainerId,
-                        dragElement        : me.vdom,
-                        owner              : me
-                    });
-                } else {
-                    me.dragZone.boundaryContainerId = me.boundaryContainerId;
-                }
+            if (!me.dragZone) {
+                me.dragZone = Neo.create({
+                    module             : DragZone,
+                    appName            : me.appName,
+                    boundaryContainerId: me.boundaryContainerId,
+                    dragElement        : me.vdom,
+                    owner              : me
+                });
+            } else {
+                me.dragZone.boundaryContainerId = me.boundaryContainerId;
+            }
 
-                me.dragZone.dragStart(data);
+            me.dragZone.dragStart(data);
 
-                style.opacity = 0.4;
+            style.opacity = 0.4;
 
-                me.wrapperStyle = style;
-            }, 50);
+            me.wrapperStyle = style;
         }
     }
 }
