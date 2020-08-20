@@ -375,7 +375,9 @@ class Helper extends Base {
                 });
             }
         } else if (!newVnode && oldVnode) {
-            movedNode = me.findVnode(newVnodeRoot, oldVnode.id, newVnode);
+            if (newVnodeRoot) {
+                movedNode = me.findVnode(newVnodeRoot, oldVnode.id, newVnode);
+            }
 
             // use case: calendar week view => move an event into a column on the right side
 
