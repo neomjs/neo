@@ -149,7 +149,8 @@
         .neo-textfield-input {
             border       : none;
             border-radius: 0;
-            flex         : 1 1 30px;
+            flex-grow    : 1;
+            flex-shrink  : 1;
             min-height   : 25px;
             width        : 30px;
 
