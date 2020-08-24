@@ -86,6 +86,7 @@ class Split extends Button {
             handler : me.splitButtonHandler,
             iconCls : me.splitButtonIconCls,
             parentId: me.id,
+            pressed : me.pressed,
             ...me.splitButtonConfig || {}
         });
 
@@ -105,6 +106,22 @@ class Split extends Button {
         if (me.splitButton) {
             me.splitButton.iconCls = value;
         }
+    }
+
+    /**
+     * Triggered after the pressed config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetPressed(value, oldValue) {
+        let me = this;
+
+        if (me.splitButton) {
+            me.splitButton.pressed = value;
+        }
+
+        super.afterSetPressed(value, oldValue);
     }
 
     /**
