@@ -1,9 +1,9 @@
-import Button from '../component/Button.mjs';
+import Button from '../button.Base.mjs';
 import Filter from '../collection/Filter.mjs';
 
 /**
  * @class Neo.filter.ToggleOperatorsButton
- * @extends Neo.component.Button
+ * @extends Neo.button.Base
  */
 class ToggleOperatorsButton extends Button {
     static getConfig() {return {

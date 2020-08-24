@@ -339,7 +339,7 @@ class Base {
 
     /**
      * <p>Enhancing the toString() method, e.g.</p>
-     * `Neo.create('Neo.component.Button').toString() => "[object Neo.component.Button (neo-button-1)]"`
+     * `Neo.create('Neo.button.Base').toString() => "[object Neo.button.Base (neo-button-1)]"`
      * @returns {String}
      */
     get [Symbol.toStringTag]() {

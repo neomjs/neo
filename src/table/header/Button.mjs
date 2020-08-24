@@ -1,10 +1,10 @@
-import {default as BaseButton} from '../../component/Button.mjs';
+import {default as BaseButton} from '../../button.Base.mjs';
 import NeoArray                from '../../util/Array.mjs';
 import {default as TextField}  from '../../form/field/Text.mjs';
 
 /**
  * @class Neo.table.header.Button
- * @extends Neo.component.Button
+ * @extends Neo.button.Base
  */
 class Button extends BaseButton {
     static getStaticConfig() {return {

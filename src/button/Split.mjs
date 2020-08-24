@@ -1,4 +1,4 @@
-import {default as Button} from './Base.mjs';
+import Button from './Base.mjs';
 
 /**
  * @class Neo.button.Split

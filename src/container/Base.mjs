@@ -35,7 +35,7 @@ class Base extends Component {
          * An array of config objects|instances|modules for each child component
          * @member {Object[]} items_=[]
          * @example
-         * import Button      from '../component/Button.mjs';
+         * import Button      from '../button.Base.mjs';
          * import MyRedButton from 'myapp/MyRedButton.mjs';
          * import Toolbar     from '../container/Toolbar.mjs';
          *

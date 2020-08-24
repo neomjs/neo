@@ -269,14 +269,14 @@ Neo = self.Neo = Object.assign({
     /**
      * Use Neo.create() instead of "new" to create instances of all Neo classes
      * @example
-     * import Button from './Button.mjs';
+     * import Button from '../button/Base.mjs';
      *
      * Neo.create(Button, {
      *     iconCls: 'fa fa-home',
      *     text   : 'Home'
      * });
      * @example
-     * import Button from './Button.mjs';
+     * import Button from '../button/Base.mjs';
      *
      * Neo.create({
      *     module : Button,
@@ -284,13 +284,13 @@ Neo = self.Neo = Object.assign({
      *     text   : 'Home'
      * });
      * @example
-     * Neo.create('Neo.component.Button' {
+     * Neo.create('Neo.button.Base' {
      *     iconCls: 'fa fa-home',
      *     text   : 'Home'
      * });
      * @example
      * Neo.create({
-     *     className: 'Neo.component.Button',
+     *     className: 'Neo.button.Base',
      *     iconCls  : 'fa fa-home',
      *     text     : 'Home'
      * });
@@ -338,12 +338,12 @@ Neo = self.Neo = Object.assign({
     /**
      * Maps a className string into a global namespace
      * @example
-     * Neo.ns('Neo.component.Button', true);
+     * Neo.ns('Neo.button.Base', true);
      * // =>
      * // self.Neo = self.Neo || {};
      * // self.Neo.component = self.Neo.component || {};
-     * // self.Neo.component.Button = self.Neo.component.Button || {};
-     * // return self.Neo.component.Button;
+     * // self.Neo.button.Base = self.Neo.button.Base || {};
+     * // return self.Neo.button.Base;
      *
      * @memberOf module:Neo
      * @param {Array|String} names The class name string containing dots or an Array of the string parts
