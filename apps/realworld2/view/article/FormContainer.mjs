@@ -1,8 +1,8 @@
-import {default as ChipField} from '../../../../src/form/field/Chip.mjs';
-import Container              from '../../../../src/form/Container.mjs';
-import TextArea               from '../../../../src/form/field/TextArea.mjs';
-import Toolbar                from '../../../../src/container/Toolbar.mjs';
-import {default as TextField} from '../../../../src/form/field/Text.mjs';
+import ChipField from '../../../../src/form/field/Chip.mjs';
+import Container from '../../../../src/form/Container.mjs';
+import TextArea  from '../../../../src/form/field/TextArea.mjs';
+import Toolbar   from '../../../../src/container/Toolbar.mjs';
+import TextField from '../../../../src/form/field/Text.mjs';
 
 /**
  * @class RealWorld2.view.article.FormContainer

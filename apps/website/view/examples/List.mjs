@@ -1,5 +1,5 @@
-import {default as BaseList} from '../../../../src/list/Base.mjs';
-import Examples              from '../../store/Examples.mjs';
+import BaseList from '../../../../src/list/Base.mjs';
+import Examples from '../../store/Examples.mjs';
 
 /**
  * @class Website.view.examples.List
