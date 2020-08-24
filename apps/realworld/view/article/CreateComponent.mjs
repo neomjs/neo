@@ -1,7 +1,7 @@
-import {default as Component}  from '../../../../src/component/Base.mjs';
-import {default as VDomUtil}   from '../../../../src/util/VDom.mjs';
-import {default as VNodeUtil}  from '../../../../src/util/VNode.mjs';
-import {default as ArticleApi} from '../../api/Article.mjs';
+import Component  from '../../../../src/component/Base.mjs';
+import VDomUtil   from '../../../../src/util/VDom.mjs';
+import VNodeUtil  from '../../../../src/util/VNode.mjs';
+import ArticleApi from '../../api/Article.mjs';
 
 /**
  * @class RealWorld.view.article.CreateComponent

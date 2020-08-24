@@ -1,7 +1,7 @@
-import {default as Component} from '../../../../src/component/Base.mjs';
-import NeoArray               from '../../../../src/util/Array.mjs';
-import PreviewComponent       from '../article/PreviewComponent.mjs';
-import {default as VDomUtil}  from '../../../../src/util/VDom.mjs';
+import Component        from '../../../../src/component/Base.mjs';
+import NeoArray         from '../../../../src/util/Array.mjs';
+import PreviewComponent from '../article/PreviewComponent.mjs';
+import VDomUtil         from '../../../../src/util/VDom.mjs';
 
 /**
  * @class RealWorld.view.user.ProfileComponent

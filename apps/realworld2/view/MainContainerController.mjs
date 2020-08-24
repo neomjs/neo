@@ -1,18 +1,18 @@
-import {default as ArticleApi}              from '../api/Article.mjs';
-import {default as ArticleDetailsContainer} from './article/DetailsContainer.mjs';
-import {default as ComponentController}     from '../../../src/controller/Component.mjs';
-import {default as FavoriteApi}             from '../api/Favorite.mjs';
-import FormContainer                        from './article/FormContainer.mjs';
-import GalleryContainer                     from './article/GalleryContainer.mjs';
-import HelixContainer                       from './article/HelixContainer.mjs';
-import HomeContainer                        from './HomeContainer.mjs';
-import LoginFormContainer                   from './user/LoginFormContainer.mjs';
-import {LOCAL_STORAGE_KEY}                  from '../api/config.mjs';
-import {default as ProfileApi}              from '../api/Profile.mjs';
-import ProfileContainer                     from './user/ProfileContainer.mjs';
-import SettingsFormContainer                from './user/SettingsFormContainer.mjs';
-import {default as TagApi}                  from '../api/Tag.mjs';
-import {default as UserApi}                 from '../api/User.mjs';
+import ArticleApi              from '../api/Article.mjs';
+import ArticleDetailsContainer from './article/DetailsContainer.mjs';
+import ComponentController     from '../../../src/controller/Component.mjs';
+import FavoriteApi             from '../api/Favorite.mjs';
+import FormContainer           from './article/FormContainer.mjs';
+import GalleryContainer        from './article/GalleryContainer.mjs';
+import HelixContainer          from './article/HelixContainer.mjs';
+import HomeContainer           from './HomeContainer.mjs';
+import LoginFormContainer      from './user/LoginFormContainer.mjs';
+import {LOCAL_STORAGE_KEY}     from '../api/config.mjs';
+import ProfileApi              from '../api/Profile.mjs';
+import ProfileContainer        from './user/ProfileContainer.mjs';
+import SettingsFormContainer   from './user/SettingsFormContainer.mjs';
+import TagApi                  from '../api/Tag.mjs';
+import UserApi                 from '../api/User.mjs';
 
 /**
  * @class RealWorld2.view.MainContainerController
