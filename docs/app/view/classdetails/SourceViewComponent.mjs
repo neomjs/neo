@@ -1,4 +1,4 @@
-import {default as Component} from '../../../../src/component/Base.mjs';
+import Component from '../../../../src/component/Base.mjs';
 
 /**
  * @class Docs.app.view.classdetails.SourceViewComponent
