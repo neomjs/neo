@@ -1,4 +1,4 @@
-import {default as Dialog} from '../../src/dialog/Base.mjs';
+import Dialog from '../../src/dialog/Base.mjs';
 
 /**
  * @class Window.DemoDialog

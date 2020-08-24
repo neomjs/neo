@@ -1,8 +1,8 @@
-import Gallery                  from '../../../src/component/Gallery.mjs';
-import {default as NumberField} from '../../../src/form/field/Number.mjs';
-import {default as Panel}       from '../../../src/container/Panel.mjs';
-import {default as RangeField}  from '../../../src/form/field/Range.mjs';
-import {default as Viewport}    from '../../../src/container/Viewport.mjs';
+import Gallery     from '../../../src/component/Gallery.mjs';
+import NumberField from '../../../src/form/field/Number.mjs';
+import Panel       from '../../../src/container/Panel.mjs';
+import RangeField  from '../../../src/form/field/Range.mjs';
+import Viewport    from '../../../src/container/Viewport.mjs';
 
 /**
  * @class TestApp.GalleryMainContainer

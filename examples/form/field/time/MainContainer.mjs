@@ -1,9 +1,9 @@
-import CheckBox                 from '../../../../src/form/field/CheckBox.mjs';
-import ConfigurationViewport    from '../../../ConfigurationViewport.mjs';
-import {default as NumberField} from '../../../../src/form/field/Number.mjs';
-import Radio                    from '../../../../src/form/field/Radio.mjs';
-import {default as TextField}   from '../../../../src/form/field/Text.mjs';
-import {default as TimeField}   from '../../../../src/form/field/Time.mjs';
+import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
+import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
+import NumberField           from '../../../../src/form/field/Number.mjs';
+import Radio                 from '../../../../src/form/field/Radio.mjs';
+import TextField             from '../../../../src/form/field/Text.mjs';
+import TimeField             from '../../../../src/form/field/Time.mjs';
 
 /**
  * @class TestApp.MainContainer

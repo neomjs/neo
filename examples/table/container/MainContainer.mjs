@@ -1,14 +1,14 @@
-import CellColumnModel             from '../../../src/selection/table/CellColumnModel.mjs';
-import CellColumnRowModel          from '../../../src/selection/table/CellColumnRowModel.mjs';
-import CellModel                   from '../../../src/selection/table/CellModel.mjs';
-import CellRowModel                from '../../../src/selection/table/CellRowModel.mjs';
-import ConfigurationViewport       from '../../ConfigurationViewport.mjs';
-import ColumnModel                 from '../../../src/selection/table/ColumnModel.mjs';
-import MainStore                   from './MainStore.mjs';
-import {default as NumberField}    from '../../../src/form/field/Number.mjs';
-import Radio                       from '../../../src/form/field/Radio.mjs';
-import RowModel                    from '../../../src/selection/table/RowModel.mjs';
-import {default as TableContainer} from '../../../src/table/Container.mjs';
+import CellColumnModel       from '../../../src/selection/table/CellColumnModel.mjs';
+import CellColumnRowModel    from '../../../src/selection/table/CellColumnRowModel.mjs';
+import CellModel             from '../../../src/selection/table/CellModel.mjs';
+import CellRowModel          from '../../../src/selection/table/CellRowModel.mjs';
+import ConfigurationViewport from '../../ConfigurationViewport.mjs';
+import ColumnModel           from '../../../src/selection/table/ColumnModel.mjs';
+import MainStore             from './MainStore.mjs';
+import NumberField           from '../../../src/form/field/Number.mjs';
+import Radio                 from '../../../src/form/field/Radio.mjs';
+import RowModel              from '../../../src/selection/table/RowModel.mjs';
+import TableContainer        from '../../../src/table/Container.mjs';
 
 /**
  * @class TestApp.MainContainer

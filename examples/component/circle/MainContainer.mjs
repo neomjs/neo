@@ -1,7 +1,7 @@
-import Button                  from '../../../src/button/Base.mjs';
-import Circle                  from '../../../src/component/Circle.mjs';
-import ConfigurationViewport   from '../../ConfigurationViewport.mjs';
-import {default as RangeField} from '../../../src/form/field/Range.mjs';
+import Button                from '../../../src/button/Base.mjs';
+import Circle                from '../../../src/component/Circle.mjs';
+import ConfigurationViewport from '../../ConfigurationViewport.mjs';
+import RangeField            from '../../../src/form/field/Range.mjs';
 
 /**
  * @class TestApp.MainContainer

@@ -1,13 +1,13 @@
-import BooleanContainer         from '../../src/filter/BooleanContainer.mjs';
-import CellModel                from '../../src/selection/table/CellModel.mjs';
-import CheckBox                 from '../../src/form/field/CheckBox.mjs';
-import DateContainer            from '../../src/filter/DateContainer.mjs';
-import DateUtil                 from '../../src/util/Date.mjs';
-import MainStore                from './MainStore.mjs';
-import NumberContainer          from '../../src/filter/NumberContainer.mjs';
-import {default as SelectField} from '../../src/form/field/Select.mjs';
-import TableContainer           from '../../src/table/Container.mjs';
-import Viewport                 from '../../src/container/Viewport.mjs';
+import BooleanContainer from '../../src/filter/BooleanContainer.mjs';
+import CellModel        from '../../src/selection/table/CellModel.mjs';
+import CheckBox         from '../../src/form/field/CheckBox.mjs';
+import DateContainer    from '../../src/filter/DateContainer.mjs';
+import DateUtil         from '../../src/util/Date.mjs';
+import MainStore        from './MainStore.mjs';
+import NumberContainer  from '../../src/filter/NumberContainer.mjs';
+import SelectField      from '../../src/form/field/Select.mjs';
+import TableContainer   from '../../src/table/Container.mjs';
+import Viewport         from '../../src/container/Viewport.mjs';
 
 /**
  * @class TableFiltering.MainContainer
