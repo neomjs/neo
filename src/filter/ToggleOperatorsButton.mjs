@@ -1,4 +1,4 @@
-import Button from '../button.Base.mjs';
+import Button from '../button/Base.mjs';
 import Filter from '../collection/Filter.mjs';
 
 /**

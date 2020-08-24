@@ -1,4 +1,4 @@
-import Button                 from '../button.Base.mjs';
+import Button                 from '../button/Base.mjs';
 import {default as Component} from '../component/Base.mjs';
 import {default as Container} from './Base.mjs';
 import Label                  from '../component/Label.mjs';

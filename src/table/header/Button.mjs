@@ -1,4 +1,4 @@
-import {default as BaseButton} from '../../button.Base.mjs';
+import {default as BaseButton} from '../../button/Base.mjs';
 import NeoArray                from '../../util/Array.mjs';
 import {default as TextField}  from '../../form/field/Text.mjs';
 
