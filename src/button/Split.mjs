@@ -82,6 +82,7 @@ class Split extends Button {
 
         me.splitButton = Neo.create({
             module : Button,
+            handler: me.splitButtonHandler,
             iconCls: me.splitButtonIconCls,
             ...me.splitButtonConfig || {}
         });
@@ -102,6 +103,14 @@ class Split extends Button {
         if (me.splitButton) {
             me.splitButton.iconCls = value;
         }
+    }
+
+    /**
+     * Override as needed or pass a controller based handler into splitButtonConfig
+     * @param {Object} data
+     */
+    splitButtonHandler(data) {
+
     }
 }
 
