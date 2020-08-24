@@ -1,5 +1,5 @@
-import DragZone              from '../../draggable/DragZone.mjs';
-import {default as VDomUtil} from '../../util/VDom.mjs';
+import DragZone from '../../draggable/DragZone.mjs';
+import VDomUtil from '../../util/VDom.mjs';
 
 /**
  * @class Neo.calendar.draggable.WeekEventDragZone

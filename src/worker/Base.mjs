@@ -1,7 +1,7 @@
-import {default as CoreBase} from '../core/Base.mjs';
-import Observable            from '../core/Observable.mjs';
-import Message               from './Message.mjs';
-import RemoteMethodAccess    from './mixin/RemoteMethodAccess.mjs';
+import CoreBase           from '../core/Base.mjs';
+import Observable         from '../core/Observable.mjs';
+import Message            from './Message.mjs';
+import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
 
 /**
  * The abstract base class for the App, Data & VDom worker

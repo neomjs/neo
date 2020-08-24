@@ -1,4 +1,4 @@
-import {default as Container} from './Base.mjs';
+import Container from './Base.mjs';
 
 /**
  * @class Neo.container.Viewport

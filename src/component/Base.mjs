@@ -1,15 +1,15 @@
-import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
-import {default as CoreBase}        from '../core/Base.mjs';
-import ComponentManager             from '../manager/Component.mjs';
-import DomEventManager              from '../manager/DomEvent.mjs';
-import KeyNavigation                from '../util/KeyNavigation.mjs';
-import Logger                       from '../core/Logger.mjs';
-import NeoArray                     from '../util/Array.mjs';
-import Observable                   from '../core/Observable.mjs';
-import Style                        from '../util/Style.mjs';
-import Util                         from '../core/Util.mjs';
-import {default as VDomUtil}        from '../util/VDom.mjs';
-import {default as VNodeUtil}       from '../util/VNode.mjs';
+import ClassSystemUtil  from '../util/ClassSystem.mjs';
+import CoreBase         from '../core/Base.mjs';
+import ComponentManager from '../manager/Component.mjs';
+import DomEventManager  from '../manager/DomEvent.mjs';
+import KeyNavigation    from '../util/KeyNavigation.mjs';
+import Logger           from '../core/Logger.mjs';
+import NeoArray         from '../util/Array.mjs';
+import Observable       from '../core/Observable.mjs';
+import Style            from '../util/Style.mjs';
+import Util             from '../core/Util.mjs';
+import VDomUtil         from '../util/VDom.mjs';
+import VNodeUtil        from '../util/VNode.mjs';
 
 /**
  * @class Neo.component.Base

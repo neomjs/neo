@@ -1,4 +1,4 @@
-import {default as CollectionBase} from '../collection/Base.mjs';
+import CollectionBase from '../collection/Base.mjs';
 
 /**
  * Abstract base class for the other manager classes
