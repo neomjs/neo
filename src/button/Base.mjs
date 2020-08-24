@@ -1,11 +1,11 @@
-import {default as Component} from '../component/Base.mjs';
-import NeoArray               from '../util/Array.mjs';
+import Component from '../component/Base.mjs';
+import NeoArray  from '../util/Array.mjs';
 
 /**
  * @class Neo.button.Base
  * @extends Neo.component.Base
  */
-class Button extends Component {
+class Base extends Component {
     static getStaticConfig() {return {
         /**
          * Valid values for iconPosition
@@ -339,6 +339,6 @@ class Button extends Component {
     }
 }
 
-Neo.applyClassConfig(Button);
+Neo.applyClassConfig(Base);
 
-export {Button as default};
+export {Base as default};
