@@ -108,6 +108,16 @@ class Split extends Button {
     }
 
     /**
+     *
+     * @param {Boolean} [updateParentVdom=false]
+     * @param {Boolean} [silent=false]
+     */
+    destroy(updateParentVdom = false, silent = false) {
+        this.splitButton.destroy(); // default opts => no parent update
+        super.destroy(updateParentVdom, silent);
+    }
+
+    /**
      * Override as needed or pass a controller based handler into splitButtonConfig
      * @param {Object} data
      */
