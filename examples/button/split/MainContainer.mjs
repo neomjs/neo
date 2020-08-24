@@ -101,8 +101,11 @@ class MainContainer extends ConfigurationViewport {
             text   : 'Hello World',
 
             handler: data => {
-                let button = Neo.getComponent(data.target.id);
-                console.log('button click =>', button.id);
+                console.log('button click =>', data.component.id);
+            },
+
+            splitButtonHandler: data => {
+                console.log('split button click =>', data.component.id);
             }
         });
     }
