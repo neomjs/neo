@@ -1,10 +1,10 @@
-import HeaderComponent          from './HeaderComponent.mjs';
-import HierarchyTreeList        from './HierarchyTreeList.mjs';
-import {default as Container}   from '../../../../src/container/Base.mjs';
-import MainContainerController  from './MainContainerController.mjs';
-import MembersList              from './MembersList.mjs';
-import Panel                    from '../../../../src/container/Panel.mjs';
-import {default as SearchField} from '../../../../src/form/field/Search.mjs';
+import Container               from '../../../../src/container/Base.mjs';
+import HeaderComponent         from './HeaderComponent.mjs';
+import HierarchyTreeList       from './HierarchyTreeList.mjs';
+import MainContainerController from './MainContainerController.mjs';
+import MembersList             from './MembersList.mjs';
+import Panel                   from '../../../../src/container/Panel.mjs';
+import SearchField             from '../../../../src/form/field/Search.mjs';
 
 /**
  * @class Docs.app.view.classdetails.MainContainer

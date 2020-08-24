@@ -1,5 +1,5 @@
-import Container                 from '../../../src/tab/Container.mjs';
-import {default as HeaderButton} from '../../../src/tab/header/Button.mjs';
+import Container    from '../../../src/tab/Container.mjs';
+import HeaderButton from '../../../src/tab/header/Button.mjs';
 
 /**
  * @class Docs.app.view.ContentTabContainer

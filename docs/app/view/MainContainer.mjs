@@ -1,14 +1,14 @@
-import ApiTreeList                        from './ApiTreeList.mjs';
-import {default as ClassDetailsContainer} from './classdetails/MainContainer.mjs';
-import {default as Collection}            from '../../../src/collection/Base.mjs';
-import ContentTabContainer                from './ContentTabContainer.mjs';
-import ExamplesTreeList                   from './ExamplesTreeList.mjs';
-import HeaderContainer                    from './HeaderContainer.mjs';
-import MainContainerController            from './MainContainerController.mjs';
-import SourceViewComponent                from './classdetails/SourceViewComponent.mjs';
-import TutorialComponent                  from './classdetails/TutorialComponent.mjs';
-import TutorialsTreeList                  from './TutorialsTreeList.mjs';
-import Viewport                           from '../../../src/container/Viewport.mjs';
+import ApiTreeList             from './ApiTreeList.mjs';
+import ClassDetailsContainer   from './classdetails/MainContainer.mjs';
+import Collection              from '../../../src/collection/Base.mjs';
+import ContentTabContainer     from './ContentTabContainer.mjs';
+import ExamplesTreeList        from './ExamplesTreeList.mjs';
+import HeaderContainer         from './HeaderContainer.mjs';
+import MainContainerController from './MainContainerController.mjs';
+import SourceViewComponent     from './classdetails/SourceViewComponent.mjs';
+import TutorialComponent       from './classdetails/TutorialComponent.mjs';
+import TutorialsTreeList       from './TutorialsTreeList.mjs';
+import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Docs.app.view.MainContainer
