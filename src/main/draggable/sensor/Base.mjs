@@ -1,4 +1,4 @@
-import {default as CoreBase} from '../../../core/Base.mjs';
+import CoreBase from '../../../core/Base.mjs';
 
 /**
  * Abstract base class for other sensors

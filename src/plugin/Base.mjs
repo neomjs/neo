@@ -1,4 +1,4 @@
-import {default as CoreBase} from '../core/Base.mjs';
+import CoreBase from '../core/Base.mjs';
 
 /**
  * Plugins are intended to get put into the plugins config of component.Base

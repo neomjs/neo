@@ -1,6 +1,6 @@
-import {default as CheckBoxField} from '../../../form/field/CheckBox.mjs';
-import {default as Container}     from '../../../container/Base.mjs';
-import {default as RadioField}    from '../../../form/field/Radio.mjs';
+import CheckBoxField from '../../../form/field/CheckBox.mjs';
+import Container     from '../../../container/Base.mjs';
+import RadioField    from '../../../form/field/Radio.mjs';
 
 /**
  * @class Neo.calendar.view.settings.MonthContainer

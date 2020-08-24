@@ -1,4 +1,4 @@
-import {default as BaseButton} from '../../button/Base.mjs';
+import BaseButton from '../../button/Base.mjs';
 
 /**
  * @class Neo.tab.header.Button

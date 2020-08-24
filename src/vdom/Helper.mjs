@@ -1,6 +1,6 @@
-import Base                   from '../core/Base.mjs';
-import VNode                  from './VNode.mjs';
-import {default as VNodeUtil} from '../util/VNode.mjs';
+import Base      from '../core/Base.mjs';
+import VNode     from './VNode.mjs';
+import VNodeUtil from '../util/VNode.mjs';
 
 /**
  * The central class for the VDom worker to create vnodes & delta updates.

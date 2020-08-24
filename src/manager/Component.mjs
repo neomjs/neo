@@ -1,5 +1,5 @@
-import Base                   from './Base.mjs';
-import {default as VNodeUtil} from '../util/VNode.mjs';
+import Base      from './Base.mjs';
+import VNodeUtil from '../util/VNode.mjs';
 
 /**
  * @class Neo.manager.Component

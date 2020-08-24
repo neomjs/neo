@@ -1,8 +1,8 @@
-import Neo                       from '../Neo.mjs';
-import Base                      from './Base.mjs';
-import {default as StoreManager} from '../manager/Store.mjs';
-import Util                      from '../core/Util.mjs';
-import Xhr                       from '../Xhr.mjs';
+import Neo          from '../Neo.mjs';
+import Base         from './Base.mjs';
+import StoreManager from '../manager/Store.mjs';
+import Util         from '../core/Util.mjs';
+import Xhr          from '../Xhr.mjs';
 
 /**
  * The Data worker is responsible to handle all of the communication to the backend (e.g. Ajax-calls).
