@@ -54,6 +54,24 @@ class Split extends Button {
     getVnodeRoot() {
         return this.vnode.childNodes[0];
     }
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me   = this,
+            vdom = me.vdom;
+
+        me.splitButton = Neo.create({
+            module: Button
+        });
+
+        vdom.cn.push(me.splitButton.vdom);
+        me.vdom = vdom;
+    }
 }
 
 Neo.applyClassConfig(Split);
