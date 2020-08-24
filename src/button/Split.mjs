@@ -81,8 +81,9 @@ class Split extends Button {
             vdom = me.vdom;
 
         me.splitButton = Neo.create({
-            appName : me.appName,
             module  : Button,
+            appName : me.appName,
+            disabled: me.disabled,
             handler : me.splitButtonHandler,
             iconCls : me.splitButtonIconCls,
             parentId: me.id,
@@ -95,17 +96,19 @@ class Split extends Button {
     }
 
     /**
-     * Triggered after the splitButtonIconCls config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * Triggered after the disabled config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
      * @protected
      */
-    afterSetSplitButtonIconCls(value, oldValue) {
+    afterSetDisabled(value, oldValue) {
         let me = this;
 
         if (me.splitButton) {
-            me.splitButton.iconCls = value;
+            me.splitButton.disabled = value;
         }
+
+        super.afterSetDisabled(value, oldValue);
     }
 
     /**
@@ -122,6 +125,20 @@ class Split extends Button {
         }
 
         super.afterSetPressed(value, oldValue);
+    }
+
+    /**
+     * Triggered after the splitButtonIconCls config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetSplitButtonIconCls(value, oldValue) {
+        let me = this;
+
+        if (me.splitButton) {
+            me.splitButton.iconCls = value;
+        }
     }
 
     /**
