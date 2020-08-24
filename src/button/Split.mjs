@@ -23,6 +23,19 @@ class Split extends Button {
          */
         cls: ['neo-split-button', 'neo-button'],
         /**
+         * Read only, it will get created inside the ctor.
+         * Use splitButtonConfig to pass initial config for it.
+         * @member {Neo.button.Base|null} splitButton=null
+         * @protected
+         */
+        splitButton: null,
+        /**
+         * Configs to apply to the split button instance
+         * @member {Object|null} splitButton=null
+         * @protected
+         */
+        splitButtonConfig: null,
+        /**
          * @member {String} _vdom
          */
         _vdom: {
@@ -66,7 +79,8 @@ class Split extends Button {
             vdom = me.vdom;
 
         me.splitButton = Neo.create({
-            module: Button
+            module: Button,
+            ...me.splitButtonConfig || {}
         });
 
         vdom.cn.push(me.splitButton.vdom);
