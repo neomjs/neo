@@ -1,8 +1,8 @@
-import Button from '../component/Button.mjs';
+import {default as Button} from './Base.mjs';
 
 /**
  * @class Neo.button.Split
- * @extends Neo.component.Button
+ * @extends Neo.button.Base
  */
 class Split extends Button {
     static getConfig() {return {
