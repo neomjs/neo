@@ -1,5 +1,5 @@
-import {default as BaseGallery} from '../../../../src/component/Gallery.mjs';
-import PreviewComponent         from './PreviewComponent.mjs';
+import BaseGallery      from '../../../../src/component/Gallery.mjs';
+import PreviewComponent from './PreviewComponent.mjs';
 
 /**
  * @class RealWorld2.view.article.Gallery

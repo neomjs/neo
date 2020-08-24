@@ -1,5 +1,5 @@
-import {default as HistoricalDataModel} from '../model/HistoricalData.mjs';
-import Store                            from '../../../src/data/Store.mjs';
+import HistoricalDataModel from '../model/HistoricalData.mjs';
+import Store               from '../../../src/data/Store.mjs';
 
 /**
  * @class SharedCovid.store.HistoricalData

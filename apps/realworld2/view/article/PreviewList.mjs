@@ -1,6 +1,6 @@
-import ArticlePreviews   from '../../store/ArticlePreviews.mjs'
-import {default as List} from '../../../../src/list/Base.mjs';
-import PreviewComponent  from './PreviewComponent.mjs';
+import ArticlePreviews  from '../../store/ArticlePreviews.mjs'
+import List             from '../../../../src/list/Base.mjs';
+import PreviewComponent from './PreviewComponent.mjs';
 
 /**
  * @class RealWorld2.view.article.PreviewList

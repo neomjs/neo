@@ -1,4 +1,4 @@
-import {default as AmChartComponent} from '../../../src/component/wrapper/AmChart.mjs';
+import AmChartComponent from '../../../src/component/wrapper/AmChart.mjs';
 
 /**
  * @class SharedCovid.view.WorldMapComponent

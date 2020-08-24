@@ -1,4 +1,4 @@
-import {default as Container}   from '../../../src/container/Base.mjs';
+import Container from '../../../src/container/Base.mjs';
 
 /**
  * @class Covid.view.FooterContainer

@@ -1,4 +1,4 @@
-import {default as BaseComponent} from '../../../../src/component/wrapper/MapboxGL.mjs';
+import BaseComponent from '../../../../src/component/wrapper/MapboxGL.mjs';
 
 /**
  * @class Covid.view.mapboxGl.Component
