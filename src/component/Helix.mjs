@@ -1,10 +1,10 @@
-import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
-import {default as Collection}      from '../collection/Base.mjs'
-import {default as Component}       from './Base.mjs';
-import HelixModel                   from '../selection/HelixModel.mjs';
-import Matrix                       from '../util/Matrix.mjs';
-import NeoArray                     from '../util/Array.mjs';
-import Store                        from '../data/Store.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import Collection      from '../collection/Base.mjs'
+import Component       from './Base.mjs';
+import HelixModel      from '../selection/HelixModel.mjs';
+import Matrix          from '../util/Matrix.mjs';
+import NeoArray        from '../util/Array.mjs';
+import Store           from '../data/Store.mjs';
 
 const itemsMounted = Symbol.for('itemsMounted');
 const lockWheel    = Symbol.for('lockWheel'); // we can not use itemsMounted, since it is connected to onSort()

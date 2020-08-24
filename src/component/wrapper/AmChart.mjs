@@ -1,5 +1,5 @@
-import {default as Component} from '../Base.mjs';
-import Logger                 from '../../core/Logger.mjs';
+import Component from '../Base.mjs';
+import Logger    from '../../core/Logger.mjs';
 
 /**
  * Convenience class to render an amChart

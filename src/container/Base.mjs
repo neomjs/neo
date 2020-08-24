@@ -1,11 +1,11 @@
-import {default as Component} from '../component/Base.mjs';
-import LayoutBase             from '../layout/Base.mjs';
-import LayoutCard             from '../layout/Card.mjs';
-import LayoutFit              from '../layout/Fit.mjs';
-import LayoutHbox             from '../layout/HBox.mjs';
-import LayoutVBox             from '../layout/VBox.mjs';
-import Logger                 from '../core/Logger.mjs';
-import NeoArray               from '../util/Array.mjs';
+import Component  from '../component/Base.mjs';
+import LayoutBase from '../layout/Base.mjs';
+import LayoutCard from '../layout/Card.mjs';
+import LayoutFit  from '../layout/Fit.mjs';
+import LayoutHbox from '../layout/HBox.mjs';
+import LayoutVBox from '../layout/VBox.mjs';
+import Logger     from '../core/Logger.mjs';
+import NeoArray   from '../util/Array.mjs';
 
 /**
  * @class Neo.container.Base

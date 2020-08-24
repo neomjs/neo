@@ -1,9 +1,9 @@
-import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
-import {default as Collection}      from '../collection/Base.mjs';
-import {default as Component}       from '../component/Base.mjs';
-import ListModel                    from '../selection/ListModel.mjs';
-import NeoArray                     from '../util/Array.mjs';
-import Store                        from '../data/Store.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import Collection      from '../collection/Base.mjs';
+import Component       from '../component/Base.mjs';
+import ListModel       from '../selection/ListModel.mjs';
+import NeoArray        from '../util/Array.mjs';
+import Store           from '../data/Store.mjs';
 
 /**
  * @class Neo.list.Base

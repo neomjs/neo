@@ -1,9 +1,9 @@
-import Base                          from '../core/Base.mjs';
-import {default as ComponentManager} from './Component.mjs';
-import {default as FocusManager}     from './Focus.mjs';
-import Logger                        from '../core/Logger.mjs';
-import NeoArray                      from '../util/Array.mjs';
-import {default as VDomUtil}         from '../util/VDom.mjs';
+import Base             from '../core/Base.mjs';
+import ComponentManager from './Component.mjs';
+import FocusManager     from './Focus.mjs';
+import Logger           from '../core/Logger.mjs';
+import NeoArray         from '../util/Array.mjs';
+import VDomUtil         from '../util/VDom.mjs';
 
 const eventConfigKeys = [
     'bubble',

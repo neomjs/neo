@@ -1,4 +1,4 @@
-import {default as Component} from './Base.mjs';
+import Component from './Base.mjs';
 
 /**
  * Convenience class to render a label with a text

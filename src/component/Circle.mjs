@@ -1,9 +1,9 @@
-import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
-import CircleModel                  from '../selection/CircleModel.mjs';
-import {default as Collection}      from '../collection/Base.mjs';
-import {default as Component}       from './Base.mjs';
-import NeoArray                     from '../util/Array.mjs';
-import {default as VDomUtil}        from '../util/VDom.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import CircleModel     from '../selection/CircleModel.mjs';
+import Collection      from '../collection/Base.mjs';
+import Component       from './Base.mjs';
+import NeoArray        from '../util/Array.mjs';
+import VDomUtil        from '../util/VDom.mjs';
 
 /**
  * @class Neo.component.Circle

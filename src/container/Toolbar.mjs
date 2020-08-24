@@ -1,8 +1,8 @@
-import Button                 from '../button/Base.mjs';
-import {default as Component} from '../component/Base.mjs';
-import {default as Container} from './Base.mjs';
-import Label                  from '../component/Label.mjs';
-import NeoArray               from '../util/Array.mjs';
+import Button    from '../button/Base.mjs';
+import Component from '../component/Base.mjs';
+import Container from './Base.mjs';
+import Label     from '../component/Label.mjs';
+import NeoArray  from '../util/Array.mjs';
 
 /**
  * @class Neo.container.Toolbar

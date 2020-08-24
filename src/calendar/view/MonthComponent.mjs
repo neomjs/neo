@@ -1,7 +1,7 @@
-import {default as Component} from '../../component/Base.mjs';
-import DateUtil               from '../../util/Date.mjs';
-import NeoArray               from '../../util/Array.mjs';
-import {default as VDomUtil}  from '../../util/VDom.mjs';
+import Component from '../../component/Base.mjs';
+import DateUtil  from '../../util/Date.mjs';
+import NeoArray  from '../../util/Array.mjs';
+import VDomUtil  from '../../util/VDom.mjs';
 
 const todayDate = new Date();
 

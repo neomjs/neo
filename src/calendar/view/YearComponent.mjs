@@ -1,6 +1,6 @@
-import {default as Component} from '../../component/Base.mjs';
-import DateUtil               from '../../util/Date.mjs';
-import NeoArray               from '../../util/Array.mjs';
+import Component from '../../component/Base.mjs';
+import DateUtil  from '../../util/Date.mjs';
+import NeoArray  from '../../util/Array.mjs';
 
 const todayDate = new Date();
 

@@ -1,4 +1,4 @@
-import {default as Component} from '../../component/Base.mjs';
+import Component from '../../component/Base.mjs';
 
 /**
  * Abstract base class for form fields

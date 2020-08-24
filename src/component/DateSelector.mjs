@@ -1,9 +1,9 @@
-import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
-import {default as Component}       from './Base.mjs';
-import DateSelectorModel            from '../selection/DateSelectorModel.mjs';
-import DateUtil                     from '../util/Date.mjs';
-import NeoArray                     from '../util/Array.mjs';
-import {default as VDomUtil}        from '../util/VDom.mjs';
+import ClassSystemUtil   from '../util/ClassSystem.mjs';
+import Component         from './Base.mjs';
+import DateSelectorModel from '../selection/DateSelectorModel.mjs';
+import DateUtil          from '../util/Date.mjs';
+import NeoArray          from '../util/Array.mjs';
+import VDomUtil          from '../util/VDom.mjs';
 
 const todayDate = new Date();
 
