@@ -36,6 +36,11 @@ class Split extends Button {
          */
         splitButtonConfig: null,
         /**
+         * The CSS class to use for the SplitButton icon, e.g. 'fa fa-home'
+         * @member {String|null} [iconCls_='fa fa-home']
+         */
+        splitButtonIconCls_: 'fa fa-home',
+        /**
          * @member {String} _vdom
          */
         _vdom: {
@@ -80,12 +85,27 @@ class Split extends Button {
             vdom = me.vdom;
 
         me.splitButton = Neo.create({
-            module: Button,
+            module : Button,
+            iconCls: me.splitButtonIconCls,
             ...me.splitButtonConfig || {}
         });
 
         vdom.cn.push(me.splitButton.vdom);
         me.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the splitButtonIconCls config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetSplitButtonIconCls(value, oldValue) {
+        let me = this;
+
+        if (me.splitButton) {
+            me.splitButton.iconCls = value;
+        }
     }
 }
 
