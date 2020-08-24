@@ -1,6 +1,8 @@
 import Button from './Base.mjs';
 
 /**
+ * A wrapper div containing 2 Buttons.
+ * We are extending button.Base and are using getVdomRoot() to map the main Button into the first vdom child.
  * @class Neo.button.Split
  * @extends Neo.button.Base
  */
