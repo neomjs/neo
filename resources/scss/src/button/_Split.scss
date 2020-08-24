@@ -1,3 +1,16 @@
-.neo-split-button-wrapper {
-    display: flex;
+.neo-split-button {
+    border       : v(button-border);
+    border-radius: v(button-border-radius);
+    display      : flex;
+    width        : fit-content;
+
+    .neo-button {
+        border : none;
+        margin : 0;
+        padding: .5em;
+
+        &:last-child {
+            border-left: v(button-border);;
+        }
+    }
 }

@@ -19,10 +19,6 @@ class Split extends Button {
          */
         ntype: 'split-button',
         /**
-         * @member {String[]} cls=['neo-split-button','neo-button']
-         */
-        cls: ['neo-split-button', 'neo-button'],
-        /**
          * Read only, it will get created inside the ctor.
          * Use splitButtonConfig to pass initial config for it.
          * @member {Neo.button.Base|null} splitButton=null
@@ -44,7 +40,7 @@ class Split extends Button {
          * @member {String} _vdom
          */
         _vdom: {
-            cls: ['neo-split-button-wrapper'],
+            cls: ['neo-split-button'],
             cn : [{
                 tag: 'button',
                 cn : [{
