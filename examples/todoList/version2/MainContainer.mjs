@@ -1,4 +1,4 @@
-import Button                 from '../../../src/button.Base.mjs';
+import Button                 from '../../../src/button/Base.mjs';
 import {default as Container} from '../../../src/container/Base.mjs';
 import NeoArray               from '../../../src/util/Array.mjs';
 import {default as VdomUtil}  from '../../../src/util/VDom.mjs';

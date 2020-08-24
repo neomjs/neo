@@ -1,4 +1,4 @@
-import Button     from '../../src/button.Base.mjs';
+import Button     from '../../src/button/Base.mjs';
 import CheckBox   from '../../src/form/field/CheckBox.mjs';
 import Toolbar    from '../../src/container/Toolbar.mjs';
 import DemoDialog from './DemoDialog.mjs';

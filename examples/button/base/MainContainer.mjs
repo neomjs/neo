@@ -1,4 +1,4 @@
-import Button                   from '../../../src/button.Base.mjs';
+import Button                   from '../../../src/button/Base.mjs';
 import ConfigurationViewport    from '../../ConfigurationViewport.mjs';
 import Radio                    from '../../../src/form/field/Radio.mjs';
 import {default as NumberField} from '../../../src/form/field/Number.mjs';
