@@ -16,7 +16,7 @@
         "isLeaf"  : true,
         "name"    : "Button",
         "parentId": 2,
-        "path"    : "../../../examples/component/button/MainContainer.mjs"
+        "path"    : "../../../examples/button/base/MainContainer.mjs"
     },
     {
         "id"      : 4,
