@@ -1,8 +1,8 @@
-import {default as BaseContainer} from '../container/Base.mjs';
-import {default as HeaderButton}  from './header/Button.mjs';
-import {default as HeaderToolbar} from './header/Toolbar.mjs';
-import NeoArray                   from '../util/Array.mjs';
-import Strip                      from './Strip.mjs';
+import BaseContainer from '../container/Base.mjs';
+import HeaderButton  from './header/Button.mjs';
+import HeaderToolbar from './header/Toolbar.mjs';
+import NeoArray      from '../util/Array.mjs';
+import Strip         from './Strip.mjs';
 
 /**
  * @class Neo.tab.Container

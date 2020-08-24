@@ -1,10 +1,10 @@
-import {default as BaseContainer}   from '../container/Base.mjs';
-import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
-import Css                          from '../util/Css.mjs';
-import NeoArray                     from '../util/Array.mjs';
-import RowModel                     from '../selection/table/RowModel.mjs';
-import Store                        from '../data/Store.mjs';
-import View                         from './View.mjs';
+import BaseContainer   from '../container/Base.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import Css             from '../util/Css.mjs';
+import NeoArray        from '../util/Array.mjs';
+import RowModel        from '../selection/table/RowModel.mjs';
+import Store           from '../data/Store.mjs';
+import View            from './View.mjs';
 import * as header from './header/_export.mjs';
 
 /**

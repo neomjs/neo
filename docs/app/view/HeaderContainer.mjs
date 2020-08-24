@@ -1,6 +1,6 @@
-import {default as Container}   from '../../../src/container/Base.mjs';
-import Button                   from '../../../src/button/Base.mjs';
-import {default as SearchField} from '../../../src/form/field/Search.mjs';
+import Container   from '../../../src/container/Base.mjs';
+import Button      from '../../../src/button/Base.mjs';
+import SearchField from '../../../src/form/field/Search.mjs';
 
 /**
  * @class Docs.app.view.HeaderContainer

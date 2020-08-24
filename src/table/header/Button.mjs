@@ -1,6 +1,6 @@
-import {default as BaseButton} from '../../button/Base.mjs';
-import NeoArray                from '../../util/Array.mjs';
-import {default as TextField}  from '../../form/field/Text.mjs';
+import BaseButton from '../../button/Base.mjs';
+import NeoArray   from '../../util/Array.mjs';
+import TextField  from '../../form/field/Text.mjs';
 
 /**
  * @class Neo.table.header.Button

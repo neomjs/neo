@@ -1,7 +1,7 @@
-import {default as Collection}  from '../../collection/Base.mjs';
-import {default as List}        from '../../list/Base.mjs';
-import Picker                   from './Picker.mjs';
-import {default as TimeTrigger} from './trigger/Time.mjs';
+import Collection  from '../../collection/Base.mjs';
+import List        from '../../list/Base.mjs';
+import Picker      from './Picker.mjs';
+import TimeTrigger from './trigger/Time.mjs';
 
 /**
  *

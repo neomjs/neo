@@ -1,5 +1,5 @@
-import Base                       from './Base.mjs';
-import {default as ChipComponent} from '../component/Chip.mjs';
+import Base          from './Base.mjs';
+import ChipComponent from '../component/Chip.mjs';
 
 /**
  * @class Neo.list.Chip

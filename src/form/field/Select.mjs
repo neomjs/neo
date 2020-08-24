@@ -1,8 +1,8 @@
-import {default as ClassSystemUtil} from '../../util/ClassSystem.mjs';
-import {default as List}            from '../../list/Base.mjs';
-import Picker                       from './Picker.mjs';
-import Store                        from '../../data/Store.mjs';
-import {default as VDomUtil}        from '../../util/VDom.mjs';
+import ClassSystemUtil from '../../util/ClassSystem.mjs';
+import List            from '../../list/Base.mjs';
+import Picker          from './Picker.mjs';
+import Store           from '../../data/Store.mjs';
+import VDomUtil        from '../../util/VDom.mjs';
 
 /**
  * Provides a drop down list to select one or multiple items

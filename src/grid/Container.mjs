@@ -1,4 +1,4 @@
-import {default as BaseContainer} from '../container/Base.mjs';
+import BaseContainer from '../container/Base.mjs';
 
 /**
  * @class Neo.grid.Container
