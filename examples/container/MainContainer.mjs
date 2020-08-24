@@ -1,5 +1,5 @@
-import Button                 from '../../src/button/Base.mjs';
-import {default as Container} from '../../src/container/Base.mjs';
+import Button    from '../../src/button/Base.mjs';
+import Container from '../../src/container/Base.mjs';
 
 /**
  * @class TestApp.MainContainer

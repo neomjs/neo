@@ -1,8 +1,8 @@
-import Button                 from '../src/button/Base.mjs';
-import {default as Container} from '../src/container/Base.mjs';
-import NeoArray               from '../src/util/Array.mjs';
-import Panel                  from '../src/container/Panel.mjs';
-import Viewport               from '../src/container/Viewport.mjs';
+import Button    from '../src/button/Base.mjs';
+import Container from '../src/container/Base.mjs';
+import NeoArray  from '../src/util/Array.mjs';
+import Panel     from '../src/container/Panel.mjs';
+import Viewport  from '../src/container/Viewport.mjs';
 
 /**
  * Base class for example Apps which should be configurable

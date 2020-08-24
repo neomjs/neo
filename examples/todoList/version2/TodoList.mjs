@@ -1,4 +1,4 @@
-import {default as List} from '../../../src/list/Base.mjs';
+import List from '../../../src/list/Base.mjs';
 
 /**
  * @class TodoListApp2.TodoList

@@ -1,12 +1,9 @@
-import Button                 from '../../../src/button/Base.mjs';
-import {default as Container} from '../../../src/container/Base.mjs';
-import NeoArray               from '../../../src/util/Array.mjs';
-import {default as VdomUtil}  from '../../../src/util/VDom.mjs';
-import {default as TextField} from '../../../src/form/field/Text.mjs';
-import TodoList               from './TodoList.mjs';
-import TodoListStore          from './TodoListStore.mjs';
-import Toolbar                from '../../../src/container/Toolbar.mjs';
-import Viewport               from '../../../src/container/Viewport.mjs';
+import Button        from '../../../src/button/Base.mjs';
+import Container     from '../../../src/container/Base.mjs';
+import TextField     from '../../../src/form/field/Text.mjs';
+import TodoList      from './TodoList.mjs';
+import TodoListStore from './TodoListStore.mjs';
+import Toolbar       from '../../../src/container/Toolbar.mjs';
 
 /**
  * @class TodoListApp2.MainContainer

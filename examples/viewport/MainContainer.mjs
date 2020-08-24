@@ -1,5 +1,5 @@
-import {default as TabContainer} from '../../src/tab/Container.mjs';
-import {default as Viewport}     from '../../src/container/Viewport.mjs';
+import TabContainer from '../../src/tab/Container.mjs';
+import Viewport     from '../../src/container/Viewport.mjs';
 
 /**
  * @class TestApp.MainContainer

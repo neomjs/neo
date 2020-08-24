@@ -1,10 +1,10 @@
-import CheckBox                  from '../../../src/form/field/CheckBox.mjs';
-import ConfigurationViewport     from '../../ConfigurationViewport.mjs';
-import {default as NumberField}  from '../../../src/form/field/Number.mjs';
-import {default as PickerField}  from '../../../src/form/field/Picker.mjs';
-import Radio                     from '../../../src/form/field/Radio.mjs';
-import {default as TextField}    from '../../../src/form/field/Text.mjs';
-import {default as TabContainer} from '../../../src/tab/Container.mjs';
+import CheckBox              from '../../../src/form/field/CheckBox.mjs';
+import ConfigurationViewport from '../../ConfigurationViewport.mjs';
+import NumberField           from '../../../src/form/field/Number.mjs';
+import PickerField           from '../../../src/form/field/Picker.mjs';
+import Radio                 from '../../../src/form/field/Radio.mjs';
+import TextField             from '../../../src/form/field/Text.mjs';
+import TabContainer          from '../../../src/tab/Container.mjs';
 
 /**
  * @class TestApp.MainContainer
