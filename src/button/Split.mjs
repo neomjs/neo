@@ -81,9 +81,11 @@ class Split extends Button {
             vdom = me.vdom;
 
         me.splitButton = Neo.create({
-            module : Button,
-            handler: me.splitButtonHandler,
-            iconCls: me.splitButtonIconCls,
+            appName : me.appName,
+            module  : Button,
+            handler : me.splitButtonHandler,
+            iconCls : me.splitButtonIconCls,
+            parentId: me.id,
             ...me.splitButtonConfig || {}
         });
 
