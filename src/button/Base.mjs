@@ -1,8 +1,8 @@
-import {default as Component} from './Base.mjs';
+import {default as Component} from '../component/Base.mjs';
 import NeoArray               from '../util/Array.mjs';
 
 /**
- * @class Neo.component.Button
+ * @class Neo.button.Base
  * @extends Neo.component.Base
  */
 class Button extends Component {
@@ -18,10 +18,10 @@ class Button extends Component {
 
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.component.Button'
+         * @member {String} className='Neo.button.Base'
          * @protected
          */
-        className: 'Neo.component.Button',
+        className: 'Neo.button.Base',
         /**
          * @member {String} ntype='button'
          * @protected
