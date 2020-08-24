@@ -37,9 +37,9 @@ class Split extends Button {
         splitButtonConfig: null,
         /**
          * The CSS class to use for the SplitButton icon, e.g. 'fa fa-home'
-         * @member {String|null} [iconCls_='fa fa-home']
+         * @member {String|null} [iconCls_='fa fa-caret-down']
          */
-        splitButtonIconCls_: 'fa fa-home',
+        splitButtonIconCls_: 'fa fa-caret-down',
         /**
          * @member {String} _vdom
          */
