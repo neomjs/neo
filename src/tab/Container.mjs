@@ -175,8 +175,9 @@ class Container extends BaseContainer {
             me.getTabStrip().cls = ['neo-tab-strip',  'neo-dock-' + value];
 
             me.fire('tabBarPositionChange', {
-                oldValue: oldValue,
-                value   : value
+                component: me,
+                oldValue : oldValue,
+                value    : value
             });
         }
     }
