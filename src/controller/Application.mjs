@@ -76,6 +76,9 @@ class Application extends Base {
 Neo.applyClassConfig(Application);
 
 // shortcut
-Neo.app = config => Neo.create(Application, config);
+Neo.app = config => Neo.create({
+    module: Application,
+    ...config || {}
+});
 
 export {Application as default};
