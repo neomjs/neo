@@ -150,7 +150,7 @@ class SourceViewComponent extends Component {
                     me.un('mounted', id);
                     me.syntaxHighlight(vnodeId);
                 }, 50);
-            })
+            });
         }
     }
 }
