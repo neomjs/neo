@@ -341,6 +341,15 @@ class Container extends BaseContainer {
     }
 
     /**
+     *
+     * @param {Number} index
+     * @returns {Neo.tab.header.Button|null}
+     */
+    getTabAtIndex(index) {
+        return this.getTabBar().items[index] || null;
+    }
+
+    /**
      * @returns {Neo.container.Toolbar}
      */
     getTabBar() {
