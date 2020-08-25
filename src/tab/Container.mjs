@@ -393,7 +393,7 @@ class Container extends BaseContainer {
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
             hasItem       = false,
-            i, len, superItem, tabButtonConfig;
+            i, len, superItem, tab, tabButtonConfig;
 
         if (Array.isArray(item)) {
             i   = 0;
@@ -422,16 +422,7 @@ class Container extends BaseContainer {
         if (!hasItem) {
             tabButtonConfig = item.tabButtonConfig;
 
-            if (me.activateInsertedTabs) {
-                tabButtonConfig.listeners = tabButtonConfig.listeners || {};
-
-                tabButtonConfig.listeners.mounted = {
-                    fn   : me.onTabButtonMounted,
-                    scope: me
-                };
-            }
-
-            tabBar.insert(index, me.getTabButtonConfig(tabButtonConfig, index));
+            tab = tabBar.insert(index, me.getTabButtonConfig(tabButtonConfig, index));
 
             // todo: non index based matching of tab buttons and cards
             i   = 0;
@@ -444,6 +435,14 @@ class Container extends BaseContainer {
 
             item.flex = 1;
             superItem = cardContainer.insert(index, item);
+
+            if (me.activateInsertedTabs) {
+                if (!me.vnode) {
+                    me.activeIndex = index;
+                } else {
+                    tab.on('mounted', me.onTabButtonMounted, me);
+                }
+            }
         }
 
         return superItem
@@ -462,7 +461,7 @@ class Container extends BaseContainer {
             i             = 0,
             len           = tabBar.items.length,
             index         = -1,
-            card;
+            card, listenerId;
 
         for (; i < len; i++) {
             if (tabBar.items[i].id === buttonId) {
@@ -474,8 +473,9 @@ class Container extends BaseContainer {
         if (index > -1) {
             card = cardContainer.items[index];
 
-            if (!card.mounted) {
-                card.on('mounted', () => {
+            if (me.vnode && !card.mounted) {
+                listenerId = card.on('mounted', () => {
+                    card.un('mounted', listenerId);
                     me.activeIndex = index;
                 });
             } else {

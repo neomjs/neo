@@ -373,7 +373,11 @@ class Base extends Component {
 
                 item = Neo[item.className ? 'create' : 'ntype'](item);
             } else {
-                item.appName = me.appName;
+                Object.assign(item, {
+                    appName    : me.appName,
+                    parentId   : me.id,
+                    parentIndex: index
+                });
             }
 
             // added the true param => for card layouts, we do not want a dynamically inserted cmp to get removed right away

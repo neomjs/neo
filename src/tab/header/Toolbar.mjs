@@ -33,7 +33,7 @@ class Toolbar extends BaseToolbar {
      * @protected
      */
     afterSetUseActiveTabIndicator(value, oldValue) {
-        if (Neo.isDefined(oldValue)) {
+        if (oldValue !== undefined) {
             let me   = this,
                 vdom = me.vdom;
 

@@ -1361,9 +1361,8 @@ class Base extends CoreBase {
             me.isVdomUpdating = true;
 
             opts = {
-                appName: me.appName,
-                vdom   : vdom,
-                vnode  : vnode
+                vdom : vdom,
+                vnode: vnode
             };
 
             if (Neo.currentWorker.isSharedWorker) {

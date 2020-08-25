@@ -28,8 +28,7 @@ class VNode extends Base {
         index = index || 0;
         opts  = typeof opts !== 'string' ? opts : {id: opts};
 
-        let child      = null,
-            attrMatch  = true,
+        let attrMatch  = true,
             matchArray = [],
             styleMatch = true,
             i          = 0,
@@ -104,17 +103,12 @@ class VNode extends Base {
                 subChild = VNode.findChildVnode(vnode.childNodes[i], opts, i, vnode);
 
                 if (subChild) {
-                    child = {
-                        index     : subChild.index,
-                        parentNode: subChild.parentNode,
-                        vnode     : subChild.vnode
-                    };
-                    break;
+                    return subChild;
                 }
             }
         }
 
-        return child;
+        return null;
     }
 
     /**
