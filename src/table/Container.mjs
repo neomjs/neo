@@ -140,7 +140,7 @@ class Container extends BaseContainer {
 
         me.vdom.id = me.id + 'wrapper';
 
-        me.createColumns(me.columns);console.log(me);
+        me.createColumns(me.columns);
     }
 
     /**
