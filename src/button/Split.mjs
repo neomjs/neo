@@ -20,22 +20,22 @@ class Split extends Button {
         ntype: 'split-button',
         /**
          * Read only, it will get created inside the ctor.
-         * Use splitButtonConfig to pass initial config for it.
-         * @member {Neo.button.Base|null} splitButton=null
+         * Use triggerButtonConfig to pass initial config for it.
+         * @member {Neo.button.Base|null} triggerButton=null
          * @protected
          */
-        splitButton: null,
+        triggerButton: null,
         /**
-         * Configs to apply to the split button instance
-         * @member {Object|null} splitButton=null
+         * Configs to apply to the trigger button instance
+         * @member {Object|null} triggerButtonConfig=null
          * @protected
          */
-        splitButtonConfig: null,
+        triggerButtonConfig: null,
         /**
          * The CSS class to use for the SplitButton icon, e.g. 'fa fa-home'
-         * @member {String|null} [iconCls_='fa fa-caret-down']
+         * @member {String} triggerButtonCls_='fa fa-caret-down'
          */
-        splitButtonIconCls_: 'fa fa-caret-down',
+        triggerButtonIconCls_: 'fa fa-caret-down',
         /**
          * @member {String} _vdom
          */
@@ -80,18 +80,18 @@ class Split extends Button {
         let me   = this,
             vdom = me.vdom;
 
-        me.splitButton = Neo.create({
+        me.triggerButton = Neo.create({
             module  : Button,
             appName : me.appName,
             disabled: me.disabled,
             handler : me.splitButtonHandler,
-            iconCls : me.splitButtonIconCls,
+            iconCls : me.triggerButtonIconCls,
             parentId: me.id,
             pressed : me.pressed,
-            ...me.splitButtonConfig || {}
+            ...me.triggerButtonConfig || {}
         });
 
-        vdom.cn.push(me.splitButton.vdom);
+        vdom.cn.push(me.triggerButton.vdom);
         me.vdom = vdom;
     }
 
@@ -104,8 +104,8 @@ class Split extends Button {
     afterSetDisabled(value, oldValue) {
         let me = this;
 
-        if (me.splitButton) {
-            me.splitButton.disabled = value;
+        if (me.triggerButton) {
+            me.triggerButton.disabled = value;
         }
 
         super.afterSetDisabled(value, oldValue);
@@ -120,24 +120,24 @@ class Split extends Button {
     afterSetPressed(value, oldValue) {
         let me = this;
 
-        if (me.splitButton) {
-            me.splitButton.pressed = value;
+        if (me.triggerButton) {
+            me.triggerButton.pressed = value;
         }
 
         super.afterSetPressed(value, oldValue);
     }
 
     /**
-     * Triggered after the splitButtonIconCls config got changed
+     * Triggered after the triggerButtonIconCls config got changed
      * @param {String} value
      * @param {String} oldValue
      * @protected
      */
-    afterSetSplitButtonIconCls(value, oldValue) {
+    afterSetTriggerButtonIconCls(value, oldValue) {
         let me = this;
 
-        if (me.splitButton) {
-            me.splitButton.iconCls = value;
+        if (me.triggerButton) {
+            me.triggerButton.iconCls = value;
         }
     }
 
@@ -147,12 +147,12 @@ class Split extends Button {
      * @param {Boolean} [silent=false]
      */
     destroy(updateParentVdom=false, silent=false) {
-        this.splitButton.destroy(); // default opts => no parent update
+        this.triggerButton.destroy(); // default opts => no parent update
         super.destroy(updateParentVdom, silent);
     }
 
     /**
-     * Override as needed or pass a controller based handler into splitButtonConfig
+     * Override as needed or pass a controller based handler into triggerButtonConfig
      * @param {Object} data
      */
     splitButtonHandler(data) {
