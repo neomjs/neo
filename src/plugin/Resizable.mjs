@@ -1,4 +1,5 @@
 import Base     from './Base.mjs';
+import DragZone from '../draggable/DragZone.mjs';
 import NeoArray from '../util/Array.mjs';
 
 /**
@@ -49,6 +50,10 @@ class Resizable extends Base {
          * @member {String[]} directions_=['b','bl','br','l','r','t','tl','tr']
          */
         directions_: ['b', 'bl', 'br', 'l', 'r', 't', 'tl', 'tr'],
+        /**
+         * @member {Neo.draggable.DragZone|null} dragZone=null
+         */
+        dragZone: null,
         /**
          * @member {Number} gap=10
          * @protected
@@ -106,13 +111,11 @@ class Resizable extends Base {
         let me           = this,
             domListeners = me.owner.domListeners;
 
-        domListeners.push({
-            mousemove: me.onMouseMove,
-            local    : true,
-            scope    : me
-        }, {
-            mouseleave: me.onMouseLeave,
-            scope     : me
+        domListeners.push(
+            {'drag:end'  : me.onDragEnd,    scope: me, delegate: '.neo-header-toolbar'},
+            {'drag:start': me.onDragStart,  scope: me, delegate: '.neo-header-toolbar'},
+            {mousemove:    me.onMouseMove,  scope: me, local   : true},
+            {mouseleave:   me.onMouseLeave, scope: me
         });
 
         me.owner.domListeners = domListeners;
