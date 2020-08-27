@@ -112,10 +112,11 @@ class Resizable extends Base {
             domListeners = me.owner.domListeners;
 
         domListeners.push(
-            {'drag:end'  : me.onDragEnd,    scope: me, delegate: '.neo-header-toolbar'},
-            {'drag:start': me.onDragStart,  scope: me, delegate: '.neo-header-toolbar'},
-            {mousemove:    me.onMouseMove,  scope: me, local   : true},
-            {mouseleave:   me.onMouseLeave, scope: me
+            {'drag:end'  : me.onDragEnd,    scope: me, delegate: '.neo-resizable'},
+            {'drag:move' : me.onDragMove,   scope: me, delegate: '.neo-resizable'},
+            {'drag:start': me.onDragStart,  scope: me, delegate: '.neo-resizable'},
+            {mousemove   : me.onMouseMove,  scope: me, local   : true},
+            {mouseleave  : me.onMouseLeave, scope: me
         });
 
         me.owner.domListeners = domListeners;
@@ -134,6 +135,30 @@ class Resizable extends Base {
         me.owner.getVdomRoot().cn.push(me[nodeName]);
 
         return true;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragEnd(data) {
+        console.log('onDragEnd', data);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragMove(data) {
+        console.log('onDragMove', data);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragStart(data) {
+        console.log('onDragStart', data);
     }
 
     /**
