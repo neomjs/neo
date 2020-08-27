@@ -157,15 +157,7 @@ class Base extends CoreBase {
         }
 
         if (action !== 'reply') {
-            try {
-                this['on' + Neo.capitalize(action)](data);
-            } catch(err) {
-                console.log('error', data, err, e);
-
-                this.reject(data.id, {
-                    error : err.message
-                });
-            }
+            me['on' + Neo.capitalize(action)](data);
         } else if (promise = action === 'reply' && me.promises[replyId]) {
             if (data.reject) {
                 promise.reject(data.data);
