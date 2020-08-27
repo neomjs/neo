@@ -131,7 +131,7 @@ class Resizable extends Base {
         let me       = this,
             nodeName = 'node' + Neo.capitalize(name.replace(Resizable.nameRegEx, (str, letter) => letter.toUpperCase()));
 
-        me[nodeName] = {cls: ['neo-resizable', 'neo-resizable-' + name]};
+        me[nodeName] = {cls: ['neo-resizable', `neo-resizable-${name}`]};
         me.owner.getVdomRoot().cn.push(me[nodeName]);
 
         return true;
