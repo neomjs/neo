@@ -65,6 +65,10 @@ class Resizable extends Base {
          */
         gap: 10,
         /**
+         * @member {Boolean} isDragging=false
+         */
+        isDragging: false,
+        /**
          * @member {Object} nodeBottom=null
          * @protected
          */
@@ -151,6 +155,8 @@ class Resizable extends Base {
         console.log('onDragEnd', data);
         let me    = this,
             owner = me.owner;
+
+        me.isDragging = false;
     }
 
     /**
@@ -166,7 +172,7 @@ class Resizable extends Base {
             style.left = `${data.clientX}px`;
         }
 
-        console.log('onDragMove', this.currentNodeName, rect.left, style);
+        console.log('onDragMove', me.currentNodeName, rect.left, style);
         console.log(data);
 
         Neo.currentWorker.promiseMessage('main', {
@@ -185,6 +191,8 @@ class Resizable extends Base {
     onDragStart(data) {
         let me    = this,
             owner = me.owner;
+
+        me.isDragging = true;
 
         if (!me.dragZone) {
             me.dragZone = Neo.create({
@@ -215,7 +223,7 @@ class Resizable extends Base {
             vdom = me.owner.vdom,
             bottom, left, right, target, top;
 
-        if (!me.owner.isDragging) {
+        if (!me.isDragging && !me.owner.isDragging) {
             for (; i < len; i++) {
                 if (data.path[i].cls.includes(me.delegationCls)) {
                     target = data.path[i];
