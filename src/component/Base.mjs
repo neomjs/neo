@@ -1303,21 +1303,21 @@ class Base extends CoreBase {
 
     /**
      * Creates the style deltas for newValue & oldValue and applies them directly to the DOM.
-     * @param newValue
-     * @param oldValue
+     * @param {Object|String} newValue
+     * @param {Object|String} oldValue
+     * @param {String} [id=this.id]
      * @protected
      */
-    updateStyle(newValue, oldValue) {
+    updateStyle(newValue, oldValue, id=this.id) {
         let me    = this,
             delta = Style.compareStyles(newValue, oldValue),
-            vnode = me.getVnodeRoot(),
+            vnode = VNodeUtil.findChildVnode(me.vnode, id).vnode,
             opts;
 
         if (delta) {
-            // console.log('updateStyle', 'new', newValue, 'old', oldValue, 'delta', delta);
             if (vnode) {
-                vnode.style = newValue; // keep the vnode in sync
-                me.vnode = vnode;
+                vnode.style = newValue;               // keep the vnode in sync
+                me.afterSetVnode(me.vnode, me.vnode); // keep the vnode tree in sync
             }
 
             opts = {
@@ -1332,11 +1332,7 @@ class Base extends CoreBase {
                 opts.appName = me.appName;
             }
 
-            Neo.currentWorker.promiseMessage('main', opts).then(() => {
-                // console.log('Component style updated');
-            }).catch(err => {
-                console.log('Error attempting to update component style', err, me);
-            });
+            Neo.currentWorker.sendMessage('main', opts);
         }
     }
 
