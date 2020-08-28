@@ -213,9 +213,9 @@ class Base extends CoreBase {
         width_: null,
         /**
          * Top level style attributes. Useful in case getVdomRoot() does not point to the top level DOM node.
-         * @member {Object} wrapperStyle_={}
+         * @member {Object|null} wrapperStyle_=null
          */
-        wrapperStyle_: {},
+        wrapperStyle_: null,
         /**
          * The vdom markup for this component.
          * @member {Object} _vdom={}
@@ -664,12 +664,16 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetWrapperStyle(value, oldValue) {
-        if (value && !Neo.isEmpty(value)) {
-            let vdom = this.vdom;
+        if (!(!value && oldValue === undefined)) {
+            let me   = this,
+                vdom = me.vdom;
 
-            vdom.style = vdom.style || {};
-            Object.assign(vdom.style, value);
-            this.vdom  = vdom;
+            if (!me.vdom.id) {
+                vdom.style = value;
+                me.vdom = vdom;
+            } else {
+                me.updateStyle(value, oldValue, me.vdom.id);
+            }
         }
     }
 

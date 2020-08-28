@@ -121,7 +121,7 @@ class Toolbar extends BaseToolbar {
             style;
 
         items.forEach((item, index) => {
-            style = item.wrapperStyle;
+            style = item.wrapperStyle || {};
 
             // todo: only add px if number
             if (item.maxWidth) {style.maxWidth = item.maxWidth + 'px'}
