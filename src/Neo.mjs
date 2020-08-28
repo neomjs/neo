@@ -239,6 +239,8 @@ Neo = self.Neo = Object.assign({
                 return obj;
             } else if (obj instanceof Date) {
                 obj = new Date(obj.valueOf());
+            } else if (obj instanceof Map) {
+                obj = new Map(obj); // shallow copy
             } else {
                 out = {};
                 Object.entries(obj).forEach(([key, value]) => {
