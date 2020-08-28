@@ -248,18 +248,15 @@ class Resizable extends Base {
     }
 
     /**
-     *
+     * There should be max 1 node (resize handle) at any given time.
+     * see: /issues/1139
      */
     removeAllNodes() {
-        let me        = this,
-            vdom      = me.owner.vdom,
-            hasChange = false;
+        let me   = this,
+            vdom = me.owner.vdom;
 
-        Resizable.positions.forEach(position => {
-            hasChange = me.removeNode(position) || hasChange;
-        });
-
-        if (hasChange) {
+        if (me.currentNodeName) {
+            me.removeNode(me.currentNodeName);
             me.owner.vdom = vdom;
         }
     }
