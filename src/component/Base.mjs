@@ -1310,7 +1310,7 @@ class Base extends CoreBase {
     updateStyle(newValue, oldValue) {
         let me    = this,
             delta = Style.compareStyles(newValue, oldValue),
-            vnode = me.vnode,
+            vnode = me.getVnodeRoot(),
             opts;
 
         if (delta) {
