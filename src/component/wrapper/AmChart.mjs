@@ -55,20 +55,13 @@ class AmChart extends Component {
          * @member {Object} _vdom
          */
         _vdom: {
+            style: {position: 'relative', height: '100%', width: '100%'},
             cn: [{
                 style: {position: 'absolute', height: '100%', width: '100%'},
                 cn: [{
                     style: {height: '100%'}
                 }]
             }]
-        },
-        /**
-         * @member {Object} wrapperStyle
-         */
-        wrapperStyle: {
-            position: 'relative',
-            height  : '100%',
-            width   : '100%'
         }
     }}
 

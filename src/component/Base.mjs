@@ -678,6 +678,15 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered when accessing the wrapperStyle config
+     * @param {Object} value
+     * @protected
+     */
+    beforeGetWrapperStyle(value) {
+        return {...Object.assign(this.vdom.style || {}, value)};
+    }
+
+    /**
      * Triggered when accessing the controller config
      * @param {Object} value
      * @protected
