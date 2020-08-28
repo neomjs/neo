@@ -1312,7 +1312,7 @@ class Base extends CoreBase {
         let me    = this,
             delta = Style.compareStyles(newValue, oldValue),
             vdom  = VDomUtil.findVdomChild(me.vdom, id),
-            vnode = VNodeUtil.findChildVnode(me.vnode, id),
+            vnode = me.vnode && VNodeUtil.findChildVnode(me.vnode, id),
             opts;
 
         if (delta) {
@@ -1320,21 +1320,21 @@ class Base extends CoreBase {
 
             if (vnode) {
                 vnode.vnode.style = newValue; // keep the vnode in sync
+
+                opts = {
+                    action: 'updateDom',
+                    deltas: [{
+                        id   : me.id,
+                        style: delta
+                    }]
+                };
+
+                if (Neo.currentWorker.isSharedWorker) {
+                    opts.appName = me.appName;
+                }
+
+                Neo.currentWorker.sendMessage('main', opts);
             }
-
-            opts = {
-                action: 'updateDom',
-                deltas: [{
-                    id   : me.id,
-                    style: delta
-                }]
-            };
-
-            if (Neo.currentWorker.isSharedWorker) {
-                opts.appName = me.appName;
-            }
-
-            Neo.currentWorker.sendMessage('main', opts);
         }
     }
 
