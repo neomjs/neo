@@ -105,12 +105,13 @@ class DomEvent extends Base {
                                 // we only want mouseenter & leave to fire on their top level nodes, not for children
                                 if (eventName === 'mouseenter' || eventName === 'mouseleave') {
                                     targetId = eventName === 'mouseenter' ? data.fromElementId : data.toElementId;
-                                    // console.log(targetId, delegationTargetId);
 
                                     if (targetId && targetId !== delegationTargetId) {
                                         delegationVdom = VDomUtil.findVdomChild(component.vdom, delegationTargetId);
 
-                                        if (delegationVdom.vdom && VDomUtil.findVdomChild(delegationVdom.vdom, targetId)) {
+                                        // delegationVdom can be undefined when dragging a proxy over the node.
+                                        // see issues/1137 for details.
+                                        if (!delegationVdom || delegationVdom.vdom && VDomUtil.findVdomChild(delegationVdom.vdom, targetId)) {
                                             preventFire = true;
                                         }
                                     }
