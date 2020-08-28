@@ -41,6 +41,11 @@ class Resizable extends Base {
          */
         ntype: 'plugin-resizable',
         /**
+         * @member {String} currentNodeName=null
+         * @protected
+         */
+        currentNodeName: null,
+        /**
          * Must be set by each owner
          * @member {String} delegationCls=null
          */
@@ -131,6 +136,7 @@ class Resizable extends Base {
         let me       = this,
             nodeName = 'node' + Neo.capitalize(name.replace(Resizable.nameRegEx, (str, letter) => letter.toUpperCase()));
 
+        me.currentNodeName = name;
         me[nodeName] = {cls: ['neo-resizable', `neo-resizable-${name}`]};
         me.owner.getVdomRoot().cn.push(me[nodeName]);
 
@@ -152,7 +158,7 @@ class Resizable extends Base {
      * @param {Object} data
      */
     onDragMove(data) {
-        console.log('onDragMove', data);
+        console.log('onDragMove', this.currentNodeName, data);
     }
 
     /**
@@ -268,6 +274,7 @@ class Resizable extends Base {
             nodeName = 'node' + Neo.capitalize(name.replace(Resizable.nameRegEx, (str, letter) => letter.toUpperCase()));
 
         if (me[nodeName]) {
+            me.currentNodeName = null;
             NeoArray.remove(me.owner.getVdomRoot().cn, me[nodeName]);
             me[nodeName] = null;
 
