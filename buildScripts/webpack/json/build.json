@@ -126,6 +126,11 @@
             "output": "/examples/form/field/select/",
             "title": "Neo SelectField"
         },
+        "splitButton": {
+            "input": "examples/button/Split.mjs",
+            "output": "/examples/button/split/",
+            "title": "Neo Button"
+        },
         "tabContainer": {
             "input": "examples/tab/Container.mjs",
             "output": "/examples/tab/container/",

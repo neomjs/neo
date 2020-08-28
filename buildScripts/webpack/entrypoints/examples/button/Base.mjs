@@ -1,2 +1,2 @@
 import '../../../../../src/worker/App.mjs';
-import '../../../../../examples/component/button/app.mjs';
+import '../../../../../examples/button/base/app.mjs';
