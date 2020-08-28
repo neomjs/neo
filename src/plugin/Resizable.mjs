@@ -158,7 +158,24 @@ class Resizable extends Base {
      * @param {Object} data
      */
     onDragMove(data) {
-        console.log('onDragMove', this.currentNodeName, data);
+        let me    = this,
+            rect  = data.path[0].rect,
+            style = {};
+
+        if (me.currentNodeName.includes('left')) {
+            style.left = `${data.clientX}px`;
+        }
+
+        console.log('onDragMove', this.currentNodeName, rect.left, style);
+        console.log(data);
+
+        Neo.currentWorker.promiseMessage('main', {
+            action: 'updateDom',
+            deltas: [{
+                id   : me.dragZone.dragProxy.id,
+                style: style
+            }]
+        });
     }
 
     /**
