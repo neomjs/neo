@@ -380,20 +380,10 @@ class Base extends CoreBase {
     }
     set style(value) {
         let me       = this,
-            vdomRoot = me.getVdomRoot(),
-            oldStyle;
-
-        if (me.mounted) {
-            oldStyle = {...me._style};
-        }
+            oldStyle = me.style; // cloned => getter
 
         me._style = value;
-
-        vdomRoot.style = Object.assign(vdomRoot.style || {}, value);
-
-        if (me.mounted) {
-            me.updateStyle(value, oldStyle);
-        }
+        me.updateStyle(value, oldStyle);
     }
 
     /**
