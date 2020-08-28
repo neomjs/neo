@@ -17,14 +17,19 @@ In case you want to create a neo.mjs App, you have 3 different options:
    cd neo
    ```
 
-3. Install the required node modules & run all relevant build scripts at once
+3. Install the required node modules
+   ```sh
+   npm install
+   ```
+
+4. Run all relevant build scripts at once
    ```sh
    npm run build-all
    ```
 
    (See the <a href="../docs/tutorials/10_BuildScripts.md">Build Scripts Guide</a> for further details.)
 
-4. Make sure to use a local WebServer!
+5. Make sure to use a local WebServer!
    * Use a local webserver of your choice (E.g. Webstorm)
    * OR `npm run server-start` 
      1. the dev server will throw 2 errors which you can ignore
@@ -32,7 +37,7 @@ In case you want to create a neo.mjs App, you have 3 different options:
 
    (JS module imports can not work on the local file system (security).)
    
-5. Optional: `npm run create-app`
+6. Optional: `npm run create-app`
 
 #### You can run the examples & docs app **without** any JS build directly in Google Chrome (v80+):  
 > localhost/neo/docs/
