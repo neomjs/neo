@@ -145,8 +145,6 @@ class Resizable extends Base {
         console.log('onDragEnd', data);
         let me    = this,
             owner = me.owner;
-
-        owner.isDragging = false;
     }
 
     /**
@@ -165,14 +163,13 @@ class Resizable extends Base {
         let me    = this,
             owner = me.owner;
 
-        owner.isDragging = true;
-
         if (!me.dragZone) {
             me.dragZone = Neo.create({
                 module             : DragZone,
                 appName            : owner.appName,
                 boundaryContainerId: owner.boundaryContainerId,
-                dragElement        : owner.vdom
+                dragElement        : owner.vdom,
+                moveInMainThread   : false
             });
         } else {
             me.dragZone.boundaryContainerId = owner.boundaryContainerId;
