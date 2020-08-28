@@ -1311,10 +1311,13 @@ class Base extends CoreBase {
     updateStyle(newValue, oldValue, id=this.id) {
         let me    = this,
             delta = Style.compareStyles(newValue, oldValue),
+            vdom  = VDomUtil.findVdomChild(me.vdom, id),
             vnode = VNodeUtil.findChildVnode(me.vnode, id),
             opts;
 
         if (delta) {
+            vdom.vdom.style = newValue; // keep the vdom in sync
+
             if (vnode) {
                 vnode.vnode.style = newValue; // keep the vnode in sync
             }
