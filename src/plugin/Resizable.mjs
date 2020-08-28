@@ -116,8 +116,8 @@ class Resizable extends Base {
             {'drag:move' : me.onDragMove,   scope: me, delegate: '.neo-resizable'},
             {'drag:start': me.onDragStart,  scope: me, delegate: '.neo-resizable'},
             {mousemove   : me.onMouseMove,  scope: me, local   : true},
-            {mouseleave  : me.onMouseLeave, scope: me
-        });
+            {mouseleave  : me.onMouseLeave, scope: me}
+        );
 
         me.owner.domListeners = domListeners;
     }
@@ -143,6 +143,10 @@ class Resizable extends Base {
      */
     onDragEnd(data) {
         console.log('onDragEnd', data);
+        let me    = this,
+            owner = me.owner;
+
+        owner.isDragging = false;
     }
 
     /**
@@ -158,7 +162,23 @@ class Resizable extends Base {
      * @param {Object} data
      */
     onDragStart(data) {
-        console.log('onDragStart', data);
+        let me    = this,
+            owner = me.owner;
+
+        owner.isDragging = true;
+
+        if (!me.dragZone) {
+            me.dragZone = Neo.create({
+                module             : DragZone,
+                appName            : owner.appName,
+                boundaryContainerId: owner.boundaryContainerId,
+                dragElement        : owner.vdom
+            });
+        } else {
+            me.dragZone.boundaryContainerId = owner.boundaryContainerId;
+        }
+
+        me.dragZone.dragStart(data);
     }
 
     /**
