@@ -157,6 +157,11 @@ class Resizable extends Base {
             owner = me.owner;
 
         me.isDragging = false;
+
+        Neo.main.DomAccess.setStyle({
+            id   : 'document.body',
+            style: {cursor: null}
+        });
     }
 
     /**
@@ -185,6 +190,11 @@ class Resizable extends Base {
             owner = me.owner;
 
         me.isDragging = true;
+
+        Neo.main.DomAccess.setStyle({
+            id   : 'document.body',
+            style: {cursor: 'w-resize !important'} // todo: use the cursor matching to the currentNodeId
+        });
 
         if (!me.dragZone) {
             me.dragZone = Neo.create({
