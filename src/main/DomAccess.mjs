@@ -225,12 +225,12 @@ class DomAccess extends Base {
 
     /**
      *
-     * @param {String} [nodeId='body']
+     * @param {String} [nodeId='document.body']
      * @returns {HTMLElement}
      * @protected
      */
-    getElementOrBody(nodeId) {
-        if (!nodeId || nodeId === 'body' || nodeId === 'document.body') {
+    getElementOrBody(nodeId='document.body') {
+        if (nodeId === 'body' || nodeId === 'document.body') {
             return document.body;
         }
 
@@ -489,16 +489,21 @@ class DomAccess extends Base {
      * Not recommended to use => stick to vdom updates.
      * Can be handy for custom CSS based animations though.
      * @param {Object} data
-     * @param {String} data.id
+     * @param {String} data.id A node id or 'document.body'
      * @param {Object} data.style
      * @returns {Object} obj.id => the passed id
      */
     setStyle(data) {
-        let node = this.getElement(data.id);
+        let node = this.getElementOrBody(data.id);
 
         if (node) {
             Object.entries(data.style).forEach(([key, value]) => {
-                node.style[Neo.decamel(key)] = value;
+                if (value.includes('!important')) {
+                    value = value.replace('!important', '').trim();
+                    node.style.setProperty(Neo.decamel(key), value, 'important');
+                } else {
+                    node.style[Neo.decamel(key)] = value;
+                }
             });
         }
 
