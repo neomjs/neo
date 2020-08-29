@@ -1327,7 +1327,7 @@ class Base extends CoreBase {
                 opts = {
                     action: 'updateDom',
                     deltas: [{
-                        id   : me.id,
+                        id   : id,
                         style: delta
                     }]
                 };
