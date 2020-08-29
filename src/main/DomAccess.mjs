@@ -498,7 +498,7 @@ class DomAccess extends Base {
 
         if (node) {
             Object.entries(data.style).forEach(([key, value]) => {
-                if (value.includes('!important')) {
+                if (value && value.includes('!important')) {
                     value = value.replace('!important', '').trim();
                     node.style.setProperty(Neo.decamel(key), value, 'important');
                 } else {

@@ -177,7 +177,7 @@ class DeltaUpdates extends Base {
                     case 'style':
                         if (Neo.isObject(value)) {
                             Object.entries(value).forEach(([key, val]) => {
-                                if (val.includes('!important')) {
+                                if (val && val.includes('!important')) {
                                     val = val.replace('!important', '').trim();
                                     node.style.setProperty(Neo.decamel(key), val, 'important');
                                 } else {
