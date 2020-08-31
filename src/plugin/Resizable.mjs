@@ -73,6 +73,11 @@ class Resizable extends Base {
          */
         gap: 10,
         /**
+         * @member {Object} initialRect=null
+         * @protected
+         */
+        initialRect: null,
+        /**
          * @member {Boolean} isDragging=false
          */
         isDragging: false,
@@ -162,7 +167,8 @@ class Resizable extends Base {
     onDragEnd(data) {
         let me = this;
 
-        me.isDragging = false;
+        me.initialRect = null;
+        me.isDragging  = false;
 
         Neo.main.DomAccess.setStyle({
             id   : 'document.body',
@@ -196,9 +202,18 @@ class Resizable extends Base {
      */
     onDragStart(data) {
         let me    = this,
+            i     = 0,
+            len   = data.path.length,
             owner = me.owner;
 
         me.isDragging = true;
+
+        for (; i < len; i++) {
+            if (data.path[i].cls.includes(me.delegationCls)) {
+                me.initialRect = data.path[i].rect;
+                break;
+            }
+        }
 
         Neo.main.DomAccess.setStyle({
             id   : 'document.body',
