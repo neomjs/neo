@@ -228,10 +228,9 @@ Neo = self.Neo = Object.assign({
         let out;
 
         if (Array.isArray(obj)) {
-            return obj.map(val => {
-                return Neo.clone(val, deep, ignoreNeoInstances);
-            });
+            return !deep ? [...obj] : [...obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))];
         }
+
         if (obj !== null && typeof obj === 'object') {
             if (obj.constructor.isClass && obj instanceof Neo.core.Base) {
                 return ignoreNeoInstances ? obj : this.cloneNeoInstance(obj);
@@ -243,15 +242,15 @@ Neo = self.Neo = Object.assign({
                 obj = new Map(obj); // shallow copy
             } else {
                 out = {};
+
                 Object.entries(obj).forEach(([key, value]) => {
-                    if (deep) {
-                        value = Neo.clone(value, deep, ignoreNeoInstances);
-                    }
-                    out[key] = value;
+                    out[key] = !deep ? value : Neo.clone(value, deep, ignoreNeoInstances);
                 });
+
                 return out;
             }
         }
+
         return obj; // return all other data types
     },
 
@@ -263,8 +262,10 @@ Neo = self.Neo = Object.assign({
      */
     cloneNeoInstance(instance) {
         let config = {...instance.originalConfig};
+
         delete config._id;
         delete config.id;
+
         return Neo.create(instance.className, config);
     },
 
