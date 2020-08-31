@@ -160,9 +160,7 @@ class Resizable extends Base {
      * @param {Object} data
      */
     onDragEnd(data) {
-        console.log('onDragEnd', data);
-        let me    = this,
-            owner = me.owner;
+        let me = this;
 
         me.isDragging = false;
 
@@ -170,6 +168,8 @@ class Resizable extends Base {
             id   : 'document.body',
             style: {cursor: null}
         });
+
+        me.dragZone.dragEnd();
     }
 
     /**
