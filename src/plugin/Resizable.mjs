@@ -186,10 +186,12 @@ class Resizable extends Base {
     onDragMove(data) {
         if (this.dragZone.dragProxy) {
             let me    = this,
+                rect  = me.initialRect,
                 style = me.dragZone.dragProxy.wrapperStyle;
 
             if (me.currentNodeName.includes('left')) {
-                style.left = `${data.clientX}px`;
+                style.left  = `${data.clientX}px`;
+                style.width = `${rect.width + rect.left - data.clientX}px`;
             }
 
             me.dragZone.dragProxy.wrapperStyle = style;
