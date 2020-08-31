@@ -28,7 +28,7 @@ class VDom extends Base {
 
         if (clone.cn) {
             clone.cn.forEach((item, index) => {
-                clone.cn[index] = VDom.clone(item);
+                clone.cn[index] = VDom.clone(item, removeIds);
             });
         }
 
