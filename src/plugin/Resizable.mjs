@@ -175,8 +175,8 @@ class Resizable extends Base {
             style: {cursor: null}
         });
 
-        me.removeAllNodes();
         me.dragZone.dragEnd();
+        me.removeAllNodes();
     }
 
     /**
@@ -185,13 +185,31 @@ class Resizable extends Base {
      */
     onDragMove(data) {
         if (this.dragZone.dragProxy) {
-            let me    = this,
-                rect  = me.initialRect,
-                style = me.dragZone.dragProxy.wrapperStyle;
+            let me     = this,
+                node   = me.currentNodeName,
+                bottom = node.includes('bottom'),
+                left   = node.includes('left'),
+                right  = node.includes('right'),
+                top    = node.includes('top'),
+                rect   = me.initialRect,
+                style  = me.dragZone.dragProxy.wrapperStyle;
 
-            if (me.currentNodeName.includes('left')) {
+            if (bottom) {
+                style.height = `${data.clientY - rect.top}px`;
+            }
+
+            if (left) {
                 style.left  = `${data.clientX}px`;
                 style.width = `${rect.width + rect.left - data.clientX}px`;
+            }
+
+            if (right) {
+                style.width = `${rect.width - rect.right + data.clientX}px`;
+            }
+
+            if (top) {
+                style.height = `${rect.height + rect.top - data.clientY}px`;
+                style.top    = `${data.clientY}px`;
             }
 
             me.dragZone.dragProxy.wrapperStyle = style;
@@ -264,15 +282,6 @@ class Resizable extends Base {
             right  = data.clientX >= target.rect.x - gap + target.rect.width;
             top    = data.clientY <= target.rect.y + gap;
 
-            if      (dir.includes('bl') && bottom && left)  {if (!me.nodeBottomLeft)  {h = me.addNode('bottom-left');}}
-            else if (dir.includes('br') && bottom && right) {if (!me.nodeBottomRight) {h = me.addNode('bottom-right');}}
-            else if (dir.includes('tl') && top    && left)  {if (!me.nodeTopLeft)     {h = me.addNode('top-left');}}
-            else if (dir.includes('tr') && top    && right) {if (!me.nodeTopRight)    {h = me.addNode('top-right');}}
-            else if (dir.includes('b')  && bottom)          {if (!me.nodeBottom)      {h = me.addNode('bottom');}}
-            else if (dir.includes('l')  && left)            {if (!me.nodeLeft)        {h = me.addNode('left');}}
-            else if (dir.includes('r')  && right)           {if (!me.nodeRight)       {h = me.addNode('right');}}
-            else if (dir.includes('t')  && top)             {if (!me.nodeTop)         {h = me.addNode('top');}}
-
             if (me.nodeBottom && (!bottom || bottom && left  || bottom && right)) {h = me.removeNode('bottom');}
             if (me.nodeLeft   && (!left   || bottom && left  || top    && left))  {h = me.removeNode('left');}
             if (me.nodeRight  && (!right  || bottom && right || top    && right)) {h = me.removeNode('right');}
@@ -282,6 +291,15 @@ class Resizable extends Base {
             if (me.nodeBottomRight && (!bottom || !right)) {h = me.removeNode('bottom-right');}
             if (me.nodeTopLeft     && (!top    || !left))  {h = me.removeNode('top-left');}
             if (me.nodeTopRight    && (!top    || !right)) {h = me.removeNode('top-right');}
+
+            if      (dir.includes('bl') && bottom && left)  {if (!me.nodeBottomLeft)  {h = me.addNode('bottom-left');}}
+            else if (dir.includes('br') && bottom && right) {if (!me.nodeBottomRight) {h = me.addNode('bottom-right');}}
+            else if (dir.includes('tl') && top    && left)  {if (!me.nodeTopLeft)     {h = me.addNode('top-left');}}
+            else if (dir.includes('tr') && top    && right) {if (!me.nodeTopRight)    {h = me.addNode('top-right');}}
+            else if (dir.includes('b')  && bottom)          {if (!me.nodeBottom)      {h = me.addNode('bottom');}}
+            else if (dir.includes('l')  && left)            {if (!me.nodeLeft)        {h = me.addNode('left');}}
+            else if (dir.includes('r')  && right)           {if (!me.nodeRight)       {h = me.addNode('right');}}
+            else if (dir.includes('t')  && top)             {if (!me.nodeTop)         {h = me.addNode('top');}}
 
             if (h) {
                 me.owner.vdom = vdom;
