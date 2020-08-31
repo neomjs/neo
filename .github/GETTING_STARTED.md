@@ -32,8 +32,8 @@ In case you want to create a neo.mjs App, you have 3 different options:
 5. Make sure to use a local WebServer!
    * Use a local webserver of your choice (E.g. Webstorm)
    * OR `npm run server-start` 
-     1. the dev server will throw 2 errors which you can ignore
-     2. a browser tab showing your app opens automatically.
+     1. A browser tab showing your app opens automatically.
+     2. You can also manually access it: http://localhost:8080/
 
    (JS module imports can not work on the local file system (security).)
    
