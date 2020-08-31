@@ -185,29 +185,25 @@ class Resizable extends Base {
      */
     onDragMove(data) {
         if (this.dragZone.dragProxy) {
-            let me     = this,
-                node   = me.currentNodeName,
-                bottom = node.includes('bottom'),
-                left   = node.includes('left'),
-                right  = node.includes('right'),
-                top    = node.includes('top'),
-                rect   = me.initialRect,
-                style  = me.dragZone.dragProxy.wrapperStyle;
+            let me    = this,
+                node  = me.currentNodeName,
+                rect  = me.initialRect,
+                style = me.dragZone.dragProxy.wrapperStyle;
 
-            if (bottom) {
+            if (node.includes('bottom')) {
                 style.height = `${data.clientY - rect.top}px`;
             }
 
-            if (left) {
+            if (node.includes('left')) {
                 style.left  = `${data.clientX}px`;
                 style.width = `${rect.width + rect.left - data.clientX}px`;
             }
 
-            if (right) {
+            if (node.includes('right')) {
                 style.width = `${rect.width - rect.right + data.clientX}px`;
             }
 
-            if (top) {
+            if (node.includes('top')) {
                 style.height = `${rect.height + rect.top - data.clientY}px`;
                 style.top    = `${data.clientY}px`;
             }
