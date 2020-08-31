@@ -20,7 +20,7 @@ class VDom extends Base {
      * @returns {Object} cloned vdom
      */
     static clone(vdom, removeIds=true) {
-        const clone = Neo.clone(vdom); // non deep
+        const clone = Neo.clone(vdom, true);
 
         if (removeIds) {
             delete clone.id;
