@@ -9,6 +9,12 @@ import NeoArray from '../util/Array.mjs';
 class Resizable extends Base {
     static getStaticConfig() {return {
         /**
+         * Resize cursor styles use north, south based names, so we need a mapping
+         * @member {String[]} cursorPositions=['s', 'sw', 'se', 'w', 'e', 'n', 'nw', 'ne']
+         * @static
+         */
+        cursorPositions: ['s', 'sw', 'se', 'w', 'e', 'n', 'nw', 'ne'],
+        /**
          * remove - chars
          * @member {RegExp} nameRegEx=/-([a-z])/g
          * @protected
