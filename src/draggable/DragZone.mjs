@@ -34,6 +34,7 @@ class DragZone extends Base {
         dragElement: null,
         /**
          * @member {Neo.component.Base|null} dragProxy=null
+         * @protected
          */
         dragProxy: null,
         /**
