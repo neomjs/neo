@@ -169,6 +169,7 @@ class Resizable extends Base {
             style: {cursor: null}
         });
 
+        me.removeAllNodes();
         me.dragZone.dragEnd();
     }
 
@@ -276,9 +277,13 @@ class Resizable extends Base {
      * @param {Object} data
      */
     onMouseLeave(data) {
-        // limit the event to delegation targets
-        if (data.path[0].cls.includes(this.delegationCls)) {
-            this.removeAllNodes();
+        let me = this;
+
+        if (!me.isDragging) {
+            // limit the event to delegation targets
+            if (data.path[0].cls.includes(me.delegationCls)) {
+                me.removeAllNodes();
+            }
         }
     }
 
