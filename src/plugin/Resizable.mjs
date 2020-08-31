@@ -199,7 +199,7 @@ class Resizable extends Base {
 
         Neo.main.DomAccess.setStyle({
             id   : 'document.body',
-            style: {cursor: 'w-resize !important'} // todo: use the cursor matching to the currentNodeId
+            style: {cursor: `${Resizable.cursorPositions[Resizable.positions.indexOf(me.currentNodeName)]}-resize !important`}
         });
 
         if (!me.dragZone) {
