@@ -201,7 +201,7 @@ class Resizable extends Base {
                 style = me.dragZone.dragProxy.wrapperStyle;
 
             if (node.includes('bottom')) {
-                style.height = `${data.clientY - rect.top}px`;
+                style.height = `${Math.max(me.minHeight, data.clientY - rect.top)}px`;
             }
 
             if (node.includes('left')) {
