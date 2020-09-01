@@ -176,12 +176,13 @@ class Resizable extends Base {
      */
     onDragEnd(data) {
         let me    = this,
-            style = me.owner.wrapperStyle;
+            style = me.owner.wrapperStyle; // todo: delegation target
 
         me.initialRect = null;
         me.isDragging  = false;
 
         Object.assign(style, {
+            opacity  : 1,
             transform: 'none',
             ...me.dragZone.dragProxy.wrapperStyle
         });
@@ -234,9 +235,13 @@ class Resizable extends Base {
         let me    = this,
             i     = 0,
             len   = data.path.length,
-            owner = me.owner;
+            owner = me.owner,
+            style = me.owner.wrapperStyle; // todo: delegation target
 
         me.isDragging = true;
+
+        style.opacity = 0.3;
+        me.owner.wrapperStyle = style;
 
         for (; i < len; i++) {
             if (data.path[i].cls.includes(me.delegationCls)) {

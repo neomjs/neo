@@ -445,7 +445,7 @@ class Base extends Panel {
 
             me.dragZone.dragStart(data);
 
-            style.opacity = 0.4;
+            style.opacity = 0.3;
 
             me.wrapperStyle = style;
         }
