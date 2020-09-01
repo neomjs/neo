@@ -210,7 +210,7 @@ class Resizable extends Base {
             }
 
             if (node.includes('right')) {
-                style.width = `${rect.width - rect.right + data.clientX}px`;
+                style.width = `${Math.max(me.minWidth, rect.width - rect.right + data.clientX)}px`;
             }
 
             if (node.includes('top')) {
