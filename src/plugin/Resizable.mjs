@@ -87,6 +87,16 @@ class Resizable extends Base {
          */
         nodeBottom: null,
         /**
+         * minimum height when resizing in px
+         * @member {Number} minHeight=100
+         */
+        minHeight: 100,
+        /**
+         * minimum width when resizing in px
+         * @member {Number} minWidth=100
+         */
+        minWidth: 100,
+        /**
          * @member {Object} nodeBottomLeft=null
          * @protected
          */
