@@ -88,14 +88,14 @@ class Resizable extends Base {
         nodeBottom: null,
         /**
          * minimum height when resizing in px
-         * @member {Number} minHeight=100
+         * @member {Number} minHeight=200
          */
-        minHeight: 100,
+        minHeight: 200,
         /**
          * minimum width when resizing in px
-         * @member {Number} minWidth=100
+         * @member {Number} minWidth=200
          */
-        minWidth: 100,
+        minWidth: 200,
         /**
          * @member {Object} nodeBottomLeft=null
          * @protected
@@ -175,10 +175,18 @@ class Resizable extends Base {
      * @param {Object} data
      */
     onDragEnd(data) {
-        let me = this;
+        let me    = this,
+            style = me.owner.wrapperStyle;
 
         me.initialRect = null;
         me.isDragging  = false;
+
+        Object.assign(style, {
+            transform: 'none',
+            ...me.dragZone.dragProxy.wrapperStyle
+        });
+
+        me.owner.wrapperStyle = style;
 
         Neo.main.DomAccess.setStyle({
             id   : 'document.body',
@@ -203,13 +211,13 @@ class Resizable extends Base {
             if (node.includes('bottom')) {
                 style.height = `${Math.max(me.minHeight, data.clientY - rect.top)}px`;
             } else if (node.includes('top')) {
-                style.height = `${rect.height + rect.top - data.clientY}px`;
-                style.top    = `${data.clientY}px`;
+                style.height = `${Math.max(me.minHeight, rect.height + rect.top - data.clientY)}px`;
+                style.top    = `${Math.min(rect.bottom - me.minHeight, data.clientY)}px`;
             }
 
             if (node.includes('left')) {
-                style.left  = `${data.clientX}px`;
-                style.width = `${rect.width + rect.left - data.clientX}px`;
+                style.left  = `${Math.min(rect.right - me.minWidth, data.clientX)}px`;
+                style.width = `${Math.max(me.minWidth, rect.width + rect.left - data.clientX)}px`;
             } else if (node.includes('right')) {
                 style.width = `${Math.max(me.minWidth, rect.width - rect.right + data.clientX)}px`;
             }
