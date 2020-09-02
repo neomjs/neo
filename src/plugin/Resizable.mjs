@@ -82,11 +82,6 @@ class Resizable extends Base {
          */
         isDragging: false,
         /**
-         * @member {Object} nodeBottom=null
-         * @protected
-         */
-        nodeBottom: null,
-        /**
          * minimum height when resizing in px
          * @member {Number} minHeight=200
          */
@@ -96,6 +91,11 @@ class Resizable extends Base {
          * @member {Number} minWidth=200
          */
         minWidth: 200,
+        /**
+         * @member {Object} nodeBottom=null
+         * @protected
+         */
+        nodeBottom: null,
         /**
          * @member {Object} nodeBottomLeft=null
          * @protected
