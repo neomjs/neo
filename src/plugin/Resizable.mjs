@@ -228,18 +228,22 @@ class Resizable extends Base {
      */
     onDragMove(data) {
         if (this.dragZone.dragProxy) {
-            let me     = this,
-                node   = me.currentNodeName,
-                ctRect = me.boundaryContainerRect,
-                rect   = me.initialRect,
-                style  = me.dragZone.dragProxy.wrapperStyle,
+            let me        = this,
+                node      = me.currentNodeName,
+                ctRect    = me.boundaryContainerRect,
+                maxHeight = me.maxHeight,
+                maxWidth  = me.maxWidth,
+                minHeight = me.minHeight,
+                minWidth  = me.minWidth,
+                rect      = me.initialRect,
+                style     = me.dragZone.dragProxy.wrapperStyle,
                 dist, size;
 
             if (node.includes('bottom')) {
-                size = Math.max(me.minHeight, data.clientY - rect.top);
+                size = Math.max(minHeight, data.clientY - rect.top);
 
-                if (me.maxHeight) {
-                    size = Math.min(size, me.maxHeight);
+                if (maxHeight) {
+                    size = Math.min(size, maxHeight);
                 }
 
                 if (ctRect) {
@@ -248,12 +252,12 @@ class Resizable extends Base {
 
                 style.height = `${size}px`;
             } else if (node.includes('top')) {
-                dist = Math.min(rect.bottom - me.minHeight, data.clientY);
-                size = Math.max(me.minHeight, rect.height + rect.top - data.clientY);
+                dist = Math.min(rect.bottom - minHeight, data.clientY);
+                size = Math.max(minHeight, rect.height + rect.top - data.clientY);
 
-                if (me.maxHeight) {
-                    dist = Math.max(dist, rect.bottom - me.maxHeight);
-                    size = Math.min(size, me.maxHeight);
+                if (maxHeight) {
+                    dist = Math.max(dist, rect.bottom - maxHeight);
+                    size = Math.min(size, maxHeight);
                 }
 
                 if (ctRect) {
@@ -266,12 +270,12 @@ class Resizable extends Base {
             }
 
             if (node.includes('left')) {
-                dist = Math.min(rect.right - me.minWidth, data.clientX);
-                size = Math.max(me.minWidth, rect.width + rect.left - data.clientX);
+                dist = Math.min(rect.right - minWidth, data.clientX);
+                size = Math.max(minWidth, rect.width + rect.left - data.clientX);
 
-                if (me.maxWidth) {
-                    dist = Math.max(dist, rect.right - me.maxWidth);
-                    size = Math.min(size, me.maxWidth);
+                if (maxWidth) {
+                    dist = Math.max(dist, rect.right - maxWidth);
+                    size = Math.min(size, maxWidth);
                 }
 
                 if (ctRect) {
@@ -282,10 +286,10 @@ class Resizable extends Base {
                 style.left  = `${dist}px`;
                 style.width = `${size}px`;
             } else if (node.includes('right')) {
-                size = Math.max(me.minWidth, rect.width - rect.right + data.clientX);
+                size = Math.max(minWidth, rect.width - rect.right + data.clientX);
 
-                if (me.maxWidth) {
-                    size = Math.min(size, me.maxWidth);
+                if (maxWidth) {
+                    size = Math.min(size, maxWidth);
                 }
 
                 if (ctRect) {
