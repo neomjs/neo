@@ -228,10 +228,11 @@ class Resizable extends Base {
      */
     onDragMove(data) {
         if (this.dragZone.dragProxy) {
-            let me    = this,
-                node  = me.currentNodeName,
-                rect  = me.initialRect,
-                style = me.dragZone.dragProxy.wrapperStyle,
+            let me     = this,
+                node   = me.currentNodeName,
+                ctRect = me.boundaryContainerRect,
+                rect   = me.initialRect,
+                style  = me.dragZone.dragProxy.wrapperStyle,
                 dist, size;
 
             if (node.includes('bottom')) {
@@ -239,6 +240,10 @@ class Resizable extends Base {
 
                 if (me.maxHeight) {
                     size = Math.min(size, me.maxHeight);
+                }
+
+                if (ctRect) {
+                    size = Math.min(size, ctRect.bottom - rect.top);
                 }
 
                 style.height = `${size}px`;
