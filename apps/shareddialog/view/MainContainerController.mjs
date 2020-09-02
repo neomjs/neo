@@ -57,7 +57,12 @@ class MainContainerController extends ComponentController {
      * @param {String} name
      */
     onAppConnect(name) {
-        console.log('onAppConnect', name);
+        let me   = this,
+            view = me.view;
+
+        if (name === 'SharedDialog2') {
+            view.down({iconCls: 'fa fa-window-restore'}).disabled = true;
+        }
     }
 
     /**
@@ -65,7 +70,12 @@ class MainContainerController extends ComponentController {
      * @param {String} name
      */
     onAppDisconnect(name) {
-        console.log('onAppDisconnect', name);
+        let me   = this,
+            view = me.view;
+
+        if (name === 'SharedDialog2') {
+            view.down({iconCls: 'fa fa-window-restore'}).disabled = false;
+        }
     }
 
     /**
