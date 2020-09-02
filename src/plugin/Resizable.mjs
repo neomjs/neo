@@ -53,6 +53,12 @@ class Resizable extends Base {
          */
         boundaryContainerId: 'document.body',
         /**
+         * The DOMRect of the boundaryContainer if set (measured on drag:start)
+         * @member {Object} boundaryContainerRect=null
+         * @protected
+         */
+        boundaryContainerRect: null,
+        /**
          * @member {String} currentNodeName=null
          * @protected
          */
@@ -193,8 +199,11 @@ class Resizable extends Base {
         let me    = this,
             style = me.owner.wrapperStyle; // todo: delegation target
 
-        me.initialRect = null;
-        me.isDragging  = false;
+        Object.assign(me, {
+            boundaryContainerRect: null,
+            initialRect          : null,
+            isDragging           : false
+        });
 
         Object.assign(style, {
             opacity  : 1,
@@ -276,11 +285,13 @@ class Resizable extends Base {
      * @param {Object} data
      */
     onDragStart(data) {
-        let me    = this,
-            i     = 0,
-            len   = data.path.length,
-            owner = me.owner,
-            style = me.owner.wrapperStyle; // todo: delegation target
+        let me          = this,
+            containerId = me.boundaryContainerId,
+            i           = 0,
+            len         = data.path.length,
+            owner       = me.owner,
+            style       = owner.wrapperStyle, // todo: delegation target
+            target;
 
         me.isDragging = true;
 
@@ -288,10 +299,26 @@ class Resizable extends Base {
         me.owner.wrapperStyle = style;
 
         for (; i < len; i++) {
-            if (data.path[i].cls.includes(me.delegationCls)) {
-                me.initialRect = data.path[i].rect;
-                break;
+            target = data.path[i];
+
+            if (target.cls.includes(me.delegationCls)) {
+                me.initialRect = target.rect;
             }
+
+            if (containerId) {
+                if (containerId === 'document.body' && target.tagName === 'body' || containerId === target.id) {
+                    me.boundaryContainerRect = target.rect;
+                    break; // assuming that the dragEl is not outside of the container
+                }
+            }
+        }
+
+        if (!me.boundaryContainerRect) {
+            Neo.main.DomAccess.getBoundingClientRect({
+                id: me.boundaryContainerRect
+            }).then(rect => {
+                me.boundaryContainerRect = rect;
+            });
         }
 
         Neo.main.DomAccess.setStyle({
