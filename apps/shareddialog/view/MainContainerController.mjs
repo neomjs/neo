@@ -52,6 +52,14 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} data
      */
+    openSecondWindow(data) {
+        console.log('openSecondWindow');
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     switchTheme(data) {
         let button     = data.component,
             buttonText = 'Theme Light',

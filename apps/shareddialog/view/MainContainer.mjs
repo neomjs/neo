@@ -44,6 +44,12 @@ class MainContainer extends Viewport {
                 handler: 'switchTheme',
                 iconCls: 'fa fa-moon',
                 text   : 'Theme Dark'
+            }, {
+                module : Button,
+                handler: 'openSecondWindow',
+                iconCls: 'fa fa-window-restore',
+                style  : {marginLeft: '1em'},
+                text   : 'Open 2nd Window'
             }]
         }, {
             ntype: 'component',
