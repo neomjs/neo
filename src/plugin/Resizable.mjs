@@ -85,12 +85,12 @@ class Resizable extends Base {
          * maximum height when resizing in px
          * @member {Number|null} maxHeight=null
          */
-        maxHeight: 600,
+        maxHeight: null,
         /**
          * maximum width when resizing in px
          * @member {Number|null} maxWidth=null
          */
-        maxWidth: 600,
+        maxWidth: null,
         /**
          * minimum height when resizing in px
          * @member {Number} minHeight=200
@@ -242,8 +242,16 @@ class Resizable extends Base {
             }
 
             if (node.includes('left')) {
-                style.left  = `${Math.min(rect.right - me.minWidth, data.clientX)}px`;
-                style.width = `${Math.max(me.minWidth, rect.width + rect.left - data.clientX)}px`;
+                dist = Math.min(rect.right - me.minWidth, data.clientX);
+                size = Math.max(me.minWidth, rect.width + rect.left - data.clientX);
+
+                if (me.maxWidth) {
+                    dist = Math.max(dist, rect.right - me.maxWidth);
+                    size = Math.min(size, me.maxWidth);
+                }
+
+                style.left  = `${dist}px`;
+                style.width = `${size}px`;
             } else if (node.includes('right')) {
                 size = Math.max(me.minWidth, rect.width - rect.right + data.clientX);
 
