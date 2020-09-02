@@ -49,6 +49,10 @@ class Resizable extends Base {
          */
         ntype: 'plugin-resizable',
         /**
+         * @member {String|null} boundaryContainerId='document.body'
+         */
+        boundaryContainerId: 'document.body',
+        /**
          * @member {String} currentNodeName=null
          * @protected
          */
@@ -73,6 +77,7 @@ class Resizable extends Base {
          */
         gap: 10,
         /**
+         * The DOMRect of the element to drag (measured on drag:start)
          * @member {Object} initialRect=null
          * @protected
          */
