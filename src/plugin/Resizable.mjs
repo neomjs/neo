@@ -85,12 +85,12 @@ class Resizable extends Base {
          * maximum height when resizing in px
          * @member {Number|null} maxHeight=null
          */
-        maxHeight: null,
+        maxHeight: 600,
         /**
          * maximum width when resizing in px
          * @member {Number|null} maxWidth=null
          */
-        maxWidth: null,
+        maxWidth: 600,
         /**
          * minimum height when resizing in px
          * @member {Number} minHeight=200
@@ -217,10 +217,17 @@ class Resizable extends Base {
             let me    = this,
                 node  = me.currentNodeName,
                 rect  = me.initialRect,
-                style = me.dragZone.dragProxy.wrapperStyle;
+                style = me.dragZone.dragProxy.wrapperStyle,
+                size;
 
             if (node.includes('bottom')) {
-                style.height = `${Math.max(me.minHeight, data.clientY - rect.top)}px`;
+                size = Math.max(me.minHeight, data.clientY - rect.top);
+
+                if (me.maxHeight) {
+                    size = Math.min(me.maxHeight, size);
+                }
+
+                style.height = `${size}px`;
             } else if (node.includes('top')) {
                 style.height = `${Math.max(me.minHeight, rect.height + rect.top - data.clientY)}px`;
                 style.top    = `${Math.min(rect.bottom - me.minHeight, data.clientY)}px`;
