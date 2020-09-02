@@ -227,17 +227,20 @@ class Resizable extends Base {
      * @param {Object} data
      */
     onDragMove(data) {
-        if (this.dragZone.dragProxy) {
-            let me        = this,
-                node      = me.currentNodeName,
-                ctRect    = me.boundaryContainerRect,
-                maxHeight = me.maxHeight,
-                maxWidth  = me.maxWidth,
-                minHeight = me.minHeight,
-                minWidth  = me.minWidth,
-                rect      = me.initialRect,
-                style     = me.dragZone.dragProxy.wrapperStyle,
-                dist, size;
+        let me        = this,
+            node      = me.currentNodeName,
+            ctRect    = me.boundaryContainerRect,
+            maxHeight = me.maxHeight,
+            maxWidth  = me.maxWidth,
+            minHeight = me.minHeight,
+            minWidth  = me.minWidth,
+            rect      = me.initialRect,
+            dist, size, style;
+
+        if (!node) {
+            me.onDragEnd({});
+        } else if (me.dragZone.dragProxy) {
+            style = me.dragZone.dragProxy.wrapperStyle;
 
             if (node.includes('bottom')) {
                 size = Math.max(minHeight, data.clientY - rect.top);
