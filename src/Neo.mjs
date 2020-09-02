@@ -499,7 +499,7 @@ function autoGenerateGetSet(proto, key) {
                     value = me['_' + key]; // return the value parsed by the setter
                 }
 
-                if (me[beforeGet] && typeof me[beforeGet] === 'function') {
+                if (typeof me[beforeGet] === 'function') {
                     value = me[beforeGet](value);
                 }
 
@@ -525,7 +525,7 @@ function autoGenerateGetSet(proto, key) {
                 // since it could get pulled by other beforeSet methods of different configs
                 me[_key] = value;
 
-                if (me[beforeSet] && typeof me[beforeSet] === 'function') {
+                if (typeof me[beforeSet] === 'function') {
                     value = me[beforeSet](value, oldValue);
 
                     // If they don't return a value, that means no change
@@ -538,7 +538,7 @@ function autoGenerateGetSet(proto, key) {
                 }
 
                 if (hasChanged(value, oldValue)) {
-                    if (me[afterSet] && typeof me[afterSet] === 'function') {
+                    if (typeof me[afterSet] === 'function') {
                         me[afterSet](value, oldValue);
                     }
                 }
