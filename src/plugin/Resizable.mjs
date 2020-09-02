@@ -274,6 +274,11 @@ class Resizable extends Base {
                     size = Math.min(size, me.maxWidth);
                 }
 
+                if (ctRect) {
+                    dist = Math.max(dist, ctRect.left);
+                    size = Math.min(size, rect.right - ctRect.left);
+                }
+
                 style.left  = `${dist}px`;
                 style.width = `${size}px`;
             } else if (node.includes('right')) {
