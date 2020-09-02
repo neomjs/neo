@@ -1,5 +1,5 @@
-import Dialog                 from '../../../src/dialog/Base.mjs';
-import {default as TextField} from '../../../src/form/field/Text.mjs';
+import Dialog    from '../../../src/dialog/Base.mjs';
+import TextField from '../../../src/form/field/Text.mjs';
 
 /**
  * @class Window.DemoDialog

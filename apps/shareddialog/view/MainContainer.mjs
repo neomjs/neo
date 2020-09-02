@@ -1,7 +1,6 @@
 import Button                  from '../../../src/button/Base.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import Toolbar                 from '../../../src/container/Toolbar.mjs';
-import DemoDialog              from './DemoDialog.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
@@ -28,29 +27,21 @@ class MainContainer extends Viewport {
          * Custom config
          * @member {Neo.dialog.Base|null} dialog=null
          */
-        dialog: null
-    }}
-
-    /**
-     *
-     * @param {Object} config
-     */
-    constructor(config) {
-        super(config);
-
-        let me = this;
-
-        me.items = [{
+        dialog: null,
+        /**
+         * @member {Array} items
+         */
+        items: [{
             module: Toolbar,
             flex  : 'none',
             items :[{
                 module : Button,
-                handler: me.createDialog.bind(me),
+                handler: 'createDialog',
                 iconCls: 'fa fa-window-maximize',
                 text   : 'Create Dialog',
             }, '->', {
                 module : Button,
-                handler: MainContainer.switchTheme.bind(me),
+                handler: 'switchTheme',
                 iconCls: 'fa fa-moon',
                 text   : 'Theme Dark'
             }]
@@ -67,65 +58,8 @@ class MainContainer extends Viewport {
                 justifyContent: 'center',
                 userSelect    : 'none'
             }
-        }];
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    createDialog(data) {
-        let me = this;
-
-        data.component.disabled = true;
-
-        me.dialog = Neo.create(DemoDialog, {
-            animateTargetId    : data.component.id,
-            appName            : me.appName,
-            boundaryContainerId: me.boundaryContainerId,
-            listeners          : {close: me.onWindowClose, scope: me}
-        });
-    }
-
-    /**
-     *
-     */
-    onWindowClose() {
-        let button = this.down({
-            text: 'Create Dialog'
-        });
-
-        button.disabled = false;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    static switchTheme(data) {
-        let button     = data.component,
-            buttonText = 'Theme Light',
-            iconCls    = 'fa fa-sun',
-            oldTheme   = 'neo-theme-light',
-            theme      = 'neo-theme-dark';
-
-        if (button.text === 'Theme Light') {
-            buttonText = 'Theme Dark';
-            iconCls    = 'fa fa-moon';
-            oldTheme   = 'neo-theme-dark';
-            theme      = 'neo-theme-light';
-        }
-
-        Neo.main.DomAccess.setBodyCls({
-            add   : [theme],
-            remove: [oldTheme]
-        });
-
-        button.set({
-            iconCls: iconCls,
-            text   : buttonText
-        });
-    }
+        }]
+    }}
 }
 
 Neo.applyClassConfig(MainContainer);
