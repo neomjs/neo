@@ -1,8 +1,8 @@
-import {default as BaseContainer} from '../../../../src/container/Base.mjs';
-import CheckBox                   from '../../../../src/form/field/CheckBox.mjs';
-import Component                  from './Component.mjs';
-import ContainerController        from './ContainerController.mjs';
-import Panel                      from '../../../../src/container/Panel.mjs';
+import BaseContainer       from '../../../../src/container/Base.mjs';
+import CheckBox            from '../../../../src/form/field/CheckBox.mjs';
+import Component           from './Component.mjs';
+import ContainerController from './ContainerController.mjs';
+import Panel               from '../../../../src/container/Panel.mjs';
 
 /**
  * @class SharedCovid.view.mapboxGl.Container

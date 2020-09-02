@@ -1,5 +1,5 @@
-import {default as Component} from './Base.mjs';
-import NeoArray               from '../util/Array.mjs';
+import Component from './Base.mjs';
+import NeoArray  from '../util/Array.mjs';
 
 /**
  * @class Neo.component.Chip

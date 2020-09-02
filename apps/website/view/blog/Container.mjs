@@ -1,6 +1,6 @@
-import {default as BaseContainer} from '../../../../src/container/Base.mjs';
-import List                       from './List.mjs';
-import {default as SearchField}   from '../../../../src/form/field/Search.mjs';
+import BaseContainer from '../../../../src/container/Base.mjs';
+import List          from './List.mjs';
+import SearchField   from '../../../../src/form/field/Search.mjs';
 
 /**
  * @class Website.view.blog.Container

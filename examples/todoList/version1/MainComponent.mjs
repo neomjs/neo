@@ -1,6 +1,6 @@
-import {default as Component} from '../../../src/component/Base.mjs';
-import NeoArray               from '../../../src/util/Array.mjs';
-import {default as VdomUtil}  from '../../../src/util/VDom.mjs';
+import Component from '../../../src/component/Base.mjs';
+import NeoArray  from '../../../src/util/Array.mjs';
+import VdomUtil  from '../../../src/util/VDom.mjs';
 
 /**
  * @class TodoListApp1.MainComponent

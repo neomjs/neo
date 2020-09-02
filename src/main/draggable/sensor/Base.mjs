@@ -1,4 +1,4 @@
-import {default as CoreBase} from '../../../core/Base.mjs';
+import CoreBase from '../../../core/Base.mjs';
 
 /**
  * Abstract base class for other sensors
@@ -18,9 +18,9 @@ class Base extends CoreBase {
          */
         currentElement: null,
         /**
-         * @member {String[]} dragTargetClasses=['neo-draggable']
+         * @member {String[]} dragTargetClasses=['neo-draggable','neo-resizable']
          */
-        dragTargetClasses: ['neo-draggable'],
+        dragTargetClasses: ['neo-draggable', 'neo-resizable'],
         /**
          * @member {Boolean} isDragging=false
          * @protected

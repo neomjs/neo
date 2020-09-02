@@ -1,5 +1,5 @@
-import {default as Container} from './Base.mjs';
-import Toolbar                from './Toolbar.mjs';
+import Container from './Base.mjs';
+import Toolbar   from './Toolbar.mjs';
 
 /**
  * An extended Container supporting multiple docked header toolbars

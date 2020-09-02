@@ -1,7 +1,7 @@
-import Neo                          from '../../../src/Neo.mjs';
-import * as core                    from '../../../src/core/_export.mjs';
-import {default as Collection}      from '../../../src/collection/Base.mjs';
-import {default as InstanceManager} from '../../../src/manager/Instance.mjs';
+import Neo             from '../../../src/Neo.mjs';
+import * as core       from '../../../src/core/_export.mjs';
+import Collection      from '../../../src/collection/Base.mjs';
+import InstanceManager from '../../../src/manager/Instance.mjs';
 
 let collection, collection2, collection3;
 

@@ -134,12 +134,12 @@ class DeltaUpdates extends Base {
     /**
      *
      * @param {Object} delta
-     * @param {String} [delta.attributes]
+     * @param {Object} [delta.attributes]
      * @param {String} [delta.cls]
      * @param {String} [delta.id]
      * @param {String} [delta.innerHTML]
      * @param {String} [delta.outerHTML]
-     * @param {String} [delta.style]
+     * @param {Object} [delta.style]
      */
     du_updateNode(delta) {
         let node = this.getElementOrBody(delta.id);
@@ -150,17 +150,17 @@ class DeltaUpdates extends Base {
             Object.entries(delta).forEach(([prop, value]) => {
                 switch(prop) {
                     case 'attributes':
-                        Object.entries(value).forEach(([key, value]) => {
+                        Object.entries(value).forEach(([key, val]) => {
                             if (this.voidAttributes.includes(key)) {
-                                node[key] = value === 'true'; // vnode attribute values get converted into strings
-                            } else if (value === null || value === '') {
+                                node[key] = val === 'true'; // vnode attribute values get converted into strings
+                            } else if (val === null || val === '') {
                                 if (key === 'value') {
                                     node[key] = ''; // input fields => pseudo attribute can not be removed
                                 } else {
                                     node.removeAttribute(key);
                                 }
                             } else {
-                                node[key] = value;
+                                node[key] = val;
                             }
                         });
                         break;
@@ -172,15 +172,18 @@ class DeltaUpdates extends Base {
                         node.innerHTML = value || '';
                         break;
                     case 'outerHTML':
-                        node.outerHTML = data.outerHTML;
+                        node.outerHTML = value || '';
                         break;
                     case 'style':
                         if (Neo.isObject(value)) {
-                            if (node) {
-                                Object.keys(value).forEach(function(styleName) {
-                                    node.style[styleName] = value[styleName];
-                                });
-                            }
+                            Object.entries(value).forEach(([key, val]) => {
+                                if (Neo.isString(val) && val.includes('!important')) {
+                                    val = val.replace('!important', '').trim();
+                                    node.style.setProperty(Neo.decamel(key), val, 'important');
+                                } else {
+                                    node.style[Neo.decamel(key)] = val;
+                                }
+                            });
                         }
                         break;
                 }

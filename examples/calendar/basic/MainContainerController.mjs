@@ -1,5 +1,5 @@
-import {default as ComponentController} from '../../../src/controller/Component.mjs';
-import NeoArray                         from '../../../src/util/Array.mjs';
+import ComponentController from '../../../src/controller/Component.mjs';
+import NeoArray            from '../../../src/util/Array.mjs';
 
 /**
  * @class CalendarBasic.MainContainerController

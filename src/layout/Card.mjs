@@ -86,10 +86,6 @@ class Card extends Base {
 
                     if (isActiveIndex) {
                         item.vdom.removeDom = false;
-
-                        setTimeout(() => {
-                            item.mounted = true;
-                        }, 100);
                     } else {
                         item.mounted = false;
                         item.vdom.removeDom = true;

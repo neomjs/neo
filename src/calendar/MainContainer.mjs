@@ -1,16 +1,16 @@
-import CalendarsContainer           from './view/CalendarsContainer.mjs';
-import {default as CalendarStore}   from './store/Calendars.mjs';
-import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
-import {default as Container}       from '../container/Base.mjs';
-import DateSelector                 from '../component/DateSelector.mjs';
-import DateUtil                     from '../util/Date.mjs';
-import DayComponent                 from './view/DayComponent.mjs';
-import {default as EventStore}      from './store/Events.mjs';
-import MonthComponent               from './view/MonthComponent.mjs';
-import SettingsContainer            from './view/SettingsContainer.mjs';
-import Toolbar                      from '../container/Toolbar.mjs';
-import WeekComponent                from './view/WeekComponent.mjs';
-import YearComponent                from './view/YearComponent.mjs';
+import CalendarsContainer from './view/CalendarsContainer.mjs';
+import CalendarStore      from './store/Calendars.mjs';
+import ClassSystemUtil    from '../util/ClassSystem.mjs';
+import Container          from '../container/Base.mjs';
+import DateSelector       from '../component/DateSelector.mjs';
+import DateUtil           from '../util/Date.mjs';
+import DayComponent       from './view/DayComponent.mjs';
+import EventStore         from './store/Events.mjs';
+import MonthComponent     from './view/MonthComponent.mjs';
+import SettingsContainer  from './view/SettingsContainer.mjs';
+import Toolbar            from '../container/Toolbar.mjs';
+import WeekComponent      from './view/WeekComponent.mjs';
+import YearComponent      from './view/YearComponent.mjs';
 
 const todayDate = new Date();
 

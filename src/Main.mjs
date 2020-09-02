@@ -1,8 +1,8 @@
-import Neo                        from './Neo.mjs';
-import * as core                  from './core/_export.mjs';
-import DomAccess                  from './main/DomAccess.mjs';
-import DomEvents                  from './main/DomEvents.mjs';
-import {default as WorkerManager} from './worker/Manager.mjs';
+import Neo           from './Neo.mjs';
+import * as core     from './core/_export.mjs';
+import DomAccess     from './main/DomAccess.mjs';
+import DomEvents     from './main/DomEvents.mjs';
+import WorkerManager from './worker/Manager.mjs';
 
 /**
  * @class Neo.Main

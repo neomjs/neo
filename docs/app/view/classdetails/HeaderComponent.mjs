@@ -1,5 +1,5 @@
-import {default as Component} from '../../../../src/component/Base.mjs';
-import SourceViewComponent    from './SourceViewComponent.mjs';
+import Component           from '../../../../src/component/Base.mjs';
+import SourceViewComponent from './SourceViewComponent.mjs';
 
 /**
  * @class Docs.app.view.classdetails.HeaderComponent

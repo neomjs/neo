@@ -1,5 +1,5 @@
-import CheckBox                      from './CheckBox.mjs';
-import {default as ComponentManager} from '../../manager/Component.mjs'
+import CheckBox         from './CheckBox.mjs';
+import ComponentManager from '../../manager/Component.mjs'
 
 /**
  * @class Neo.form.field.Radio

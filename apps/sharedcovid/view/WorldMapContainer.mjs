@@ -1,5 +1,5 @@
-import {default as Container}      from '../../../src/container/Base.mjs';
-import {default as NumberField}    from '../../../src/form/field/Number.mjs';
+import Container                   from '../../../src/container/Base.mjs';
+import NumberField                 from '../../../src/form/field/Number.mjs';
 import Toolbar                     from '../../../src/container/Toolbar.mjs';
 import WorldMapComponent           from './WorldMapComponent.mjs';
 import WorldMapContainerController from './WorldMapContainerController.mjs';

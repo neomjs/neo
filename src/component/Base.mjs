@@ -1,15 +1,15 @@
-import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
-import {default as CoreBase}        from '../core/Base.mjs';
-import ComponentManager             from '../manager/Component.mjs';
-import DomEventManager              from '../manager/DomEvent.mjs';
-import KeyNavigation                from '../util/KeyNavigation.mjs';
-import Logger                       from '../core/Logger.mjs';
-import NeoArray                     from '../util/Array.mjs';
-import Observable                   from '../core/Observable.mjs';
-import Style                        from '../util/Style.mjs';
-import Util                         from '../core/Util.mjs';
-import {default as VDomUtil}        from '../util/VDom.mjs';
-import {default as VNodeUtil}       from '../util/VNode.mjs';
+import ClassSystemUtil  from '../util/ClassSystem.mjs';
+import CoreBase         from '../core/Base.mjs';
+import ComponentManager from '../manager/Component.mjs';
+import DomEventManager  from '../manager/DomEvent.mjs';
+import KeyNavigation    from '../util/KeyNavigation.mjs';
+import Logger           from '../core/Logger.mjs';
+import NeoArray         from '../util/Array.mjs';
+import Observable       from '../core/Observable.mjs';
+import Style            from '../util/Style.mjs';
+import Util             from '../core/Util.mjs';
+import VDomUtil         from '../util/VDom.mjs';
+import VNodeUtil        from '../util/VNode.mjs';
 
 /**
  * @class Neo.component.Base
@@ -213,9 +213,9 @@ class Base extends CoreBase {
         width_: null,
         /**
          * Top level style attributes. Useful in case getVdomRoot() does not point to the top level DOM node.
-         * @member {Object} wrapperStyle_={}
+         * @member {Object|null} wrapperStyle_=null
          */
-        wrapperStyle_: {},
+        wrapperStyle_: null,
         /**
          * The vdom markup for this component.
          * @member {Object} _vdom={}
@@ -380,20 +380,10 @@ class Base extends CoreBase {
     }
     set style(value) {
         let me       = this,
-            vdomRoot = me.getVdomRoot(),
-            oldStyle;
-
-        if (me.mounted) {
-            oldStyle = {...me._style};
-        }
+            oldStyle = me.style; // cloned => getter
 
         me._style = value;
-
-        vdomRoot.style = Object.assign(vdomRoot.style || {}, value);
-
-        if (me.mounted) {
-            me.updateStyle(value, oldStyle);
-        }
+        me.updateStyle(value, oldStyle);
     }
 
     /**
@@ -674,13 +664,26 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetWrapperStyle(value, oldValue) {
-        if (value && !Neo.isEmpty(value)) {
-            let vdom = this.vdom;
+        if (!(!value && oldValue === undefined)) {
+            let me   = this,
+                vdom = me.vdom;
 
-            vdom.style = vdom.style || {};
-            Object.assign(vdom.style, value);
-            this.vdom  = vdom;
+            if (!me.vdom.id) {
+                vdom.style = value;
+                me.vdom = vdom;
+            } else {
+                me.updateStyle(value, oldValue, me.vdom.id);
+            }
         }
+    }
+
+    /**
+     * Triggered when accessing the wrapperStyle config
+     * @param {Object} value
+     * @protected
+     */
+    beforeGetWrapperStyle(value) {
+        return {...Object.assign(this.vdom.style || {}, value)};
     }
 
     /**
@@ -826,13 +829,13 @@ class Base extends CoreBase {
             if (me.parentId === 'document.body') {
                 Neo.currentWorker.promiseMessage('main', {
                     action: 'updateDom',
-                    deltas: [{action: 'removeNode', id: me.id}]
+                    deltas: [{action: 'removeNode', id: me.vdom.id}]
                 });
             } else {
                 parent     = Neo.getComponent(me.parentId);
                 parentVdom = parent.vdom;
 
-                VDomUtil.removeVdomChild(parentVdom, me.id);
+                VDomUtil.removeVdomChild(parentVdom, me.vdom.id);
                 parent[silent ? '_vdom' : 'vdom'] = parentVdom;
             }
         }
@@ -1303,40 +1306,38 @@ class Base extends CoreBase {
 
     /**
      * Creates the style deltas for newValue & oldValue and applies them directly to the DOM.
-     * @param newValue
-     * @param oldValue
+     * @param {Object|String} newValue
+     * @param {Object|String} oldValue
+     * @param {String} [id=this.id]
      * @protected
      */
-    updateStyle(newValue, oldValue) {
+    updateStyle(newValue, oldValue, id=this.id) {
         let me    = this,
             delta = Style.compareStyles(newValue, oldValue),
-            vnode = me.vnode,
+            vdom  = VDomUtil.findVdomChild(me.vdom, id),
+            vnode = me.vnode && VNodeUtil.findChildVnode(me.vnode, id),
             opts;
 
         if (delta) {
-            // console.log('updateStyle', 'new', newValue, 'old', oldValue, 'delta', delta);
+            vdom.vdom.style = newValue; // keep the vdom in sync
+
             if (vnode) {
-                vnode.style = newValue; // keep the vnode in sync
-                me.vnode = vnode;
+                vnode.vnode.style = newValue; // keep the vnode in sync
+
+                opts = {
+                    action: 'updateDom',
+                    deltas: [{
+                        id   : id,
+                        style: delta
+                    }]
+                };
+
+                if (Neo.currentWorker.isSharedWorker) {
+                    opts.appName = me.appName;
+                }
+
+                Neo.currentWorker.sendMessage('main', opts);
             }
-
-            opts = {
-                action: 'updateDom',
-                deltas: [{
-                    id   : me.id,
-                    style: delta
-                }]
-            };
-
-            if (Neo.currentWorker.isSharedWorker) {
-                opts.appName = me.appName;
-            }
-
-            Neo.currentWorker.promiseMessage('main', opts).then(() => {
-                // console.log('Component style updated');
-            }).catch(err => {
-                console.log('Error attempting to update component style', err, me);
-            });
         }
     }
 
@@ -1361,9 +1362,8 @@ class Base extends CoreBase {
             me.isVdomUpdating = true;
 
             opts = {
-                appName: me.appName,
-                vdom   : vdom,
-                vnode  : vnode
+                vdom : vdom,
+                vnode: vnode
             };
 
             if (Neo.currentWorker.isSharedWorker) {

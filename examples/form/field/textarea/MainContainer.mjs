@@ -1,9 +1,9 @@
-import CheckBox                   from '../../../../src/form/field/CheckBox.mjs';
-import ConfigurationViewport      from '../../../ConfigurationViewport.mjs';
-import {default as NumberField}   from '../../../../src/form/field/Number.mjs';
-import Radio                      from '../../../../src/form/field/Radio.mjs';
-import {default as TextAreaField} from '../../../../src/form/field/TextArea.mjs';
-import {default as TextField}     from '../../../../src/form/field/Text.mjs';
+import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
+import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
+import NumberField           from '../../../../src/form/field/Number.mjs';
+import Radio                 from '../../../../src/form/field/Radio.mjs';
+import TextAreaField         from '../../../../src/form/field/TextArea.mjs';
+import TextField             from '../../../../src/form/field/Text.mjs';
 
 /**
  * @class TestApp.MainContainer

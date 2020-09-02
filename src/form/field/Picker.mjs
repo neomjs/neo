@@ -1,7 +1,7 @@
-import {default as Container}     from '../../container/Base.mjs';
-import {default as PickerTrigger} from './trigger/Picker.mjs';
-import Text                       from './Text.mjs';
-import {default as VDomUtil}      from '../../util/VDom.mjs';
+import Container     from '../../container/Base.mjs';
+import PickerTrigger from './trigger/Picker.mjs';
+import Text          from './Text.mjs';
+import VDomUtil      from '../../util/VDom.mjs';
 
 /**
  * The abstract picker field provides an arrow down trigger which opens a floating container to provide

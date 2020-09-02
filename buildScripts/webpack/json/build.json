@@ -19,8 +19,8 @@
     },
     "examples": {
         "button": {
-            "input": "examples/component/Button.mjs",
-            "output": "/examples/component/button/",
+            "input": "examples/button/Base.mjs",
+            "output": "/examples/button/base/",
             "title": "Neo Button"
         },
         "calendarBasic": {
@@ -125,6 +125,11 @@
             "input": "examples/form/field/Select.mjs",
             "output": "/examples/form/field/select/",
             "title": "Neo SelectField"
+        },
+        "splitButton": {
+            "input": "examples/button/Split.mjs",
+            "output": "/examples/button/split/",
+            "title": "Neo Button"
         },
         "tabContainer": {
             "input": "examples/tab/Container.mjs",

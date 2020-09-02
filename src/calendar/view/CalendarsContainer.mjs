@@ -1,5 +1,5 @@
-import {default as Container}     from '../../container/Base.mjs';
-import {default as CheckBoxField} from '../../form/field/CheckBox.mjs';
+import CheckBoxField from '../../form/field/CheckBox.mjs';
+import Container     from '../../container/Base.mjs';
 
 /**
  * @class Neo.calendar.view.CalendarsContainer

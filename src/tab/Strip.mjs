@@ -1,4 +1,4 @@
-import {default as Component} from '../component/Base.mjs';
+import Component from '../component/Base.mjs';
 
 /**
  * @class Neo.tab.Strip
@@ -47,27 +47,9 @@ class Strip extends Component {
         let me = this;
 
         me.getTabContainer().on({
-            activeIndexChange   : me.getActiveTabRectThenMove,
-            tabBarPositionChange: me.onTabBarPositionChange,
-            scope               : me
+            activeIndexChange: me.getActiveTabRectThenMove,
+            scope            : me
         });
-    }
-
-    /**
-     * Triggered after the mounted config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
-
-        if (value) {
-            // todo: mount fires when pushing the task into the rendering queue, not when it is done
-            setTimeout(() => {
-                this.getActiveTabRectThenMove();
-            }, 100, this);
-        }
     }
 
     /**
@@ -77,43 +59,49 @@ class Strip extends Component {
      * @protected
      */
     afterSetUseActiveTabIndicator(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom;
+        if (oldValue !== undefined) {
+            let me   = this,
+                vdom = me.vdom;
 
-        vdom.cn[0].removeDom = !value;
+            vdom.cn[0].removeDom = !value;
 
-        if (me.mounted && value) {
-            me._vdom = vdom; // silent update
-            me.getActiveTabRectThenMove();
-        } else {
-            me.vdom = vdom;
+            if (me.mounted && value) {
+                me._vdom = vdom; // silent update
+                me.getActiveTabRectThenMove();
+            } else {
+                me.vdom = vdom;
+            }
         }
     }
 
     /**
-     *
-     * @returns {Neo.tab.header.Button}
-     */
-    getActiveTab() {
-        let me           = this,
-            tabContainer = me.getTabContainer();
-
-        return tabContainer.getTabBar().items[tabContainer.activeIndex];
-    }
-
-    /**
+     * @param {Object|null} opts
+     * @param {Number} opts.oldValue
+     * @param {Number} opts.value
      * Gets the DomRect of the active tab, then moves the indicator
      */
-    getActiveTabRectThenMove() {
-        let me = this;
+    getActiveTabRectThenMove(opts) {
+        let me           = this,
+            ids          = [],
+            tabContainer = me.getTabContainer();
 
-        if (me.useActiveTabIndicator) {
-            // remote method access
-            Neo.main.DomAccess.getBoundingClientRect({
-                id: me.getActiveTab().id
-            }).then(data => {
-                me.moveActiveIndicator(data);
-            });
+        if (me.vnode) {
+            if (opts) {
+                ids.push(tabContainer.getTabAtIndex(opts.value), tabContainer.getTabAtIndex(opts.oldValue));
+            } else {
+                ids.push(tabContainer.getTabAtIndex(tabContainer.activeIndex));
+            }
+
+            ids = ids.map(e => e && e.id).filter(Boolean);
+
+            if (me.useActiveTabIndicator) {
+                // remote method access
+                Neo.main.DomAccess.getBoundingClientRect({
+                    id: ids
+                }).then(data => {
+                    me.moveActiveIndicator(data);
+                });
+            }
         }
     }
 
@@ -125,19 +113,20 @@ class Strip extends Component {
     }
 
     /**
-     *
-     * @param {Object} rect
-     * @param {Number} rect.bottom
-     * @param {Number} rect.height
-     * @param {Number} rect.left
-     * @param {Number} rect.right
-     * @param {Number} rect.top
-     * @param {Number} rect.width
-     * @param {Number} rect.x
-     * @param {Number} rect.y
+     * Can either contain the new target rect or the new and old one
+     * @param {Object[]} rects
+     * @param {Number} rects[0].bottom
+     * @param {Number} rects[0].height
+     * @param {Number} rects[0].left
+     * @param {Number} rects[0].right
+     * @param {Number} rects[0].top
+     * @param {Number} rects[0].width
+     * @param {Number} rects[0].x
+     * @param {Number} rects[0].y
      */
-    moveActiveIndicator(rect) {
-        let me = this,
+    moveActiveIndicator(rects) {
+        let me   = this,
+            rect = rects[1] || rects[0],
             activeTabIndicator, tabContainer, vdom;
 
         if (me.useActiveTabIndicator) {
@@ -149,43 +138,40 @@ class Strip extends Component {
                 case 'bottom':
                 case 'top':
                     activeTabIndicator.style = {
-                        left : rect.left  + 'px',
-                        width: rect.width + 'px'
+                        height: null,
+                        left  : `${rect.left}px`,
+                        top   : null,
+                        width : `${rect.width}px`
                     };
                     break;
                 case 'left':
                 case 'right':
                     activeTabIndicator.style = {
-                        height: rect.height + 'px',
-                        top   : rect.top    + 'px'
+                        height: `${rect.height}px`,
+                        left  : null,
+                        top   : `${rect.top}px`,
+                        width : null
                     };
                     break;
             }
 
-            activeTabIndicator.style.opacity = 1;
-            me.vdom = vdom;
-
-            setTimeout(() => {
+            // in case there is a dynamic change (oldValue), call this method again
+            if (rects[1]) {
                 activeTabIndicator.style.opacity = 0;
                 me.vdom = vdom;
-            }, 300);
-        }
-    }
 
-    /**
-     * Listener for the tabBarPositionChange event
-     * @param {Object} opts
-     * @param {String} opts.oldValue
-     * @param {String} opts.value
-     */
-    onTabBarPositionChange(opts) {
-        let me = this;
+                setTimeout(() => {
+                    me.moveActiveIndicator([rects[0]]);
+                }, 50)
+            } else {
+                activeTabIndicator.style.opacity = 1;
+                me.vdom = vdom;
 
-        if (me.useActiveTabIndicator) {
-            // we do need a delay to ensure the delta updates are done
-            setTimeout(() => {
-                me.getActiveTabRectThenMove();
-            }, 50, me);
+                setTimeout(() => {
+                    activeTabIndicator.style.opacity = 0;
+                    me.vdom = vdom;
+                }, 300);
+            }
         }
     }
 }

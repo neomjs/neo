@@ -1,6 +1,6 @@
-import {default as Button}    from '../../src/component/Button.mjs';
-import {default as Container} from '../../src/tab/Container.mjs';
-import * as form   from '../../src/form/_export.mjs';
+import Button    from '../../src/button/Base.mjs';
+import Container from '../../src/tab/Container.mjs';
+import * as form from '../../src/form/_export.mjs';
 
 /**
  * @class TestApp.MainContainer

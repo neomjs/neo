@@ -1,4 +1,4 @@
-import {default as ComponentController} from '../../../src/controller/Component.mjs';
+import ComponentController from '../../../src/controller/Component.mjs';
 
 /**
  * @class Covid.view.HelixContainerController

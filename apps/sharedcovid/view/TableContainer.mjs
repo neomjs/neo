@@ -1,11 +1,11 @@
-import CheckBox                  from '../../../src/form/field/CheckBox.mjs';
-import {default as Container}    from '../../../src/container/Base.mjs';
-import HistoricalDataTable       from './country/HistoricalDataTable.mjs';
-import LineChartComponent        from './country/LineChartComponent.mjs'
-import Panel                     from '../../../src/container/Panel.mjs';
-import {default as TabContainer} from '../../../src/tab/Container.mjs';
-import Table                     from './country/Table.mjs';
-import TableContainerController  from './TableContainerController.mjs';
+import CheckBox                 from '../../../src/form/field/CheckBox.mjs';
+import Container                from '../../../src/container/Base.mjs';
+import HistoricalDataTable      from './country/HistoricalDataTable.mjs';
+import LineChartComponent       from './country/LineChartComponent.mjs'
+import Panel                    from '../../../src/container/Panel.mjs';
+import TabContainer             from '../../../src/tab/Container.mjs';
+import Table                    from './country/Table.mjs';
+import TableContainerController from './TableContainerController.mjs';
 
 /**
  * @class SharedCovid.view.TableContainer

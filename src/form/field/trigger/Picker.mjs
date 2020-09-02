@@ -23,7 +23,7 @@ class Picker extends Base {
         iconCls: 'fa fa-caret-down',
         /**
          * Internal flag used by field.getTrigger()
-         * @member {String} type='spinup'
+         * @member {String} type='picker'
          * @protected
          */
         type: 'picker'

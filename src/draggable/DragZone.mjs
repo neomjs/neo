@@ -1,6 +1,6 @@
-import Base                  from '../core/Base.mjs';
-import DragProxyComponent    from './DragProxyComponent.mjs';
-import {default as VDomUtil} from '../util/VDom.mjs';
+import Base               from '../core/Base.mjs';
+import DragProxyComponent from './DragProxyComponent.mjs';
+import VDomUtil           from '../util/VDom.mjs';
 
 /**
  * @class Neo.draggable.DragZone
@@ -34,6 +34,7 @@ class DragZone extends Base {
         dragElement: null,
         /**
          * @member {Neo.component.Base|null} dragProxy=null
+         * @protected
          */
         dragProxy: null,
         /**

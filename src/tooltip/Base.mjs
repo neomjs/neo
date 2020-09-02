@@ -1,6 +1,6 @@
-import {default as Container} from '../container/Base.mjs';
-import Floating               from '../util/Floating.mjs';
-import Label                  from '../component/Label.mjs';
+import Container from '../container/Base.mjs';
+import Floating  from '../util/Floating.mjs';
+import Label     from '../component/Label.mjs';
 
 /**
  * Base class for component tooltips

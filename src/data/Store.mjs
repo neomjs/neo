@@ -1,8 +1,8 @@
-import Base                         from '../collection/Base.mjs';
-import {default as ClassSystemUtil} from '../util/ClassSystem.mjs';
-import Model                        from './Model.mjs';
-import Observable                   from '../core/Observable.mjs';
-import RecordFactory                from './RecordFactory.mjs';
+import Base            from '../collection/Base.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import Model           from './Model.mjs';
+import Observable      from '../core/Observable.mjs';
+import RecordFactory   from './RecordFactory.mjs';
 
 /**
  * @class Neo.data.Store

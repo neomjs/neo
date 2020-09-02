@@ -1,9 +1,9 @@
-import Base                      from './Base.mjs';
-import {default as BaseTrigger}  from './trigger/Base.mjs';
-import {default as ClearTrigger} from './trigger/Clear.mjs';
-import NeoArray                  from '../../util/Array.mjs';
-import {default as VDomUtil}     from '../../util/VDom.mjs';
-import {default as VNodeUtil}    from '../../util/VNode.mjs';
+import Base         from './Base.mjs';
+import BaseTrigger  from './trigger/Base.mjs';
+import ClearTrigger from './trigger/Clear.mjs';
+import NeoArray     from '../../util/Array.mjs';
+import VDomUtil     from '../../util/VDom.mjs';
+import VNodeUtil    from '../../util/VNode.mjs';
 
 /**
  * @class Neo.form.field.Text

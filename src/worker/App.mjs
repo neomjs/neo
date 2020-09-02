@@ -93,7 +93,7 @@ class App extends Base {
             Neo.onStart();
 
             if (Neo.config.hash) {
-                setTimeout(() => {HashHistory.push(Neo.config.hash);}, 5);
+                setTimeout(() => HashHistory.push(Neo.config.hash), 5);
             }
         } else {
             import(
@@ -103,7 +103,7 @@ class App extends Base {
 
                     if (Neo.config.hash) {
                         // short delay to ensure Component Controllers are ready
-                        setTimeout(() => {HashHistory.push(Neo.config.hash);}, 5);
+                        setTimeout(() => HashHistory.push(Neo.config.hash), 5);
                     }
                 }
             );

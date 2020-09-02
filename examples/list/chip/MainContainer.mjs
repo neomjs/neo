@@ -1,8 +1,8 @@
-import CheckBox                 from '../../../src/form/field/CheckBox.mjs';
-import ConfigurationViewport    from '../../ConfigurationViewport.mjs';
-import {default as ChipList}    from '../../../src/list/Chip.mjs';
-import MainStore                from './MainStore.mjs';
-import {default as NumberField} from '../../../src/form/field/Number.mjs';
+import CheckBox              from '../../../src/form/field/CheckBox.mjs';
+import ConfigurationViewport from '../../ConfigurationViewport.mjs';
+import ChipList              from '../../../src/list/Chip.mjs';
+import MainStore             from './MainStore.mjs';
+import NumberField           from '../../../src/form/field/Number.mjs';
 
 /**
  * @class TestApp.MainContainer

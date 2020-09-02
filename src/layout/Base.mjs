@@ -1,4 +1,4 @@
-import {default as CoreBase} from '../core/Base.mjs';
+import CoreBase from '../core/Base.mjs';
 
 /**
  * The base class for all other layouts.

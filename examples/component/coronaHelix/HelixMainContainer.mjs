@@ -1,7 +1,7 @@
-import CountryHelix            from './CountryHelix.mjs';
-import {default as Panel}      from '../../../src/container/Panel.mjs';
-import {default as RangeField} from '../../../src/form/field/Range.mjs';
-import {default as Viewport}   from '../../../src/container/Viewport.mjs';
+import CountryHelix from './CountryHelix.mjs';
+import Panel        from '../../../src/container/Panel.mjs';
+import RangeField   from '../../../src/form/field/Range.mjs';
+import Viewport     from '../../../src/container/Viewport.mjs';
 
 /**
  * @class TestApp.HelixMainContainer

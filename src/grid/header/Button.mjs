@@ -1,8 +1,8 @@
-import {default as BaseButton} from '../../component/Button.mjs';
+import BaseButton from '../../button/Base.mjs';
 
 /**
  * @class Neo.grid.header.Button
- * @extends Neo.component.Button
+ * @extends Neo.button.Base
  */
 class Button extends BaseButton {
     static getConfig() {return {

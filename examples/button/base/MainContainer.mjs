@@ -1,8 +1,8 @@
-import Button                   from '../../../src/component/Button.mjs';
-import ConfigurationViewport    from '../../ConfigurationViewport.mjs';
-import Radio                    from '../../../src/form/field/Radio.mjs';
-import {default as NumberField} from '../../../src/form/field/Number.mjs';
-import {default as TextField}   from '../../../src/form/field/Text.mjs';
+import Button                from '../../../src/button/Base.mjs';
+import ConfigurationViewport from '../../ConfigurationViewport.mjs';
+import Radio                 from '../../../src/form/field/Radio.mjs';
+import NumberField           from '../../../src/form/field/Number.mjs';
+import TextField             from '../../../src/form/field/Text.mjs';
 
 /**
  * @class TestApp.MainContainer

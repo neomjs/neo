@@ -1,5 +1,5 @@
 import {API_URL, LOCAL_STORAGE_KEY} from './config.mjs';
-import {default as CoreBase}        from '../../../src/core/Base.mjs';
+import CoreBase                     from '../../../src/core/Base.mjs';
 
 /**
  * @class RealWorld2.api.Base

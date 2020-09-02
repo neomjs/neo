@@ -1,7 +1,7 @@
-import {default as SpinDownTrigger}   from './trigger/SpinDown.mjs';
-import {default as SpinUpTrigger}     from './trigger/SpinUp.mjs';
-import {default as SpinUpDownTrigger} from './trigger/SpinUpDown.mjs';
-import Text                           from './Text.mjs';
+import SpinDownTrigger   from './trigger/SpinDown.mjs';
+import SpinUpTrigger     from './trigger/SpinUp.mjs';
+import SpinUpDownTrigger from './trigger/SpinUpDown.mjs';
+import Text              from './Text.mjs';
 
 /**
  * Uses an input type number and optionally provides custom spin buttons for up and down

@@ -1,5 +1,5 @@
-import {default as Container} from '../container/Base.mjs';
-import Radio                  from '../form/field/Radio.mjs';
+import Container from '../container/Base.mjs';
+import Radio     from '../form/field/Radio.mjs';
 
 /**
  * @class Neo.filter.BooleanContainer

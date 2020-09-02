@@ -1,4 +1,4 @@
-import {default as BaseToolbar} from '../../container/Toolbar.mjs';
+import BaseToolbar from '../../container/Toolbar.mjs';
 
 /**
  * @class Neo.tab.header.Toolbar
@@ -33,7 +33,7 @@ class Toolbar extends BaseToolbar {
      * @protected
      */
     afterSetUseActiveTabIndicator(value, oldValue) {
-        if (Neo.isDefined(oldValue)) {
+        if (oldValue !== undefined) {
             let me   = this,
                 vdom = me.vdom;
 

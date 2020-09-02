@@ -1,6 +1,6 @@
-import CellModel             from './CellModel.mjs';
-import ColumnModel           from './ColumnModel.mjs';
-import {default as VDomUtil} from '../../util/VDom.mjs';
+import CellModel   from './CellModel.mjs';
+import ColumnModel from './ColumnModel.mjs';
+import VDomUtil    from '../../util/VDom.mjs';
 
 /**
  * @class Neo.selection.table.CellColumnModel

@@ -1,6 +1,6 @@
-import {default as Container}   from '../../../src/container/Base.mjs';
-import CountryStore             from '../store/Countries.mjs';
-import {default as SelectField} from '../../../src/form/field/Select.mjs';
+import Container    from '../../../src/container/Base.mjs';
+import CountryStore from '../store/Countries.mjs';
+import SelectField  from '../../../src/form/field/Select.mjs';
 
 /**
  * @class SharedCovid.view.HeaderContainer

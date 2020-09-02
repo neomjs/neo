@@ -1,6 +1,6 @@
-import {default as Container} from '../container/Base.mjs';
-import Number                 from '../form/field/Number.mjs';
-import ToggleOperatorsButton  from './ToggleOperatorsButton.mjs';
+import Container             from '../container/Base.mjs';
+import Number                from '../form/field/Number.mjs';
+import ToggleOperatorsButton from './ToggleOperatorsButton.mjs';
 
 /**
  * @class Neo.filter.NumberContainer

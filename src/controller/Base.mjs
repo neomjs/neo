@@ -1,5 +1,5 @@
-import {default as CoreBase} from '../core/Base.mjs';
-import HashHistory           from '../util/HashHistory.mjs';
+import CoreBase    from '../core/Base.mjs';
+import HashHistory from '../util/HashHistory.mjs';
 
 /**
  * @class Neo.controller.Base

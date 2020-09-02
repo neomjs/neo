@@ -1,4 +1,4 @@
-import {default as Component} from '../../../../src/component/Base.mjs';
+import Component from '../../../../src/component/Base.mjs';
 
 /**
  * @class Docs.app.view.classdetails.SourceViewComponent
@@ -135,13 +135,23 @@ class SourceViewComponent extends Component {
      * @param {String} vnodeId
      */
     syntaxHighlight(vnodeId) {
-        let me = this;
+        let me = this,
+            id;
 
-        Neo.main.addon.HighlightJS.syntaxHighlight({
-            vnodeId: me.vdom.cn[0].id
-        }).then(() => {
-            me.isHighlighted = true;
-        });
+        if (me.vnode) {
+            Neo.main.addon.HighlightJS.syntaxHighlight({
+                vnodeId: me.vdom.cn[0].id
+            }).then(() => {
+                me.isHighlighted = true;
+            });
+        } else {
+            id = me.on('mounted', () => {
+                setTimeout(() => {
+                    me.un('mounted', id);
+                    me.syntaxHighlight(vnodeId);
+                }, 50);
+            });
+        }
     }
 }
 

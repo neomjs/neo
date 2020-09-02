@@ -1,9 +1,9 @@
-import {default as Container}    from '../../container/Base.mjs';
-import GeneralContainer          from './settings/GeneralContainer.mjs';
-import MonthContainer            from './settings/MonthContainer.mjs';
-import {default as TabContainer} from '../../tab/Container.mjs';
-import WeekContainer             from './settings/WeekContainer.mjs';
-import YearContainer             from './settings/YearContainer.mjs';
+import Container        from '../../container/Base.mjs';
+import GeneralContainer from './settings/GeneralContainer.mjs';
+import MonthContainer   from './settings/MonthContainer.mjs';
+import TabContainer     from '../../tab/Container.mjs';
+import WeekContainer    from './settings/WeekContainer.mjs';
+import YearContainer    from './settings/YearContainer.mjs';
 
 /**
  * @class Neo.calendar.view.SettingsContainer

@@ -1,6 +1,8 @@
-import {default as CoreBase} from '../core/Base.mjs';
+import CoreBase from '../core/Base.mjs';
 
 /**
+ * Plugins are intended to get put into the plugins config of component.Base
+ * to enhance them or add additional features
  * @class Neo.plugin.Base
  * @extends Neo.core.Base
  */
@@ -29,7 +31,17 @@ class Base extends CoreBase {
      */
     constructor(config) {
         super(config);
-        console.log('plugin.Base ctor');
+
+        let me = this;
+
+        me.owner.on('mounted', me.onOwnerMounted, me);
+    }
+
+    /**
+     * Override this method to apply changes to the owner Component when it does get mounted
+     */
+    onOwnerMounted() {
+
     }
 }
 

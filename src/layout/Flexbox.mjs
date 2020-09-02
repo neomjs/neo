@@ -117,13 +117,13 @@ class Flexbox extends Base {
 
     /**
      * Applies the flex value to an item of the container this layout is bound to
-     * @param {Object} item
+     * @param {Neo.component.Base} item
      */
     applyChildAttributes(item) {
-        let style = item.style || {};
+        let style = item.wrapperStyle;
 
         style.flex = style.flex || item.flex || (this.align === 'stretch' ? 1 : '0 1 auto');
-        item.style = style;
+        item.wrapperStyle = style;
     }
 
     /**
@@ -204,14 +204,14 @@ class Flexbox extends Base {
     /**
      * Removes all CSS rules from an container item this layout is bound to.
      * Gets called when switching to a different layout.
-     * @param item
+     * @param {Neo.component.Base} item
      * @protected
      */
     removeChildAttributes(item) {
-        let style = item.style || {};
+        let style = item.wrapperStyle || {};
 
         style.flex = item.flex || null;
-        item.style = style;
+        item.wrapperStyle = style;
     }
 
     /**

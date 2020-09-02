@@ -1,5 +1,5 @@
-import Model                 from '../Model.mjs';
-import {default as VDomUtil} from '../../util/VDom.mjs';
+import Model    from '../Model.mjs';
+import VDomUtil from '../../util/VDom.mjs';
 
 /**
  * @class Neo.selection.table.RowModel

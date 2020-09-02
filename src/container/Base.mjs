@@ -1,11 +1,11 @@
-import {default as Component} from '../component/Base.mjs';
-import LayoutBase             from '../layout/Base.mjs';
-import LayoutCard             from '../layout/Card.mjs';
-import LayoutFit              from '../layout/Fit.mjs';
-import LayoutHbox             from '../layout/HBox.mjs';
-import LayoutVBox             from '../layout/VBox.mjs';
-import Logger                 from '../core/Logger.mjs';
-import NeoArray               from '../util/Array.mjs';
+import Component  from '../component/Base.mjs';
+import LayoutBase from '../layout/Base.mjs';
+import LayoutCard from '../layout/Card.mjs';
+import LayoutFit  from '../layout/Fit.mjs';
+import LayoutHbox from '../layout/HBox.mjs';
+import LayoutVBox from '../layout/VBox.mjs';
+import Logger     from '../core/Logger.mjs';
+import NeoArray   from '../util/Array.mjs';
 
 /**
  * @class Neo.container.Base
@@ -35,7 +35,7 @@ class Base extends Component {
          * An array of config objects|instances|modules for each child component
          * @member {Object[]} items_=[]
          * @example
-         * import Button      from '../component/Button.mjs';
+         * import Button      from '../button/Base.mjs';
          * import MyRedButton from 'myapp/MyRedButton.mjs';
          * import Toolbar     from '../container/Toolbar.mjs';
          *
@@ -198,7 +198,9 @@ class Base extends Component {
                 len   = items.length;
 
             for (; i < len; i++) {
-                items[i].rendering = value;
+                if (!items[i].vdom.removeDom) {
+                    items[i].rendering = value;
+                }
             }
         }
     }
@@ -371,7 +373,11 @@ class Base extends Component {
 
                 item = Neo[item.className ? 'create' : 'ntype'](item);
             } else {
-                item.appName = me.appName;
+                Object.assign(item, {
+                    appName    : me.appName,
+                    parentId   : me.id,
+                    parentIndex: index
+                });
             }
 
             // added the true param => for card layouts, we do not want a dynamically inserted cmp to get removed right away

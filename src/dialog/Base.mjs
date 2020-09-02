@@ -59,6 +59,10 @@ class Base extends Panel {
          */
         headerToolbar: null,
         /**
+         * @member {Boolean} isDragging=false
+         */
+        isDragging: false,
+        /**
          * @member {String} maximizeCls='far fa-window-maximize'
          */
         maximizeCls: 'far fa-window-maximize',
@@ -73,8 +77,36 @@ class Base extends Panel {
         /**
          * @member {Array} plugins=[Resizable]
          */
-        plugins: [Resizable]
+        plugins: [{
+            module       :Resizable,
+            delegationCls: 'neo-dialog'
+        }],
+        /**
+         * @member {Object} _vdom
+         */
+        _vdom: {
+            cls: ['neo-dialog-wrapper'],
+            cn : [{
+                cn: []
+            }]
+        }
     }}
+
+    /**
+     *
+     * @returns {Object} The new vdom root
+     */
+    getVdomRoot() {
+        return this.vdom.cn[0];
+    }
+
+    /**
+     *
+     * @returns {Object} The new vnode root
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[0];
+    }
 
     /**
      *
@@ -84,6 +116,8 @@ class Base extends Panel {
         super(config);
 
         let me = this;
+
+        me.vdom.id = me.getWrapperId();
 
         me.createHeader();
 
@@ -119,7 +153,7 @@ class Base extends Panel {
         if (oldValue !== undefined && me.headerToolbar) {
             cls = me.headerToolbar.cls;
             NeoArray[value ? 'add' : 'remove'](cls, 'neo-draggable');
-            me.cls = cls;
+            me.headerToolbar.cls = cls;
         }
 
         if (value && !me.dragListenersAdded) {
@@ -140,11 +174,12 @@ class Base extends Panel {
      * @protected
      */
     afterSetMaximized(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let me   = this,
+            vdom = me.vdom,
+            cls  = vdom.cls;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-maximized');
-        me.cls = cls;
+        me.vdom = vdom;
     }
 
     /**
@@ -252,11 +287,11 @@ class Base extends Panel {
                         deltas: [{
                             id   : id,
                             style: {
-                                height   : me.height || '50%',
+                                height   : me.wrapperStyle && me.wrapperStyle.height || '50%',
                                 left     : '50%',
                                 top      : '50%',
                                 transform: 'translate(-50%, -50%)',
-                                width    : me.width || '50%'
+                                width    : me.wrapperStyle && me.wrapperStyle.width || '50%'
                             }
                         }]
                     }).then(() => {
@@ -333,6 +368,14 @@ class Base extends Panel {
     }
 
     /**
+     * Returns the id of the header toolbar
+     * @returns {String}
+     */
+    getWrapperId() {
+        return this.id + '-wrapper';
+    }
+
+    /**
      * @param {Object} data
      */
     maximize(data) {
@@ -355,7 +398,7 @@ class Base extends Panel {
             Neo.main.DomAccess.getBoundingClientRect({
                 id: me.dragZone.dragProxy.id
             }).then(rect => {
-                style = me.style;
+                style = me.wrapperStyle;
 
                 Object.assign(style, {
                     height   : `${rect.height}px`,
@@ -366,12 +409,13 @@ class Base extends Panel {
                     width    : `${rect.width}px`
                 });
 
-                me.style = style;
+                me.wrapperStyle = style;
 
                 me.dragZone.dragEnd(data);
 
                 // we need a reset, otherwise we do not get a change event for the next onDragStart() call
                 me.dragZone.boundaryContainerId = null;
+                me.isDragging                   = false;
             });
         }
     }
@@ -382,16 +426,18 @@ class Base extends Panel {
      */
     onDragStart(data) {
             let me    = this,
-                style = me.style || {};
+                style = me.wrapperStyle || {};
 
         if (!me.maximized) {
+            me.isDragging = true;
+            me.plugins[0].removeAllNodes(); // todo: getPlugin()
+
             if (!me.dragZone) {
                 me.dragZone = Neo.create({
                     module             : DragZone,
                     appName            : me.appName,
                     boundaryContainerId: me.boundaryContainerId,
-                    dragElement        : me.vdom,
-                    owner              : me
+                    dragElement        : me.vdom
                 });
             } else {
                 me.dragZone.boundaryContainerId = me.boundaryContainerId;
@@ -399,9 +445,9 @@ class Base extends Panel {
 
             me.dragZone.dragStart(data);
 
-            style.opacity = 0.4;
+            style.opacity = 0.3;
 
-            me.style = style;
+            me.wrapperStyle = style;
         }
     }
 }

@@ -1,7 +1,7 @@
-import {default as Container}   from '../../../container/Base.mjs';
-import {default as NumberField} from '../../../form/field/Number.mjs';
-import {default as RadioField}  from '../../../form/field/Radio.mjs';
-import {default as TimeField}   from '../../../form/field/Time.mjs';
+import Container   from '../../../container/Base.mjs';
+import NumberField from '../../../form/field/Number.mjs';
+import RadioField  from '../../../form/field/Radio.mjs';
+import TimeField   from '../../../form/field/Time.mjs';
 
 /**
  * @class Neo.calendar.view.settings.WeekContainer

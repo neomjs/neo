@@ -1,9 +1,9 @@
-import Base                          from '../core/Base.mjs';
-import {default as ComponentManager} from './Component.mjs';
-import {default as FocusManager}     from './Focus.mjs';
-import Logger                        from '../core/Logger.mjs';
-import NeoArray                      from '../util/Array.mjs';
-import {default as VDomUtil}         from '../util/VDom.mjs';
+import Base             from '../core/Base.mjs';
+import ComponentManager from './Component.mjs';
+import FocusManager     from './Focus.mjs';
+import Logger           from '../core/Logger.mjs';
+import NeoArray         from '../util/Array.mjs';
+import VDomUtil         from '../util/VDom.mjs';
 
 const eventConfigKeys = [
     'bubble',
@@ -79,7 +79,7 @@ class DomEvent extends Base {
             pathIds    = data.path.map(e => e.id),
             path       = ComponentManager.getParentPath(pathIds),
             len        = path.length,
-            component, delegationVdom, delegationTargetId, id, preventFire, targetId;
+            component, delegationTargetId, id, preventFire;
 
         for (; i < len; i++) {
             id        = path[i];
@@ -104,16 +104,7 @@ class DomEvent extends Base {
 
                                 // we only want mouseenter & leave to fire on their top level nodes, not for children
                                 if (eventName === 'mouseenter' || eventName === 'mouseleave') {
-                                    targetId = eventName === 'mouseenter' ? data.fromElementId : data.toElementId;
-                                    // console.log(targetId, delegationTargetId);
-
-                                    if (targetId && targetId !== delegationTargetId) {
-                                        delegationVdom = VDomUtil.findVdomChild(component.vdom, delegationTargetId);
-
-                                        if (delegationVdom.vdom && VDomUtil.findVdomChild(delegationVdom.vdom, targetId)) {
-                                            preventFire = true;
-                                        }
-                                    }
+                                    preventFire = !DomEvent.verifyMouseEnterLeave(component, data, delegationTargetId, eventName);
                                 }
 
                                 if (!preventFire) {
@@ -480,6 +471,31 @@ class DomEvent extends Base {
         }
 
         return false;
+    }
+
+    /**
+     *
+     * @param {Neo.component.Base} component
+     * @param {Object} data
+     * @param {String} delegationTargetId
+     * @param {String} eventName
+     * @returns {Boolean}
+     */
+    static verifyMouseEnterLeave(component, data, delegationTargetId, eventName) {
+        let targetId = eventName === 'mouseenter' ? data.fromElementId : data.toElementId,
+            delegationVdom;
+
+        if (targetId && targetId !== delegationTargetId) {
+            delegationVdom = VDomUtil.findVdomChild(component.vdom, delegationTargetId);
+
+            // delegationVdom can be undefined when dragging a proxy over the node.
+            // see issues/1137 for details.
+            if (!delegationVdom || delegationVdom.vdom && VDomUtil.findVdomChild(delegationVdom.vdom, targetId)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
 

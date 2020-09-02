@@ -1,12 +1,12 @@
-import BlogContainer             from './blog/Container.mjs';
-import {default as Container}    from '../../../src/container/Base.mjs';
-import {default as ExamplesList} from './examples/List.mjs';
-import ExamplesTabContainer      from './examples/TabContainer.mjs';
-import HeaderContainer           from './HeaderContainer.mjs';
-import HomeTabContainer          from './home/TabContainer.mjs';
-import MainContainerController   from './MainContainerController.mjs';
-import {default as TabContainer} from '../../../src/tab/Container.mjs';
-import Viewport                  from '../../../src/container/Viewport.mjs';
+import BlogContainer           from './blog/Container.mjs';
+import Container               from '../../../src/container/Base.mjs';
+import ExamplesList            from './examples/List.mjs';
+import ExamplesTabContainer    from './examples/TabContainer.mjs';
+import HeaderContainer         from './HeaderContainer.mjs';
+import HomeTabContainer        from './home/TabContainer.mjs';
+import MainContainerController from './MainContainerController.mjs';
+import TabContainer            from '../../../src/tab/Container.mjs';
+import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Website.view.MainContainer

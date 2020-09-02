@@ -1,6 +1,6 @@
-import {default as BaseContainer}    from '../container/Base.mjs';
-import {default as BaseField}        from '../form/field/Base.mjs';
-import {default as ComponentManager} from '../manager/Component.mjs';
+import BaseContainer    from '../container/Base.mjs';
+import BaseField        from '../form/field/Base.mjs';
+import ComponentManager from '../manager/Component.mjs';
 
 /**
  * @class Neo.form.Container

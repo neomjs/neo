@@ -1,5 +1,5 @@
-import {default as Component} from '../Base.mjs';
-import Logger                 from '../../core/Logger.mjs';
+import Component from '../Base.mjs';
+import Logger    from '../../core/Logger.mjs';
 
 /**
  * Convenience class to render an amChart
@@ -59,9 +59,7 @@ class AmChart extends Component {
             cn: [{
                 style: {position: 'absolute', height: '100%', width: '100%'},
                 cn: [{
-                    style: {
-                        height: '100%'
-                    }
+                    style: {height: '100%'}
                 }]
             }]
         }

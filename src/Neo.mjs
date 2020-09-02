@@ -228,10 +228,9 @@ Neo = self.Neo = Object.assign({
         let out;
 
         if (Array.isArray(obj)) {
-            return obj.map(val => {
-                return Neo.clone(val, deep, ignoreNeoInstances);
-            });
+            return !deep ? [...obj] : [...obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))];
         }
+
         if (obj !== null && typeof obj === 'object') {
             if (obj.constructor.isClass && obj instanceof Neo.core.Base) {
                 return ignoreNeoInstances ? obj : this.cloneNeoInstance(obj);
@@ -239,17 +238,19 @@ Neo = self.Neo = Object.assign({
                 return obj;
             } else if (obj instanceof Date) {
                 obj = new Date(obj.valueOf());
+            } else if (obj instanceof Map) {
+                obj = new Map(obj); // shallow copy
             } else {
                 out = {};
+
                 Object.entries(obj).forEach(([key, value]) => {
-                    if (deep) {
-                        value = Neo.clone(value, deep, ignoreNeoInstances);
-                    }
-                    out[key] = value;
+                    out[key] = !deep ? value : Neo.clone(value, deep, ignoreNeoInstances);
                 });
+
                 return out;
             }
         }
+
         return obj; // return all other data types
     },
 
@@ -261,22 +262,24 @@ Neo = self.Neo = Object.assign({
      */
     cloneNeoInstance(instance) {
         let config = {...instance.originalConfig};
+
         delete config._id;
         delete config.id;
+
         return Neo.create(instance.className, config);
     },
 
     /**
      * Use Neo.create() instead of "new" to create instances of all Neo classes
      * @example
-     * import Button from './Button.mjs';
+     * import Button from '../button/Base.mjs';
      *
      * Neo.create(Button, {
      *     iconCls: 'fa fa-home',
      *     text   : 'Home'
      * });
      * @example
-     * import Button from './Button.mjs';
+     * import Button from '../button/Base.mjs';
      *
      * Neo.create({
      *     module : Button,
@@ -284,13 +287,13 @@ Neo = self.Neo = Object.assign({
      *     text   : 'Home'
      * });
      * @example
-     * Neo.create('Neo.component.Button' {
+     * Neo.create('Neo.button.Base' {
      *     iconCls: 'fa fa-home',
      *     text   : 'Home'
      * });
      * @example
      * Neo.create({
-     *     className: 'Neo.component.Button',
+     *     className: 'Neo.button.Base',
      *     iconCls  : 'fa fa-home',
      *     text     : 'Home'
      * });
@@ -338,12 +341,12 @@ Neo = self.Neo = Object.assign({
     /**
      * Maps a className string into a global namespace
      * @example
-     * Neo.ns('Neo.component.Button', true);
+     * Neo.ns('Neo.button.Base', true);
      * // =>
      * // self.Neo = self.Neo || {};
      * // self.Neo.component = self.Neo.component || {};
-     * // self.Neo.component.Button = self.Neo.component.Button || {};
-     * // return self.Neo.component.Button;
+     * // self.Neo.button.Base = self.Neo.button.Base || {};
+     * // return self.Neo.button.Base;
      *
      * @memberOf module:Neo
      * @param {Array|String} names The class name string containing dots or an Array of the string parts
@@ -496,7 +499,7 @@ function autoGenerateGetSet(proto, key) {
                     value = me['_' + key]; // return the value parsed by the setter
                 }
 
-                if (me[beforeGet] && typeof me[beforeGet] === 'function') {
+                if (typeof me[beforeGet] === 'function') {
                     value = me[beforeGet](value);
                 }
 
@@ -514,19 +517,15 @@ function autoGenerateGetSet(proto, key) {
                 // every set call has to delete the matching symbol
                 delete me[configSymbol][key];
 
-                if (Array.isArray(value)) {
-                    if (key !== 'items') {
-                        value = [...value];
-                    }
-                } else if (value instanceof Date) {
-                    value = new Date(value.valueOf());
+                if (key !== 'items') {
+                    value = Neo.clone(value, true, true);
                 }
 
                 // we do want to store the value before the beforeSet modification as well,
                 // since it could get pulled by other beforeSet methods of different configs
                 me[_key] = value;
 
-                if (me[beforeSet] && typeof me[beforeSet] === 'function') {
+                if (typeof me[beforeSet] === 'function') {
                     value = me[beforeSet](value, oldValue);
 
                     // If they don't return a value, that means no change
@@ -539,7 +538,7 @@ function autoGenerateGetSet(proto, key) {
                 }
 
                 if (hasChanged(value, oldValue)) {
-                    if (me[afterSet] && typeof me[afterSet] === 'function') {
+                    if (typeof me[afterSet] === 'function') {
                         me[afterSet](value, oldValue);
                     }
                 }

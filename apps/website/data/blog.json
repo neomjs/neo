@@ -47,7 +47,7 @@
         "name"        : "Removing non visible views from the DOM while still being able to alter their state",
         "provider"    : "Medium",
         "publisher"   : "ITNEXT",
-        "selectedInto": [],
+        "selectedInto": ["Javascript"],
         "type"        : "Blog Post",
         "url"         : "https://itnext.io/removing-non-visible-views-from-the-dom-while-still-being-able-to-alter-their-state-dd366ed185ec?source=friends_link&sk=35e7f0bdd65c611b189a47672a398ac1"
     },

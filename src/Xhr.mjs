@@ -1,4 +1,4 @@
-import {default as XhrConnection} from './data/connection/Xhr.mjs';
+import XhrConnection from './data/connection/Xhr.mjs';
 
 /**
  * @class Neo.Xhr

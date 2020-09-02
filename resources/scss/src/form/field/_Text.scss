@@ -102,6 +102,7 @@
         .neo-textfield-input {
             background-color: transparent;
             border-color    : transparent;
+            margin          : 0; // important for Safari => #1125
             padding-left    : 16px;
             z-index         : 1;
 
@@ -149,7 +150,9 @@
         .neo-textfield-input {
             border       : none;
             border-radius: 0;
-            flex         : 1 1 30px;
+            flex-grow    : 1;
+            flex-shrink  : 1;
+            margin       : 0; // important for Safari => #1125
             min-height   : 25px;
             width        : 30px;
 

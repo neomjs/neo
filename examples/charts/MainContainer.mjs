@@ -1,5 +1,5 @@
-import {default as AmChartComponent} from '../../src/component/wrapper/AmChart.mjs';
-import {default as Viewport}         from '../../src/container/Viewport.mjs';
+import AmChartComponent from '../../src/component/wrapper/AmChart.mjs';
+import Viewport         from '../../src/container/Viewport.mjs';
 
 /**
  * @class TestApp.MainContainer

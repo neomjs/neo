@@ -1,5 +1,5 @@
-import Base                    from '../../../../src/list/Base.mjs';
-import {default as Collection} from '../../../../src/collection/Base.mjs';
+import Base       from '../../../../src/list/Base.mjs';
+import Collection from '../../../../src/collection/Base.mjs';
 
 /**
  * @class Docs.app.view.classdetails.MembersList

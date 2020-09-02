@@ -1,5 +1,5 @@
-import {default as BaseHelix} from '../../../../src/component/Helix.mjs';
-import PreviewComponent       from './PreviewComponent.mjs';
+import BaseHelix        from '../../../../src/component/Helix.mjs';
+import PreviewComponent from './PreviewComponent.mjs';
 
 /**
  * @class RealWorld2.view.article.Helix

@@ -1,8 +1,8 @@
-import CheckBox                 from '../../../src/form/field/CheckBox.mjs';
-import ConfigurationViewport    from '../../ConfigurationViewport.mjs';
-import DateSelector             from '../../../src/component/DateSelector.mjs';
-import Radio                    from '../../../src/form/field/Radio.mjs';
-import {default as NumberField} from '../../../src/form/field/Number.mjs';
+import CheckBox              from '../../../src/form/field/CheckBox.mjs';
+import ConfigurationViewport from '../../ConfigurationViewport.mjs';
+import DateSelector          from '../../../src/component/DateSelector.mjs';
+import Radio                 from '../../../src/form/field/Radio.mjs';
+import NumberField           from '../../../src/form/field/Number.mjs';
 
 /**
  * @class TestApp.MainContainer

@@ -1,16 +1,16 @@
-import {default as ArticleComponent}    from './article/Component.mjs';
-import {default as ArticleApi}          from '../api/Article.mjs';
-import {default as ComponentController} from '../../../src/controller/Component.mjs';
-import CreateComponent                  from './article/CreateComponent.mjs';
-import {default as FavoriteApi}         from '../api/Favorite.mjs';
-import HomeComponent                    from './HomeComponent.mjs';
-import {LOCAL_STORAGE_KEY}              from '../api/config.mjs';
-import {default as ProfileApi}          from '../api/Profile.mjs';
-import ProfileComponent                 from './user/ProfileComponent.mjs';
-import SettingsComponent                from './user/SettingsComponent.mjs';
-import SignUpComponent                  from './user/SignUpComponent.mjs';
-import {default as TagApi}              from '../api/Tag.mjs';
-import {default as UserApi}             from '../api/User.mjs';
+import ArticleComponent    from './article/Component.mjs';
+import ArticleApi          from '../api/Article.mjs';
+import ComponentController from '../../../src/controller/Component.mjs';
+import CreateComponent     from './article/CreateComponent.mjs';
+import FavoriteApi         from '../api/Favorite.mjs';
+import HomeComponent       from './HomeComponent.mjs';
+import {LOCAL_STORAGE_KEY} from '../api/config.mjs';
+import ProfileApi          from '../api/Profile.mjs';
+import ProfileComponent    from './user/ProfileComponent.mjs';
+import SettingsComponent   from './user/SettingsComponent.mjs';
+import SignUpComponent     from './user/SignUpComponent.mjs';
+import TagApi              from '../api/Tag.mjs';
+import UserApi             from '../api/User.mjs';
 
 /**
  * @class RealWorld.view.MainContainerController

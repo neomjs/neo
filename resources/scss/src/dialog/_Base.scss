@@ -17,10 +17,10 @@
     }
 }
 
-.neo-dialog {
-    border   : 1px solid v(dialog-border-color);
-    position : fixed;
+.neo-dialog-wrapper {
+    display  : flex;
     left     : 50%;
+    position : absolute;
     top      : 50%;
     transform: translate(-50%, -50%);
 
@@ -43,6 +43,12 @@
             }
         }
     }
+}
+
+.neo-dialog {
+    border  : 1px solid v(dialog-border-color);
+    flex    : 1 0 auto;
+    position: relative;
 
     &.neo-panel {
         .neo-header-toolbar {

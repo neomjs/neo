@@ -1,6 +1,6 @@
-import Base                    from './Base.mjs';
-import {default as Collection} from '../collection/Base.mjs';
-import NeoArray                from '../util/Array.mjs';
+import Base       from './Base.mjs';
+import Collection from '../collection/Base.mjs';
+import NeoArray   from '../util/Array.mjs';
 
 /**
  * @class Neo.list.TreeList

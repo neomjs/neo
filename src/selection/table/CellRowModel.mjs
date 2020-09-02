@@ -1,7 +1,7 @@
-import CellModel             from './CellModel.mjs';
-import NeoArray              from '../../util/Array.mjs';
-import RowModel              from './RowModel.mjs';
-import {default as VDomUtil} from '../../util/VDom.mjs';
+import CellModel from './CellModel.mjs';
+import NeoArray  from '../../util/Array.mjs';
+import RowModel  from './RowModel.mjs';
+import VDomUtil  from '../../util/VDom.mjs';
 
 /**
  * @class Neo.selection.table.CellRowModel

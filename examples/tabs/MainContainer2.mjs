@@ -1,6 +1,6 @@
-import {default as Container}      from '../../src/container/Base.mjs';
-import {default as TableContainer} from '../../src/table/Container.mjs';
-import {default as TabContainer}   from '../../src/tab/Container.mjs';
+import Container      from '../../src/container/Base.mjs';
+import TableContainer from '../../src/table/Container.mjs';
+import TabContainer   from '../../src/tab/Container.mjs';
 
 /**
  * @class TestApp2.MainContainer2

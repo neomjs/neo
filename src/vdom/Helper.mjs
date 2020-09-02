@@ -1,6 +1,6 @@
-import Base                   from '../core/Base.mjs';
-import VNode                  from './VNode.mjs';
-import {default as VNodeUtil} from '../util/VNode.mjs';
+import Base      from '../core/Base.mjs';
+import VNode     from './VNode.mjs';
+import VNodeUtil from '../util/VNode.mjs';
 
 /**
  * The central class for the VDom worker to create vnodes & delta updates.
@@ -361,7 +361,9 @@ class Helper extends Base {
         // console.log('createDeltas', newVnode && newVnode.id, oldVnode && oldVnode.id, newVnode, oldVnode);
 
         if (newVnode && !oldVnode) { // new node at top level or at the end of a child array
-            movedOldNode = me.findVnode(oldVnodeRoot, newVnode.id, oldVnode);
+            if (oldVnodeRoot) {
+                movedOldNode = me.findVnode(oldVnodeRoot, newVnode.id, oldVnode);
+            }
 
             if (!movedOldNode) {
                 // console.log('insertNode', newVnode);
@@ -375,7 +377,9 @@ class Helper extends Base {
                 });
             }
         } else if (!newVnode && oldVnode) {
-            movedNode = me.findVnode(newVnodeRoot, oldVnode.id, newVnode);
+            if (newVnodeRoot) {
+                movedNode = me.findVnode(newVnodeRoot, oldVnode.id, newVnode);
+            }
 
             // use case: calendar week view => move an event into a column on the right side
 

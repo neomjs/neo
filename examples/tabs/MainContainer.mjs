@@ -1,7 +1,7 @@
-import {default as TabContainer}   from '../../src/tab/Container.mjs';
-import {default as NumberField}    from '../../src/form/field/Number.mjs';
-import {default as PasswordField}  from '../../src/form/field/Password.mjs';
-import {default as TextField}      from '../../src/form/field/Text.mjs';
+import TabContainer  from '../../src/tab/Container.mjs';
+import NumberField   from '../../src/form/field/Number.mjs';
+import PasswordField from '../../src/form/field/Password.mjs';
+import TextField     from '../../src/form/field/Text.mjs';
 
 /**
  * @class TestApp.MainContainer

@@ -1,7 +1,7 @@
-import {default as CoreBase} from '../core/Base.mjs';
-import Observable            from '../core/Observable.mjs';
-import Message               from './Message.mjs';
-import RemoteMethodAccess    from './mixin/RemoteMethodAccess.mjs';
+import CoreBase           from '../core/Base.mjs';
+import Observable         from '../core/Observable.mjs';
+import Message            from './Message.mjs';
+import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
 
 /**
  * The abstract base class for the App, Data & VDom worker
@@ -157,15 +157,7 @@ class Base extends CoreBase {
         }
 
         if (action !== 'reply') {
-            try {
-                this['on' + Neo.capitalize(action)](data);
-            } catch(err) {
-                console.log('error', data, err, e);
-
-                this.reject(data.id, {
-                    error : err.message
-                });
-            }
+            me['on' + Neo.capitalize(action)](data);
         } else if (promise = action === 'reply' && me.promises[replyId]) {
             if (data.reject) {
                 promise.reject(data.data);

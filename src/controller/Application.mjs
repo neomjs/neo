@@ -56,7 +56,8 @@ class Application extends Base {
     }
 
     renderMainView() {
-        let me = this;
+        let me    = this,
+            delay = Neo.config.hash ? 200 : 10;
 
         me.mainViewInstance = Neo.create(me.mainView, {
             appName : me.name,
@@ -68,13 +69,16 @@ class Application extends Base {
         // short delay to ensure changes from onHashChange() got applied
         setTimeout(() => {
             me.mainViewInstance.render(true);
-        }, 10)
+        }, delay);
     }
 }
 
 Neo.applyClassConfig(Application);
 
 // shortcut
-Neo.app = config => Neo.create(Application, config);
+Neo.app = config => Neo.create({
+    module: Application,
+    ...config || {}
+});
 
 export {Application as default};

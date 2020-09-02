@@ -223,7 +223,7 @@ class DomEvents extends Base {
                 me.dragElementId = target.id;
                 break;
             case 'drop':
-                if (!me.dragElementId || this.dragElementId === target.id) {
+                if (!me.dragElementId || me.dragElementId === target.id) {
                     return; // drop fires twice by default & drop should not trigger on the drag element
                 }
                 if (event.stopPropagation) {
@@ -232,6 +232,9 @@ class DomEvents extends Base {
                 event.preventDefault();
                 config.data.srcId = me.dragElementId;
                 me.dragElementId = null;
+                break;
+            case 'mousemove':
+                Object.assign(config.data, me.getMouseEventData(event));
                 break;
             default:
                 event.preventDefault();
@@ -313,6 +316,22 @@ class DomEvents extends Base {
      * @returns {Object}
      */
     getTargetData(node) {
+        let r    = node.getBoundingClientRect && node.getBoundingClientRect(),
+            rect = {};
+
+        if (r) {
+            Object.assign(rect, {
+                bottom: r.bottom,
+                height: r.height,
+                left  : r.left,
+                right : r.right,
+                top   : r.top,
+                width : r.width,
+                x     : r.x,
+                y     : r.y
+            });
+        }
+
         return {
             checked          : node.checked,
             childElementCount: node.childElementCount,
@@ -333,6 +352,7 @@ class DomEvents extends Base {
             offsetLeft       : node.offsetLeft,
             offsetTop        : node.offsetTop,
             offsetWidth      : node.offsetWidth,
+            rect,
             scrollHeight     : node.scrollHeight,
             scrollLeft       : node.scrollLeft,
             scrollTop        : node.scrollTop,

@@ -1,4 +1,4 @@
-import {default as BaseToolbar} from '../../container/Toolbar.mjs';
+import BaseToolbar from '../../container/Toolbar.mjs';
 
 /**
  * @class Neo.grid.header.Toolbar

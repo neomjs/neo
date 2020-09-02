@@ -1,6 +1,6 @@
-import {default as BaseList} from '../../../../src/list/Base.mjs';
-import BlogPosts             from '../../store/BlogPosts.mjs';
-import {default as VDomUtil} from '../../../../src/util/VDom.mjs';
+import BaseList  from '../../../../src/list/Base.mjs';
+import BlogPosts from '../../store/BlogPosts.mjs';
+import VDomUtil  from '../../../../src/util/VDom.mjs';
 
 /**
  * @class Website.view.blog.List
