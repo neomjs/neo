@@ -1,65 +1,113 @@
-.neo-resizable {
-    background-color: red;
+// font awesome does not have grip handles for corners.
+// using the th icon with a clip-path.
+// similar to: https://github.com/FortAwesome/Font-Awesome/issues/645#issuecomment-361663544
 
-    height  : 10px;
-    position: absolute;
-    width   : 10px;
-    z-index : 10;
+.neo-resizable {
+    align-items    : center;
+    color          : #bbb;
+    display        : flex;
+    font-family    : "Font Awesome 5 Free";
+    font-weight    : 600;
+    height         : 10px;
+    justify-content: center;
+    position       : absolute;
+    width          : 10px;
+    z-index        : 10;
+
+    &.neo-resizable-bottom,
+    &.neo-resizable-top {
+        width: 100%;
+
+        &::after {
+            content: "\f7a4";
+        }
+    }
+
+    &.neo-resizable-left,
+    &.neo-resizable-right {
+        height: 100%;
+
+        &::after {
+            content: "\f7a5";
+        }
+    }
 
     &.neo-resizable-bottom {
         bottom: 0;
         cursor: s-resize;
-        height: 10px;
-        width : 100%;
     }
 
     &.neo-resizable-bottom-left {
-        background-color: blue;
-        bottom : 0;
-        cursor : sw-resize;
-        left   : 0;
-        z-index: 20;
+        bottom: 0;
+        cursor: sw-resize;
+        left  : 0;
+        height: 1em;
+        width : 1.05em;
+
+        &::after {
+            clip-path: polygon(100% 0,70% 0,70% 35%,35% 35%,35% 66%,0 66%,0 100%,100% 100%);
+            content  : "\f00a";
+            font-size: 1em;
+            transform: rotate(90deg);
+        }
     }
 
     &.neo-resizable-bottom-right {
-        background-color: blue;
-        bottom : 0;
-        cursor : se-resize;
-        right  : 0;
-        z-index: 20;
+        bottom: 0;
+        cursor: se-resize;
+        right : 0;
+        height: 1em;
+        width : 1.05em;
+
+        &::after {
+            clip-path: polygon(100% 0,70% 0,70% 35%,35% 35%,35% 66%,0 66%,0 100%,100% 100%);
+            content  : "\f00a";
+            font-size: 1em;
+        }
     }
 
     &.neo-resizable-left {
         cursor: w-resize;
         left  : 0;
-        height: 100%;
     }
 
     &.neo-resizable-right {
         cursor: e-resize;
         right : 0;
-        height : 100%;
     }
 
     &.neo-resizable-top {
         cursor: n-resize;
         top   : 0;
-        width : 100%;
     }
 
     &.neo-resizable-top-left {
-        background-color: blue;
-        cursor : nw-resize;
-        left   : 0;
-        top    : 0;
-        z-index: 20;
+        cursor: nw-resize;
+        left  : 0;
+        top   : 0;
+        height: 1em;
+        width : 1.05em;
+
+        &::after {
+            clip-path: polygon(100% 0,70% 0,70% 35%,35% 35%,35% 66%,0 66%,0 100%,100% 100%);
+            content  : "\f00a";
+            font-size: 1em;
+            transform: rotate(180deg);
+        }
     }
 
     &.neo-resizable-top-right {
-        background-color: blue;
-        cursor : ne-resize;
-        right  : 0;
-        top    : 0;
-        z-index: 20;
+        cursor: ne-resize;
+        right : 0;
+        top   : 0;
+        height: 1em;
+        width : 1.05em;
+
+        &::after {
+            clip-path: polygon(100% 0,70% 0,70% 35%,35% 35%,35% 66%,0 66%,0 100%,100% 100%);
+            content  : "\f00a";
+            font-size: 1em;
+            transform: rotate(270deg);
+        }
     }
 }
