@@ -82,6 +82,16 @@ class Resizable extends Base {
          */
         isDragging: false,
         /**
+         * maximum height when resizing in px
+         * @member {Number|null} maxHeight=null
+         */
+        maxHeight: null,
+        /**
+         * maximum width when resizing in px
+         * @member {Number|null} maxWidth=null
+         */
+        maxWidth: null,
+        /**
          * minimum height when resizing in px
          * @member {Number} minHeight=200
          */
