@@ -2,12 +2,12 @@ import Dialog    from '../../../src/dialog/Base.mjs';
 import TextField from '../../../src/form/field/Text.mjs';
 
 /**
- * @class SharedDialog.DemoDialog
+ * @class SharedDialog2.DemoDialog
  * @extends Neo.dialog.Base
  */
 class DemoDialog extends Dialog {
     static getConfig() {return {
-        className: 'SharedDialog.DemoWindow',
+        className: 'SharedDialog2.DemoWindow',
 
         containerConfig: {
             style: {
