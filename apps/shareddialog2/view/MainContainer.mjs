@@ -39,22 +39,11 @@ class MainContainer extends Viewport {
                 handler: 'createDialog',
                 iconCls: 'fa fa-window-maximize',
                 text   : 'Create Dialog',
-            }, '->', {
-                module : Button,
-                handler: 'switchTheme',
-                iconCls: 'fa fa-moon',
-                text   : 'Theme Dark'
-            }, {
-                module : Button,
-                iconCls: 'fa fa-window-restore',
-                style  : {marginLeft: '1em'},
-                text   : 'Open 2nd Window',
-                url    : '../shareddialog2'
             }]
         }, {
             ntype: 'component',
             flex : 1,
-            html : '#1',
+            html : '#2',
 
             style: {
                 alignItems    : 'center',
