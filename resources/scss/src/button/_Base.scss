@@ -19,6 +19,7 @@
     padding            : v(button-padding);
     position           : relative;
     text-decoration    : none; // for url buttons => links
+    user-select        : none;
     white-space        : nowrap;
     -webkit-appearance : button;
 
