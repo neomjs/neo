@@ -46,10 +46,10 @@ class MainContainer extends Viewport {
                 text   : 'Theme Dark'
             }, {
                 module : Button,
-                handler: 'openSecondWindow',
                 iconCls: 'fa fa-window-restore',
                 style  : {marginLeft: '1em'},
-                text   : 'Open 2nd Window'
+                text   : 'Open 2nd Window',
+                url    : '../shareddialog2'
             }]
         }, {
             ntype: 'component',

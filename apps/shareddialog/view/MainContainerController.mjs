@@ -21,6 +21,21 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        const me = this;
+
+        me.view.on({
+            connect   : me.onAppConnect,
+            disconnect: me.onAppDisconnect,
+            scope     : me
+        });
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     createDialog(data) {
@@ -35,6 +50,22 @@ class MainContainerController extends ComponentController {
             boundaryContainerId: view.boundaryContainerId,
             listeners          : {close: me.onWindowClose, scope: me}
         });
+    }
+
+    /**
+     *
+     * @param {String} name
+     */
+    onAppConnect(name) {
+        console.log('onAppConnect', name);
+    }
+
+    /**
+     *
+     * @param {String} name
+     */
+    onAppDisconnect(name) {
+        console.log('onAppDisconnect', name);
     }
 
     /**
