@@ -1007,34 +1007,37 @@ class Base extends CoreBase {
 
         me.rendering = false;
 
-        if (!app.rendered) {
-            app.rendering = false;
-            app.rendered  = true;
-            app.fire('render');
-        }
-
-        me.vnode = data;
-
-        let childIds  = ComponentManager.getChildIds(data),
-            i         = 0,
-            len       = childIds.length,
-            child;
-
-        for (; i < len; i++) {
-            child = Neo.getComponent(childIds[i]);
-
-            if (child) {
-                child.rendered = true;
+        // if app is a check to see if the Component got destroyed while rendering => before onRender got triggered
+        if (app) {
+            if (!app.rendered) {
+                app.rendering = false;
+                app.rendered  = true;
+                app.fire('render');
             }
-        }
 
-        me._rendered = true; // silent update
-        me.fire('rendered', me.id);
+            me.vnode = data;
 
-        console.log('rendered: ' + me.appName + ' ' + me.id, me);
+            let childIds  = ComponentManager.getChildIds(data),
+                i         = 0,
+                len       = childIds.length,
+                child;
 
-        if (autoMount) {
-            me.mounted = true;
+            for (; i < len; i++) {
+                child = Neo.getComponent(childIds[i]);
+
+                if (child) {
+                    child.rendered = true;
+                }
+            }
+
+            me._rendered = true; // silent update
+            me.fire('rendered', me.id);
+
+            console.log('rendered: ' + me.appName + ' ' + me.id, me);
+
+            if (autoMount) {
+                me.mounted = true;
+            }
         }
     }
 
