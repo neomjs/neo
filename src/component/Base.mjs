@@ -968,8 +968,6 @@ class Base extends CoreBase {
                 parentIndex: me.parentIndex
             }).then(() => {
                 me.mounted = true;
-            }).catch(err => {
-                console.log('Error attempting to mount component', err, me);
             });
         }
     }
@@ -1128,8 +1126,6 @@ class Base extends CoreBase {
                 ...me.vdom
             }).then(data => {
                 me.onRender(data, autoMount);
-            }).catch(err => {
-                console.log('Error attempting to render component', err, me);
             });
         }
     }
