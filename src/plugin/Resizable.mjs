@@ -218,19 +218,27 @@ class Resizable extends Base {
                 node  = me.currentNodeName,
                 rect  = me.initialRect,
                 style = me.dragZone.dragProxy.wrapperStyle,
-                size;
+                dist, size;
 
             if (node.includes('bottom')) {
                 size = Math.max(me.minHeight, data.clientY - rect.top);
 
                 if (me.maxHeight) {
-                    size = Math.min(me.maxHeight, size);
+                    size = Math.min(size, me.maxHeight);
                 }
 
                 style.height = `${size}px`;
             } else if (node.includes('top')) {
-                style.height = `${Math.max(me.minHeight, rect.height + rect.top - data.clientY)}px`;
-                style.top    = `${Math.min(rect.bottom - me.minHeight, data.clientY)}px`;
+                dist = Math.min(rect.bottom - me.minHeight, data.clientY);
+                size = Math.max(me.minHeight, rect.height + rect.top - data.clientY);
+
+                if (me.maxHeight) {
+                    dist = Math.max(dist, rect.bottom - me.maxHeight);
+                    size = Math.min(size, me.maxHeight);
+                }
+
+                style.height = `${size}px`;
+                style.top    = `${dist}px`;
             }
 
             if (node.includes('left')) {
@@ -240,7 +248,7 @@ class Resizable extends Base {
                 size = Math.max(me.minWidth, rect.width - rect.right + data.clientX);
 
                 if (me.maxWidth) {
-                    size = Math.min(me.maxWidth, size);
+                    size = Math.min(size, me.maxWidth);
                 }
 
                 style.width = `${size}px`;
