@@ -192,6 +192,28 @@ class Resizable extends Base {
     }
 
     /**
+     * Triggered before the directions config gets changed.
+     * @param {String[]} value
+     * @param {String[]} oldValue
+     * @returns {String[]}
+     * @protected
+     */
+    beforeSetDirections(value, oldValue) {
+        if (Array.isArray(value)) {
+            let i   = 0,
+                len = value.length;
+
+            for (; i < len; i++) {
+                if (this.beforeSetEnumValue(value[i], oldValue, 'directions', 'validDirections') !== value[i]) {
+                    return oldValue;
+                }
+            }
+        }
+
+        return value;
+    }
+
+    /**
      *
      * @param {Object} data
      */
