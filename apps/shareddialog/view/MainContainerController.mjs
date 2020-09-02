@@ -54,6 +54,14 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @returns {Neo.button.Base}
+     */
+    getSecondWindowButton() {
+        return this.view.down({iconCls: 'fa fa-window-restore'});
+    }
+
+    /**
+     *
      * @param {String} name
      */
     onAppConnect(name) {
@@ -61,7 +69,7 @@ class MainContainerController extends ComponentController {
             view = me.view;
 
         if (name === 'SharedDialog2') {
-            view.down({iconCls: 'fa fa-window-restore'}).disabled = true;
+            me.getSecondWindowButton().disabled = true;
         }
     }
 
@@ -74,7 +82,7 @@ class MainContainerController extends ComponentController {
             view = me.view;
 
         if (name === 'SharedDialog2') {
-            view.down({iconCls: 'fa fa-window-restore'}).disabled = false;
+            me.getSecondWindowButton().disabled = false;
         }
     }
 
