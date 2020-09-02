@@ -1,8 +1,8 @@
-import Button     from '../../../src/button/Base.mjs';
-import CheckBox   from '../../../src/form/field/CheckBox.mjs';
-import Toolbar    from '../../../src/container/Toolbar.mjs';
-import DemoDialog from './DemoDialog.mjs';
-import Viewport   from '../../../src/container/Viewport.mjs';
+import Button                  from '../../../src/button/Base.mjs';
+import MainContainerController from './MainContainerController.mjs';
+import Toolbar                 from '../../../src/container/Toolbar.mjs';
+import DemoDialog              from './DemoDialog.mjs';
+import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
  * @class SharedDialog.view.MainContainer
@@ -13,9 +13,10 @@ class MainContainer extends Viewport {
         className: 'Dialog.MainContainer',
         ntype    : 'main-container',
 
-        autoMount: true,
-        layout   : {ntype: 'vbox', align: 'stretch'},
-        style    : {padding: '20px'},
+        autoMount : true,
+        controller: MainContainerController,
+        layout    : {ntype: 'vbox', align: 'stretch'},
+        style     : {padding: '20px'},
 
         /**
          * Custom config which gets passed to the dialog
