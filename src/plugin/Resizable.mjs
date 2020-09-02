@@ -278,6 +278,10 @@ class Resizable extends Base {
                     size = Math.min(size, me.maxWidth);
                 }
 
+                if (ctRect) {
+                    size = Math.min(size, ctRect.right - rect.left);
+                }
+
                 style.width = `${size}px`;
             }
 
