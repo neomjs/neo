@@ -75,6 +75,18 @@
             "mainThreadAddons": "'MapboxGL', 'Stylesheet'",
             "useSharedWorkers": true
         },
+        "SharedDialog": {
+            "input": "myApps/SharedDialog.mjs",
+            "output": "/apps/shareddialog/",
+            "title": "SharedDialog",
+            "useSharedWorkers": true
+        },
+        "SharedDialog2": {
+            "input": "myApps/SharedDialog2.mjs",
+            "output": "/apps/shareddialog2/",
+            "title": "SharedDialog2",
+            "useSharedWorkers": true
+        },
         "Website": {
             "input": "myApps/Website.mjs",
             "output": "/apps/website/",
