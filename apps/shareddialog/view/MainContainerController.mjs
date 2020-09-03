@@ -1,5 +1,6 @@
 import ComponentController from '../../../src/controller/Component.mjs';
 import DemoDialog          from './DemoDialog.mjs';
+import NeoArray            from '../../../src/util/Array.mjs';
 
 /**
  * @class SharedDialog.view.MainContainerController
@@ -16,7 +17,11 @@ class MainContainerController extends ComponentController {
          * @member {String} ntype='maincontainer-controller'
          * @protected
          */
-        ntype: 'maincontainer-controller'
+        ntype: 'maincontainer-controller',
+        /**
+         * @member {String[]} connectedApps=[]
+         */
+        connectedApps: []
     }}
 
     /**
@@ -68,6 +73,8 @@ class MainContainerController extends ComponentController {
         let me   = this,
             view = me.view;
 
+        NeoArray.add(me.connectedApps, name);
+
         if (name === 'SharedDialog2') {
             me.getSecondWindowButton().disabled = true;
         }
@@ -80,6 +87,8 @@ class MainContainerController extends ComponentController {
     onAppDisconnect(name) {
         let me   = this,
             view = me.view;
+
+        NeoArray.remove(me.connectedApps, name);
 
         if (name === 'SharedDialog2') {
             me.getSecondWindowButton().disabled = false;
@@ -110,22 +119,32 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     switchTheme(data) {
-        let button     = data.component,
+        let me         = this,
+            button     = data.component,
             buttonText = 'Theme Light',
             iconCls    = 'fa fa-sun',
-            oldTheme   = 'neo-theme-light',
-            theme      = 'neo-theme-dark';
+            theme      = 'neo-theme-dark',
+            cls, view;
 
         if (button.text === 'Theme Light') {
             buttonText = 'Theme Dark';
             iconCls    = 'fa fa-moon';
-            oldTheme   = 'neo-theme-dark';
             theme      = 'neo-theme-light';
         }
 
-        Neo.main.DomAccess.setBodyCls({
-            add   : [theme],
-            remove: [oldTheme]
+        me.connectedApps.forEach(appName => {
+            view = Neo.apps[appName].mainViewInstance;
+
+            cls = [...view.cls];
+
+            view.cls.forEach(item => {
+                if (item.includes('neo-theme')) {
+                    NeoArray.remove(cls, item);
+                }
+            });
+
+            NeoArray.add(cls, theme);
+            view.cls = cls;
         });
 
         button.set({
