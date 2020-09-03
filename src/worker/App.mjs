@@ -82,7 +82,8 @@ class App extends Base {
      * @param {Object} data
      */
     onLoadApplication(data) {
-        let me = this;
+        let me = this,
+            path;
 
         if (data) {
             me.data = data;
@@ -90,7 +91,10 @@ class App extends Base {
         }
 
         if (!Neo.config.isExperimental) {
-            Neo.onStart();
+            path = data.path.replace('.js', '.mjs');
+            path = path.substring(0) === '.' ? path : '.' + path;
+
+            __webpack_require__.c[path].exports.onStart();
 
             if (Neo.config.hash) {
                 setTimeout(() => HashHistory.push(Neo.config.hash), 5);
@@ -99,7 +103,7 @@ class App extends Base {
             import(
                 /* webpackIgnore: true */
                 `../../${me.data.path}`).then(module => {
-                    Neo.onStart();
+                    module.onStart();
 
                     if (Neo.config.hash) {
                         // short delay to ensure Component Controllers are ready

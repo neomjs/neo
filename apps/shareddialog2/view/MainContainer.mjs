@@ -9,8 +9,8 @@ import Viewport                from '../../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className: 'SharedDialog2.MainContainer',
-        ntype    : 'main-container',
+        className: 'SharedDialog2.view.MainContainer',
+        ntype    : 'main-container2',
 
         autoMount : true,
         controller: MainContainerController,
