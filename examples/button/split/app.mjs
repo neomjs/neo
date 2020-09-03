@@ -1,7 +1,9 @@
 import MainContainer from './MainContainer.mjs';
 
-Neo.onStart = () => Neo.app({
+const onStart = () => Neo.app({
     appPath : 'examples/button/split/',
     mainView: MainContainer,
     name    : 'ExampleSplitButton'
 });
+
+export {onStart as onStart};

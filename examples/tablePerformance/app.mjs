@@ -2,7 +2,7 @@ import MainContainer  from './MainContainer.mjs';
 import MainContainer2 from './MainContainer2.mjs';
 import MainContainer3 from './MainContainer3.mjs';
 
-Neo.onStart = function() {
+const onStart = () => {
     Neo.app({
         appPath : 'examples/tablePerformance/',
         mainView: MainContainer,
@@ -24,3 +24,5 @@ Neo.onStart = function() {
         parentId: 'main-container3'
     });
 };
+
+export {onStart as onStart};
