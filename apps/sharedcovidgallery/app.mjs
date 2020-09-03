@@ -1,7 +1,9 @@
 import MainContainer from './MainContainer.mjs';
 
-Neo.onStart = () => Neo.app({
+const onStart = () => Neo.app({
     appPath : 'apps/sharedcovidgallery/',
     mainView: MainContainer,
     name    : 'SharedCovidGallery'
 });
+
+export {onStart as onStart};
