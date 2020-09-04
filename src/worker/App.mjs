@@ -82,8 +82,7 @@ class App extends Base {
      * @param {Object} data
      */
     onLoadApplication(data) {
-        let me = this,
-            path;
+        let me = this;
 
         if (data) {
             me.data = data;
@@ -91,10 +90,22 @@ class App extends Base {
         }
 
         if (!Neo.config.isExperimental) {
-            path = data.path.replace('.js', '.mjs');
-            path = path.substring(0) === '.' ? path : '.' + path;
+            if (Neo.myAppPath) {
+                import(
+                    /* webpackInclude: /\app.mjs$/ */
+                    /* webpackExclude: /\node_modules$/ */
+                    /* webpackChunkName: "chunks/[request]" */
+                    /* webpackMode: "lazy" */
+                    `../../${Neo.myAppPath}`).then(module => {
+                        module.onStart();
 
-            __webpack_require__.c[path].exports.onStart();
+                        if (Neo.config.hash) {
+                            // short delay to ensure Component Controllers are ready
+                            setTimeout(() => HashHistory.push(Neo.config.hash), 5);
+                        }
+                    }
+                );
+            }
 
             if (Neo.config.hash) {
                 setTimeout(() => HashHistory.push(Neo.config.hash), 5);

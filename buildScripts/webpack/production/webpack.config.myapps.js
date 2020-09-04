@@ -66,7 +66,7 @@ module.exports = env => {
                     filename: indexPath,
                     template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
                     templateParameters: {
-                        appPath         : value.output + 'app.js',
+                        appPath         : value.output + 'appworker.js',
                         basePath,
                         bodyTag         : value.bodyTag || config.bodyTag,
                         environment     : 'production',
@@ -94,8 +94,10 @@ module.exports = env => {
             filename: chunkData => {
                 let name = chunkData.chunk.name;
 
+                console.log('n', name);
+
                 if (config.apps.hasOwnProperty(name)) {
-                    return config.apps[name].output + 'app.js';
+                    return config.apps[name].output + 'appworker.js';
                 }
             },
             path: path.resolve(processRoot, buildTarget.folder)
