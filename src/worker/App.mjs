@@ -82,7 +82,8 @@ class App extends Base {
      * @param {Object} data
      */
     onLoadApplication(data) {
-        let me = this;
+        let me = this,
+            path;
 
         if (data) {
             me.data = data;
@@ -90,24 +91,25 @@ class App extends Base {
         }
 
         if (!Neo.config.isExperimental) {
-            __webpack_public_path__ = './chunks';
+            path = me.data.path;
+            path = path.startsWith('/') ? path.substring(1) : path;
 
-            if (Neo.myAppPath) {
-                import(
-                    /* webpackInclude: /\app.mjs$/ */
-                    /* webpackExclude: /\node_modules$/ */
-                    /* webpackChunkName: "chunks/[request]" */
-                    /* webpackMode: "lazy" */
-                    `../../${Neo.myAppPath}`).then(module => {
-                        module.onStart();
+            console.log(path);
 
-                        if (Neo.config.hash) {
-                            // short delay to ensure Component Controllers are ready
-                            setTimeout(() => HashHistory.push(Neo.config.hash), 5);
-                        }
+            import(
+                /* webpackInclude: /\app.mjs$/ */
+                /* webpackExclude: /\node_modules$/ */
+                /* webpackChunkName: "chunks/[request]" */
+                /* webpackMode: "lazy" */
+                `../../${path}`).then(module => {
+                    module.onStart();
+
+                    if (Neo.config.hash) {
+                        // short delay to ensure Component Controllers are ready
+                        setTimeout(() => HashHistory.push(Neo.config.hash), 5);
                     }
-                );
-            }
+                }
+            );
 
             if (Neo.config.hash) {
                 setTimeout(() => HashHistory.push(Neo.config.hash), 5);
