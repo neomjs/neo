@@ -90,6 +90,8 @@ class App extends Base {
         }
 
         if (!Neo.config.isExperimental) {
+            __webpack_public_path__ = './chunks';
+
             if (Neo.myAppPath) {
                 import(
                     /* webpackInclude: /\app.mjs$/ */
