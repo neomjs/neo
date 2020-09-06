@@ -29,60 +29,55 @@ if (!buildTarget.folder) {
 }
 
 module.exports = env => {
-    const apps     = env.apps.split(','),
-          buildAll = apps.includes('all'),
-          choices  = [],
-          entry    = {};
+    const entry = {
+        app: path.resolve(neoPath, './src/worker/App.mjs')
+    };
 
     if (config.apps) {
-        Object.keys(config.apps).forEach(key => choices.push(key));
-
         Object.entries(config.apps).forEach(([key, value]) => {
-            if (buildAll || choices.length < 2 || apps.includes(key)) {
-                entryPath = path.resolve(processRoot, value.input);
+            entryPath = path.resolve(processRoot, value.input);
 
-                if (fs.existsSync(entryPath)) {
-                    entry[key] = entryPath;
-                } else {
-                    entry[key] = path.resolve(neoPath, 'buildScripts/webpack/entrypoints/' + value.input);
-                }
-
-                basePath       = '';
-                workerBasePath = '';
-                treeLevel      = value.output.split('/').length;
-
-                for (i=0; i < treeLevel; i++)  {
-                    basePath += '../';
-
-                    if (i > 1) {
-                        workerBasePath += '../';
-                    }
-                }
-
-                indexPath = path.resolve(processRoot, buildTarget.folder) + value.output + 'index.html';
-
-                plugins.push(new HtmlWebpackPlugin({
-                    chunks  : [],
-                    filename: indexPath,
-                    template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
-                    templateParameters: {
-                        appPath         : value.output + 'app.mjs',
-                        basePath,
-                        bodyTag         : value.bodyTag || config.bodyTag,
-                        environment     : 'production',
-                        mainPath        : workerBasePath + 'main.js',
-                        mainThreadAddons: value.mainThreadAddons || "'Stylesheet'",
-                        themes          : value.themes           || "'neo-theme-light', 'neo-theme-dark'",
-                        title           : value.title,
-                        useSharedWorkers: value.useSharedWorkers || false,
-                        workerBasePath
-                    }
-                }));
+            if (fs.existsSync(entryPath)) {
+                entry[key] = entryPath;
+            } else {
+                entry[key] = path.resolve(neoPath, value.input);
             }
+
+            basePath       = '';
+            workerBasePath = '';
+            treeLevel      = value.output.split('/').length;
+
+            for (i=0; i < treeLevel; i++)  {
+                basePath += '../';
+
+                if (i > 1) {
+                    workerBasePath += '../';
+                }
+            }
+
+            indexPath = path.resolve(processRoot, buildTarget.folder) + value.output + 'index.html';
+
+            plugins.push(new HtmlWebpackPlugin({
+                chunks  : [],
+                filename: indexPath,
+                template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
+                templateParameters: {
+                    appPath         : value.output + 'app.mjs',
+                    basePath,
+                    bodyTag         : value.bodyTag || config.bodyTag,
+                    environment     : 'production',
+                    mainPath        : workerBasePath + 'main.js',
+                    mainThreadAddons: value.mainThreadAddons || "'Stylesheet'",
+                    themes          : value.themes           || "'neo-theme-light', 'neo-theme-dark'",
+                    title           : value.title,
+                    useSharedWorkers: value.useSharedWorkers || false,
+                    workerBasePath
+                }
+            }));
         });
     }
 
-    if (examplesConfig.examples) {
+    /*if (examplesConfig.examples) {
         Object.entries(examplesConfig.examples).forEach(([key, value]) => {
             entry[key] = path.resolve(neoPath, 'buildScripts/webpack/entrypoints/' + value.input);
 
@@ -116,7 +111,7 @@ module.exports = env => {
                 }
             }));
         });
-    }
+    }*/
 
     return {
         mode  : 'production',
