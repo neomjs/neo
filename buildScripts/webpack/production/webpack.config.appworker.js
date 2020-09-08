@@ -77,9 +77,15 @@ module.exports = env => {
         });
     }
 
-    /*if (examplesConfig.examples) {
+    if (examplesConfig.examples) {
         Object.entries(examplesConfig.examples).forEach(([key, value]) => {
-            entry[key] = path.resolve(neoPath, 'buildScripts/webpack/entrypoints/' + value.input);
+            entryPath = path.resolve(processRoot, value.input);
+
+            if (fs.existsSync(entryPath)) {
+                entry[key] = entryPath;
+            } else {
+                entry[key] = path.resolve(neoPath, value.input);
+            }
 
             basePath       = '';
             workerBasePath = '';
@@ -96,7 +102,7 @@ module.exports = env => {
             plugins.push(new HtmlWebpackPlugin({
                 chunks  : [],
                 filename: path.resolve(processRoot, buildTarget.folder) + value.output + 'index.html',
-                template: path.resolve(neoPath, value.indexPath || 'buildScripts/webpack/index.ejs'),
+                template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
                 templateParameters: {
                     appPath         : value.output + 'app.js',
                     basePath,
@@ -111,7 +117,7 @@ module.exports = env => {
                 }
             }));
         });
-    }*/
+    }
 
     return {
         mode  : 'production',
@@ -126,13 +132,15 @@ module.exports = env => {
         ],
 
         output: {
-            chunkFilename: '[name].js', // would default to '[id].js': src/main/lib/AmCharts => 1.js
+            chunkFilename: 'chunks/[id].js', // would default to '[id].js': src/main/lib/AmCharts => 1.js
 
             filename: chunkData => {
                 let name = chunkData.chunk.name;
 
                 if (config.apps.hasOwnProperty(name)) {
                     return config.apps[name].output + 'app.js';
+                } else if (examplesConfig.examples.hasOwnProperty(name)) {
+                    return examplesConfig.examples[name].output + 'app.js';
                 }
 
                 return 'appworker.js';
