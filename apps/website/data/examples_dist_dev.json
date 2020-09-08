@@ -1,5 +1,14 @@
 [
     {
+        "browsers"    : ["Chrome", "Edge", "Firefox", "(SharedWorkers)"],
+        "environments": ["Desktop"],
+        "id"          : 16,
+        "image"       : "devmode/sharedcovid.png",
+        "name"        : "Multi Window Covid App",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/apps/sharedcovid",
+        "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/apps/sharedcovid/index.html#mainview=table"
+    },
+    {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 15,

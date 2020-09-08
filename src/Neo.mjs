@@ -401,9 +401,7 @@ Neo = self.Neo = Object.assign({
             throw new Error('ntype ' + ntype + ' does not exist');
         }
         return Neo.create(className, config);
-    },
-
-    onStart: Neo.emptyFn
+    }
 }, Neo);
 
 /**

@@ -1,7 +1,7 @@
 import MainContainer  from './MainContainer.mjs';
 import MainContainer2 from './MainContainer2.mjs';
 
-Neo.onStart = function() {
+const onStart = () => {
     Neo.app({
         appPath : 'examples/tabs/',
         mainView: MainContainer,
@@ -16,3 +16,5 @@ Neo.onStart = function() {
         parentId: 'main-container2'
     });
 };
+
+export {onStart as onStart};

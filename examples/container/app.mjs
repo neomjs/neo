@@ -1,10 +1,10 @@
 import MainContainer from './MainContainer.mjs';
 
-Neo.onStart = function() {
-    Neo.app({
-        appPath : 'examples/button/',
-        mainView: MainContainer,
-        name    : 'TestApp',
-        parentId: 'main-container'
-    });
-};
+const onStart = () => Neo.app({
+    appPath : 'examples/button/',
+    mainView: MainContainer,
+    name    : 'TestApp',
+    parentId: 'main-container'
+});
+
+export {onStart as onStart};

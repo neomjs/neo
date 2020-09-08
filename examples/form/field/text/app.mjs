@@ -1,9 +1,9 @@
 import MainContainer from './MainContainer.mjs';
 
-Neo.onStart = function() {
-    Neo.app({
-        appPath : 'examples/form/field/text/',
-        mainView: MainContainer,
-        name    : 'TestApp'
-    });
-};
+const onStart = () => Neo.app({
+    appPath : 'examples/form/field/text/',
+    mainView: MainContainer,
+    name    : 'TestApp'
+});
+
+export {onStart as onStart};

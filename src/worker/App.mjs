@@ -82,31 +82,37 @@ class App extends Base {
      * @param {Object} data
      */
     onLoadApplication(data) {
-        let me = this;
+        let me = this,
+            path;
 
         if (data) {
             me.data = data;
             Neo.config.resourcesPath = data.resourcesPath;
         }
 
+        path = me.data.path;
+
         if (!Neo.config.isExperimental) {
-            Neo.onStart();
+            path = path.startsWith('/') ? path.substring(1) : path;
+        }
 
-            if (Neo.config.hash) {
-                setTimeout(() => HashHistory.push(Neo.config.hash), 5);
-            }
-        } else {
-            import(
-                /* webpackIgnore: true */
-                `../../${me.data.path}`).then(module => {
-                    Neo.onStart();
+        import(
+            /* webpackInclude: /\app.mjs$/ */
+            /* webpackExclude: /\node_modules$/ */
+            /* webpackChunkName: "chunks/[request]" */
+            /* webpackMode: "lazy" */
+            `../../${path}`).then(module => {
+                module.onStart();
 
-                    if (Neo.config.hash) {
-                        // short delay to ensure Component Controllers are ready
-                        setTimeout(() => HashHistory.push(Neo.config.hash), 5);
-                    }
+                if (Neo.config.hash) {
+                    // short delay to ensure Component Controllers are ready
+                    setTimeout(() => HashHistory.push(Neo.config.hash), 5);
                 }
-            );
+            }
+        );
+
+        if (Neo.config.hash) {
+            setTimeout(() => HashHistory.push(Neo.config.hash), 5);
         }
     }
 

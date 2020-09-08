@@ -117,11 +117,13 @@ inquirer.prompt(questions).then(answers => {
         const appContent = [
             "import MainContainer from './MainContainer.mjs';",
             "",
-            "Neo.onStart = () => Neo.app({",
+            "const onStart = () => Neo.app({",
             "    appPath : '" + appPath + "',",
             "    mainView: MainContainer,",
             "    name    : '" + appName + "'",
             "});",
+            "",
+            "export {onStart as onStart};",
         ].join('\n');
 
         fs.writeFileSync(folder + '/app.mjs', appContent);
@@ -234,8 +236,8 @@ inquirer.prompt(questions).then(answers => {
         }
 
         appJson.apps[appName] = {
-            input : 'myApps/' + appName + '.mjs',
-            output: '/' + appPath,
+            input : `./${appPath}app.mjs`,
+            output: `/${appPath}`,
             title : appName
         };
 
@@ -252,13 +254,6 @@ inquirer.prompt(questions).then(answers => {
         }
 
         fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 4));
-
-        const entryPoint = [
-            "import '../../../../src/worker/App.mjs';",
-            "import '../../../../" + appPath + "app.mjs';"
-        ].join('\n');
-
-        fs.writeFileSync(path.resolve(__dirname, '../buildScripts/webpack/entrypoints/myApps/' + appName + '.mjs'), entryPoint);
 
         if (mainThreadAddons.includes('HighlightJS')) {
             cp.spawnSync('node', [

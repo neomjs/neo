@@ -56,13 +56,13 @@
             </p>
         <pre><code>import MainComponent from './MainComponent.mjs';
 
-Neo.onStart = function() {
-    Neo.app({
-        appPath : 'examples/todoList/version1/',
-        mainView: MainComponent,
-        name    : 'TodoListApp1'
-    });
-};</code></pre>
+const onStart = () => Neo.app({
+    appPath : 'examples/todoList/version1/',
+    mainView: MainComponent,
+    name    : 'TodoListApp1'
+});
+
+export {onStart as onStart};</code></pre>
         </li>
         <li><h4>MainComponent.mjs:</h4>
             <p>The class definition of your main App view. In "full screen" mode, you would most likely extend container.Viewport,
