@@ -236,8 +236,8 @@ inquirer.prompt(questions).then(answers => {
         }
 
         appJson.apps[appName] = {
-            input : 'myApps/' + appName + '.mjs',
-            output: '/' + appPath,
+            input : `./${appPath}app.mjs`,
+            output: `/${appPath}`,
             title : appName
         };
 
