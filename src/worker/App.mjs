@@ -90,42 +90,29 @@ class App extends Base {
             Neo.config.resourcesPath = data.resourcesPath;
         }
 
+        path = me.data.path;
+
         if (!Neo.config.isExperimental) {
-            path = me.data.path;
             path = path.startsWith('/') ? path.substring(1) : path;
+        }
 
-            console.log(path);
+        import(
+            /* webpackInclude: /\app.mjs$/ */
+            /* webpackExclude: /\node_modules$/ */
+            /* webpackChunkName: "chunks/[request]" */
+            /* webpackMode: "lazy" */
+            `../../${path}`).then(module => {
+                module.onStart();
 
-            import(
-                /* webpackInclude: /\app.mjs$/ */
-                /* webpackExclude: /\node_modules$/ */
-                /* webpackChunkName: "chunks/[request]" */
-                /* webpackMode: "lazy" */
-                `../../${path}`).then(module => {
-                    module.onStart();
-
-                    if (Neo.config.hash) {
-                        // short delay to ensure Component Controllers are ready
-                        setTimeout(() => HashHistory.push(Neo.config.hash), 5);
-                    }
+                if (Neo.config.hash) {
+                    // short delay to ensure Component Controllers are ready
+                    setTimeout(() => HashHistory.push(Neo.config.hash), 5);
                 }
-            );
-
-            if (Neo.config.hash) {
-                setTimeout(() => HashHistory.push(Neo.config.hash), 5);
             }
-        } else {
-            import(
-                /* webpackIgnore: true */
-                `../../${me.data.path}`).then(module => {
-                    module.onStart();
+        );
 
-                    if (Neo.config.hash) {
-                        // short delay to ensure Component Controllers are ready
-                        setTimeout(() => HashHistory.push(Neo.config.hash), 5);
-                    }
-                }
-            );
+        if (Neo.config.hash) {
+            setTimeout(() => HashHistory.push(Neo.config.hash), 5);
         }
     }
 
