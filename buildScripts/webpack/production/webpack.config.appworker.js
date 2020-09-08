@@ -133,6 +133,7 @@ module.exports = env => {
 
         output: {
             chunkFilename: 'chunks/[id].js', // would default to '[id].js': src/main/lib/AmCharts => 1.js
+            path         : path.resolve(processRoot, buildTarget.folder),
 
             filename: chunkData => {
                 let name = chunkData.chunk.name;
@@ -144,8 +145,7 @@ module.exports = env => {
                 }
 
                 return 'appworker.js';
-            },
-            path: path.resolve(processRoot, buildTarget.folder)
+            }
         }
     }
 };
