@@ -78,10 +78,10 @@ inquirer.prompt(questions).then(answers => {
     // dist/development
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
-        if (threads === 'all' || threads === 'main') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.main.js`],                        cpOpts);}
-        if (threads === 'all' || threads === 'app')  {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`, '--env.worker=app'],  cpOpts);}
-        if (threads === 'all' || threads === 'data') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`, '--env.worker=data'], cpOpts);}
-        if (threads === 'all' || threads === 'vdom') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`, '--env.worker=vdom'], cpOpts);}
+        if (threads === 'all' || threads === 'main') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.main.js`],                           cpOpts);}
+        if (threads === 'all' || threads === 'app')  {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.appworker.js`, '--env.worker=app'],  cpOpts);}
+        if (threads === 'all' || threads === 'data') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`,    '--env.worker=data'], cpOpts);}
+        if (threads === 'all' || threads === 'vdom') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`,    '--env.worker=vdom'], cpOpts);}
     }
 
     // dist/production
