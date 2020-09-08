@@ -236,8 +236,8 @@ inquirer.prompt(questions).then(answers => {
         }
 
         appJson.apps[appName] = {
-            input : 'myApps/' + appName + '.mjs',
-            output: '/' + appPath,
+            input : `./${appPath}app.mjs`,
+            output: `/${appPath}`,
             title : appName
         };
 
@@ -254,13 +254,6 @@ inquirer.prompt(questions).then(answers => {
         }
 
         fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 4));
-
-        const entryPoint = [
-            "import '../../../../src/worker/App.mjs';",
-            "import '../../../../" + appPath + "app.mjs';"
-        ].join('\n');
-
-        fs.writeFileSync(path.resolve(__dirname, '../buildScripts/webpack/entrypoints/myApps/' + appName + '.mjs'), entryPoint);
 
         if (mainThreadAddons.includes('HighlightJS')) {
             cp.spawnSync('node', [

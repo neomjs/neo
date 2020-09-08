@@ -75,7 +75,7 @@ class Manager extends Base {
          */
         workers: {
             app: {
-                fileName: Neo.config.isExperimental ? 'App.mjs'  : Neo.config.appPath
+                fileName: Neo.config.isExperimental ? 'App.mjs'  : 'appworker.js'
             },
             data: {
                 fileName: Neo.config.isExperimental ? 'Data.mjs' : 'dataworker.js'

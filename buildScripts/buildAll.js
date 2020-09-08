@@ -20,8 +20,6 @@ program
     .name(programName)
     .version(packageJson.version)
     .option('-i, --info',              'print environment debug info')
-    .option('-a, --apps <name>',       '"yes", "no"')
-    .option('-d, --docs <name>',       '"yes", "no"')
     .option('-e, --env <name>',        '"all", "dev", "prod"')
     .option('-l, --npminstall <name>', '"yes", "no"')
     .option('-n, --noquestions')
@@ -95,28 +93,6 @@ if (!program.noquestions) {
         });
     }
 
-    // not included in all sub-repos, e.g.:
-    // https://github.com/neomjs/covid-dashboard
-    if (!program.docs && packageJson.scripts['build-docs-examples']) {
-        questions.push({
-            type   : 'list',
-            name   : 'docs',
-            message: 'Build the docs & example apps?',
-            choices: ['yes', 'no'],
-            default: 'yes'
-        });
-    }
-
-    if (!program.apps) {
-        questions.push({
-            type   : 'list',
-            name   : 'apps',
-            message: 'Build your own & the default apps?',
-            choices: ['yes', 'no'],
-            default: 'yes'
-        });
-    }
-
     if (!program.parsedocs) {
         questions.push({
             type   : 'list',
@@ -129,9 +105,7 @@ if (!program.noquestions) {
 }
 
 inquirer.prompt(questions).then(answers => {
-    const apps       = answers.apps       || program.apps       || 'yes',
-          docs       = answers.docs       || program.docs       || 'yes',
-          env        = answers.env        || program.env        || 'all',
+    const env        = answers.env        || program.env        || 'all',
           npminstall = answers.npminstall || program.npminstall || 'yes',
           parsedocs  = answers.parsedocs  || program.parsedocs  || 'yes',
           themes     = answers.themes     || program.themes     || 'yes',
@@ -153,14 +127,6 @@ inquirer.prompt(questions).then(answers => {
 
     if (threads === 'yes') {
         cp.spawnSync('node', [`${webpackPath}/buildThreads.js`].concat(cpArgs), cpOpts);
-    }
-
-    if (docs === 'yes' && packageJson.scripts['build-docs-examples']) {
-        cp.spawnSync('node', [`${webpackPath}/buildDocsExamples.js`].concat(cpArgs), cpOpts);
-    }
-
-    if (apps === 'yes') {
-        cp.spawnSync('node', [`${webpackPath}/buildMyApps.js`].concat(cpArgs), cpOpts);
     }
 
     if (parsedocs === 'yes') {

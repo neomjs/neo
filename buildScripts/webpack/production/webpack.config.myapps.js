@@ -6,6 +6,7 @@ const fs                = require('fs'),
       configPath        = path.resolve(processRoot, 'buildScripts/myApps.json'),
       packageJson       = require(path.resolve(processRoot, 'package.json')),
       neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      examplesConfig    = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
       plugins           = [];
 
 let basePath, config, entryPath, i, indexPath, treeLevel, workerBasePath;
@@ -38,15 +39,15 @@ module.exports = env => {
         });
 
         Object.entries(config.apps).forEach(([key, value]) => {
-            if (buildAll || choices.length < 2 || apps.includes(key)) {
                 entryPath = path.resolve(processRoot, value.input);
 
                 if (fs.existsSync(entryPath)) {
                     entry[key] = entryPath;
                 } else {
-                    entry[key] = path.resolve(neoPath, 'buildScripts/webpack/entrypoints/' + value.input);
+                    entry[key] = path.resolve(neoPath, value.input);
                 }
 
+            if (buildAll || choices.length < 2 || apps.includes(key)) {
                 basePath       = '';
                 workerBasePath = '';
                 treeLevel      = value.output.split('/').length;
@@ -66,7 +67,7 @@ module.exports = env => {
                     filename: indexPath,
                     template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
                     templateParameters: {
-                        appPath         : value.output + 'app.js',
+                        appPath         : value.output + 'app.mjs',
                         basePath,
                         bodyTag         : value.bodyTag || config.bodyTag,
                         environment     : 'production',
@@ -82,6 +83,18 @@ module.exports = env => {
         });
     }
 
+    if (examplesConfig.examples) {
+        Object.entries(examplesConfig.examples).forEach(([key, value]) => {
+            entryPath = path.resolve(processRoot, value.input);
+
+            if (fs.existsSync(entryPath)) {
+                entry[key] = entryPath;
+            } else {
+                entry[key] = path.resolve(neoPath, value.input);
+            }
+        });
+    }
+
     return {
         mode  : 'production',
         entry,
@@ -89,16 +102,20 @@ module.exports = env => {
         target: 'webworker',
 
         output: {
-            chunkFilename: '[name].js', // would default to '[id].js': src/main/lib/AmCharts => 1.js
+            chunkFilename: 'chunks/[id].js', // would default to '[id].js': src/main/lib/AmCharts => 1.js
+            path         : path.resolve(processRoot, buildTarget.folder),
 
             filename: chunkData => {
                 let name = chunkData.chunk.name;
 
                 if (config.apps.hasOwnProperty(name)) {
                     return config.apps[name].output + 'app.js';
+                } else if (examplesConfig.examples.hasOwnProperty(name)) {
+                    return examplesConfig.examples[name].output + 'app.js';
                 }
-            },
-            path: path.resolve(processRoot, buildTarget.folder)
+
+                return 'appworker.js';
+            }
         }
     }
 };

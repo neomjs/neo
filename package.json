@@ -13,7 +13,6 @@
         "build-my-apps": "node ./buildScripts/webpack/buildMyApps.js",
         "build-themes": "node ./buildScripts/webpack/buildThemes.js",
         "build-threads": "node ./buildScripts/webpack/buildThreads.js",
-        "build-docs-examples": "node ./buildScripts/webpack/buildDocsExamples.js",
         "create-app": "node ./buildScripts/createApp.js",
         "generate-docs-json": "node ./buildScripts/docs/jsdocx.js",
         "test": "echo \"Error: no test specified\" && exit 1"
