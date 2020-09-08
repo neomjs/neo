@@ -104,7 +104,7 @@ module.exports = env => {
                 filename: path.resolve(processRoot, buildTarget.folder) + value.output + 'index.html',
                 template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
                 templateParameters: {
-                    appPath         : value.output + 'app.js',
+                    appPath         : value.output + 'app.mjs',
                     basePath,
                     bodyTag         : value.bodyTag || config.bodyTag,
                     environment     : 'production',
