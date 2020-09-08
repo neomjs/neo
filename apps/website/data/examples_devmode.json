@@ -1,6 +1,6 @@
 [
     {
-        "browsers"    : ["Chrome v83+ (SharedWorkers)"],
+        "browsers"    : ["Chrome", "(SharedWorkers)"],
         "environments": ["Desktop"],
         "id"          : 17,
         "image"       : "devmode/sharedcovid.png",
