@@ -132,8 +132,10 @@ module.exports = env => {
                 let name = chunkData.chunk.name;
 
                 if (config.apps.hasOwnProperty(name)) {
-                    return config.apps[name].output + 'appworker.js';
+                    return config.apps[name].output + 'app.js';
                 }
+
+                return 'appworker.js';
             },
             path: path.resolve(processRoot, buildTarget.folder)
         }
