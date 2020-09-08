@@ -10,6 +10,7 @@
         "server-start": "webpack-dev-server --open",
         "build-all": "node ./buildScripts/buildAll.js -n",
         "build-all-questions": "node ./buildScripts/buildAll.js",
+        "build-my-apps": "node ./buildScripts/webpack/buildMyApps.js",
         "build-themes": "node ./buildScripts/webpack/buildThemes.js",
         "build-threads": "node ./buildScripts/webpack/buildThreads.js",
         "create-app": "node ./buildScripts/createApp.js",
