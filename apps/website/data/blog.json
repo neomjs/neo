@@ -1,5 +1,18 @@
 [
     {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Sep 9, 2020",
+        "id"          : 21,
+        "image"       : "cross-app-bundling-a-different-approach-for-micro-frontends.png",
+        "name"        : "Cross App Bundling — A different approach for Micro Frontends",
+        "provider"    : "Medium",
+        "publisher"   : "",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://medium.com/@tobiasuhlig/cross-app-bundling-a-different-approach-for-micro-frontends-e4f212b6a9a?source=friends_link&sk=a0b098b4ac792f05348b20cdc007d83c"
+    },
+    {
         "author"      : "Tom",
         "authorImage" : "author_Tom.jpg",
         "date"        : "Aug 15, 2020",
