@@ -8,18 +8,19 @@ const chalk       = require('chalk'),
       envinfo     = require('envinfo'),
       fs          = require('fs'),
       inquirer    = require('inquirer'),
+      os          = require('os'),
       path        = require('path'),
       processRoot = process.cwd(),
       packageJson = require(path.resolve(cwd, 'package.json')),
       configPath  = path.resolve(processRoot, 'buildScripts/myApps.json'),
       neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      webpack     = './node_modules/.bin/webpack',
       webpackPath = path.resolve(neoPath, 'buildScripts/webpack'),
       programName = `${packageJson.name} buildMyApps`,
       appChoices  = [],
       questions   = [];
 
-let config;
+let webpack = './node_modules/.bin/webpack',
+    config;
 
 if (fs.existsSync(configPath)) {
     config = require(configPath);
@@ -97,24 +98,21 @@ inquirer.prompt(questions).then(answers => {
     const apps      = answers.apps || program.apps || ['all'],
           env       = answers.env  || program.env  || ['all'],
           startDate = new Date();
-    
-    let webpackResolvedPath = webpack;
-    if (process.platform === "win32") {
-        // due to specific windows pathing we must do a lil bit of hackery to get it to build properly
-        // functionality on linux/mac remains unchanged
-        webpackResolvedPath = path.resolve(webpack).replace(/\\/g,'/');
+
+    if (os.platform().startsWith('win')) {
+        webpack = path.resolve(webpack).replace(/\\/g,'/');
     }
     
     // dist/development
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
-        cp.spawnSync(webpackResolvedPath, ['--config', `${webpackPath}/development/webpack.config.myapps.js`, `--env.apps=${apps}`], cpOpts);
+        cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.myapps.js`, `--env.apps=${apps}`], cpOpts);
     }
 
     // dist/production
     if (env === 'all' || env === 'prod') {
         console.log(chalk.blue(`${programName} starting dist/production`));
-        cp.spawnSync(webpackResolvedPath, ['--config', `${webpackPath}/production/webpack.config.myapps.js`, `--env.apps=${apps}`], cpOpts);
+        cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.myapps.js`, `--env.apps=${apps}`], cpOpts);
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
