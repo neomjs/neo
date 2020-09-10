@@ -6,7 +6,6 @@ const fs                = require('fs'),
       configPath        = path.resolve(processRoot, 'buildScripts/myApps.json'),
       packageJson       = require(path.resolve(processRoot, 'package.json')),
       neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      examplesConfig    = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
       plugins           = [];
 
 let basePath, config, i, indexPath, treeLevel, workerBasePath;
@@ -75,26 +74,15 @@ module.exports = env => {
     }
 
     return {
-        mode  : 'production',
-        entry : {app: path.resolve(neoPath, './src/worker/App.mjs')},
+        mode : 'production',
+        entry: {app: path.resolve(neoPath, './src/worker/App.mjs')},
         plugins,
         target: 'webworker',
 
         output: {
             chunkFilename: 'chunks/[id].js', // would default to '[id].js': src/main/lib/AmCharts => 1.js
-            path         : path.resolve(processRoot, buildTarget.folder),
-
-            filename: chunkData => {
-                let name = chunkData.chunk.name;
-
-                if (config.apps.hasOwnProperty(name)) {
-                    return config.apps[name].output + 'app.js';
-                } else if (examplesConfig.examples.hasOwnProperty(name)) {
-                    return examplesConfig.examples[name].output + 'app.js';
-                }
-
-                return 'appworker.js';
-            }
+            filename     : 'appworker.js',
+            path         : path.resolve(processRoot, buildTarget.folder)
         }
     }
 };
