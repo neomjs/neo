@@ -123,7 +123,7 @@ inquirer.prompt(questions).then(answers => {
             "    name    : '" + appName + "'",
             "});",
             "",
-            "export {onStart as onStart};",
+            "export {onStart as onStart};"
         ].join('\n');
 
         fs.writeFileSync(folder + '/app.mjs', appContent);
