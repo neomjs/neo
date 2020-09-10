@@ -10,10 +10,14 @@ const fs                 = require('fs'),
       examplesConfig     = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
       plugins            = [];
 
-let basePath, config, entryPath, i, indexPath, treeLevel, workerBasePath;
+let excludeExamples = false,
+    basePath, config, entryPath, i, indexPath, treeLevel, workerBasePath;
+
+console.log(configPath);
 
 if (fs.existsSync(configPath)) {
-    config = require(configPath);
+    config          = require(configPath);
+    excludeExamples = true;
 } else {
     const myAppsPath = path.resolve(neoPath, 'buildScripts/webpack/json/myApps.json');
 
@@ -77,7 +81,7 @@ module.exports = env => {
         });
     }
 
-    if (examplesConfig.examples) {
+    if (!excludeExamples && examplesConfig.examples) {
         Object.entries(examplesConfig.examples).forEach(([key, value]) => {
             entryPath = path.resolve(processRoot, value.input);
 
@@ -118,7 +122,7 @@ module.exports = env => {
             }));
         });
     }
-
+    console.log(path.resolve(neoPath, './apps/') + '/');
     return {
         mode  : 'production',
         entry,
