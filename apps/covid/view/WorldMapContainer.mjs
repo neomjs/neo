@@ -28,6 +28,7 @@ class WorldMapContainer extends Container {
          */
         items: [{
             module: Toolbar,
+            flex  : 'none',
             items : [{
                 ntype    : 'label',
                 reference: 'currentMapViewLabel',
