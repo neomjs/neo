@@ -100,7 +100,7 @@ module.exports = env => {
             }));
         });
     }
-    console.log(path.resolve(neoPath, './apps/') + '/');
+
     return {
         mode  : 'production',
         entry : {app: path.resolve(neoPath, './src/worker/App.mjs')},
