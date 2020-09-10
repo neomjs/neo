@@ -74,24 +74,31 @@ inquirer.prompt(questions).then(answers => {
     const env       = answers.env     || program.env     || 'all',
           threads   = answers.threads || program.threads || 'all',
           startDate = new Date();
-
+    
+    let webpackResolvedPath = webpack;
+    if (process.platform === "win32") {
+        // due to specific windows pathing we must do a lil bit of hackery to get it to build properly
+        // functionality on linux/mac remains unchanged
+        webpackResolvedPath = path.resolve(webpack).replace(/\\/g,'/');
+    }
+    
     // dist/development
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
-        if (threads === 'all' || threads === 'main') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.main.js`],                           cpOpts);}
-        if (threads === 'all' || threads === 'app')  {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.appworker.js`, '--env.worker=app'],  cpOpts);}
-        if (threads === 'all' || threads === 'data') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`,    '--env.worker=data'], cpOpts);}
-        if (threads === 'all' || threads === 'vdom') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`,    '--env.worker=vdom'], cpOpts);}
+        if (threads === 'all' || threads === 'main') {cp.spawnSync(webpackResolvedPath, ['--config', `${webpackPath}/development/webpack.config.main.js`],                           cpOpts);}
+        if (threads === 'all' || threads === 'app')  {cp.spawnSync(webpackResolvedPath, ['--config', `${webpackPath}/development/webpack.config.appworker.js`, "--env.worker=app"],  cpOpts);}
+        if (threads === 'all' || threads === 'data') {cp.spawnSync(webpackResolvedPath, ['--config', `${webpackPath}/development/webpack.config.worker.js`,    "--env.worker=data"], cpOpts);}
+        if (threads === 'all' || threads === 'vdom') {cp.spawnSync(webpackResolvedPath, ['--config', `${webpackPath}/development/webpack.config.worker.js`,    "--env.worker=vdom"], cpOpts);}
     }
 
     // dist/production
-    if (env === 'all' || env === 'prod') {
-        console.log(chalk.blue(`${programName} starting dist/production`));
-        if (threads === 'all' || threads === 'main') {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.main.js`],                            cpOpts);}
-        if (threads === 'all' || threads === 'app')  {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.appworker.js`, '--env.worker=app'],   cpOpts);}
-        if (threads === 'all' || threads === 'data') {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.worker.js`,    '--env.worker=data'],  cpOpts);}
-        if (threads === 'all' || threads === 'vdom') {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.worker.js`,    '--env.worker=vdom'],  cpOpts);}
-    }
+     if (env === 'all' || env === 'prod') {
+         console.log(chalk.blue(`${programName} starting dist/production`));
+         if (threads === 'all' || threads === 'main') {cp.spawnSync(webpackResolvedPath, ['--config', `${webpackPath}/production/webpack.config.main.js`],                            cpOpts);}
+         if (threads === 'all' || threads === 'app')  {cp.spawnSync(webpackResolvedPath, ['--config', `${webpackPath}/production/webpack.config.appworker.js`, '--env.worker=app'],   cpOpts);}
+         if (threads === 'all' || threads === 'data') {cp.spawnSync(webpackResolvedPath, ['--config', `${webpackPath}/production/webpack.config.worker.js`,    '--env.worker=data'],  cpOpts);}
+         if (threads === 'all' || threads === 'vdom') {cp.spawnSync(webpackResolvedPath, ['--config', `${webpackPath}/production/webpack.config.worker.js`,    '--env.worker=vdom'],  cpOpts);}
+     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
     console.log(`\nTotal time for ${programName}: ${processTime}s`);

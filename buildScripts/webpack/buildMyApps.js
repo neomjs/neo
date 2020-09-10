@@ -97,17 +97,24 @@ inquirer.prompt(questions).then(answers => {
     const apps      = answers.apps || program.apps || ['all'],
           env       = answers.env  || program.env  || ['all'],
           startDate = new Date();
-
+    
+    let webpackResolvedPath = webpack;
+    if (process.platform === "win32") {
+        // due to specific windows pathing we must do a lil bit of hackery to get it to build properly
+        // functionality on linux/mac remains unchanged
+        webpackResolvedPath = path.resolve(webpack).replace(/\\/g,'/');
+    }
+    
     // dist/development
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
-        cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.myapps.js`, `--env.apps=${apps}`], cpOpts);
+        cp.spawnSync(webpackResolvedPath, ['--config', `${webpackPath}/development/webpack.config.myapps.js`, `--env.apps=${apps}`], cpOpts);
     }
 
     // dist/production
     if (env === 'all' || env === 'prod') {
         console.log(chalk.blue(`${programName} starting dist/production`));
-        cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.myapps.js`, `--env.apps=${apps}`], cpOpts);
+        cp.spawnSync(webpackResolvedPath, ['--config', `${webpackPath}/production/webpack.config.myapps.js`, `--env.apps=${apps}`], cpOpts);
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
