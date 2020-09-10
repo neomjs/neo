@@ -11,7 +11,7 @@ const fs                 = require('fs'),
       plugins            = [];
 
 let excludeExamples = false,
-    basePath, config, entryPath, i, indexPath, treeLevel, workerBasePath;
+    basePath, config, i, indexPath, treeLevel, workerBasePath;
 
 if (fs.existsSync(configPath)) {
     config          = require(configPath);
@@ -31,20 +31,8 @@ if (!buildTarget.folder) {
 }
 
 module.exports = env => {
-    const entry = {
-        app: path.resolve(neoPath, './src/worker/App.mjs')
-    };
-
     if (config.apps) {
         Object.entries(config.apps).forEach(([key, value]) => {
-            entryPath = path.resolve(processRoot, value.input);
-
-            if (fs.existsSync(entryPath)) {
-                entry[key] = entryPath;
-            } else {
-                entry[key] = path.resolve(neoPath, value.input);
-            }
-
             basePath       = '';
             workerBasePath = '';
             treeLevel      = value.output.split('/').length;
@@ -81,14 +69,6 @@ module.exports = env => {
 
     if (!excludeExamples && examplesConfig.examples) {
         Object.entries(examplesConfig.examples).forEach(([key, value]) => {
-            entryPath = path.resolve(processRoot, value.input);
-
-            if (fs.existsSync(entryPath)) {
-                entry[key] = entryPath;
-            } else {
-                entry[key] = path.resolve(neoPath, value.input);
-            }
-
             basePath       = '';
             workerBasePath = '';
             treeLevel      = value.output.split('/').length;
@@ -123,7 +103,7 @@ module.exports = env => {
     console.log(path.resolve(neoPath, './apps/') + '/');
     return {
         mode  : 'production',
-        entry,
+        entry : {app: path.resolve(neoPath, './src/worker/App.mjs')},
         target: 'webworker',
 
         plugins: [
@@ -135,19 +115,8 @@ module.exports = env => {
 
         output: {
             chunkFilename: 'chunks/[id].js', // would default to '[id].js': src/main/lib/AmCharts => 1.js
-            path         : path.resolve(processRoot, buildTarget.folder),
-
-            filename: chunkData => {
-                let name = chunkData.chunk.name;
-
-                if (config.apps.hasOwnProperty(name)) {
-                    return config.apps[name].output + 'app.js';
-                } else if (examplesConfig.examples.hasOwnProperty(name)) {
-                    return examplesConfig.examples[name].output + 'app.js';
-                }
-
-                return 'appworker.js';
-            }
+            filename     : 'appworker.js',
+            path         : path.resolve(processRoot, buildTarget.folder)
         }
     }
 };
