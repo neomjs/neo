@@ -11,7 +11,7 @@ const fs                 = require('fs'),
       plugins            = [];
 
 let excludeExamples = false,
-    basePath, config, entryPath, i, indexPath, treeLevel, workerBasePath;
+    basePath, config, i, indexPath, treeLevel, workerBasePath;
 
 if (fs.existsSync(configPath)) {
     config          = require(configPath);
@@ -31,20 +31,8 @@ if (!buildTarget.folder) {
 }
 
 module.exports = env => {
-    const entry = {
-        app: path.resolve(neoPath, './src/worker/App.mjs')
-    };
-
     if (config.apps) {
         Object.entries(config.apps).forEach(([key, value]) => {
-            entryPath = path.resolve(processRoot, value.input);
-
-            if (fs.existsSync(entryPath)) {
-                entry[key] = entryPath;
-            } else {
-                entry[key] = path.resolve(neoPath, value.input);
-            }
-
             basePath       = '';
             workerBasePath = '';
             treeLevel      = value.output.split('/').length;
@@ -81,14 +69,6 @@ module.exports = env => {
 
     if (!excludeExamples && examplesConfig.examples) {
         Object.entries(examplesConfig.examples).forEach(([key, value]) => {
-            entryPath = path.resolve(processRoot, value.input);
-
-            if (fs.existsSync(entryPath)) {
-                entry[key] = entryPath;
-            } else {
-                entry[key] = path.resolve(neoPath, value.input);
-            }
-
             basePath       = '';
             workerBasePath = '';
             treeLevel      = value.output.split('/').length;
@@ -128,7 +108,7 @@ module.exports = env => {
         devtool: 'inline-source-map',
         //devtool: 'cheap-module-eval-source-map',
 
-        entry,
+        entry : {app: path.resolve(neoPath, './src/worker/App.mjs')},
         target: 'webworker',
 
         plugins: [

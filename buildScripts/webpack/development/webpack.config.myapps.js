@@ -6,15 +6,12 @@ const fs                = require('fs'),
       configPath        = path.resolve(processRoot, 'buildScripts/myApps.json'),
       packageJson       = require(path.resolve(processRoot, 'package.json')),
       neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      examplesConfig     = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
       plugins           = [];
 
-let excludeExamples = false,
-    basePath, config, entryPath, i, indexPath, treeLevel, workerBasePath;
+let basePath, config, i, indexPath, treeLevel, workerBasePath;
 
 if (fs.existsSync(configPath)) {
-    config          = require(configPath);
-    excludeExamples = true;
+    config = require(configPath);
 } else {
     const myAppsPath = path.resolve(neoPath, 'buildScripts/webpack/json/myApps.json');
 
@@ -32,8 +29,7 @@ if (!buildTarget.folder) {
 module.exports = env => {
     const apps     = env.apps.split(','),
           buildAll = apps.includes('all'),
-          choices  = [],
-          entry    = {};
+          choices  = [];
 
     if (config.apps) {
         Object.keys(config.apps).forEach(key => {
@@ -41,14 +37,6 @@ module.exports = env => {
         });
 
         Object.entries(config.apps).forEach(([key, value]) => {
-            entryPath = path.resolve(processRoot, value.input);
-
-            if (fs.existsSync(entryPath)) {
-                entry[key] = entryPath;
-            } else {
-                entry[key] = path.resolve(neoPath, value.input);
-            }
-
             if (buildAll || choices.length < 2 || apps.includes(key)) {
                 basePath       = '';
                 workerBasePath = '';
@@ -85,18 +73,6 @@ module.exports = env => {
         });
     }
 
-    if (!excludeExamples && examplesConfig.examples) {
-        Object.entries(examplesConfig.examples).forEach(([key, value]) => {
-            entryPath = path.resolve(processRoot, value.input);
-
-            if (fs.existsSync(entryPath)) {
-                entry[key] = entryPath;
-            } else {
-                entry[key] = path.resolve(neoPath, value.input);
-            }
-        });
-    }
-
     return {
         mode: 'development',
 
@@ -104,22 +80,12 @@ module.exports = env => {
         devtool: 'inline-source-map',
         //devtool: 'cheap-module-eval-source-map',
 
-        entry,
+        entry: {app: path.resolve(neoPath, './src/worker/App.mjs')},
         plugins,
         target: 'webworker',
 
         output: {
-            filename: (chunkData) => {
-                let name = chunkData.chunk.name;
-
-                if (config.apps.hasOwnProperty(name)) {
-                    return config.apps[name].output + 'app.js';
-                } else if (examplesConfig.examples.hasOwnProperty(name)) {
-                    return examplesConfig.examples[name].output + 'app.js';
-                }
-
-                return 'appworker.js';
-            }
+            filename: 'appworker.js'
         }
     }
 };
