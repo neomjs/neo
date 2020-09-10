@@ -6,6 +6,7 @@ const fs                = require('fs'),
       configPath        = path.resolve(processRoot, 'buildScripts/myApps.json'),
       packageJson       = require(path.resolve(processRoot, 'package.json')),
       neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      examplesConfig    = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
       plugins           = [];
 
 let basePath, config, i, indexPath, treeLevel, workerBasePath;
@@ -85,7 +86,18 @@ module.exports = env => {
         target: 'webworker',
 
         output: {
-            filename: 'appworker.js'
+            filename: chunkData => {
+                let name = chunkData.chunk.name;
+
+                if (config.apps.hasOwnProperty(name)) {
+                    return config.apps[name].output + 'app.js';
+                } else if (examplesConfig.examples.hasOwnProperty(name)) {
+                    return examplesConfig.examples[name].output + 'app.js';
+                }
+
+                return 'appworker.js';
+            },
+            path: path.resolve(processRoot, buildTarget.folder)
         }
     }
 };
