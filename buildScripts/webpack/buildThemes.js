@@ -7,13 +7,15 @@ const chalk       = require('chalk'),
       cpOpts      = {env: process.env, cwd: cwd, stdio: 'inherit', shell: true},
       envinfo     = require('envinfo'),
       inquirer    = require('inquirer'),
+      os          = require('os'),
       path        = require('path'),
       packageJson = require(path.resolve(cwd, 'package.json')),
       neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      webpack     = './node_modules/.bin/webpack',
       webpackPath = path.resolve(neoPath, 'buildScripts/webpack'),
       programName = `${packageJson.name} buildThemes`,
       questions   = [];
+
+let webpack = './node_modules/.bin/webpack';
 
 program
     .name(programName)
@@ -88,6 +90,10 @@ inquirer.prompt(questions).then(answers => {
           themes    = answers.themes || program.themes || 'all',
           startDate = new Date();
 
+    if (os.platform().startsWith('win')) {
+        webpack = path.resolve(webpack).replace(/\\/g,'/');
+    }
+    
     const buildEnv = p => {
         cp.spawnSync(webpack, ['--config', p, '--env.json_file=neo.structure.json'], cpOpts);
 
