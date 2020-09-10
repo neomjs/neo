@@ -13,8 +13,6 @@ const fs                 = require('fs'),
 let excludeExamples = false,
     basePath, config, entryPath, i, indexPath, treeLevel, workerBasePath;
 
-console.log(configPath);
-
 if (fs.existsSync(configPath)) {
     config          = require(configPath);
     excludeExamples = true;
