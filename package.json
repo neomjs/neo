@@ -8,8 +8,8 @@
     },
     "scripts": {
         "server-start": "webpack-dev-server --open",
-        "build-all": "node ./buildScripts/buildAll.js -n",
-        "build-all-questions": "node ./buildScripts/buildAll.js",
+        "build-all": "node ./buildScripts/buildAll.js -f -n",
+        "build-all-questions": "node ./buildScripts/buildAll.js -f",
         "build-my-apps": "node ./buildScripts/webpack/buildMyApps.js -f",
         "build-themes": "node ./buildScripts/webpack/buildThemes.js",
         "build-threads": "node ./buildScripts/webpack/buildThreads.js -f",
