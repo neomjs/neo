@@ -46,6 +46,7 @@ program
     .option('-i, --info',        'print environment debug info')
     .option('-a, --apps <name>', ['all'].concat(appChoices).map(e => `"${e}"`).join(', '))
     .option('-e, --env <name>',  '"all", "dev", "prod"')
+    .option('-f, --framework')
     .option('-n, --noquestions')
     .allowUnknownOption()
     .on('--help', () => {
@@ -97,6 +98,7 @@ if (!program.noquestions) {
 inquirer.prompt(questions).then(answers => {
     const apps      = answers.apps || program.apps || ['all'],
           env       = answers.env  || program.env  || ['all'],
+          insideNeo = !!program.framework || false,
           startDate = new Date();
 
     if (os.platform().startsWith('win')) {
@@ -112,7 +114,7 @@ inquirer.prompt(questions).then(answers => {
     // dist/production
     if (env === 'all' || env === 'prod') {
         console.log(chalk.blue(`${programName} starting dist/production`));
-        cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.myapps.js`, `--env.apps=${apps}`], cpOpts);
+        cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.myapps.js`, `--env.apps=${apps}`, `--env.insideNeo=${insideNeo}`], cpOpts);
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
