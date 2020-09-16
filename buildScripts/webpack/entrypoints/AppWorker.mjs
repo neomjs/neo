@@ -61,18 +61,22 @@ class App extends Base {
      * @returns {Promise}
      */
     importApp(path) {
+        if (path.endsWith('.mjs')) {
+            path = path.slice(0, -4);
+        }
+
         if (!Neo.config.isExperimental) {
             return import(
                 /* webpackInclude: /\/app.mjs$/ */
                 /* webpackExclude: /\/node_modules/ */
                 /* webpackChunkName: "chunks/[request]" */
                 /* webpackMode: "lazy" */
-                `../../../../../${path}`
+                `../../../../../${path}.mjs`
                 );
         } else {
             return import(
                 /* webpackIgnore: true */
-                `../../../${path}`
+                `../../../${path}.mjs`
                 );
         }
     }
