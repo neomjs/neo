@@ -31,7 +31,7 @@ if (!buildTarget.folder) {
 }
 
 module.exports = env => {
-    const insideNeo = !!env.insideNeo || false;
+    const insideNeo = env.insideNeo == 'true';
 
     if (config.apps) {
         Object.entries(config.apps).forEach(([key, value]) => {

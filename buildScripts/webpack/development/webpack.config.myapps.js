@@ -29,7 +29,7 @@ if (!buildTarget.folder) {
 
 module.exports = env => {
     const apps      = env.apps.split(','),
-          insideNeo = !!env.insideNeo || false,
+          insideNeo = env.insideNeo == 'true',
           buildAll  = apps.includes('all'),
           choices   = [];
 

@@ -22,6 +22,7 @@ program
     .option('-i, --info',              'print environment debug info')
     .option('-e, --env <name>',        '"all", "dev", "prod"')
     .option('-l, --npminstall <name>', '"yes", "no"')
+    .option('-f, --framework')
     .option('-n, --noquestions')
     .option('-p, --parsedocs <name>',  '"yes", "no"')
     .option('-t, --themes <name>',     '"yes", "no"')
@@ -110,6 +111,7 @@ inquirer.prompt(questions).then(answers => {
           parsedocs  = answers.parsedocs  || program.parsedocs  || 'yes',
           themes     = answers.themes     || program.themes     || 'yes',
           threads    = answers.threads    || program.threads    || 'yes',
+          insideNeo  = !!program.framework || false,
           cpArgs     = ['-e', env],
           startDate  = new Date();
 
@@ -126,6 +128,10 @@ inquirer.prompt(questions).then(answers => {
     }
 
     if (threads === 'yes') {
+        if (insideNeo) {
+            cpArgs.push('-f');
+        }
+
         cp.spawnSync('node', [`${webpackPath}/buildThreads.js`].concat(cpArgs), cpOpts);
     }
 
