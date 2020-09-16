@@ -7,7 +7,8 @@ const fs                = require('fs'),
       packageJson       = require(path.resolve(processRoot, 'package.json')),
       neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
       examplesConfig    = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
-      plugins           = [];
+      plugins           = [],
+      webpack           = require('webpack');
 
 let basePath, config, i, indexPath, treeLevel, workerBasePath;
 
@@ -82,9 +83,17 @@ module.exports = env => {
         devtool: 'inline-source-map',
         //devtool: 'cheap-module-eval-source-map',
 
-        entry: {app: path.resolve(neoPath, insideNeo === true ? './src/worker/App.mjs' : './buildScripts/webpack/entrypoints/AppWorker.mjs')},
-        plugins,
+        entry : {app: path.resolve(neoPath, './src/worker/App.mjs')},
         target: 'webworker',
+
+        plugins: [
+            new webpack.ContextReplacementPlugin(/.*/, context => {
+                if (!insideNeo && context.context.includes('/src/worker')) {
+                    context.request = '../../' + context.request;
+                }
+            }),
+            ...plugins
+        ],
 
         output: {
             filename: chunkData => {

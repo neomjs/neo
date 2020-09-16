@@ -6,7 +6,8 @@ const fs                = require('fs'),
       configPath        = path.resolve(processRoot, 'buildScripts/myApps.json'),
       packageJson       = require(path.resolve(processRoot, 'package.json')),
       neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      plugins           = [];
+      plugins           = [],
+      webpack           = require('webpack');
 
 let basePath, config, i, indexPath, treeLevel, workerBasePath;
 
@@ -75,10 +76,18 @@ module.exports = env => {
     }
 
     return {
-        mode : 'production',
-        entry: {app: path.resolve(neoPath, insideNeo === true ? './src/worker/App.mjs' : './buildScripts/webpack/entrypoints/AppWorker.mjs')},
-        plugins,
+        mode  : 'production',
+        entry : {app: path.resolve(neoPath, './src/worker/App.mjs')},
         target: 'webworker',
+
+        plugins: [
+            new webpack.ContextReplacementPlugin(/.*/, context => {
+                if (!insideNeo && context.context.includes('/src/worker')) {
+                    context.request = '../../' + context.request;
+                }
+            }),
+            ...plugins
+        ],
 
         output: {
             chunkFilename: 'chunks/[id].js', // would default to '[id].js': src/main/lib/AmCharts => 1.js
