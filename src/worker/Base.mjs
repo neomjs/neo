@@ -12,10 +12,10 @@ import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
 class Base extends CoreBase {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.worker.Worker'
+         * @member {String} className='Neo.worker.Base'
          * @protected
          */
-        className: 'Neo.worker.Worker',
+        className: 'Neo.worker.Base',
         /**
          * @member {String} ntype='worker'
          * @protected
