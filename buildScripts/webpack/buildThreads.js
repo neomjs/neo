@@ -22,6 +22,7 @@ program
     .version(packageJson.version)
     .option('-i, --info',           'print environment debug info')
     .option('-e, --env <name>',     '"all", "dev", "prod"')
+    .option('-f, --framework')
     .option('-n, --noquestions')
     .option('-t, --threads <name>', '"all", "app", "data", "main", "vdom"')
     .allowUnknownOption()
@@ -75,6 +76,7 @@ if (!program.noquestions) {
 inquirer.prompt(questions).then(answers => {
     const env       = answers.env     || program.env     || 'all',
           threads   = answers.threads || program.threads || 'all',
+          insideNeo = program.framework || false,
           startDate = new Date();
 
     if (os.platform().startsWith('win')) {
@@ -84,19 +86,19 @@ inquirer.prompt(questions).then(answers => {
     // dist/development
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
-        if (threads === 'all' || threads === 'main') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.main.js`],                           cpOpts);}
-        if (threads === 'all' || threads === 'app')  {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.appworker.js`, "--env.worker=app"],  cpOpts);}
-        if (threads === 'all' || threads === 'data') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`,    "--env.worker=data"], cpOpts);}
-        if (threads === 'all' || threads === 'vdom') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`,    "--env.worker=vdom"], cpOpts);}
+        if (threads === 'all' || threads === 'main') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.main.js`],                                      cpOpts);}
+        if (threads === 'all' || threads === 'app')  {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.appworker.js`, `--env.insideNeo=${insideNeo}`], cpOpts);}
+        if (threads === 'all' || threads === 'data') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`,    "--env.worker=data"],            cpOpts);}
+        if (threads === 'all' || threads === 'vdom') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`,    "--env.worker=vdom"],            cpOpts);}
     }
 
     // dist/production
      if (env === 'all' || env === 'prod') {
          console.log(chalk.blue(`${programName} starting dist/production`));
-         if (threads === 'all' || threads === 'main') {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.main.js`],                            cpOpts);}
-         if (threads === 'all' || threads === 'app')  {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.appworker.js`, '--env.worker=app'],   cpOpts);}
-         if (threads === 'all' || threads === 'data') {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.worker.js`,    '--env.worker=data'],  cpOpts);}
-         if (threads === 'all' || threads === 'vdom') {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.worker.js`,    '--env.worker=vdom'],  cpOpts);}
+         if (threads === 'all' || threads === 'main') {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.main.js`],                                      cpOpts);}
+         if (threads === 'all' || threads === 'app')  {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.appworker.js`, `--env.insideNeo=${insideNeo}`], cpOpts);}
+         if (threads === 'all' || threads === 'data') {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.worker.js`,    '--env.worker=data'],            cpOpts);}
+         if (threads === 'all' || threads === 'vdom') {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.worker.js`,    '--env.worker=vdom'],            cpOpts);}
      }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);

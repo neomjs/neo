@@ -31,6 +31,8 @@ if (!buildTarget.folder) {
 }
 
 module.exports = env => {
+    const insideNeo = !!env.insideNeo || false;
+
     if (config.apps) {
         Object.entries(config.apps).forEach(([key, value]) => {
             basePath       = '';
@@ -108,7 +110,7 @@ module.exports = env => {
         devtool: 'inline-source-map',
         //devtool: 'cheap-module-eval-source-map',
 
-        entry : {app: path.resolve(neoPath, './src/worker/App.mjs')},
+        entry : {app: path.resolve(neoPath, insideNeo === true ? './src/worker/App.mjs' : './buildScripts/webpack/entrypoints/AppWorker.mjs')},
         target: 'webworker',
 
         plugins: [

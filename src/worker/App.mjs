@@ -54,6 +54,21 @@ class App extends Base {
     }
 
     /**
+     *
+     * @param {String} path
+     * @returns {Promise}
+     */
+    importApp(path) {
+        return import(
+            /* webpackInclude: /\/app.mjs$/ */
+            /* webpackExclude: /\/node_modules/ */
+            /* webpackChunkName: "chunks/[request]" */
+            /* webpackMode: "lazy" */
+            `../../${path}`
+        );
+    }
+
+    /**
      * Only relevant for SharedWorkers
      */
     onDisconnect(data) {
@@ -96,24 +111,14 @@ class App extends Base {
             path = path.startsWith('/') ? path.substring(1) : path;
         }
 
-        import(
-            /* webpackInclude: /\/app.mjs$/ */
-            /* webpackExclude: /\/node_modules$/ */
-            /* webpackChunkName: "chunks/[request]" */
-            /* webpackMode: "lazy" */
-            `../../${path}`).then(module => {
-                module.onStart();
+        me.importApp(path).then(module => {
+            module.onStart();
 
-                if (Neo.config.hash) {
-                    // short delay to ensure Component Controllers are ready
-                    setTimeout(() => HashHistory.push(Neo.config.hash), 5);
-                }
+            if (Neo.config.hash) {
+                // short delay to ensure Component Controllers are ready
+                setTimeout(() => HashHistory.push(Neo.config.hash), 5);
             }
-        );
-
-        if (Neo.config.hash) {
-            setTimeout(() => HashHistory.push(Neo.config.hash), 5);
-        }
+        });
     }
 
     /**

@@ -27,9 +27,10 @@ if (!buildTarget.folder) {
 }
 
 module.exports = env => {
-    const apps     = env.apps.split(','),
-          buildAll = apps.includes('all'),
-          choices  = [];
+    const apps      = env.apps.split(','),
+          insideNeo = !!env.insideNeo || false,
+          buildAll  = apps.includes('all'),
+          choices   = [];
 
     if (config.apps) {
         Object.keys(config.apps).forEach(key => {
@@ -75,7 +76,7 @@ module.exports = env => {
 
     return {
         mode : 'production',
-        entry: {app: path.resolve(neoPath, './src/worker/App.mjs')},
+        entry: {app: path.resolve(neoPath, insideNeo === true ? './src/worker/App.mjs' : './buildScripts/webpack/entrypoints/AppWorker.mjs')},
         plugins,
         target: 'webworker',
 
