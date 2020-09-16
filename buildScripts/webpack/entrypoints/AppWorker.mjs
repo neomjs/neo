@@ -25,13 +25,20 @@ class AppWorker extends App {
      * @returns {Promise}
      */
     importApp(path) {
-        return import(
-            /* webpackInclude: /\/app.mjs$/ */
-            /* webpackExclude: /\/node_modules$/ */
-            /* webpackChunkName: "chunks/[request]" */
-            /* webpackMode: "lazy" */
-            `../../${path}`
-        );
+        if (!Neo.config.isExperimental) {
+            return import(
+                /* webpackInclude: /\/app.mjs$/ */
+                /* webpackExclude: /\/node_modules/ */
+                /* webpackChunkName: "chunks/[request]" */
+                /* webpackMode: "lazy" */
+                `../../../../${path}`
+            );
+        } else {
+            return import(
+                /* webpackIgnore: true */
+                `../../${path}`
+            );
+        }
     }
 }
 
