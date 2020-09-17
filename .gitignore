@@ -25,18 +25,6 @@
 !/apps/website/index.html
 !/apps/website/**/*.mjs
 
-/buildScripts/webpack/entrypoints/myApps/**/*.mjs
-!/buildScripts/webpack/entrypoints/myApps/Covid.mjs
-!/buildScripts/webpack/entrypoints/myApps/RealWorld.mjs
-!/buildScripts/webpack/entrypoints/myApps/RealWorld2.mjs
-!/buildScripts/webpack/entrypoints/myApps/SharedCovid.mjs
-!/buildScripts/webpack/entrypoints/myApps/SharedCovidChart.mjs
-!/buildScripts/webpack/entrypoints/myApps/SharedCovidGallery.mjs
-!/buildScripts/webpack/entrypoints/myApps/SharedCovidHelix.mjs
-!/buildScripts/webpack/entrypoints/myApps/SharedCovidMap.mjs
-!/buildScripts/webpack/entrypoints/myApps/SharedDialog.mjs
-!/buildScripts/webpack/entrypoints/myApps/SharedDialog2.mjs
-!/buildScripts/webpack/entrypoints/myApps/Website.mjs
 /buildScripts/webpack/json/myApps.json
 
 /dist
