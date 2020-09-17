@@ -38,7 +38,7 @@ module.exports = env => {
                     {
                         loader : 'postcss-loader',
                         options: {
-                            config   : {
+                            config: {
                                 path: path.resolve(neoPath, 'buildScripts/webpack/development/')
                             },
                             sourceMap: true
