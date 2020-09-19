@@ -1,4 +1,5 @@
-const path                 = require('path'),
+const fs                   = require('fs'),
+      path                 = require('path'),
       buildTarget          = require('./buildTarget.json'),
       MiniCssExtractPlugin = require('mini-css-extract-plugin'),
       processRoot          = process.cwd(),
@@ -6,12 +7,22 @@ const path                 = require('path'),
       neoPath              = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/';
 
 module.exports = env => {
-    const config = require(path.resolve(neoPath, 'buildScripts/webpack/json/', env.json_file));
+    const config    = require(path.resolve(neoPath, 'buildScripts/webpack/json/', env.json_file)),
+          insideNeo = env.insideNeo == 'true',
+          entryPath = path.resolve(processRoot, config.entry);
+
+    let entry;
+
+    if (!insideNeo && fs.existsSync(entryPath)) {
+        entry = entryPath;
+    } else {
+        entry = path.resolve(neoPath, config.entry);
+    }
 
     return {
         mode   : 'development',
         devtool: 'inline-source-map',
-        entry  : path.resolve(neoPath, config.entry),
+        entry,
 
         plugins: [
             new MiniCssExtractPlugin({filename: config.output}) // remove this one to directly insert the result into a style tag
