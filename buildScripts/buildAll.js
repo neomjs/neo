@@ -119,6 +119,10 @@ inquirer.prompt(questions).then(answers => {
         cpArgs.push('-n');
     }
 
+    if (insideNeo) {
+        cpArgs.push('-f');
+    }
+
     if (npminstall === 'yes') {
         cp.spawnSync(npmCmd, ['i'], cpOpts);
     }
@@ -128,10 +132,6 @@ inquirer.prompt(questions).then(answers => {
     }
 
     if (threads === 'yes') {
-        if (insideNeo) {
-            cpArgs.push('-f');
-        }
-
         cp.spawnSync('node', [`${webpackPath}/buildThreads.js`].concat(cpArgs), cpOpts);
     }
 
