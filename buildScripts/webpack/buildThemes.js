@@ -97,7 +97,7 @@ inquirer.prompt(questions).then(answers => {
     }
     
     const buildEnv = p => {
-        cp.spawnSync(webpack, ['--config', p, '--env.json_file=neo.structure.json'], cpOpts);
+        cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=neo.structure.json'], cpOpts);
 
         if (css4 === 'all' || css4 === 'yes') {
             if (themes === 'all' || themes === 'dark')  {cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=theme.dark.json'],         cpOpts);}
