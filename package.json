@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "1.4.10",
+    "version": "1.4.11",
     "description": "The webworkers driven UI framework",
     "repository": {
         "type": "git",
@@ -11,7 +11,7 @@
         "build-all": "node ./buildScripts/buildAll.js -f -n",
         "build-all-questions": "node ./buildScripts/buildAll.js -f",
         "build-my-apps": "node ./buildScripts/webpack/buildMyApps.js -f",
-        "build-themes": "node ./buildScripts/webpack/buildThemes.js",
+        "build-themes": "node ./buildScripts/webpack/buildThemes.js -f",
         "build-threads": "node ./buildScripts/webpack/buildThreads.js -f",
         "create-app": "node ./buildScripts/createApp.js",
         "generate-docs-json": "node ./buildScripts/docs/jsdocx.js",

@@ -23,6 +23,7 @@ program
     .option('-i, --info',          'print environment debug info')
     .option('-c, --css4 <name>',   '"all", "true", "false"')
     .option('-e, --env <name>',    '"all", "dev", "prod"')
+    .option('-f, --framework')
     .option('-n, --noquestions')
     .option('-t, --themes <name>', '"all", "dark", "light"')
     .allowUnknownOption()
@@ -88,6 +89,7 @@ inquirer.prompt(questions).then(answers => {
     const css4      = answers.css4   || program.css4   || 'all',
           env       = answers.env    || program.env    || 'all',
           themes    = answers.themes || program.themes || 'all',
+          insideNeo = program.framework || false,
           startDate = new Date();
 
     if (os.platform().startsWith('win')) {
@@ -95,16 +97,16 @@ inquirer.prompt(questions).then(answers => {
     }
     
     const buildEnv = p => {
-        cp.spawnSync(webpack, ['--config', p, '--env.json_file=neo.structure.json'], cpOpts);
+        cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=neo.structure.json'], cpOpts);
 
         if (css4 === 'all' || css4 === 'yes') {
-            if (themes === 'all' || themes === 'dark')  {cp.spawnSync(webpack, ['--config', p, '--env.json_file=theme.dark.json'],         cpOpts);}
-            if (themes === 'all' || themes === 'light') {cp.spawnSync(webpack, ['--config', p, '--env.json_file=theme.light.json'],        cpOpts);}
+            if (themes === 'all' || themes === 'dark')  {cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=theme.dark.json'],         cpOpts);}
+            if (themes === 'all' || themes === 'light') {cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=theme.light.json'],        cpOpts);}
         }
 
         if (css4 === 'all' || css4 === 'no') {
-            if (themes === 'all' || themes === 'dark')  {cp.spawnSync(webpack, ['--config', p, '--env.json_file=theme.dark.noCss4.json'],  cpOpts);}
-            if (themes === 'all' || themes === 'light') {cp.spawnSync(webpack, ['--config', p, '--env.json_file=theme.light.noCss4.json'], cpOpts);}
+            if (themes === 'all' || themes === 'dark')  {cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=theme.dark.noCss4.json'],  cpOpts);}
+            if (themes === 'all' || themes === 'light') {cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=theme.light.noCss4.json'], cpOpts);}
         }
     };
 
