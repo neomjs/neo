@@ -22,7 +22,7 @@ project.configure({
             "Neo = self.Neo || {};",
             "Neo.config = Neo.config || {};",
             "Object.assign(Neo.config, {",
-                "isExperimental: true,",
+                "environment : 'development',",
                 "unitTestMode: true",
             "});"
         ].join("")
