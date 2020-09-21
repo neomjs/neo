@@ -142,7 +142,7 @@ class Stylesheet extends Base {
             document.body.classList.add(themes[0]);
         }
 
-        if (Neo.config.useCss4) {
+        if (Neo.config.useCssVars) {
             me.removeStyleSheets({
                 included: ['neo-theme-', '-no-css4.css']
             });

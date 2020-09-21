@@ -190,7 +190,7 @@ class MainContainerController extends Component {
             theme      = 'neo-theme-dark';
         }
 
-        if (Neo.config.useCss4) {
+        if (Neo.config.useCssVars) {
             cls = [...view.cls];
 
             view.cls.forEach((item, index) => {

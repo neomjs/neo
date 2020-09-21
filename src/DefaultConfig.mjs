@@ -100,7 +100,7 @@ const DefaultConfig = {
     mainThreadAddons: ['Stylesheet'],
     /**
      * Add themes you want to use here. The first theme will get applied.
-     * If config.useCss4 === true, other theme variables will get included as well
+     * If config.useCssVars === true, other theme variables will get included as well
      * @default ['neo-theme-light', 'neo-theme-dark']
      * @memberOf! module:Neo
      * @name config.themes
@@ -116,13 +116,13 @@ const DefaultConfig = {
      */
     unitTestMode: false,
     /**
-     * Flag if CSS4 stylesheets are in use (important for switching themes)
+     * Flag if CSS variable based stylesheets are in use (important for switching themes)
      * @default true
      * @memberOf! module:Neo
-     * @name config.useCss4
+     * @name config.useCssVars
      * @type Boolean
      */
-    useCss4: true,
+    useCssVars: true,
     /**
      * True will automatically include the stylesheet
      * @default true
