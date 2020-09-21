@@ -45,14 +45,14 @@ const DefaultConfig = {
      */
     cssPath: null,
     /**
-     * The current build => dist environment. Valid values: 'development', 'production'
-     * Used for automatically including the matching theme files
-     * @default 'production'
+     * The current environment. Valid values: 'development', 'dist/development', 'dist/production'
+     * This config will get auto-generated
+     * @default 'dist/production'
      * @memberOf! module:Neo
      * @name config.environment
      * @type String
      */
-    environment: 'production',
+    environment: 'dist/production',
     /**
      * In case you are using the GoogleAnalytics mainThreadAddon or useGoogleAnalytics: true,
      * you can change the gtag id here. Required for the online examples (gh pages)
