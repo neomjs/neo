@@ -1,0 +1,4 @@
+{
+    "entry" : "./buildScripts/webpack/entrypoints/scss/theme_light.noCssVars.scss.mjs",
+    "output": "neo-theme-light-no-css-vars.css"
+}

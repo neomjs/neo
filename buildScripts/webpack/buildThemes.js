@@ -20,12 +20,12 @@ let webpack = './node_modules/.bin/webpack';
 program
     .name(programName)
     .version(packageJson.version)
-    .option('-i, --info',          'print environment debug info')
-    .option('-c, --css4 <name>',   '"all", "true", "false"')
-    .option('-e, --env <name>',    '"all", "dev", "prod"')
+    .option('-i, --info',           'print environment debug info')
+    .option('-c, --cssVars <name>', '"all", "true", "false"')
+    .option('-e, --env <name>',     '"all", "dev", "prod"')
     .option('-f, --framework')
     .option('-n, --noquestions')
-    .option('-t, --themes <name>', '"all", "dark", "light"')
+    .option('-t, --themes <name>',  '"all", "dark", "light"')
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -74,10 +74,10 @@ if (!program.noquestions) {
         });
     }
 
-    if (!program.css4) {
+    if (!program.cssVars) {
         questions.push({
             type   : 'list',
-            name   : 'css4',
+            name   : 'cssVars',
             message: 'Build using CSS variables?',
             choices: ['all', 'yes', 'no'],
             default: 'yes'
@@ -86,9 +86,9 @@ if (!program.noquestions) {
 }
 
 inquirer.prompt(questions).then(answers => {
-    const css4      = answers.css4   || program.css4   || 'all',
-          env       = answers.env    || program.env    || 'all',
-          themes    = answers.themes || program.themes || 'all',
+    const cssVars   = answers.cssVars || program.cssVars || 'all',
+          env       = answers.env     || program.env     || 'all',
+          themes    = answers.themes  || program.themes  || 'all',
           insideNeo = program.framework || false,
           startDate = new Date();
 
@@ -99,14 +99,14 @@ inquirer.prompt(questions).then(answers => {
     const buildEnv = p => {
         cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=neo.structure.json'], cpOpts);
 
-        if (css4 === 'all' || css4 === 'yes') {
-            if (themes === 'all' || themes === 'dark')  {cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=theme.dark.json'],         cpOpts);}
-            if (themes === 'all' || themes === 'light') {cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=theme.light.json'],        cpOpts);}
+        if (cssVars === 'all' || cssVars === 'yes') {
+            if (themes === 'all' || themes === 'dark')  {cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=theme.dark.json'],            cpOpts);}
+            if (themes === 'all' || themes === 'light') {cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=theme.light.json'],           cpOpts);}
         }
 
-        if (css4 === 'all' || css4 === 'no') {
-            if (themes === 'all' || themes === 'dark')  {cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=theme.dark.noCss4.json'],  cpOpts);}
-            if (themes === 'all' || themes === 'light') {cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=theme.light.noCss4.json'], cpOpts);}
+        if (cssVars === 'all' || cssVars === 'no') {
+            if (themes === 'all' || themes === 'dark')  {cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=theme.dark.noCssVars.json'],  cpOpts);}
+            if (themes === 'all' || themes === 'light') {cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=theme.light.noCssVars.json'], cpOpts);}
         }
     };
 

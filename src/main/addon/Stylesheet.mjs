@@ -144,7 +144,7 @@ class Stylesheet extends Base {
 
         if (Neo.config.useCssVars) {
             me.removeStyleSheets({
-                included: ['neo-theme-', '-no-css4.css']
+                included: ['neo-theme-', '-no-css-vars.css']
             });
 
             if (themes.length > 0 && !me.hasStyleSheet('neo-structure.css')) {
@@ -163,11 +163,11 @@ class Stylesheet extends Base {
 
             me.removeStyleSheets({
                 included: ['neo-theme-'],
-                excluded: ['-no-css4.css']
+                excluded: ['-no-css-vars.css']
             });
 
-            if (themes.length > 0 && !me.hasStyleSheet(themes[0] + '-no-css4.css')) {
-                me.createStyleSheet(themes[0] + '-no-css4.css', 'neo-theme');
+            if (themes.length > 0 && !me.hasStyleSheet(themes[0] + '-no-css-vars.css')) {
+                me.createStyleSheet(themes[0] + '-no-css-vars.css', 'neo-theme');
             }
         }
     }

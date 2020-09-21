@@ -41,7 +41,7 @@ Thanks for your support!
         second tab a source code view of the example
         2. It should be possible to export the current configs (e.g. 3rd tab, configs as JSON)
         3. The configuration container should be collapsible (using a sliding animation)
-        4. Add a second tab to the config area to show theme css4 vars and make them changeable
+        4. Add a second tab to the config area to show theme css vars and make them changeable
     7. class member inheritance: when overriding a config or assigning a value to a parent one, the parent config
     should get listed (including its initial value)
 * Build Scripts

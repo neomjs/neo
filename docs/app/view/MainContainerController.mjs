@@ -182,11 +182,11 @@ class MainContainerController extends Component {
 
         if (button.text === 'Theme Light') {
             buttonText = 'Theme Dark';
-            href       = '../dist/development/neo-theme-light-no-css4.css';
+            href       = '../dist/development/neo-theme-light-no-css-vars.css';
             theme      = 'neo-theme-light';
         } else {
             buttonText = 'Theme Light';
-            href       = '../dist/development/neo-theme-dark-no-css4.css';
+            href       = '../dist/development/neo-theme-dark-no-css-vars.css';
             theme      = 'neo-theme-dark';
         }
 
