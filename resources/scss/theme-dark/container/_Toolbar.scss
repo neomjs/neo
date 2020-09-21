@@ -3,7 +3,7 @@ $neoMap: map-merge($neoMap, (
     'toolbar-padding'         : 5px
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-dark { // .neo-toolbar
         --toolbar-background-color: #{neo(toolbar-background-color)};
         --toolbar-padding         : #{neo(toolbar-padding)};

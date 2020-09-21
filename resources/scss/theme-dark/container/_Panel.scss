@@ -3,7 +3,7 @@ $neoMap: map-merge($neoMap, (
     'panel-header-text-color': #bbb
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-dark { // .neo-panel
         --panel-border-color     : #{neo(panel-border-color)};
         --panel-header-text-color: #{neo(panel-header-text-color)};

@@ -3,7 +3,7 @@ $neoMap: map-merge($neoMap, (
         'docs-classdetails-tutorialcomponent-color'           : #000
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-light {
         --docs-classdetails-tutorialcomponent-background-color: #{neo(docs-classdetails-tutorialcomponent-background-color)};
         --docs-classdetails-tutorialcomponent-color           : #{neo(docs-classdetails-tutorialcomponent-color)};

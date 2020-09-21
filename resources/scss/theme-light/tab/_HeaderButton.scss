@@ -16,7 +16,7 @@ $neoMap: map-merge($neoMap, (
     'tab-button-text-transform'                : uppercase
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-light { // .neo-tab-header-button
         --tab-button-background-image               : #{neo(tab-button-background-image)};
         --tab-button-background-image-bottom        : #{neo(tab-button-background-image-bottom)};

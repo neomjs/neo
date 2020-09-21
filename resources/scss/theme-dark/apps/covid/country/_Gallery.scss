@@ -6,7 +6,7 @@ $neoMap: map-merge($neoMap, (
     'covid-gallery-item-wrapper-background-color': rgba(73,160,154,.35)
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-dark { // .neo-gallery.covid-country-gallery
         --covid-gallery-background-color             : #{neo(covid-gallery-background-color)};
         --covid-gallery-border-color                 : #{neo(covid-gallery-border-color)};

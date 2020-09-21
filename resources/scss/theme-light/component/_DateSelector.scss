@@ -23,7 +23,7 @@ $neoMap: map-merge($neoMap, (
     'dateselector-nav-button-inner-border'       : none
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-light { // .neo-dateselector
         --dateselector-background-color              : #{neo(dateselector-background-color)};
         --dateselector-border-color                  : #{neo(dateselector-border-color)};

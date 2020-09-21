@@ -9,7 +9,7 @@ $neoMap: map-merge($neoMap, (
     'textfield-label-color'              : #bbb
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-dark { // .neo-textfield
         --textfield-border-color             : #{neo(textfield-border-color)};
         --textfield-border-color-active      : #{neo(textfield-border-color-active)};

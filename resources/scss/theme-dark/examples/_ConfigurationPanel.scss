@@ -2,7 +2,7 @@ $neoMap: map-merge($neoMap, (
     'examples-tab-component-background-color': #323232
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-dark {
         --examples-tab-component-background-color: #{neo(examples-tab-component-background-color)};
     }

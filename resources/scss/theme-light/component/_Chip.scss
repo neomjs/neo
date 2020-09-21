@@ -13,7 +13,7 @@ $neoMap: map-merge($neoMap, (
     'chip-text-font-size'          : 12px
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-light { // .neo-chip
         --chip-align-items             : #{neo(chip-align-items)};
         --chip-border                  : #{neo(chip-border)};

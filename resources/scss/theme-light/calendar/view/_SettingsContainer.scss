@@ -3,7 +3,7 @@ $neoMap: map-merge($neoMap, (
     'calendar-settings-header-color'           : #1c60a0
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-light { // .neo-calendar-settingscontainer
         --calendar-settings-header-background-color: #{neo(calendar-settings-header-background-color)};
         --calendar-settings-header-color           : #{neo(calendar-settings-header-color)};

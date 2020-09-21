@@ -3,7 +3,7 @@
 }
 
 @function calcVar($name, $operator, $value) {
-    @if($useCss4Vars) {
+    @if($useCssVars) {
              @if ($operator == '+') {@return calc(#{v(#{$name})} + #{$value});}
         @else if ($operator == '-') {@return calc(#{v(#{$name})} - #{$value});}
         @else if ($operator == '*') {@return calc(#{v(#{$name})} * #{$value});}
@@ -19,7 +19,7 @@
 }
 
 @function v($name, $fallback: null) {
-    @if($useCss4Vars) {
+    @if($useCssVars) {
         @if($fallback) {
             @return var(--#{$name}, #{$fallback});
         } @else {

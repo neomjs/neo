@@ -4,7 +4,7 @@ $neoMap: map-merge($neoMap, (
     'website-header-button-border'          : 1px solid #999
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-dark { // .website-header-container
         --website-header-button-background-image: #{neo(website-header-button-background-image)};
         --website-header-button-glyph-color     : #{neo(website-header-button-glyph-color)};

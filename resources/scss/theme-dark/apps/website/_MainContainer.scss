@@ -3,7 +3,7 @@ $neoMap: map-merge($neoMap, (
     'website-transition-duration': 300ms
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-dark { // .website-main-container
         --website-background-image   : #{neo(website-background-image)};
         --website-transition-duration: #{neo(website-transition-duration)};

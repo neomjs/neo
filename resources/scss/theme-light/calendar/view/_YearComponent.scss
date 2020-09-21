@@ -9,7 +9,7 @@ $neoMap: map-merge($neoMap, (
     'c-y-year-color'            : #1c60a0
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-light { // .neo-calendar-yearcomponent
         --c-y-cell-border-color     : #{neo(c-y-cell-border-color)};
         --c-y-cell-color            : #{neo(c-y-cell-color)};

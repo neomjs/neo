@@ -1,7 +1,7 @@
 @use "sass:map";
 $neoMap: ();
 
-$useCss4Vars: false;
+$useCssVars: false;
 
 @import "../../../../resources/scss/mixins/all";
 @import "../../../../resources/scss/theme-dark/all";

@@ -6,7 +6,7 @@ $neoMap: map-merge($neoMap, (
     'neo-font-smoothing'  : antialiased
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-light {
         --neo-background-color: #{neo(neo-background-color)};
         --neo-color           : #{neo(neo-color)};

@@ -4,7 +4,7 @@ $neoMap: map-merge($neoMap, (
     'dialog-icon-color'  : floralwhite
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-dark { // .neo-dialog
         --dialog-border-color: #{neo(dialog-border-color)};
         --dialog-header-color: #{neo(dialog-header-color)};

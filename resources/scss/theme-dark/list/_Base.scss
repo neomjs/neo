@@ -11,7 +11,7 @@ $neoMap: map-merge($neoMap, (
     'list-item-padding'                  : 5px
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-dark { // .neo-list-container
         --list-container-background-color    : #{neo(list-container-background-color)};
         --list-container-border              : #{neo(list-container-border)};

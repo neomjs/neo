@@ -6,7 +6,7 @@ $neoMap: map-merge($neoMap, (
     'table-container-header-cell-border-bottom' : 1px solid #ddd
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-light { // .neo-table-container
         --table-container-border-color              : #{neo(table-container-border-color)};
         --table-container-cell-background-color     : #{neo(table-container-cell-background-color)};
