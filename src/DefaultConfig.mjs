@@ -63,14 +63,6 @@ const DefaultConfig = {
      */
     gtagId: 'UA-153734404-1',
     /**
-     * Flag if Neo is running without any JS builds
-     * @default false
-     * @memberOf! module:Neo
-     * @name config.isExperimental
-     * @type Boolean
-     */
-    isExperimental: false,
-    /**
      * Flag for running on https://neomjs.github.io/pages/
      * => to use local images paths instead of raw.githubusercontent.com
      * @default false
