@@ -3,7 +3,7 @@ $neoMap: map-merge($neoMap, (
     'rangefield-track-background': #3c3f41
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-dark { // .neo-rangefield
         --rangefield-thumb-background: #{neo(rangefield-thumb-background)};
         --rangefield-track-background: #{neo(rangefield-track-background)};

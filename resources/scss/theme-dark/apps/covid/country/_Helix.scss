@@ -7,7 +7,7 @@ $neoMap: map-merge($neoMap, (
     'covid-helix-item-wrapper-background-color': rgba(73,160,154,.35)
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-dark { // .neo-helix.covid-country-helix
         --covid-helix-background-color             : #{neo(covid-helix-background-color)};
         --covid-helix-border-color                 : #{neo(covid-helix-border-color)};

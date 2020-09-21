@@ -3,7 +3,7 @@ $neoMap: map-merge($neoMap, (
     'website-home-h1-color': #ddd
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-dark { // .website-home-tab-container
         --website-home-color   : #{neo(website-home-color)};
         --website-home-h1-color: #{neo(website-home-h1-color)};

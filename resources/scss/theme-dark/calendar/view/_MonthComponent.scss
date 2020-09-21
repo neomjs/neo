@@ -9,7 +9,7 @@ $neoMap: map-merge($neoMap, (
     'c-m-year-color'              : #ccc,
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-dark { // .neo-calendar-monthcomponent
         --c-m-background-color        : #{neo(c-m-background-color)};
         --c-m-border-color            : #{neo(c-m-border-color)};

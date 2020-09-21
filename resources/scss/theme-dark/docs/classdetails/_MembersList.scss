@@ -16,7 +16,7 @@ $neoMap: map-merge($neoMap, (
     'docs-param-table-tr-text-shadow'                  : 2px 2px 3px rgba(200,200,200,0.1)
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-dark { // .docs-classhierarchy-memberslist
         --docs-classhierarchy-memberslist-background-color : #{neo(docs-classhierarchy-memberslist-background-color)};
         --docs-memberlist-group-header-background-color    : #{neo(docs-memberlist-group-header-background-color)};

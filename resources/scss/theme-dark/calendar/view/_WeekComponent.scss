@@ -11,7 +11,7 @@ $neoMap: map-merge($neoMap, (
     'c-w-weekend-background-color'          : rgba(50, 50, 60, .35)
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-dark { // .neo-calendar-weekcomponent
         --c-w-background-color                  : #{neo(c-w-background-color)};
         --c-w-border-color                      : #{neo(c-w-border-color)};

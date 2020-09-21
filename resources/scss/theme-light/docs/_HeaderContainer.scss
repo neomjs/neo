@@ -9,7 +9,7 @@ $neoMap: map-merge($neoMap, (
     'docs-header-container-logo-text-shadow'         : 2px 2px 3px rgba(200,200,200,0.1)
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-light { // .neo-docs-header-container
         --docs-header-container-background-color         : #{neo(docs-header-container-background-color)};
         --docs-header-container-background-image         : #{neo(docs-header-container-background-image)};

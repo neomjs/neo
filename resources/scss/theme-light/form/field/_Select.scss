@@ -8,7 +8,7 @@ $neoMap: map-merge($neoMap, (
     'selectfield-picker-container-border-radius': 3px
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-light { // .neo-selectfield
         --selectfield-input-hint-color              : #{neo(selectfield-input-hint-color)};
         --selectfield-input-hint-opacity            : #{neo(selectfield-input-hint-opacity)};

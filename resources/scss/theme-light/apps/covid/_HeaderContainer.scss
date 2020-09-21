@@ -9,7 +9,7 @@ $neoMap: map-merge($neoMap, (
     'covid-header-recovered-color'           : darken(#28ca68, 20%)
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-light { // .covid-header-container
         --covid-header-active-background-color   : #{neo(covid-header-active-background-color)};
         --covid-header-active-color              : #{neo(covid-header-active-color)};

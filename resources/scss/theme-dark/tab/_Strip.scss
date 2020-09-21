@@ -4,7 +4,7 @@ $neoMap: map-merge($neoMap, (
     'tab-strip-height'                     : 4px
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-dark { // .neo-tab-strip
         --tab-indicator-background-color-active: #{neo(tab-indicator-background-color-active)};
         --tab-strip-background-color           : #{neo(tab-strip-background-color)};

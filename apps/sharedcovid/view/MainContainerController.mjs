@@ -615,7 +615,7 @@ class MainContainerController extends ComponentController {
         logo.vdom = vdom;
 
 
-        if (Neo.config.useCss4) {
+        if (Neo.config.useCssVars) {
             [view.appName, ...me.connectedApps].forEach(appName => {
                 view = me.getMainView(appName);
 

@@ -24,7 +24,7 @@ $neoMap: map-merge($neoMap, (
     'button-use-gradients'            : true
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-dark { // .neo-button
         --button-active-background-color  : #{neo(button-active-background-color)};
         --button-active-border-color      : #{neo(button-active-border-color)};

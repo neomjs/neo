@@ -12,7 +12,7 @@ $neoMap: map-merge($neoMap, (
         'table-rowmodel-selected-cell-color'                   : #2b2b2b
 ));
 
-@if $useCss4Vars == true {
+@if $useCssVars == true {
     :root .neo-theme-light { // .neo-table-view
         --table-cell-background-color-hover                    : #{neo(table-cell-background-color-hover)};
         --table-cellmodel-selected-cell-background-color       : #{neo(table-cellmodel-selected-cell-background-color)};
