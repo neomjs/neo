@@ -45,14 +45,14 @@ const DefaultConfig = {
      */
     cssPath: null,
     /**
-     * The current build => dist environment. Valid values: 'development', 'production'
-     * Used for automatically including the matching theme files
-     * @default 'production'
+     * The current environment. Valid values: 'development', 'dist/development', 'dist/production'
+     * This config will get auto-generated
+     * @default 'dist/production'
      * @memberOf! module:Neo
      * @name config.environment
      * @type String
      */
-    environment: 'production',
+    environment: 'dist/production',
     /**
      * In case you are using the GoogleAnalytics mainThreadAddon or useGoogleAnalytics: true,
      * you can change the gtag id here. Required for the online examples (gh pages)
@@ -62,14 +62,6 @@ const DefaultConfig = {
      * @type String
      */
     gtagId: 'UA-153734404-1',
-    /**
-     * Flag if Neo is running without any JS builds
-     * @default false
-     * @memberOf! module:Neo
-     * @name config.isExperimental
-     * @type Boolean
-     */
-    isExperimental: false,
     /**
      * Flag for running on https://neomjs.github.io/pages/
      * => to use local images paths instead of raw.githubusercontent.com

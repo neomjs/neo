@@ -144,7 +144,6 @@ inquirer.prompt(questions).then(answers => {
             "            appPath         : '" + appPath + "app.mjs',",
             "            basePath        : '../../',",
             "            environment     : 'development',",
-            "            isExperimental  : true",
         ];
 
         if (!(mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 1)) {

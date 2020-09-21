@@ -135,7 +135,7 @@ class Util extends Base {
         if (Neo.config.isGitHubPages) {
             let path = '../../../../resources/images/flaticon/country_flags/png/' + imageName + '.png';
 
-            if (!Neo.config.isExperimental) {
+            if (Neo.config.environment !== 'development') {
                 path = '../../' + path;
             }
 

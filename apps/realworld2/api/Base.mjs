@@ -56,7 +56,7 @@ class Base extends CoreBase {
                     me.onReady(token);
                     Base.fire('ready', token);
                 });
-            }, Neo.config.isExperimental ? 0 : 200);
+            }, Neo.config.environment === 'development' ? 0 : 200);
         } else {
             Base.on({
                 ready: me.onReady,

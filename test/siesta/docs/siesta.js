@@ -23,7 +23,6 @@ project.plan(
                         "appPath         : 'docs/app.mjs',",
                         "basePath        : '../../../',",
                         "environment     : 'development',",
-                        "isExperimental  : true,",
                         "isInsideSiesta  : true,",
                         "mainThreadAddons: ['HighlightJS', 'Stylesheet'],",
                         "workerBasePath  : '../../../src/worker/'",

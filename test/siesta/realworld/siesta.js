@@ -26,7 +26,6 @@ project.plan(
                         "appPath         : 'apps/realworld/app.mjs',",
                         "basePath        : '../../../',",
                         "environment     : 'development',",
-                        "isExperimental  : true,",
                         "isInsideSiesta  : true,",
                         "mainThreadAddons: ['LocalStorage', 'Markdown'],",
                         "themes          : [],",

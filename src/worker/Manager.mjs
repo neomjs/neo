@@ -75,13 +75,13 @@ class Manager extends Base {
          */
         workers: {
             app: {
-                fileName: Neo.config.isExperimental ? 'App.mjs'  : 'appworker.js'
+                fileName: Neo.config.environment === 'development' ? 'App.mjs'  : 'appworker.js'
             },
             data: {
-                fileName: Neo.config.isExperimental ? 'Data.mjs' : 'dataworker.js'
+                fileName: Neo.config.environment === 'development' ? 'Data.mjs' : 'dataworker.js'
             },
             vdom: {
-                fileName: Neo.config.isExperimental ? 'VDom.mjs' : 'vdomworker.js'
+                fileName: Neo.config.environment === 'development' ? 'VDom.mjs' : 'vdomworker.js'
             }
         }
     }}
@@ -132,7 +132,7 @@ class Manager extends Base {
         const me       = this,
               filePath = (opts.basePath || me.basePath) + opts.fileName,
               s        = me.sharedWorkersEnabled && Neo.config.useSharedWorkers,
-              worker   = !Neo.config.isExperimental  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
+              worker   = Neo.config.environment !== 'development'  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
                   ? new (s ? SharedWorker : Worker)(filePath)
                   : new (s ? SharedWorker : Worker)(filePath, {type: 'module'});
 
@@ -238,7 +238,7 @@ class Manager extends Base {
      * @param {Object} e
      */
     onWorkerError(e) {
-        if (!Neo.config.isExperimental) { // starting a worker from a JS module will show JS errors in a correct way
+        if (Neo.config.environment !== 'development') { // starting a worker from a JS module will show JS errors in a correct way
             console.log('Worker Error:', e);
         }
     }
