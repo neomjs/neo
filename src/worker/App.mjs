@@ -111,7 +111,7 @@ class App extends Base {
 
         path = me.data.path;
 
-        if (Neo.config.environment === 'development') {
+        if (Neo.config.environment !== 'development') {
             path = path.startsWith('/') ? path.substring(1) : path;
         }
 
