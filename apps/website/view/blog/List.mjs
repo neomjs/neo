@@ -42,7 +42,7 @@ class List extends BaseList {
         if (Neo.config.isGitHubPages) {
             basePath = '../../../../resources/website';
 
-            if (!Neo.config.isExperimental) {
+            if (Neo.config.environment !== 'development') {
                 basePath = '../../' + basePath;
             }
         } else {
