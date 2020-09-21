@@ -64,7 +64,7 @@ class Stylesheet extends Base {
         const link = document.createElement('link'),
               url  = href ? href : Neo.config.cssPath
                   ? Neo.config.cssPath + name
-                  : Neo.config.basePath + 'dist/' + Neo.config.environment + '/' + name;
+                  : Neo.config.basePath + Neo.config.environment + '/' + name;
 
         Object.assign(link, {
             href: url,
