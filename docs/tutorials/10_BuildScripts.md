@@ -26,53 +26,37 @@ as well as all examples & the docs app. The prod version runs inside Chrome, Fir
 The output is minfied and is **not** using source maps.
 
 ### dev-css-structure
-Creates the CSS structure output for all Neo themes including CSS4 variables.
+Creates the CSS structure output for all Neo themes including CSS variables.
 The file gets saved to dist/development/neo-structure.css
 and is being used by the dev mode as well as the "non build" versions of the docs app & examples.
 
 ### dev-theme-dark
-Creates the CSS4 variables output for the dark theme.
+Creates the CSS variables output for the dark theme.
 The file gets saved to dist/development/neo-theme-dark.css
 and is being used by the dev mode as well as the "non build" versions of the docs app & examples.
 
 ### dev-theme-light
-Creates the CSS4 variables output for the light theme.
+Creates the CSS variables output for the light theme.
 The file gets saved to dist/development/neo-theme-light.css
 and is being used by the dev mode as well as the "non build" versions of the docs app & examples.
 
 ### prod-css-structure
-Creates the CSS structure output for all Neo themes including CSS4 variables.
+Creates the CSS structure output for all Neo themes including CSS variables.
 The file gets saved to dist/production/neo-structure.css
 and is being used by the prod mode version of the docs app & examples.
 
 ### prod-theme-dark
-Creates the CSS4 variables output for the dark theme.
+Creates the CSS variables output for the dark theme.
 The file gets saved to dist/production/neo-theme-dark.css
 and is being used by the prod mode version of the docs app & examples.
 
 ### prod-theme-light
-Creates the CSS4 variables output for the light theme.
+Creates the CSS variables output for the light theme.
 The file gets saved to dist/production/neo-theme-light.css
 and is being used by the prod mode version of the docs app & examples.
 
 # Additional build scripts
-It is possible to create versions of the Neo themes without using CSS4 variables.
+It is possible to create versions of the Neo themes without using CSS variables.
 This is mostly interesting for legacy browsers (IE 11).
-In case you just want to use 1 theme inside your app and don't need CSS4 vars,
+In case you just want to use 1 theme inside your app and don't need CSS vars,
 the output will have a smaller file size.
-
-### dev-theme-dark-no-css4
-CSS3 build for the dark theme combined with the CSS structure.
-The file gets saved to dist/development/neo-theme-dark-no-css4.css.
-
-### dev-theme-light-no-css4
-CSS3 build for the light theme combined with the CSS structure.
-The file gets saved to dist/development/neo-theme-light-no-css4.css.
-
-### prod-theme-dark-no-css4
-CSS3 build for the dark theme combined with the CSS structure.
-The file gets saved to dist/production/neo-theme-dark-no-css4.css.
-
-### prod-theme-light-no-css4
-CSS3 build for the light theme combined with the CSS structure.
-The file gets saved to dist/production/neo-theme-light-no-css4.css.
