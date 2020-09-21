@@ -4,7 +4,6 @@ import DomEvents          from '../main/DomEvents.mjs';
 import Message            from './Message.mjs';
 import Observable         from '../core/Observable.mjs';
 import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
-import Neo from "src/Neo";
 
 /**
  * The worker manager lives inside the main thread and creates the App, Data & VDom worker.
