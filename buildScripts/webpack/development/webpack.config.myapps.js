@@ -63,7 +63,7 @@ module.exports = env => {
                         appPath         : value.output + 'app.mjs',
                         basePath,
                         bodyTag         : value.bodyTag || config.bodyTag,
-                        environment     : 'development',
+                        environment     : 'dist/development',
                         mainPath        : workerBasePath + 'main.js',
                         mainThreadAddons: value.mainThreadAddons || "'Stylesheet'",
                         themes          : value.themes           || "'neo-theme-light', 'neo-theme-dark'",
