@@ -135,12 +135,17 @@ class Base extends Component {
      */
     afterSetDraggable(value, oldValue) {
         if (value) {
+            let me = this;
+
             import(
                 /* webpackChunkName: 'src/draggable/list/DragZone-mjs.js' */
                 '../draggable/list/DragZone.mjs'
             ).then(module => {
-                this.dragZone = Neo.create(module.default);
-                console.log(this.dragZone);
+                me.dragZone = Neo.create(module.default, {
+                    appName: me.appName
+                });
+
+                console.log(me.dragZone);
             });
         }
     }
