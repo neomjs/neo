@@ -135,7 +135,10 @@ class Base extends Component {
      */
     afterSetDraggable(value, oldValue) {
         if (value) {
-            import(/* webpackChunkName: 'src/draggable/list/DragZone-mjs.js' */ '../draggable/list/DragZone.mjs').then(module => {
+            import(
+                /* webpackChunkName: 'src/draggable/list/DragZone-mjs.js' */
+                '../draggable/list/DragZone.mjs'
+            ).then(module => {
                 this.dragZone = Neo.create(module.default);
                 console.log(this.dragZone);
             });
@@ -177,6 +180,20 @@ class Base extends Component {
     }
 
     /**
+     * Triggered after the useCheckBoxes config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseCheckBoxes(value, oldValue) {
+        let me  = this,
+            cls = me.cls;
+
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-use-checkicons');
+        me.cls = cls;
+    }
+
+    /**
      * Triggered before the selectionModel config gets changed.
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
@@ -204,20 +221,6 @@ class Base extends Component {
         }
 
         return ClassSystemUtil.beforeSetInstance(value);
-    }
-
-    /**
-     * Triggered after the useCheckBoxes config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetUseCheckBoxes(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
-
-        NeoArray[value ? 'add' : 'remove'](cls, 'neo-use-checkicons');
-        me.cls = cls;
     }
 
     /**
