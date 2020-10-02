@@ -104,6 +104,18 @@
             "output": "/examples/component/helix/",
             "title": "Neo Helix"
         },
+        "listBase": {
+            "input": "./examples/list/base/app.mjs",
+            "mainThreadAddons": "'DragDrop', 'Stylesheet'",
+            "output": "/examples/list/base/",
+            "title": "Neo List"
+        },
+        "listChip": {
+            "input": "./examples/list/chip/app.mjs",
+            "mainThreadAddons": "'DragDrop', 'Stylesheet'",
+            "output": "/examples/list/chip/",
+            "title": "Neo List"
+        },
         "numberfield": {
             "input": "./examples/form/field/number/app.mjs",
             "output": "/examples/form/field/number/",
