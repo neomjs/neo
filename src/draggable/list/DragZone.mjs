@@ -21,6 +21,18 @@ class DragZone extends BaseDragZone {
          */
         owner: null
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me = this;
+
+        console.log(me);
+    }
 }
 
 Neo.applyClassConfig(DragZone);

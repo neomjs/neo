@@ -145,8 +145,6 @@ class Base extends Component {
                     appName: me.appName,
                     owner  : me
                 });
-
-                console.log(me.dragZone);
             });
         }
     }
