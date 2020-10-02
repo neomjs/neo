@@ -39,6 +39,10 @@ class Base extends Component {
          */
         displayField: 'name',
         /**
+         * @member {Boolean} draggable_=false
+         */
+        draggable_: false,
+        /**
          * @member {Boolean} highlightFilterValue=true
          */
         highlightFilterValue: true,
