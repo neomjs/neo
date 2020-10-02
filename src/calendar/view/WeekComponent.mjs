@@ -3,7 +3,7 @@ import DateUtil          from '../../util/Date.mjs';
 import NeoArray          from '../../util/Array.mjs';
 import TimeAxisComponent from './TimeAxisComponent.mjs';
 import VDomUtil          from '../../util/VDom.mjs';
-import WeekEventDragZone from '../draggable/WeekEventDragZone.mjs';
+import WeekEventDragZone from '../../draggable/calendar/WeekEventDragZone.mjs';
 
 const todayDate = new Date();
 
