@@ -15,7 +15,11 @@ class DragZone extends BaseDragZone {
          * @member {String} ntype='list-dragzone'
          * @protected
          */
-        ntype: 'list-dragzone'
+        ntype: 'list-dragzone',
+        /**
+         * @member {Neo.list.Base} owner=null
+         */
+        owner: null
     }}
 }
 

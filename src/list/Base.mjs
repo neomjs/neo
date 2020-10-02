@@ -142,7 +142,8 @@ class Base extends Component {
                 '../draggable/list/DragZone.mjs'
             ).then(module => {
                 me.dragZone = Neo.create(module.default, {
-                    appName: me.appName
+                    appName: me.appName,
+                    owner  : me
                 });
 
                 console.log(me.dragZone);
