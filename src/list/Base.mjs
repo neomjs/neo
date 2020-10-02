@@ -42,6 +42,10 @@ class Base extends Component {
          */
         draggable_: false,
         /**
+         * @member {Neo.draggable.list.DragZone|null} dragZone=null
+         */
+        dragZone: null,
+        /**
          * @member {Boolean} highlightFilterValue=true
          */
         highlightFilterValue: true,
@@ -131,7 +135,10 @@ class Base extends Component {
      */
     afterSetDraggable(value, oldValue) {
         if (value) {
-            console.log('afterSetDraggable', value);
+            import(/* webpackChunkName: 'src/draggable/list/DragZone-mjs.js' */ '../draggable/list/DragZone.mjs').then(module => {
+                this.dragZone = Neo.create(module.default);
+                console.log(this.dragZone);
+            });
         }
     }
 
