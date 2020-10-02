@@ -60,6 +60,7 @@ class MainContainer extends ConfigurationViewport {
         return Neo.create({
             module      : List,
             displayField: 'firstname',
+            draggable   : true,
             store       : MainStore,
             width       : 100
         });
