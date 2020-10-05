@@ -37,6 +37,7 @@ class DragZone extends BaseDragZone {
             store        = owner.store;
 
         domListeners.push(
+            {'drag:end'  : me.onDragEnd,   scope: me, delegate: '.neo-draggable'},
             {'drag:start': me.onDragStart, scope: me, delegate: '.neo-draggable'}
         );
 
@@ -50,6 +51,17 @@ class DragZone extends BaseDragZone {
         if (store.getCount() > 0) {
             me.onStoreLoad();
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragEnd(data) {
+        let me = this;
+
+        // todo: move back animation
+        me.dragEnd();
     }
 
     /**
