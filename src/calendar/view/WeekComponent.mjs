@@ -549,8 +549,7 @@ class WeekComponent extends Component {
      */
     onEventDragStart(data) {
         let me          = this,
-            id          = data.path[0].id,
-            dragElement = VDomUtil.findVdomChild(me.vdom, id).vdom,
+            dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom,
             timeAxis    = me.timeAxis;
 
         const config = {

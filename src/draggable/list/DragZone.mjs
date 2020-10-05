@@ -1,5 +1,6 @@
 import BaseDragZone from '../../draggable/DragZone.mjs';
 import NeoArray     from '../../util/Array.mjs';
+import VDomUtil     from '../../util/VDom.mjs';
 
 /**
  * @class Neo.draggable.list.DragZone
@@ -56,7 +57,10 @@ class DragZone extends BaseDragZone {
      * @param {Object} data
      */
     onDragStart(data) {
-        console.log('onDragStart', data);
+        let me          = this,
+            dragElement = VDomUtil.findVdomChild(me.owner.vdom, data.path[0].id).vdom;
+
+        console.log('onDragStart', dragElement);
     }
 
     /**
