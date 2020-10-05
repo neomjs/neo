@@ -29,9 +29,21 @@ class DragZone extends BaseDragZone {
     constructor(config) {
         super(config);
 
-        let me = this;
+        let me    = this,
+            store = me.owner.store;
+
+        store.on({
+            load: me.onStoreLoad
+        });
 
         console.log(me);
+    }
+
+    /**
+     *
+     */
+    onStoreLoad() {
+        console.log('onStoreLoad');
     }
 }
 
