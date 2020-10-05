@@ -208,10 +208,11 @@ class Gallery extends Component {
 
         me.vdom = vdom;
 
-        domListeners.push(
-            {click: me.onClick,      scope: me},
-            {wheel: me.onMouseWheel, scope: me}
-        );
+        domListeners.push({
+            click: me.onClick,
+            wheel: me.onMouseWheel,
+            scope: me
+        });
 
         me.domListeners = domListeners;
     }
