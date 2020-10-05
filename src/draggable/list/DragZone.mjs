@@ -40,11 +40,12 @@ class DragZone extends BaseDragZone {
         let me           = this,
             owner        = me.owner,
             domListeners = owner.domListeners,
+            opts         = {delegate: '.neo-draggable', scope: me},
             store        = owner.store;
 
         domListeners.push(
-            {'drag:end'  : me.onDragEnd,   scope: me, delegate: '.neo-draggable'},
-            {'drag:start': me.onDragStart, scope: me, delegate: '.neo-draggable'}
+            {'drag:end'  : me.onDragEnd,   ...opts},
+            {'drag:start': me.onDragStart, ...opts}
         );
 
         owner.domListeners = domListeners;
