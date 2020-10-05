@@ -28,15 +28,21 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'disableSelection',
             listeners: {change: me.onConfigChange.bind(me, 'disableSelection')}
         }, {
-            module    :  NumberField,
-            clearable : true,
-            labelText : 'height',
-            listeners : {change: me.onConfigChange.bind(me, 'height')},
-            maxValue  : 300,
-            minValue  : 30,
-            stepSize  : 5,
-            value     : me.exampleComponent.height,
-            style     : {marginTop: '10px'}
+            module   : CheckBox,
+            checked  : me.exampleComponent.draggable,
+            labelText: 'draggable',
+            listeners: {change: me.onConfigChange.bind(me, 'draggable')},
+            style    : {marginTop: '10px'}
+        }, {
+            module   : NumberField,
+            clearable: true,
+            labelText: 'height',
+            listeners: {change: me.onConfigChange.bind(me, 'height')},
+            maxValue : 300,
+            minValue : 30,
+            stepSize : 5,
+            value    : me.exampleComponent.height,
+            style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
             checked  : me.exampleComponent.useCheckBoxes,
@@ -44,15 +50,15 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'useCheckBoxes')},
             style    : {marginTop: '10px'}
         }, {
-            module    :  NumberField,
-            clearable : true,
-            labelText : 'width',
-            listeners : {change: me.onConfigChange.bind(me, 'width')},
-            maxValue  : 300,
-            minValue  : 100,
-            stepSize  : 5,
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.width
+            module   : NumberField,
+            clearable: true,
+            labelText: 'width',
+            listeners: {change: me.onConfigChange.bind(me, 'width')},
+            maxValue : 300,
+            minValue : 100,
+            stepSize : 5,
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.width
         }];
     }
 
