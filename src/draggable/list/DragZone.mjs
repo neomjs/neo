@@ -58,10 +58,19 @@ class DragZone extends BaseDragZone {
      * @param {Object} data
      */
     onDragEnd(data) {
-        let me = this;
+        let me           = this,
+            proxy        = me.dragProxy,
+            rect         = me.dragElementRect,
+            wrapperStyle = proxy.wrapperStyle || {};
 
-        // todo: move back animation
-        me.dragEnd();
+        wrapperStyle.left = `${rect.left}px`;
+        wrapperStyle.top  = `${rect.top}px`;
+
+        proxy.wrapperStyle = wrapperStyle;
+
+        setTimeout(() => {
+            me.dragEnd();
+        }, 250);
     }
 
     /**
