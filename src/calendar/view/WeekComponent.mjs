@@ -155,16 +155,18 @@ class WeekComponent extends Component {
         super(config);
 
         let me           = this,
-            domListeners = me.domListeners;
+            domListeners = me.domListeners,
+            columnOpts   = {scope: me, delegate: '.neo-c-w-column'},
+            eventOpts    = {scope: me, delegate: '.neo-event'};
 
         domListeners.push(
-            {dblclick    : me.onEventDoubleClick, scope: me, delegate: '.neo-event'},
-            {'drag:end'  : me.onColumnDragEnd,    scope: me, delegate: '.neo-c-w-column'},
-            {'drag:end'  : me.onEventDragEnd,     scope: me, delegate: '.neo-event'},
-            {'drag:move' : me.onColumnDragMove,   scope: me, delegate: '.neo-c-w-column'},
-            {'drag:move' : me.onEventDragMove,    scope: me, delegate: '.neo-event'},
-            {'drag:start': me.onColumnDragStart,  scope: me, delegate: '.neo-c-w-column'},
-            {'drag:start': me.onEventDragStart,   scope: me, delegate: '.neo-event'},
+            {dblclick    : me.onEventDoubleClick, ...eventOpts},
+            {'drag:end'  : me.onColumnDragEnd,    ...columnOpts},
+            {'drag:end'  : me.onEventDragEnd,     ...eventOpts},
+            {'drag:move' : me.onColumnDragMove,   ...columnOpts},
+            {'drag:move' : me.onEventDragMove,    ...eventOpts},
+            {'drag:start': me.onColumnDragStart,  ...columnOpts},
+            {'drag:start': me.onEventDragStart,   ...eventOpts},
             {wheel       : me.onWheel,            scope: me}
         );
 
