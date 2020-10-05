@@ -36,7 +36,10 @@ class DragZone extends BaseDragZone {
             load: me.onStoreLoad
         });
 
-        console.log(me);
+        // check if the store is already loaded
+        if (store.getCount() > 0) {
+            me.onStoreLoad();
+        }
     }
 
     /**
