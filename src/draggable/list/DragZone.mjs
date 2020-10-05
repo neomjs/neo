@@ -30,8 +30,16 @@ class DragZone extends BaseDragZone {
     constructor(config) {
         super(config);
 
-        let me    = this,
-            store = me.owner.store;
+        let me           = this,
+            owner        = me.owner,
+            domListeners = owner.domListeners,
+            store        = owner.store;
+
+        domListeners.push(
+            {'drag:start': me.onDragStart, scope: me, delegate: '.neo-draggable'}
+        );
+
+        owner.domListeners = domListeners;
 
         store.on({
             load: me.onStoreLoad
@@ -41,6 +49,14 @@ class DragZone extends BaseDragZone {
         if (store.getCount() > 0) {
             me.onStoreLoad();
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragStart(data) {
+        console.log('onDragStart', data);
     }
 
     /**
