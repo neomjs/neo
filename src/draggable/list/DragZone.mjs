@@ -64,26 +64,28 @@ class DragZone extends BaseDragZone {
      * @param {Object} data
      */
     onDragEnd(data) {
-        let me           = this,
-            proxy        = me.dragProxy,
-            cls          = proxy.cls || {},
-            rect         = me.dragElementRect,
-            wrapperStyle = proxy.wrapperStyle || {};
+        if (this.owner.draggable) {
+            let me           = this,
+                proxy        = me.dragProxy,
+                cls          = proxy.cls || {},
+                rect         = me.dragElementRect,
+                wrapperStyle = proxy.wrapperStyle || {};
 
-        NeoArray.add(cls, 'neo-animate');
-        proxy.cls = cls;
+            NeoArray.add(cls, 'neo-animate');
+            proxy.cls = cls;
 
-        // ensure to get into the next animation frame
-        setTimeout(() => {
-            wrapperStyle.left = `${rect.left}px`;
-            wrapperStyle.top  = `${rect.top}px`;
-
-            proxy.wrapperStyle = wrapperStyle;
-
+            // ensure to get into the next animation frame
             setTimeout(() => {
-                me.dragEnd();
-            }, 300);
-        }, 30);
+                wrapperStyle.left = `${rect.left}px`;
+                wrapperStyle.top  = `${rect.top}px`;
+
+                proxy.wrapperStyle = wrapperStyle;
+
+                setTimeout(() => {
+                    me.dragEnd();
+                }, 300);
+            }, 30);
+        }
     }
 
     /**
@@ -93,8 +95,10 @@ class DragZone extends BaseDragZone {
     onDragStart(data) {
         let me = this;
 
-        me.dragElement = VDomUtil.findVdomChild(me.owner.vdom, data.path[0].id).vdom;
-        me.dragStart(data);
+        if (me.owner.draggable) {
+            me.dragElement = VDomUtil.findVdomChild(me.owner.vdom, data.path[0].id).vdom;
+            me.dragStart(data);
+        }
     }
 
     /**
