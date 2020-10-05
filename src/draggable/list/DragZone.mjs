@@ -50,13 +50,35 @@ class DragZone extends BaseDragZone {
         owner.domListeners = domListeners;
 
         store.on({
-            load: me.onStoreLoad
+            load : me.onStoreLoad,
+            scope: me
         });
 
         // check if the store is already loaded
         if (store.getCount() > 0) {
             me.onStoreLoad();
         }
+    }
+
+    /**
+     *
+     * @param {Boolean} draggable
+     */
+    adjustListItemCls(draggable) {
+        let me    = this,
+            owner = me.owner,
+            store = owner.store,
+            vdom  = owner.vdom,
+            listItem;
+
+        store.items.forEach((item, index) => {
+            listItem = vdom.cn[index];
+            listItem.cls = listItem.cls || [];
+
+            NeoArray[draggable ? 'add' : 'remove'](listItem.cls, 'neo-draggable');
+        });
+
+        owner.vdom = vdom;
     }
 
     /**
@@ -105,20 +127,7 @@ class DragZone extends BaseDragZone {
      *
      */
     onStoreLoad() {
-        let me    = this,
-            owner = me.owner,
-            store = owner.store,
-            vdom  = owner.vdom,
-            listItem;
-
-        store.items.forEach((item, index) => {
-            listItem = vdom.cn[index];
-            listItem.cls = listItem.cls || [];
-
-            NeoArray.add(listItem.cls, 'neo-draggable');
-        });
-
-        owner.vdom = vdom;
+        this.adjustListItemCls(true);
     }
 }
 
