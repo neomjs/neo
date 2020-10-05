@@ -50,10 +50,14 @@ class DragZone extends BaseDragZone {
         let me    = this,
             owner = me.owner,
             store = owner.store,
-            vdom  = owner.vdom;
+            vdom  = owner.vdom,
+            listItem;
 
         store.items.forEach((item, index) => {
-            NeoArray.add(vdom.cn[index].cls, 'neo-draggable');
+            listItem = vdom.cn[index];
+            listItem.cls = listItem.cls || [];
+
+            NeoArray.add(listItem.cls, 'neo-draggable');
         });
 
         owner.vdom = vdom;
