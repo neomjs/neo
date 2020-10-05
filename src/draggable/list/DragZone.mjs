@@ -19,6 +19,12 @@ class DragZone extends BaseDragZone {
          */
         ntype: 'list-dragzone',
         /**
+         * @member {Object|null} dragProxyConfig
+         */
+        dragProxyConfig: {
+            cls: ['neo-dragproxy', 'neo-list']
+        },
+        /**
          * @member {Neo.list.Base} owner=null
          */
         owner: null
@@ -60,17 +66,24 @@ class DragZone extends BaseDragZone {
     onDragEnd(data) {
         let me           = this,
             proxy        = me.dragProxy,
+            cls          = proxy.cls || {},
             rect         = me.dragElementRect,
             wrapperStyle = proxy.wrapperStyle || {};
 
-        wrapperStyle.left = `${rect.left}px`;
-        wrapperStyle.top  = `${rect.top}px`;
+        NeoArray.add(cls, 'neo-animate');
+        proxy.cls = cls;
 
-        proxy.wrapperStyle = wrapperStyle;
-
+        // ensure to get into the next animation frame
         setTimeout(() => {
-            me.dragEnd();
-        }, 250);
+            wrapperStyle.left = `${rect.left}px`;
+            wrapperStyle.top  = `${rect.top}px`;
+
+            proxy.wrapperStyle = wrapperStyle;
+
+            setTimeout(() => {
+                me.dragEnd();
+            }, 300);
+        }, 30);
     }
 
     /**
