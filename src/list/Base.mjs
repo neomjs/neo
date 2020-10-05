@@ -280,7 +280,7 @@ class Base extends Component {
 
         vdom.cn = [];
 
-        me.store.items.forEach((item, index) => {
+        me.store.items.forEach(item => {
             vdom.cn.push(me.createItem(item));
         });
 

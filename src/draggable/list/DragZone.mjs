@@ -1,4 +1,5 @@
 import BaseDragZone from '../../draggable/DragZone.mjs';
+import NeoArray     from '../../util/Array.mjs';
 
 /**
  * @class Neo.draggable.list.DragZone
@@ -46,7 +47,16 @@ class DragZone extends BaseDragZone {
      *
      */
     onStoreLoad() {
-        console.log('onStoreLoad');
+        let me    = this,
+            owner = me.owner,
+            store = owner.store,
+            vdom  = owner.vdom;
+
+        store.items.forEach((item, index) => {
+            NeoArray.add(vdom.cn[index].cls, 'neo-draggable');
+        });
+
+        owner.vdom = vdom;
     }
 }
 
