@@ -57,10 +57,10 @@ class DragZone extends BaseDragZone {
      * @param {Object} data
      */
     onDragStart(data) {
-        let me          = this,
-            dragElement = VDomUtil.findVdomChild(me.owner.vdom, data.path[0].id).vdom;
+        let me = this;
 
-        console.log('onDragStart', dragElement);
+        me.dragElement = VDomUtil.findVdomChild(me.owner.vdom, data.path[0].id).vdom;
+        me.dragStart(data);
     }
 
     /**
