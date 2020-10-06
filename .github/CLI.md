@@ -80,8 +80,31 @@ Options:
 ## build-threads
 > node ./buildScripts/webpack/buildThreads.js -f
 
+```
+Options:
+  -V, --version         output the version number
+  -i, --info            print environment debug info
+  -e, --env <name>      "all", "dev", "prod"
+  -f, --framework       
+  -n, --noquestions     
+  -t, --threads <name>  "all", "app", "data", "main", "vdom"
+  -h, --help            display help for command
+```
+
 ## create-app
 > node ./buildScripts/createApp.js
+
+```
+Options:
+  -V, --version                  output the version number
+  -i, --info                     print environment debug info
+  -a, --appName <name>           
+  -m, --mainThreadAddons <name>  Comma separated list of AmCharts, AnalyticsByGoogle, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet
+   Defaults to Stylesheet
+  -t, --themes <name>            "all", "dark", "light"
+  -u, --useSharedWorkers <name>  "yes", "no"
+  -h, --help                     display help for command
+```
 
 ## generate-docs-json
 > node ./buildScripts/docs/jsdocx.js
