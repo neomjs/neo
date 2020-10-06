@@ -28,7 +28,7 @@ where the framework is included as a node module, but needs to deploy to a top-l
 8. <a href="#server-start">server-start</a>
 
 ## build-all
-> node ./buildAll.js -f -n
+> node ./buildScripts/buildAll.js -f -n
 
 ```
 Options:
@@ -44,7 +44,7 @@ Options:
   -h, --help               display help for command
 ```
 
-Source code: <a href="./buildScripts/buildAll.js">build-all</a>
+Source code: <a href="./buildAll.js">build-all</a>
 
 ## build-all-questions
 > node ./buildScripts/buildAll.js -f
