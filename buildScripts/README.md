@@ -64,7 +64,7 @@ Options:
   -h, --help         display help for command
 ```
 
-Source code: <a href="https://github.com/neomjs/neo/blob/dev/buildScripts/webpack/buildMyApps.js">build-my-apps</a>
+Source code: <a href="./webpack/buildMyApps.js">build-my-apps</a>
 
 ## build-themes
 > node ./buildScripts/webpack/buildThemes.js -f
@@ -81,7 +81,7 @@ Options:
   -h, --help            display help for command
 ```
 
-Source code: <a href="https://github.com/neomjs/neo/blob/dev/buildScripts/webpack/buildThemes.js">build-themes</a>
+Source code: <a href="./webpack/buildThemes.js">build-themes</a>
 
 ## build-threads
 > node ./buildScripts/webpack/buildThreads.js -f
@@ -97,7 +97,7 @@ Options:
   -h, --help            display help for command
 ```
 
-Source code: <a href="https://github.com/neomjs/neo/blob/dev/buildScripts/webpack/buildThreads.js">build-threads</a>
+Source code: <a href="./webpack/buildThreads.js">build-threads</a>
 
 ## create-app
 > node ./buildScripts/createApp.js
@@ -114,12 +114,12 @@ Options:
   -h, --help                     display help for command
 ```
 
-Source code: <a href="https://github.com/neomjs/neo/blob/dev/buildScripts/createApp.js">create-app</a>
+Source code: <a href="./buildScripts/createApp.js">create-app</a>
 
 ## generate-docs-json
 > node ./buildScripts/docs/jsdocx.js
 
-Source code: <a href="https://github.com/neomjs/neo/blob/dev/buildScripts/docs/jsdocx.js">generate-docs-json</a>
+Source code: <a href="./docs/jsdocx.js">generate-docs-json</a>
 
 ## server-start
 > webpack-dev-server --open
