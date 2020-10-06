@@ -11,7 +11,7 @@ You can run each script inside your terminal. E.g.:
 Make sure to call them on the top-level folder (the one containing the package.json).
 
 In case you want to pass program options, please use the node based calls instead. E.g.:
-> node ./buildScripts/buildAll.js -f
+> node ./buildScripts/buildAll.js -h
 
 You will notice that all programs are using the -f option here.
 The reason is that you can call them inside your neo.mjs workspaces as well,
@@ -43,6 +43,8 @@ Options:
   -w, --threads <name>     "yes", "no"
   -h, --help               display help for command
 ```
+
+Source code: <a href="https://github.com/neomjs/neo/blob/dev/buildScripts/buildAll.js">build-all</a>
 
 ## build-all-questions
 > node ./buildScripts/buildAll.js -f
