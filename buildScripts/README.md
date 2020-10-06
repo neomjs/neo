@@ -1,8 +1,9 @@
 # Command-line interface
 In case you want to create an App (workspace) based on neo.mjs, you don't need to clone this repository.</br>
-Please take a look at the <a href="https://github.com/neomjs/create-app">create-app repository</a> (npx neo-app) in this case.
+Please take a look at the <a href="https://github.com/neomjs/create-app">create-app repository</a> (npx neo-app).
 
-This guide explains the different scripts (programs) which are included inside the package.json.</br>
+This guide explains the different scripts (programs) which are included inside the
+<a href="../package.json">package.json</a>.</br>
 They are important for working on the framework code base.
 
 You can run each script inside your terminal. E.g.:
