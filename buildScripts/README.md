@@ -52,7 +52,7 @@ Take a look at the next section for details on those.
 1. The program starts with a npm install. You can disable it using the -l option.
 2. It builds the themes next (-t option) => <a href="#build-themes">build-themes</a>
 3. It builds the threads (-w option) => <a href="#build-threads">build-threads</a></br>
-w is a shortcut for "workers", since -t was already taken.
+-w is a shortcut for "workers", since -t was already taken.
 4. It parses the docs comments (-p option) => <a href="#generate-docs-json">generate-docs-json</a>
 
 
