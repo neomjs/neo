@@ -190,7 +190,7 @@ since this will include the documentation for your own apps.
 <!-- Command-line interface -->
 <h2 id="command-line-interface">Command-line interface</h2>
 You can run several build programs inside your terminal.</br>
-Please take a look at the <a href="./buildSripts/README.md">Command-line interface</a> guide.
+Please take a look at the <a href="./buildScripts/README.md">Command-line interface</a> guide.
 
 <!-- Ready to get started? -->
 <h2 id="get-started">Ready to get started?</h2>
