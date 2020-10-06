@@ -50,9 +50,9 @@ The build-all program is using the -n (noquestions) option.
 Take a look at the next section for details on those.
 
 1. The program starts with a npm install. You can disable it using the -l option.
-2. It builds the themes next (-t option) => section 4
-3. It builds the threads (-w option) => section 5
-4. It parses the docs comments (-p option) => section 7
+2. It builds the themes next (-t option) => <a href="#build-themes">build-themes</a>
+3. It builds the threads (-w option) => <a href="#build-threads">build-threads</a>
+4. It parses the docs comments (-p option) => <a href="#generate-docs-json">generate-docs-json</a>
 
 
 Source code: <a href="./buildAll.js">build-all</a>
