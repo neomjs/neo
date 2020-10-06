@@ -50,8 +50,32 @@ Options:
 ## build-my-apps
 > node ./buildScripts/webpack/buildMyApps.js -f
 
+```
+Options:
+  -V, --version      output the version number
+  -i, --info         print environment debug info
+  -a, --apps <name>  "all", "Covid", "RealWorld", "RealWorld2", "SharedCovid", "SharedCovidChart", "SharedCovidGallery",
+                     "SharedCovidHelix", "SharedCovidMap", "SharedDialog", "SharedDialog2", "Website"
+  -e, --env <name>   "all", "dev", "prod"
+  -f, --framework    
+  -n, --noquestions  
+  -h, --help         display help for command
+```
+
 ## build-themes
 > node ./buildScripts/webpack/buildThemes.js -f
+
+```
+Options:
+  -V, --version         output the version number
+  -i, --info            print environment debug info
+  -c, --cssVars <name>  "all", "true", "false"
+  -e, --env <name>      "all", "dev", "prod"
+  -f, --framework       
+  -n, --noquestions     
+  -t, --themes <name>   "all", "dark", "light"
+  -h, --help            display help for command
+```
 
 ## build-threads
 > node ./buildScripts/webpack/buildThreads.js -f
