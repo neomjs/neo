@@ -60,6 +60,9 @@ You can disable each step using the program options.
 
 build-all will delegate the env, framework & noquestions options to build-themes & build-threads.
 
+You can use the -e (environment) option in case you want to limit the build either to dist/development
+or dist/production. 
+
 Source code: <a href="./buildAll.js">build-all</a>
 
 ## build-all-questions
