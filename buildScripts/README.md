@@ -28,7 +28,7 @@ where the framework is included as a node module, but needs to deploy to a top-l
 8. <a href="#server-start">server-start</a>
 
 ## build-all
-> node ./buildScripts/buildAll.js -f -n
+> node ./buildAll.js -f -n
 
 ```
 Options:
