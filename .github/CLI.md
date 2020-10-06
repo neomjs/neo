@@ -1,12 +1,12 @@
 # command-line interface
+In case you want to create an App (workspace) based on neo.mjs, you don't need to clone this repository.</br>
+Please take a look at <a href="https://github.com/neomjs/create-app">npx neo-app</a> in this case.
+
 This guide explains the different scripts (programs) which are included inside the package.json.</br>
 They are important for working on the framework code base.
 
 You can run each script inside your terminal.
 Make sure to call them on the top-level folder (the one containing the package.json).
-
-In case you want to create an App (workspace) based on neo.mjs, you don't need to clone this repository.</br>
-Please take a look at <a href="https://github.com/neomjs/create-app">npx neo-app</a> in this case.
 
 ## Content
 1. <a href="#build-all">build-all</a>
@@ -22,7 +22,7 @@ Please take a look at <a href="https://github.com/neomjs/create-app">npx neo-app
 > npm run build-all
 
 This call matches:
-> node ./buildScripts/buildAll.js -f
+> node ./buildScripts/buildAll.js -f -n
 
 ```
 Options:
@@ -42,7 +42,7 @@ Options:
 > npm run build-all-questions
 
 This call matches:
-> node ./buildScripts/buildAll.js -f -n
+> node ./buildScripts/buildAll.js -f
 
 ## build-my-apps
 > npm run build-my-apps
