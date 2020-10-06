@@ -5,8 +5,17 @@ Please take a look at <a href="https://github.com/neomjs/create-app">npx neo-app
 This guide explains the different scripts (programs) which are included inside the package.json.</br>
 They are important for working on the framework code base.
 
-You can run each script inside your terminal.
+You can run each script inside your terminal. E.g.:
+> npm run build-all
+
 Make sure to call them on the top-level folder (the one containing the package.json).
+
+In case you want to pass program options, please use the node based calls instead. E.g.:
+> node ./buildScripts/buildAll.js -f
+
+You will notice that all programs are using the -f option here.
+The reason is that you can call them inside your neo.mjs workspaces as well,
+where the framework is included as a node module, but needs to deploy to a top-level dist folder.
 
 ## Content
 1. <a href="#build-all">build-all</a>
@@ -19,9 +28,6 @@ Make sure to call them on the top-level folder (the one containing the package.j
 8. <a href="#server-start">server-start</a>
 
 ## build-all
-> npm run build-all
-
-This call matches:
 > node ./buildScripts/buildAll.js -f -n
 
 ```
@@ -39,43 +45,22 @@ Options:
 ```
 
 ## build-all-questions
-> npm run build-all-questions
-
-This call matches:
 > node ./buildScripts/buildAll.js -f
 
 ## build-my-apps
-> npm run build-my-apps
-
-This call matches:
 > node ./buildScripts/webpack/buildMyApps.js -f
 
 ## build-themes
-> npm run build-themes
-
-This call matches:
 > node ./buildScripts/webpack/buildThemes.js -f
 
 ## build-threads
-> npm run build-threads
-
-This call matches:
 > node ./buildScripts/webpack/buildThreads.js -f
 
 ## create-app
-> npm run create-app
-
-This call matches:
 > node ./buildScripts/createApp.js
 
 ## generate-docs-json
-> npm run generate-docs-json
-
-This call matches:
 > node ./buildScripts/docs/jsdocx.js
 
 ## server-start
-> npm run server-start
-
-This call matches:
 > webpack-dev-server --open
