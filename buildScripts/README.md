@@ -14,7 +14,7 @@ Make sure to call them on the top-level folder (the one containing the package.j
 In case you want to pass program options, please use the node based calls instead. E.g.:
 > node ./buildScripts/buildAll.js -h
 
-You will notice that all programs are using the -f option here.
+You will notice that most programs are using the -f (framework) option here.
 The reason is that you can call them inside your neo.mjs workspaces as well,
 where the framework is included as a node module, but needs to deploy to a top-level dist folder.
 
