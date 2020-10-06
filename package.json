@@ -7,7 +7,6 @@
         "url": "https://github.com/neomjs/neo.git"
     },
     "scripts": {
-        "server-start": "webpack-dev-server --open",
         "build-all": "node ./buildScripts/buildAll.js -f -n",
         "build-all-questions": "node ./buildScripts/buildAll.js -f",
         "build-my-apps": "node ./buildScripts/webpack/buildMyApps.js -f",
@@ -15,6 +14,7 @@
         "build-threads": "node ./buildScripts/webpack/buildThreads.js -f",
         "create-app": "node ./buildScripts/createApp.js",
         "generate-docs-json": "node ./buildScripts/docs/jsdocx.js",
+        "server-start": "webpack-dev-server --open",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "keywords": [
