@@ -30,6 +30,8 @@ where the framework is included as a node module, but needs to deploy to a top-l
 ## build-all
 > node ./buildScripts/buildAll.js -f -n
 
+It is strongly recommended to run this program after each git pull on this repo.
+
 ```
 Options:
   -V, --version            output the version number
@@ -43,6 +45,15 @@ Options:
   -w, --threads <name>     "yes", "no"
   -h, --help               display help for command
 ```
+
+The build-all program is using the -n (noquestions) option.
+Take a look at the next section for details on those.
+
+1. The program starts with a npm install. You can disable it using the -l option.
+2. It builds the themes next (-t option) => section 4
+3. It builds the threads (-w option) => section 5
+4. It parses the docs comments (-p option) => section 7
+
 
 Source code: <a href="./buildAll.js">build-all</a>
 
