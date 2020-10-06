@@ -20,12 +20,13 @@ without the need to take care of a workers setup or the cross channel communicat
 7. <a href="#impossible">Impossible? Pick with caution!</a>
 8. <a href="#online-examples">Online Examples</a>
 9. <a href="#online-docs">Online Docs</a>
-10. <a href="#get-started">Ready to get started?</a>
-11. <a href="#project-history">Project History</a>
-12. <a href="#story--vision">Story & Vision</a>
-13. <a href="#contributors">neo.mjs is in need of more contributors!</a>
-14. <a href="#sponsors1">neo.mjs is in need of more sponsors!</a>
-15. <a href="#slack-channel">Slack Channel for questions & feedback</a>
+10. <a href="#command-line-interface">Command-line interface</a>
+11. <a href="#get-started">Ready to get started?</a>
+12. <a href="#project-history">Project History</a>
+13. <a href="#story--vision">Story & Vision</a>
+14. <a href="#contributors">neo.mjs is in need of more contributors!</a>
+15. <a href="#sponsors1">neo.mjs is in need of more sponsors!</a>
+16. <a href="#slack-channel">Slack Channel for questions & feedback</a>
 
 <!-- Sponsors -->
 <h2 id="sponsors">Sponsors</h2>
@@ -185,6 +186,11 @@ The development mode only works on Chrome 80+, but does lazy load the example ap
 
 Hint: As soon as you create your own apps, you want to use the docs app locally,</br>
 since this will include the documentation for your own apps.
+
+<!-- Command-line interface -->
+<h2 id="command-line-interface">Command-line interface</h2>
+You can run several build programs inside your terminal.</br>
+Please take a look at the <a href="./buildSripts/README.md">Command-line interface</a> guide.
 
 <!-- Ready to get started? -->
 <h2 id="get-started">Ready to get started?</h2>
