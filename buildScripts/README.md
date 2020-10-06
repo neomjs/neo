@@ -44,7 +44,7 @@ Options:
   -h, --help               display help for command
 ```
 
-Source code: <a href="https://github.com/neomjs/neo/blob/dev/buildScripts/buildAll.js">build-all</a>
+Source code: <a href="./buildScripts/buildAll.js">build-all</a>
 
 ## build-all-questions
 > node ./buildScripts/buildAll.js -f
