@@ -20,7 +20,7 @@ without the need to take care of a workers setup or the cross channel communicat
 7. <a href="#impossible">Impossible? Pick with caution!</a>
 8. <a href="#online-examples">Online Examples</a>
 9. <a href="#online-docs">Online Docs</a>
-10. <a href="#command-line-interface">Command-line interface</a>
+10. <a href="#command-line-interface">Command-Line Interface</a>
 11. <a href="#get-started">Ready to get started?</a>
 12. <a href="#project-history">Project History</a>
 13. <a href="#story--vision">Story & Vision</a>
@@ -187,10 +187,10 @@ The development mode only works on Chrome 80+, but does lazy load the example ap
 Hint: As soon as you create your own apps, you want to use the docs app locally,</br>
 since this will include the documentation for your own apps.
 
-<!-- Command-line interface -->
-<h2 id="command-line-interface">Command-line interface</h2>
+<!-- Command-Line Interface -->
+<h2 id="command-line-interface">Command-Line Interface</h2>
 You can run several build programs inside your terminal.</br>
-Please take a look at the <a href="./buildScripts/README.md">Command-line interface</a> guide.
+Please take a look at the <a href="./buildScripts/README.md">Command-Line Interface Guide</a>.
 
 <!-- Ready to get started? -->
 <h2 id="get-started">Ready to get started?</h2>
