@@ -1,4 +1,4 @@
-# command-line interface
+# Command-line interface
 In case you want to create an App (workspace) based on neo.mjs, you don't need to clone this repository.</br>
 Please take a look at <a href="https://github.com/neomjs/create-app">npx neo-app</a> in this case.
 
