@@ -25,7 +25,7 @@ Please take a look at <a href="https://github.com/neomjs/create-app">npx neo-app
 This call matches:
 > node ./buildScripts/buildAll.js -f -n
 
-<h2 id="build-all">build-all</h2>
+## build-all
 > npm run build-all
 
 This call matches:
