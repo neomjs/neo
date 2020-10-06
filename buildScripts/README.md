@@ -55,6 +55,7 @@ Take a look at the next section for details on those.
 -w is a shortcut for "workers", since -t was already taken.
 4. It parses the docs comments (-p option) => <a href="#generate-docs-json">generate-docs-json</a>
 
+You can disable each step using the program options.
 
 Source code: <a href="./buildAll.js">build-all</a>
 
