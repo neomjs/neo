@@ -14,6 +14,10 @@ Make sure to call them on the top-level folder (the one containing the package.j
 In case you want to pass program options, please use the node based calls instead. E.g.:
 > node ./buildScripts/buildAll.js -h
 
+All programs which are using options also have the visual inquirer interface in place.
+So it is up to you if you prefer adding the options manually (e.g. for adding them into your own CI),
+or selecting them without memorising the shortcuts.
+
 You will notice that most programs are using the -f (framework) option here.
 The reason is that you can call them inside your neo.mjs workspaces as well,
 where the framework is included as a node module, but needs to deploy to a top-level dist folder.
@@ -53,7 +57,7 @@ Take a look at the next section for details on those.
 1. The program starts with a npm install(-l option).
 2. It builds the themes next (-t option) => <a href="#build-themes">build-themes</a>.
 3. It builds the threads (-w option) => <a href="#build-threads">build-threads</a>.</br>
--w is a shortcut for "workers", since -t was already taken.
+(-w is a shortcut for "workers", since -t was already taken.)
 4. It parses the docs comments (-p option) => <a href="#generate-docs-json">generate-docs-json</a>.
 
 You can disable each step using the program options.
