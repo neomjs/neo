@@ -18,8 +18,7 @@ Please take a look at <a href="https://github.com/neomjs/create-app">npx neo-app
 7. <a href="#generate-docs-json">generate-docs-json</a>
 8. <a href="#server-start">server-start</a>
 
-<h2 id="build-all-questions">build-all-questions</h2>
-
+## build-all-questions
 > npm run build-all-questions
 
 This call matches:
@@ -31,37 +30,37 @@ This call matches:
 This call matches:
 > node ./buildScripts/buildAll.js -f
 
-<h2 id="build-my-apps">build-my-apps</h2>
+## build-my-apps
 > npm run build-my-apps
 
 This call matches:
 > node ./buildScripts/webpack/buildMyApps.js -f
 
-<h2 id="build-themes">build-themes</h2>
+## build-themes
 > npm run build-themes
 
 This call matches:
 > node ./buildScripts/webpack/buildThemes.js -f
 
-<h2 id="build-threads">build-threads</h2>
+## build-threads
 > npm run build-threads
 
 This call matches:
 > node ./buildScripts/webpack/buildThreads.js -f
 
-<h2 id="create-app">create-app</h2>
+## create-app
 > npm run create-app
 
 This call matches:
 > node ./buildScripts/createApp.js
 
-<h2 id="generate-docs-json">generate-docs-json</h2>
+## generate-docs-json
 > npm run generate-docs-json
 
 This call matches:
 > node ./buildScripts/docs/jsdocx.js
 
-<h2 id="server-start">server-start</h2>
+## server-start
 > npm run server-start
 
 This call matches:
