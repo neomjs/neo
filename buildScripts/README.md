@@ -57,6 +57,8 @@ Take a look at the next section for details on those.
 
 You can disable each step using the program options.
 
+build-all will delegate the env, framework & noquestions options to the themes & threads builds.
+
 Source code: <a href="./buildAll.js">build-all</a>
 
 ## build-all-questions
