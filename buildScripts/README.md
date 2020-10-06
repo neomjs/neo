@@ -15,7 +15,7 @@ In case you want to pass program options, please use the node based calls instea
 > node ./buildScripts/buildAll.js -h
 
 All programs which are using options also have the visual inquirer interface in place.</br>
-So it is up to you if you prefer adding the options manually (e.g. for adding them into your own CI),
+So it is up to you if you prefer adding the options manually (e.g. for adding them into your own CI),</br>
 or selecting them without memorising the shortcuts.
 
 You will notice that most programs are using the -f (framework) option here.
