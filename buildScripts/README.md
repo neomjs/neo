@@ -14,7 +14,7 @@ Make sure to call them on the top-level folder (the one containing the package.j
 In case you want to pass program options, please use the node based calls instead. E.g.:
 > node ./buildScripts/buildAll.js -h
 
-All programs which are using options also have the visual inquirer interface in place.
+All programs which are using options also have the visual inquirer interface in place.</br>
 So it is up to you if you prefer adding the options manually (e.g. for adding them into your own CI),
 or selecting them without memorising the shortcuts.
 
