@@ -1,4 +1,4 @@
-# neo.mjs command-line interface
+# command-line interface
 This guide explains the different scripts (programs) which are included inside the package.json.</br>
 They are important for working on the framework code base.
 
@@ -9,8 +9,8 @@ In case you want to create an App (workspace) based on neo.mjs, you don't need t
 Please take a look at <a href="https://github.com/neomjs/create-app">npx neo-app</a> in this case.
 
 ## Content
-1. <a href="#build-all-questions">build-all-questions</a>
-2. <a href="#build-all">build-all</a>
+1. <a href="#build-all">build-all</a>
+2. <a href="#build-all-questions">build-all-questions</a>
 3. <a href="#build-my-apps">build-my-apps</a>
 4. <a href="#build-themes">build-themes</a>
 5. <a href="#build-threads">build-threads</a>
@@ -18,17 +18,31 @@ Please take a look at <a href="https://github.com/neomjs/create-app">npx neo-app
 7. <a href="#generate-docs-json">generate-docs-json</a>
 8. <a href="#server-start">server-start</a>
 
-## build-all-questions
-> npm run build-all-questions
-
-This call matches:
-> node ./buildScripts/buildAll.js -f -n
-
 ## build-all
 > npm run build-all
 
 This call matches:
 > node ./buildScripts/buildAll.js -f
+
+```
+Options:
+  -V, --version            output the version number
+  -i, --info               print environment debug info
+  -e, --env <name>         "all", "dev", "prod"
+  -l, --npminstall <name>  "yes", "no"
+  -f, --framework          
+  -n, --noquestions        
+  -p, --parsedocs <name>   "yes", "no"
+  -t, --themes <name>      "yes", "no"
+  -w, --threads <name>     "yes", "no"
+  -h, --help               display help for command
+```
+
+## build-all-questions
+> npm run build-all-questions
+
+This call matches:
+> node ./buildScripts/buildAll.js -f -n
 
 ## build-my-apps
 > npm run build-my-apps
