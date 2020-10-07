@@ -75,7 +75,7 @@ Source code: <a href="./buildAll.js">build-all</a>
 This entry point is running the build-all program without passing options,
 so we can select them using the inquirer interface.
 
-Let us take a look at the different steps:
+Let us take a look at the different inquirer steps:
 1. Pick the -l option:
 ```
 tobiasuhlig@iMac-Pro neo % npm run build-all-questions
@@ -155,7 +155,7 @@ in dist/development & dist/production.
 The only difference to build-threads => App is that you can limit the generation of the App related index.html files,
 so it is a little faster.
 
-Let us take a look at the different steps:
+Let us take a look at the different inquirer steps:
 1. Pick the -e option:
 ```
 tobiasuhlig@iMac-Pro neo % npm run build-my-apps
@@ -201,7 +201,7 @@ Options:
   -h, --help            display help for command
 ```
 
-Let us take a look at the different steps:
+Let us take a look at the different inquirer steps:
 1. Pick the -t option:
 ```
 tobiasuhlig@iMac-Pro neo % npm run build-themes
@@ -251,7 +251,7 @@ Options:
   -h, --help            display help for command
 ```
 
-Let us take a look at the different steps:
+Let us take a look at the different inquirer steps:
 1. Pick the -t option:
 ```
 tobiasuhlig@iMac-Pro neo % npm run build-threads
@@ -282,6 +282,33 @@ Source code: <a href="./webpack/buildThreads.js">build-threads</a>
 ## create-app
 > node ./buildScripts/createApp.js
 
+Again: In case you want to create an App (workspace) based on neo.mjs, you don't need to clone this repository.</br>
+Please take a look at the <a href="https://github.com/neomjs/create-app">create-app repository</a> (npx neo-app).
+
+If you want to create a new Demo App inside the framework repo,
+using the create-app program makes sense, since you can work on the app & framework code in parallel.
+
+Using the default options, this will generate the following 3 files:
+``` 
+neo
+ | - apps
+ |    | - myapp
+ |    |    | - app.mjs
+ |    |    | - index.html
+ |    |    | - MainContainer.mjs
+```
+
+The program will also add the App config into buildScripts/webpack/json/myApps.json.
+``` 
+"MyApp": {
+    "input": "./apps/myapp/app.mjs",
+    "output": "/apps/myapp/",
+    "title": "MyApp"
+}
+```
+This file is added inside the .gitignore.</br>
+If the file does not exist yet, the program will copy buildScripts/webpack/json/myApps.template.json to create it.
+
 ```
 Options:
   -V, --version                  output the version number
@@ -295,7 +322,7 @@ Options:
   -h, --help                     display help for command
 ```
 
-Let us take a look at the different steps:
+Let us take a look at the different inquirer steps:
 1. Pick the -a option:
 ```
 tobiasuhlig@iMac-Pro neo % npm run create-app
@@ -340,6 +367,39 @@ neo.mjs create-app
   yes 
 ❯ no 
 ```
+
+No worries, you can easily change the options after you created your App shell.
+
+E.g. in case you want to add the MapboxGL main thread addon later on,
+you can add it inside your index.html file:
+```
+Object.assign(Neo.config, {
+    appPath         : 'apps/myapp/app.mjs',
+    basePath        : '../../',
+    environment     : 'development',
+    mainThreadAddons: ['MapboxGL', 'Stylesheet']
+});
+```
+
+To add it into your build versions (dist/development & dist/production), you also need to adjust the
+buildScripts/webpack/json/myApps.json file:
+``` 
+"MyApp": {
+    "input": "./apps/myapp/app.mjs",
+    "mainThreadAddons": "'MapboxGL', 'Stylesheet'",
+    "output": "/apps/myapp/",
+    "title": "MyApp"
+}
+```
+
+Regarding the -u (SharedWorkers) option:</br>
+Only use it in case you want to create an App which uses multiple main threads (Browser Windows).</br>
+Even in this case I recommend to start without it and switch at the point when your App is ready to connect
+a second one, since it does make the debugging more complicated.
+
+With normal Workers, you can get console logs & error messages inside your Browser Tab dev tools.</br>
+Using SharedWorkers, you need to open a separate Window to inspect them:</br>
+> chrome://inspect/#workers
 
 Source code: <a href="./buildScripts/createApp.js">create-app</a>
 
