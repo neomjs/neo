@@ -75,8 +75,7 @@ Source code: <a href="./buildAll.js">build-all</a>
 This entry point is running the build-all program without passing options,
 so we can select them using the inquirer interface.
 
-Let us take a look at the different steps.
-
+Let us take a look at the different steps:
 1. We pick the -l option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_1.png">
 2. We pick the -e option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_2.png">
 3. We pick the -t option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_3.png">
@@ -97,6 +96,21 @@ Options:
   -n, --noquestions  
   -h, --help         display help for command
 ```
+
+build-my-apps is very similar to build-threads => App.
+
+In both cases, we are parsing <a href="../src/worker/App.mjs">worker/App</a>,
+which will dynamically import all Apps inside the src/app folder and the Docs App and create split chunks
+for all combinations.
+
+This enables you to add multiple Apps on one Page with close to zero overhead in dist/development & dist/production.
+
+The only difference to build-threads => App is that you can limit the generation of the App related index.html files,
+so it is a little faster.
+
+Let us take a look at the different steps:
+1. We pick the -l option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildMyApps_1.png">
+2. We pick the -e option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildMyApps_2.png">
 
 Source code: <a href="./webpack/buildMyApps.js">build-my-apps</a>
 
