@@ -72,6 +72,8 @@ Source code: <a href="./buildAll.js">build-all</a>
 ## build-all-questions
 > node ./buildScripts/buildAll.js -f
 
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_1.png">
+
 ## build-my-apps
 > node ./buildScripts/webpack/buildMyApps.js -f
 
