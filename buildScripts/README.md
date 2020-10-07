@@ -65,7 +65,7 @@ You can disable each step using the program options.
 build-all will delegate the env, framework & noquestions options to build-themes & build-threads.
 
 You can use the -e (environment) option in case you want to limit the build either to dist/development
-or dist/production. 
+or dist/production.
 
 Source code: <a href="./buildAll.js">build-all</a>
 
@@ -127,6 +127,8 @@ neo.mjs buildAll
 ❯ yes 
   no 
 ```
+
+Source code: <a href="./buildAll.js">build-all</a>
 
 ## build-my-apps
 > node ./buildScripts/webpack/buildMyApps.js -f
@@ -247,6 +249,32 @@ Options:
   -n, --noquestions     
   -t, --threads <name>  "all", "app", "data", "main", "vdom"
   -h, --help            display help for command
+```
+
+Let us take a look at the different steps:
+1. We pick the -t option:
+```
+tobiasuhlig@iMac-Pro neo % npm run build-threads
+
+> neo.mjs@1.4.14 build-threads /Users/Shared/github/neomjs/neo
+> node ./buildScripts/webpack/buildThreads.js -f
+
+neo.mjs buildThreads
+? Please choose the threads to build: (Use arrow keys)
+❯ all 
+  app 
+  data 
+  main 
+  vdom 
+```
+2. We pick the -e option:
+```
+neo.mjs buildThreads
+? Please choose the threads to build: all
+? Please choose the environment: (Use arrow keys)
+❯ all 
+  dev 
+  prod 
 ```
 
 Source code: <a href="./webpack/buildThreads.js">build-threads</a>
