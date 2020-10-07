@@ -99,7 +99,7 @@ Options:
 
 build-my-apps is very similar to build-threads => App.
 
-In both cases, we are parsing <a href="../src/worker/App.mjs">worker/App</a>,
+In both cases we are parsing <a href="../src/worker/App.mjs">worker/App</a>,
 which will dynamically import all Apps inside the src/app folder and the Docs App and create split chunks
 for all combinations.
 
@@ -122,13 +122,8 @@ neo.mjs buildMyApps
   dev 
   prod 
 ```
-2. We pick the -a option:</br>
+2. We pick the -a option:
 ```
-tobiasuhlig@iMac-Pro neo % npm run build-my-apps
-
-> neo.mjs@1.4.14 build-my-apps /Users/Shared/github/neomjs/neo
-> node ./buildScripts/webpack/buildMyApps.js -f
-
 neo.mjs buildMyApps
 ? Please choose the environment: all
 ? Please choose which apps you want to build: (Press <space> to select, <a> to toggle all, <i> to invert selection)
