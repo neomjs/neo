@@ -295,6 +295,52 @@ Options:
   -h, --help                     display help for command
 ```
 
+Let us take a look at the different steps:
+1. We pick the -a option:
+```
+tobiasuhlig@iMac-Pro neo % npm run create-app
+
+> neo.mjs@1.4.14 create-app /Users/Shared/github/neomjs/neo
+> node ./buildScripts/createApp.js
+
+neo.mjs create-app
+? Please choose a name for your neo app: (MyApp) 
+```
+2. We pick the -t option:
+```
+neo.mjs create-app
+? Please choose a name for your neo app: MyApp
+? Please choose a theme for your neo app: (Use arrow keys)
+  neo-theme-dark 
+  neo-theme-light 
+❯ both 
+```
+3. We pick the -t option:
+```
+neo.mjs create-app
+? Please choose a name for your neo app: MyApp
+? Please choose a theme for your neo app: both
+? Please choose your main thread addons: (Press <space> to select, <a> to toggle all, <i> to invert selection)
+❯◯ AmCharts
+ ◯ AnalyticsByGoogle
+ ◯ HighlightJS
+ ◯ LocalStorage
+ ◯ MapboxGL
+ ◯ Markdown
+ ◯ Siesta
+(Move up and down to reveal more choices)
+```
+4. We pick the -u option:
+```
+neo.mjs create-app
+? Please choose a name for your neo app: MyApp
+? Please choose a theme for your neo app: both
+? Please choose your main thread addons: Stylesheet
+? Do you want to use SharedWorkers? Pick yes for multiple main threads (Browser Windows): (Use arrow keys)
+  yes 
+❯ no 
+```
+
 Source code: <a href="./buildScripts/createApp.js">create-app</a>
 
 ## generate-docs-json
