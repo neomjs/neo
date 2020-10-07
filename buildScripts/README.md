@@ -147,9 +147,8 @@ build-my-apps is very similar to build-threads => App.
 
 In both cases we are parsing <a href="../src/worker/App.mjs">worker/App</a>,
 which will dynamically import all Apps inside the src/app folder and the Docs App and create split chunks
-for all combinations.
-
-This enables you to add multiple Apps on one Page with close to zero overhead in dist/development & dist/production.
+for all combinations. This enables you to add multiple Apps on one Page with close to zero overhead
+in dist/development & dist/production.
 
 The only difference to build-threads => App is that you can limit the generation of the App related index.html files,
 so it is a little faster.
@@ -198,6 +197,40 @@ Options:
   -n, --noquestions     
   -t, --themes <name>   "all", "dark", "light"
   -h, --help            display help for command
+```
+
+Let us take a look at the different steps:
+1. We pick the -t option:
+```
+tobiasuhlig@iMac-Pro neo % npm run build-themes
+
+> neo.mjs@1.4.14 build-themes /Users/Shared/github/neomjs/neo
+> node ./buildScripts/webpack/buildThemes.js -f
+
+neo.mjs buildThemes
+? Please choose the themes to build: (Use arrow keys)
+❯ all 
+  dark 
+  light 
+```
+2. We pick the -e option:
+```
+neo.mjs buildThemes
+? Please choose the themes to build: all
+? Please choose the environment: (Use arrow keys)
+❯ all 
+  dev 
+  prod 
+```
+3. We pick the -c option:
+```
+neo.mjs buildThemes
+? Please choose the themes to build: all
+? Please choose the environment: all
+? Build using CSS variables? (Use arrow keys)
+  all 
+❯ yes 
+  no 
 ```
 
 Source code: <a href="./webpack/buildThemes.js">build-themes</a>
