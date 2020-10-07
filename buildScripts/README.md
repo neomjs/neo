@@ -109,8 +109,8 @@ The only difference to build-threads => App is that you can limit the generation
 so it is a little faster.
 
 Let us take a look at the different steps:
-1. We pick the -l option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildMyApps_1.png">
-2. We pick the -e option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildMyApps_2.png">
+1. We pick the -e option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildMyApps_1.png">
+2. We pick the -a option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildMyApps_2.png">
 
 Source code: <a href="./webpack/buildMyApps.js">build-my-apps</a>
 
