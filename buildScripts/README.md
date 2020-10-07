@@ -109,7 +109,8 @@ The only difference to build-threads => App is that you can limit the generation
 so it is a little faster.
 
 Let us take a look at the different steps:
-1. We pick the -e option:</br>```
+1. We pick the -e option:
+```
 tobiasuhlig@iMac-Pro neo % npm run build-my-apps
 
 > neo.mjs@1.4.14 build-my-apps /Users/Shared/github/neomjs/neo
