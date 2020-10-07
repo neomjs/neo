@@ -315,7 +315,7 @@ neo.mjs create-app
   neo-theme-light 
 ❯ both 
 ```
-3. Pick the -t option:
+3. Pick the -m option:
 ```
 neo.mjs create-app
 ? Please choose a name for your neo app: MyApp
