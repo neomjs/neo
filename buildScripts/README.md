@@ -77,11 +77,11 @@ so we can select them using the inquirer interface.
 
 Let us take a look at the different steps.
 
-1. We pick the -l option: <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_1.png">
-2. We pick the -e option: <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_2.png">
-3. We pick the -t option: <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_3.png">
-4. We pick the -w option: <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_4.png">
-5. We pick the -p option: <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_5.png">
+1. We pick the -l option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_1.png">
+2. We pick the -e option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_2.png">
+3. We pick the -t option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_3.png">
+4. We pick the -w option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_4.png">
+5. We pick the -p option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_5.png">
 
 ## build-my-apps
 > node ./buildScripts/webpack/buildMyApps.js -f
