@@ -110,7 +110,25 @@ so it is a little faster.
 
 Let us take a look at the different steps:
 1. We pick the -e option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildMyApps_1.png">
-2. We pick the -a option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildMyApps_2.png">
+2. We pick the -a option:</br>
+```
+tobiasuhlig@iMac-Pro neo % npm run build-my-apps
+
+> neo.mjs@1.4.14 build-my-apps /Users/Shared/github/neomjs/neo
+> node ./buildScripts/webpack/buildMyApps.js -f
+
+neo.mjs buildMyApps
+? Please choose the environment: all
+? Please choose which apps you want to build: (Press <space> to select, <a> to toggle all, <i> to invert selection)
+❯◯ Covid
+ ◯ RealWorld
+ ◯ RealWorld2
+ ◯ SharedCovid
+ ◯ SharedCovidChart
+ ◯ SharedCovidGallery
+ ◯ SharedCovidHelix
+(Move up and down to reveal more choices)
+```
 
 Source code: <a href="./webpack/buildMyApps.js">build-my-apps</a>
 
