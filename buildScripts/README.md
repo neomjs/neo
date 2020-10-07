@@ -240,6 +240,12 @@ Source code: <a href="./webpack/buildThemes.js">build-themes</a>
 ## build-threads
 > node ./buildScripts/webpack/buildThreads.js -f
 
+Since the default neo.mjs setup is using 3 workers, we have the following 4 threads to build:</br>
+"app", "data", "main", "vdom"
+
+Most of the framework code base & the apps you build with it run inside the App Worker,</br>
+so most of the time you only need to build the app thread.
+
 ```
 Options:
   -V, --version         output the version number
