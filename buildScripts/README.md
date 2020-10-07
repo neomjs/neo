@@ -76,11 +76,57 @@ This entry point is running the build-all program without passing options,
 so we can select them using the inquirer interface.
 
 Let us take a look at the different steps:
-1. We pick the -l option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_1.png">
-2. We pick the -e option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_2.png">
-3. We pick the -t option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_3.png">
-4. We pick the -w option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_4.png">
-5. We pick the -p option:</br><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/guides/buildAll_5.png">
+1. We pick the -l option:
+```
+tobiasuhlig@iMac-Pro neo % npm run build-all-questions
+
+> neo.mjs@1.4.14 build-all-questions /Users/Shared/github/neomjs/neo
+> node ./buildScripts/buildAll.js -f
+
+neo.mjs buildAll
+? Run npm install?: (Use arrow keys)
+❯ yes 
+  no 
+```
+2. We pick the -e option:
+```
+neo.mjs buildAll
+? Run npm install?: yes
+? Please choose the environment: (Use arrow keys)
+❯ all 
+  dev 
+  prod 
+```
+3. We pick the -t option:
+```
+neo.mjs buildAll
+? Run npm install?: yes
+? Please choose the environment: all
+? Build the themes? (Use arrow keys)
+❯ yes 
+  no 
+```
+4. We pick the -w option:
+```
+neo.mjs buildAll
+? Run npm install?: yes
+? Please choose the environment: all
+? Build the themes? yes
+? Build the threads? (Use arrow keys)
+❯ yes 
+  no 
+```
+5. We pick the -p option:
+```
+neo.mjs buildAll
+? Run npm install?: yes
+? Please choose the environment: all
+? Build the themes? yes
+? Build the threads? yes
+? Trigger the jsdocx parsing? (Use arrow keys)
+❯ yes 
+  no 
+```
 
 ## build-my-apps
 > node ./buildScripts/webpack/buildMyApps.js -f
