@@ -214,11 +214,7 @@ class TreeList extends Base {
         });
 
         if (hasMatch) {
-            if (silent) {
-                me._vdom = vdom
-            } else {
-                me.vdom = vdom;
-            }
+            me[silent ? '_vdom' : 'vdom'] = vdom;
         }
     }
 
@@ -259,11 +255,9 @@ class TreeList extends Base {
 
                 if (directMatch || parentMatch || childReturnValue === false || value === '') {
                     isFiltered = false;
-
-                    node.style.display = 'list-item';
-                } else {
-                    node.style.display = 'none';
                 }
+
+                node.style.display = isFiltered ? 'none' : 'list-item';
             }
         });
 
