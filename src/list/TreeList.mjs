@@ -111,11 +111,7 @@ class TreeList extends Base {
         });
 
         if (hasMatch) {
-            if (silent) {
-                me._vdom = vdom
-            } else {
-                me.vdom = vdom;
-            }
+            me[silent ? '_vdom' : 'vdom'] = vdom;
         }
     }
 
