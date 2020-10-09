@@ -39,16 +39,16 @@ It is strongly recommended to run this program after each git pull on this repo.
 
 ```bash
 Options:
-  -V, --version            output the version number
-  -i, --info               print environment debug info
-  -e, --env <name>         "all", "dev", "prod"
-  -l, --npminstall <name>  "yes", "no"
+  -V, --version             output the version number
+  -i, --info                print environment debug info
+  -e, --env <value>         "all", "dev", "prod"
+  -l, --npminstall <value>  "yes", "no"
   -f, --framework          
   -n, --noquestions        
-  -p, --parsedocs <name>   "yes", "no"
-  -t, --themes <name>      "yes", "no"
-  -w, --threads <name>     "yes", "no"
-  -h, --help               display help for command
+  -p, --parsedocs <value>   "yes", "no"
+  -t, --themes <value>      "yes", "no"
+  -w, --threads <value>     "yes", "no"
+  -h, --help                display help for command
 ```
 
 The build-all program is using the -n (noquestions) option.
@@ -135,14 +135,14 @@ Source code: <a href="./buildAll.js">build-all</a>
 
 ```bash
 Options:
-  -V, --version      output the version number
-  -i, --info         print environment debug info
-  -a, --apps <name>  "all", "Covid", "RealWorld", "RealWorld2", "SharedCovid", "SharedCovidChart", "SharedCovidGallery",
-                     "SharedCovidHelix", "SharedCovidMap", "SharedDialog", "SharedDialog2", "Website"
-  -e, --env <name>   "all", "dev", "prod"
+  -V, --version       output the version number
+  -i, --info          print environment debug info
+  -a, --apps <value>  "all", "Covid", "RealWorld", "RealWorld2", "SharedCovid", "SharedCovidChart", "SharedCovidGallery",
+                      "SharedCovidHelix", "SharedCovidMap", "SharedDialog", "SharedDialog2", "Website"
+  -e, --env <value>   "all", "dev", "prod"
   -f, --framework    
   -n, --noquestions  
-  -h, --help         display help for command
+  -h, --help          display help for command
 ```
 
 build-my-apps is very similar to build-threads => App.
@@ -191,14 +191,14 @@ Source code: <a href="./webpack/buildMyApps.js">build-my-apps</a>
 
 ```bash
 Options:
-  -V, --version         output the version number
-  -i, --info            print environment debug info
-  -c, --cssVars <name>  "all", "true", "false"
-  -e, --env <name>      "all", "dev", "prod"
+  -V, --version          output the version number
+  -i, --info             print environment debug info
+  -c, --cssVars <value>  "all", "true", "false"
+  -e, --env <value>      "all", "dev", "prod"
   -f, --framework       
   -n, --noquestions     
-  -t, --themes <name>   "all", "dark", "light"
-  -h, --help            display help for command
+  -t, --themes <value>   "all", "dark", "light"
+  -h, --help             display help for command
 ```
 
 Let us take a look at the different inquirer steps:
@@ -248,13 +248,13 @@ so most of the time you only need to build the app thread.
 
 ```bash
 Options:
-  -V, --version         output the version number
-  -i, --info            print environment debug info
-  -e, --env <name>      "all", "dev", "prod"
+  -V, --version          output the version number
+  -i, --info             print environment debug info
+  -e, --env <value>      "all", "dev", "prod"
   -f, --framework       
   -n, --noquestions     
-  -t, --threads <name>  "all", "app", "data", "main", "vdom"
-  -h, --help            display help for command
+  -t, --threads <value>  "all", "app", "data", "main", "vdom"
+  -h, --help             display help for command
 ```
 
 Let us take a look at the different inquirer steps:
@@ -319,13 +319,13 @@ If the file does not exist yet, the program will copy buildScripts/webpack/json/
 Options:
   -V, --version                  output the version number
   -i, --info                     print environment debug info
-  -a, --appName <name>           
-  -m, --mainThreadAddons <name>  Comma separated list of AmCharts, AnalyticsByGoogle, HighlightJS, LocalStorage,
-                                 MapboxGL, Markdown, Siesta, Stylesheet.
-                                 Defaults to Stylesheet
-  -t, --themes <name>            "all", "dark", "light"
-  -u, --useSharedWorkers <name>  "yes", "no"
-  -h, --help                     display help for command
+  -a, --appName <value>           
+  -m, --mainThreadAddons <value>  Comma separated list of AmCharts, AnalyticsByGoogle, HighlightJS, LocalStorage,
+                                  MapboxGL, Markdown, Siesta, Stylesheet.
+                                  Defaults to Stylesheet
+  -t, --themes <value>            "all", "dark", "light"
+  -u, --useSharedWorkers <value>  "yes", "no"
+  -h, --help                      display help for command
 ```
 
 Let us take a look at the different inquirer steps:
