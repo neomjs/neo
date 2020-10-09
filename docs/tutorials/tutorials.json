@@ -23,16 +23,8 @@
         "type"    : "html"
     },
     {
-        "fileName": "10_BuildScripts.html",
-        "id"      : 4,
-        "isLeaf"  : true,
-        "name"    : "Build Scripts",
-        "parentId": 1,
-        "type"    : "html"
-    },
-    {
         "fileName": "02_ClassSystem.html",
-        "id"      : 5,
+        "id"      : 4,
         "isLeaf"  : true,
         "name"    : "Class System",
         "parentId": 1,
@@ -40,7 +32,7 @@
     },
     {
         "fileName": "03_ComponentLifecycle.html",
-        "id"      : 6,
+        "id"      : 5,
         "isLeaf"  : true,
         "name"    : "Component Lifecycle",
         "parentId": 1,
@@ -48,7 +40,7 @@
     },
     {
         "fileName": "08_DomEvents.html",
-        "id"      : 7,
+        "id"      : 6,
         "isLeaf"  : true,
         "name"    : "Dom Events",
         "parentId": 1,
@@ -56,7 +48,7 @@
     },
     {
         "fileName": "04_VdomVnode.html",
-        "id"      : 8,
+        "id"      : 7,
         "isLeaf"  : true,
         "name"    : "Vdom & Vnodes",
         "parentId": 1,
@@ -64,14 +56,14 @@
     },
     {
         "fileName": "05_RemoteMethodAccess.html",
-        "id"      : 9,
+        "id"      : 8,
         "isLeaf"  : true,
         "name"    : "Remote Method Access",
         "parentId": 1,
         "type"    : "html"
     },
     {
-        "id"       : 10,
+        "id"       : 9,
         "isLeaf"   : false,
         "name"     : "Building a TodoList",
         "parentId" : null,
@@ -79,14 +71,14 @@
     },
     {
         "fileName": "09_TodoList_version1.html",
-        "id"      : 11,
+        "id"      : 10,
         "isLeaf"  : true,
         "name"    : "Version 1",
-        "parentId": 10,
+        "parentId": 9,
         "type"    : "html"
     },
     {
-        "id"       : 12,
+        "id"       : 11,
         "isLeaf"   : false,
         "name"     : "basics",
         "parentId" : null,
@@ -94,18 +86,18 @@
     },
     {
         "fileName": "06_EcmaScript6Plus.html",
-        "id"      : 13,
+        "id"      : 12,
         "isLeaf"  : true,
         "name"    : "EcmaScript 6+",
-        "parentId": 12,
+        "parentId": 11,
         "type"    : "html"
     },
     {
         "fileName": "07_WebWorkers.html",
-        "id"      : 14,
+        "id"      : 13,
         "isLeaf"  : true,
         "name"    : "Web Workers",
-        "parentId": 12,
+        "parentId": 11,
         "type"    : "html"
     }
 ]
