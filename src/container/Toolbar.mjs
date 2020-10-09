@@ -50,7 +50,11 @@ class Toolbar extends Container {
             ntype: 'hbox',
             align: 'center',
             pack : 'start'
-        }
+        },
+        /**
+         * @member {Boolean} sortable_=false
+         */
+        sortable_: false
     }}
 
     /**
