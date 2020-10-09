@@ -114,6 +114,28 @@ class Toolbar extends Container {
     }
 
     /**
+     * Triggered after the sortable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSortable(value, oldValue) {
+        if (value) {
+            let me = this;
+
+            import(
+                /* webpackChunkName: 'src/draggable/toolbar/SortZone-mjs.js' */
+                '../draggable/toolbar/SortZone.mjs'
+                ).then(module => {
+                me.sortZone = Neo.create(module.default, {
+                    appName: me.appName,
+                    owner  : me
+                });
+            });
+        }
+    }
+
+    /**
      * Checks if the new dock position matches a value of the static dockPositions config
      * @param {String} value
      * @param {String} oldValue
