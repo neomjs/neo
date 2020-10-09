@@ -43,9 +43,9 @@ if (config.apps) {
 program
     .name(programName)
     .version(packageJson.version)
-    .option('-i, --info',        'print environment debug info')
-    .option('-a, --apps <name>', ['all'].concat(appChoices).map(e => `"${e}"`).join(', '))
-    .option('-e, --env <name>',  '"all", "dev", "prod"')
+    .option('-i, --info',         'print environment debug info')
+    .option('-a, --apps <value>', ['all'].concat(appChoices).map(e => `"${e}"`).join(', '))
+    .option('-e, --env <value>',  '"all", "dev", "prod"')
     .option('-f, --framework')
     .option('-n, --noquestions')
     .allowUnknownOption()

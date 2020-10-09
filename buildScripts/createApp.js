@@ -13,11 +13,11 @@ const chalk       = require('chalk'),
 program
     .name(programName)
     .version(packageJson.version)
-    .option('-i, --info',                    'print environment debug info')
-    .option('-a, --appName <name>')
-    .option('-m, --mainThreadAddons <name>', 'Comma separated list of AmCharts, AnalyticsByGoogle, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet\n Defaults to Stylesheet')
-    .option('-t, --themes <name>',           '"all", "dark", "light"')
-    .option('-u, --useSharedWorkers <name>', '"yes", "no"')
+    .option('-i, --info',                     'print environment debug info')
+    .option('-a, --appName <value>')
+    .option('-m, --mainThreadAddons <value>', 'Comma separated list of AmCharts, AnalyticsByGoogle, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet\n Defaults to Stylesheet')
+    .option('-t, --themes <value>',           '"all", "dark", "light"')
+    .option('-u, --useSharedWorkers <value>', '"yes", "no"')
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');

@@ -19,14 +19,14 @@ const chalk       = require('chalk'),
 program
     .name(programName)
     .version(packageJson.version)
-    .option('-i, --info',              'print environment debug info')
-    .option('-e, --env <name>',        '"all", "dev", "prod"')
-    .option('-l, --npminstall <name>', '"yes", "no"')
+    .option('-i, --info',               'print environment debug info')
+    .option('-e, --env <value>',        '"all", "dev", "prod"')
+    .option('-l, --npminstall <value>', '"yes", "no"')
     .option('-f, --framework')
     .option('-n, --noquestions')
-    .option('-p, --parsedocs <name>',  '"yes", "no"')
-    .option('-t, --themes <name>',     '"yes", "no"')
-    .option('-w, --threads <name>',    '"yes", "no"')
+    .option('-p, --parsedocs <value>',  '"yes", "no"')
+    .option('-t, --themes <value>',     '"yes", "no"')
+    .option('-w, --threads <value>',    '"yes", "no"')
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
