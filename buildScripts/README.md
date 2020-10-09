@@ -78,7 +78,7 @@ so we can select them using the inquirer interface.
 Let us take a look at the different inquirer steps:
 1. Pick the -l (npminstall) option:
 ```bash
-tobiasuhlig@iMac-Pro neo % npm run build-all-questions
+neo % npm run build-all-questions
 
 > neo.mjs@1.4.14 build-all-questions /Users/Shared/github/neomjs/neo
 > node ./buildScripts/buildAll.js -f
@@ -158,7 +158,7 @@ so it is a little faster.
 Let us take a look at the different inquirer steps:
 1. Pick the -e (env) option:
 ```bash
-tobiasuhlig@iMac-Pro neo % npm run build-my-apps
+neo % npm run build-my-apps
 
 > neo.mjs@1.4.14 build-my-apps /Users/Shared/github/neomjs/neo
 > node ./buildScripts/webpack/buildMyApps.js -f
@@ -204,7 +204,7 @@ Options:
 Let us take a look at the different inquirer steps:
 1. Pick the -t (themes) option:
 ```bash
-tobiasuhlig@iMac-Pro neo % npm run build-themes
+neo % npm run build-themes
 
 > neo.mjs@1.4.14 build-themes /Users/Shared/github/neomjs/neo
 > node ./buildScripts/webpack/buildThemes.js -f
@@ -260,7 +260,7 @@ Options:
 Let us take a look at the different inquirer steps:
 1. Pick the -t (threads) option:
 ```bash
-tobiasuhlig@iMac-Pro neo % npm run build-threads
+neo % npm run build-threads
 
 > neo.mjs@1.4.14 build-threads /Users/Shared/github/neomjs/neo
 > node ./buildScripts/webpack/buildThreads.js -f
@@ -295,7 +295,7 @@ If you want to create a new Demo App inside the framework repo,
 using the create-app program makes sense, since you can work on the app & framework code in parallel.
 
 Using the default options, this will generate the following 3 files:
-```bash
+```
 neo
  | - apps
  |    | - myapp
@@ -331,7 +331,7 @@ Options:
 Let us take a look at the different inquirer steps:
 1. Pick the -a (appName) option:
 ```bash
-tobiasuhlig@iMac-Pro neo % npm run create-app
+neo % npm run create-app
 
 > neo.mjs@1.4.14 create-app /Users/Shared/github/neomjs/neo
 > node ./buildScripts/createApp.js
