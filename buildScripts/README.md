@@ -317,8 +317,8 @@ If the file does not exist yet, the program will copy buildScripts/webpack/json/
 
 ```bash
 Options:
-  -V, --version                  output the version number
-  -i, --info                     print environment debug info
+  -V, --version                   output the version number
+  -i, --info                      print environment debug info
   -a, --appName <value>           
   -m, --mainThreadAddons <value>  Comma separated list of AmCharts, AnalyticsByGoogle, HighlightJS, LocalStorage,
                                   MapboxGL, Markdown, Siesta, Stylesheet.
