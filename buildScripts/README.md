@@ -37,7 +37,7 @@ where the framework is included as a node module, but needs to deploy to a top-l
 
 It is strongly recommended to run this program after each git pull on this repo.
 
-```
+```js
 Options:
   -V, --version            output the version number
   -i, --info               print environment debug info
@@ -77,7 +77,7 @@ so we can select them using the inquirer interface.
 
 Let us take a look at the different inquirer steps:
 1. Pick the -l (npminstall) option:
-```
+```bash
 tobiasuhlig@iMac-Pro neo % npm run build-all-questions
 
 > neo.mjs@1.4.14 build-all-questions /Users/Shared/github/neomjs/neo
