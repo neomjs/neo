@@ -412,6 +412,16 @@ Source code: <a href="./buildScripts/createApp.js">create-app</a>
 ## generate-docs-json
 > node ./buildScripts/docs/jsdocx.js
 
+neo.mjs is using jsdoc
+> https://github.com/jsdoc/jsdoc
+
+to parse code comments and get the input we need for the Docs App.
+More precisely, our parser is based on:
+> https://github.com/onury/jsdoc-x
+
+to get the output in json based format.
+There are several enhancements around it to polish it for our class system improvements. 
+
 Source code: <a href="./docs/jsdocx.js">generate-docs-json</a>
 
 ## server-start
