@@ -76,7 +76,7 @@ This entry point is running the build-all program without passing options,
 so we can select them using the inquirer interface.
 
 Let us take a look at the different inquirer steps:
-1. Pick the -l option:
+1. Pick the -l (npminstall) option:
 ```
 tobiasuhlig@iMac-Pro neo % npm run build-all-questions
 
@@ -88,7 +88,7 @@ neo.mjs buildAll
 ❯ yes 
   no 
 ```
-2. Pick the -e option:
+2. Pick the -e (env) option:
 ```
 neo.mjs buildAll
 ? Run npm install?: yes
@@ -97,7 +97,7 @@ neo.mjs buildAll
   dev 
   prod 
 ```
-3. Pick the -t option:
+3. Pick the -t (themes) option:
 ```
 neo.mjs buildAll
 ? Run npm install?: yes
@@ -106,7 +106,7 @@ neo.mjs buildAll
 ❯ yes 
   no 
 ```
-4. Pick the -w option:
+4. Pick the -w (threads) option:
 ```
 neo.mjs buildAll
 ? Run npm install?: yes
@@ -116,7 +116,7 @@ neo.mjs buildAll
 ❯ yes 
   no 
 ```
-5. Pick the -p option:
+5. Pick the -p (parsedocs) option:
 ```
 neo.mjs buildAll
 ? Run npm install?: yes
@@ -156,7 +156,7 @@ The only difference to build-threads => App is that you can limit the generation
 so it is a little faster.
 
 Let us take a look at the different inquirer steps:
-1. Pick the -e option:
+1. Pick the -e (env) option:
 ```
 tobiasuhlig@iMac-Pro neo % npm run build-my-apps
 
@@ -169,7 +169,7 @@ neo.mjs buildMyApps
   dev 
   prod 
 ```
-2. Pick the -a option:
+2. Pick the -a (apps) option:
 ```
 neo.mjs buildMyApps
 ? Please choose the environment: all
@@ -202,7 +202,7 @@ Options:
 ```
 
 Let us take a look at the different inquirer steps:
-1. Pick the -t option:
+1. Pick the -t (themes) option:
 ```
 tobiasuhlig@iMac-Pro neo % npm run build-themes
 
@@ -215,7 +215,7 @@ neo.mjs buildThemes
   dark 
   light 
 ```
-2. Pick the -e option:
+2. Pick the -e (env) option:
 ```
 neo.mjs buildThemes
 ? Please choose the themes to build: all
@@ -224,7 +224,7 @@ neo.mjs buildThemes
   dev 
   prod 
 ```
-3. Pick the -c option:
+3. Pick the -c (cssVars) option:
 ```
 neo.mjs buildThemes
 ? Please choose the themes to build: all
@@ -258,7 +258,7 @@ Options:
 ```
 
 Let us take a look at the different inquirer steps:
-1. Pick the -t option:
+1. Pick the -t (threads) option:
 ```
 tobiasuhlig@iMac-Pro neo % npm run build-threads
 
@@ -273,7 +273,7 @@ neo.mjs buildThreads
   main 
   vdom 
 ```
-2. Pick the -e option:
+2. Pick the -e (env) option:
 ```
 neo.mjs buildThreads
 ? Please choose the threads to build: all
@@ -329,7 +329,7 @@ Options:
 ```
 
 Let us take a look at the different inquirer steps:
-1. Pick the -a option:
+1. Pick the -a (appName) option:
 ```
 tobiasuhlig@iMac-Pro neo % npm run create-app
 
@@ -339,7 +339,7 @@ tobiasuhlig@iMac-Pro neo % npm run create-app
 neo.mjs create-app
 ? Please choose a name for your neo app: (MyApp) 
 ```
-2. Pick the -t option:
+2. Pick the -t (themes) option:
 ```
 neo.mjs create-app
 ? Please choose a name for your neo app: MyApp
@@ -348,7 +348,7 @@ neo.mjs create-app
   neo-theme-light 
 ❯ both 
 ```
-3. Pick the -m option:
+3. Pick the -m (mainThreadAddons) option:
 ```
 neo.mjs create-app
 ? Please choose a name for your neo app: MyApp
@@ -363,7 +363,7 @@ neo.mjs create-app
  ◯ Siesta
 (Move up and down to reveal more choices)
 ```
-4. Pick the -u option:
+4. Pick the -u (useSharedWorkers) option:
 ```
 neo.mjs create-app
 ? Please choose a name for your neo app: MyApp
