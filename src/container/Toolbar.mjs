@@ -58,43 +58,6 @@ class Toolbar extends Container {
     }}
 
     /**
-     * Creates a layout config depending on this.dock
-     * @returns {Object} layoutConfig
-     */
-    getLayoutConfig() {
-        let layoutConfig;
-
-        switch(this.dock) {
-            case 'bottom':
-            case 'top':
-                layoutConfig = {
-                    ntype: 'hbox',
-                    align: 'center',
-                    pack : 'start'
-                };
-                break;
-            case 'left':
-                layoutConfig = {
-                    ntype    : 'vbox',
-                    align    : 'center',
-                    direction: 'column-reverse',
-                    pack     : 'start'
-                };
-                break;
-            case 'right':
-                layoutConfig = {
-                    ntype    : 'vbox',
-                    align    : 'center',
-                    direction: 'column',
-                    pack     : 'start'
-                };
-                break;
-        }
-
-        return layoutConfig;
-    }
-
-    /**
      * Triggered after the dock config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -146,6 +109,9 @@ class Toolbar extends Container {
         return this.beforeSetEnumValue(value, oldValue, 'dock', 'dockPositions');
     }
 
+    /**
+     *
+     */
     createItems() {
         const items = this._items;
 
@@ -161,6 +127,43 @@ class Toolbar extends Container {
         }
 
         return super.createItems();
+    }
+
+    /**
+     * Creates a layout config depending on this.dock
+     * @returns {Object} layoutConfig
+     */
+    getLayoutConfig() {
+        let layoutConfig;
+
+        switch(this.dock) {
+            case 'bottom':
+            case 'top':
+                layoutConfig = {
+                    ntype: 'hbox',
+                    align: 'center',
+                    pack : 'start'
+                };
+                break;
+            case 'left':
+                layoutConfig = {
+                    ntype    : 'vbox',
+                    align    : 'center',
+                    direction: 'column-reverse',
+                    pack     : 'start'
+                };
+                break;
+            case 'right':
+                layoutConfig = {
+                    ntype    : 'vbox',
+                    align    : 'center',
+                    direction: 'column',
+                    pack     : 'start'
+                };
+                break;
+        }
+
+        return layoutConfig;
     }
 }
 
