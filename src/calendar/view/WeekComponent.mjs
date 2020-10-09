@@ -3,7 +3,7 @@ import DateUtil          from '../../util/Date.mjs';
 import NeoArray          from '../../util/Array.mjs';
 import TimeAxisComponent from './TimeAxisComponent.mjs';
 import VDomUtil          from '../../util/VDom.mjs';
-import WeekEventDragZone from '../draggable/WeekEventDragZone.mjs';
+import WeekEventDragZone from '../../draggable/calendar/WeekEventDragZone.mjs';
 
 const todayDate = new Date();
 
@@ -155,16 +155,18 @@ class WeekComponent extends Component {
         super(config);
 
         let me           = this,
-            domListeners = me.domListeners;
+            domListeners = me.domListeners,
+            columnOpts   = {scope: me, delegate: '.neo-c-w-column'},
+            eventOpts    = {scope: me, delegate: '.neo-event'};
 
         domListeners.push(
-            {dblclick    : me.onEventDoubleClick, scope: me, delegate: '.neo-event'},
-            {'drag:end'  : me.onColumnDragEnd,    scope: me, delegate: '.neo-c-w-column'},
-            {'drag:end'  : me.onEventDragEnd,     scope: me, delegate: '.neo-event'},
-            {'drag:move' : me.onColumnDragMove,   scope: me, delegate: '.neo-c-w-column'},
-            {'drag:move' : me.onEventDragMove,    scope: me, delegate: '.neo-event'},
-            {'drag:start': me.onColumnDragStart,  scope: me, delegate: '.neo-c-w-column'},
-            {'drag:start': me.onEventDragStart,   scope: me, delegate: '.neo-event'},
+            {dblclick    : me.onEventDoubleClick, ...eventOpts},
+            {'drag:end'  : me.onColumnDragEnd,    ...columnOpts},
+            {'drag:end'  : me.onEventDragEnd,     ...eventOpts},
+            {'drag:move' : me.onColumnDragMove,   ...columnOpts},
+            {'drag:move' : me.onEventDragMove,    ...eventOpts},
+            {'drag:start': me.onColumnDragStart,  ...columnOpts},
+            {'drag:start': me.onEventDragStart,   ...eventOpts},
             {wheel       : me.onWheel,            scope: me}
         );
 
@@ -549,8 +551,7 @@ class WeekComponent extends Component {
      */
     onEventDragStart(data) {
         let me          = this,
-            id          = data.path[0].id,
-            dragElement = VDomUtil.findVdomChild(me.vdom, id).vdom,
+            dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom,
             timeAxis    = me.timeAxis;
 
         const config = {

@@ -1,13 +1,12 @@
 {
     "name": "neo.mjs",
-    "version": "1.4.14",
+    "version": "1.4.15",
     "description": "The webworkers driven UI framework",
     "repository": {
         "type": "git",
         "url": "https://github.com/neomjs/neo.git"
     },
     "scripts": {
-        "server-start": "webpack-dev-server --open",
         "build-all": "node ./buildScripts/buildAll.js -f -n",
         "build-all-questions": "node ./buildScripts/buildAll.js -f",
         "build-my-apps": "node ./buildScripts/webpack/buildMyApps.js -f",
@@ -15,6 +14,7 @@
         "build-threads": "node ./buildScripts/webpack/buildThreads.js -f",
         "create-app": "node ./buildScripts/createApp.js",
         "generate-docs-json": "node ./buildScripts/docs/jsdocx.js",
+        "server-start": "webpack-dev-server --open",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "keywords": [
@@ -43,16 +43,16 @@
         "envinfo": "^7.7.3",
         "fs-extra": "^9.0.1",
         "highlightjs-line-numbers.js": "^2.8.0",
-        "html-webpack-plugin": "^4.4.1",
+        "html-webpack-plugin": "^4.5.0",
         "inquirer": "^7.3.3",
-        "jsdoc": "^3.6.5",
+        "jsdoc": "^3.6.6",
         "jsdoc-x": "^4.1.0",
         "mini-css-extract-plugin": "^0.9.0",
         "node-sass": "^4.14.1",
         "postcss-loader": "^3.0.0",
         "sass-loader": "^8.0.2",
         "style-loader": "^1.2.1",
-        "webpack": "^4.44.1",
+        "webpack": "^4.44.2",
         "webpack-cli": "^3.3.12",
         "webpack-dev-server": "^3.11.0",
         "webpack-node-externals": "^1.7.2",

@@ -1,5 +1,4 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
-import Collection      from '../collection/Base.mjs';
 import Component       from '../component/Base.mjs';
 import ListModel       from '../selection/ListModel.mjs';
 import NeoArray        from '../util/Array.mjs';
@@ -38,6 +37,14 @@ class Base extends Component {
          * @member {String} displayField='name'
          */
         displayField: 'name',
+        /**
+         * @member {Boolean} draggable_=false
+         */
+        draggable_: false,
+        /**
+         * @member {Neo.draggable.list.DragZone|null} dragZone=null
+         */
+        dragZone: null,
         /**
          * @member {Boolean} highlightFilterValue=true
          */
@@ -121,6 +128,28 @@ class Base extends Component {
     }
 
     /**
+     * Triggered after the draggable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDraggable(value, oldValue) {
+        if (value) {
+            let me = this;
+
+            import(
+                /* webpackChunkName: 'src/draggable/list/DragZone-mjs.js' */
+                '../draggable/list/DragZone.mjs'
+            ).then(module => {
+                me.dragZone = Neo.create(module.default, {
+                    appName: me.appName,
+                    owner  : me
+                });
+            });
+        }
+    }
+
+    /**
      * Triggered after the selectionModel config got changed
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
@@ -155,6 +184,20 @@ class Base extends Component {
     }
 
     /**
+     * Triggered after the useCheckBoxes config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseCheckBoxes(value, oldValue) {
+        let me  = this,
+            cls = me.cls;
+
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-use-checkicons');
+        me.cls = cls;
+    }
+
+    /**
      * Triggered before the selectionModel config gets changed.
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
@@ -182,20 +225,6 @@ class Base extends Component {
         }
 
         return ClassSystemUtil.beforeSetInstance(value);
-    }
-
-    /**
-     * Triggered after the useCheckBoxes config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetUseCheckBoxes(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
-
-        NeoArray[value ? 'add' : 'remove'](cls, 'neo-use-checkicons');
-        me.cls = cls;
     }
 
     /**
@@ -251,7 +280,7 @@ class Base extends Component {
 
         vdom.cn = [];
 
-        me.store.items.forEach((item, index) => {
+        me.store.items.forEach(item => {
             vdom.cn.push(me.createItem(item));
         });
 

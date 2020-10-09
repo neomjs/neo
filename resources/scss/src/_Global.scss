@@ -29,3 +29,7 @@ html, .neo-body-viewport {
 .neo-transition-1000 {
     transition: all 1s ease-in-out !important;
 }
+
+.neo-unselectable {
+    user-select: none;
+}

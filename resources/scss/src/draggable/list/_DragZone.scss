@@ -1,0 +1,15 @@
+.neo-list {
+    &.neo-dragproxy.neo-animate {
+        transition-duration       : 300ms;
+        transition-property       : left, top;
+        transition-timing-function: ease-out;
+
+        .neo-draggable {
+            background-color: v(list-item-background-color-hover);
+        }
+    }
+
+    .neo-draggable {
+        cursor: pointer;
+    }
+}

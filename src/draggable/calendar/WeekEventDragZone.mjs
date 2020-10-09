@@ -2,16 +2,16 @@ import DragZone from '../../draggable/DragZone.mjs';
 import VDomUtil from '../../util/VDom.mjs';
 
 /**
- * @class Neo.calendar.draggable.WeekEventDragZone
+ * @class Neo.draggable.calendar.WeekEventDragZone
  * @extends Neo.draggable.DragZone
  */
 class WeekEventDragZone extends DragZone {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.calendar.draggable.WeekEventDragZone'
+         * @member {String} className='Neo.draggable.calendar.WeekEventDragZone'
          * @protected
          */
-        className: 'Neo.calendar.draggable.WeekEventDragZone',
+        className: 'Neo.draggable.calendar.WeekEventDragZone',
         /**
          * @member {String} ntype='calendar-week-event-dragzone'
          * @protected

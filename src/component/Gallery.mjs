@@ -197,26 +197,22 @@ class Gallery extends Component {
             origin       = vdom.cn[0],
             camera       = origin.cn[0],
             dolly        = camera.cn[0],
-            view         = dolly.cn[0];
+            view         = dolly.cn[0],
+            prefix       = me.id + '__';
 
         me[itemsMounted] = false;
 
-        camera.id = me.id + '__' + 'camera';
-        dolly .id = me.id + '__' + 'dolly';
-        origin.id = me.id + '__' + 'origin';
-        view  .id = me.id + '__' + 'view';
+        camera.id = prefix + 'camera';
+        dolly .id = prefix + 'dolly';
+        origin.id = prefix + 'origin';
+        view  .id = prefix + 'view';
 
         me.vdom = vdom;
 
         domListeners.push({
-            click: {
-                fn   : me.onClick,
-                scope: me
-            },
-            wheel: {
-                fn   : me.onMouseWheel,
-                scope: me
-            }
+            click: me.onClick,
+            wheel: me.onMouseWheel,
+            scope: me
         });
 
         me.domListeners = domListeners;
@@ -293,9 +289,9 @@ class Gallery extends Component {
      * @protected
      */
     afterSetMounted(value, oldValue) {
-        if (value) {
-            let me = this;
+        let me = this;
 
+        if (value) {
             setTimeout(() => {
                 Neo.currentWorker.promiseMessage('main', {
                     action    : 'readDom',
@@ -324,7 +320,7 @@ class Gallery extends Component {
                 });
             }, 300);
         } else {
-            this.selectionModel.items = [];
+            me.selectionModel.items = [];
         }
     }
 

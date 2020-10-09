@@ -33,6 +33,12 @@ class DragZone extends Base {
          */
         dragElement: null,
         /**
+         * The bounding client rect of the dragElement
+         * Will get set inside dragStart()
+         * @member {Object|null} dragElementRect=null
+         */
+        dragElementRect: null,
+        /**
          * @member {Neo.component.Base|null} dragProxy=null
          * @protected
          */
@@ -207,12 +213,21 @@ class DragZone extends Base {
     dragEnd() {
         let me = this;
 
+        Neo.main.DomAccess.setBodyCls({
+            remove: ['neo-unselectable']
+        });
+
         if (me.dragProxy) {
             me.destroyDragProxy();
             me.dragProxy = null;
         }
 
-        me.scrollContainerId = null;
+        Object.assign(me, {
+            dragElementRect  : null,
+            offsetX          : 0,
+            offsetY          : 0,
+            scrollContainerId: null
+        });
     }
 
     /**
@@ -245,11 +260,18 @@ class DragZone extends Base {
     dragStart(data) {
         let me = this;
 
+        Neo.main.DomAccess.setBodyCls({
+            add: ['neo-unselectable']
+        });
+
         Neo.main.DomAccess.getBoundingClientRect({
             id: me.dragElement.id
         }).then(rect => {
-            me.offsetX = data.clientX - rect.left;
-            me.offsetY = data.clientY - rect.top;
+            Object.assign(me, {
+                dragElementRect: rect,
+                offsetX        : data.clientX - rect.left,
+                offsetY        : data.clientY - rect.top
+            });
 
             me.createDragProxy(rect);
         });
