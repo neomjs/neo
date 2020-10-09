@@ -426,3 +426,21 @@ Source code: <a href="./docs/jsdocx.js">generate-docs-json</a>
 
 ## server-start
 > webpack-dev-server --open
+
+To open JS modules locally inside your Browser you need a web-server, since importing files is not possible
+otherwise for security reasons. You could enable this on an OS level, but this is definitely not recommended.
+
+One option is to use
+> https://github.com/webpack/webpack-dev-server
+
+We are running the server on the repository root folder, since we want to access the apps & examples
+folders directly for the development mode.
+
+Normally this server does get mapped to the dist folder, which enables hot module replacements for
+dist/development. Since the neo.mjs development mode runs without any JS builds or transpilations,
+this is not really needed.
+
+There is a ticket for it (low prio):
+> https://github.com/neomjs/neo/issues/96
+
+I am mostly using the WebStorm IDE web-server instead, which works fine as well.
