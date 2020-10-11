@@ -23,11 +23,7 @@ class DragZone extends BaseDragZone {
          */
         dragProxyConfig: {
             cls: ['neo-dragproxy', 'neo-list']
-        },
-        /**
-         * @member {Neo.list.Base} owner=null
-         */
-        owner: null
+        }
     }}
 
     /**
