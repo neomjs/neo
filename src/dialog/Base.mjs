@@ -1,6 +1,5 @@
-import Panel     from '../container/Panel.mjs';
-import NeoArray  from '../util/Array.mjs';
-import Resizable from '../plugin/Resizable.mjs';
+import Panel    from '../container/Panel.mjs';
+import NeoArray from '../util/Array.mjs';
 
 let DragZone;
 
@@ -75,13 +74,6 @@ class Base extends Panel {
          * @member {String} minimizeCls='far fa-window-minimize'
          */
         minimizeCls: 'far fa-window-minimize',
-        /**
-         * @member {Array} plugins=[Resizable]
-         */
-        plugins: [{
-            module       :Resizable,
-            delegationCls: 'neo-dialog'
-        }],
         /**
          * @member {Boolean} resizable_=true
          */
@@ -218,6 +210,31 @@ class Base extends Panel {
                     }]
                 });
             }
+        }
+    }
+
+    /**
+     * Triggered after the resizable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetResizable(value, oldValue) {
+        if (value) {
+            import(
+                /* webpackChunkName: 'src/plugin/Resizable-mjs.js' */
+                '../plugin/Resizable.mjs'
+            ).then(module => {
+                let me      = this,
+                    plugins = me.plugins || [];
+
+                plugins.push({
+                    module       : module.default,
+                    delegationCls: 'neo-dialog'
+                });
+
+                me.plugins = plugins;
+            });
         }
     }
 
