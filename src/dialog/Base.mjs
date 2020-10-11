@@ -1,7 +1,8 @@
-import DragZone  from '../draggable/DragZone.mjs';
 import Panel     from '../container/Panel.mjs';
 import NeoArray  from '../util/Array.mjs';
 import Resizable from '../plugin/Resizable.mjs';
+
+let DragZone;
 
 /**
  * @class Neo.dialog.Base
@@ -156,14 +157,23 @@ class Base extends Panel {
             me.headerToolbar.cls = cls;
         }
 
-        if (value && !me.dragListenersAdded) {
-            domListeners.push(
-                {'drag:end'  : me.onDragEnd,   scope: me, delegate: '.neo-header-toolbar'},
-                {'drag:start': me.onDragStart, scope: me, delegate: '.neo-header-toolbar'}
-            );
+        if (value) {
+            import(
+                /* webpackChunkName: 'src/draggable/DragZone-mjs.js' */
+                '../draggable/DragZone.mjs'
+            ).then(module => {
+                DragZone = module.default;
 
-            me.domListeners       = domListeners;
-            me.dragListenersAdded = true; // todo: multi window apps
+                if (!me.dragListenersAdded) {
+                    domListeners.push(
+                        {'drag:end'  : me.onDragEnd,   scope: me, delegate: '.neo-header-toolbar'},
+                        {'drag:start': me.onDragStart, scope: me, delegate: '.neo-header-toolbar'}
+                    );
+
+                    me.domListeners       = domListeners;
+                    me.dragListenersAdded = true; // todo: multi window apps
+                }
+            });
         }
     }
 
