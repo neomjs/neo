@@ -1,4 +1,4 @@
-import DragZone from '../../draggable/DragZone.mjs';
+import DragZone from './DragZone.mjs';
 
 /**
  * @class Neo.draggable.list.SortZone
