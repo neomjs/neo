@@ -83,6 +83,10 @@ class Base extends Panel {
             delegationCls: 'neo-dialog'
         }],
         /**
+         * @member {Boolean} resizable_=true
+         */
+        resizable_: true,
+        /**
          * @member {Object} _vdom
          */
         _vdom: {
