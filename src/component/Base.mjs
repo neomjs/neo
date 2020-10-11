@@ -903,9 +903,7 @@ class Base extends CoreBase {
      * @returns {Neo.plugin.Base|null}
      */
     getPlugin(opts) {
-        if (Neo.isString(opts)) {
-            opts = {id: opts};
-        }
+        opts  = typeof opts !== 'string' ? opts : {id: opts};
 
         let me        = this,
             optsArray = Object.entries(opts),
@@ -916,7 +914,7 @@ class Base extends CoreBase {
             hasMatch = true;
 
             optsArray.forEach(([key, value]) => {
-                if (plugin[key] !== value) {
+                if (hasMatch && plugin[key] !== value) {
                     hasMatch = false;
                 }
             });
