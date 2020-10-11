@@ -48,17 +48,16 @@ class VDom extends Base {
      */
     static findVdomChild(vdom, opts, index, parentNode) {
         index = index || 0;
-        opts  = typeof opts !== 'string' ? opts : {id:opts};
+        opts  = typeof opts !== 'string' ? opts : {id: opts};
 
         let child      = null,
             matchArray = [],
             styleMatch = true,
             i          = 0,
             len        = vdom.cn && vdom.cn.length,
-            optsArray, optsLength, subChild;
-
-        optsArray  = Object.entries(opts);
-        optsLength = optsArray.length;
+            optsArray  = Object.entries(opts),
+            optsLength = optsArray.length,
+            subChild;
 
         optsArray.forEach(([key, value]) => {
             if (vdom.hasOwnProperty(key)) {
