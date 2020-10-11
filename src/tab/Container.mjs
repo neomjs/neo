@@ -162,6 +162,18 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Triggered after the sortable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSortable(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.getTabBar().sortable = value;
+        }
+    }
+
+    /**
      * Triggered after the tabBarPosition config got changed
      * @param {String} value 'top', 'right', 'bottom', 'left'
      * @param {String} oldValue 'top', 'right', 'bottom', 'left'
