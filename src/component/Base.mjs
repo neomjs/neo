@@ -927,33 +927,14 @@ class Base extends CoreBase {
     }
 
     /**
-     * Search vdom child nodes by id for a given vdom tree
+     * Search a vdom child node by id for a given vdom tree
      * @param {String} id
      * @param {Object} [vdom]
      * @returns {Object}
      */
     getVdomChild(id, vdom) {
-        vdom = vdom || this.vdom;
-        let child = null,
-            i     = 0,
-            len   = vdom.cn && vdom.cn.length,
-            subChild;
-
-        if (vdom.id === id) {
-            return vdom;
-        }
-
-        if (vdom.cn) {
-            for (; i < len; i++) {
-                subChild = this.getVdomChild(id, vdom.cn[i]);
-                if (subChild) {
-                    child = subChild;
-                    break;
-                }
-            }
-        }
-
-        return child;
+        let node = VDomUtil.findVdomChild(vdom || this.vdom, id);
+        return node && node.vdom;
     }
 
     /**
