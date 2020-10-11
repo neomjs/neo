@@ -114,9 +114,20 @@ class DragZone extends Base {
      */
     afterSetScrollContainerId(value, oldValue) {
         if (value) {
-            Neo.main.addon.DragDrop.setScrollContainer({
-                id: value
-            });
+            let me    = this,
+                owner = me.owner,
+                listenerId;
+
+            if (owner.mounted) {
+                Neo.main.addon.DragDrop.setScrollContainer({
+                    id: value
+                });
+            } else {
+                listenerId = owner.on('mounted', () => {
+                    owner.un('mounted', listenerId);
+                    me.afterSetScrollContainerId(value, oldValue);
+                });
+            }
         }
     }
 
