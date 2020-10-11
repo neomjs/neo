@@ -437,7 +437,8 @@ class Base extends Panel {
                     module             : DragZone,
                     appName            : me.appName,
                     boundaryContainerId: me.boundaryContainerId,
-                    dragElement        : me.vdom
+                    dragElement        : me.vdom,
+                    owner              : me
                 });
             } else {
                 me.dragZone.boundaryContainerId = me.boundaryContainerId;
