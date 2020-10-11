@@ -903,21 +903,20 @@ class Base extends CoreBase {
      * @returns {Neo.plugin.Base|null}
      */
     getPlugin(opts) {
-        opts  = typeof opts !== 'string' ? opts : {id: opts};
+        opts = typeof opts !== 'string' ? opts : {id: opts};
 
-        let me        = this,
-            optsArray = Object.entries(opts),
-            plugins   = me.plugins || [],
+        let me = this,
             hasMatch;
 
-        for (const plugin of plugins) {
+        for (const plugin of me.plugins || []) {
             hasMatch = true;
 
-            optsArray.forEach(([key, value]) => {
-                if (hasMatch && plugin[key] !== value) {
+            for (const key in opts) {
+                if (plugin[key] !== opts[key]) {
                     hasMatch = false;
+                    break;
                 }
-            });
+            }
 
             if (hasMatch) {
                 return plugin;
