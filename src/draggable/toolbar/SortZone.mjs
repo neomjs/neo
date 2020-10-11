@@ -1,10 +1,11 @@
-import BaseSortZone from '../../draggable/DragZone.mjs';
+import DragZone from './DragZone.mjs';
+import VDomUtil from '../../util/VDom.mjs';
 
 /**
  * @class Neo.draggable.toolbar.SortZone
- * @extends Neo.draggable.list.SortZone
+ * @extends Neo.draggable.toolbar.DragZone
  */
-class SortZone extends BaseSortZone {
+class SortZone extends DragZone {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.draggable.toolbar.SortZone'
@@ -17,6 +18,20 @@ class SortZone extends BaseSortZone {
          */
         ntype: 'toolbar-sortzone'
     }}
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragStart(data) {
+        console.log('onDragStart', data);
+        let me = this;
+
+        if (me.owner.sortable) {
+            me.dragElement = VDomUtil.findVdomChild(me.owner.vdom, data.path[0].id).vdom;
+            me.dragStart(data);
+        }
+    }
 }
 
 Neo.applyClassConfig(SortZone);
