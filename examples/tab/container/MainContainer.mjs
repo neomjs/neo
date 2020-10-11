@@ -123,6 +123,10 @@ class MainContainer extends ConfigurationViewport {
                 }
             },
 
+            headerToolbarDefaults: {
+                sortable: true
+            },
+
             items: [{
                 tabButtonConfig: {iconCls: 'fa fa-home',        text     : 'Tab 1'},
                 vdom           : {innerHTML: 'Tab 1 Content'}
