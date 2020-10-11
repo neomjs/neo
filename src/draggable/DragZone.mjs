@@ -68,6 +68,10 @@ class DragZone extends Base {
          */
         offsetY: 0,
         /**
+         * @member {Neo.component.Base} owner=null
+         */
+        owner: null,
+        /**
          * @member {String} proxyParentId_='document.body'
          */
         proxyParentId_: 'document.body',
