@@ -244,6 +244,7 @@ class Container extends BaseContainer {
             flex                 : 'none',
             id                   : me.tabBarId,
             items                : tabButtons,
+            sortable             : me.sortable,
             useActiveTabIndicator: me.useActiveTabIndicator,
             ...me.headerToolbarDefaults || {}
         }, {
