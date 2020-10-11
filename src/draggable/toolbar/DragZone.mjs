@@ -23,11 +23,7 @@ class DragZone extends BaseDragZone {
          */
         dragProxyConfig: {
             cls: ['neo-dragproxy', 'neo-toolbar']
-        },
-        /**
-         * @member {Neo.container.Toolbar} owner=null
-         */
-        owner: null
+        }
     }}
 
     /**
