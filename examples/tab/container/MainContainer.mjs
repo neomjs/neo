@@ -111,9 +111,10 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create(TabContainer, {
-            height: 300,
-            width : 500,
-            style : {margin: '20px'},
+            height  : 300,
+            width   : 500,
+            sortable: true,
+            style   : {margin: '20px'},
 
             itemDefaults: {
                 ntype: 'component',
@@ -121,10 +122,6 @@ class MainContainer extends ConfigurationViewport {
                 style: {
                     padding: '20px'
                 }
-            },
-
-            headerToolbarDefaults: {
-                sortable: true
             },
 
             items: [{
