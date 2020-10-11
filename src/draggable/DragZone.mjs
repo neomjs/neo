@@ -124,9 +124,19 @@ class DragZone extends Base {
      */
     afterSetBoundaryContainerId(value, oldValue) {
         if (value) {
-            Neo.main.addon.DragDrop.setBoundaryContainer({
-                id: value
-            });
+            let container = Neo.getComponent(value),
+                listenerId;
+
+            if (container.mounted) {
+                Neo.main.addon.DragDrop.setBoundaryContainer({
+                    id: value
+                });
+            } else {
+                listenerId = container.on('mounted', () => {
+                    container.un('mounted', listenerId);
+                    this.afterSetBoundaryContainerId(value, oldValue);
+                });
+            }
         }
     }
 
