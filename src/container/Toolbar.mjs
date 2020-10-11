@@ -91,8 +91,9 @@ class Toolbar extends Container {
                 '../draggable/toolbar/SortZone.mjs'
                 ).then(module => {
                 me.sortZone = Neo.create(module.default, {
-                    appName: me.appName,
-                    owner  : me
+                    appName            : me.appName,
+                    boundaryContainerId: me.id,
+                    owner              : me
                 });
             });
         }
