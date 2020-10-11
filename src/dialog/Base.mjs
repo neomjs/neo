@@ -228,12 +228,14 @@ class Base extends Panel {
                 let me      = this,
                     plugins = me.plugins || [];
 
-                plugins.push({
-                    module       : module.default,
-                    delegationCls: 'neo-dialog'
-                });
+                if (!me.getPlugin({module: module.default})) {
+                    plugins.push({
+                        module       : module.default,
+                        delegationCls: 'neo-dialog'
+                    });
 
-                me.plugins = plugins;
+                    me.plugins = plugins;
+                }
             });
         }
     }

@@ -898,6 +898,38 @@ class Base extends CoreBase {
     }
 
     /**
+     *
+     * @param {Object|String} opts
+     * @returns {Neo.plugin.Base|null}
+     */
+    getPlugin(opts) {
+        if (Neo.isString(opts)) {
+            opts = {id: opts};
+        }
+
+        let me        = this,
+            optsArray = Object.entries(opts),
+            plugins   = me.plugins || [],
+            hasMatch;
+
+        for (const plugin of plugins) {
+            hasMatch = true;
+
+            optsArray.forEach(([key, value]) => {
+                if (plugin[key] !== value) {
+                    hasMatch = false;
+                }
+            });
+
+            if (hasMatch) {
+                return plugin;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Search vdom child nodes by id for a given vdom tree
      * @param {String} id
      * @param {Object} [vdom]
