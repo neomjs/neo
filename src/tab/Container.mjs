@@ -75,6 +75,12 @@ class Container extends BaseContainer {
          */
         removeInactiveCards: true,
         /**
+         * true enables sorting tabs via drag&drop.
+         * The config gets passed to the header toolbar
+         * @member {Boolean} sortable_=false
+         */
+        sortable_: false,
+        /**
          * @member {String|null} tabBarId=null
          */
         tabBarId: null,
