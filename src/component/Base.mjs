@@ -931,11 +931,12 @@ class Base extends CoreBase {
      * @returns {String}
      */
     getTheme() {
-        let me = this,
+        let me         = this,
+            themeMatch = 'neo-theme-',
             app, mainView, parentNodes;
 
         for (const item of me.cls || []) {
-            if (item.startsWith('neo-theme-')) {
+            if (item.startsWith(themeMatch)) {
                 return item;
             }
         }
@@ -948,7 +949,7 @@ class Base extends CoreBase {
 
             for (const node of parentNodes || []) {
                 for (const item of node.cls || []) {
-                    if (item.startsWith('neo-theme-')) {
+                    if (item.startsWith(themeMatch)) {
                         return item;
                     }
                 }
