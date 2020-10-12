@@ -20,6 +20,12 @@ class Application extends Base {
          */
         mainView_: null,
         /**
+         * mainView will get passed as a module, so we store the matching instance here
+         * @member {Neo.component.Base} mainViewInstance=null
+         * @protected
+         */
+        mainViewInstance: null,
+        /**
          * @member {String} name='MyApp'
          */
         name: 'MyApp',

@@ -24,8 +24,10 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     onDragStart(data) {
-        console.log('onDragStart', data);
         let me = this;
+
+        console.log('onDragStart', data);
+        console.log(me.owner.getTheme());
 
         if (me.owner.sortable) {
             me.dragElement = VDomUtil.findVdomChild(me.owner.vdom, data.path[0].id).vdom;

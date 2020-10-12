@@ -927,6 +927,28 @@ class Base extends CoreBase {
     }
 
     /**
+     * Walks up the vdom tree and returns the closest theme found
+     * @returns {String}
+     */
+    getTheme() {
+        let me = this,
+            app, mainView;
+
+        me.cls.forEach(item => {
+            if (item.startsWith('neo-theme-')) {
+                return item;
+            }
+        });
+
+        app      = Neo.apps[me.appName];
+        mainView = app && app.mainViewInstance;
+
+        if (mainView) {
+            console.log(mainView);
+        }
+    }
+
+    /**
      * Search a vdom child node by id for a given vdom tree
      * @param {String} id
      * @param {Object} [vdom]
