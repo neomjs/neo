@@ -932,7 +932,7 @@ class Base extends CoreBase {
      */
     getTheme() {
         let me = this,
-            app, mainView;
+            app, mainView, parentNodes;
 
         me.cls.forEach(item => {
             if (item.startsWith('neo-theme-')) {
@@ -944,7 +944,8 @@ class Base extends CoreBase {
         mainView = app && app.mainViewInstance;
 
         if (mainView) {
-            console.log(mainView);
+            parentNodes = VDomUtil.getParentNodes(mainView.vdom, me.id);
+            console.log(parentNodes);
         }
     }
 

@@ -223,6 +223,38 @@ class VDom extends Base {
     }
 
     /**
+     *
+     * @param {Object} vdom
+     * @param {String} id
+     * @param {Boolean} topLevel=true Internal flag, do not use it
+     * @returns {Array}
+     */
+    static getParentNodes(vdom, id, topLevel=true) {
+        let parents = null,
+            i       = 0,
+            len     = vdom.cn && vdom.cn.length;
+
+        if (vdom.id === id) {
+            return [];
+        }
+
+        for (; i < len; i++) {
+            parents = VDom.getParentNodes(vdom.cn[i], id, false);
+
+            if (parents) {
+                parents.push(vdom.cn[i]);
+                break;
+            }
+        }
+
+        if (topLevel && parents) {
+            parents.push(vdom);
+        }
+
+        return parents;
+    }
+
+    /**
      * Insert a given nodeToInsert after a targetNode inside a given vdom tree
      * @param {Object} vdom The vdom tree containing the targetNode
      * @param {Object} nodeToInsert The new vdom to insert
