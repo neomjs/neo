@@ -95,7 +95,6 @@ class Strip extends Component {
             ids = ids.map(e => e && e.id).filter(Boolean);
 
             if (me.useActiveTabIndicator) {
-                // remote method access
                 Neo.main.DomAccess.getBoundingClientRect({
                     id: ids
                 }).then(data => {
