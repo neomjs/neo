@@ -24,21 +24,21 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     onDragStart(data) {
-        let me        = this,
-            tabHeader = Neo.getComponent(data.path[0].id),
-            style     = tabHeader.style || {};
+        let me     = this,
+            button = Neo.getComponent(data.path[0].id),
+            style  = button.style || {};
 
         console.log('onDragStart', data);
-        console.log(tabHeader.getTheme());
+        console.log(button.getTheme());
 
         if (me.owner.sortable) {
-            me.dragElement = VDomUtil.findVdomChild(me.owner.vdom, tabHeader.id).vdom;
+            me.dragElement = VDomUtil.findVdomChild(me.owner.vdom, button.id).vdom;
             me.dragStart(data);
         }
 
         setTimeout(() => {
             style.visibility = 'hidden';
-            tabHeader.style = style;
+            button.style = style;
         }, 30);
     }
 }
