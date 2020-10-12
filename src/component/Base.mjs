@@ -934,19 +934,28 @@ class Base extends CoreBase {
         let me = this,
             app, mainView, parentNodes;
 
-        me.cls.forEach(item => {
+        for (const item of me.cls || []) {
             if (item.startsWith('neo-theme-')) {
                 return item;
             }
-        });
+        }
 
         app      = Neo.apps[me.appName];
         mainView = app && app.mainViewInstance;
 
         if (mainView) {
             parentNodes = VDomUtil.getParentNodes(mainView.vdom, me.id);
-            console.log(parentNodes);
+
+            for (const node of parentNodes || []) {
+                for (const item of node.cls || []) {
+                    if (item.startsWith('neo-theme-')) {
+                        return item;
+                    }
+                }
+            }
         }
+
+        return Neo.config.themes && Neo.config.themes[0];
     }
 
     /**
