@@ -16,7 +16,12 @@ class SortZone extends DragZone {
          * @member {String} ntype='toolbar-sortzone'
          * @protected
          */
-        ntype: 'toolbar-sortzone'
+        ntype: 'toolbar-sortzone',
+        /**
+         * @member {Array|null} itemRects=null
+         * @protected
+         */
+        itemRects: null
     }}
 
     /**
