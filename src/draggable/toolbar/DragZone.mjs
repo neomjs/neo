@@ -23,7 +23,11 @@ class DragZone extends BaseDragZone {
          */
         dragProxyConfig: {
             cls: ['neo-dragproxy', 'neo-toolbar']
-        }
+        },
+        /**
+         * @member {Boolean} moveInMainThread=false
+         */
+        moveInMainThread: false
     }}
 
     /**
@@ -40,6 +44,7 @@ class DragZone extends BaseDragZone {
 
         domListeners.push(
             {'drag:end'  : me.onDragEnd,   ...opts},
+            {'drag:move' : me.onDragMove,  ...opts},
             {'drag:start': me.onDragStart, ...opts}
         );
 
@@ -93,6 +98,18 @@ class DragZone extends BaseDragZone {
                 }, 300);
             }, 30);
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragMove(data) {
+        console.log('onDragMove');
+
+        let me = this;
+
+        me.dragMove(data);
     }
 
     /**
