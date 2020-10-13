@@ -8,32 +8,30 @@ import Base from '../../core/Base.mjs';
  * @singleton
  */
 class Stylesheet extends Base {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.main.addon.Stylesheet'
-             * @protected
-             */
-            className: 'Neo.main.addon.Stylesheet',
-            /**
-             * Remote method access for other workers
-             * @member {Object} remote={app: [//...]}
-             * @protected
-             */
-            remote: {
-                app: [
-                    'createStyleSheet',
-                    'insertCssRules',
-                    'swapStyleSheet'
-                ]
-            },
-            /**
-             * @member {Boolean} singleton=true
-             * @protected
-             */
-            singleton: true
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.main.addon.Stylesheet'
+         * @protected
+         */
+        className: 'Neo.main.addon.Stylesheet',
+        /**
+         * Remote method access for other workers
+         * @member {Object} remote={app: [//...]}
+         * @protected
+         */
+        remote: {
+            app: [
+                'createStyleSheet',
+                'insertCssRules',
+                'swapStyleSheet'
+            ]
+        },
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
+    }}
 
     /**
      * @param {Object} config

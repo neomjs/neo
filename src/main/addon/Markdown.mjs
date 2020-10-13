@@ -11,35 +11,33 @@ import DomAccess from '../DomAccess.mjs';
  * @singleton
  */
 class Markdown extends Base {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.main.addon.Markdown'
-             * @protected
-             */
-            className: 'Neo.main.addon.Markdown',
-            /**
-             * Remote method access for other workers
-             * @member {Object} remote={app: [//...]}
-             * @protected
-             */
-            remote: {
-                app: [
-                    'markdownToHtml'
-                ]
-            },
-            /**
-             * @member {String} showdownPath='https://cdn.jsdelivr.net/npm/showdown@1.9.1/dist/showdown.min.js'
-             * @protected
-             */
-            showdownPath: 'https://cdn.jsdelivr.net/npm/showdown@1.9.1/dist/showdown.min.js',
-            /**
-             * @member {Boolean} singleton=true
-             * @protected
-             */
-            singleton: true
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.main.addon.Markdown'
+         * @protected
+         */
+        className: 'Neo.main.addon.Markdown',
+        /**
+         * Remote method access for other workers
+         * @member {Object} remote={app: [//...]}
+         * @protected
+         */
+        remote: {
+            app: [
+                'markdownToHtml'
+            ]
+        },
+        /**
+         * @member {String} showdownPath='https://cdn.jsdelivr.net/npm/showdown@1.9.1/dist/showdown.min.js'
+         * @protected
+         */
+        showdownPath: 'https://cdn.jsdelivr.net/npm/showdown@1.9.1/dist/showdown.min.js',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
+    }}
 
     /**
      * @param {Object} config

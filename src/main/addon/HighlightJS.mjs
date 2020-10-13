@@ -9,48 +9,46 @@ import Stylesheet from './Stylesheet.mjs'
  * @singleton
  */
 class HighlightJS extends Base {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.main.addon.HighlightJS'
-             * @protected
-             */
-            className: 'Neo.main.addon.HighlightJS',
-            /**
-             * @member {String} highlightJsPath='./resources/highlight/highlight.pack.js'
-             * @protected
-             */
-            highlightJsPath: './resources/highlight/highlight.pack.js',
-            /**
-             * @member {String} highlightJsLineNumbersPath=Neo.config.basePath + 'node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js'
-             * @protected
-             */
-            highlightJsLineNumbersPath: Neo.config.basePath + 'node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js',
-            /**
-             * Remote method access for other workers
-             * @member {Object} remote={app: [//...]}
-             * @protected
-             */
-            remote: {
-                app: [
-                    'scrollIntoView',
-                    'syntaxHighlight',
-                    'syntaxHighlightInit',
-                    'syntaxHighlightLine'
-                ]
-            },
-            /**
-             * @member {Boolean} singleton=true
-             * @protected
-             */
-            singleton: true,
-            /**
-             * @member {String} themePath='./resources/highlightjs-custom-github-theme.css'
-             * @protected
-             */
-            themePath: './resources/highlightjs-custom-github-theme.css'
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.main.addon.HighlightJS'
+         * @protected
+         */
+        className: 'Neo.main.addon.HighlightJS',
+        /**
+         * @member {String} highlightJsPath='./resources/highlight/highlight.pack.js'
+         * @protected
+         */
+        highlightJsPath: './resources/highlight/highlight.pack.js',
+        /**
+         * @member {String} highlightJsLineNumbersPath=Neo.config.basePath + 'node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js'
+         * @protected
+         */
+        highlightJsLineNumbersPath: Neo.config.basePath + 'node_modules/highlightjs-line-numbers.js/dist/highlightjs-line-numbers.min.js',
+        /**
+         * Remote method access for other workers
+         * @member {Object} remote={app: [//...]}
+         * @protected
+         */
+        remote: {
+            app: [
+                'scrollIntoView',
+                'syntaxHighlight',
+                'syntaxHighlightInit',
+                'syntaxHighlightLine'
+            ]
+        },
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true,
+        /**
+         * @member {String} themePath='./resources/highlightjs-custom-github-theme.css'
+         * @protected
+         */
+        themePath: './resources/highlightjs-custom-github-theme.css'
+    }}
 
     /**
      * @param {Object} config
