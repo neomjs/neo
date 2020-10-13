@@ -23,11 +23,7 @@ class DragZone extends BaseDragZone {
          */
         dragProxyConfig: {
             cls: ['neo-dragproxy', 'neo-toolbar']
-        },
-        /**
-         * @member {Boolean} moveInMainThread=false
-         */
-        moveInMainThread: false
+        }
     }}
 
     /**
@@ -62,7 +58,7 @@ class DragZone extends BaseDragZone {
             owner = me.owner,
             vdom  = owner.vdom;
 
-        vdom.cn.forEach((item, index) => {
+        vdom.cn.forEach(item => {
             item.cls = item.cls || [];
 
             NeoArray[draggable ? 'add' : 'remove'](item.cls, 'neo-draggable');
@@ -105,11 +101,9 @@ class DragZone extends BaseDragZone {
      * @param {Object} data
      */
     onDragMove(data) {
-        console.log('onDragMove');
+        console.log('onDragMove', data);
 
         let me = this;
-
-        me.dragMove(data);
     }
 
     /**
