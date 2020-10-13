@@ -19,6 +19,13 @@ class DragZone extends Base {
          */
         ntype: 'dragzone',
         /**
+         * drag:move will by default only fire in case moveInMainThread === false.
+         * In case you want to move the dragProxy inside main but still get the event,
+         * set this config to true.
+         * @member {Boolean} alwaysFireDragMove=false
+         */
+        alwaysFireDragMove: false,
+        /**
          * The name of the App this instance belongs to
          * @member {String|null} appName=null
          */
