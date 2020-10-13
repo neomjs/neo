@@ -15,6 +15,10 @@ class DragDrop extends Base {
              */
             className: 'Neo.main.addon.DragDrop',
             /**
+             * @member {Boolean} alwaysFireDragMove=false
+             */
+            alwaysFireDragMove: false,
+            /**
              * @member {DOMRect|null} scrollContainerRect=null
              */
             boundaryContainerRect: null,
