@@ -7,91 +7,89 @@ import DomEvents from '../DomEvents.mjs';
  * @singleton
  */
 class DragDrop extends Base {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.main.addon.DragDrop'
-             * @protected
-             */
-            className: 'Neo.main.addon.DragDrop',
-            /**
-             * @member {Boolean} alwaysFireDragMove=false
-             */
-            alwaysFireDragMove: false,
-            /**
-             * @member {DOMRect|null} scrollContainerRect=null
-             */
-            boundaryContainerRect: null,
-            /**
-             * @member {HTMLElement|null} dragProxyElement=null
-             * @protected
-             */
-            dragProxyElement: null,
-            /**
-             * @member {DOMRect|null} dragProxyRect=null
-             */
-            dragProxyRect: null,
-            /**
-             * @member {Number} clientX=0
-             */
-            clientX: 0,
-            /**
-             * @member {Number} clientY=0
-             */
-            clientY: 0,
-            /**
-             * @member {Number} initialScrollLeft=0
-             */
-            initialScrollLeft: 0,
-            /**
-             * @member {Number} initialScrollTop=0
-             */
-            initialScrollTop: 0,
-            /**
-             * @member {Number} offsetX=0
-             */
-            offsetX: 0,
-            /**
-             * @member {Number} offsetY=0
-             */
-            offsetY: 0,
-            /**
-             * Remote method access for other workers
-             * @member {Object} remote
-             * @protected
-             */
-            remote: {
-                app: [
-                    'setBoundaryContainer',
-                    'setDragProxyElement',
-                    'setScrollContainer',
-                    'setScrollFactorLeft',
-                    'setScrollFactorTop'
-                ]
-            },
-            /**
-             * @member {HTMLElement|null} scrollContainerElement=null
-             */
-            scrollContainerElement: null,
-            /**
-             * @member {DOMRect|null} scrollContainerRect=null
-             */
-            scrollContainerRect: null,
-            /**
-             * @member {Number} scrollFactorLeft=1
-             */
-            scrollFactorLeft: 1,
-            /**
-             * @member {Number} scrollFactorTop=1
-             */
-            scrollFactorTop: 1,
-            /**
-             * @member {Boolean} singleton=true
-             * @protected
-             */
-            singleton: true
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.main.addon.DragDrop'
+         * @protected
+         */
+        className: 'Neo.main.addon.DragDrop',
+        /**
+         * @member {Boolean} alwaysFireDragMove=false
+         */
+        alwaysFireDragMove: false,
+        /**
+         * @member {DOMRect|null} scrollContainerRect=null
+         */
+        boundaryContainerRect: null,
+        /**
+         * @member {HTMLElement|null} dragProxyElement=null
+         * @protected
+         */
+        dragProxyElement: null,
+        /**
+         * @member {DOMRect|null} dragProxyRect=null
+         */
+        dragProxyRect: null,
+        /**
+         * @member {Number} clientX=0
+         */
+        clientX: 0,
+        /**
+         * @member {Number} clientY=0
+         */
+        clientY: 0,
+        /**
+         * @member {Number} initialScrollLeft=0
+         */
+        initialScrollLeft: 0,
+        /**
+         * @member {Number} initialScrollTop=0
+         */
+        initialScrollTop: 0,
+        /**
+         * @member {Number} offsetX=0
+         */
+        offsetX: 0,
+        /**
+         * @member {Number} offsetY=0
+         */
+        offsetY: 0,
+        /**
+         * Remote method access for other workers
+         * @member {Object} remote
+         * @protected
+         */
+        remote: {
+            app: [
+                'setBoundaryContainer',
+                'setDragProxyElement',
+                'setScrollContainer',
+                'setScrollFactorLeft',
+                'setScrollFactorTop'
+            ]
+        },
+        /**
+         * @member {HTMLElement|null} scrollContainerElement=null
+         */
+        scrollContainerElement: null,
+        /**
+         * @member {DOMRect|null} scrollContainerRect=null
+         */
+        scrollContainerRect: null,
+        /**
+         * @member {Number} scrollFactorLeft=1
+         */
+        scrollFactorLeft: 1,
+        /**
+         * @member {Number} scrollFactorTop=1
+         */
+        scrollFactorTop: 1,
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
+    }}
 
     /**
      * @param {Object} config
