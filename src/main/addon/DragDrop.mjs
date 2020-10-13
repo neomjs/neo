@@ -218,10 +218,12 @@ class DragDrop extends Base {
             me.dragProxyElement.style.top  = `${top}px`;
         }
 
-        DomEvents.sendMessageToApp({
-            ...me.getEventData(event),
-            type: 'drag:move'
-        });
+        if (!me.dragProxyElement || me.alwaysFireDragMove) {
+            DomEvents.sendMessageToApp({
+                ...me.getEventData(event),
+                type: 'drag:move'
+            });
+        }
     }
 
     /**
