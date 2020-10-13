@@ -32,25 +32,45 @@ class SortZone extends DragZone {
         let me     = this,
             button = Neo.getComponent(data.path[0].id),
             owner  = me.owner,
-            style  = button.style || {},
-            ownerStyle;
+            itemStyle, ownerStyle, rect;
 
         if (owner.sortable) {
             Neo.main.DomAccess.getBoundingClientRect({
-                id: owner.items.map(e => e.id)
+                id: [owner.id].concat(owner.items.map(e => e.id))
             }).then(itemRects => {
                 me.itemRects = itemRects;
 
-                ownerStyle = owner.style || {};
-                ownerStyle.position = 'relative';
+                ownerStyle = owner.style;
+
+                Object.assign(ownerStyle, {
+                    height: `${itemRects[0].height}px`,
+                    width : `${itemRects[0].width}px`
+                });
+
                 owner.style = ownerStyle;
+
+                owner.items.forEach((item, index) => {
+                    itemStyle = item.style || {};
+                    rect      = itemRects[index + 1];
+
+                    Object.assign(itemStyle, {
+                        height  : `${rect.height}px`,
+                        left    : `${rect.left}px`,
+                        position: 'absolute',
+                        top     : `${rect.top}px`,
+                        width   : `${rect.width}px`
+                    });
+
+                    item.style = itemStyle;
+                });
 
                 me.dragElement = VDomUtil.findVdomChild(owner.vdom, button.id).vdom;
                 me.dragStart(data);
 
                 setTimeout(() => {
-                    style.visibility = 'hidden';
-                    button.style = style;
+                    itemStyle = button.style || {};
+                    itemStyle.visibility = 'hidden';
+                    button.style = itemStyle;
                 }, 30);
             });
         }
