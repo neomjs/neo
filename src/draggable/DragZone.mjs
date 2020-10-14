@@ -293,6 +293,8 @@ class DragZone extends Base {
     dragStart(data) {
         let me = this;
 
+        Neo.main.addon.DragDrop.setConfigs(me.getMainThreadConfigs());
+
         Neo.main.DomAccess.setBodyCls({
             add: ['neo-unselectable']
         });

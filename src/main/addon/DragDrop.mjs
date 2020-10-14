@@ -62,6 +62,7 @@ class DragDrop extends Base {
         remote: {
             app: [
                 'setBoundaryContainer',
+                'setConfigs',
                 'setDragProxyElement',
                 'setScrollContainer',
                 'setScrollFactorLeft',
@@ -291,6 +292,19 @@ class DragDrop extends Base {
             node = data.id === 'document.body' ? document.body : document.getElementById(data.id);
 
         me.boundaryContainerRect = node.getBoundingClientRect();
+    }
+
+    /**
+     *
+     * @param {Object}  data
+     * @param {Boolean} data.alwaysFireDragMove
+     */
+    setConfigs(data) {console.log('setConfigs', data);
+        let me = this;
+
+        if (data.alwaysFireDragMove) {
+            me.alwaysFireDragMove = data.alwaysFireDragMove;
+        }
     }
 
     /**
