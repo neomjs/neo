@@ -32,6 +32,10 @@ class Component extends Base {
         view_: null
     }}
 
+    /**
+     *
+     * @param {Object} config
+     */
     constructor(config) {
         super(config);
 
