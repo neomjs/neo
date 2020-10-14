@@ -287,16 +287,16 @@ class DragDrop extends Base {
      * @param {String}  data.boundaryContainerId
      * @param {String}  data.scrollContainerId
      */
-    setConfigs(data) {console.log('setConfigs', data);
+    setConfigs(data) {
         let me = this,
             node;
-
-        me.alwaysFireDragMove = data.alwaysFireDragMove;
 
         if (data.boundaryContainerId) {
             node = DomAccess.getElementOrBody(data.boundaryContainerId);
             me.boundaryContainerRect = node.getBoundingClientRect();
         }
+
+        delete data.boundaryContainerId;
 
         if (data.scrollContainerId) {
             node = DomAccess.getElementOrBody(data.scrollContainerId);
@@ -308,6 +308,16 @@ class DragDrop extends Base {
                 initialScrollTop      : node.scrollTop
             });
         }
+
+        delete data.scrollContainerId;
+
+        Object.entries(data).forEach(([key, value]) => {
+            if (me.hasOwnProperty(key)) {
+                me[key] = value;
+            } else {
+                console.error('unknown key passed inside setConfigs()', key);
+            }
+        });
     }
 
     /**
