@@ -158,6 +158,7 @@ class DragDrop extends Base {
         let me = this;
 
         Object.assign(me, {
+            alwaysFireDragMove    : false,
             boundaryContainerRect : null,
             dragProxyElement      : null,
             dragProxyRect         : null,
