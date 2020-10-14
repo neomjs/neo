@@ -156,6 +156,10 @@ class DragDrop extends Base {
     onDragEnd(event) {
         let me = this;
 
+        DomAccess.setBodyCls({
+            remove: ['neo-unselectable']
+        });
+
         Object.assign(me, {
             alwaysFireDragMove    : false,
             boundaryContainerRect : null,
@@ -232,6 +236,10 @@ class DragDrop extends Base {
     onDragStart(event) {
         let me   = this,
             rect = me.dragProxyRect = event.target.getBoundingClientRect();
+
+        DomAccess.setBodyCls({
+            add: ['neo-unselectable']
+        });
 
         me.offsetX = event.detail.clientX - rect.left;
         me.offsetY = event.detail.clientY - rect.top;

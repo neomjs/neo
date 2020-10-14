@@ -168,10 +168,6 @@ class DragZone extends Base {
     dragEnd() {
         let me = this;
 
-        Neo.main.DomAccess.setBodyCls({
-            remove: ['neo-unselectable']
-        });
-
         if (me.dragProxy) {
             me.destroyDragProxy();
             me.dragProxy = null;
@@ -216,10 +212,6 @@ class DragZone extends Base {
         let me = this;
 
         Neo.main.addon.DragDrop.setConfigs(me.getMainThreadConfigs());
-
-        Neo.main.DomAccess.setBodyCls({
-            add: ['neo-unselectable']
-        });
 
         Neo.main.DomAccess.getBoundingClientRect({
             id: me.dragElement.id
