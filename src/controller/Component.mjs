@@ -32,6 +32,10 @@ class Component extends Base {
         view_: null
     }}
 
+    /**
+     *
+     * @param {Object} config
+     */
     constructor(config) {
         super(config);
 
@@ -234,6 +238,16 @@ class Component extends Base {
                 }
             });
         }
+
+        me.onViewParsed();
+    }
+
+    /**
+     * Override this method inside your view controllers as a starting point in case you need references
+     * (instead of using onConstructed() inside your controller)
+     */
+    onViewParsed() {
+
     }
 
     /**

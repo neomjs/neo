@@ -143,7 +143,7 @@ inquirer.prompt(questions).then(answers => {
             "        Object.assign(Neo.config, {",
             "            appPath         : '" + appPath + "app.mjs',",
             "            basePath        : '../../',",
-            "            environment     : 'development',",
+            "            environment     : 'development'",
         ];
 
         if (!(mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 1)) {
