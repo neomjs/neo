@@ -319,6 +319,7 @@ class DragZone extends Base {
         let me = this;
 
         return {
+            alwaysFireDragMove : me.alwaysFireDragMove,
             boundaryContainerId: me.boundaryContainerId,
             scrollContainerId  : me.scrollContainerId,
             scrollFactorLeft   : me.scrollFactorLeft,
