@@ -3,26 +3,30 @@ import NeoArray     from '../../util/Array.mjs';
 import VDomUtil     from '../../util/VDom.mjs';
 
 /**
- * @class Neo.draggable.list.DragZone
+ * @class Neo.draggable.toolbar.DragZone
  * @extends Neo.draggable.DragZone
  */
 class DragZone extends BaseDragZone {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.draggable.list.DragZone'
+         * @member {String} className='Neo.draggable.toolbar.DragZone'
          * @protected
          */
-        className: 'Neo.draggable.list.DragZone',
+        className: 'Neo.draggable.toolbar.DragZone',
         /**
-         * @member {String} ntype='list-dragzone'
+         * @member {String} ntype='toolbar-dragzone'
          * @protected
          */
-        ntype: 'list-dragzone',
+        ntype: 'toolbar-dragzone',
+        /**
+         * @member {Boolean} alwaysFireDragMove=true
+         */
+        alwaysFireDragMove: true,
         /**
          * @member {Object|null} dragProxyConfig
          */
         dragProxyConfig: {
-            cls: ['neo-dragproxy', 'neo-list']
+            cls: ['neo-dragproxy', 'neo-toolbar']
         }
     }}
 
@@ -36,43 +40,32 @@ class DragZone extends BaseDragZone {
         let me           = this,
             owner        = me.owner,
             domListeners = owner.domListeners,
-            opts         = {delegate: '.neo-draggable', scope: me},
-            store        = owner.store;
+            opts         = {delegate: '.neo-draggable', scope: me};
 
         domListeners.push(
             {'drag:end'  : me.onDragEnd,   ...opts},
+            {'drag:move' : me.onDragMove,  ...opts},
             {'drag:start': me.onDragStart, ...opts}
         );
 
         owner.domListeners = domListeners;
 
-        store.on({
-            load : me.onStoreLoad,
-            scope: me
-        });
-
-        // check if the store is already loaded
-        if (store.getCount() > 0) {
-            me.onStoreLoad();
-        }
+        me.adjustToolbarItemCls(true);
     }
 
     /**
      *
      * @param {Boolean} draggable
      */
-    adjustListItemCls(draggable) {
+    adjustToolbarItemCls(draggable) {
         let me    = this,
             owner = me.owner,
-            store = owner.store,
-            vdom  = owner.vdom,
-            listItem;
+            vdom  = owner.vdom;
 
-        store.items.forEach((item, index) => {
-            listItem = vdom.cn[index];
-            listItem.cls = listItem.cls || [];
+        vdom.cn.forEach(item => {
+            item.cls = item.cls || [];
 
-            NeoArray[draggable ? 'add' : 'remove'](listItem.cls, 'neo-draggable');
+            NeoArray[draggable ? 'add' : 'remove'](item.cls, 'neo-draggable');
         });
 
         owner.vdom = vdom;
@@ -111,6 +104,16 @@ class DragZone extends BaseDragZone {
      *
      * @param {Object} data
      */
+    onDragMove(data) {
+        console.log('onDragMove', data);
+
+        let me = this;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onDragStart(data) {
         let me = this;
 
@@ -118,13 +121,6 @@ class DragZone extends BaseDragZone {
             me.dragElement = VDomUtil.findVdomChild(me.owner.vdom, data.path[0].id).vdom;
             me.dragStart(data);
         }
-    }
-
-    /**
-     *
-     */
-    onStoreLoad() {
-        this.adjustListItemCls(true);
     }
 }
 

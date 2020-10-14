@@ -20,11 +20,11 @@ let webpack = './node_modules/.bin/webpack';
 program
     .name(programName)
     .version(packageJson.version)
-    .option('-i, --info',           'print environment debug info')
-    .option('-e, --env <name>',     '"all", "dev", "prod"')
+    .option('-i, --info',            'print environment debug info')
+    .option('-e, --env <value>',     '"all", "dev", "prod"')
     .option('-f, --framework')
     .option('-n, --noquestions')
-    .option('-t, --threads <name>', '"all", "app", "data", "main", "vdom"')
+    .option('-t, --threads <value>', '"all", "app", "data", "main", "vdom"')
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');

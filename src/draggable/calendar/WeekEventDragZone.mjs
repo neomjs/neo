@@ -51,10 +51,6 @@ class WeekEventDragZone extends DragZone {
          */
         moveInMainThread: false,
         /**
-         * @member {Neo.calendar.view.WeekComponent} owner=null
-         */
-        owner: null,
-        /**
          * @member {Number} scrollFactorLeft=3
          */
         scrollFactorLeft: 3,

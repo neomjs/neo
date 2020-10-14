@@ -380,7 +380,8 @@ class Resizable extends Base {
                 appName            : owner.appName,
                 boundaryContainerId: owner.boundaryContainerId,
                 dragElement        : owner.vdom,
-                moveInMainThread   : false
+                moveInMainThread   : false,
+                owner              : owner
             });
         } else {
             me.dragZone.boundaryContainerId = owner.boundaryContainerId;

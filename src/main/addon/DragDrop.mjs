@@ -1,4 +1,5 @@
 import Base      from '../../core/Base.mjs';
+import DomAccess from '../DomAccess.mjs';
 import DomEvents from '../DomEvents.mjs';
 
 /**
@@ -7,87 +8,86 @@ import DomEvents from '../DomEvents.mjs';
  * @singleton
  */
 class DragDrop extends Base {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.main.addon.DragDrop'
-             * @protected
-             */
-            className: 'Neo.main.addon.DragDrop',
-            /**
-             * @member {DOMRect|null} scrollContainerRect=null
-             */
-            boundaryContainerRect: null,
-            /**
-             * @member {HTMLElement|null} dragProxyElement=null
-             * @protected
-             */
-            dragProxyElement: null,
-            /**
-             * @member {DOMRect|null} dragProxyRect=null
-             */
-            dragProxyRect: null,
-            /**
-             * @member {Number} clientX=0
-             */
-            clientX: 0,
-            /**
-             * @member {Number} clientY=0
-             */
-            clientY: 0,
-            /**
-             * @member {Number} initialScrollLeft=0
-             */
-            initialScrollLeft: 0,
-            /**
-             * @member {Number} initialScrollTop=0
-             */
-            initialScrollTop: 0,
-            /**
-             * @member {Number} offsetX=0
-             */
-            offsetX: 0,
-            /**
-             * @member {Number} offsetY=0
-             */
-            offsetY: 0,
-            /**
-             * Remote method access for other workers
-             * @member {Object} remote
-             * @protected
-             */
-            remote: {
-                app: [
-                    'setBoundaryContainer',
-                    'setDragProxyElement',
-                    'setScrollContainer',
-                    'setScrollFactorLeft',
-                    'setScrollFactorTop'
-                ]
-            },
-            /**
-             * @member {HTMLElement|null} scrollContainerElement=null
-             */
-            scrollContainerElement: null,
-            /**
-             * @member {DOMRect|null} scrollContainerRect=null
-             */
-            scrollContainerRect: null,
-            /**
-             * @member {Number} scrollFactorLeft=1
-             */
-            scrollFactorLeft: 1,
-            /**
-             * @member {Number} scrollFactorTop=1
-             */
-            scrollFactorTop: 1,
-            /**
-             * @member {Boolean} singleton=true
-             * @protected
-             */
-            singleton: true
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.main.addon.DragDrop'
+         * @protected
+         */
+        className: 'Neo.main.addon.DragDrop',
+        /**
+         * @member {Boolean} alwaysFireDragMove=false
+         */
+        alwaysFireDragMove: false,
+        /**
+         * @member {DOMRect|null} scrollContainerRect=null
+         */
+        boundaryContainerRect: null,
+        /**
+         * @member {HTMLElement|null} dragProxyElement=null
+         * @protected
+         */
+        dragProxyElement: null,
+        /**
+         * @member {DOMRect|null} dragProxyRect=null
+         */
+        dragProxyRect: null,
+        /**
+         * @member {Number} clientX=0
+         */
+        clientX: 0,
+        /**
+         * @member {Number} clientY=0
+         */
+        clientY: 0,
+        /**
+         * @member {Number} initialScrollLeft=0
+         */
+        initialScrollLeft: 0,
+        /**
+         * @member {Number} initialScrollTop=0
+         */
+        initialScrollTop: 0,
+        /**
+         * @member {Number} offsetX=0
+         */
+        offsetX: 0,
+        /**
+         * @member {Number} offsetY=0
+         */
+        offsetY: 0,
+        /**
+         * Remote method access for other workers
+         * @member {Object} remote
+         * @protected
+         */
+        remote: {
+            app: [
+                'setConfigs',
+                'setDragProxyElement'
+            ]
+        },
+        /**
+         * @member {HTMLElement|null} scrollContainerElement=null
+         */
+        scrollContainerElement: null,
+        /**
+         * @member {DOMRect|null} scrollContainerRect=null
+         */
+        scrollContainerRect: null,
+        /**
+         * @member {Number} scrollFactorLeft=1
+         */
+        scrollFactorLeft: 1,
+        /**
+         * @member {Number} scrollFactorTop=1
+         */
+        scrollFactorTop: 1,
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
+    }}
 
     /**
      * @param {Object} config
@@ -156,7 +156,12 @@ class DragDrop extends Base {
     onDragEnd(event) {
         let me = this;
 
+        DomAccess.setBodyCls({
+            remove: ['neo-unselectable']
+        });
+
         Object.assign(me, {
+            alwaysFireDragMove    : false,
             boundaryContainerRect : null,
             dragProxyElement      : null,
             dragProxyRect         : null,
@@ -214,7 +219,9 @@ class DragDrop extends Base {
 
             me.dragProxyElement.style.left = `${left}px`;
             me.dragProxyElement.style.top  = `${top}px`;
-        } else {
+        }
+
+        if (!me.dragProxyElement || me.alwaysFireDragMove) {
             DomEvents.sendMessageToApp({
                 ...me.getEventData(event),
                 type: 'drag:move'
@@ -229,6 +236,10 @@ class DragDrop extends Base {
     onDragStart(event) {
         let me   = this,
             rect = me.dragProxyRect = event.target.getBoundingClientRect();
+
+        DomAccess.setBodyCls({
+            add: ['neo-unselectable']
+        });
 
         me.offsetX = event.detail.clientX - rect.left;
         me.offsetY = event.detail.clientY - rect.top;
@@ -279,14 +290,44 @@ class DragDrop extends Base {
 
     /**
      *
-     * @param {Object} data
-     * @param {String} data.id
+     * @param {Object}  data
+     * @param {Boolean} data.alwaysFireDragMove
+     * @param {String}  data.boundaryContainerId
+     * @param {String}  data.scrollContainerId
+     * @param {Number}  data.scrollFactorLeft
+     * @param {Number}  data.scrollFactorTop
      */
-    setBoundaryContainer(data) {
-        let me   = this,
-            node = data.id === 'document.body' ? document.body : document.getElementById(data.id);
+    setConfigs(data) {
+        let me = this,
+            node;
 
-        me.boundaryContainerRect = node.getBoundingClientRect();
+        if (data.boundaryContainerId) {
+            node = DomAccess.getElementOrBody(data.boundaryContainerId);
+            me.boundaryContainerRect = node.getBoundingClientRect();
+        }
+
+        delete data.boundaryContainerId;
+
+        if (data.scrollContainerId) {
+            node = DomAccess.getElementOrBody(data.scrollContainerId);
+
+            Object.assign(me, {
+                scrollContainerElement: node,
+                scrollContainerRect   : node.getBoundingClientRect(),
+                initialScrollLeft     : node.scrollLeft,
+                initialScrollTop      : node.scrollTop
+            });
+        }
+
+        delete data.scrollContainerId;
+
+        Object.entries(data).forEach(([key, value]) => {
+            if (me.hasOwnProperty(key)) {
+                me[key] = value;
+            } else {
+                console.error('unknown key passed inside setConfigs()', key);
+            }
+        });
     }
 
     /**
@@ -296,41 +337,6 @@ class DragDrop extends Base {
      */
     setDragProxyElement(data) {
         this.dragProxyElement = document.getElementById(data.id);
-    }
-
-    /**
-     *
-     * @param {Object} data
-     * @param {String} data.id
-     */
-    setScrollContainer(data) {
-        let me   = this,
-            node = data.id === 'document.body' ? document.body : document.getElementById(data.id);
-
-        Object.assign(me, {
-            scrollContainerElement: node,
-            scrollContainerRect   : node.getBoundingClientRect(),
-            initialScrollLeft     : node.scrollLeft,
-            initialScrollTop      : node.scrollTop
-        });
-    }
-
-    /**
-     *
-     * @param {Object} data
-     * @param {Number} data.value
-     */
-    setScrollFactorLeft(data) {
-        this.scrollFactorLeft = data.value;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     * @param {Number} data.value
-     */
-    setScrollFactorTop(data) {
-        this.scrollFactorTop = data.value;
     }
 }
 

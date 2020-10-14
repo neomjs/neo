@@ -75,6 +75,12 @@ class Container extends BaseContainer {
          */
         removeInactiveCards: true,
         /**
+         * true enables sorting tabs via drag&drop.
+         * The config gets passed to the header toolbar
+         * @member {Boolean} sortable_=false
+         */
+        sortable_: false,
+        /**
          * @member {String|null} tabBarId=null
          */
         tabBarId: null,
@@ -153,6 +159,18 @@ class Container extends BaseContainer {
 
         NeoArray[value ? 'unshift' : 'remove'](cls, baseCls + '-plain');
         me.cls = cls;
+    }
+
+    /**
+     * Triggered after the sortable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSortable(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.getTabBar().sortable = value;
+        }
     }
 
     /**
@@ -238,6 +256,7 @@ class Container extends BaseContainer {
             flex                 : 'none',
             id                   : me.tabBarId,
             items                : tabButtons,
+            sortable             : me.sortable,
             useActiveTabIndicator: me.useActiveTabIndicator,
             ...me.headerToolbarDefaults || {}
         }, {

@@ -37,18 +37,18 @@ where the framework is included as a node module, but needs to deploy to a top-l
 
 It is strongly recommended to run this program after each git pull on this repo.
 
-```
+```bash
 Options:
-  -V, --version            output the version number
-  -i, --info               print environment debug info
-  -e, --env <name>         "all", "dev", "prod"
-  -l, --npminstall <name>  "yes", "no"
+  -V, --version             output the version number
+  -i, --info                print environment debug info
+  -e, --env <value>         "all", "dev", "prod"
+  -l, --npminstall <value>  "yes", "no"
   -f, --framework          
   -n, --noquestions        
-  -p, --parsedocs <name>   "yes", "no"
-  -t, --themes <name>      "yes", "no"
-  -w, --threads <name>     "yes", "no"
-  -h, --help               display help for command
+  -p, --parsedocs <value>   "yes", "no"
+  -t, --themes <value>      "yes", "no"
+  -w, --threads <value>     "yes", "no"
+  -h, --help                display help for command
 ```
 
 The build-all program is using the -n (noquestions) option.
@@ -77,8 +77,8 @@ so we can select them using the inquirer interface.
 
 Let us take a look at the different inquirer steps:
 1. Pick the -l (npminstall) option:
-```
-tobiasuhlig@iMac-Pro neo % npm run build-all-questions
+```bash
+neo % npm run build-all-questions
 
 > neo.mjs@1.4.14 build-all-questions /Users/Shared/github/neomjs/neo
 > node ./buildScripts/buildAll.js -f
@@ -89,7 +89,7 @@ neo.mjs buildAll
   no 
 ```
 2. Pick the -e (env) option:
-```
+```bash
 neo.mjs buildAll
 ? Run npm install?: yes
 ? Please choose the environment: (Use arrow keys)
@@ -98,7 +98,7 @@ neo.mjs buildAll
   prod 
 ```
 3. Pick the -t (themes) option:
-```
+```bash
 neo.mjs buildAll
 ? Run npm install?: yes
 ? Please choose the environment: all
@@ -107,7 +107,7 @@ neo.mjs buildAll
   no 
 ```
 4. Pick the -w (threads) option:
-```
+```bash
 neo.mjs buildAll
 ? Run npm install?: yes
 ? Please choose the environment: all
@@ -117,7 +117,7 @@ neo.mjs buildAll
   no 
 ```
 5. Pick the -p (parsedocs) option:
-```
+```bash
 neo.mjs buildAll
 ? Run npm install?: yes
 ? Please choose the environment: all
@@ -133,16 +133,16 @@ Source code: <a href="./buildAll.js">build-all</a>
 ## build-my-apps
 > node ./buildScripts/webpack/buildMyApps.js -f
 
-```
+```bash
 Options:
-  -V, --version      output the version number
-  -i, --info         print environment debug info
-  -a, --apps <name>  "all", "Covid", "RealWorld", "RealWorld2", "SharedCovid", "SharedCovidChart", "SharedCovidGallery",
-                     "SharedCovidHelix", "SharedCovidMap", "SharedDialog", "SharedDialog2", "Website"
-  -e, --env <name>   "all", "dev", "prod"
+  -V, --version       output the version number
+  -i, --info          print environment debug info
+  -a, --apps <value>  "all", "Covid", "RealWorld", "RealWorld2", "SharedCovid", "SharedCovidChart", "SharedCovidGallery",
+                      "SharedCovidHelix", "SharedCovidMap", "SharedDialog", "SharedDialog2", "Website"
+  -e, --env <value>   "all", "dev", "prod"
   -f, --framework    
   -n, --noquestions  
-  -h, --help         display help for command
+  -h, --help          display help for command
 ```
 
 build-my-apps is very similar to build-threads => App.
@@ -157,8 +157,8 @@ so it is a little faster.
 
 Let us take a look at the different inquirer steps:
 1. Pick the -e (env) option:
-```
-tobiasuhlig@iMac-Pro neo % npm run build-my-apps
+```bash
+neo % npm run build-my-apps
 
 > neo.mjs@1.4.14 build-my-apps /Users/Shared/github/neomjs/neo
 > node ./buildScripts/webpack/buildMyApps.js -f
@@ -170,7 +170,7 @@ neo.mjs buildMyApps
   prod 
 ```
 2. Pick the -a (apps) option:
-```
+```bash
 neo.mjs buildMyApps
 ? Please choose the environment: all
 ? Please choose which apps you want to build: (Press <space> to select, <a> to toggle all, <i> to invert selection)
@@ -189,22 +189,22 @@ Source code: <a href="./webpack/buildMyApps.js">build-my-apps</a>
 ## build-themes
 > node ./buildScripts/webpack/buildThemes.js -f
 
-```
+```bash
 Options:
-  -V, --version         output the version number
-  -i, --info            print environment debug info
-  -c, --cssVars <name>  "all", "true", "false"
-  -e, --env <name>      "all", "dev", "prod"
+  -V, --version          output the version number
+  -i, --info             print environment debug info
+  -c, --cssVars <value>  "all", "true", "false"
+  -e, --env <value>      "all", "dev", "prod"
   -f, --framework       
   -n, --noquestions     
-  -t, --themes <name>   "all", "dark", "light"
-  -h, --help            display help for command
+  -t, --themes <value>   "all", "dark", "light"
+  -h, --help             display help for command
 ```
 
 Let us take a look at the different inquirer steps:
 1. Pick the -t (themes) option:
-```
-tobiasuhlig@iMac-Pro neo % npm run build-themes
+```bash
+neo % npm run build-themes
 
 > neo.mjs@1.4.14 build-themes /Users/Shared/github/neomjs/neo
 > node ./buildScripts/webpack/buildThemes.js -f
@@ -216,7 +216,7 @@ neo.mjs buildThemes
   light 
 ```
 2. Pick the -e (env) option:
-```
+```bash
 neo.mjs buildThemes
 ? Please choose the themes to build: all
 ? Please choose the environment: (Use arrow keys)
@@ -225,7 +225,7 @@ neo.mjs buildThemes
   prod 
 ```
 3. Pick the -c (cssVars) option:
-```
+```bash
 neo.mjs buildThemes
 ? Please choose the themes to build: all
 ? Please choose the environment: all
@@ -246,21 +246,21 @@ Since the default neo.mjs setup is using 3 workers, we have the following 4 thre
 Most of the framework code base & the apps you build with it run inside the App Worker,</br>
 so most of the time you only need to build the app thread.
 
-```
+```bash
 Options:
-  -V, --version         output the version number
-  -i, --info            print environment debug info
-  -e, --env <name>      "all", "dev", "prod"
+  -V, --version          output the version number
+  -i, --info             print environment debug info
+  -e, --env <value>      "all", "dev", "prod"
   -f, --framework       
   -n, --noquestions     
-  -t, --threads <name>  "all", "app", "data", "main", "vdom"
-  -h, --help            display help for command
+  -t, --threads <value>  "all", "app", "data", "main", "vdom"
+  -h, --help             display help for command
 ```
 
 Let us take a look at the different inquirer steps:
 1. Pick the -t (threads) option:
-```
-tobiasuhlig@iMac-Pro neo % npm run build-threads
+```bash
+neo % npm run build-threads
 
 > neo.mjs@1.4.14 build-threads /Users/Shared/github/neomjs/neo
 > node ./buildScripts/webpack/buildThreads.js -f
@@ -274,7 +274,7 @@ neo.mjs buildThreads
   vdom 
 ```
 2. Pick the -e (env) option:
-```
+```bash
 neo.mjs buildThreads
 ? Please choose the threads to build: all
 ? Please choose the environment: (Use arrow keys)
@@ -295,7 +295,7 @@ If you want to create a new Demo App inside the framework repo,
 using the create-app program makes sense, since you can work on the app & framework code in parallel.
 
 Using the default options, this will generate the following 3 files:
-``` 
+```
 neo
  | - apps
  |    | - myapp
@@ -305,7 +305,7 @@ neo
 ```
 
 The program will also add the App config into buildScripts/webpack/json/myApps.json.
-``` 
+```json
 "MyApp": {
     "input": "./apps/myapp/app.mjs",
     "output": "/apps/myapp/",
@@ -315,23 +315,23 @@ The program will also add the App config into buildScripts/webpack/json/myApps.j
 This file is added inside the .gitignore.</br>
 If the file does not exist yet, the program will copy buildScripts/webpack/json/myApps.template.json to create it.
 
-```
+```bash
 Options:
-  -V, --version                  output the version number
-  -i, --info                     print environment debug info
-  -a, --appName <name>           
-  -m, --mainThreadAddons <name>  Comma separated list of AmCharts, AnalyticsByGoogle, HighlightJS, LocalStorage,
-                                 MapboxGL, Markdown, Siesta, Stylesheet.
-                                 Defaults to Stylesheet
-  -t, --themes <name>            "all", "dark", "light"
-  -u, --useSharedWorkers <name>  "yes", "no"
-  -h, --help                     display help for command
+  -V, --version                   output the version number
+  -i, --info                      print environment debug info
+  -a, --appName <value>           
+  -m, --mainThreadAddons <value>  Comma separated list of AmCharts, AnalyticsByGoogle, HighlightJS, LocalStorage,
+                                  MapboxGL, Markdown, Siesta, Stylesheet.
+                                  Defaults to Stylesheet
+  -t, --themes <value>            "all", "dark", "light"
+  -u, --useSharedWorkers <value>  "yes", "no"
+  -h, --help                      display help for command
 ```
 
 Let us take a look at the different inquirer steps:
 1. Pick the -a (appName) option:
-```
-tobiasuhlig@iMac-Pro neo % npm run create-app
+```bash
+neo % npm run create-app
 
 > neo.mjs@1.4.14 create-app /Users/Shared/github/neomjs/neo
 > node ./buildScripts/createApp.js
@@ -340,7 +340,7 @@ neo.mjs create-app
 ? Please choose a name for your neo app: (MyApp) 
 ```
 2. Pick the -t (themes) option:
-```
+```bash
 neo.mjs create-app
 ? Please choose a name for your neo app: MyApp
 ? Please choose a theme for your neo app: (Use arrow keys)
@@ -349,7 +349,7 @@ neo.mjs create-app
 ❯ both 
 ```
 3. Pick the -m (mainThreadAddons) option:
-```
+```bash
 neo.mjs create-app
 ? Please choose a name for your neo app: MyApp
 ? Please choose a theme for your neo app: both
@@ -364,7 +364,7 @@ neo.mjs create-app
 (Move up and down to reveal more choices)
 ```
 4. Pick the -u (useSharedWorkers) option:
-```
+```bash
 neo.mjs create-app
 ? Please choose a name for your neo app: MyApp
 ? Please choose a theme for your neo app: both
@@ -378,7 +378,7 @@ No worries, you can easily change the options after you created your App shell.
 
 E.g. in case you want to add the MapboxGL main thread addon later on,
 you can add it inside your index.html file:
-```
+```js
 Object.assign(Neo.config, {
     appPath         : 'apps/myapp/app.mjs',
     basePath        : '../../',
@@ -389,7 +389,7 @@ Object.assign(Neo.config, {
 
 To add it into your build versions (dist/development & dist/production), you also need to adjust the
 buildScripts/webpack/json/myApps.json file:
-``` 
+```json
 "MyApp": {
     "input": "./apps/myapp/app.mjs",
     "mainThreadAddons": "'MapboxGL', 'Stylesheet'",

@@ -1,7 +1,7 @@
-import DragZone  from '../draggable/DragZone.mjs';
-import Panel     from '../container/Panel.mjs';
-import NeoArray  from '../util/Array.mjs';
-import Resizable from '../plugin/Resizable.mjs';
+import Panel    from '../container/Panel.mjs';
+import NeoArray from '../util/Array.mjs';
+
+let DragZone;
 
 /**
  * @class Neo.dialog.Base
@@ -75,12 +75,9 @@ class Base extends Panel {
          */
         minimizeCls: 'far fa-window-minimize',
         /**
-         * @member {Array} plugins=[Resizable]
+         * @member {Boolean} resizable_=true
          */
-        plugins: [{
-            module       :Resizable,
-            delegationCls: 'neo-dialog'
-        }],
+        resizable_: true,
         /**
          * @member {Object} _vdom
          */
@@ -156,14 +153,23 @@ class Base extends Panel {
             me.headerToolbar.cls = cls;
         }
 
-        if (value && !me.dragListenersAdded) {
-            domListeners.push(
-                {'drag:end'  : me.onDragEnd,   scope: me, delegate: '.neo-header-toolbar'},
-                {'drag:start': me.onDragStart, scope: me, delegate: '.neo-header-toolbar'}
-            );
+        if (value) {
+            import(
+                /* webpackChunkName: 'src/draggable/DragZone-mjs.js' */
+                '../draggable/DragZone.mjs'
+            ).then(module => {
+                DragZone = module.default;
 
-            me.domListeners       = domListeners;
-            me.dragListenersAdded = true; // todo: multi window apps
+                if (!me.dragListenersAdded) {
+                    domListeners.push(
+                        {'drag:end'  : me.onDragEnd,   scope: me, delegate: '.neo-header-toolbar'},
+                        {'drag:start': me.onDragStart, scope: me, delegate: '.neo-header-toolbar'}
+                    );
+
+                    me.domListeners       = domListeners;
+                    me.dragListenersAdded = true; // todo: multi window apps
+                }
+            });
         }
     }
 
@@ -204,6 +210,33 @@ class Base extends Panel {
                     }]
                 });
             }
+        }
+    }
+
+    /**
+     * Triggered after the resizable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetResizable(value, oldValue) {
+        if (value) {
+            import(
+                /* webpackChunkName: 'src/plugin/Resizable-mjs.js' */
+                '../plugin/Resizable.mjs'
+            ).then(module => {
+                let me      = this,
+                    plugins = me.plugins || [];
+
+                if (!me.getPlugin({module: module.default})) {
+                    plugins.push({
+                        module       : module.default,
+                        delegationCls: 'neo-dialog'
+                    });
+
+                    me.plugins = plugins;
+                }
+            });
         }
     }
 
@@ -437,7 +470,8 @@ class Base extends Panel {
                     module             : DragZone,
                     appName            : me.appName,
                     boundaryContainerId: me.boundaryContainerId,
-                    dragElement        : me.vdom
+                    dragElement        : me.vdom,
+                    owner              : me
                 });
             } else {
                 me.dragZone.boundaryContainerId = me.boundaryContainerId;

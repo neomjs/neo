@@ -20,12 +20,12 @@ let webpack = './node_modules/.bin/webpack';
 program
     .name(programName)
     .version(packageJson.version)
-    .option('-i, --info',           'print environment debug info')
-    .option('-c, --cssVars <name>', '"all", "true", "false"')
-    .option('-e, --env <name>',     '"all", "dev", "prod"')
+    .option('-i, --info',            'print environment debug info')
+    .option('-c, --cssVars <value>', '"all", "true", "false"')
+    .option('-e, --env <value>',     '"all", "dev", "prod"')
     .option('-f, --framework')
     .option('-n, --noquestions')
-    .option('-t, --themes <name>',  '"all", "dark", "light"')
+    .option('-t, --themes <value>',  '"all", "dark", "light"')
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');

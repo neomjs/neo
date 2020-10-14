@@ -7,33 +7,31 @@ import Base from '../../core/Base.mjs';
  * @singleton
  */
 class LocalStorage extends Base {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.main.addon.LocalStorage'
-             * @protected
-             */
-            className: 'Neo.main.addon.LocalStorage',
-            /**
-             * Remote method access for other workers
-             * @member {Object} remote={app: [//...]}
-             * @protected
-             */
-            remote: {
-                app: [
-                    'createLocalStorageItem',
-                    'destroyLocalStorageItem',
-                    'readLocalStorageItem',
-                    'updateLocalStorageItem'
-                ]
-            },
-            /**
-             * @member {Boolean} singleton=true
-             * @protected
-             */
-            singleton: true
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.main.addon.LocalStorage'
+         * @protected
+         */
+        className: 'Neo.main.addon.LocalStorage',
+        /**
+         * Remote method access for other workers
+         * @member {Object} remote={app: [//...]}
+         * @protected
+         */
+        remote: {
+            app: [
+                'createLocalStorageItem',
+                'destroyLocalStorageItem',
+                'readLocalStorageItem',
+                'updateLocalStorageItem'
+            ]
+        },
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
+    }}
 
     /**
      * Creates a new item into window.localStorage

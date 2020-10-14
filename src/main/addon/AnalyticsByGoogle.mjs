@@ -9,20 +9,18 @@ import Base from '../../core/Base.mjs';
  * @singleton
  */
 class AnalyticsByGoogle extends Base {
-    static getConfig() {
-        return {
-            /**
-             * @member {String} className='Neo.main.addon.AnalyticsByGoogle'
-             * @protected
-             */
-            className: 'Neo.main.addon.AnalyticsByGoogle',
-            /**
-             * @member {Boolean} singleton=true
-             * @protected
-             */
-            singleton: true
-        }
-    }
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.main.addon.AnalyticsByGoogle'
+         * @protected
+         */
+        className: 'Neo.main.addon.AnalyticsByGoogle',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
+    }}
 
     /**
      * @param {Object} config

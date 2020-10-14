@@ -40,6 +40,15 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 5,
             value    : me.exampleComponent.height
         }, {
+            module        : CheckBox,
+            checked       : me.exampleComponent.sortable,
+            hideLabel     : true,
+            hideValueLabel: false,
+            listeners     : {change: me.onConfigChange.bind(me, 'sortable')},
+            name          : 'tabBarPosition',
+            style         : {marginTop: '10px'},
+            valueLabelText: 'sortable'
+        }, {
             module        : Radio,
             checked       : me.exampleComponent.tabBarPosition === 'top',
             hideValueLabel: false,
@@ -88,7 +97,7 @@ class MainContainer extends ConfigurationViewport {
             hideValueLabel: false,
             listeners     : {change: me.onConfigChange.bind(me, 'useActiveTabIndicator')},
             name          : 'tabBarPosition',
-            style         : {marginTop: '20px'},
+            style         : {marginTop: '10px'},
             valueLabelText: 'useActiveTabIndicator'
         }, {
             module   : PickerField, // todo: SelectField
@@ -111,9 +120,10 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create(TabContainer, {
-            height: 300,
-            width : 500,
-            style : {margin: '20px'},
+            height  : 300,
+            width   : 500,
+            sortable: true,
+            style   : {margin: '20px'},
 
             itemDefaults: {
                 ntype: 'component',

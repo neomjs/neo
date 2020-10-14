@@ -19,14 +19,21 @@ class DragZone extends Base {
          */
         ntype: 'dragzone',
         /**
+         * drag:move will by default only fire in case moveInMainThread === false.
+         * In case you want to move the dragProxy inside main but still get the event,
+         * set this config to true.
+         * @member {Boolean} alwaysFireDragMove=false
+         */
+        alwaysFireDragMove: false,
+        /**
          * The name of the App this instance belongs to
          * @member {String|null} appName=null
          */
         appName: null,
         /**
-         * @member {String|null} boundaryContainerId_=null
+         * @member {String|null} boundaryContainerId=null
          */
-        boundaryContainerId_: null,
+        boundaryContainerId: null,
         /**
          * The vdom (tree) of the element you want to drag
          * @member {Object|null} dragElement=null
@@ -68,21 +75,25 @@ class DragZone extends Base {
          */
         offsetY: 0,
         /**
+         * @member {Neo.component.Base} owner=null
+         */
+        owner: null,
+        /**
          * @member {String} proxyParentId_='document.body'
          */
         proxyParentId_: 'document.body',
         /**
-         * @member {String|null} scrollContainerId_=null
+         * @member {String|null} scrollContainerId=null
          */
-        scrollContainerId_: null,
+        scrollContainerId: null,
         /**
-         * @member {Number} scrollFactorLeft_=1
+         * @member {Number} scrollFactorLeft=1
          */
-        scrollFactorLeft_: 1,
+        scrollFactorLeft: 1,
         /**
-         * @member {Number} scrollFactorTop_=1
+         * @member {Number} scrollFactorTop=1
          */
-        scrollFactorTop_: 1,
+        scrollFactorTop: 1,
         /**
          * True creates a position:absolute wrapper div which contains the cloned element
          * @member {Boolean} useProxyWrapper=true
@@ -99,62 +110,6 @@ class DragZone extends Base {
 
         if (!Neo.main.addon.DragDrop) {
             throw new Error('You can not use Neo.draggable.DragZone without adding Neo.main.addon.DragDrop to the main thread addons');
-        }
-    }
-
-    /**
-     * Triggered after the scrollContainerId config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetScrollContainerId(value, oldValue) {
-        if (value) {
-            Neo.main.addon.DragDrop.setScrollContainer({
-                id: value
-            });
-        }
-    }
-
-    /**
-     * Triggered after the boundaryContainerId config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetBoundaryContainerId(value, oldValue) {
-        if (value) {
-            Neo.main.addon.DragDrop.setBoundaryContainer({
-                id: value
-            });
-        }
-    }
-
-    /**
-     * Triggered after the scrollFactorLeft config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
-     * @protected
-     */
-    afterSetScrollFactorLeft(value, oldValue) {
-        if (!(value === 1 && oldValue === undefined)) {
-            Neo.main.addon.DragDrop.setScrollFactorLeft({
-                value: value
-            });
-        }
-    }
-
-    /**
-     * Triggered after the scrollFactorTop config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
-     * @protected
-     */
-    afterSetScrollFactorTop(value, oldValue) {
-        if (!(value === 1 && oldValue === undefined)) {
-            Neo.main.addon.DragDrop.setScrollFactorTop({
-                value: value
-            });
         }
     }
 
@@ -213,10 +168,6 @@ class DragZone extends Base {
     dragEnd() {
         let me = this;
 
-        Neo.main.DomAccess.setBodyCls({
-            remove: ['neo-unselectable']
-        });
-
         if (me.dragProxy) {
             me.destroyDragProxy();
             me.dragProxy = null;
@@ -260,9 +211,7 @@ class DragZone extends Base {
     dragStart(data) {
         let me = this;
 
-        Neo.main.DomAccess.setBodyCls({
-            add: ['neo-unselectable']
-        });
+        Neo.main.addon.DragDrop.setConfigs(me.getMainThreadConfigs());
 
         Neo.main.DomAccess.getBoundingClientRect({
             id: me.dragElement.id
@@ -275,6 +224,24 @@ class DragZone extends Base {
 
             me.createDragProxy(rect);
         });
+    }
+
+    /**
+     * Override this method inside class extensions to add more configs
+     * which get passed to main.addon.DragDrop onDragStart()
+     * @returns {Object}
+     * @protected
+     */
+    getMainThreadConfigs() {
+        let me = this;
+
+        return {
+            alwaysFireDragMove : me.alwaysFireDragMove,
+            boundaryContainerId: me.boundaryContainerId,
+            scrollContainerId  : me.scrollContainerId,
+            scrollFactorLeft   : me.scrollFactorLeft,
+            scrollFactorTop    : me.scrollFactorTop
+        };
     }
 }
 

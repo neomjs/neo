@@ -898,33 +898,76 @@ class Base extends CoreBase {
     }
 
     /**
-     * Search vdom child nodes by id for a given vdom tree
+     *
+     * @param {Object|String} opts
+     * @returns {Neo.plugin.Base|null}
+     */
+    getPlugin(opts) {
+        opts = typeof opts !== 'string' ? opts : {id: opts};
+
+        let me = this,
+            hasMatch;
+
+        for (const plugin of me.plugins || []) {
+            hasMatch = true;
+
+            for (const key in opts) {
+                if (plugin[key] !== opts[key]) {
+                    hasMatch = false;
+                    break;
+                }
+            }
+
+            if (hasMatch) {
+                return plugin;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Walks up the vdom tree and returns the closest theme found
+     * @returns {String}
+     */
+    getTheme() {
+        let me         = this,
+            themeMatch = 'neo-theme-',
+            app, mainView, parentNodes;
+
+        for (const item of me.cls || []) {
+            if (item.startsWith(themeMatch)) {
+                return item;
+            }
+        }
+
+        app      = Neo.apps[me.appName];
+        mainView = app && app.mainViewInstance;
+
+        if (mainView) {
+            parentNodes = VDomUtil.getParentNodes(mainView.vdom, me.id);
+
+            for (const node of parentNodes || []) {
+                for (const item of node.cls || []) {
+                    if (item.startsWith(themeMatch)) {
+                        return item;
+                    }
+                }
+            }
+        }
+
+        return Neo.config.themes && Neo.config.themes[0];
+    }
+
+    /**
+     * Search a vdom child node by id for a given vdom tree
      * @param {String} id
      * @param {Object} [vdom]
      * @returns {Object}
      */
     getVdomChild(id, vdom) {
-        vdom = vdom || this.vdom;
-        let child = null,
-            i     = 0,
-            len   = vdom.cn && vdom.cn.length,
-            subChild;
-
-        if (vdom.id === id) {
-            return vdom;
-        }
-
-        if (vdom.cn) {
-            for (; i < len; i++) {
-                subChild = this.getVdomChild(id, vdom.cn[i]);
-                if (subChild) {
-                    child = subChild;
-                    break;
-                }
-            }
-        }
-
-        return child;
+        let node = VDomUtil.findVdomChild(vdom || this.vdom, id);
+        return node && node.vdom;
     }
 
     /**

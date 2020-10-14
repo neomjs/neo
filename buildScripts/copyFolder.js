@@ -5,8 +5,8 @@ const commander = require('commander'),
 
 const program = new commander.Command('copyFolder')
     .version('1.0.0')
-    .option('-s, --source <name>', 'path to the source folder')
-    .option('-t, --target <name>', 'path to the target folder')
+    .option('-s, --source <value>', 'path to the source folder')
+    .option('-t, --target <value>', 'path to the target folder')
     .allowUnknownOption()
     .parse(process.argv);
 

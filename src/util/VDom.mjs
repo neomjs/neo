@@ -48,17 +48,16 @@ class VDom extends Base {
      */
     static findVdomChild(vdom, opts, index, parentNode) {
         index = index || 0;
-        opts  = typeof opts !== 'string' ? opts : {id:opts};
+        opts  = typeof opts !== 'string' ? opts : {id: opts};
 
         let child      = null,
             matchArray = [],
             styleMatch = true,
             i          = 0,
             len        = vdom.cn && vdom.cn.length,
-            optsArray, optsLength, subChild;
-
-        optsArray  = Object.entries(opts);
-        optsLength = optsArray.length;
+            optsArray  = Object.entries(opts),
+            optsLength = optsArray.length,
+            subChild;
 
         optsArray.forEach(([key, value]) => {
             if (vdom.hasOwnProperty(key)) {
@@ -221,6 +220,38 @@ class VDom extends Base {
         });
 
         return matchArray;
+    }
+
+    /**
+     *
+     * @param {Object} vdom
+     * @param {String} id
+     * @param {Boolean} topLevel=true Internal flag, do not use it
+     * @returns {Array}
+     */
+    static getParentNodes(vdom, id, topLevel=true) {
+        let parents = null,
+            i       = 0,
+            len     = vdom.cn && vdom.cn.length;
+
+        if (vdom.id === id) {
+            return [];
+        }
+
+        for (; i < len; i++) {
+            parents = VDom.getParentNodes(vdom.cn[i], id, false);
+
+            if (parents) {
+                parents.push(vdom.cn[i]);
+                break;
+            }
+        }
+
+        if (topLevel && parents) {
+            parents.push(vdom);
+        }
+
+        return parents;
     }
 
     /**
