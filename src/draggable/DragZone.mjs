@@ -312,6 +312,7 @@ class DragZone extends Base {
 
     /**
      * Override this method inside class extensions to add more configs
+     * which get passed to main.addon.DragDrop onDragStart()
      * @returns {Object}
      * @protected
      */
