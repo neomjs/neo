@@ -309,6 +309,22 @@ class DragZone extends Base {
             me.createDragProxy(rect);
         });
     }
+
+    /**
+     * Override this method inside class extensions to add more configs
+     * @returns {Object}
+     * @protected
+     */
+    getMainThreadConfigs() {
+        let me = this;
+
+        return {
+            boundaryContainerId: me.boundaryContainerId,
+            scrollContainerId  : me.scrollContainerId,
+            scrollFactorLeft   : me.scrollFactorLeft,
+            scrollFactorTop    : me.scrollFactorTop
+        };
+    }
 }
 
 Neo.applyClassConfig(DragZone);
