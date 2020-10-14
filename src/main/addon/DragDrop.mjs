@@ -63,7 +63,6 @@ class DragDrop extends Base {
             app: [
                 'setConfigs',
                 'setDragProxyElement',
-                'setScrollContainer',
                 'setScrollFactorLeft',
                 'setScrollFactorTop'
             ]
@@ -318,23 +317,6 @@ class DragDrop extends Base {
      */
     setDragProxyElement(data) {
         this.dragProxyElement = document.getElementById(data.id);
-    }
-
-    /**
-     *
-     * @param {Object} data
-     * @param {String} data.id
-     */
-    setScrollContainer(data) {
-        let me   = this,
-            node = data.id === 'document.body' ? document.body : document.getElementById(data.id);
-
-        Object.assign(me, {
-            scrollContainerElement: node,
-            scrollContainerRect   : node.getBoundingClientRect(),
-            initialScrollLeft     : node.scrollLeft,
-            initialScrollTop      : node.scrollTop
-        });
     }
 
     /**

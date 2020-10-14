@@ -83,9 +83,9 @@ class DragZone extends Base {
          */
         proxyParentId_: 'document.body',
         /**
-         * @member {String|null} scrollContainerId_=null
+         * @member {String|null} scrollContainerId=null
          */
-        scrollContainerId_: null,
+        scrollContainerId: null,
         /**
          * @member {Number} scrollFactorLeft_=1
          */
@@ -110,31 +110,6 @@ class DragZone extends Base {
 
         if (!Neo.main.addon.DragDrop) {
             throw new Error('You can not use Neo.draggable.DragZone without adding Neo.main.addon.DragDrop to the main thread addons');
-        }
-    }
-
-    /**
-     * Triggered after the scrollContainerId config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetScrollContainerId(value, oldValue) {
-        if (value) {
-            let me    = this,
-                owner = me.owner,
-                listenerId;
-
-            if (owner.mounted) {
-                Neo.main.addon.DragDrop.setScrollContainer({
-                    id: value
-                });
-            } else {
-                listenerId = owner.on('mounted', () => {
-                    owner.un('mounted', listenerId);
-                    me.afterSetScrollContainerId(value, oldValue);
-                });
-            }
         }
     }
 
