@@ -555,19 +555,19 @@ class WeekComponent extends Component {
             timeAxis    = me.timeAxis;
 
         const config = {
-            dragElement      : dragElement,
-            endTime          : timeAxis.getTime(timeAxis.endTime),
-            eventRecord      : me.eventStore.get(dragElement.flag),
-            proxyParentId    : data.path[1].id,
-            scrollContainerId: me.getScrollContainer().id,
-            startTime        : timeAxis.getTime(timeAxis.startTime)
+            dragElement  : dragElement,
+            endTime      : timeAxis.getTime(timeAxis.endTime),
+            eventRecord  : me.eventStore.get(dragElement.flag),
+            proxyParentId: data.path[1].id,
+            startTime    : timeAxis.getTime(timeAxis.startTime)
         };
 
         if (!me.eventDragZone) {
             me.eventDragZone = Neo.create({
-                module : WeekEventDragZone,
-                appName: me.appName,
-                owner  : me,
+                module           : WeekEventDragZone,
+                appName          : me.appName,
+                owner            : me,
+                scrollContainerId: me.getScrollContainer().id,
                 ...config,
 
                 dragProxyConfig: {
