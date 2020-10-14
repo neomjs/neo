@@ -31,9 +31,9 @@ class DragZone extends Base {
          */
         appName: null,
         /**
-         * @member {String|null} boundaryContainerId_=null
+         * @member {String|null} boundaryContainerId=null
          */
-        boundaryContainerId_: null,
+        boundaryContainerId: null,
         /**
          * The vdom (tree) of the element you want to drag
          * @member {Object|null} dragElement=null
@@ -133,31 +133,6 @@ class DragZone extends Base {
                 listenerId = owner.on('mounted', () => {
                     owner.un('mounted', listenerId);
                     me.afterSetScrollContainerId(value, oldValue);
-                });
-            }
-        }
-    }
-
-    /**
-     * Triggered after the boundaryContainerId config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetBoundaryContainerId(value, oldValue) {
-        if (value) {
-            let me    = this,
-                owner = me.owner,
-                listenerId;
-
-            if (owner.mounted) {
-                Neo.main.addon.DragDrop.setBoundaryContainer({
-                    id: value
-                });
-            } else {
-                listenerId = owner.on('mounted', () => {
-                    owner.un('mounted', listenerId);
-                    me.afterSetBoundaryContainerId(value, oldValue);
                 });
             }
         }

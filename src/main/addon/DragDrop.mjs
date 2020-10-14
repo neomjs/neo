@@ -61,7 +61,6 @@ class DragDrop extends Base {
          */
         remote: {
             app: [
-                'setBoundaryContainer',
                 'setConfigs',
                 'setDragProxyElement',
                 'setScrollContainer',
@@ -280,18 +279,6 @@ class DragDrop extends Base {
             clientX: me.clientX + el.scrollLeft - me.initialScrollLeft,
             clientY: me.clientY + el.scrollTop  - me.initialScrollTop
         };
-    }
-
-    /**
-     *
-     * @param {Object} data
-     * @param {String} data.id
-     */
-    setBoundaryContainer(data) {
-        let me   = this,
-            node = data.id === 'document.body' ? document.body : document.getElementById(data.id);
-
-        me.boundaryContainerRect = node.getBoundingClientRect();
     }
 
     /**
