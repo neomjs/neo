@@ -298,11 +298,18 @@ class DragDrop extends Base {
      *
      * @param {Object}  data
      * @param {Boolean} data.alwaysFireDragMove
+     * @param {String}  data.boundaryContainerId
      */
     setConfigs(data) {console.log('setConfigs', data);
-        let me = this;
+        let me = this,
+            node;
 
         me.alwaysFireDragMove = data.alwaysFireDragMove;
+
+        if (data.boundaryContainerId) {
+            node = data.boundaryContainerId === 'document.body' ? document.body : document.getElementById(data.boundaryContainerId);
+            me.boundaryContainerRect = node.getBoundingClientRect();
+        }
     }
 
     /**
