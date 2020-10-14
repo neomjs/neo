@@ -19,6 +19,10 @@ class DragZone extends BaseDragZone {
          */
         ntype: 'toolbar-dragzone',
         /**
+         * @member {Boolean} alwaysFireDragMove=true
+         */
+        alwaysFireDragMove: true,
+        /**
          * @member {Object|null} dragProxyConfig
          */
         dragProxyConfig: {

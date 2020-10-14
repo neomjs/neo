@@ -302,9 +302,7 @@ class DragDrop extends Base {
     setConfigs(data) {console.log('setConfigs', data);
         let me = this;
 
-        if (data.alwaysFireDragMove) {
-            me.alwaysFireDragMove = data.alwaysFireDragMove;
-        }
+        me.alwaysFireDragMove = data.alwaysFireDragMove;
     }
 
     /**
