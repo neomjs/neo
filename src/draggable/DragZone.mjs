@@ -87,13 +87,13 @@ class DragZone extends Base {
          */
         scrollContainerId: null,
         /**
-         * @member {Number} scrollFactorLeft_=1
+         * @member {Number} scrollFactorLeft=1
          */
-        scrollFactorLeft_: 1,
+        scrollFactorLeft: 1,
         /**
-         * @member {Number} scrollFactorTop_=1
+         * @member {Number} scrollFactorTop=1
          */
-        scrollFactorTop_: 1,
+        scrollFactorTop: 1,
         /**
          * True creates a position:absolute wrapper div which contains the cloned element
          * @member {Boolean} useProxyWrapper=true
@@ -110,34 +110,6 @@ class DragZone extends Base {
 
         if (!Neo.main.addon.DragDrop) {
             throw new Error('You can not use Neo.draggable.DragZone without adding Neo.main.addon.DragDrop to the main thread addons');
-        }
-    }
-
-    /**
-     * Triggered after the scrollFactorLeft config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
-     * @protected
-     */
-    afterSetScrollFactorLeft(value, oldValue) {
-        if (!(value === 1 && oldValue === undefined)) {
-            Neo.main.addon.DragDrop.setScrollFactorLeft({
-                value: value
-            });
-        }
-    }
-
-    /**
-     * Triggered after the scrollFactorTop config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
-     * @protected
-     */
-    afterSetScrollFactorTop(value, oldValue) {
-        if (!(value === 1 && oldValue === undefined)) {
-            Neo.main.addon.DragDrop.setScrollFactorTop({
-                value: value
-            });
         }
     }
 

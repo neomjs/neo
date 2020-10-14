@@ -62,9 +62,7 @@ class DragDrop extends Base {
         remote: {
             app: [
                 'setConfigs',
-                'setDragProxyElement',
-                'setScrollFactorLeft',
-                'setScrollFactorTop'
+                'setDragProxyElement'
             ]
         },
         /**
@@ -318,24 +316,6 @@ class DragDrop extends Base {
      */
     setDragProxyElement(data) {
         this.dragProxyElement = document.getElementById(data.id);
-    }
-
-    /**
-     *
-     * @param {Object} data
-     * @param {Number} data.value
-     */
-    setScrollFactorLeft(data) {
-        this.scrollFactorLeft = data.value;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     * @param {Number} data.value
-     */
-    setScrollFactorTop(data) {
-        this.scrollFactorTop = data.value;
     }
 }
 
