@@ -286,6 +286,8 @@ class DragDrop extends Base {
      * @param {Boolean} data.alwaysFireDragMove
      * @param {String}  data.boundaryContainerId
      * @param {String}  data.scrollContainerId
+     * @param {Number}  data.scrollFactorLeft
+     * @param {Number}  data.scrollFactorTop
      */
     setConfigs(data) {
         let me = this,
