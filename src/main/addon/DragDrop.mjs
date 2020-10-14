@@ -286,6 +286,7 @@ class DragDrop extends Base {
      * @param {Object}  data
      * @param {Boolean} data.alwaysFireDragMove
      * @param {String}  data.boundaryContainerId
+     * @param {String}  data.scrollContainerId
      */
     setConfigs(data) {console.log('setConfigs', data);
         let me = this,
@@ -296,6 +297,17 @@ class DragDrop extends Base {
         if (data.boundaryContainerId) {
             node = data.boundaryContainerId === 'document.body' ? document.body : document.getElementById(data.boundaryContainerId);
             me.boundaryContainerRect = node.getBoundingClientRect();
+        }
+
+        if (data.scrollContainerId) {
+            node = data.scrollContainerId === 'document.body' ? document.body : document.getElementById(data.scrollContainerId);
+
+            Object.assign(me, {
+                scrollContainerElement: node,
+                scrollContainerRect   : node.getBoundingClientRect(),
+                initialScrollLeft     : node.scrollLeft,
+                initialScrollTop      : node.scrollTop
+            });
         }
     }
 
