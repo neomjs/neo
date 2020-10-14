@@ -1,4 +1,5 @@
 import Base      from '../../core/Base.mjs';
+import DomAccess from '../DomAccess.mjs';
 import DomEvents from '../DomEvents.mjs';
 
 /**
@@ -293,12 +294,12 @@ class DragDrop extends Base {
         me.alwaysFireDragMove = data.alwaysFireDragMove;
 
         if (data.boundaryContainerId) {
-            node = data.boundaryContainerId === 'document.body' ? document.body : document.getElementById(data.boundaryContainerId);
+            node = DomAccess.getElementOrBody(data.boundaryContainerId);
             me.boundaryContainerRect = node.getBoundingClientRect();
         }
 
         if (data.scrollContainerId) {
-            node = data.scrollContainerId === 'document.body' ? document.body : document.getElementById(data.scrollContainerId);
+            node = DomAccess.getElementOrBody(data.scrollContainerId);
 
             Object.assign(me, {
                 scrollContainerElement: node,
