@@ -109,8 +109,6 @@ class SortZone extends DragZone {
                 indexMap[index] = index;
             });
 
-            console.log(indexMap);
-
             Object.assign(me, {
                 currentIndex: index,
                 indexMap    : indexMap,
