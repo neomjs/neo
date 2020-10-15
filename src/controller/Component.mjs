@@ -151,7 +151,8 @@ class Component extends Base {
      * @param {Neo.component.Base} view
      */
     onViewConstructed(view) {
-        let me = this,
+        let me        = this,
+            childCall = !!view,
             domListeners, eventHandler, fn, parentController;
 
         view = view || me.view;
@@ -239,7 +240,9 @@ class Component extends Base {
             });
         }
 
-        me.onViewParsed();
+        if (!childCall) {
+            me.onViewParsed();
+        }
     }
 
     /**
