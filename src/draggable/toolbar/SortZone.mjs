@@ -27,6 +27,11 @@ class SortZone extends DragZone {
          */
         currentIndex: -1,
         /**
+         * @member {Object} indexMap=null
+         * @protected
+         */
+        indexMap: null,
+        /**
          * @member {Array|null} itemRects=null
          * @protected
          */
@@ -50,6 +55,7 @@ class SortZone extends DragZone {
     onDragEnd(data) {
         Object.assign(this, {
             currentIndex: -1,
+            indexMap    : null,
             itemRects   : null,
             ownerRect   : null,
             startIndex  : -1
@@ -63,20 +69,21 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     onDragMove(data) {
-        let me        = this,
-            index     = me.currentIndex,
-            itemRects = me.itemRects,
-            deltaX    = data.clientX - me.offsetX - me.itemRects[index].left;
+        let me         = this,
+            moveFactor = 0.55, // we can not use 0.5, since items would jump back & forth
+            index      = me.currentIndex,
+            itemRects  = me.itemRects,
+            deltaX     = data.clientX - me.offsetX - me.itemRects[index].left;
 
         if (index > 0 && deltaX < 0) {
-            if (Math.abs(deltaX) > itemRects[index - 1].width / 2) {
+            if (Math.abs(deltaX) > itemRects[index - 1].width * moveFactor) {
                 me.currentIndex--;
                 me.switchItems(index, me.currentIndex);
             }
         }
 
         else if (index < itemRects.length - 1 && deltaX > 0) {
-            if (deltaX > itemRects[index + 1].width / 2) {
+            if (deltaX > itemRects[index + 1].width * moveFactor) {
                 me.currentIndex++;
                 me.switchItems(index, me.currentIndex);
             }
@@ -91,13 +98,22 @@ class SortZone extends DragZone {
         let me     = this,
             button = Neo.getComponent(data.path[0].id),
             owner  = me.owner,
-            index, itemStyle, ownerStyle, rect;
+            index, indexMap, itemStyle, ownerStyle, rect;
 
         if (owner.sortable) {
             index = owner.indexOf(button.id);
 
+            indexMap = {};
+
+            owner.items.forEach((item, index) => {
+                indexMap[index] = index;
+            });
+
+            console.log(indexMap);
+
             Object.assign(me, {
                 currentIndex: index,
+                indexMap    : indexMap,
                 startIndex  : index
             });
 
@@ -150,14 +166,16 @@ class SortZone extends DragZone {
      * @param {Number} index2
      */
     switchItems(index1, index2) {
+        let tmp;
+
         if (index2 < index1) {
-            let tmp = index1;
+            tmp    = index1;
             index1 = index2;
             index2 = tmp;
         }
 
-        console.log('#####switchItems', index1, index2, [...this.itemRects]);
         let me    = this,
+            map   = me.indexMap,
             rect1 = {...me.itemRects[index1]},
             rect2 = {...me.itemRects[index2]};
 
@@ -172,6 +190,10 @@ class SortZone extends DragZone {
             left : rect1.left + rect1.width,
             width: rect1.width
         });
+
+        tmp         = map[index1];
+        map[index1] = map[index2];
+        map[index2] = tmp;
     }
 
     /**
@@ -181,8 +203,9 @@ class SortZone extends DragZone {
      */
     updateItem(index, rect) {
         let me    = this,
+            map   = me.indexMap,
             owner = me.owner,
-            style = owner.items[index].style;
+            style = owner.items[map[index]].style;
 
         Object.assign(style, {
             height: `${rect.height}px`,
@@ -191,7 +214,7 @@ class SortZone extends DragZone {
             width : `${rect.width}px`
         });
 
-        owner.items[index].style = style;
+        owner.items[map[index]].style = style;
     }
 }
 
