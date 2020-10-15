@@ -67,7 +67,7 @@ class SortZone extends DragZone {
 
         console.log(index, deltaX);
 
-        if (index > -1 && deltaX < 0) {
+        if (index > 0 && deltaX < 0) {
             if (Math.abs(deltaX) > me.itemRects[index - 1].width / 2) {
                 me.currentIndex--;
                 me.switchItems(index, me.currentIndex);
@@ -142,7 +142,36 @@ class SortZone extends DragZone {
      * @param {Number} index2
      */
     switchItems(index1, index2) {
-        console.log('switchItems', index1, index2);
+        let me  = this,
+            tmp = {...me.itemRects[index2]};
+
+        me.updateItem(index1, tmp);
+        me.updateItem(index2, me.itemRects[index1]);
+
+        me.itemRects[index2] = me.itemRects[index1];
+        me.itemRects[index1] = tmp;
+
+        console.log(me.itemRects[index1], me.itemRects[index2]);
+    }
+
+    /**
+     *
+     * @param {Number} index
+     * @param {Object} rect
+     */
+    updateItem(index, rect) {
+        let me    = this,
+            owner = me.owner,
+            style = owner.items[index].style;
+
+        Object.assign(style, {
+            height: `${rect.height}px`,
+            left  : `${rect.left}px`,
+            top   : `${rect.top}px`,
+            width : `${rect.width}px`
+        });
+
+        owner.items[index].style = style;
     }
 }
 
