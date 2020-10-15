@@ -50,6 +50,8 @@ class SortZone extends DragZone {
     onDragEnd(data) {
         Object.assign(this, {
             currentIndex: -1,
+            itemRects   : null,
+            ownerRect   : null,
             startIndex  : -1
         });
 
@@ -61,15 +63,21 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     onDragMove(data) {
-        let me     = this,
-            index  = me.currentIndex,
-            deltaX = data.clientX - me.offsetX - me.itemRects[index].left;
-
-        console.log(index, deltaX);
+        let me        = this,
+            index     = me.currentIndex,
+            itemRects = me.itemRects,
+            deltaX    = data.clientX - me.offsetX - me.itemRects[index].left;
 
         if (index > 0 && deltaX < 0) {
-            if (Math.abs(deltaX) > me.itemRects[index - 1].width / 2) {
+            if (Math.abs(deltaX) > itemRects[index - 1].width / 2) {
                 me.currentIndex--;
+                me.switchItems(index, me.currentIndex);
+            }
+        }
+
+        else if (index < itemRects.length - 1 && deltaX > 0) {
+            if (deltaX > itemRects[index + 1].width / 2) {
+                me.currentIndex++;
                 me.switchItems(index, me.currentIndex);
             }
         }
@@ -142,16 +150,28 @@ class SortZone extends DragZone {
      * @param {Number} index2
      */
     switchItems(index1, index2) {
-        let me  = this,
-            tmp = {...me.itemRects[index2]};
+        if (index2 < index1) {
+            let tmp = index1;
+            index1 = index2;
+            index2 = tmp;
+        }
 
-        me.updateItem(index1, tmp);
-        me.updateItem(index2, me.itemRects[index1]);
+        console.log('#####switchItems', index1, index2, [...this.itemRects]);
+        let me    = this,
+            rect1 = {...me.itemRects[index1]},
+            rect2 = {...me.itemRects[index2]};
 
-        me.itemRects[index2] = me.itemRects[index1];
-        me.itemRects[index1] = tmp;
+        me.updateItem(index1, rect2);
+        me.updateItem(index2, rect1);
 
-        console.log(me.itemRects[index1], me.itemRects[index2]);
+        Object.assign(me.itemRects[index1], {
+            width: rect2.width
+        });
+
+        Object.assign(me.itemRects[index2], {
+            left : rect1.left + rect1.width,
+            width: rect1.width
+        });
     }
 
     /**

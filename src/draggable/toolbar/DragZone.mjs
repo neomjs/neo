@@ -22,7 +22,7 @@ class DragZone extends BaseDragZone {
          * @member {Object|null} dragProxyConfig
          */
         dragProxyConfig: {
-            cls: ['neo-dragproxy', 'neo-toolbar']
+            cls: ['neo-dragproxy', 'neo-tab-header-toolbar', 'neo-toolbar'] // todo: class extension for tabs
         }
     }}
 
