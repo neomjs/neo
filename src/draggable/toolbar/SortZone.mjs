@@ -22,12 +22,23 @@ class SortZone extends DragZone {
          */
         alwaysFireDragMove: true,
         /**
+         * @member {Number} currentIndex=-1
+         * @protected
+         */
+        currentIndex: -1,
+        /**
          * @member {Array|null} itemRects=null
          * @protected
          */
         itemRects: null,
         /**
+         * @member {Object} ownerRect=null
+         * @protected
+         */
+        ownerRect: null,
+        /**
          * @member {Number} startIndex=-1
+         * @protected
          */
         startIndex: -1
     }}
@@ -38,7 +49,8 @@ class SortZone extends DragZone {
      */
     onDragEnd(data) {
         Object.assign(this, {
-            startIndex: -1
+            currentIndex: -1,
+            startIndex  : -1
         });
 
         super.onDragEnd(data);
@@ -50,14 +62,16 @@ class SortZone extends DragZone {
      */
     onDragMove(data) {
         let me     = this,
-            index  = me.startIndex + 1,
+            index  = me.currentIndex,
             deltaX = data.clientX - me.offsetX - me.itemRects[index].left;
 
-        //console.log(me.itemRects[me.startIndex].left, data.targetPath[0].rect.left);
-        console.log(deltaX);
+        console.log(index, deltaX);
 
-        if (deltaX < 0 && index > 0) {
-            console.log('move left');
+        if (index > -1 && deltaX < 0) {
+            if (Math.abs(deltaX) > me.itemRects[index - 1].width / 2) {
+                me.currentIndex--;
+                me.switchItems(index, me.currentIndex);
+            }
         }
     }
 
@@ -69,16 +83,21 @@ class SortZone extends DragZone {
         let me     = this,
             button = Neo.getComponent(data.path[0].id),
             owner  = me.owner,
-            itemStyle, ownerStyle, rect;
+            index, itemStyle, ownerStyle, rect;
 
         if (owner.sortable) {
+            index = owner.indexOf(button.id);
+
             Object.assign(me, {
-                startIndex: owner.indexOf(button.id)
+                currentIndex: index,
+                startIndex  : index
             });
 
             Neo.main.DomAccess.getBoundingClientRect({
                 id: [owner.id].concat(owner.items.map(e => e.id))
             }).then(itemRects => {
+                me.ownerRect = itemRects[0];
+                itemRects.shift();
                 me.itemRects = itemRects;
 
                 ownerStyle = owner.style;
@@ -92,7 +111,7 @@ class SortZone extends DragZone {
 
                 owner.items.forEach((item, index) => {
                     itemStyle = item.style || {};
-                    rect      = itemRects[index + 1];
+                    rect      = itemRects[index];
 
                     Object.assign(itemStyle, {
                         height  : `${rect.height}px`,
@@ -115,6 +134,15 @@ class SortZone extends DragZone {
                 }, 30);
             });
         }
+    }
+
+    /**
+     *
+     * @param {Number} index1
+     * @param {Number} index2
+     */
+    switchItems(index1, index2) {
+        console.log('switchItems', index1, index2);
     }
 }
 
