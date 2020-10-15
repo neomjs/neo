@@ -18,6 +18,10 @@ class SortZone extends DragZone {
          */
         ntype: 'toolbar-sortzone',
         /**
+         * @member {Boolean} alwaysFireDragMove=true
+         */
+        alwaysFireDragMove: true,
+        /**
          * @member {Array|null} itemRects=null
          * @protected
          */
@@ -38,6 +42,16 @@ class SortZone extends DragZone {
         });
 
         super.onDragEnd(data);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragMove(data) {
+        console.log('onDragMove', data);
+
+        let me = this;
     }
 
     /**
