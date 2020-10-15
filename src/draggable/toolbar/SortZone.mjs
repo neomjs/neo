@@ -21,8 +21,24 @@ class SortZone extends DragZone {
          * @member {Array|null} itemRects=null
          * @protected
          */
-        itemRects: null
+        itemRects: null,
+        /**
+         * @member {Number} startIndex=-1
+         */
+        startIndex: -1
     }}
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragEnd(data) {
+        Object.assign(this, {
+            startIndex: -1
+        });
+
+        super.onDragEnd(data);
+    }
 
     /**
      *
@@ -35,6 +51,10 @@ class SortZone extends DragZone {
             itemStyle, ownerStyle, rect;
 
         if (owner.sortable) {
+            Object.assign(me, {
+                startIndex: owner.indexOf(button.id)
+            });
+
             Neo.main.DomAccess.getBoundingClientRect({
                 id: [owner.id].concat(owner.items.map(e => e.id))
             }).then(itemRects => {
