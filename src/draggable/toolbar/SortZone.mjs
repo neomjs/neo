@@ -49,9 +49,16 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     onDragMove(data) {
-        console.log('onDragMove', data);
+        let me     = this,
+            index  = me.startIndex + 1,
+            deltaX = data.clientX - me.offsetX - me.itemRects[index].left;
 
-        let me = this;
+        //console.log(me.itemRects[me.startIndex].left, data.targetPath[0].rect.left);
+        console.log(deltaX);
+
+        if (deltaX < 0 && index > 0) {
+            console.log('move left');
+        }
     }
 
     /**
