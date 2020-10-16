@@ -194,19 +194,20 @@ class SortZone extends DragZone {
             index2 = tmp;
         }
 
-        let me    = this,
-            map   = me.indexMap,
-            rect1 = {...me.itemRects[index1]},
-            rect2 = {...me.itemRects[index2]};
+        let me        = this,
+            itemRects = me.itemRects,
+            map       = me.indexMap,
+            rect1     = {...itemRects[index1]},
+            rect2     = {...itemRects[index2]};
 
         me.updateItem(index1, rect2);
         me.updateItem(index2, rect1);
 
-        Object.assign(me.itemRects[index1], {
+        Object.assign(itemRects[index1], {
             width: rect2.width
         });
 
-        Object.assign(me.itemRects[index2], {
+        Object.assign(itemRects[index2], {
             left : rect1.left + rect1.width,
             width: rect1.width
         });
