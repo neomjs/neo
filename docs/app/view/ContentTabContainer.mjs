@@ -53,7 +53,11 @@ class ContentTabContainer extends Container {
                 iconCls: 'fa fa-users',
                 text   : 'Welcome!'
             }
-        }]
+        }],
+        /**
+         * @member {Boolean} sortable=true
+         */
+        sortable: true
     }}
 
     /**

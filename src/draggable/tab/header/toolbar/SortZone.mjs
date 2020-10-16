@@ -30,7 +30,7 @@ class SortZone extends BaseSortZone {
      * @param {Number} toIndex
      */
     moveTo(fromIndex, toIndex) {
-        this.owner.up('tab-container').moveTo(fromIndex, toIndex);
+        this.owner.up().moveTo(fromIndex, toIndex);
     }
 }
 
