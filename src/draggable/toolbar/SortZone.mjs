@@ -59,6 +59,15 @@ class SortZone extends DragZone {
     }}
 
     /**
+     * Override this method for class extensions (e.g. tab.header.Toolbar)
+     * @param {Number} index
+     * @param {Neo.component.Base} item
+     */
+    moveTo(index, item) {
+        this.owner.moveTo(index, item);
+    }
+
+    /**
      *
      * @param {Object} data
      */
@@ -93,7 +102,7 @@ class SortZone extends DragZone {
         });
 
         if (me.currentIndex !== me.startIndex) {
-            owner.moveTo(me.currentIndex, owner.items[me.startIndex]);
+            me.moveTo(me.currentIndex, owner.items[me.startIndex]);
         }
 
         Object.assign(me, {
