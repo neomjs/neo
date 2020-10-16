@@ -482,8 +482,22 @@ class Container extends BaseContainer {
      * @returns {Neo.component.Base} the card item
      */
     moveTo(fromIndex, toIndex) {
-        this.getTabBar().moveTo(fromIndex, toIndex);
-        return this.getCardContainer().moveTo(fromIndex, toIndex);
+        let me            = this,
+            cardContainer = me.getCardContainer(),
+            tabBar        = me.getTabBar(),
+            activeTab     = tabBar.items[me.activeIndex],
+            index;
+
+        tabBar.moveTo(fromIndex, toIndex);
+        index = activeTab.index;
+
+        if (index !== me.activeIndex) {
+            // silent updates
+            me._activeIndex = index;
+            cardContainer.layout._activeIndex = index;
+        }
+
+        return cardContainer.moveTo(fromIndex, toIndex);
     }
 
     /**
