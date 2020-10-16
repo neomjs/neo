@@ -37,7 +37,7 @@ class SortZone extends DragZone {
          */
         itemRects: null,
         /**
-         * @member {Array|null} itemRects=null
+         * @member {Array|null} itemStyles=null
          * @protected
          */
         itemStyles: null,
@@ -46,6 +46,11 @@ class SortZone extends DragZone {
          * @protected
          */
         ownerRect: null,
+        /**
+         * @member {Object} ownerStyle=null
+         * @protected
+         */
+        ownerStyle: null,
         /**
          * @member {Number} startIndex=-1
          * @protected
@@ -61,7 +66,13 @@ class SortZone extends DragZone {
         let me         = this,
             owner      = me.owner,
             itemStyles = me.itemStyles,
+            ownerStyle = owner.style || {},
             itemStyle;
+
+        ownerStyle.height = me.ownerStyle.height || null;
+        ownerStyle.width  = me.ownerStyle.width  || null;
+
+        owner.style = ownerStyle;
 
         owner.items.forEach((item, index) => {
             itemStyle = item.style || {};
@@ -128,9 +139,15 @@ class SortZone extends DragZone {
             button     = Neo.getComponent(data.path[0].id),
             owner      = me.owner,
             itemStyles = me.itemStyles = [],
-            index, indexMap, itemStyle, ownerStyle, rect;
+            ownerStyle = owner.style || {},
+            index, indexMap, itemStyle, rect;
 
         if (owner.sortable) {
+            me.ownerStyle = {
+                height: ownerStyle.height,
+                width : ownerStyle.width
+            };
+
             index = owner.indexOf(button.id);
 
             indexMap = {};
@@ -157,12 +174,8 @@ class SortZone extends DragZone {
                 itemRects.shift();
                 me.itemRects = itemRects;
 
-                ownerStyle = owner.style;
-
-                Object.assign(ownerStyle, {
-                    height: `${itemRects[0].height}px`,
-                    width : `${itemRects[0].width}px`
-                });
+                ownerStyle.height = `${itemRects[0].height}px`;
+                ownerStyle.width  = `${itemRects[0].width}px`;
 
                 owner.style = ownerStyle;
 
