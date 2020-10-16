@@ -15,7 +15,13 @@ class SortZone extends BaseSortZone {
          * @member {String} ntype='tab-header-toolbar-sortzone'
          * @protected
          */
-        ntype: 'tab-header-toolbar-sortzone'
+        ntype: 'tab-header-toolbar-sortzone',
+        /**
+         * @member {Object|null} dragProxyConfig
+         */
+        dragProxyConfig: {
+            cls: ['neo-dragproxy', 'neo-tab-header-toolbar', 'neo-toolbar']
+        }
     }}
 
     /**

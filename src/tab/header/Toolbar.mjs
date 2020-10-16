@@ -21,14 +21,6 @@ class Toolbar extends BaseToolbar {
          */
         cls: ['neo-tab-header-toolbar', 'neo-toolbar'],
         /**
-         * @member {Object} sortZoneConfig
-         */
-        sortZoneConfig: {
-            dragProxyConfig: {
-                cls: ['neo-dragproxy', 'neo-tab-header-toolbar', 'neo-toolbar']
-            }
-        },
-        /**
          * @member {Boolean} useActiveTabIndicator_=true
          */
         useActiveTabIndicator_: true
