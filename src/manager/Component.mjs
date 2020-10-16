@@ -37,7 +37,7 @@ class Component extends Base {
     /**
      * Returns the first component which matches the config-selector moving down the component items tree
      * @param {String} componentId
-     * @param {Object|String} config
+     * @param {Object|String|null} config
      * @returns {Neo.component.Base|null}
      */
     down(componentId, config) {
@@ -53,6 +53,8 @@ class Component extends Base {
             config = {
                 ntype: config
             };
+        } else if (!config) {
+            config = {};
         }
 
         configArray  = Object.entries(config);
@@ -193,7 +195,7 @@ class Component extends Base {
     /**
      * Returns the first component which matches the config-selector
      * @param {String} componentId
-     * @param {Object|String} config
+     * @param {Object|String|null} config
      * @returns {Neo.component.Base|null}
      */
     up(componentId, config) {
@@ -204,6 +206,8 @@ class Component extends Base {
             config = {
                 ntype: config
             };
+        } else if (!config) {
+            config = {};
         }
 
         configArray  = Object.entries(config);
