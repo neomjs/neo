@@ -391,14 +391,12 @@ class Container extends BaseContainer {
                 index  : index,
                 pressed: me.activeIndex === index,
 
-                domListeners: {
-                    click: {
-                        fn: function(data) {
-                            me.activeIndex = Neo.getComponent(data.target.id).index;
-                        },
-                        scope: me
-                    }
-                }
+                domListeners: [{
+                    click: function(data) {
+                        me.activeIndex = data.component.index;
+                    },
+                    scope: me
+                }]
             };
 
         return {...defaultConfig, ...config};
