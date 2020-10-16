@@ -122,23 +122,25 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     onDragMove(data) {
-        let me         = this,
-            moveFactor = 0.55, // we can not use 0.5, since items would jump back & forth
-            index      = me.currentIndex,
-            itemRects  = me.itemRects,
-            deltaX     = data.clientX - me.offsetX - me.itemRects[index].left;
+        if (this.itemRects) { // the method can trigger before we got the client rects from the main thread
+            let me         = this,
+                moveFactor = 0.55, // we can not use 0.5, since items would jump back & forth
+                index      = me.currentIndex,
+                itemRects  = me.itemRects,
+                deltaX     = data.clientX - me.offsetX - me.itemRects[index].left;
 
-        if (index > 0 && deltaX < 0) {
-            if (Math.abs(deltaX) > itemRects[index - 1].width * moveFactor) {
-                me.currentIndex--;
-                me.switchItems(index, me.currentIndex);
+            if (index > 0 && deltaX < 0) {
+                if (Math.abs(deltaX) > itemRects[index - 1].width * moveFactor) {
+                    me.currentIndex--;
+                    me.switchItems(index, me.currentIndex);
+                }
             }
-        }
 
-        else if (index < itemRects.length - 1 && deltaX > 0) {
-            if (deltaX > itemRects[index + 1].width * moveFactor) {
-                me.currentIndex++;
-                me.switchItems(index, me.currentIndex);
+            else if (index < itemRects.length - 1 && deltaX > 0) {
+                if (deltaX > itemRects[index + 1].width * moveFactor) {
+                    me.currentIndex++;
+                    me.switchItems(index, me.currentIndex);
+                }
             }
         }
     }
