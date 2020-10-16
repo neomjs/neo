@@ -37,6 +37,11 @@ class SortZone extends DragZone {
          */
         itemRects: null,
         /**
+         * @member {Array|null} itemRects=null
+         * @protected
+         */
+        itemStyles: null,
+        /**
          * @member {Object} ownerRect=null
          * @protected
          */
@@ -53,19 +58,20 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     onDragEnd(data) {
-        let me    = this,
-            owner = me.owner,
+        let me         = this,
+            owner      = me.owner,
+            itemStyles = me.itemStyles,
             itemStyle;
 
         owner.items.forEach((item, index) => {
             itemStyle = item.style || {};
 
             Object.assign(itemStyle, {
-                height  : null,
+                height  : itemStyles[index].height || null,
                 left    : null,
                 position: null,
                 top     : null,
-                width   : null
+                width   : itemStyles[index].width || null
             });
 
             if (index === me.startIndex) {
@@ -79,6 +85,7 @@ class SortZone extends DragZone {
             currentIndex: -1,
             indexMap    : null,
             itemRects   : null,
+            itemStyles  : null,
             ownerRect   : null,
             startIndex  : -1
         });
@@ -117,9 +124,10 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     onDragStart(data) {
-        let me     = this,
-            button = Neo.getComponent(data.path[0].id),
-            owner  = me.owner,
+        let me         = this,
+            button     = Neo.getComponent(data.path[0].id),
+            owner      = me.owner,
+            itemStyles = me.itemStyles = [],
             index, indexMap, itemStyle, ownerStyle, rect;
 
         if (owner.sortable) {
@@ -129,6 +137,11 @@ class SortZone extends DragZone {
 
             owner.items.forEach((item, index) => {
                 indexMap[index] = index;
+
+                itemStyles.push({
+                    height: item.style && item.style.height,
+                    width : item.style && item.style.width
+                })
             });
 
             Object.assign(me, {
