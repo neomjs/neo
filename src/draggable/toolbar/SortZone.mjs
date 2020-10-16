@@ -53,12 +53,30 @@ class SortZone extends DragZone {
      * @param {Object} data
      */
     onDragEnd(data) {
-        Object.assign(this, {
+        let me    = this,
+            owner = me.owner,
+            itemStyle;
+
+        Object.assign(me, {
             currentIndex: -1,
             indexMap    : null,
             itemRects   : null,
             ownerRect   : null,
             startIndex  : -1
+        });
+
+        owner.items.forEach((item, index) => {
+            itemStyle = item.style || {};
+
+            Object.assign(itemStyle, {
+                height  : null,
+                left    : null,
+                position: null,
+                top     : null,
+                width   : null
+            });
+
+            item.style = itemStyle;
         });
 
         super.onDragEnd(data);
