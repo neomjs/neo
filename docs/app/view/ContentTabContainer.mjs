@@ -86,20 +86,18 @@ class ContentTabContainer extends Container {
                 index  : index,
                 pressed: me.activeIndex === index,
 
-                domListeners: {
-                    click: {
-                        fn: function (data) {
-                            let path = data.path.map(e => e.id);
+                domListeners: [{
+                    click: function(data) {
+                        let path = data.path.map(e => e.id);
 
-                            if (path[0].indexOf('neo-tab-header-button-') === 0) {
-                                me.activeIndex = Neo.getComponent(data.target.id).index;
-                            } else {
-                                me.removeAt(Neo.getComponent(me.tabBarId).indexOf(path[1]))
-                            }
-                        },
-                        scope: me
-                    }
-                }
+                        if (path[0].indexOf('neo-tab-header-button-') === 0) {
+                            me.activeIndex = data.component.index;
+                        } else {
+                            me.removeAt(Neo.getComponent(me.tabBarId).indexOf(path[1]))
+                        }
+                    },
+                    scope: me
+                }]
             };
 
         return {...defaultConfig, ...config};
