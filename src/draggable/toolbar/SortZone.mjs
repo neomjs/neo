@@ -189,8 +189,8 @@ class SortZone extends DragZone {
                 itemRects.shift();
                 me.itemRects = itemRects;
 
-                ownerStyle.height = `${itemRects[0].height}px`;
-                ownerStyle.width  = `${itemRects[0].width}px`;
+                ownerStyle.height = `${me.ownerRect.height}px`;
+                ownerStyle.width  = `${me.ownerRect.width}px`;
 
                 owner.style = ownerStyle;
 
