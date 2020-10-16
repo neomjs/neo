@@ -83,7 +83,7 @@ class SortZone extends DragZone {
             startIndex  : -1
         });
 
-        super.onDragEnd(data);
+        me.dragEnd(data); // we do not want to trigger the super class call here
     }
 
     /**
@@ -169,7 +169,7 @@ class SortZone extends DragZone {
                 });
 
                 me.dragElement = VDomUtil.findVdomChild(owner.vdom, button.id).vdom;
-                me.dragStart(data);
+                me.dragStart(data); // we do not want to trigger the super class call here
 
                 setTimeout(() => {
                     itemStyle = button.style || {};
