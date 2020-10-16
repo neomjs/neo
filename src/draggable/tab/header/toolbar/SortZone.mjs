@@ -26,11 +26,11 @@ class SortZone extends BaseSortZone {
 
     /**
      * Override this method for class extensions (e.g. tab.header.Toolbar)
-     * @param {Number} index
-     * @param {Neo.component.Base} item
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
      */
-    moveTo(index, item) {
-        this.owner.moveTo(index, item);
+    moveTo(fromIndex, toIndex) {
+        this.owner.up('tab-container').moveTo(fromIndex, toIndex);
     }
 }
 

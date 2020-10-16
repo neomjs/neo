@@ -478,6 +478,17 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Moves an existing item to a new index
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
+     * @returns {Neo.component.Base} the card item
+     */
+    moveTo(fromIndex, toIndex) {
+        this.getTabBar().moveTo(fromIndex, toIndex);
+        return this.getCardContainer().moveTo(fromIndex, toIndex);
+    }
+
+    /**
      * Gets triggered once a dynamically added header.Button gets mounted
      * in case activateInsertedTabs is set to true
      * @param {String} buttonId

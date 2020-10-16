@@ -407,18 +407,16 @@ class Base extends Component {
 
     /**
      * Moves an existing item to a new index
-     * @param {Number} index
-     * @param {Neo.component.Base|String} item You can either pass a component or a component id
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
      * @returns {Neo.component.Base}
      */
-    moveTo(index, item) {
-        item = Neo.isString(item) ? Neo.getComponent(item) : item;
+    moveTo(fromIndex, toIndex) {
+        let me   = this,
+            item = me.items[fromIndex];
 
-        let me           = this,
-            currentIndex = me.indexOf(item.id);
-
-        if (currentIndex !== index) {
-            me.switchItems(me.items[index].id, item.id);
+        if (fromIndex !== toIndex) {
+            me.switchItems(me.items[toIndex].id, item.id);
         }
 
         return item;
