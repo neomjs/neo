@@ -398,17 +398,18 @@ class Base extends Component {
     }
 
     /**
-     * todo
      * Moves an existing item to a new index
-     * @param {String} itemId
      * @param {Number} index
+     * @param {Neo.component.Base|String} item You can either pass a component or a component id
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
-    moveTo(itemId, index) {
-        let me           = this,
-            currentIndex = me.indexOf(itemId);
+    moveTo(index, item) {
+        item = Neo.isString(item) ? Neo.getComponent(item) : item;
 
-        console.log('moveTo', currentIndex);
+        let me           = this,
+            currentIndex = me.indexOf(item.id);
+
+        console.log('moveTo', currentIndex, index);
     }
 
     parseItemConfigs(items) {

@@ -92,6 +92,10 @@ class SortZone extends DragZone {
             item.style = itemStyle;
         });
 
+        if (me.currentIndex !== me.startIndex) {
+            owner.moveTo(me.currentIndex, owner.items[me.startIndex]);
+        }
+
         Object.assign(me, {
             currentIndex: -1,
             indexMap    : null,
