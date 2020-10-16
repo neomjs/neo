@@ -18,7 +18,7 @@
     "apps": {
         "Covid": {
             "input": "./apps/covid/app.mjs",
-            "mainThreadAddons": "'AmCharts', 'MapboxGL', 'Stylesheet'",
+            "mainThreadAddons": "'AmCharts', 'DragDrop', 'MapboxGL', 'Stylesheet'",
             "output": "/apps/covid/",
             "themes": "'neo-theme-dark', 'neo-theme-light'",
             "title": "COVID-19 IN NUMBERS"
