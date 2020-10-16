@@ -122,6 +122,24 @@ class Toolbar extends BaseToolbar {
 
         return layoutConfig;
     }
+
+    /**
+     * Moves an existing item to a new index
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
+     * @returns {Neo.component.Base}
+     */
+    moveTo(fromIndex, toIndex) {
+        let returnValue = super.moveTo(fromIndex, toIndex);
+
+        if (fromIndex !== toIndex) {
+            this.items.forEach((item, index) => {
+                item.index = index;
+            });
+        }
+
+        return returnValue;
+    }
 }
 
 Neo.applyClassConfig(Toolbar);
