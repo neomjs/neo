@@ -310,6 +310,14 @@ class Base extends Component {
     }
 
     /**
+     * Specify a different vdom items root if needed (useful in case this container uses a wrapper node).
+     * @returns {Object} The new vdom items root
+     */
+    getVdomItemsRoot() {
+        return this.vdom.cn;
+    }
+
+    /**
      * Finds the index of a direct child component inside this.items.
      * @param {Neo.component.Base|String} itemId Either the item reference or the item id
      * @returns {Number} -1 in case no match was found
@@ -401,7 +409,7 @@ class Base extends Component {
      * Moves an existing item to a new index
      * @param {Number} index
      * @param {Neo.component.Base|String} item You can either pass a component or a component id
-     * @returns {Neo.component.Base|Neo.component.Base[]}
+     * @returns {Neo.component.Base}
      */
     moveTo(index, item) {
         item = Neo.isString(item) ? Neo.getComponent(item) : item;
@@ -409,7 +417,11 @@ class Base extends Component {
         let me           = this,
             currentIndex = me.indexOf(item.id);
 
-        console.log('moveTo', currentIndex, index);
+        if (currentIndex !== index) {
+            me.switchItems(me.items[index].id, item.id);
+        }
+
+        return item;
     }
 
     parseItemConfigs(items) {
