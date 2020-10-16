@@ -27,6 +27,33 @@ class Toolbar extends BaseToolbar {
     }}
 
     /**
+     * Triggered after the sortable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSortable(value, oldValue) {
+        if (value) {
+            let me = this;
+
+            import(
+                /* webpackChunkName: 'src/draggable/toolbar/SortZone-mjs.js' */
+                '../../draggable/toolbar/SortZone.mjs'
+                ).then(module => {
+                me.sortZone = Neo.create(module.default, {
+                    appName            : me.appName,
+                    boundaryContainerId: me.id,
+                    owner              : me,
+
+                    dragProxyConfig: {
+                        cls: ['neo-dragproxy', 'neo-tab-header-toolbar', 'neo-toolbar']
+                    }
+                });
+            });
+        }
+    }
+
+    /**
      * Triggered after the useActiveTabIndicator config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
