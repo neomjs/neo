@@ -56,7 +56,7 @@ class Toolbar extends Container {
          */
         sortable_: false,
         /**
-         * @member {Boolean} sortZoneConfig=null
+         * @member {Object} sortZoneConfig=null
          */
         sortZoneConfig: null
     }}
