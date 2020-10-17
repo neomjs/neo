@@ -292,13 +292,18 @@ class MainContainerController extends ComponentController {
         console.log('onAppConnect', name);
 
         let me = this,
-            parentView, view;
+            parentView, style, toolbar, view;
 
         switch (name) {
             case 'SharedCovidChart':
                 view = me.getReference('controls-panel');
                 parentView = Neo.getComponent(view.parentId);
                 parentView.storeReferences();
+
+                toolbar = me.getReference('controls-panel-header');
+                style   = toolbar.style || {};
+                style.display = 'none';
+                toolbar.style = style;
                 break;
             case 'SharedCovidGallery':
                 view = me.getReference('gallery-container');
@@ -343,7 +348,7 @@ class MainContainerController extends ComponentController {
         let me         = this,
             parentView = me.getMainView(name),
             view       = parentView.items[0],
-            index;
+            index, style, toolbar;
 
         console.log('onAppDisconnect', name);
 
@@ -368,6 +373,11 @@ class MainContainerController extends ComponentController {
 
             switch (name) {
                 case 'SharedCovidChart':
+                    toolbar = me.getReference('controls-panel-header');
+                    style   = toolbar.style || {};
+                    style.display = null;
+                    toolbar.style = style;
+
                     me.getReference('table-container').add(view);
                     break;
                 case 'SharedCovidGallery':
