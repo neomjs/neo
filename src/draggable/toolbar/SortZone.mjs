@@ -241,21 +241,21 @@ class SortZone extends DragZone {
             rect1     = {...itemRects[index1]},
             rect2     = {...itemRects[index2]};
 
-        me.updateItem(index1, rect2);
-        me.updateItem(index2, rect1);
-
         Object.assign(itemRects[index1], {
             width: rect2.width
         });
 
         Object.assign(itemRects[index2], {
-            left : rect1.left + rect1.width,
+            left : rect1.left + rect2.width,
             width: rect1.width
         });
 
         tmp         = map[index1];
         map[index1] = map[index2];
         map[index2] = tmp;
+
+        me.updateItem(index1, itemRects[index1]);
+        me.updateItem(index2, itemRects[index2]);
     }
 
     /**
@@ -265,18 +265,15 @@ class SortZone extends DragZone {
      */
     updateItem(index, rect) {
         let me    = this,
-            map   = me.indexMap,
-            owner = me.owner,
-            style = owner.items[map[index]].style;
+            item  = me.owner.items[me.indexMap[index]],
+            style = item.style;
 
         Object.assign(style, {
-            height: `${rect.height}px`,
-            left  : `${rect.left}px`,
-            top   : `${rect.top}px`,
-            width : `${rect.width}px`
+            left: `${rect.left}px`,
+            top : `${rect.top}px`
         });
 
-        owner.items[map[index]].style = style;
+        item.style = style;
     }
 }
 
