@@ -26,9 +26,9 @@ class Main extends core.Base {
          */
         className: 'Neo.Main',
         /**
-         * @member {boolean} logAnimationFrames=true
+         * @member {boolean} logAnimationFrames=false
          */
-        logAnimationFrames: true,
+        logAnimationFrames: false,
         /**
          * @member {String} mode='read'
          * @protected

@@ -15,9 +15,9 @@ class DomAccess extends Base {
          */
         className: 'Neo.main.DomAccess',
         /**
-         * @member {boolean} logDeltaUpdates=true
+         * @member {boolean} logDeltaUpdates=false
          */
-        logDeltaUpdates: true,
+        logDeltaUpdates: false,
         /**
          * @member {Array} mixins=[DeltaUpdates, Observable]
          */
