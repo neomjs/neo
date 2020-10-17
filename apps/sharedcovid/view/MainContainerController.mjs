@@ -557,8 +557,9 @@ class MainContainerController extends ComponentController {
             src  : 'https://buttons.github.io/buttons.js'
         });
 
-        me.getReference('gallery').on('select', me.updateCountryField, me);
-        me.getReference('helix')  .on('select', me.updateCountryField, me);
+        me.getReference('gallery')      .on('select', me.updateCountryField, me);
+        me.getReference('helix')        .on('select', me.updateCountryField, me);
+        me.getReference('tab-container').on('moveTo', me.onTabMove,          me);
 
         me.getReference('table').on({
             deselect: me.clearCountryField,
@@ -661,6 +662,13 @@ class MainContainerController extends ComponentController {
         });
 
         mapView.mapboxStyle = mapViewStyle;
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onTabMove(data) {
+        NeoArray.move(this.mainTabs, data.fromIndex, data.toIndex);
     }
 
     /**
