@@ -42,7 +42,7 @@
             "output": "/apps/sharedcovid/",
             "themes": "'neo-theme-dark', 'neo-theme-light'",
             "title": "SharedCovid MainWindow",
-            "mainThreadAddons": "'AmCharts', 'MapboxGL', 'Stylesheet'",
+            "mainThreadAddons": "'AmCharts', 'DragDrop', 'MapboxGL', 'Stylesheet'",
             "useSharedWorkers": true
         },
         "SharedCovidChart": {
