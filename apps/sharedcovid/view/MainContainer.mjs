@@ -40,6 +40,7 @@ class MainContainer extends Viewport {
             module   : TabContainer,
             flex     : 1,
             reference: 'tab-container',
+            sortable : true,
             style    : {margin: '10px', marginTop: 0},
 
             items: [{
