@@ -486,7 +486,7 @@ class Container extends BaseContainer {
             cardContainer = me.getCardContainer(),
             tabBar        = me.getTabBar(),
             activeTab     = tabBar.items[me.activeIndex],
-            index;
+            index, returnValue;
 
         tabBar.moveTo(fromIndex, toIndex);
         index = activeTab.index;
@@ -497,7 +497,14 @@ class Container extends BaseContainer {
             cardContainer.layout._activeIndex = index;
         }
 
-        return cardContainer.moveTo(fromIndex, toIndex);
+        returnValue = cardContainer.moveTo(fromIndex, toIndex);
+
+        me.fire('moveTo', {
+            fromIndex: fromIndex,
+            toIndex  : toIndex
+        });
+
+        return returnValue;
     }
 
     /**
