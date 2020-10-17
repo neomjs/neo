@@ -158,6 +158,9 @@ class SortZone extends DragZone {
             index, indexMap, itemStyle, rect;
 
         if (owner.sortable) {
+            me.dragElement = VDomUtil.findVdomChild(owner.vdom, button.id).vdom;
+            me.dragStart(data); // we do not want to trigger the super class call here
+
             me.ownerStyle = {
                 height: ownerStyle.height,
                 width : ownerStyle.width
@@ -186,13 +189,14 @@ class SortZone extends DragZone {
                 id: [owner.id].concat(owner.items.map(e => e.id))
             }).then(itemRects => {
                 me.ownerRect = itemRects[0];
-                itemRects.shift();
-                me.itemRects = itemRects;
 
-                ownerStyle.height = `${me.ownerRect.height}px`;
-                ownerStyle.width  = `${me.ownerRect.width}px`;
+                ownerStyle.height = `${itemRects[0].height}px`;
+                ownerStyle.width  = `${itemRects[0].width}px`;
 
                 owner.style = ownerStyle;
+
+                itemRects.shift();
+                me.itemRects = itemRects;
 
                 owner.items.forEach((item, index) => {
                     itemStyle = item.style || {};
@@ -208,9 +212,6 @@ class SortZone extends DragZone {
 
                     item.style = itemStyle;
                 });
-
-                me.dragElement = VDomUtil.findVdomChild(owner.vdom, button.id).vdom;
-                me.dragStart(data); // we do not want to trigger the super class call here
 
                 setTimeout(() => {
                     itemStyle = button.style || {};
