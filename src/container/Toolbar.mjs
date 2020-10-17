@@ -54,7 +54,11 @@ class Toolbar extends Container {
         /**
          * @member {Boolean} sortable_=false
          */
-        sortable_: false
+        sortable_: false,
+        /**
+         * @member {Object} sortZoneConfig=null
+         */
+        sortZoneConfig: null
     }}
 
     /**
@@ -93,7 +97,8 @@ class Toolbar extends Container {
                 me.sortZone = Neo.create(module.default, {
                     appName            : me.appName,
                     boundaryContainerId: me.id,
-                    owner              : me
+                    owner              : me,
+                    ...me.sortZoneConfig || {}
                 });
             });
         }

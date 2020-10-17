@@ -19,10 +19,6 @@ class DragZone extends BaseDragZone {
          */
         ntype: 'toolbar-dragzone',
         /**
-         * @member {Boolean} alwaysFireDragMove=true
-         */
-        alwaysFireDragMove: true,
-        /**
          * @member {Object|null} dragProxyConfig
          */
         dragProxyConfig: {
@@ -98,16 +94,6 @@ class DragZone extends BaseDragZone {
                 }, 300);
             }, 30);
         }
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onDragMove(data) {
-        console.log('onDragMove', data);
-
-        let me = this;
     }
 
     /**

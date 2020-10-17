@@ -222,7 +222,7 @@ class TableContainerController extends ComponentController {
         }
 
         Neo.main.addon.AmCharts.setProperties({
-            appName   : this.view.appName,
+            appName   : logCheckbox.appName,
             id        : chartId,
             properties: {
                 'series.values.0.dataFields.valueY' : value ? 'dailyActive'    : 'active',

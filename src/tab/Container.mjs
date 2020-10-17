@@ -391,14 +391,12 @@ class Container extends BaseContainer {
                 index  : index,
                 pressed: me.activeIndex === index,
 
-                domListeners: {
-                    click: {
-                        fn: function(data) {
-                            me.activeIndex = Neo.getComponent(data.target.id).index;
-                        },
-                        scope: me
-                    }
-                }
+                domListeners: [{
+                    click: function(data) {
+                        me.activeIndex = data.component.index;
+                    },
+                    scope: me
+                }]
             };
 
         return {...defaultConfig, ...config};
@@ -475,6 +473,31 @@ class Container extends BaseContainer {
         }
 
         return superItem
+    }
+
+    /**
+     * Moves an existing item to a new index
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
+     * @returns {Neo.component.Base} the card item
+     */
+    moveTo(fromIndex, toIndex) {
+        let me            = this,
+            cardContainer = me.getCardContainer(),
+            tabBar        = me.getTabBar(),
+            activeTab     = tabBar.items[me.activeIndex],
+            index;
+
+        tabBar.moveTo(fromIndex, toIndex);
+        index = activeTab.index;
+
+        if (index !== me.activeIndex) {
+            // silent updates
+            me._activeIndex = index;
+            cardContainer.layout._activeIndex = index;
+        }
+
+        return cardContainer.moveTo(fromIndex, toIndex);
     }
 
     /**

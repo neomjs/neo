@@ -27,6 +27,30 @@ class Toolbar extends BaseToolbar {
     }}
 
     /**
+     * Triggered after the sortable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSortable(value, oldValue) {
+        if (value) {
+            let me = this;
+
+            import(
+                /* webpackChunkName: 'src/draggable/tab/header/toolbar/SortZone-mjs.js' */
+                '../../draggable/tab/header/toolbar/SortZone.mjs'
+                ).then(module => {
+                me.sortZone = Neo.create(module.default, {
+                    appName            : me.appName,
+                    boundaryContainerId: me.id,
+                    owner              : me,
+                    ...me.sortZoneConfig || {}
+                });
+            });
+        }
+    }
+
+    /**
      * Triggered after the useActiveTabIndicator config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -97,6 +121,24 @@ class Toolbar extends BaseToolbar {
         }
 
         return layoutConfig;
+    }
+
+    /**
+     * Moves an existing item to a new index
+     * @param {Number} fromIndex
+     * @param {Number} toIndex
+     * @returns {Neo.component.Base}
+     */
+    moveTo(fromIndex, toIndex) {
+        let returnValue = super.moveTo(fromIndex, toIndex);
+
+        if (fromIndex !== toIndex) {
+            this.items.forEach((item, index) => {
+                item.index = index;
+            });
+        }
+
+        return returnValue;
     }
 }
 

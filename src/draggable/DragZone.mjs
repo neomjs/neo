@@ -1,5 +1,6 @@
 import Base               from '../core/Base.mjs';
 import DragProxyComponent from './DragProxyComponent.mjs';
+import NeoArray           from '../util/Array.mjs';
 import VDomUtil           from '../util/VDom.mjs';
 
 /**
@@ -166,7 +167,12 @@ class DragZone extends Base {
      *
      */
     dragEnd() {
-        let me = this;
+        let me    = this,
+            owner = me.owner,
+            cls   = owner.cls;
+
+        NeoArray.remove(cls, 'neo-is-dragging');
+        owner.cls = cls;
 
         if (me.dragProxy) {
             me.destroyDragProxy();
@@ -209,7 +215,12 @@ class DragZone extends Base {
      * @param {Object} data
      */
     dragStart(data) {
-        let me = this;
+        let me    = this,
+            owner = me.owner,
+            cls   = owner.cls;
+
+        NeoArray.add(cls, 'neo-is-dragging');
+        owner.cls = cls;
 
         Neo.main.addon.DragDrop.setConfigs(me.getMainThreadConfigs());
 

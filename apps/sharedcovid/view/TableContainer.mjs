@@ -65,7 +65,9 @@ class TableContainer extends Container {
             },
 
             headers: [{
-                dock: 'top',
+                dock     : 'top',
+                reference: 'controls-panel-header',
+
                 items: [{
                     ntype  : 'button',
                     handler: 'onCollapseButtonClick',
