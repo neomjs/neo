@@ -54,7 +54,7 @@ class DragZone extends Base {
         /**
          * @member {Object|null} dragProxyConfig=null
          */
-        dragProxyConfig: null,
+        dragProxyConfig_: null,
         /**
          * @member {Boolean} moveHorizontal=true
          */
@@ -115,12 +115,24 @@ class DragZone extends Base {
     }
 
     /**
+     * Triggered when accessing the dragProxyConfig config
+     * We are re-using this config to create multiple dragProxies,
+     * so it is important to work with a clone. see: createDragProxy()
+     * @param {Object} value
+     * @protected
+     */
+    beforeGetDragProxyConfig(value) {
+        return Neo.clone(value, true, true);
+    }
+
+    /**
      *
      * @param {Object} data
      */
     createDragProxy(data) {
-        let me    = this,
-            clone = VDomUtil.clone(me.dragElement);
+        let me        = this,
+            component = Neo.getComponent(me.dragElement.id),
+            clone     = VDomUtil.clone(me.dragElement);
 
         const config = {
             module          : DragProxyComponent,
@@ -139,8 +151,14 @@ class DragZone extends Base {
             ...me.dragProxyConfig || {}
         };
 
+        config.cls = config.cls || [];
+
+        if (component) {
+            config.cls.push(component.getTheme());
+        }
+
         if (!me.useProxyWrapper) {
-            config.cls = clone.cls;
+            config.cls.push(...clone.cls);
         }
 
         me.dragProxy = Neo.create(config);
