@@ -54,7 +54,7 @@ class DragZone extends Base {
         /**
          * @member {Object|null} dragProxyConfig=null
          */
-        dragProxyConfig: null,
+        dragProxyConfig_: null,
         /**
          * @member {Boolean} moveHorizontal=true
          */
@@ -115,6 +115,15 @@ class DragZone extends Base {
     }
 
     /**
+     * Triggered when accessing the dragProxyConfig config
+     * @param {Object} value
+     * @protected
+     */
+    beforeGetDragProxyConfig(value) {
+        return Neo.clone(value, true, true);
+    }
+
+    /**
      *
      * @param {Object} data
      */
@@ -140,8 +149,7 @@ class DragZone extends Base {
             ...me.dragProxyConfig || {}
         };
 
-        // dragProxyConfig.cls does not get cloned, so we need to ensure we are not adding to the prototype
-        config.cls = config.cls ? [...config.cls] : [];
+        config.cls = config.cls || [];
 
         if (component) {
             config.cls.push(component.getTheme());
@@ -152,7 +160,6 @@ class DragZone extends Base {
         }
 
         me.dragProxy = Neo.create(config);
-        console.log(me.dragProxy);
     }
 
     /**
