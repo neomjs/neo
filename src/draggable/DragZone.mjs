@@ -119,8 +119,9 @@ class DragZone extends Base {
      * @param {Object} data
      */
     createDragProxy(data) {
-        let me    = this,
-            clone = VDomUtil.clone(me.dragElement);
+        let me        = this,
+            component = Neo.getComponent(me.dragElement.id),
+            clone     = VDomUtil.clone(me.dragElement);
 
         const config = {
             module          : DragProxyComponent,
@@ -139,11 +140,19 @@ class DragZone extends Base {
             ...me.dragProxyConfig || {}
         };
 
+        // dragProxyConfig.cls does not get cloned, so we need to ensure we are not adding to the prototype
+        config.cls = config.cls ? [...config.cls] : [];
+
+        if (component) {
+            config.cls.push(component.getTheme());
+        }
+
         if (!me.useProxyWrapper) {
-            config.cls = clone.cls;
+            config.cls.push(...clone.cls);
         }
 
         me.dragProxy = Neo.create(config);
+        console.log(me.dragProxy);
     }
 
     /**
