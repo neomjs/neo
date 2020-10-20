@@ -516,6 +516,9 @@ function autoGenerateGetSet(proto, key) {
                 delete me[configSymbol][key];
 
                 if (key !== 'items') {
+                    if (key === 'dragProxyConfig') {
+                        console.log(value);
+                    }
                     value = Neo.clone(value, true, true);
                 }
 

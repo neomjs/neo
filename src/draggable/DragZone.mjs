@@ -116,6 +116,8 @@ class DragZone extends Base {
 
     /**
      * Triggered when accessing the dragProxyConfig config
+     * We are re-using this config to create multiple dragProxies,
+     * so it is important to work with a clone. see: createDragProxy()
      * @param {Object} value
      * @protected
      */
