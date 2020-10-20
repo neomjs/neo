@@ -193,6 +193,8 @@ class SortZone extends DragZone {
                 ownerStyle.height = `${itemRects[0].height}px`;
                 ownerStyle.width  = `${itemRects[0].width}px`;
 
+                // the only reason we are adjusting the toolbar style is that there is no min height or width present.
+                // removing items from the layout could trigger a change in size.
                 owner.style = ownerStyle;
 
                 itemRects.shift();
