@@ -52,6 +52,12 @@ class SortZone extends DragZone {
          */
         ownerStyle: null,
         /**
+         * Internal flag: onDragStart() will set the value to horizontal or vertical, depending on the current layout.
+         * @member {String} sortDirection='horizontal'
+         * @protected
+         */
+        sortDirection: 'horizontal',
+        /**
          * @member {Number} startIndex=-1
          * @protected
          */
