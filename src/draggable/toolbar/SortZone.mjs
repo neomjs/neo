@@ -136,10 +136,10 @@ class SortZone extends DragZone {
                 delta, itemWidth;
 
             if (me.sortDirection === 'horizontal') {
-                delta     = data.clientX - me.offsetX - me.itemRects[index].left;
+                delta     = data.clientX - me.offsetX - itemRects[index].left;
                 itemWidth = 'width';
             } else {
-                delta     = data.clientY - me.offsetY - me.itemRects[index].top;
+                delta     = data.clientY - me.offsetY - itemRects[index].top;
                 itemWidth = 'height';
             }
 
