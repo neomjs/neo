@@ -206,7 +206,8 @@ class CountryHelix extends Helix {
             'usa'                                  : 'united-states-of-america',
             'uzbekistan'                           : 'uzbekistn',
             'venezuela,-bolivarian-republic-of'    : 'venezuela',
-            'viet-nam'                             : 'vietnam'
+            'viet-nam'                             : 'vietnam',
+            'wallis-and-futuna'                    : 'france'
         };
 
         let imageName = name.toLowerCase().replace(CountryHelix.flagRegEx, '-');

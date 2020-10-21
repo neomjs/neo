@@ -52,6 +52,12 @@ class SortZone extends DragZone {
          */
         ownerStyle: null,
         /**
+         * Internal flag: onDragStart() will set the value to horizontal or vertical, depending on the current layout.
+         * @member {String} sortDirection='horizontal'
+         * @protected
+         */
+        sortDirection: 'horizontal',
+        /**
          * @member {Number} startIndex=-1
          * @protected
          */
@@ -127,17 +133,25 @@ class SortZone extends DragZone {
                 moveFactor = 0.55, // we can not use 0.5, since items would jump back & forth
                 index      = me.currentIndex,
                 itemRects  = me.itemRects,
-                deltaX     = data.clientX - me.offsetX - me.itemRects[index].left;
+                delta, itemWidth;
 
-            if (index > 0 && deltaX < 0) {
-                if (Math.abs(deltaX) > itemRects[index - 1].width * moveFactor) {
+            if (me.sortDirection === 'horizontal') {
+                delta     = data.clientX - me.offsetX - itemRects[index].left;
+                itemWidth = 'width';
+            } else {
+                delta     = data.clientY - me.offsetY - itemRects[index].top;
+                itemWidth = 'height';
+            }
+
+            if (index > 0 && delta < 0) {
+                if (Math.abs(delta) > itemRects[index - 1][itemWidth] * moveFactor) {
                     me.currentIndex--;
                     me.switchItems(index, me.currentIndex);
                 }
             }
 
-            else if (index < itemRects.length - 1 && deltaX > 0) {
-                if (deltaX > itemRects[index + 1].width * moveFactor) {
+            else if (index < itemRects.length - 1 && delta > 0) {
+                if (delta > itemRects[index + 1][itemWidth] * moveFactor) {
                     me.currentIndex++;
                     me.switchItems(index, me.currentIndex);
                 }
@@ -158,6 +172,13 @@ class SortZone extends DragZone {
             index, indexMap, itemStyle, rect;
 
         if (owner.sortable) {
+            me.sortDirection = owner.layout.ntype === 'layout-vbox' ? 'vertical' : 'horizontal';
+
+            me.dragProxyConfig = {
+                ...me.dragProxyConfig || {},
+                cls : ['neo-dragproxy', ...owner.cls]
+            };
+
             me.dragElement = VDomUtil.findVdomChild(owner.vdom, button.id).vdom;
             me.dragStart(data); // we do not want to trigger the super class call here
 
@@ -193,6 +214,8 @@ class SortZone extends DragZone {
                 ownerStyle.height = `${itemRects[0].height}px`;
                 ownerStyle.width  = `${itemRects[0].width}px`;
 
+                // the only reason we are adjusting the toolbar style is that there is no min height or width present.
+                // removing items from the layout could trigger a change in size.
                 owner.style = ownerStyle;
 
                 itemRects.shift();
@@ -239,24 +262,27 @@ class SortZone extends DragZone {
         let me        = this,
             itemRects = me.itemRects,
             map       = me.indexMap,
-            rect1     = {...itemRects[index1]},
-            rect2     = {...itemRects[index2]};
+            rect1     = itemRects[index1],
+            rect2     = itemRects[index2],
+            rect1Copy = {...rect1},
+            rect2Copy = {...rect2};
 
-        Object.assign(itemRects[index1], {
-            width: rect2.width
-        });
-
-        Object.assign(itemRects[index2], {
-            left : rect1.left + rect2.width,
-            width: rect1.width
-        });
+        if (me.sortDirection === 'horizontal') {
+            rect1.width = rect2Copy.width;
+            rect2.left  = rect1Copy.left + rect2Copy.width;
+            rect2.width = rect1Copy.width;
+        } else {
+            rect1.height = rect2Copy.height;
+            rect2.height = rect1Copy.left + rect2Copy.width;
+            rect2.top    = rect1Copy.top  + rect2Copy.height;
+        }
 
         tmp         = map[index1];
         map[index1] = map[index2];
         map[index2] = tmp;
 
-        me.updateItem(index1, itemRects[index1]);
-        me.updateItem(index2, itemRects[index2]);
+        me.updateItem(index1, rect1);
+        me.updateItem(index2, rect2);
     }
 
     /**
@@ -269,10 +295,8 @@ class SortZone extends DragZone {
             item  = me.owner.items[me.indexMap[index]],
             style = item.style;
 
-        Object.assign(style, {
-            left: `${rect.left}px`,
-            top : `${rect.top}px`
-        });
+        style.left = `${rect.left}px`;
+        style.top  = `${rect.top}px`;
 
         item.style = style;
     }

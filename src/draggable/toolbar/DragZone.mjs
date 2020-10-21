@@ -17,13 +17,7 @@ class DragZone extends BaseDragZone {
          * @member {String} ntype='toolbar-dragzone'
          * @protected
          */
-        ntype: 'toolbar-dragzone',
-        /**
-         * @member {Object|null} dragProxyConfig
-         */
-        dragProxyConfig: {
-            cls: ['neo-dragproxy', 'neo-toolbar']
-        }
+        ntype: 'toolbar-dragzone'
     }}
 
     /**
