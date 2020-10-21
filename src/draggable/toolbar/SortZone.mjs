@@ -269,18 +269,12 @@ class SortZone extends DragZone {
 
         if (me.sortDirection === 'horizontal') {
             rect1.width = rect2Copy.width;
-
-            Object.assign(rect2, {
-                left : rect1Copy.left + rect2Copy.width,
-                width: rect1Copy.width
-            });
+            rect2.left  = rect1Copy.left + rect2Copy.width;
+            rect2.width = rect1Copy.width;
         } else {
             rect1.height = rect2Copy.height;
-
-            Object.assign(rect2, {
-                height: rect1Copy.height,
-                top   : rect1Copy.top + rect2Copy.height
-            });
+            rect2.height = rect1Copy.left + rect2Copy.width;
+            rect2.top    = rect1Copy.top  + rect2Copy.height;
         }
 
         tmp         = map[index1];
@@ -301,10 +295,8 @@ class SortZone extends DragZone {
             item  = me.owner.items[me.indexMap[index]],
             style = item.style;
 
-        Object.assign(style, {
-            left: `${rect.left}px`,
-            top : `${rect.top}px`
-        });
+        style.left = `${rect.left}px`;
+        style.top  = `${rect.top}px`;
 
         item.style = style;
     }
