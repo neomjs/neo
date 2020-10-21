@@ -144,6 +144,7 @@
         },
         "tabContainer": {
             "input": "./examples/tab/container/app.mjs",
+            "mainThreadAddons": "'DragDrop', 'Stylesheet'",
             "output": "/examples/tab/container/",
             "title": "Neo TabContainer"
         },
@@ -171,6 +172,7 @@
         "tabs": {
             "bodyTag": "<body style='margin: 10px'><p>TabContainer App 1</p><div id='main-container'></div><br><p>TabContainer App 2</p><div id='main-container2'></div><br><div id='main-container3'></div>",
             "input": "./examples/tabs/app.mjs",
+            "mainThreadAddons": "'DragDrop', 'Stylesheet'",
             "output": "/examples/tabs/",
             "title": "Neo Tabs"
         },
