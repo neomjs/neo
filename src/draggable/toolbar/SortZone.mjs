@@ -133,17 +133,25 @@ class SortZone extends DragZone {
                 moveFactor = 0.55, // we can not use 0.5, since items would jump back & forth
                 index      = me.currentIndex,
                 itemRects  = me.itemRects,
-                deltaX     = data.clientX - me.offsetX - me.itemRects[index].left;
+                delta, itemWidth;
 
-            if (index > 0 && deltaX < 0) {
-                if (Math.abs(deltaX) > itemRects[index - 1].width * moveFactor) {
+            if (me.sortDirection === 'horizontal') {
+                delta     = data.clientX - me.offsetX - me.itemRects[index].left;
+                itemWidth = 'width';
+            } else {
+                delta     = data.clientY - me.offsetY - me.itemRects[index].top;
+                itemWidth = 'height';
+            }
+
+            if (index > 0 && delta < 0) {
+                if (Math.abs(delta) > itemRects[index - 1][itemWidth] * moveFactor) {
                     me.currentIndex--;
                     me.switchItems(index, me.currentIndex);
                 }
             }
 
-            else if (index < itemRects.length - 1 && deltaX > 0) {
-                if (deltaX > itemRects[index + 1].width * moveFactor) {
+            else if (index < itemRects.length - 1 && delta > 0) {
+                if (delta > itemRects[index + 1][itemWidth] * moveFactor) {
                     me.currentIndex++;
                     me.switchItems(index, me.currentIndex);
                 }
@@ -164,6 +172,8 @@ class SortZone extends DragZone {
             index, indexMap, itemStyle, rect;
 
         if (owner.sortable) {
+            me.sortDirection = owner.layout.ntype === 'layout-vbox' ? 'vertical' : 'horizontal';
+
             me.dragProxyConfig = {
                 ...me.dragProxyConfig || {},
                 cls : ['neo-dragproxy', ...owner.cls]
