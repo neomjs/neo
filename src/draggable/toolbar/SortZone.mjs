@@ -158,6 +158,11 @@ class SortZone extends DragZone {
             index, indexMap, itemStyle, rect;
 
         if (owner.sortable) {
+            me.dragProxyConfig = {
+                ...me.dragProxyConfig || {},
+                cls : ['neo-dragproxy', ...owner.cls]
+            };
+
             me.dragElement = VDomUtil.findVdomChild(owner.vdom, button.id).vdom;
             me.dragStart(data); // we do not want to trigger the super class call here
 
