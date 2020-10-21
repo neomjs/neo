@@ -273,8 +273,8 @@ class SortZone extends DragZone {
             rect2.width = rect1Copy.width;
         } else {
             rect1.height = rect2Copy.height;
-            rect2.height = rect1Copy.left + rect2Copy.width;
-            rect2.top    = rect1Copy.top  + rect2Copy.height;
+            rect2.height = rect1Copy.height;
+            rect2.top    = rect1Copy.top + rect2Copy.height;
         }
 
         tmp         = map[index1];
