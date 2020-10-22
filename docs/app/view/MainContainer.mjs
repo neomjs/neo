@@ -58,6 +58,7 @@ class MainContainer extends Viewport {
                 ntype   : 'tab-container',
                 cls     : ['neo-docs-navigation-tab-container', 'neo-tab-container'],
                 minWidth: 290,
+                sortable: true,
                 width   : 290,
 
                 items: [{
