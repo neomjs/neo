@@ -40,6 +40,8 @@ class DragZone extends BaseDragZone {
 
         owner.domListeners = domListeners;
 
+        owner.on('insert', me.onItemInsert, me);
+
         me.adjustToolbarItemCls(true);
     }
 
@@ -101,6 +103,19 @@ class DragZone extends BaseDragZone {
             me.dragElement = VDomUtil.findVdomChild(me.owner.vdom, data.path[0].id).vdom;
             me.dragStart(data);
         }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Number} data.index
+     * @param {Neo.component.Base} data.item
+     */
+    onItemInsert(data) {
+        let item = data.item,
+            cls  = item.cls || [];
+
+        NeoArray.add(cls, 'neo-draggable');
+        item.cls = cls;
     }
 }
 

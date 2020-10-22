@@ -55,9 +55,9 @@ class ContentTabContainer extends Container {
             }
         }],
         /**
-         * @member {Boolean} sortable=false
+         * @member {Boolean} sortable=true
          */
-        sortable: false
+        sortable: true
     }}
 
     /**
