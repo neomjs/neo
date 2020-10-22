@@ -52,6 +52,11 @@ class SortZone extends DragZone {
          */
         ownerStyle: null,
         /**
+         * @member {Boolean} alwaysFireDragMove=false
+         * @protected
+         */
+        reversedLayoutDirection: false,
+        /**
          * Internal flag: onDragStart() will set the value to horizontal or vertical, depending on the current layout.
          * @member {String} sortDirection='horizontal'
          * @protected
@@ -168,11 +173,15 @@ class SortZone extends DragZone {
             button     = Neo.getComponent(data.path[0].id),
             owner      = me.owner,
             itemStyles = me.itemStyles = [],
+            layout     = owner.layout,
             ownerStyle = owner.style || {},
-            index, indexMap, itemStyle, rect;
+            index, indexMap, itemStyle, layoutDirection, rect;
 
         if (owner.sortable) {
             me.sortDirection = owner.layout.ntype === 'layout-vbox' ? 'vertical' : 'horizontal';
+            me.reversedLayoutDirection = layout.direction === 'column-reverse' || layout.direction === 'row-reverse';
+
+            console.log(me.reversedLayoutDirection);
 
             me.dragProxyConfig = {
                 ...me.dragProxyConfig || {},
