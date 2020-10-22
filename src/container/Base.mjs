@@ -399,7 +399,13 @@ class Base extends Component {
             cn = vdom.cn || vdom.childNodes || vdom.children;
 
             cn.splice(index, 0, item.vdom);
-            me.vdom = vdom;
+
+            me.promiseVdomUpdate().then(() => {
+                me.fire('insert', {
+                    index: index,
+                    item : item
+                });
+            });
         }
 
         return item;
