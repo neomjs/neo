@@ -400,6 +400,11 @@ class Base extends Component {
 
             cn.splice(index, 0, item.vdom);
             me.vdom = vdom;
+
+            me.fire('insert', {
+                index: index,
+                item : item
+            });
         }
 
         return item;
