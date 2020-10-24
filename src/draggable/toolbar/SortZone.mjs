@@ -113,7 +113,7 @@ class SortZone extends DragZone {
         });
 
         if (me.startIndex !== me.currentIndex) {
-            me.moveTo(me.startIndex, me.currentIndex);
+            //me.moveTo(me.startIndex, me.currentIndex);
         }
 
         Object.assign(me, {
@@ -138,7 +138,16 @@ class SortZone extends DragZone {
                 moveFactor = 0.55, // we can not use 0.5, since items would jump back & forth
                 index      = me.currentIndex,
                 itemRects  = me.itemRects,
+                maxItems   = itemRects.length - 1,
+                reversed   = me.reversedLayoutDirection,
                 delta, itemWidth;
+
+            if (reversed) {
+                console.log('drag:move', me.startIndex, index);
+                index = me.owner.items.length - 1 - index;
+            } else {
+
+            }
 
             if (me.sortDirection === 'horizontal') {
                 delta     = data.clientX - me.offsetX - itemRects[index].left;
@@ -148,17 +157,35 @@ class SortZone extends DragZone {
                 itemWidth = 'height';
             }
 
-            if (index > 0 && delta < 0) {
-                if (Math.abs(delta) > itemRects[index - 1][itemWidth] * moveFactor) {
-                    me.currentIndex--;
-                    me.switchItems(index, me.currentIndex);
-                }
-            }
+            if (reversed) {
+                if (index < maxItems && delta > 0) {
+                    console.log('drag right');
 
-            else if (index < itemRects.length - 1 && delta > 0) {
-                if (delta > itemRects[index + 1][itemWidth] * moveFactor) {
-                    me.currentIndex++;
-                    me.switchItems(index, me.currentIndex);
+                    if (Math.abs(delta) > itemRects[index - 1][itemWidth] * moveFactor) {
+                        me.currentIndex++;
+                        me.switchItems(index, me.currentIndex);
+                    }
+                }
+
+                else if (index > 0 && delta < 0) {
+                    if (Math.abs(delta) > itemRects[index + 1][itemWidth] * moveFactor) {
+                        me.currentIndex--;
+                        me.switchItems(index, me.currentIndex);
+                    }
+                }
+            } else {
+                if (index > 0 && delta < 0) {
+                    if (Math.abs(delta) > itemRects[index - 1][itemWidth] * moveFactor) {
+                        me.currentIndex--;
+                        me.switchItems(index, me.currentIndex);
+                    }
+                }
+
+                else if (index < maxItems && delta > 0) {
+                    if (delta > itemRects[index + 1][itemWidth] * moveFactor) {
+                        me.currentIndex++;
+                        me.switchItems(index, me.currentIndex);
+                    }
                 }
             }
         }
@@ -247,7 +274,16 @@ class SortZone extends DragZone {
      * @param {Number} index2
      */
     switchItems(index1, index2) {
-        let tmp;
+        console.log('switchItems', index1, index2);
+
+        let me        = this,
+            maxIndex = me.owner.items.length - 1,
+            tmp;
+
+        if (me.reversedLayoutDirection) {
+            index1 = maxIndex - index1;
+            index2 = maxIndex - index2;
+        }
 
         if (index2 < index1) {
             tmp    = index1;
@@ -255,8 +291,7 @@ class SortZone extends DragZone {
             index2 = tmp;
         }
 
-        let me        = this,
-            itemRects = me.itemRects,
+        let itemRects = me.itemRects,
             map       = me.indexMap,
             rect1     = itemRects[index1],
             rect2     = itemRects[index2],
