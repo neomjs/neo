@@ -89,43 +89,45 @@ class SortZone extends DragZone {
             ownerStyle = owner.style || {},
             itemStyle;
 
-        ownerStyle.height = me.ownerStyle.height || null;
-        ownerStyle.width  = me.ownerStyle.width  || null;
+        if (owner.sortable) {
+            ownerStyle.height = me.ownerStyle.height || null;
+            ownerStyle.width  = me.ownerStyle.width  || null;
 
-        owner.style = ownerStyle;
+            owner.style = ownerStyle;
 
-        owner.items.forEach((item, index) => {
-            itemStyle = item.style || {};
+            owner.items.forEach((item, index) => {
+                itemStyle = item.style || {};
 
-            Object.assign(itemStyle, {
-                height  : itemStyles[index].height || null,
-                left    : null,
-                position: null,
-                top     : null,
-                width   : itemStyles[index].width || null
+                Object.assign(itemStyle, {
+                    height  : itemStyles[index].height || null,
+                    left    : null,
+                    position: null,
+                    top     : null,
+                    width   : itemStyles[index].width || null
+                });
+
+                if (index === me.startIndex) {
+                    itemStyle.visibility = null;
+                }
+
+                item.style = itemStyle;
             });
 
-            if (index === me.startIndex) {
-                itemStyle.visibility = null;
+            if (me.startIndex !== me.currentIndex) {
+                me.moveTo(me.startIndex, me.currentIndex);
             }
 
-            item.style = itemStyle;
-        });
+            Object.assign(me, {
+                currentIndex: -1,
+                indexMap    : null,
+                itemRects   : null,
+                itemStyles  : null,
+                ownerRect   : null,
+                startIndex  : -1
+            });
 
-        if (me.startIndex !== me.currentIndex) {
-            me.moveTo(me.startIndex, me.currentIndex);
+            me.dragEnd(data); // we do not want to trigger the super class call here
         }
-
-        Object.assign(me, {
-            currentIndex: -1,
-            indexMap    : null,
-            itemRects   : null,
-            itemStyles  : null,
-            ownerRect   : null,
-            startIndex  : -1
-        });
-
-        me.dragEnd(data); // we do not want to trigger the super class call here
     }
 
     /**
