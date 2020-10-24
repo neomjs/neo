@@ -191,7 +191,9 @@ class MainContainer extends ConfigurationViewport {
                 direction += '-reverse';
             }
         } else {
-            direction = direction.substring(0, direction.indexOf('-reverse'));
+            if (direction.includes('-reverse')) {
+                direction = direction.substring(0, direction.indexOf('-reverse'));
+            }
         }
 
         layout.direction = direction;
