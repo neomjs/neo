@@ -150,33 +150,17 @@ class SortZone extends DragZone {
                 itemWidth = 'height';
             }
 
-            if (reversed) {
-                if (index > 0 && delta > 0) {
-                    if (Math.abs(delta) > itemRects[index - 1][itemWidth] * moveFactor) {
-                        me.currentIndex--;
-                        me.switchItems(index, me.currentIndex);
-                    }
+            if (index > 0 && (!reversed && delta < 0 || reversed && delta > 0)) {
+                if (Math.abs(delta) > itemRects[index - 1][itemWidth] * moveFactor) {
+                    me.currentIndex--;
+                    me.switchItems(index, me.currentIndex);
                 }
+            }
 
-                else if (index < maxItems && delta < 0) {
-                    if (Math.abs(delta) > itemRects[index + 1][itemWidth] * moveFactor) {
-                        me.currentIndex++;
-                        me.switchItems(index, me.currentIndex);
-                    }
-                }
-            } else {
-                if (index > 0 && delta < 0) {
-                    if (Math.abs(delta) > itemRects[index - 1][itemWidth] * moveFactor) {
-                        me.currentIndex--;
-                        me.switchItems(index, me.currentIndex);
-                    }
-                }
-
-                else if (index < maxItems && delta > 0) {
-                    if (delta > itemRects[index + 1][itemWidth] * moveFactor) {
-                        me.currentIndex++;
-                        me.switchItems(index, me.currentIndex);
-                    }
+            else if (index < maxItems && (!reversed && delta > 0 || reversed && delta < 0)) {
+                if (Math.abs(delta) > itemRects[index + 1][itemWidth] * moveFactor) {
+                    me.currentIndex++;
+                    me.switchItems(index, me.currentIndex);
                 }
             }
         }
