@@ -113,7 +113,7 @@ class SortZone extends DragZone {
         });
 
         if (me.startIndex !== me.currentIndex) {
-            //me.moveTo(me.startIndex, me.currentIndex);
+            me.moveTo(me.startIndex, me.currentIndex);
         }
 
         Object.assign(me, {
@@ -142,13 +142,6 @@ class SortZone extends DragZone {
                 reversed   = me.reversedLayoutDirection,
                 delta, itemWidth;
 
-            if (reversed) {
-                console.log('drag:move', me.startIndex, index);
-                index = me.owner.items.length - 1 - index;
-            } else {
-
-            }
-
             if (me.sortDirection === 'horizontal') {
                 delta     = data.clientX - me.offsetX - itemRects[index].left;
                 itemWidth = 'width';
@@ -158,18 +151,16 @@ class SortZone extends DragZone {
             }
 
             if (reversed) {
-                if (index < maxItems && delta > 0) {
-                    console.log('drag right');
-
+                if (index > 0 && delta > 0) {
                     if (Math.abs(delta) > itemRects[index - 1][itemWidth] * moveFactor) {
-                        me.currentIndex++;
+                        me.currentIndex--;
                         me.switchItems(index, me.currentIndex);
                     }
                 }
 
-                else if (index > 0 && delta < 0) {
+                else if (index < maxItems && delta < 0) {
                     if (Math.abs(delta) > itemRects[index + 1][itemWidth] * moveFactor) {
-                        me.currentIndex--;
+                        me.currentIndex++;
                         me.switchItems(index, me.currentIndex);
                     }
                 }
@@ -274,18 +265,11 @@ class SortZone extends DragZone {
      * @param {Number} index2
      */
     switchItems(index1, index2) {
-        console.log('switchItems', index1, index2);
-
-        let me        = this,
-            maxIndex = me.owner.items.length - 1,
+        let me       = this,
+            reversed = me.reversedLayoutDirection,
             tmp;
 
-        if (me.reversedLayoutDirection) {
-            index1 = maxIndex - index1;
-            index2 = maxIndex - index2;
-        }
-
-        if (index2 < index1) {
+        if ((!reversed && index2 < index1) || (reversed && index1 < index2)) {
             tmp    = index1;
             index1 = index2;
             index2 = tmp;
