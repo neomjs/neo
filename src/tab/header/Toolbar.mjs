@@ -33,7 +33,9 @@ class Toolbar extends BaseToolbar {
      * @protected
      */
     afterSetSortable(value, oldValue) {
-        if (value) {
+        let me = this;
+
+        if (value && !me.sortZone) {
             let me = this;
 
             import(
