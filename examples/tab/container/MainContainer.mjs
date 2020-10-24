@@ -45,6 +45,7 @@ class MainContainer extends ConfigurationViewport {
             checked       : headerLayout.direction === 'column-reverse' || headerLayout.direction === 'row-reverse',
             hideLabel     : true,
             hideValueLabel: false,
+            id            : 'reverseLayoutDirection',
             listeners     : {change: me.onLayoutSortDirectionChange.bind(me)},
             style         : {marginTop: '10px'},
             valueLabelText: 'reversed layout sort-direction'
@@ -206,9 +207,8 @@ class MainContainer extends ConfigurationViewport {
      */
     onTabBarPositionChange(value, opts) {
         if (opts.value === true) { // we only want to listen to check events, not uncheck
-            let me = this;
-
-            me.onRadioChange('tabBarPosition', value, opts);
+            this.onRadioChange('tabBarPosition', value, opts);
+            Neo.getComponent('reverseLayoutDirection').checked = value === 'left';
         }
 
     }
