@@ -119,4 +119,10 @@
             width : v(tab-strip-height);
         }
     }
+
+    &.neo-no-animation {
+        .neo-tab-button-indicator {
+            animation-duration: 0ms !important;
+        }
+    }
 }
