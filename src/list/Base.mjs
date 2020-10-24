@@ -134,9 +134,9 @@ class Base extends Component {
      * @protected
      */
     afterSetDraggable(value, oldValue) {
-        if (value) {
-            let me = this;
+        let me = this;
 
+        if (value && !me.dragZone) {
             import(
                 /* webpackChunkName: 'src/draggable/list/DragZone-mjs.js' */
                 '../draggable/list/DragZone.mjs'
