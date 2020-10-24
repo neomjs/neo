@@ -33,9 +33,9 @@ class Toolbar extends BaseToolbar {
      * @protected
      */
     afterSetSortable(value, oldValue) {
-        if (value) {
-            let me = this;
+        let me = this;
 
+        if (value && !me.sortZone) {
             import(
                 /* webpackChunkName: 'src/draggable/tab/header/toolbar/SortZone-mjs.js' */
                 '../../draggable/tab/header/toolbar/SortZone.mjs'

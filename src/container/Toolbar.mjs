@@ -87,9 +87,9 @@ class Toolbar extends Container {
      * @protected
      */
     afterSetSortable(value, oldValue) {
-        if (value) {
-            let me = this;
+        let me = this;
 
+        if (value && !me.sortZone) {
             import(
                 /* webpackChunkName: 'src/draggable/toolbar/SortZone-mjs.js' */
                 '../draggable/toolbar/SortZone.mjs'
