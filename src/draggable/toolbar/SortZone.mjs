@@ -52,6 +52,11 @@ class SortZone extends DragZone {
          */
         ownerStyle: null,
         /**
+         * @member {Boolean} alwaysFireDragMove=false
+         * @protected
+         */
+        reversedLayoutDirection: false,
+        /**
          * Internal flag: onDragStart() will set the value to horizontal or vertical, depending on the current layout.
          * @member {String} sortDirection='horizontal'
          * @protected
@@ -133,6 +138,8 @@ class SortZone extends DragZone {
                 moveFactor = 0.55, // we can not use 0.5, since items would jump back & forth
                 index      = me.currentIndex,
                 itemRects  = me.itemRects,
+                maxItems   = itemRects.length - 1,
+                reversed   = me.reversedLayoutDirection,
                 delta, itemWidth;
 
             if (me.sortDirection === 'horizontal') {
@@ -143,15 +150,15 @@ class SortZone extends DragZone {
                 itemWidth = 'height';
             }
 
-            if (index > 0 && delta < 0) {
+            if (index > 0 && (!reversed && delta < 0 || reversed && delta > 0)) {
                 if (Math.abs(delta) > itemRects[index - 1][itemWidth] * moveFactor) {
                     me.currentIndex--;
                     me.switchItems(index, me.currentIndex);
                 }
             }
 
-            else if (index < itemRects.length - 1 && delta > 0) {
-                if (delta > itemRects[index + 1][itemWidth] * moveFactor) {
+            else if (index < maxItems && (!reversed && delta > 0 || reversed && delta < 0)) {
+                if (Math.abs(delta) > itemRects[index + 1][itemWidth] * moveFactor) {
                     me.currentIndex++;
                     me.switchItems(index, me.currentIndex);
                 }
@@ -168,28 +175,26 @@ class SortZone extends DragZone {
             button     = Neo.getComponent(data.path[0].id),
             owner      = me.owner,
             itemStyles = me.itemStyles = [],
+            layout     = owner.layout,
             ownerStyle = owner.style || {},
             index, indexMap, itemStyle, rect;
 
         if (owner.sortable) {
-            me.sortDirection = owner.layout.ntype === 'layout-vbox' ? 'vertical' : 'horizontal';
-
-            me.dragProxyConfig = {
-                ...me.dragProxyConfig || {},
-                cls : ['neo-dragproxy', ...owner.cls]
-            };
-
-            me.dragElement = VDomUtil.findVdomChild(owner.vdom, button.id).vdom;
-            me.dragStart(data); // we do not want to trigger the super class call here
-
-            me.ownerStyle = {
-                height: ownerStyle.height,
-                width : ownerStyle.width
-            };
-
-            index = owner.indexOf(button.id);
-
+            index    = owner.indexOf(button.id);
             indexMap = {};
+
+            Object.assign(me, {
+                currentIndex           : index,
+                dragElement            : VDomUtil.findVdomChild(owner.vdom, button.id).vdom,
+                dragProxyConfig        : {...me.dragProxyConfig || {}, cls : ['neo-dragproxy', ...owner.cls]},
+                indexMap               : indexMap,
+                ownerStyle             : {height: ownerStyle.height, width : ownerStyle.width},
+                reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',
+                sortDirection          : owner.layout.ntype === 'layout-vbox' ? 'vertical' : 'horizontal',
+                startIndex             : index
+            });
+
+            me.dragStart(data); // we do not want to trigger the super class call here
 
             owner.items.forEach((item, index) => {
                 indexMap[index] = index;
@@ -197,13 +202,7 @@ class SortZone extends DragZone {
                 itemStyles.push({
                     height: item.style && item.style.height,
                     width : item.style && item.style.width
-                })
-            });
-
-            Object.assign(me, {
-                currentIndex: index,
-                indexMap    : indexMap,
-                startIndex  : index
+                });
             });
 
             Neo.main.DomAccess.getBoundingClientRect({
@@ -225,17 +224,16 @@ class SortZone extends DragZone {
                     itemStyle = item.style || {};
                     rect      = itemRects[index];
 
-                    Object.assign(itemStyle, {
+                    item.style = Object.assign(itemStyle, {
                         height  : `${rect.height}px`,
                         left    : `${rect.left}px`,
                         position: 'absolute',
                         top     : `${rect.top}px`,
                         width   : `${rect.width}px`
                     });
-
-                    item.style = itemStyle;
                 });
 
+                // we need to add a short (1 frame) delay to ensure the item has switched to an absolute position
                 setTimeout(() => {
                     itemStyle = button.style || {};
                     itemStyle.visibility = 'hidden';
@@ -251,16 +249,17 @@ class SortZone extends DragZone {
      * @param {Number} index2
      */
     switchItems(index1, index2) {
-        let tmp;
+        let me       = this,
+            reversed = me.reversedLayoutDirection,
+            tmp;
 
-        if (index2 < index1) {
+        if ((!reversed && index2 < index1) || (reversed && index1 < index2)) {
             tmp    = index1;
             index1 = index2;
             index2 = tmp;
         }
 
-        let me        = this,
-            itemRects = me.itemRects,
+        let itemRects = me.itemRects,
             map       = me.indexMap,
             rect1     = itemRects[index1],
             rect2     = itemRects[index2],

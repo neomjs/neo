@@ -147,11 +147,7 @@ class NeoArray extends Base {
      * @param {*} item
      */
     static toggle(arr, item) {
-        if (this.hasItem(arr, item)) {
-            this.remove(arr, item);
-        } else {
-            this.add(arr, item);
-        }
+        this[this.hasItem(arr, item) ? 'remove' : 'add'](arr, item);
     }
 
     /**

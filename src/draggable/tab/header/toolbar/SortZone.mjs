@@ -1,4 +1,5 @@
 import BaseSortZone from '../../../toolbar/SortZone.mjs';
+import NeoArray     from '../../../../util/Array.mjs';
 
 /**
  * @class Neo.draggable.tab.header.toolbar.SortZone
@@ -31,6 +32,38 @@ class SortZone extends BaseSortZone {
      */
     moveTo(fromIndex, toIndex) {
         this.owner.up().moveTo(fromIndex, toIndex);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragEnd(data) {
+        super.onDragEnd(data);
+
+        setTimeout(() => {
+            let me    = this,
+                owner = me.owner,
+                cls   = owner.cls || [];
+
+            NeoArray.remove(cls, 'neo-no-animation');
+            owner.cls = cls;
+        }, 300);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragStart(data) {
+        let me    = this,
+            owner = me.owner,
+            cls   = owner.cls || [];
+
+        NeoArray.add(cls, 'neo-no-animation');
+        owner.cls = cls;
+
+        super.onDragStart(data);
     }
 }
 

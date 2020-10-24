@@ -601,8 +601,7 @@ class Container extends BaseContainer {
     updateTabButtons() {
         let me          = this,
             activeIndex = me.activeIndex,
-            tabBar      = me.getTabBar(),
-            tabButtons  = tabBar.items || [];
+            tabButtons  = me.getTabBar().items || [];
 
         tabButtons.forEach((item, index) => {
             item.pressed = index === activeIndex;

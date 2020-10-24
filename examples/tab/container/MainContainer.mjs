@@ -1,7 +1,6 @@
 import CheckBox              from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
-import PickerField           from '../../../src/form/field/Picker.mjs';
 import Radio                 from '../../../src/form/field/Radio.mjs';
 import TextField             from '../../../src/form/field/Text.mjs';
 import TabContainer          from '../../../src/tab/Container.mjs';
@@ -21,7 +20,9 @@ class MainContainer extends ConfigurationViewport {
     }}
 
     createConfigurationComponents() {
-        let me = this;
+        let me           = this,
+            tabContainer = me.exampleComponent,
+            headerLayout = tabContainer.getTabBar().layout;
 
         return [{
             module   : NumberField,
@@ -30,7 +31,7 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'activeIndex')},
             maxValue : 2,
             minValue : 0,
-            value    : me.exampleComponent.activeIndex
+            value    : tabContainer.activeIndex
         }, {
             module   : NumberField,
             labelText: 'height',
@@ -38,47 +39,55 @@ class MainContainer extends ConfigurationViewport {
             maxValue : 800,
             minValue : 300,
             stepSize : 5,
-            value    : me.exampleComponent.height
+            value    : tabContainer.height
         }, {
             module        : CheckBox,
-            checked       : me.exampleComponent.sortable,
+            checked       : headerLayout.direction === 'column-reverse' || headerLayout.direction === 'row-reverse',
+            hideLabel     : true,
+            hideValueLabel: false,
+            id            : 'reverseLayoutDirection',
+            listeners     : {change: me.onLayoutSortDirectionChange.bind(me)},
+            style         : {marginTop: '10px'},
+            valueLabelText: 'reversed layout sort-direction'
+        }, {
+            module        : CheckBox,
+            checked       : tabContainer.sortable,
             hideLabel     : true,
             hideValueLabel: false,
             listeners     : {change: me.onConfigChange.bind(me, 'sortable')},
-            name          : 'tabBarPosition',
             style         : {marginTop: '10px'},
             valueLabelText: 'sortable'
         }, {
             module        : Radio,
-            checked       : me.exampleComponent.tabBarPosition === 'top',
+            checked       : tabContainer.tabBarPosition === 'top',
             hideValueLabel: false,
             labelText     : 'tabBarPosition',
-            listeners     : {change: me.onRadioChange.bind(me, 'tabBarPosition', 'top')},
+            listeners     : {change: me.onTabBarPositionChange.bind(me, 'top')},
             name          : 'tabBarPosition',
             style         : {marginTop: '10px'},
             valueLabelText: 'top'
         }, {
             module        : Radio,
-            checked       : me.exampleComponent.tabBarPosition === 'right',
+            checked       : tabContainer.tabBarPosition === 'right',
             hideValueLabel: false,
             labelText     : '',
-            listeners     : {change: me.onRadioChange.bind(me, 'tabBarPosition', 'right')},
+            listeners     : {change: me.onTabBarPositionChange.bind(me, 'right')},
             name          : 'tabBarPosition',
             valueLabelText: 'right'
         }, {
             module        : Radio,
-            checked       : me.exampleComponent.tabBarPosition === 'bottom',
+            checked       : tabContainer.tabBarPosition === 'bottom',
             hideValueLabel: false,
             labelText     : '',
-            listeners     : {change: me.onRadioChange.bind(me, 'tabBarPosition', 'bottom')},
+            listeners     : {change: me.onTabBarPositionChange.bind(me, 'bottom')},
             name          : 'tabBarPosition',
             valueLabelText: 'bottom'
         }, {
             module        : Radio,
-            checked       : me.exampleComponent.tabBarPosition === 'left',
+            checked       : tabContainer.tabBarPosition === 'left',
             hideValueLabel: false,
             labelText     : '',
-            listeners     : {change: me.onRadioChange.bind(me, 'tabBarPosition', 'left')},
+            listeners     : {change: me.onTabBarPositionChange.bind(me, 'left')},
             name          : 'tabBarPosition',
             valueLabelText: 'left'
         }, {
@@ -89,18 +98,17 @@ class MainContainer extends ConfigurationViewport {
             minValue : 250,
             stepSize : 5,
             style    : {marginTop: '10px'},
-            value    : me.exampleComponent.width
+            value    : tabContainer.width
         }, {
             module        : CheckBox,
-            checked       : me.exampleComponent.useActiveTabIndicator,
+            checked       : tabContainer.useActiveTabIndicator,
             hideLabel     : true,
             hideValueLabel: false,
             listeners     : {change: me.onConfigChange.bind(me, 'useActiveTabIndicator')},
-            name          : 'tabBarPosition',
             style         : {marginTop: '10px'},
             valueLabelText: 'useActiveTabIndicator'
         }, {
-            module   : PickerField, // todo: SelectField
+            module   : TextField, // todo: SelectField
             labelText: 'Tab 1 iconCls',
             listeners: {change: me.onFirstTabHeaderConfigChange.bind(me, 'iconCls')},
             style    : {marginTop: '50px'},
@@ -166,6 +174,43 @@ class MainContainer extends ConfigurationViewport {
      */
     getFirstTabHeader() {
         return this.exampleComponent.getTabBar().items[0];
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Neo.component.Base} data.component
+     * @param {Boolean} data.oldValue
+     * @param {Boolean} data.value
+     */
+    onLayoutSortDirectionChange(data) {
+        let layout    = this.exampleComponent.getTabBar().layout,
+            direction = layout.direction;
+
+        if (data.value === true) {
+            if (!direction.includes('-reverse')) {
+                direction += '-reverse';
+            }
+        } else {
+            if (direction.includes('-reverse')) {
+                direction = direction.substring(0, direction.indexOf('-reverse'));
+            }
+        }
+
+        layout.direction = direction;
+    }
+
+    /**
+     *
+     * @param {String} value
+     * @param {Object} opts
+     */
+    onTabBarPositionChange(value, opts) {
+        if (opts.value === true) { // we only want to listen to check events, not uncheck
+            this.onRadioChange('tabBarPosition', value, opts);
+            Neo.getComponent('reverseLayoutDirection').checked = value === 'left';
+        }
+
     }
 
     /**
