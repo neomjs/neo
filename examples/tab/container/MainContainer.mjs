@@ -61,7 +61,7 @@ class MainContainer extends ConfigurationViewport {
             checked       : tabContainer.tabBarPosition === 'top',
             hideValueLabel: false,
             labelText     : 'tabBarPosition',
-            listeners     : {change: me.onRadioChange.bind(me, 'tabBarPosition', 'top')},
+            listeners     : {change: me.onTabBarPositionChange.bind(me, 'top')},
             name          : 'tabBarPosition',
             style         : {marginTop: '10px'},
             valueLabelText: 'top'
@@ -70,7 +70,7 @@ class MainContainer extends ConfigurationViewport {
             checked       : tabContainer.tabBarPosition === 'right',
             hideValueLabel: false,
             labelText     : '',
-            listeners     : {change: me.onRadioChange.bind(me, 'tabBarPosition', 'right')},
+            listeners     : {change: me.onTabBarPositionChange.bind(me, 'right')},
             name          : 'tabBarPosition',
             valueLabelText: 'right'
         }, {
@@ -78,7 +78,7 @@ class MainContainer extends ConfigurationViewport {
             checked       : tabContainer.tabBarPosition === 'bottom',
             hideValueLabel: false,
             labelText     : '',
-            listeners     : {change: me.onRadioChange.bind(me, 'tabBarPosition', 'bottom')},
+            listeners     : {change: me.onTabBarPositionChange.bind(me, 'bottom')},
             name          : 'tabBarPosition',
             valueLabelText: 'bottom'
         }, {
@@ -86,7 +86,7 @@ class MainContainer extends ConfigurationViewport {
             checked       : tabContainer.tabBarPosition === 'left',
             hideValueLabel: false,
             labelText     : '',
-            listeners     : {change: me.onRadioChange.bind(me, 'tabBarPosition', 'left')},
+            listeners     : {change: me.onTabBarPositionChange.bind(me, 'left')},
             name          : 'tabBarPosition',
             valueLabelText: 'left'
         }, {
@@ -197,6 +197,20 @@ class MainContainer extends ConfigurationViewport {
         }
 
         layout.direction = direction;
+    }
+
+    /**
+     *
+     * @param {String} value
+     * @param {Object} opts
+     */
+    onTabBarPositionChange(value, opts) {
+        if (opts.value === true) { // we only want to listen to check events, not uncheck
+            let me = this;
+
+            me.onRadioChange('tabBarPosition', value, opts);
+        }
+
     }
 
     /**
