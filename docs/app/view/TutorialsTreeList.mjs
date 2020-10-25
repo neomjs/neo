@@ -1,8 +1,8 @@
-import TreeList from '../../../src/list/TreeList.mjs';
+import TreeList from '../../../src/tree/List.mjs';
 
 /**
  * @class Docs.app.view.TutorialsTreeList
- * @extends Neo.list.TreeList
+ * @extends Neo.tree.List
  */
 class TutorialsTreeList extends TreeList {
     static getConfig() {return {
