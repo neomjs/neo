@@ -28,6 +28,18 @@ class Tree extends Base {
          */
         disableSelection: true,
         /**
+         * @member {Boolean} draggable_=false
+         */
+        draggable_: false,
+        /**
+         * @member {Neo.draggable.tree.DragZone|null} dragZone=null
+         */
+        dragZone: null,
+        /**
+         * @member {Object} dragZoneConfig=null
+         */
+        dragZoneConfig: null,
+        /**
          * @member {Boolean} showCollapseExpandAllIcons=true
          */
         showCollapseExpandAllIcons: true,
@@ -72,13 +84,36 @@ class Tree extends Base {
     }
 
     /**
+     * Triggered after the draggable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDraggable(value, oldValue) {
+        let me = this;
+
+        if (value && !me.dragZone) {
+            import(
+                /* webpackChunkName: 'src/draggable/tree/DragZone-mjs.js' */
+                '../draggable/tree/DragZone.mjs'
+                ).then(module => {
+                me.dragZone = Neo.create(module.default, {
+                    appName: me.appName,
+                    owner  : me,
+                    ...me.dragZoneConfig || {}
+                });
+            });
+        }
+    }
+
+    /**
      * Triggered before the store config gets changed.
      * @param {Object|Neo.data.Store} value
      * @param {Object|Neo.data.Store} oldValue
      * @returns {Neo.data.Store}
      * @protected
      */
-    beforeSetStore(value) {
+    beforeSetStore(value, oldValue) {
         if (!value) {
             value = Neo.create(Collection, {
                 keyProperty: 'id'
@@ -190,7 +225,7 @@ class Tree extends Base {
 
     /**
      * Expands all folders
-     * @param {Boolean} [silent]=false Set silent to true to prevent a vnode update
+     * @param {Boolean} silent=false Set silent to true to prevent a vnode update
      */
     expandAll(silent=false) {
         let me       = this,
