@@ -44,6 +44,18 @@ class Tree extends Base {
          */
         showCollapseExpandAllIcons: true,
         /**
+         * @member {Boolean} sortable_=false
+         */
+        sortable_: false,
+        /**
+         * @member {Neo.draggable.tree.SortZone|null} sortZone=null
+         */
+        sortZone: null,
+        /**
+         * @member {Object} dragZoneConfig=null
+         */
+        sortZoneConfig: null,
+        /**
          * @member {Object} _vdom
          */
         _vdom: {
@@ -101,6 +113,30 @@ class Tree extends Base {
                     appName: me.appName,
                     owner  : me,
                     ...me.dragZoneConfig || {}
+                });
+            });
+        }
+    }
+
+    /**
+     * Triggered after the sortable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSortable(value, oldValue) {
+        let me = this;
+
+        if (value && !me.sortZone) {
+            import(
+                /* webpackChunkName: 'src/draggable/tree/SortZone-mjs.js' */
+                '../draggable/tree/SortZone.mjs'
+                ).then(module => {
+                me.sortZone = Neo.create(module.default, {
+                    appName            : me.appName,
+                    boundaryContainerId: me.id,
+                    owner              : me,
+                    ...me.sortZoneConfig || {}
                 });
             });
         }
