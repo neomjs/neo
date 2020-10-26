@@ -38,8 +38,8 @@ class MainContainer extends ConfigurationViewport {
             clearable: true,
             labelText: 'height',
             listeners: {change: me.onConfigChange.bind(me, 'height')},
-            maxValue : 300,
-            minValue : 30,
+            maxValue : 1200,
+            minValue : 400,
             stepSize : 5,
             value    : treeList.height,
             style    : {marginTop: '10px'}
@@ -60,8 +60,8 @@ class MainContainer extends ConfigurationViewport {
             clearable: true,
             labelText: 'width',
             listeners: {change: me.onConfigChange.bind(me, 'width')},
-            maxValue : 300,
-            minValue : 100,
+            maxValue : 1200,
+            minValue : 200,
             stepSize : 5,
             style    : {marginTop: '10px'},
             value    : treeList.width
@@ -71,7 +71,8 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create({
             module: ApiTreeList,
-            width : 200
+            height: 800,
+            width : 400
         });
     }
 }
