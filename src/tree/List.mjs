@@ -61,20 +61,6 @@ class Tree extends Base {
 
     /**
      *
-     * @param config
-     */
-    constructor(config) {
-        super(config);
-
-        let me = this;
-
-        if (me.draggable && me.sortable) {
-            console.error('tree.List can be either draggable or sortable, not both.', me.id);
-        }
-    }
-
-    /**
-     *
      */
     onConstructed() {
         super.onConstructed();
@@ -110,17 +96,21 @@ class Tree extends Base {
     afterSetDraggable(value, oldValue) {
         let me = this;
 
-        if (value && !me.dragZone) {
-            import(
-                /* webpackChunkName: 'src/draggable/tree/DragZone-mjs.js' */
-                '../draggable/tree/DragZone.mjs'
-                ).then(module => {
-                me.dragZone = Neo.create(module.default, {
-                    appName: me.appName,
-                    owner  : me,
-                    ...me.dragZoneConfig || {}
+        if (value) {
+            if (me.sortable) {
+                console.error('tree.List can be either draggable or sortable, not both.', me.id);
+            } else if (!me.dragZone) {
+                import(
+                    /* webpackChunkName: 'src/draggable/tree/DragZone-mjs.js' */
+                    '../draggable/tree/DragZone.mjs'
+                    ).then(module => {
+                    me.dragZone = Neo.create(module.default, {
+                        appName: me.appName,
+                        owner  : me,
+                        ...me.dragZoneConfig || {}
+                    });
                 });
-            });
+            }
         }
     }
 
@@ -133,18 +123,22 @@ class Tree extends Base {
     afterSetSortable(value, oldValue) {
         let me = this;
 
-        if (value && !me.sortZone) {
-            import(
-                /* webpackChunkName: 'src/draggable/tree/SortZone-mjs.js' */
-                '../draggable/tree/SortZone.mjs'
-                ).then(module => {
-                me.sortZone = Neo.create(module.default, {
-                    appName            : me.appName,
-                    boundaryContainerId: me.id,
-                    owner              : me,
-                    ...me.sortZoneConfig || {}
+        if (value) {
+            if (me.draggable) {
+                console.error('tree.List can be either draggable or sortable, not both.', me.id);
+            } else if (!me.sortZone) {
+                import(
+                    /* webpackChunkName: 'src/draggable/tree/SortZone-mjs.js' */
+                    '../draggable/tree/SortZone.mjs'
+                    ).then(module => {
+                    me.sortZone = Neo.create(module.default, {
+                        appName            : me.appName,
+                        boundaryContainerId: me.id,
+                        owner              : me,
+                        ...me.sortZoneConfig || {}
+                    });
                 });
-            });
+            }
         }
     }
 
