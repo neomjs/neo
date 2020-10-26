@@ -69,6 +69,20 @@ class Tree extends Base {
 
     /**
      *
+     * @param config
+     */
+    constructor(config) {
+        super(config);
+
+        let me = this;
+
+        if (me.draggable && me.sortable) {
+            console.error('tree.List can be either draggable or sortable, not both.', me.id);
+        }
+    }
+
+    /**
+     *
      */
     onConstructed() {
         super.onConstructed();
