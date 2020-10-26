@@ -1,0 +1,22 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <title>Neo Tree</title>
+</head>
+<body>
+    <script>
+        Neo = self.Neo || {}; Neo.config = Neo.config || {};
+
+        Object.assign(Neo.config, {
+            appPath         : 'examples/tree/app.mjs',
+            basePath        : '../../',
+            environment     : 'development',
+            mainThreadAddons: ['DragDrop', 'Stylesheet']
+        });
+    </script>
+
+    <script src="../../src/Main.mjs" type="module"></script>
+</body>
+</html>
