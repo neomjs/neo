@@ -13,6 +13,16 @@ class MainContainerController extends ComponentController {
          */
         className: 'Website.view.MainContainerController',
         /**
+         * @member {String[]} examplesTabs=['devmode','dist_dev','dist_prod']
+         * @protected
+         */
+        examplesTabs: ['devmode', 'dist_dev', 'dist_prod'],
+        /**
+         * @member {String[]} homeTabs=['developers','executives']
+         * @protected
+         */
+        homeTabs: ['developers', 'executives'],
+        /**
          * @member {String[]} mainTabs=['home','blog','examples','docs']
          * @protected
          */
@@ -27,7 +37,9 @@ class MainContainerController extends ComponentController {
 
         let me = this;
 
-        me.getReference('main-tab-container').on('moveTo', me.onTabMove, me);
+        me.getReference('examples-tab-container').on('moveTo', me.onTabMove.bind(me, 'examplesTabs'));
+        me.getReference('home-tab-container').    on('moveTo', me.onTabMove.bind(me, 'homeTabs'));
+        me.getReference('main-tab-container').    on('moveTo', me.onTabMove.bind(me, 'mainTabs'));
     }
 
     /**
@@ -36,25 +48,17 @@ class MainContainerController extends ComponentController {
      * @param {Object} oldValue
      */
     onHashChange(value, oldValue) {
-        let me               = this,
-            hash             = value && value.hash,
-            tabContainer     = me.getReference('main-tab-container'),
-            activeChildIndex = -1,
-            activeIndex      = me.mainTabs.indexOf(hash.mainview),
+        let me           = this,
+            hash         = value && value.hash,
+            tabContainer = me.getReference('main-tab-container'),
+            activeIndex  = me.mainTabs.indexOf(hash.mainview),
             store;
 
         switch (hash.mainview) {
             case 'home':
-                switch (hash.childview) {
-                    case 'developers':
-                        activeChildIndex = 0;
-                        break;
-                    default:
-                        activeChildIndex = 1;
-                        break;
+                if (hash.childview) {
+                    me.getReference('home-tab-container').activeIndex = me.homeTabs.indexOf(hash.childview);
                 }
-
-                me.getReference('home-tab-container').activeIndex = activeChildIndex;
                 break;
             case 'blog':
                 store = me.getReference('blog-list').store;
@@ -62,20 +66,19 @@ class MainContainerController extends ComponentController {
             case 'examples':
                 switch (hash.childview) {
                     case 'devmode':
-                        activeChildIndex = 0;
-                        store            = me.getReference('examples-devmode-list').store;
+                        store = me.getReference('examples-devmode-list').store;
                         break;
                     case 'dist_dev':
-                        activeChildIndex = 1;
-                        store            = me.getReference('examples-dist-dev-list').store;
+                        store = me.getReference('examples-dist-dev-list').store;
                         break;
                     default:
-                        activeChildIndex = 2;
-                        store            = me.getReference('examples-dist-prod-list').store;
+                        store = me.getReference('examples-dist-prod-list').store;
                         break;
                 }
 
-                me.getReference('examples-tab-container').activeIndex = activeChildIndex;
+                if (hash.childview) {
+                    me.getReference('examples-tab-container').activeIndex = me.examplesTabs.indexOf(hash.childview);
+                }
                 break;
             case 'docs':
                 store = me.getReference('docs-list').store;
@@ -87,7 +90,9 @@ class MainContainerController extends ComponentController {
         }
 
         if (store && store.getCount() < 1) {
-            store.load();
+            setTimeout(() => {
+                store.load();
+            }, 50);
         }
     }
 
@@ -161,10 +166,11 @@ class MainContainerController extends ComponentController {
     }
 
     /**
+     * @param {String} target examplesTabs, homeTabs, mainTabs
      * @param {Object} data
      */
-    onTabMove(data) {
-        NeoArray.move(this.mainTabs, data.fromIndex, data.toIndex);
+    onTabMove(target, data) {
+        NeoArray.move(this[target], data.fromIndex, data.toIndex);
     }
 }
 
