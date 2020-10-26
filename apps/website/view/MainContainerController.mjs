@@ -11,7 +11,12 @@ class MainContainerController extends ComponentController {
          * @member {String} className='Website.view.MainContainerController'
          * @protected
          */
-        className: 'Website.view.MainContainerController'
+        className: 'Website.view.MainContainerController',
+        /**
+         * @member {String[]} mainTabs=['home','blog','examples','docs']
+         * @protected
+         */
+        mainTabs: ['home', 'blog', 'examples', 'docs']
     }}
 
     /**
@@ -24,13 +29,11 @@ class MainContainerController extends ComponentController {
             hash             = value && value.hash,
             tabContainer     = me.getReference('main-tab-container'),
             activeChildIndex = -1,
-            activeIndex      = -1,
+            activeIndex      = me.mainTabs.indexOf(hash.mainview),
             store;
 
         switch (hash.mainview) {
             case 'home':
-                activeIndex = 0;
-
                 switch (hash.childview) {
                     case 'developers':
                         activeChildIndex = 0;
@@ -43,12 +46,9 @@ class MainContainerController extends ComponentController {
                 me.getReference('home-tab-container').activeIndex = activeChildIndex;
                 break;
             case 'blog':
-                activeIndex = 1;
-                store       = me.getReference('blog-list').store;
+                store = me.getReference('blog-list').store;
                 break;
             case 'examples':
-                activeIndex = 2;
-
                 switch (hash.childview) {
                     case 'devmode':
                         activeChildIndex = 0;
@@ -67,8 +67,7 @@ class MainContainerController extends ComponentController {
                 me.getReference('examples-tab-container').activeIndex = activeChildIndex;
                 break;
             case 'docs':
-                activeIndex = 3;
-                store       = me.getReference('docs-list').store;
+                store = me.getReference('docs-list').store;
                 break;
         }
 
