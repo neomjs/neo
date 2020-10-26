@@ -20,16 +20,17 @@ class MainContainer extends ConfigurationViewport {
     }}
 
     createConfigurationComponents() {
-        let me = this;
+        let me       = this,
+            treeList = me.exampleComponent;
 
         return [{
             module   : CheckBox,
-            checked  : me.exampleComponent.disableSelection,
+            checked  : treeList.disableSelection,
             labelText: 'disableSelection',
             listeners: {change: me.onConfigChange.bind(me, 'disableSelection')}
         }, {
             module   : CheckBox,
-            checked  : me.exampleComponent.draggable,
+            checked  : treeList.draggable,
             labelText: 'draggable',
             listeners: {change: me.onConfigChange.bind(me, 'draggable')},
             style    : {marginTop: '10px'}
@@ -41,17 +42,17 @@ class MainContainer extends ConfigurationViewport {
             maxValue : 300,
             minValue : 30,
             stepSize : 5,
-            value    : me.exampleComponent.height,
+            value    : treeList.height,
             style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
-            checked  : me.exampleComponent.sortable,
+            checked  : treeList.sortable,
             labelText: 'sortable',
             listeners: {change: me.onConfigChange.bind(me, 'sortable')},
             style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
-            checked  : me.exampleComponent.useCheckBoxes,
+            checked  : treeList.useCheckBoxes,
             labelText: 'useCheckBoxes',
             listeners: {change: me.onConfigChange.bind(me, 'useCheckBoxes')},
             style    : {marginTop: '10px'}
@@ -64,7 +65,7 @@ class MainContainer extends ConfigurationViewport {
             minValue : 100,
             stepSize : 5,
             style    : {marginTop: '10px'},
-            value    : me.exampleComponent.width
+            value    : treeList.width
         }];
     }
 
