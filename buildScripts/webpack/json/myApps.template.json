@@ -93,6 +93,7 @@
         },
         "Website": {
             "input": "./apps/website/app.mjs",
+            "mainThreadAddons": "'DragDrop', 'Stylesheet'",
             "output": "/apps/website/",
             "title": "neo.mjs - Website"
         }
