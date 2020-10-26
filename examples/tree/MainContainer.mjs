@@ -45,6 +45,12 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
+            checked  : me.exampleComponent.sortable,
+            labelText: 'sortable',
+            listeners: {change: me.onConfigChange.bind(me, 'sortable')},
+            style    : {marginTop: '10px'}
+        }, {
+            module   : CheckBox,
             checked  : me.exampleComponent.useCheckBoxes,
             labelText: 'useCheckBoxes',
             listeners: {change: me.onConfigChange.bind(me, 'useCheckBoxes')},
