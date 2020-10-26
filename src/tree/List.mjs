@@ -28,17 +28,9 @@ class Tree extends Base {
          */
         disableSelection: true,
         /**
-         * @member {Boolean} draggable_=false
-         */
-        draggable_: false,
-        /**
          * @member {Neo.draggable.tree.DragZone|null} dragZone=null
          */
         dragZone: null,
-        /**
-         * @member {Object} dragZoneConfig=null
-         */
-        dragZoneConfig: null,
         /**
          * @member {Boolean} showCollapseExpandAllIcons=true
          */
