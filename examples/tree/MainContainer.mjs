@@ -1,7 +1,6 @@
+import ApiTreeList           from '../../docs/app/view/ApiTreeList.mjs';
 import CheckBox              from '../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../ConfigurationViewport.mjs';
-import List                  from '../../src/list/Base.mjs';
-import MainStore             from './MainStore.mjs';
 import NumberField           from '../../src/form/field/Number.mjs';
 
 /**
@@ -71,11 +70,8 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create({
-            module      : List,
-            displayField: 'firstname',
-            draggable   : true,
-            store       : MainStore,
-            width       : 100
+            module: ApiTreeList,
+            width : 200
         });
     }
 }
