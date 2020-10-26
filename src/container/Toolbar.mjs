@@ -56,6 +56,10 @@ class Toolbar extends Container {
          */
         sortable_: false,
         /**
+         * @member {Neo.draggable.toolbar.SortZone|null} sortZone=null
+         */
+        sortZone: null,
+        /**
          * @member {Object} sortZoneConfig=null
          */
         sortZoneConfig: null

@@ -186,6 +186,13 @@
             "output": "/examples/form/field/time/",
             "title": "Neo TimeField"
         },
+        "tree": {
+            "input": "./examples/tree/app.mjs",
+            "mainThreadAddons": "'DragDrop', 'Stylesheet'",
+            "output": "/examples/tree/",
+            "themes": "'neo-theme-dark', 'neo-theme-light'",
+            "title": "Neo Tree"
+        },
         "viewport": {
             "input": "./examples/viewport/app.mjs",
             "output": "/examples/viewport/",

@@ -46,6 +46,10 @@ class Base extends Component {
          */
         dragZone: null,
         /**
+         * @member {Object} dragZoneConfig=null
+         */
+        dragZoneConfig: null,
+        /**
          * @member {Boolean} highlightFilterValue=true
          */
         highlightFilterValue: true,
@@ -143,7 +147,8 @@ class Base extends Component {
             ).then(module => {
                 me.dragZone = Neo.create(module.default, {
                     appName: me.appName,
-                    owner  : me
+                    owner  : me,
+                    ...me.dragZoneConfig || {}
                 });
             });
         }

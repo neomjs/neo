@@ -28,9 +28,25 @@ class Tree extends Base {
          */
         disableSelection: true,
         /**
+         * @member {Neo.draggable.tree.DragZone|null} dragZone=null
+         */
+        dragZone: null,
+        /**
          * @member {Boolean} showCollapseExpandAllIcons=true
          */
         showCollapseExpandAllIcons: true,
+        /**
+         * @member {Boolean} sortable_=false
+         */
+        sortable_: false,
+        /**
+         * @member {Neo.draggable.tree.SortZone|null} sortZone=null
+         */
+        sortZone: null,
+        /**
+         * @member {Object} dragZoneConfig=null
+         */
+        sortZoneConfig: null,
         /**
          * @member {Object} _vdom
          */
@@ -72,13 +88,68 @@ class Tree extends Base {
     }
 
     /**
+     * Triggered after the draggable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDraggable(value, oldValue) {
+        let me = this;
+
+        if (value) {
+            if (me.sortable) {
+                console.error('tree.List can be either draggable or sortable, not both.', me.id);
+            } else if (!me.dragZone) {
+                import(
+                    /* webpackChunkName: 'src/draggable/tree/DragZone-mjs.js' */
+                    '../draggable/tree/DragZone.mjs'
+                    ).then(module => {
+                    me.dragZone = Neo.create(module.default, {
+                        appName: me.appName,
+                        owner  : me,
+                        ...me.dragZoneConfig || {}
+                    });
+                });
+            }
+        }
+    }
+
+    /**
+     * Triggered after the sortable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetSortable(value, oldValue) {
+        let me = this;
+
+        if (value) {
+            if (me.draggable) {
+                console.error('tree.List can be either draggable or sortable, not both.', me.id);
+            } else if (!me.sortZone) {
+                import(
+                    /* webpackChunkName: 'src/draggable/tree/SortZone-mjs.js' */
+                    '../draggable/tree/SortZone.mjs'
+                    ).then(module => {
+                    me.sortZone = Neo.create(module.default, {
+                        appName            : me.appName,
+                        boundaryContainerId: me.id,
+                        owner              : me,
+                        ...me.sortZoneConfig || {}
+                    });
+                });
+            }
+        }
+    }
+
+    /**
      * Triggered before the store config gets changed.
      * @param {Object|Neo.data.Store} value
      * @param {Object|Neo.data.Store} oldValue
      * @returns {Neo.data.Store}
      * @protected
      */
-    beforeSetStore(value) {
+    beforeSetStore(value, oldValue) {
         if (!value) {
             value = Neo.create(Collection, {
                 keyProperty: 'id'
@@ -190,7 +261,7 @@ class Tree extends Base {
 
     /**
      * Expands all folders
-     * @param {Boolean} [silent]=false Set silent to true to prevent a vnode update
+     * @param {Boolean} silent=false Set silent to true to prevent a vnode update
      */
     expandAll(silent=false) {
         let me       = this,
