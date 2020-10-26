@@ -51,6 +51,7 @@ class MainContainer extends Viewport {
                 cls      : ['website-main-tabcontainer', 'neo-tab-container'],
                 flex     : 1,
                 reference: 'main-tab-container',
+                sortable : true,
 
                 items: [{
                     module         : HomeTabContainer,
