@@ -21,6 +21,17 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     */
+    onViewParsed() {
+        super.onViewParsed();
+
+        let me = this;
+
+        me.getReference('main-tab-container').on('moveTo', me.onTabMove, me);
+    }
+
+    /**
+     *
      * @param {Object} value
      * @param {Object} oldValue
      */
@@ -147,6 +158,13 @@ class MainContainerController extends ComponentController {
         view.cls = cls;
 
         button.iconCls = iconCls;
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onTabMove(data) {
+        NeoArray.move(this.mainTabs, data.fromIndex, data.toIndex);
     }
 }
 
