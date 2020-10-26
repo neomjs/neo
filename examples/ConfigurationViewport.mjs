@@ -45,7 +45,7 @@ class ConfigurationViewport extends Viewport {
 
         me.exampleComponent        = me.createExampleComponent();
         me.configurationComponents = me.createConfigurationComponents() || [];
-        
+
         me.items = [{
             module: Container,
             items : [me.exampleComponent],
@@ -74,7 +74,7 @@ class ConfigurationViewport extends Viewport {
                     module : Button,
                     handler: me.onSwitchTheme.bind(me),
                     id     : me.id + '__' + 'switchThemeButton',
-                    text   : 'Theme Dark'
+                    text   : me.exampleComponent.getTheme() === 'neo-theme-dark' ? 'Theme Light' : 'Theme Dark'
                 }]
             }],
 
