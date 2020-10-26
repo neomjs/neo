@@ -1,18 +1,18 @@
-import Base       from './Base.mjs';
+import Base       from '../list/Base.mjs';
 import Collection from '../collection/Base.mjs';
 import NeoArray   from '../util/Array.mjs';
 
 /**
- * @class Neo.list.TreeList
+ * @class Neo.tree.List
  * @extends Neo.list.Base
  */
-class TreeList extends Base {
+class Tree extends Base {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.list.TreeList'
+         * @member {String} className='Neo.tree.List'
          * @protected
          */
-        className: 'Neo.list.TreeList',
+        className: 'Neo.tree.List',
         /**
          * @member {String} ntype='treelist'
          * @protected
@@ -351,6 +351,6 @@ class TreeList extends Base {
     }
 }
 
-Neo.applyClassConfig(TreeList);
+Neo.applyClassConfig(Tree);
 
-export {TreeList as default};
+export {Tree as default};

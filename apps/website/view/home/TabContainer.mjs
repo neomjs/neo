@@ -41,6 +41,10 @@ class TabContainer extends Container {
             }
         }],
         /**
+         * @member {Boolean} sortable=true
+         */
+        sortable: true,
+        /**
          * @member {String} tabBarPosition='left'
          */
         tabBarPosition: 'left'
