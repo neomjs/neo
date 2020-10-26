@@ -50,12 +50,6 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'sortable')},
             style    : {marginTop: '10px'}
         }, {
-            module   : CheckBox,
-            checked  : treeList.useCheckBoxes,
-            labelText: 'useCheckBoxes',
-            listeners: {change: me.onConfigChange.bind(me, 'useCheckBoxes')},
-            style    : {marginTop: '10px'}
-        }, {
             module   : NumberField,
             clearable: true,
             labelText: 'width',
