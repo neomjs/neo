@@ -15,7 +15,11 @@ class DragZone extends BaseDragZone {
          * @member {String} ntype='tree-dragzone'
          * @protected
          */
-        ntype: 'tree-dragzone'
+        ntype: 'tree-dragzone',
+        /**
+         * @member {Boolean} leafNodesOnly=true
+         */
+        leafNodesOnly: true
     }}
 
     /**
@@ -26,7 +30,12 @@ class DragZone extends BaseDragZone {
      */
     getItemVdom(record, index) {
         let owner = this.owner;
-        return owner.getVdomChild(owner.getItemId(record.id), owner.vdom);
+
+        if (!(this.leafNodesOnly && !record.isLeaf)) {
+            return owner.getVdomChild(owner.getItemId(record.id), owner.vdom);
+        }
+
+        return null;
     }
 }
 
