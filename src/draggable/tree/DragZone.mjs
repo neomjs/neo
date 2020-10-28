@@ -1,4 +1,5 @@
 import BaseDragZone from '../../draggable/list/DragZone.mjs';
+import NeoArray     from '../../util/Array.mjs';
 
 /**
  * @class Neo.draggable.tree.DragZone
@@ -35,9 +36,23 @@ class DragZone extends BaseDragZone {
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetDraggable(value, oldValue) {
+    afterSetLeafNodesOnly(value, oldValue) {
         if (oldValue !== undefined) { // we only need to react to dynamic changes
+            let me    = this,
+                owner = me.owner,
+                store = owner.store,
+                vdom  = owner.vdom,
+                node;
 
+            store.items.forEach(record => {
+                if (!record.isLeaf) {
+                    node = owner.getVdomChild(owner.getItemId(record.id), owner.vdom);
+                    node.cls = node.cls || [];
+                    NeoArray[value ? 'remove' : 'add'](node.cls, 'neo-draggable');
+                }
+            });
+
+            owner.vdom = vdom;
         }
     }
 
