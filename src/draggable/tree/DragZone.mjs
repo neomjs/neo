@@ -17,6 +17,12 @@ class DragZone extends BaseDragZone {
          */
         ntype: 'tree-dragzone',
         /**
+         * @member {Object|null} dragProxyConfig
+         */
+        dragProxyConfig: {
+            cls: ['neo-dragproxy', 'neo-tree-list']
+        },
+        /**
          * @member {Boolean} leafNodesOnly=true
          */
         leafNodesOnly: true
@@ -36,6 +42,10 @@ class DragZone extends BaseDragZone {
         }
 
         return null;
+    }
+
+    onDragEnd(data) {
+
     }
 }
 
