@@ -1,8 +1,8 @@
-import BaseDragZone from '../../draggable/DragZone.mjs';
+import BaseDragZone from '../../draggable/list/DragZone.mjs';
 
 /**
  * @class Neo.draggable.tree.DragZone
- * @extends Neo.draggable.DragZone
+ * @extends Neo.draggable.list.DragZone
  */
 class DragZone extends BaseDragZone {
     static getConfig() {return {
