@@ -4,6 +4,12 @@
     will-change     : left, top;
     z-index         : 1000;
 
+    &.neo-animate {
+        transition-duration       : 300ms;
+        transition-property       : left, top;
+        transition-timing-function: ease-out;
+    }
+
     > * {
         height   : 100%     !important;
         left     : 0        !important;
