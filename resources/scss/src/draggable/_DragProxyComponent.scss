@@ -1,6 +1,6 @@
 .neo-dragproxy {
     background-color: #fff; // todo
-    position        : absolute;
+    position        : absolute !important;
     will-change     : left, top;
     z-index         : 1000;
 
