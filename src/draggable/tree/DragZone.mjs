@@ -38,8 +38,7 @@ class DragZone extends BaseDragZone {
      */
     afterSetLeafNodesOnly(value, oldValue) {
         if (oldValue !== undefined) { // we only need to react to dynamic changes
-            let me    = this,
-                owner = me.owner,
+            let owner = this.owner,
                 store = owner.store,
                 vdom  = owner.vdom,
                 node;
