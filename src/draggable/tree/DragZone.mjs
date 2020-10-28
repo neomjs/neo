@@ -1,5 +1,4 @@
 import BaseDragZone from '../../draggable/list/DragZone.mjs';
-import NeoArray     from '../../util/Array.mjs';
 
 /**
  * @class Neo.draggable.tree.DragZone
@@ -21,23 +20,13 @@ class DragZone extends BaseDragZone {
 
     /**
      *
-     * @param {Boolean} draggable
+     * @param {Object} record
+     * @param {Number} index
+     * @returns {Object|null} vdom
      */
-    adjustListItemCls(draggable) {
-        let me    = this,
-            owner = me.owner,
-            store = owner.store,
-            vdom  = owner.vdom,
-            node;
-
-        store.items.forEach(item => {
-            node = owner.getVdomChild(owner.getItemId(item.id), vdom);
-            node.cls = node.cls || [];
-
-            NeoArray[draggable ? 'add' : 'remove'](node.cls, 'neo-draggable');
-        });
-
-        owner.vdom = vdom;
+    getItemVdom(record, index) {
+        let owner = this.owner;
+        return owner.getVdomChild(owner.getItemId(record.id), owner.vdom);
     }
 }
 
