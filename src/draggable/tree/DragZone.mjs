@@ -32,6 +32,7 @@ class DragZone extends BaseDragZone {
 
     /**
      * Triggered after the leafNodesOnly config got changed
+     * We only need to adjust folder (non leaf) nodes
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
