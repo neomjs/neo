@@ -24,10 +24,22 @@ class DragZone extends BaseDragZone {
         },
         /**
          * Limit drag&drop to leaf nodes => excluding folders
-         * @member {Boolean} leafNodesOnly=true
+         * @member {Boolean} leafNodesOnly_=true
          */
-        leafNodesOnly: true
+        leafNodesOnly_: true
     }}
+
+    /**
+     * Triggered after the leafNodesOnly config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDraggable(value, oldValue) {
+        if (oldValue !== undefined) { // we only need to react to dynamic changes
+
+        }
+    }
 
     /**
      *
