@@ -28,15 +28,13 @@ class DragZone extends BaseDragZone {
             owner = me.owner,
             store = owner.store,
             vdom  = owner.vdom,
-            listItem;
+            node;
 
-        console.log('adjustListItemCls', draggable);
+        store.items.forEach(item => {
+            node = owner.getVdomChild(owner.getItemId(item.id), vdom);
+            node.cls = node.cls || [];
 
-        store.items.forEach((item, index) => {
-            listItem = vdom.cn[index];
-            listItem.cls = listItem.cls || [];
-
-            NeoArray[draggable ? 'add' : 'remove'](listItem.cls, 'neo-draggable');
+            NeoArray[draggable ? 'add' : 'remove'](node.cls, 'neo-draggable');
         });
 
         owner.vdom = vdom;
