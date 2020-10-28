@@ -43,10 +43,6 @@ class DragZone extends BaseDragZone {
 
         return null;
     }
-
-    onDragEnd(data) {
-
-    }
 }
 
 Neo.applyClassConfig(DragZone);
