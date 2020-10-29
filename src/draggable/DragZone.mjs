@@ -131,7 +131,7 @@ class DragZone extends Base {
      */
     createDragProxy(data) {
         let me        = this,
-            component = Neo.getComponent(me.dragElement.id),
+            component = Neo.getComponent(me.getDragElementRoot().id) || me.owner,
             clone     = VDomUtil.clone(me.dragElement);
 
         const config = {
