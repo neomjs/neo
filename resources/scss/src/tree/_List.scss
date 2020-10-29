@@ -4,6 +4,28 @@
     display : flex;
     position: relative;
 
+    .neo-list-folder {
+        + .neo-list {
+            display: none;
+        }
+
+        .neo-list-item-content:before {
+            content    : "\f07b" !important;
+            margin-left: 0;
+        }
+    }
+
+    .neo-list-folder.neo-folder-open {
+        + .neo-list {
+            display: block;
+        }
+
+        .neo-list-item-content:before {
+            content    : "\f07c" !important;
+            margin-left: 0;
+        }
+    }
+
     .neo-list-container {
         flex: 1;
     }
@@ -18,6 +40,12 @@
             font-family: "Font Awesome 5 Free";
             font-weight: 900;
             width      : 25px;
+        }
+    }
+
+    .neo-list-item-leaf-singleton {
+        .neo-list-item-content:before {
+            content: "\f35a";
         }
     }
 
