@@ -13,7 +13,7 @@ class Countries extends Store {
         model      : Country,
 
         sorters: [{
-            property : 'cases',
+            property : 'active',
             direction: 'DESC'
         }]
     }}
