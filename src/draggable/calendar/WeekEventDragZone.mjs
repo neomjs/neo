@@ -182,7 +182,7 @@ class WeekEventDragZone extends DragZone {
         let me = this;
 
         Neo.main.DomAccess.getBoundingClientRect({
-            id: [me.dragElement.id, data.path[1].id]
+            id: [me.getDragElementRoot().id, data.path[1].id]
         }).then(rects => {
             Object.assign(me, {
                 columnHeight : rects[1].height,

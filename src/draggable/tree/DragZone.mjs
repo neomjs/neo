@@ -1,5 +1,6 @@
 import BaseDragZone from '../../draggable/list/DragZone.mjs';
 import NeoArray     from '../../util/Array.mjs';
+import VDomUtil     from '../../util/VDom.mjs';
 
 /**
  * @class Neo.draggable.tree.DragZone
@@ -58,6 +59,14 @@ class DragZone extends BaseDragZone {
 
     /**
      *
+     * @returns {Object}
+     */
+    getDragElementRoot() {
+        return this.dragElement.cn[0];
+    }
+
+    /**
+     *
      * @param {Object} record
      * @param {Number} index
      * @returns {Object|null} vdom
@@ -70,6 +79,24 @@ class DragZone extends BaseDragZone {
         }
 
         return null;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragStart(data) {
+        let me = this;
+
+        if (me.owner.draggable) {
+            me.dragElement = {
+                tag: 'ul',
+                cls: ['neo-list-container', 'neo-list'],
+                cn : [VDomUtil.findVdomChild(me.owner.vdom, data.path[0].id).vdom]
+            };
+
+            me.dragStart(data);
+        }
     }
 }
 
