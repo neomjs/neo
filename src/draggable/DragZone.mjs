@@ -131,7 +131,7 @@ class DragZone extends Base {
      */
     createDragProxy(data) {
         let me        = this,
-            component = Neo.getComponent(me.dragElement.id),
+            component = Neo.getComponent(me.getDragElementRoot().id) || me.owner,
             clone     = VDomUtil.clone(me.dragElement);
 
         const config = {
@@ -243,7 +243,7 @@ class DragZone extends Base {
         Neo.main.addon.DragDrop.setConfigs(me.getMainThreadConfigs());
 
         Neo.main.DomAccess.getBoundingClientRect({
-            id: me.dragElement.id
+            id: me.getDragElementRoot().id
         }).then(rect => {
             Object.assign(me, {
                 dragElementRect: rect,
@@ -253,6 +253,15 @@ class DragZone extends Base {
 
             me.createDragProxy(rect);
         });
+    }
+
+    /**
+     * Override this method in case you want to wrap your dragElement.
+     * See: draggable.tree.DragZone
+     * @returns {Object}
+     */
+    getDragElementRoot() {
+        return this.dragElement;
     }
 
     /**
