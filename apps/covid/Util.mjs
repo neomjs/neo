@@ -102,6 +102,7 @@ class Util extends Base {
             'lao-people\'s-democratic-republic'    : 'laos',
             'libyan-arab-jamahiriya'               : 'libya',
             'macedonia'                            : 'republic-of-macedonia',
+            'marshall-islands'                     : 'marshall-island',
             'mayotte'                              : 'france', // ?
             'moldova,-republic-of'                 : 'moldova',
             'ms-zaandam'                           : 'netherlands', // cruise ship
