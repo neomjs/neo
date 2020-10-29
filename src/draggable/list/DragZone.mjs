@@ -66,16 +66,28 @@ class DragZone extends BaseDragZone {
             owner = me.owner,
             store = owner.store,
             vdom  = owner.vdom,
-            listItem;
+            node;
 
-        store.items.forEach((item, index) => {
-            listItem = vdom.cn[index];
-            listItem.cls = listItem.cls || [];
+        store.items.forEach((record, index) => {
+            node = me.getItemVdom(record, index);
 
-            NeoArray[draggable ? 'add' : 'remove'](listItem.cls, 'neo-draggable');
+            if (node) {
+                node.cls = node.cls || [];
+                NeoArray[draggable ? 'add' : 'remove'](node.cls, 'neo-draggable');
+            }
         });
 
         owner.vdom = vdom;
+    }
+
+    /**
+     *
+     * @param {Object} record
+     * @param {Number} index
+     * @returns {Object|null} vdom
+     */
+    getItemVdom(record, index) {
+        return this.owner.vdom.cn[index];
     }
 
     /**

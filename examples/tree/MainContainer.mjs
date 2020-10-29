@@ -64,9 +64,10 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create({
-            module: ApiTreeList,
-            height: 800,
-            width : 400
+            module   : ApiTreeList,
+            draggable: true,
+            height   : 800,
+            width    : 400
         });
     }
 }
