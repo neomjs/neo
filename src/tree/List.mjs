@@ -104,7 +104,8 @@ class Tree extends Base {
                     /* webpackChunkName: 'src/draggable/tree/DragZone-mjs.js' */
                     '../draggable/tree/DragZone.mjs'
                     ).then(module => {
-                    me.dragZone = Neo.create(module.default, {
+                    me.dragZone = Neo.create({
+                        module : module.default,
                         appName: me.appName,
                         owner  : me,
                         ...me.dragZoneConfig || {}
