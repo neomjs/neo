@@ -23,6 +23,10 @@ class DragDrop extends Base {
          */
         boundaryContainerRect: null,
         /**
+         * @member {String} dragProxyCls='neo-dragproxy'
+         */
+        dragProxyCls: 'neo-dragproxy',
+        /**
          * @member {HTMLElement|null} dragProxyElement=null
          * @protected
          */
@@ -161,7 +165,7 @@ class DragDrop extends Base {
             display, path, proxyNode;
 
         while(node.parentNode) {
-            if (node.classList.contains('neo-dragproxy')) {
+            if (node.classList.contains(this.dragProxyCls)) {
                 proxyNode = node;
                 break;
             }
@@ -198,6 +202,7 @@ class DragDrop extends Base {
         Object.assign(me, {
             alwaysFireDragMove    : false,
             boundaryContainerRect : null,
+            dragProxyCls          : 'neo-dragproxy',
             dragProxyElement      : null,
             dragProxyRect         : null,
             initialScrollLeft     : 0,
