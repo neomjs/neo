@@ -188,7 +188,7 @@ class SortZone extends DragZone {
             Object.assign(me, {
                 currentIndex           : index,
                 dragElement            : VDomUtil.findVdomChild(owner.vdom, button.id).vdom,
-                dragProxyConfig        : {...me.dragProxyConfig || {}, cls : ['neo-dragproxy', ...owner.cls]},
+                dragProxyConfig        : {...me.dragProxyConfig || {}, cls : [...owner.cls]},
                 indexMap               : indexMap,
                 ownerStyle             : {height: ownerStyle.height, width : ownerStyle.width},
                 reversedLayoutDirection: layout.direction === 'column-reverse' || layout.direction === 'row-reverse',

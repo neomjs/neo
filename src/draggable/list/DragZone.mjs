@@ -22,7 +22,7 @@ class DragZone extends BaseDragZone {
          * @member {Object|null} dragProxyConfig
          */
         dragProxyConfig: {
-            cls: ['neo-dragproxy', 'neo-list']
+            cls: ['neo-list']
         }
     }}
 

@@ -40,7 +40,8 @@ class Toolbar extends BaseToolbar {
                 /* webpackChunkName: 'src/draggable/tab/header/toolbar/SortZone-mjs.js' */
                 '../../draggable/tab/header/toolbar/SortZone.mjs'
                 ).then(module => {
-                me.sortZone = Neo.create(module.default, {
+                me.sortZone = Neo.create({
+                    module             : module.default,
                     appName            : me.appName,
                     boundaryContainerId: me.id,
                     owner              : me,

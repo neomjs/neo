@@ -22,7 +22,7 @@ class DragZone extends BaseDragZone {
          * @member {Object|null} dragProxyConfig
          */
         dragProxyConfig: {
-            cls: ['neo-dragproxy', 'neo-tree-list']
+            cls: ['neo-tree-list']
         },
         /**
          * Limit drag&drop to leaf nodes => excluding folders

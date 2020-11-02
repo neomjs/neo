@@ -161,6 +161,10 @@ class DragZone extends Base {
             config.cls.push(...clone.cls);
         }
 
+        if (config.cls) {
+            NeoArray.add(config.cls, 'neo-dragproxy');
+        }
+
         me.dragProxy = Neo.create(config);
     }
 

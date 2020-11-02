@@ -131,7 +131,8 @@ class Tree extends Base {
                     /* webpackChunkName: 'src/draggable/tree/SortZone-mjs.js' */
                     '../draggable/tree/SortZone.mjs'
                     ).then(module => {
-                    me.sortZone = Neo.create(module.default, {
+                    me.sortZone = Neo.create({
+                        module             : module.default,
                         appName            : me.appName,
                         boundaryContainerId: me.id,
                         owner              : me,
