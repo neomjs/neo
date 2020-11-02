@@ -21,7 +21,7 @@ class SortZone extends BaseSortZone {
          * @member {Object|null} dragProxyConfig
          */
         dragProxyConfig: {
-            cls: ['neo-dragproxy', 'neo-tab-header-toolbar', 'neo-toolbar']
+            cls: ['neo-tab-header-toolbar', 'neo-toolbar']
         }
     }}
 
