@@ -83,6 +83,10 @@ class Base extends Panel {
          */
         resizable_: true,
         /**
+         * @member {Object} resizablePluginConfig=null
+         */
+        resizablePluginConfig: null,
+        /**
          * @member {Object} _vdom
          */
         _vdom: {
@@ -232,10 +236,12 @@ class Base extends Panel {
                 let me      = this,
                     plugins = me.plugins || [];
 
-                if (!me.getPlugin({module: module.default})) {
+                if (!me.getPlugin({flag: 'resizable'})) {
                     plugins.push({
                         module       : module.default,
-                        delegationCls: 'neo-dialog'
+                        delegationCls: 'neo-dialog',
+                        flag         : 'resizable',
+                        ...me.resizablePluginConfig || {}
                     });
 
                     me.plugins = plugins;
@@ -463,11 +469,17 @@ class Base extends Panel {
      */
     onDragStart(data) {
             let me    = this,
-                style = me.wrapperStyle || {};
+                style = me.wrapperStyle || {},
+                resizablePlugin;
 
         if (!me.maximized) {
             me.isDragging = true;
-            me.plugins[0].removeAllNodes(); // todo: getPlugin()
+
+            resizablePlugin = me.getPlugin({flag: 'resizable'});
+
+            if (resizablePlugin) {
+                resizablePlugin.removeAllNodes();
+            }
 
             if (!me.dragZone) {
                 me.dragZone = Neo.create({
