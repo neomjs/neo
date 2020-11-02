@@ -468,9 +468,9 @@ class Base extends Panel {
      * @param data
      */
     onDragStart(data) {
-            let me    = this,
-                style = me.wrapperStyle || {},
-                resizablePlugin;
+        let me    = this,
+            style = me.wrapperStyle || {},
+            resizablePlugin;
 
         if (!me.maximized) {
             me.isDragging = true;
@@ -488,6 +488,7 @@ class Base extends Panel {
                     boundaryContainerId: me.boundaryContainerId,
                     dragElement        : me.vdom,
                     owner              : me,
+                    useProxyWrapper    : false,
                     ...me.dragZoneConfig || {}
                 });
             } else {

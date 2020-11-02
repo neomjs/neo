@@ -1,8 +1,9 @@
 .neo-dragproxy {
-    background-color: #fff; // todo
-    position        : absolute !important;
-    will-change     : left, top;
-    z-index         : 1000;
+    position           : absolute !important;
+    transition-duration: 0ms;
+    transition-property: none;
+    will-change        : left, top;
+    z-index            : 1000;
 
     &.neo-animate {
         transition-duration       : 300ms;
