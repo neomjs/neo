@@ -55,6 +55,10 @@ class Base extends Panel {
          */
         dragZone: null,
         /**
+         * @member {Object} dragZoneConfig=null
+         */
+        dragZoneConfig: null,
+        /**
          * @member {Neo.container.Toolbar|null} headerToolbar=null
          */
         headerToolbar: null,
@@ -471,7 +475,8 @@ class Base extends Panel {
                     appName            : me.appName,
                     boundaryContainerId: me.boundaryContainerId,
                     dragElement        : me.vdom,
-                    owner              : me
+                    owner              : me,
+                    ...me.dragZoneConfig || {}
                 });
             } else {
                 me.dragZone.boundaryContainerId = me.boundaryContainerId;
