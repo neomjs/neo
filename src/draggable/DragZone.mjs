@@ -20,7 +20,7 @@ class DragZone extends Base {
          */
         ntype: 'dragzone',
         /**
-         * Adds the 'neo-dragproxy' to the top level dragProxyEl node
+         * Adds this.dragProxyCls => 'neo-dragproxy' to the top level dragProxyEl node
          * @member {Boolean} addDragProxyCls=true
          */
         addDragProxyCls: true,
@@ -60,6 +60,10 @@ class DragZone extends Base {
          * @member {Object|null} dragProxyConfig=null
          */
         dragProxyConfig_: null,
+        /**
+         * @member {String} dragProxyCls='neo-dragproxy'
+         */
+        dragProxyCls: 'neo-dragproxy',
         /**
          * @member {Boolean} moveHorizontal=true
          */
@@ -167,7 +171,7 @@ class DragZone extends Base {
         }
 
         if (me.addDragProxyCls && config.cls) {
-            NeoArray.add(config.cls, 'neo-dragproxy');
+            NeoArray.add(config.cls, me.dragProxyCls);
         }
 
         me.dragProxy = Neo.create(config);
@@ -285,6 +289,7 @@ class DragZone extends Base {
         return {
             alwaysFireDragMove : me.alwaysFireDragMove,
             boundaryContainerId: me.boundaryContainerId,
+            dragProxyCls       : me.dragProxyCls,
             scrollContainerId  : me.scrollContainerId,
             scrollFactorLeft   : me.scrollFactorLeft,
             scrollFactorTop    : me.scrollFactorTop
