@@ -18,6 +18,10 @@ class WeekEventDragZone extends DragZone {
          */
         ntype: 'calendar-week-event-dragzone',
         /**
+         * @member {Boolean} addDragProxyCls=false
+         */
+        addDragProxyCls: false,
+        /**
          * @member {Number} columnHeight=0
          */
         columnHeight: 0,
