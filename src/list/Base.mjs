@@ -145,7 +145,8 @@ class Base extends Component {
                 /* webpackChunkName: 'src/draggable/list/DragZone-mjs.js' */
                 '../draggable/list/DragZone.mjs'
             ).then(module => {
-                me.dragZone = Neo.create(module.default, {
+                me.dragZone = Neo.create({
+                    module : module.default,
                     appName: me.appName,
                     owner  : me,
                     ...me.dragZoneConfig || {}
