@@ -98,7 +98,8 @@ class Toolbar extends Container {
                 /* webpackChunkName: 'src/draggable/toolbar/SortZone-mjs.js' */
                 '../draggable/toolbar/SortZone.mjs'
                 ).then(module => {
-                me.sortZone = Neo.create(module.default, {
+                me.sortZone = Neo.create({
+                    module             : module.default,
                     appName            : me.appName,
                     boundaryContainerId: me.id,
                     owner              : me,
