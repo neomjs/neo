@@ -150,15 +150,15 @@ class DragDrop extends Base {
     }
 
     /**
-     *
+     * This method is expensive, since we need to hide & show the proxy node to get the path "behind" it
      * @param {Object} event
+     * @returns {Element[]||null}
      */
-    onDragEnd(event) {
-        let me      = this,
-            clientX = event.detail.clientX,
+    getPathBehindDragProxy(event) {
+        let clientX = event.detail.clientX,
             clientY = event.detail.clientY,
             node    = document.elementFromPoint(clientX, clientY),
-            display, proxyNode;
+            display, path, proxyNode;
 
         while(node.parentNode) {
             if (node.classList.contains('neo-dragproxy')) {
@@ -172,8 +172,23 @@ class DragDrop extends Base {
         if (proxyNode) {
             display = proxyNode.style.display;
             proxyNode.style.display = 'none';
-            event.detail.eventPath = DomEvents.getPathFromElement(document.elementFromPoint(clientX, clientY));
+            path = DomEvents.getPathFromElement(document.elementFromPoint(clientX, clientY));
             proxyNode.style.display = display;
+        }
+
+        return path || null;
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onDragEnd(event) {
+        let me   = this,
+            node = me.getPathBehindDragProxy(event);
+
+        if (node) {
+            event.detail.eventPath = node;
         }
 
         DomAccess.setBodyCls({
