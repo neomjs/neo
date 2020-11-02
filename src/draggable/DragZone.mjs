@@ -20,6 +20,11 @@ class DragZone extends Base {
          */
         ntype: 'dragzone',
         /**
+         * Adds the 'neo-dragproxy' to the top level dragProxyEl node
+         * @member {Boolean} addDragProxyCls=true
+         */
+        addDragProxyCls: true,
+        /**
          * drag:move will by default only fire in case moveInMainThread === false.
          * In case you want to move the dragProxy inside main but still get the event,
          * set this config to true.
@@ -161,7 +166,7 @@ class DragZone extends Base {
             config.cls.push(...clone.cls);
         }
 
-        if (config.cls) {
+        if (me.addDragProxyCls && config.cls) {
             NeoArray.add(config.cls, 'neo-dragproxy');
         }
 
