@@ -156,7 +156,7 @@ class DragDrop extends Base {
     /**
      * This method is expensive, since we need to hide & show the proxy node to get the path "behind" it
      * @param {Object} event
-     * @returns {Element[]||null}
+     * @returns {Element[]|null}
      */
     getPathBehindDragProxy(event) {
         let clientX = event.detail.clientX,
