@@ -154,7 +154,27 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragEnd(event) {
-        let me = this;
+        let me      = this,
+            clientX = event.detail.clientX,
+            clientY = event.detail.clientY,
+            node    = document.elementFromPoint(clientX, clientY),
+            display, proxyNode;
+
+        while(node.parentNode) {
+            if (node.classList.contains('neo-dragproxy')) {
+                proxyNode = node;
+                break;
+            }
+
+            node = node.parentNode;
+        }
+
+        if (proxyNode) {
+            display = proxyNode.style.display;
+            proxyNode.style.display = 'none';
+            event.detail.eventPath = DomEvents.getPathFromElement(document.elementFromPoint(clientX, clientY));
+            proxyNode.style.display = display;
+        }
 
         DomAccess.setBodyCls({
             remove: ['neo-unselectable']
