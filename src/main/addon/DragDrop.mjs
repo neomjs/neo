@@ -100,7 +100,7 @@ class DragDrop extends Base {
         super(config);
 
         let me      = this,
-            imports = []
+            imports = [];
 
         DomEvents.on({
             mouseEnter: me.onMouseEnter,
