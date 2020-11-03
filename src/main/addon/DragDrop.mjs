@@ -286,7 +286,11 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onMouseEnter(event) {
-        // console.log('onMouseEnter', event);
+        let me = this;
+
+        if (me.pathIncludesDropZone(event.path)) {
+            console.log('onDropEnter', event);
+        }
     }
 
     /**
@@ -294,7 +298,51 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onMouseLeave(event) {
-        // console.log('onMouseLeave', event);
+        let me = this;
+
+        if (me.pathIncludesDropZone(event.path)) {
+            console.log('onDropLeave', event);
+        }
+    }
+
+    /**
+     *
+     * @param {Array} path
+     * @returns {Boolean}
+     */
+    pathIncludesDropZone(path) {
+        let me         = this,
+            hasMatch   = true,
+            identifier = me.dropZoneIdentifier,
+            cls, ids;
+
+        if (identifier) {
+            cls = identifier.cls;
+            ids = identifier.ids;
+
+            for (const item of path) {
+                if (cls) {
+                    hasMatch = false;
+
+                    for (const targetCls of item.cls) {
+                        if (cls.includes(targetCls)) {
+                            hasMatch = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (hasMatch && ids && !ids.includes(item.id)) {
+                    hasMatch = false;
+                }
+
+                if (hasMatch) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
