@@ -289,7 +289,7 @@ class DragDrop extends Base {
         let me = this;
 
         if (me.pathIncludesDropZone(event.path)) {
-            console.log('onDropEnter', event);
+            DomEvents.sendMessageToApp({...event, type: 'drop:enter'});
         }
     }
 
@@ -301,7 +301,7 @@ class DragDrop extends Base {
         let me = this;
 
         if (me.pathIncludesDropZone(event.path)) {
-            console.log('onDropLeave', event);
+            DomEvents.sendMessageToApp({...event, type: 'drop:leave'});
         }
     }
 
