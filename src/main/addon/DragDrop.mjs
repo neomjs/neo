@@ -23,6 +23,14 @@ class DragDrop extends Base {
          */
         boundaryContainerRect: null,
         /**
+         * @member {Number} clientX=0
+         */
+        clientX: 0,
+        /**
+         * @member {Number} clientY=0
+         */
+        clientY: 0,
+        /**
          * @member {String} dragProxyCls='neo-dragproxy'
          */
         dragProxyCls: 'neo-dragproxy',
@@ -36,13 +44,23 @@ class DragDrop extends Base {
          */
         dragProxyRect: null,
         /**
-         * @member {Number} clientX=0
+         * You can either pass an array of (dom) ids or cls rules or both
+         * @example
+         * dropZoneIdentifier: {
+         *     ids: ['foo','bar']
+         * }
+         * @example
+         * dropZoneIdentifier: {
+         *     cls: ['my-class-1','my-class-2']
+         * }
+         * @example
+         * dropZoneIdentifier: {
+         *     cls: ['my-class-1','my-class-2'],
+         *     ids: ['foo','bar']
+         * }
+         * @member {Object|null} dropZoneIdentifier=null
          */
-        clientX: 0,
-        /**
-         * @member {Number} clientY=0
-         */
-        clientY: 0,
+        dropZoneIdentifier: null,
         /**
          * @member {Number} initialScrollLeft=0
          */
@@ -177,6 +195,7 @@ class DragDrop extends Base {
             dragProxyCls          : 'neo-dragproxy',
             dragProxyElement      : null,
             dragProxyRect         : null,
+            dropZoneIdentifier    : null,
             initialScrollLeft     : 0,
             initialScrollTop      : 0,
             scrollContainerElement: null,
