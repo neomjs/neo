@@ -99,9 +99,16 @@ class DragDrop extends Base {
     constructor(config) {
         super(config);
 
-        let imports = []
+        let me      = this,
+            imports = []
 
-        this.addGlobalEventListeners();
+        DomEvents.on({
+            mouseEnter: me.onMouseEnter,
+            mouseLeave: me.onMouseLeave,
+            scope     : me
+        });
+
+        me.addGlobalEventListeners();
 
         if (Neo.config.hasTouchEvents) {
             imports.push(import(/* webpackChunkName: 'src/main/draggable/sensor/Touch.mjs' */ '../draggable/sensor/Touch.mjs'));
@@ -253,6 +260,22 @@ class DragDrop extends Base {
             ...this.getEventData(event),
             type: 'drag:start'
         });
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onMouseEnter(event) {
+        // console.log('onMouseEnter', event);
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onMouseLeave(event) {
+        // console.log('onMouseLeave', event);
     }
 
     /**
