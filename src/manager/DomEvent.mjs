@@ -142,6 +142,11 @@ class DomEvent extends Base {
 
             if (dragZone) {
                 dragZone.fire(eventName, data);
+                dragZone[{
+                    'drop'      : 'onDrop',
+                    'drop:enter': 'onDropEnter',
+                    'drop:leave': 'onDropLeave',
+                }[eventName]].call(dragZone, data);
             }
         }
     }
