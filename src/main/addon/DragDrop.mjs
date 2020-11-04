@@ -188,7 +188,8 @@ class DragDrop extends Base {
      */
     onDragEnd(event) {
         let me          = this,
-            parsedEvent = DomEvents.getMouseEventData(event);
+            parsedEvent = DomEvents.getMouseEventData(event),
+            isDrop      = me.pathIncludesDropZone(parsedEvent.path);
 
         DomAccess.setBodyCls({
             remove: ['neo-unselectable']
@@ -212,10 +213,11 @@ class DragDrop extends Base {
 
         DomEvents.sendMessageToApp({
             ...me.getEventData(event),
-            type: 'drag:end'
+            isDrop: isDrop,
+            type  : 'drag:end'
         });
 
-        if (me.pathIncludesDropZone(parsedEvent.path)) {
+        if (isDrop) {
             DomEvents.sendMessageToApp({
                 ...parsedEvent,
                 dragZoneId: me.dragZoneId,
