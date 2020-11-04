@@ -195,6 +195,20 @@ class DragDrop extends Base {
             remove: ['neo-unselectable']
         });
 
+        DomEvents.sendMessageToApp({
+            ...parsedEvent,
+            isDrop: isDrop,
+            type  : 'drag:end'
+        });
+
+        if (isDrop) {
+            DomEvents.sendMessageToApp({
+                ...DomEvents.getMouseEventData(event),
+                dragZoneId: me.dragZoneId,
+                type      : 'drop'
+            });
+        }
+
         Object.assign(me, {
             alwaysFireDragMove    : false,
             boundaryContainerRect : null,
@@ -210,20 +224,6 @@ class DragDrop extends Base {
             setScrollFactorLeft   : 1,
             scrollFactorTop       : 1
         });
-
-        DomEvents.sendMessageToApp({
-            ...parsedEvent,
-            isDrop: isDrop,
-            type  : 'drag:end'
-        });
-
-        if (isDrop) {
-            DomEvents.sendMessageToApp({
-                ...DomEvents.getMouseEventData(event),
-                dragZoneId: me.dragZoneId,
-                type      : 'drop'
-            });
-        }
     }
 
     /**
