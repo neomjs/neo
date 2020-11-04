@@ -145,9 +145,18 @@ class DragZone extends Base {
     constructor(config) {
         super(config);
 
+        let me = this;
+
         if (!Neo.main.addon.DragDrop) {
-            throw new Error('You can not use Neo.draggable.DragZone without adding Neo.main.addon.DragDrop to the main thread addons');
+            console.error('You can not use Neo.draggable.DragZone without adding Neo.main.addon.DragDrop to the main thread addons', me.id);
         }
+
+        me.on({
+            'drop'      : me.onDrop,
+            'drop:enter': me.onDropEnter,
+            'drop:leave': me.onDropLeave,
+            scope       : me
+        });
     }
 
     /**
@@ -330,7 +339,7 @@ class DragZone extends Base {
      * @param {Object} data
      */
     onDrop(data) {
-        this.fire('drop', data);
+
     }
 
     /**
@@ -338,7 +347,7 @@ class DragZone extends Base {
      * @param {Object} data
      */
     onDropEnter(data) {
-        this.fire('drop:enter', data);
+
     }
 
     /**
@@ -346,7 +355,7 @@ class DragZone extends Base {
      * @param {Object} data
      */
     onDropLeave(data) {
-        this.fire('drop:leave', data);
+
     }
 }
 

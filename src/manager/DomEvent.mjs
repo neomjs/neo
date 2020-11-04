@@ -137,15 +137,11 @@ class DomEvent extends Base {
             }
         }
 
-        if (eventName === 'drop' || eventName === 'drop:enter' || eventName === 'drop:leave') {
+        if (eventName.startsWith('drop')) {
             let dragZone = data.dragZoneId && Neo.get(data.dragZoneId);
 
             if (dragZone) {
-                dragZone[{
-                    'drop'      : 'onDrop',
-                    'drop:enter': 'onDropEnter',
-                    'drop:leave': 'onDropLeave',
-                }[eventName]].call(dragZone, data);
+                dragZone.fire(eventName, data);
             }
         }
     }
