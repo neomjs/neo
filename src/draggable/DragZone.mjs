@@ -308,6 +308,7 @@ class DragZone extends Base {
             alwaysFireDragMove : me.alwaysFireDragMove,
             boundaryContainerId: me.boundaryContainerId,
             dragProxyCls       : me.dragProxyCls,
+            dragZoneId         : me.id,
             dropZoneIdentifier : me.dropZoneIdentifier,
             scrollContainerId  : me.scrollContainerId,
             scrollFactorLeft   : me.scrollFactorLeft,
