@@ -2,6 +2,7 @@ import ApiTreeList           from '../../docs/app/view/ApiTreeList.mjs';
 import CheckBox              from '../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../ConfigurationViewport.mjs';
 import NumberField           from '../../src/form/field/Number.mjs';
+import Panel                 from '../../src/container/Panel.mjs';
 
 /**
  * @class ExamplesTree.MainContainer
@@ -81,17 +82,40 @@ class MainContainer extends ConfigurationViewport {
      * @returns {*}
      */
     createExampleComponent() {
-        return Neo.create({
-            module   : ApiTreeList,
-            draggable: true,
-            height   : 800,
-            width    : 400,
+        return Neo.ntype({
+            ntype : 'container',
+            layout: {ntype: 'hbox', align: 'stretch'},
+            items : [{
+                module   : ApiTreeList,
+                draggable: true,
+                height   : 800,
+                width    : 400,
 
-            dragZoneConfig: {
-                dropZoneIdentifier: {
-                    cls: ['neo-configuration-panel-body']
+                dragZoneConfig: {
+                    dropZoneIdentifier: {
+                        cls: ['neo-example-dropzone']
+                    }
                 }
-            }
+            }, {
+                module: Panel,
+
+                containerConfig: {
+                    cls: ['neo-example-dropzone'],
+                },
+
+                headers: [{
+                    dock : 'top',
+                    items: [{
+                        ntype: 'label',
+                        text : 'DropZone'
+                    }]
+                }],
+
+                style: {
+                    marginLeft: '2em',
+                    minWidth  : '15em'
+                }
+            }]
         });
     }
 
