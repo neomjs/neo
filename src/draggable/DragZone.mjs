@@ -321,7 +321,7 @@ class DragZone extends Base {
      * @param {Object} data
      */
     onDrop(data) {
-        console.log('onDrop', data);
+
     }
 
     /**
@@ -329,7 +329,7 @@ class DragZone extends Base {
      * @param {Object} data
      */
     onDropEnter(data) {
-        console.log('onDropEnter', data);
+
     }
 
     /**
@@ -337,7 +337,7 @@ class DragZone extends Base {
      * @param {Object} data
      */
     onDropLeave(data) {
-        console.log('onDropLeave', data);
+
     }
 }
 
