@@ -515,10 +515,11 @@ class DomEvents extends Base {
      * @param {Object} event
      */
     onMouseEnter(event) {
-        this.sendMessageToApp({
-            ...this.getMouseEventData(event),
-            fromElementId: event.fromElement && event.fromElement.id || null
-        });
+        let me       = this,
+            appEvent = {...me.getMouseEventData(event), fromElementId: event.fromElement && event.fromElement.id || null};
+
+        me.sendMessageToApp(appEvent);
+        me.fire('mouseEnter', appEvent);
     }
 
     /**
@@ -526,10 +527,11 @@ class DomEvents extends Base {
      * @param {Object} event
      */
     onMouseLeave(event) {
-        this.sendMessageToApp({
-            ...this.getMouseEventData(event),
-            toElementId: event.toElement && event.toElement.id || null
-        });
+        let me       = this,
+            appEvent = {...me.getMouseEventData(event), toElementId: event.toElement && event.toElement.id || null};
+
+        me.sendMessageToApp(appEvent);
+        me.fire('mouseLeave', appEvent);
     }
 
     /**

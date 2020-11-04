@@ -85,7 +85,13 @@ class MainContainer extends ConfigurationViewport {
             module   : ApiTreeList,
             draggable: true,
             height   : 800,
-            width    : 400
+            width    : 400,
+
+            dragZoneConfig: {
+                dropZoneIdentifier: {
+                    cls: ['neo-configuration-panel-body']
+                }
+            }
         });
     }
 

@@ -8,6 +8,15 @@ import VDomUtil           from '../util/VDom.mjs';
  * @extends Neo.core.Base
  */
 class DragZone extends Base {
+    static getStaticConfig() {return {
+        /**
+         * True automatically applies the core/Observable.mjs mixin
+         * @member {Boolean} observable=true
+         * @static
+         */
+        observable: true
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.draggable.DragZone'
@@ -65,6 +74,24 @@ class DragZone extends Base {
          */
         dragProxyCls: 'neo-dragproxy',
         /**
+         * You can either pass an array of (dom) ids or cls rules or both
+         * @example
+         * dropZoneIdentifier: {
+         *     ids: ['foo','bar']
+         * }
+         * @example
+         * dropZoneIdentifier: {
+         *     cls: ['my-class-1','my-class-2']
+         * }
+         * @example
+         * dropZoneIdentifier: {
+         *     cls: ['my-class-1','my-class-2'],
+         *     ids: ['foo','bar']
+         * }
+         * @member {Object|null} dropZoneIdentifier=null
+         */
+        dropZoneIdentifier: null,
+        /**
          * @member {Boolean} moveHorizontal=true
          */
         moveHorizontal: true,
@@ -119,7 +146,7 @@ class DragZone extends Base {
         super(config);
 
         if (!Neo.main.addon.DragDrop) {
-            throw new Error('You can not use Neo.draggable.DragZone without adding Neo.main.addon.DragDrop to the main thread addons');
+            console.error('You can not use Neo.draggable.DragZone without adding Neo.main.addon.DragDrop to the main thread addons', this.id);
         }
     }
 
@@ -290,10 +317,36 @@ class DragZone extends Base {
             alwaysFireDragMove : me.alwaysFireDragMove,
             boundaryContainerId: me.boundaryContainerId,
             dragProxyCls       : me.dragProxyCls,
+            dragZoneId         : me.id,
+            dropZoneIdentifier : me.dropZoneIdentifier,
             scrollContainerId  : me.scrollContainerId,
             scrollFactorLeft   : me.scrollFactorLeft,
             scrollFactorTop    : me.scrollFactorTop
         };
+    }
+
+    /**
+     * You can either extend this class and override the handler or listen to the event from the outside
+     * @param {Object} data
+     */
+    onDrop(data) {
+        this.fire('drop', data);
+    }
+
+    /**
+     * You can either extend this class and override the handler or listen to the event from the outside
+     * @param {Object} data
+     */
+    onDropEnter(data) {
+        this.fire('drop:enter', data);
+    }
+
+    /**
+     * You can either extend this class and override the handler or listen to the event from the outside
+     * @param {Object} data
+     */
+    onDropLeave(data) {
+        this.fire('drop:leave', data);
     }
 }
 

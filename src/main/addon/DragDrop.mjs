@@ -23,6 +23,14 @@ class DragDrop extends Base {
          */
         boundaryContainerRect: null,
         /**
+         * @member {Number} clientX=0
+         */
+        clientX: 0,
+        /**
+         * @member {Number} clientY=0
+         */
+        clientY: 0,
+        /**
          * @member {String} dragProxyCls='neo-dragproxy'
          */
         dragProxyCls: 'neo-dragproxy',
@@ -36,13 +44,27 @@ class DragDrop extends Base {
          */
         dragProxyRect: null,
         /**
-         * @member {Number} clientX=0
+         * @member {String|null} dragZoneId=null
          */
-        clientX: 0,
+        dragZoneId: null,
         /**
-         * @member {Number} clientY=0
+         * You can either pass an array of (dom) ids or cls rules or both
+         * @example
+         * dropZoneIdentifier: {
+         *     ids: ['foo','bar']
+         * }
+         * @example
+         * dropZoneIdentifier: {
+         *     cls: ['my-class-1','my-class-2']
+         * }
+         * @example
+         * dropZoneIdentifier: {
+         *     cls: ['my-class-1','my-class-2'],
+         *     ids: ['foo','bar']
+         * }
+         * @member {Object|null} dropZoneIdentifier=null
          */
-        clientY: 0,
+        dropZoneIdentifier: null,
         /**
          * @member {Number} initialScrollLeft=0
          */
@@ -99,9 +121,16 @@ class DragDrop extends Base {
     constructor(config) {
         super(config);
 
-        let imports = []
+        let me      = this,
+            imports = [];
 
-        this.addGlobalEventListeners();
+        DomEvents.on({
+            mouseEnter: me.onMouseEnter,
+            mouseLeave: me.onMouseLeave,
+            scope     : me
+        });
+
+        me.addGlobalEventListeners();
 
         if (Neo.config.hasTouchEvents) {
             imports.push(import(/* webpackChunkName: 'src/main/draggable/sensor/Touch.mjs' */ '../draggable/sensor/Touch.mjs'));
@@ -158,11 +187,27 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragEnd(event) {
-        let me = this;
+        let me          = this,
+            parsedEvent = me.getEventData(event),
+            isDrop      = me.pathIncludesDropZone(parsedEvent.targetPath);
 
         DomAccess.setBodyCls({
             remove: ['neo-unselectable']
         });
+
+        DomEvents.sendMessageToApp({
+            ...parsedEvent,
+            isDrop: isDrop,
+            type  : 'drag:end'
+        });
+
+        if (isDrop) {
+            DomEvents.sendMessageToApp({
+                ...DomEvents.getMouseEventData(event),
+                dragZoneId: me.dragZoneId,
+                type      : 'drop'
+            });
+        }
 
         Object.assign(me, {
             alwaysFireDragMove    : false,
@@ -170,17 +215,14 @@ class DragDrop extends Base {
             dragProxyCls          : 'neo-dragproxy',
             dragProxyElement      : null,
             dragProxyRect         : null,
+            dragZoneId            : null,
+            dropZoneIdentifier    : null,
             initialScrollLeft     : 0,
             initialScrollTop      : 0,
             scrollContainerElement: null,
             scrollContainerRect   : null,
             setScrollFactorLeft   : 1,
             scrollFactorTop       : 1
-        });
-
-        DomEvents.sendMessageToApp({
-            ...me.getEventData(event),
-            type: 'drag:end'
         });
     }
 
@@ -253,6 +295,78 @@ class DragDrop extends Base {
             ...this.getEventData(event),
             type: 'drag:start'
         });
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onMouseEnter(event) {
+        let me = this;
+
+        if (me.pathIncludesDropZone(event.path)) {
+            DomEvents.sendMessageToApp({
+                ...event,
+                dragZoneId: me.dragZoneId,
+                type      : 'drop:enter'
+            });
+        }
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onMouseLeave(event) {
+        let me = this;
+
+        if (me.pathIncludesDropZone(event.path)) {
+            DomEvents.sendMessageToApp({
+                ...event,
+                dragZoneId: me.dragZoneId,
+                type      : 'drop:leave'
+            });
+        }
+    }
+
+    /**
+     *
+     * @param {Array} path
+     * @returns {Boolean}
+     */
+    pathIncludesDropZone(path) {
+        let me         = this,
+            hasMatch   = true,
+            identifier = me.dropZoneIdentifier,
+            cls, ids;
+
+        if (identifier) {
+            cls = identifier.cls;
+            ids = identifier.ids;
+
+            for (const item of path) {
+                if (cls) {
+                    hasMatch = false;
+
+                    for (const targetCls of item.cls) {
+                        if (cls.includes(targetCls)) {
+                            hasMatch = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (hasMatch && ids && !ids.includes(item.id)) {
+                    hasMatch = false;
+                }
+
+                if (hasMatch) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
