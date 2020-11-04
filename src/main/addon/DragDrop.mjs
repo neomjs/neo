@@ -187,7 +187,8 @@ class DragDrop extends Base {
      * @param {Object} event
      */
     onDragEnd(event) {
-        let me = this;
+        let me          = this,
+            parsedEvent = DomEvents.getMouseEventData(event);
 
         DomAccess.setBodyCls({
             remove: ['neo-unselectable']
@@ -213,6 +214,14 @@ class DragDrop extends Base {
             ...me.getEventData(event),
             type: 'drag:end'
         });
+
+        if (me.pathIncludesDropZone(parsedEvent.path)) {
+            DomEvents.sendMessageToApp({
+                ...parsedEvent,
+                dragZoneId: me.dragZoneId,
+                type      : 'drop'
+            });
+        }
     }
 
     /**
