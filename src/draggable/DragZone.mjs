@@ -8,6 +8,15 @@ import VDomUtil           from '../util/VDom.mjs';
  * @extends Neo.core.Base
  */
 class DragZone extends Base {
+    static getStaticConfig() {return {
+        /**
+         * True automatically applies the core/Observable.mjs mixin
+         * @member {Boolean} observable=true
+         * @static
+         */
+        observable: true
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.draggable.DragZone'
@@ -321,7 +330,7 @@ class DragZone extends Base {
      * @param {Object} data
      */
     onDrop(data) {
-
+        this.fire('drop', data);
     }
 
     /**
@@ -329,7 +338,7 @@ class DragZone extends Base {
      * @param {Object} data
      */
     onDropEnter(data) {
-
+        this.fire('drop:enter', data);
     }
 
     /**
@@ -337,7 +346,7 @@ class DragZone extends Base {
      * @param {Object} data
      */
     onDropLeave(data) {
-
+        this.fire('drop:leave', data);
     }
 }
 
