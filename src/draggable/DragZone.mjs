@@ -326,7 +326,7 @@ class DragZone extends Base {
     }
 
     /**
-     *
+     * You can either extend this class and override the handler or listen to the event from the outside
      * @param {Object} data
      */
     onDrop(data) {
@@ -334,7 +334,7 @@ class DragZone extends Base {
     }
 
     /**
-     *
+     * You can either extend this class and override the handler or listen to the event from the outside
      * @param {Object} data
      */
     onDropEnter(data) {
@@ -342,7 +342,7 @@ class DragZone extends Base {
     }
 
     /**
-     *
+     * You can either extend this class and override the handler or listen to the event from the outside
      * @param {Object} data
      */
     onDropLeave(data) {
