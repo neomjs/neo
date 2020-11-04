@@ -24,7 +24,11 @@ class DropZone extends Base {
          * @member {String} ntype='dropzone'
          * @protected
          */
-        ntype: 'dropzone'
+        ntype: 'dropzone',
+        /**
+         * @member {Neo.component.Base} owner=null
+         */
+        owner: null
     }}
 }
 
