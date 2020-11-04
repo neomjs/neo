@@ -95,7 +95,7 @@ class DragZone extends BaseDragZone {
      * @param {Object} data
      */
     onDragEnd(data) {
-        if (this.owner.draggable) {console.log('onDragEnd() isDrop:', data.isDrop);
+        if (this.owner.draggable) {
             let me           = this,
                 proxy        = me.dragProxy,
                 cls          = proxy.cls || {},
