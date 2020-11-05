@@ -203,7 +203,7 @@ class DragDrop extends Base {
 
         if (isDrop) {
             DomEvents.sendMessageToApp({
-                ...DomEvents.getMouseEventData(event),
+                ...DomEvents.getMouseEventData(event.detail.originalEvent),
                 dragZoneId: me.dragZoneId,
                 type      : 'drop'
             });

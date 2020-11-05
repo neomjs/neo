@@ -56,7 +56,7 @@ class DropZone extends Base {
      * @param {Object} data
      */
     onDrop(data) {
-        console.log('onDrop', this.id);
+        console.log('onDrop', this.id, data);
     }
 
     /**
@@ -64,7 +64,7 @@ class DropZone extends Base {
      * @param {Object} data
      */
     onDropEnter(data) {
-        console.log('onDropEnter', this.id);
+        console.log('onDropEnter', this.id, data);
     }
 
     /**
@@ -72,7 +72,7 @@ class DropZone extends Base {
      * @param {Object} data
      */
     onDropLeave(data) {
-        console.log('onDropLeave', this.id);
+        console.log('onDropLeave', this.id, data);
     }
 }
 
