@@ -1,4 +1,5 @@
-import TreeList from '../../../src/tree/List.mjs';
+import TreeList       from '../../../src/tree/List.mjs';
+import TutorialsStore from '../store/Tutorials.mjs';
 
 /**
  * @class Docs.app.view.TutorialsTreeList
@@ -24,7 +25,12 @@ class TutorialsTreeList extends TreeList {
             'neo-tree-list',
             'neo-list-container',
             'neo-list'
-        ]
+        ],
+        /**
+         * @member {Neo.data.Store|null} store=TutorialsStore
+         * @protected
+         */
+        store: TutorialsStore
     }}
 
     /**
