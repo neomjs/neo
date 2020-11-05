@@ -9,7 +9,7 @@ const fs          = require('fs-extra'),
       appNames    = [],
       options = {
           access        : 'all',
-          files         : [path.join(neoPath, 'src/**/*.mjs'), './docs/app/view/**/*.mjs'],
+          files         : [path.join(neoPath, 'src/**/*.mjs'), './docs/app/**/*.mjs'],
           includePattern: ".+\\.(m)js(doc)?$",
           excludePattern: "(^|\\/|\\\\)_",
           recurse       : true,
