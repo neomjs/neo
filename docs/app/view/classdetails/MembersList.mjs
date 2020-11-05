@@ -555,9 +555,10 @@ class MembersList extends Base {
                     targetClassName = me.targetClassName,
                     filteredItem, i, len;
 
-                // always exclude inherited alternateClassName & ntype configs
-                if ((item.name === 'alternateClassName' || item.name === 'ntype') && item.neoClassName !== targetClassName
+                // always exclude inherited className & ntype configs
+                if (item.name === 'ntype' && item.neoClassName !== targetClassName
                 ) {
+                    console.log(item);
                     return true;
                 }
 
