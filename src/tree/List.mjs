@@ -158,7 +158,7 @@ class Tree extends Base {
             });
         }
 
-        return value;
+        return super.beforeSetStore(value, oldValue);
     }
 
 
