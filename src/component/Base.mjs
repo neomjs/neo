@@ -95,6 +95,19 @@ class Base extends CoreBase {
          */
         domListeners_: null,
         /**
+         * Set this config to true to dynamically import a DropZone module & create an instance
+         * @member {Boolean} droppable_=false
+         */
+        droppable_: false,
+        /**
+         * @member {Neo.draggable.DropZone|null} dropZone=null
+         */
+        dropZone: null,
+        /**
+         * @member {Object} dropZoneConfig=null
+         */
+        dropZoneConfig: null,
+        /**
          * Internal flag which will get set to true on mount
          * @member {Boolean} hasBeenMounted=false
          * @protected
@@ -493,6 +506,30 @@ class Base extends CoreBase {
      */
     afterSetDomListeners(value, oldValue) {
         DomEventManager.updateDomListeners(this, value, oldValue);
+    }
+
+    /**
+     * Triggered after the droppable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetDroppable(value, oldValue) {
+        let me = this;
+
+        if (value && !me.dropZone) {
+            import(
+                /* webpackChunkName: 'src/draggable/DropZone-mjs.js' */
+                '../draggable/DropZone.mjs'
+                ).then(module => {
+                me.dropZone = Neo.create({
+                    module : module.default,
+                    appName: me.appName,
+                    owner  : me,
+                    ...me.dropZoneConfig || {}
+                });
+            });
+        }
     }
 
     /**
