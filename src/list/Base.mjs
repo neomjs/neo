@@ -351,7 +351,7 @@ class Base extends Component {
             model    = this.store.model,
             keyField = model && model.getField(model.keyProperty);
 
-        if (keyField && keyField.type.toLowerCase() === 'number') {
+        if (keyField && (keyField.type.toLowerCase() === 'integer' || keyField.type.toLowerCase() === 'number')) {
             itemId = parseInt(itemId);
         }
 

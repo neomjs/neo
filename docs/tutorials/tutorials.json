@@ -1,10 +1,9 @@
 [
     {
-        "id"       : 1,
-        "isLeaf"   : false,
-        "name"     : "neo.mjs",
-        "parentId" : null,
-        "singleton": false
+        "id"      : 1,
+        "isLeaf"  : false,
+        "name"    : "neo.mjs",
+        "parentId": null
     },
     {
         "fileName": "01_Concept.json",
@@ -63,11 +62,10 @@
         "type"    : "html"
     },
     {
-        "id"       : 9,
-        "isLeaf"   : false,
-        "name"     : "Building a TodoList",
-        "parentId" : null,
-        "singleton": false
+        "id"      : 9,
+        "isLeaf"  : false,
+        "name"    : "Building a TodoList",
+        "parentId": null
     },
     {
         "fileName": "09_TodoList_version1.html",
@@ -78,11 +76,10 @@
         "type"    : "html"
     },
     {
-        "id"       : 11,
-        "isLeaf"   : false,
-        "name"     : "basics",
-        "parentId" : null,
-        "singleton": false
+        "id"      : 11,
+        "isLeaf"  : false,
+        "name"    : "basics",
+        "parentId": null
     },
     {
         "fileName": "06_EcmaScript6Plus.html",

@@ -50,6 +50,11 @@ class DragZone extends Base {
          */
         boundaryContainerId: null,
         /**
+         * Store data which you want to pass to drop related events here
+         * @member {Object|null} data=null
+         */
+        data: null,
+        /**
          * The vdom (tree) of the element you want to drag
          * @member {Object|null} dragElement=null
          */
@@ -238,6 +243,7 @@ class DragZone extends Base {
         }
 
         Object.assign(me, {
+            data             : null,
             dragElementRect  : null,
             offsetX          : 0,
             offsetY          : 0,
@@ -276,6 +282,8 @@ class DragZone extends Base {
         let me    = this,
             owner = me.owner,
             cls   = owner.cls;
+
+        me.setData();
 
         NeoArray.add(cls, 'neo-is-dragging');
         owner.cls = cls;
@@ -347,6 +355,20 @@ class DragZone extends Base {
      */
     onDropLeave(data) {
         this.fire('drop:leave', data);
+    }
+
+    /**
+     * Extend this method for child classes to pass additional properties
+     * @param {Object} data={}
+     */
+    setData(data={}) {
+        let me = this;
+
+        me.data = {
+            dragElement: me.getDragElementRoot(),
+            dragZoneId : me.id,
+            ...data
+        };
     }
 }
 

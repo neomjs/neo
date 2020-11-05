@@ -30,6 +30,65 @@ class DropZone extends Base {
          */
         owner: null
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me           = this,
+            owner        = me.owner,
+            domListeners = owner.domListeners;
+
+        domListeners.push(
+            {'drop'      : me.onDrop,      scope: me},
+            {'drop:enter': me.onDropEnter, scope: me},
+            {'drop:leave': me.onDropLeave, scope: me}
+        );
+
+        owner.domListeners = domListeners;
+    }
+
+    /**
+     *
+     * @param {String} dragZoneId
+     * @returns {Object|null}
+     */
+    getDragData(dragZoneId) {
+        let dragZone = Neo.get(dragZoneId);
+
+        if (dragZone) {
+            return dragZone.data;
+        }
+
+        return null;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDrop(data) {
+        console.log('onDrop', this.id, data);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDropEnter(data) {
+        console.log('onDropEnter', this.id, data);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDropLeave(data) {
+        console.log('onDropLeave', this.id, data);
+    }
 }
 
 Neo.applyClassConfig(DropZone);

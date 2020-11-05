@@ -138,6 +138,20 @@ class DragZone extends BaseDragZone {
     onStoreLoad() {
         this.adjustListItemCls(true);
     }
+
+    /**
+     *
+     * @param {Object} data={}
+     */
+    setData(data={}) {
+        let me       = this,
+            owner    = me.owner,
+            recordId = owner.getItemRecordId(me.getDragElementRoot().id);
+
+        data.record = owner.store.get(recordId);
+
+        super.setData(data);
+    }
 }
 
 Neo.applyClassConfig(DragZone);

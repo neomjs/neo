@@ -1,4 +1,5 @@
 import TreeList from '../../../src/tree/List.mjs';
+import ApiStore from '../store/Api.mjs';
 
 /**
  * @class Docs.app.view.ApiTreeList
@@ -15,7 +16,12 @@ class ApiTreeList extends TreeList {
          * @member {String} ntype='api-treelist'
          * @protected
          */
-        ntype: 'api-treelist'
+        ntype: 'api-treelist',
+        /**
+         * @member {Neo.data.Store|null} store=ApiStore
+         * @protected
+         */
+        store: ApiStore
     }}
 
     /**
@@ -32,7 +38,7 @@ class ApiTreeList extends TreeList {
             let vdom     = me.vdom,
                 itemRoot = me.getListItemsRoot();
 
-            me.store.items = data.json;
+            me.store.data = data.json;
             itemRoot = me.createItems(null, itemRoot, 0);
 
             me.vdom = vdom;
