@@ -37,7 +37,42 @@ class DropZone extends Base {
      */
     constructor(config) {
         super(config);
-        console.log('draggable.DropZone ctor', this.owner.id);
+
+        let me           = this,
+            owner        = me.owner,
+            domListeners = owner.domListeners;
+
+        domListeners.push(
+            {'drop'      : me.onDrop,      scope: me},
+            {'drop:enter': me.onDropEnter, scope: me},
+            {'drop:leave': me.onDropLeave, scope: me}
+        );
+
+        owner.domListeners = domListeners;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDrop(data) {
+        console.log('onDrop', this.id);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDropEnter(data) {
+        console.log('onDropEnter', this.id);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDropLeave(data) {
+        console.log('onDropLeave', this.id);
     }
 }
 
