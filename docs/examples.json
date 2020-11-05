@@ -3,13 +3,15 @@
         "id"      : 1,
         "isLeaf"  : false,
         "name"    : "Configuration",
-        "parentId": null
+        "parentId": null,
+        "path"    : null
     },
     {
         "id"      : 2,
         "isLeaf"  : false,
         "name"    : "button",
-        "parentId": 1
+        "parentId": 1,
+        "path"    : null
     },
     {
         "id"      : 3,
@@ -29,7 +31,8 @@
         "id"      : 5,
         "isLeaf"  : false,
         "name"    : "component",
-        "parentId": 1
+        "parentId": 1,
+        "path"    : null
     },
     {
         "id"      : 6,
@@ -70,13 +73,15 @@
         "id"      : 11,
         "isLeaf"  : false,
         "name"    : "form",
-        "parentId": 1
+        "parentId": 1,
+        "path"    : null
     },
     {
         "id"      : 12,
         "isLeaf"  : false,
         "name"    : "field",
-        "parentId": 11
+        "parentId": 11,
+        "path"    : null
     },
     {
         "id"      : 13,
@@ -145,7 +150,8 @@
         "id"      : 22,
         "isLeaf"  : false,
         "name"    : "list",
-        "parentId": 1
+        "parentId": 1,
+        "path"    : null
     },
     {
         "id"      : 23,
@@ -165,7 +171,8 @@
         "id"      : 25,
         "isLeaf"  : false,
         "name"    : "tab",
-        "parentId": 1
+        "parentId": 1,
+        "path"    : null
     },
     {
         "id"      : 26,
@@ -178,7 +185,8 @@
         "id"      : 27,
         "isLeaf"  : false,
         "name"    : "table",
-        "parentId": 1
+        "parentId": 1,
+        "path"    : null
     },
     {
         "id"      : 28,
@@ -191,7 +199,8 @@
         "id"      : 29,
         "isLeaf"  : false,
         "name"    : "tree",
-        "parentId": 1
+        "parentId": 1,
+        "path"    : null
     },
     {
         "id"      : 30,
@@ -204,7 +213,8 @@
         "id"      : 31,
         "isLeaf"  : false,
         "name"    : "TodoList",
-        "parentId": null
+        "parentId": null,
+        "path"    : null
     },
     {
         "id"      : 32,
@@ -225,7 +235,8 @@
         "collapsed": true,
         "isLeaf"   : false,
         "name"     : "Others",
-        "parentId" : null
+        "parentId" : null,
+        "path"    : null
     },
     {
         "id"      : 35,
