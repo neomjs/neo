@@ -175,23 +175,23 @@ class Filter extends Base {
             return false;
         }
 
+        if (me._filterBy) {
+            return me.filterBy.call(me.scope || me, item, filteredItems, allItems);
+        }
+
         if (me.includeEmptyValues && (me._value === null || Neo.isEmpty(me._value))) {
             return false;
         }
 
-        if (me._filterBy) {
-            return me.filterBy.call(me.scope || me, item, filteredItems, allItems);
-        } else {
-            filterValue = me._value;
-            recordValue = item[me._property];
+        filterValue = me._value;
+        recordValue = item[me._property];
 
-            if (filterValue instanceof Date && recordValue instanceof Date) {
-                filterValue = filterValue.valueOf();
-                recordValue = recordValue.valueOf();
-            }
-
-            return !Filter[me._operator](recordValue, filterValue);
+        if (filterValue instanceof Date && recordValue instanceof Date) {
+            filterValue = filterValue.valueOf();
+            recordValue = recordValue.valueOf();
         }
+
+        return !Filter[me._operator](recordValue, filterValue);
     }
 
     static ['=='] (a, b) {return a == b;}
