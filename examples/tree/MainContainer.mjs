@@ -100,7 +100,8 @@ class MainContainer extends ConfigurationViewport {
                 module: Panel,
 
                 containerConfig: {
-                    cls: ['neo-example-dropzone'],
+                    cls      : ['neo-example-dropzone'],
+                    droppable: true
                 },
 
                 headers: [{

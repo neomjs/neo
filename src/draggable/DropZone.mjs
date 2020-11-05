@@ -30,6 +30,15 @@ class DropZone extends Base {
          */
         owner: null
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+        console.log('draggable.DropZone ctor', this.owner.id);
+    }
 }
 
 Neo.applyClassConfig(DropZone);
