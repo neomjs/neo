@@ -53,6 +53,21 @@ class DropZone extends Base {
 
     /**
      *
+     * @param {String} dragZoneId
+     * @returns {Object|null}
+     */
+    getDragData(dragZoneId) {
+        let dragZone = Neo.get(dragZoneId);
+
+        if (dragZone) {
+            return dragZone.data;
+        }
+
+        return null;
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onDrop(data) {
