@@ -50,6 +50,11 @@ class DragZone extends Base {
          */
         boundaryContainerId: null,
         /**
+         * Store data which you want to pass to drop related events here
+         * @member {Object|null} data=null
+         */
+        data: null,
+        /**
          * The vdom (tree) of the element you want to drag
          * @member {Object|null} dragElement=null
          */
@@ -238,6 +243,7 @@ class DragZone extends Base {
         }
 
         Object.assign(me, {
+            data             : null,
             dragElementRect  : null,
             offsetX          : 0,
             offsetY          : 0,
