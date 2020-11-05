@@ -15,6 +15,9 @@ class Example extends Model {
          * @member {Object[]} fields
          */
         fields: [{
+            name: 'collapsed', // optional, only needed for collapsed non leaf items
+            type: 'Boolean'
+        }, {
             name: 'id',
             type: 'Integer'
         }, {
