@@ -283,6 +283,8 @@ class DragZone extends Base {
             owner = me.owner,
             cls   = owner.cls;
 
+        me.setData();
+
         NeoArray.add(cls, 'neo-is-dragging');
         owner.cls = cls;
 
@@ -353,6 +355,20 @@ class DragZone extends Base {
      */
     onDropLeave(data) {
         this.fire('drop:leave', data);
+    }
+
+    /**
+     * Extend this method for child classes to pass additional properties
+     * @param {Object} data={}
+     */
+    setData(data={}) {
+        let me = this;
+
+        me.data = {
+            dragElement: me.getDragElementRoot(),
+            dragZoneId : me.id,
+            ...data
+        };
     }
 }
 
