@@ -1,16 +1,16 @@
 import Model from '../../../src/data/Model.mjs';
 
 /**
- * @class Docs.model.Api
+ * @class Docs.app.model.Api
  * @extends Neo.data.Model
  */
 class Api extends Model {
     static getConfig() {return {
         /**
-         * @member {String} className='Docs.model.Api'
+         * @member {String} className='Docs.app.model.Api'
          * @protected
          */
-        className: 'Docs.model.Api',
+        className: 'Docs.app.model.Api',
         /**
          * @member {Object[]} fields
          */

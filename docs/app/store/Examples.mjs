@@ -2,16 +2,16 @@ import Example from '../model/Example.mjs';
 import Store   from '../../../src/data/Store.mjs';
 
 /**
- * @class Docs.store.Examples
+ * @class Docs.app.store.Examples
  * @extends Neo.data.Store
  */
 class Examples extends Store {
     static getConfig() {return {
         /**
-         * @member {String} className='Docs.store.Examples'
+         * @member {String} className='Docs.app.store.Examples'
          * @protected
          */
-        className: 'Docs.store.Examples',
+        className: 'Docs.app.store.Examples',
         /**
          * @member {String} keyProperty='id'
          */
