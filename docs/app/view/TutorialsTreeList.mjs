@@ -47,7 +47,7 @@ class TutorialsTreeList extends TreeList {
             let vdom     = me.vdom,
                 itemRoot = me.getListItemsRoot();
 
-            me.store.items = data.json;
+            me.store.data = data.json;
             itemRoot = me.createItems(null, itemRoot, 0);
 
             me.vdom = vdom;
