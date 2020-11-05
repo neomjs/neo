@@ -555,8 +555,8 @@ class MembersList extends Base {
                     targetClassName = me.targetClassName,
                     filteredItem, i, len;
 
-                // always exclude inherited alternateClassName & ntype configs
-                if ((item.name === 'alternateClassName' || item.name === 'ntype') && item.neoClassName !== targetClassName
+                // always exclude inherited ntype configs
+                if (item.name === 'ntype' && item.neoClassName !== targetClassName
                 ) {
                     return true;
                 }
