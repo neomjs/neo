@@ -6,8 +6,14 @@ import Model  from '../../../src/data/Model.mjs';
  */
 class TreeList extends Model {
     static getConfig() {return {
+        /**
+         * @member {String} className='Neo.collection.Base'
+         * @protected
+         */
         className: 'Docs.model.TreeList',
-
+        /**
+         * @member {Object[]} fields
+         */
         fields: [{
             name: 'className',
             type: 'String'
