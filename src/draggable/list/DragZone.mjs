@@ -148,8 +148,7 @@ class DragZone extends BaseDragZone {
             owner    = me.owner,
             recordId = owner.getItemRecordId(me.getDragElementRoot().id);
 
-        data.record = owner.store.get(parseInt(recordId));
-        console.log('setData', typeof recordId, owner.store.map, data);
+        data.record = owner.store.get(recordId);
 
         super.setData(data);
     }
