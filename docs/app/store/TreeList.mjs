@@ -17,7 +17,7 @@ class TreeList extends Store {
          */
         keyProperty: 'id',
         /**
-         * @member {Docs.model.TreeList} model=TreeListModel
+         * @member {Neo.data.Model} model=TreeListModel
          */
         model: TreeListModel
     }}
