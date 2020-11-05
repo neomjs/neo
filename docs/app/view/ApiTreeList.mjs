@@ -1,5 +1,5 @@
-import TreeList      from '../../../src/tree/List.mjs';
-import TreeListStore from '../store/TreeList.mjs';
+import TreeList from '../../../src/tree/List.mjs';
+import ApiStore from '../store/Api.mjs';
 
 /**
  * @class Docs.app.view.ApiTreeList
@@ -18,10 +18,10 @@ class ApiTreeList extends TreeList {
          */
         ntype: 'api-treelist',
         /**
-         * @member {Neo.data.Store|null} store=TreeListStore
+         * @member {Neo.data.Store|null} store=ApiStore
          * @protected
          */
-        store: TreeListStore
+        store: ApiStore
     }}
 
     /**

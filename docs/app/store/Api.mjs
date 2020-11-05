@@ -1,11 +1,11 @@
-import Store         from '../../../src/data/Store.mjs';
-import TreeListModel from '../model/TreeList.mjs';
+import ApiModel from '../model/Api.mjs';
+import Store    from '../../../src/data/Store.mjs';
 
 /**
- * @class Docs.store.TreeList
+ * @class Docs.store.Api
  * @extends Neo.data.Store
  */
-class TreeList extends Store {
+class Api extends Store {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.collection.Base'
@@ -17,12 +17,12 @@ class TreeList extends Store {
          */
         keyProperty: 'id',
         /**
-         * @member {Neo.data.Model} model=TreeListModel
+         * @member {Neo.data.Model} model=ApiModel
          */
-        model: TreeListModel
+        model: ApiModel
     }}
 }
 
-Neo.applyClassConfig(TreeList);
+Neo.applyClassConfig(Api);
 
-export {TreeList as default};
+export {Api as default};

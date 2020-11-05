@@ -1,16 +1,16 @@
-import Model  from '../../../src/data/Model.mjs';
+import Model from '../../../src/data/Model.mjs';
 
 /**
- * @class Docs.model.TreeList
+ * @class Docs.model.Api
  * @extends Neo.data.Model
  */
-class TreeList extends Model {
+class Api extends Model {
     static getConfig() {return {
         /**
-         * @member {String} className='Docs.model.TreeList'
+         * @member {String} className='Docs.model.Api'
          * @protected
          */
-        className: 'Docs.model.TreeList',
+        className: 'Docs.model.Api',
         /**
          * @member {Object[]} fields
          */
@@ -45,6 +45,6 @@ class TreeList extends Model {
     }}
 }
 
-Neo.applyClassConfig(TreeList);
+Neo.applyClassConfig(Api);
 
-export {TreeList as default};
+export {Api as default};
