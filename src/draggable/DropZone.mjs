@@ -53,6 +53,15 @@ class DropZone extends Base {
 
     /**
      *
+     * @param {String} name
+     * @param {Object} data
+     */
+    fireOwnerEvent(name, data) {
+        this.owner.fire(name, this.getDragData(data.dragZoneId));
+    }
+
+    /**
+     *
      * @param {String} dragZoneId
      * @returns {Object|null}
      */
@@ -71,8 +80,7 @@ class DropZone extends Base {
      * @param {Object} data
      */
     onDrop(data) {
-        this.owner.fire('drop', this.getDragData(data.dragZoneId));
-        console.log('onDrop', this.id, this.getDragData(data.dragZoneId));
+        this.fireOwnerEvent('drop', data);
     }
 
     /**
@@ -80,7 +88,7 @@ class DropZone extends Base {
      * @param {Object} data
      */
     onDropEnter(data) {
-        this.owner.fire('drop:enter', this.getDragData(data.dragZoneId));
+        this.fireOwnerEvent('drop:enter', data);
     }
 
     /**
@@ -88,7 +96,7 @@ class DropZone extends Base {
      * @param {Object} data
      */
     onDropLeave(data) {
-        this.owner.fire('drop:leave', this.getDragData(data.dragZoneId));
+        this.fireOwnerEvent('drop:leave', data);
     }
 }
 
