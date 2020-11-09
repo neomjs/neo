@@ -5,15 +5,6 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class DropZone extends Base {
-    static getStaticConfig() {return {
-        /**
-         * True automatically applies the core/Observable.mjs mixin
-         * @member {Boolean} observable=true
-         * @static
-         */
-        observable: true
-    }}
-
     static getConfig() {return {
         /**
          * @member {String} className='Neo.draggable.DropZone'
