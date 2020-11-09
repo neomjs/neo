@@ -129,13 +129,10 @@ class Base extends Container {
             let me           = this,
                 domListeners = me.domListeners || [];
 
-            domListeners.push({
-                mouseenter: me.onMouseEnter,
-                scope     : me
-            }, {
-                mouseleave: me.onMouseLeave,
-                scope     : me
-            });
+            domListeners.push(
+                {mouseenter: me.onMouseEnter, scope: me},
+                {mouseleave: me.onMouseLeave, scope: me}
+            );
 
             me.domListeners = domListeners;
         }

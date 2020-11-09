@@ -241,7 +241,7 @@ class GalleryModel extends Model {
 
         if (me.singleSelect) {
             me.items.forEach(item => {
-                if (item !== itemId) {console.log(item, itemId)
+                if (item !== itemId) {
                     deltas.push({
                         id : view.getItemVnodeId(item),
                         cls: {

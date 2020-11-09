@@ -5,15 +5,6 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class DropZone extends Base {
-    static getStaticConfig() {return {
-        /**
-         * True automatically applies the core/Observable.mjs mixin
-         * @member {Boolean} observable=true
-         * @static
-         */
-        observable: true
-    }}
-
     static getConfig() {return {
         /**
          * @member {String} className='Neo.draggable.DropZone'
@@ -53,6 +44,15 @@ class DropZone extends Base {
 
     /**
      *
+     * @param {String} name
+     * @param {Object} data
+     */
+    fireOwnerEvent(name, data) {
+        this.owner.fire(name, this.getDragData(data.dragZoneId));
+    }
+
+    /**
+     *
      * @param {String} dragZoneId
      * @returns {Object|null}
      */
@@ -71,7 +71,7 @@ class DropZone extends Base {
      * @param {Object} data
      */
     onDrop(data) {
-        console.log('onDrop', this.id, data);
+        this.fireOwnerEvent('drop', data);
     }
 
     /**
@@ -79,7 +79,7 @@ class DropZone extends Base {
      * @param {Object} data
      */
     onDropEnter(data) {
-        console.log('onDropEnter', this.id, data);
+        this.fireOwnerEvent('drop:enter', data);
     }
 
     /**
@@ -87,7 +87,7 @@ class DropZone extends Base {
      * @param {Object} data
      */
     onDropLeave(data) {
-        console.log('onDropLeave', this.id, data);
+        this.fireOwnerEvent('drop:leave', data);
     }
 }
 

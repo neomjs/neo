@@ -243,12 +243,13 @@ class DragZone extends Base {
         }
 
         Object.assign(me, {
-            data             : null,
             dragElementRect  : null,
             offsetX          : 0,
             offsetY          : 0,
             scrollContainerId: null
         });
+
+        me.resetData();
     }
 
     /**
@@ -355,6 +356,15 @@ class DragZone extends Base {
      */
     onDropLeave(data) {
         this.fire('drop:leave', data);
+    }
+
+    /**
+     *
+     */
+    resetData() {
+        setTimeout(() => {
+            this.data = null;
+        }, 30);
     }
 
     /**
