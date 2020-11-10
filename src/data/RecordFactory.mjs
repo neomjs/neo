@@ -60,8 +60,6 @@ class RecordFactory extends Base {
                 ns        = Neo.ns(className),
                 key, nsArray;
 
-            model.trackModifiedFields = true; // todo: remove, just for testing
-
             if (!ns) {
                 nsArray = className.split('.');
                 key     = nsArray.pop();
