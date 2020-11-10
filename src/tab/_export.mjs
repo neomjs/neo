@@ -1,4 +1,6 @@
 import Container     from './Container.mjs';
-import HeaderToolbar from './HeaderToolbar.mjs';
+import HeaderButton  from './header/Button.mjs';
+import HeaderToolbar from './header/Toolbar.mjs';
+import Strip         from './Strip.mjs';
 
-export {Container, HeaderToolbar};
+export {Container, HeaderButton, HeaderToolbar, Strip};
