@@ -68,13 +68,14 @@ class Observable extends Base {
      * @param {String} [eventId]
      * @param {Object} [data]
      * @param {Number} [order]
-     * @returns {String} eventId
+     * @returns {String|null} eventId null in case an object gets passed as the name (multiple ids)
      */
     addListener(name, opts, scope, eventId, data, order) {
-        let me = this,
+        let me         = this,
+            nameObject = typeof name === 'object',
             listener, existing, eventConfig;
 
-        if (typeof name === 'object') {
+        if (nameObject) {
             if (name.hasOwnProperty('scope')) {
                 scope = name.scope;
                 delete name.scope;
@@ -96,32 +97,36 @@ class Observable extends Base {
             throw new Error('Invalid addListener call: ' + name);
         }
 
-        eventConfig = {
-            fn    : listener,
-            scope : scope,
-            data  : data,
-            id    : eventId || Neo.getId('event')
-        };
+        if (!nameObject) {
+            eventConfig = {
+                fn    : listener,
+                scope : scope,
+                data  : data,
+                id    : eventId || Neo.getId('event')
+            };
 
-        if (existing = me.listeners && me.listeners[name]) {
-            existing.forEach(cfg => {
-                if (cfg.id === eventId || (cfg.fn === listener && cfg.scope === scope)) {
-                    throw new Error('Duplicate event handler attached: ' + name);
+            if (existing = me.listeners && me.listeners[name]) {
+                existing.forEach(cfg => {
+                    if (cfg.id === eventId || (cfg.fn === listener && cfg.scope === scope)) {
+                        throw new Error('Duplicate event handler attached: ' + name);
+                    }
+                });
+
+                if (typeof order === 'number') {
+                    existing.splice(order, 0, eventConfig);
+                } else if (order === 'before') {
+                    existing.unshift(eventConfig);
+                } else {
+                    existing.push(eventConfig);
                 }
-            });
-
-            if (typeof order === 'number') {
-                existing.splice(order, 0, eventConfig);
-            } else if (order === 'before') {
-                existing.unshift(eventConfig);
             } else {
-                existing.push(eventConfig);
+                me.listeners[name] = [eventConfig];
             }
-        } else {
-            me.listeners[name] = [eventConfig];
+
+            return eventConfig.id;
         }
 
-        return eventConfig.id;
+        return null;
     }
 
     /**
