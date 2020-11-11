@@ -99,7 +99,7 @@ class Main extends core.Base {
      * @param {Object} config
      */
     constructor(config) {
-        if (Neo.config.environment === 'development' && navigator.userAgent.includes('AppleWebKit')) {
+        if (Neo.config.environment === 'development' && typeof window.webkitConvertPointFromNodeToPage === 'function') {
             document.body.innerHTML = [
                 'Please use Chrome for the development mode.</br>',
                 'For details, see the open Ticket: ',
