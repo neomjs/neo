@@ -99,6 +99,10 @@ class Main extends core.Base {
      * @param {Object} config
      */
     constructor(config) {
+        if (Neo.config.environment === 'development' && navigator.userAgent.includes('AppleWebKit')) {
+            document.body.innerHTML += '<a style="color:red;" href="https://github.com/neomjs/neo/issues/191">Safari: Worker should support ES6 modules</a>'
+        }
+
         super(config);
 
         let me = this;
