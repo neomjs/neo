@@ -31,6 +31,14 @@ class DragDrop extends Base {
          */
         clientY: 0,
         /**
+         * @member {String|null} dragElementRootId=null
+         */
+        dragElementRootId: null,
+        /**
+         * @member {DOMRect|null} dragElementRootRect=null
+         */
+        dragElementRootRect: null,
+        /**
          * @member {String} dragProxyCls='neo-dragproxy'
          */
         dragProxyCls: 'neo-dragproxy',
@@ -220,6 +228,8 @@ class DragDrop extends Base {
         Object.assign(me, {
             alwaysFireDragMove    : false,
             boundaryContainerRect : null,
+            dragElementRootId     : null,
+            dragElementRootRect   : null,
             dragProxyCls          : 'neo-dragproxy',
             dragProxyElement      : null,
             dragProxyRect         : null,
@@ -245,6 +255,10 @@ class DragDrop extends Base {
             proxyRect = me.dragProxyRect,
             rect      = me.boundaryContainerRect,
             data, left, top;
+
+        if (!me.dragElementRootRect && me.dragElementRootId) {
+            me.dragElementRootRect = DomAccess.getElementOrBody(me.dragElementRootId).getBoundingClientRect();
+        }
 
         if (me.scrollContainerElement) {
             data = me.scrollContainer({
@@ -274,13 +288,17 @@ class DragDrop extends Base {
                 }
             }
 
-            if (me.moveHorizontal) {
-                me.dragProxyElement.style.left = `${left}px`;
+            if (!me.moveHorizontal) {
+                left = me.dragElementRootRect.x;
             }
 
-            if (me.moveVertical) {
-                me.dragProxyElement.style.top = `${top}px`;
+            me.dragProxyElement.style.left = `${left}px`;
+
+            if (!me.moveVertical) {
+                top = me.dragElementRootRect.y;
             }
+
+            me.dragProxyElement.style.top = `${top}px`;
         }
 
         if (!me.dragProxyElement || me.alwaysFireDragMove) {
@@ -297,14 +315,17 @@ class DragDrop extends Base {
      */
     onDragStart(event) {
         let me   = this,
-            rect = me.dragProxyRect = event.target.getBoundingClientRect();
+            rect = event.target.getBoundingClientRect();
 
         DomAccess.setBodyCls({
             add: ['neo-unselectable']
         });
 
-        me.offsetX = event.detail.clientX - rect.left;
-        me.offsetY = event.detail.clientY - rect.top;
+        Object.assign(me, {
+            dragProxyRect: rect,
+            offsetX      : event.detail.clientX - rect.left,
+            offsetY      : event.detail.clientY - rect.top
+        });
 
         DomEvents.sendMessageToApp({
             ...this.getEventData(event),

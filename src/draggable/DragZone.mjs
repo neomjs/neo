@@ -325,6 +325,7 @@ class DragZone extends Base {
         return {
             alwaysFireDragMove : me.alwaysFireDragMove,
             boundaryContainerId: me.boundaryContainerId,
+            dragElementRootId  : me.getDragElementRoot().id,
             dragProxyCls       : me.dragProxyCls,
             dragZoneId         : me.id,
             dropZoneIdentifier : me.dropZoneIdentifier,
