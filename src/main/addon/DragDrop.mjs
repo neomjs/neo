@@ -74,6 +74,14 @@ class DragDrop extends Base {
          */
         initialScrollTop: 0,
         /**
+         * @member {Boolean} moveHorizontal=true
+         */
+        moveHorizontal: true,
+        /**
+         * @member {Boolean} moveVertical=true
+         */
+        moveVertical: true,
+        /**
          * @member {Number} offsetX=0
          */
         offsetX: 0,
@@ -219,6 +227,8 @@ class DragDrop extends Base {
             dropZoneIdentifier    : null,
             initialScrollLeft     : 0,
             initialScrollTop      : 0,
+            moveHorizontal        : true,
+            moveVertical          : true,
             scrollContainerElement: null,
             scrollContainerRect   : null,
             setScrollFactorLeft   : 1,
@@ -264,8 +274,13 @@ class DragDrop extends Base {
                 }
             }
 
-            me.dragProxyElement.style.left = `${left}px`;
-            me.dragProxyElement.style.top  = `${top}px`;
+            if (me.moveHorizontal) {
+                me.dragProxyElement.style.left = `${left}px`;
+            }
+
+            if (me.moveVertical) {
+                me.dragProxyElement.style.top = `${top}px`;
+            }
         }
 
         if (!me.dragProxyElement || me.alwaysFireDragMove) {
