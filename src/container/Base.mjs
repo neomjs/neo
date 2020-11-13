@@ -344,23 +344,22 @@ class Base extends Component {
      * Inserts an item or array of items at a specific index
      * @param {Number} index
      * @param {Object|Array} item
+     * @param {Boolean} [silent=false]
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
-    insert(index, item) {
+    insert(index, item, silent=false) {
         let me    = this,
             items = me.items,
             vdom  = me.vdom,
-            cn, i, len;
+            i, len;
 
         if (Array.isArray(item)) {
             i   = 0;
             len = item.length;
 
             for (; i < len; i++) {
-                // todo: render is async, ensure the order of items is correct
-
                 // insert the array backwards
-                item[i] = me.insert(item[len - 1], index);
+                me.insert(index, item[len - 1 - i], true);
             }
         } else if (typeof item === 'object') {
             if (!(item instanceof Neo.component.Base)) {
@@ -396,10 +395,12 @@ class Base extends Component {
 
             me.items = items;
 
-            cn = vdom.cn || vdom.childNodes || vdom.children;
+            vdom.cn.splice(index, 0, item.vdom);
+        }
 
-            cn.splice(index, 0, item.vdom);
-
+        if (silent) {
+            me._vdom = vdom;
+        } else {
             me.promiseVdomUpdate().then(() => {
                 me.fire('insert', {
                     index: index,
