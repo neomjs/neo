@@ -31,6 +31,10 @@ class DragDrop extends Base {
          */
         clientY: 0,
         /**
+         * @member {String|null} dragElementRootId=null
+         */
+        dragElementRootId: null,
+        /**
          * @member {String} dragProxyCls='neo-dragproxy'
          */
         dragProxyCls: 'neo-dragproxy',
@@ -220,6 +224,7 @@ class DragDrop extends Base {
         Object.assign(me, {
             alwaysFireDragMove    : false,
             boundaryContainerRect : null,
+            dragElementRootId     : null,
             dragProxyCls          : 'neo-dragproxy',
             dragProxyElement      : null,
             dragProxyRect         : null,
