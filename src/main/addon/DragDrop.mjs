@@ -35,10 +35,6 @@ class DragDrop extends Base {
          */
         dragElementRootId: null,
         /**
-         * @member {DOMRect|null} dragElementRootRect=null
-         */
-        dragElementRootRect: null,
-        /**
          * @member {String} dragProxyCls='neo-dragproxy'
          */
         dragProxyCls: 'neo-dragproxy',
@@ -232,7 +228,6 @@ class DragDrop extends Base {
             dragElementRootRect   : null,
             dragProxyCls          : 'neo-dragproxy',
             dragProxyElement      : null,
-            dragProxyRect         : null,
             dragZoneId            : null,
             dropZoneIdentifier    : null,
             initialScrollLeft     : 0,
@@ -255,10 +250,6 @@ class DragDrop extends Base {
             proxyRect = me.dragProxyRect,
             rect      = me.boundaryContainerRect,
             data, left, top;
-
-        if (!me.dragElementRootRect && me.dragElementRootId) {
-            me.dragElementRootRect = DomAccess.getElementOrBody(me.dragElementRootId).getBoundingClientRect();
-        }
 
         if (me.scrollContainerElement) {
             data = me.scrollContainer({
@@ -289,13 +280,13 @@ class DragDrop extends Base {
             }
 
             if (!me.moveHorizontal) {
-                left = me.dragElementRootRect.x;
+                left = me.dragProxyRect.x;
             }
 
             me.dragProxyElement.style.left = `${left}px`;
 
             if (!me.moveVertical) {
-                top = me.dragElementRootRect.y;
+                top = me.dragProxyRect.y;
             }
 
             me.dragProxyElement.style.top = `${top}px`;
