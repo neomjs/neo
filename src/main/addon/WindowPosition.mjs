@@ -56,13 +56,20 @@ class WindowPosition extends Base {
      */
     checkMovement() {
         let me         = this,
+            Manager    = Neo.worker.Manager,
             win        = window,
             screenLeft = win.screenLeft,
             screenTop  = win.screenTop;
 
         if (me.screenLeft !== screenLeft || me.screenTop !== screenTop) {
-            console.log('movement', screenLeft, screenTop);
-            // todo: send to app worker
+            Manager.sendMessage('app', {
+                action: 'windowPositionChange',
+                data  : {
+                    appName   : Manager.appName,
+                    screenLeft: screenLeft,
+                    screenTop : screenTop
+                }
+            });
 
             me.screenLeft = screenLeft;
             me.screenTop  = screenTop;

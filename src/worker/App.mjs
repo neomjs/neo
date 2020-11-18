@@ -127,6 +127,14 @@ class App extends Base {
 
     /**
      *
+     * @param {Object} data
+     */
+    onWindowPositionChange(data) {
+        console.log('onWindowPositionChange', data);
+    }
+
+    /**
+     *
      * @param {String} name
      */
     registerMainView(name) {
