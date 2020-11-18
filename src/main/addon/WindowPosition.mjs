@@ -69,20 +69,42 @@ class WindowPosition extends Base {
 
     /**
      *
+     * @param {Object} data
+     */
+    adjustPositions(data) {
+        console.log('adjustPositions', data);
+
+        let left = data.outerWidth + data.screenLeft,
+            top  = data.screenTop  + 28;
+
+        Neo.Main.windowMoveTo({
+            windowName: 'SharedDialog2',
+            x         : left,
+            y         : top
+        });
+    }
+
+    /**
+     *
      */
     checkMovement() {
         let me         = this,
             Manager    = Neo.worker.Manager,
             win        = window,
             screenLeft = win.screenLeft,
-            screenTop  = win.screenTop;
+            screenTop  = win.screenTop,
+            winData;
 
         if (me.screenLeft !== screenLeft || me.screenTop !== screenTop) {
+            winData = Neo.Main.getWindowData();
+
+            me.adjustPositions(winData);
+
             Manager.sendMessage('app', {
                 action: 'windowPositionChange',
                 data  : {
                     appName: Manager.appName,
-                    ...Neo.Main.getWindowData()
+                    ...winData
                 }
             });
 

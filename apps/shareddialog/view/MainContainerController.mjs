@@ -33,10 +33,9 @@ class MainContainerController extends ComponentController {
         const me = this;
 
         me.view.on({
-            connect             : me.onAppConnect,
-            disconnect          : me.onAppDisconnect,
-            windowPositionChange: me.onWindowPositionChange,
-            scope               : me
+            connect   : me.onAppConnect,
+            disconnect: me.onAppDisconnect,
+            scope     : me
         });
     }
 
@@ -121,21 +120,6 @@ class MainContainerController extends ComponentController {
         });
 
         button.disabled = false;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onWindowPositionChange(data) {
-        let left = data.outerWidth + data.screenLeft,
-            top  = data.screenTop  + 28;
-
-        Neo.Main.windowMoveTo({
-            windowName: 'SharedDialog2',
-            x         : left,
-            y         : top
-        });
     }
 
     /**
