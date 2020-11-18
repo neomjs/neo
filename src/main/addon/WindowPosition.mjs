@@ -20,7 +20,17 @@ class WindowPosition extends Base {
         /**
          * @member {Number} intervalTime=100
          */
-        intervalTime: 100,
+        intervalTime: 20,
+        /**
+         * Remote method access for other workers
+         * @member {Object} remote
+         * @protected
+         */
+        remote: {
+            app: [
+                'registerWindow'
+            ]
+        },
         /**
          * @member {Number|null} screenLeft=null
          */
@@ -33,7 +43,12 @@ class WindowPosition extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
+        singleton: true,
+        /**
+         * @member {Object} windows={}
+         * @protected
+         */
+        windows: {}
     }}
 
     /**
@@ -90,6 +105,16 @@ class WindowPosition extends Base {
             clearInterval(me.intervalId);
             me.intervalId = null;
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.dock
+     * @param {String} data.name
+     */
+    registerWindow(data) {
+        this.windows[data.name] = data.dock;
     }
 }
 
