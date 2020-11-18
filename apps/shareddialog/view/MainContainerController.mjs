@@ -140,7 +140,7 @@ class MainContainerController extends ComponentController {
             });
 
             Neo.main.addon.WindowPosition.registerWindow({
-                dock: 'left',
+                dock: 'bottom',
                 name: 'SharedDialog2',
                 size: 400
             });

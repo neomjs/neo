@@ -77,6 +77,10 @@ class WindowPosition extends Base {
 
         Object.entries(me.windows).forEach(([key, value]) => {
             switch (value.dock) {
+                case 'bottom':
+                    left = data.screenLeft;
+                    top  = data.outerHeight  + data.screenTop - 50;
+                    break;
                 case 'left':
                     left = data.screenLeft - value.size;
                     top  = data.screenTop  + 28;
