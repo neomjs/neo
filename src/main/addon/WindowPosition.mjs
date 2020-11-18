@@ -55,7 +55,18 @@ class WindowPosition extends Base {
      *
      */
     checkMovement() {
-        console.log('checkMovement');
+        let me         = this,
+            win        = window,
+            screenLeft = win.screenLeft,
+            screenTop  = win.screenTop;
+
+        if (me.screenLeft !== screenLeft || me.screenTop !== screenTop) {
+            console.log('movement', screenLeft, screenTop);
+            // todo: send to app worker
+
+            me.screenLeft = screenLeft;
+            me.screenTop  = screenTop;
+        }
     }
 
     /**
