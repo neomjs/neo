@@ -55,6 +55,7 @@ class Main extends core.Base {
                 'getWindowData',
                 'setRoute',
                 'windowClose',
+                'windowMoveTo',
                 'windowOpen'
             ]
         },
@@ -395,6 +396,17 @@ class Main extends core.Base {
             this.openWindows[name].close();
             delete this.openWindows[name];
         })
+    }
+
+    /**
+     * Move a popup window
+     * @param {Object} data
+     * @param {String} data.windowName
+     * @param {String} data.x
+     * @param {String} data.y
+     */
+    windowMoveTo(data) {
+        this.openWindows[data.windowName].moveTo(data.x, data.y);
     }
 
     /**
