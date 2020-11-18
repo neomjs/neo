@@ -73,7 +73,9 @@ class MainContainerController extends ComponentController {
         let me   = this,
             view = me.view;
 
-        NeoArray.add(me.connectedApps, name);
+        if (name !== 'SharedDialog') {
+            NeoArray.add(me.connectedApps, name);
+        }
 
         if (name === 'SharedDialog2') {
             me.getSecondWindowButton().disabled = true;
@@ -87,8 +89,14 @@ class MainContainerController extends ComponentController {
     onAppDisconnect(name) {
         let me   = this,
             view = me.view;
-
-        NeoArray.remove(me.connectedApps, name);
+console.log('onAppDisconnect', name);
+        if (name === 'SharedDialog') {
+            Neo.Main.windowClose({
+                names: me.connectedApps,
+            });
+        } else {
+            NeoArray.remove(me.connectedApps, name);
+        }
 
         if (name === 'SharedDialog2') {
             me.getSecondWindowButton().disabled = false;
@@ -120,7 +128,7 @@ class MainContainerController extends ComponentController {
             Neo.Main.windowOpen({
                 url           : '../shareddialog2/index.html',
                 windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
-                windowName    : 'shareddialog2'
+                windowName    : 'SharedDialog2'
             });
         });
     }
