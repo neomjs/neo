@@ -28,7 +28,8 @@ class WindowPosition extends Base {
          */
         remote: {
             app: [
-                'registerWindow'
+                'registerWindow',
+                'unregisterWindow'
             ]
         },
         /**
@@ -115,6 +116,15 @@ class WindowPosition extends Base {
      */
     registerWindow(data) {
         this.windows[data.name] = data.dock;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.name
+     */
+    unregisterWindow(data) {
+        delete this.windows[data.name];
     }
 }
 

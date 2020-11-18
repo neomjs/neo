@@ -101,6 +101,10 @@ class MainContainerController extends ComponentController {
             });
         } else {
             NeoArray.remove(me.connectedApps, name);
+
+            Neo.main.addon.WindowPosition.unregisterWindow({
+                name: name
+            });
         }
 
         if (name === 'SharedDialog2') {
