@@ -33,9 +33,10 @@ class MainContainerController extends ComponentController {
         const me = this;
 
         me.view.on({
-            connect   : me.onAppConnect,
-            disconnect: me.onAppDisconnect,
-            scope     : me
+            connect             : me.onAppConnect,
+            disconnect          : me.onAppDisconnect,
+            windowPositionChange: me.onWindowPositionChange,
+            scope               : me
         });
     }
 
@@ -67,10 +68,12 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @param {String} name
+     * @param {Object} data
+     * @param {String} data.appName
      */
-    onAppConnect(name) {
+    onAppConnect(data) {
         let me   = this,
+            name = data.appName,
             view = me.view;
 
         if (name !== 'SharedDialog') {
@@ -84,12 +87,14 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @param {String} name
+     * @param {Object} data
+     * @param {String} data.appName
      */
-    onAppDisconnect(name) {
+    onAppDisconnect(data) {
         let me   = this,
+            name = data.appName,
             view = me.view;
-console.log('onAppDisconnect', name);
+
         if (name === 'SharedDialog') {
             Neo.Main.windowClose({
                 names: me.connectedApps,
@@ -112,6 +117,14 @@ console.log('onAppDisconnect', name);
         });
 
         button.disabled = false;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onWindowPositionChange(data) {
+        console.log('onWindowPositionChange', data);
     }
 
     /**
