@@ -89,6 +89,10 @@ class WindowPosition extends Base {
                     left = data.outerWidth + data.screenLeft;
                     top  = data.screenTop  + 28;
                     break;
+                case 'top':
+                    left = data.screenLeft;
+                    top  = data.screenTop - value.size;
+                    break;
             }
 
             Neo.Main.windowMoveTo({
