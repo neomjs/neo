@@ -65,6 +65,7 @@ class WindowPosition extends Base {
         me.screenTop  = win.screenTop;
 
         win.addEventListener('mouseout', me.onMouseOut.bind(me));
+        win.addEventListener('resize',   me.onResize.bind(me));
     }
 
     /**
@@ -147,6 +148,37 @@ class WindowPosition extends Base {
             clearInterval(me.intervalId);
             me.intervalId = null;
         }
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onResize(event) {
+        let me      = this,
+            winData = Neo.Main.getWindowData(),
+            height, width;
+
+        Object.entries(me.windows).forEach(([key, value]) => {
+            switch (value.dock) {
+                case 'bottom':
+                case 'top':
+                    width = winData.outerWidth;
+                    break;
+                case 'left':
+                case 'right':
+                    height = winData.outerHeight - 28;
+                    break;
+            }
+
+            Neo.Main.windowResizeTo({
+                height    : height,
+                width     : width,
+                windowName: key
+            });
+        });
+
+        me.adjustPositions(winData);
     }
 
     /**

@@ -424,12 +424,16 @@ class Main extends core.Base {
     /**
      * Move a popup window
      * @param {Object} data
-     * @param {Number} data.height
-     * @param {Number} data.width
+     * @param {Number} [data.height]
+     * @param {Number} [data.width]
      * @param {String} data.windowName
      */
     windowResizeTo(data) {
-        this.openWindows[data.windowName].resizeTo(data.width, data.height);
+        let win    = this.openWindows[data.windowName],
+            height = data.height || win.outerHeight,
+            width  = data.width  || win.outerWidth;
+
+        win.resizeTo(width, height);
     }
 }
 
