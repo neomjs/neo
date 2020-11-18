@@ -14,6 +14,10 @@ class WindowPosition extends Base {
          */
         className: 'Neo.main.addon.WindowPosition',
         /**
+         * @member {String|null} intervalId=null
+         */
+        intervalId: null,
+        /**
          * @member {Number|null} screenLeft=null
          */
         screenLeft: null,
@@ -34,9 +38,37 @@ class WindowPosition extends Base {
     constructor(config) {
         super(config);
 
-        console.log('main.addon.WindowPosition ctor');
-        this.screenLeft = window.screenLeft;
-        this.screenTop  = window.screenTop;
+        let me  = this,
+            win = window;
+
+        me.screenLeft = win.screenLeft;
+        me.screenTop  = win.screenTop;
+
+        win.addEventListener('mouseout', me.onMouseOut.bind(me));
+    }
+
+    /**
+     *
+     */
+    checkMovement() {
+        console.log('checkMovement');
+    }
+
+    /**
+     *
+     * @param {MouseEvent} event
+     */
+    onMouseOut(event) {
+        let me = this;
+
+        if (!event.toElement) {
+            if (!me.intervalId) {
+                me.intervalId = setInterval(me.checkMovement.bind(me), 200);
+            }
+        } else if (me.intervalId) {
+            clearInterval(me.intervalId);
+            me.intervalId = null;
+        }
     }
 }
 
