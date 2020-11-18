@@ -56,7 +56,8 @@ class Main extends core.Base {
                 'setRoute',
                 'windowClose',
                 'windowMoveTo',
-                'windowOpen'
+                'windowOpen',
+                'windowResizeTo'
             ]
         },
         /**
@@ -418,6 +419,17 @@ class Main extends core.Base {
      */
     windowOpen(data) {
         this.openWindows[data.windowName] = window.open(data.url, data.windowName, data.windowFeatures);
+    }
+
+    /**
+     * Move a popup window
+     * @param {Object} data
+     * @param {Number} data.height
+     * @param {Number} data.width
+     * @param {String} data.windowName
+     */
+    windowResizeTo(data) {
+        this.openWindows[data.windowName].resizeTo(data.width, data.height);
     }
 }
 
