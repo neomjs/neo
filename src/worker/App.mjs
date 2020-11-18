@@ -130,7 +130,7 @@ class App extends Base {
      * @param {Object} data
      */
     onWindowPositionChange(data) {
-        this.fireMainViewsEvent('windowPositionChange', data);
+        this.fireMainViewsEvent('windowPositionChange', data.data);
     }
 
     /**
