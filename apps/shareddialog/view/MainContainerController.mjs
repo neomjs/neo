@@ -111,11 +111,11 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     openDockedWindow(data) {
-        Neo.Main.getWindowData().then(winData => {
-            let height = winData.outerHeight - 50,
-                left   = winData.outerWidth  + winData.screenLeft,
-                top    = winData.screenTop,
-                width  = 300;
+        Neo.Main.getWindowData().then(data => {
+            let height = data.outerHeight - 50,
+                left   = data.outerWidth  + data.screenLeft,
+                top    = data.screenTop,
+                width  = 400;
 
             Neo.Main.windowOpen({
                 url           : '../shareddialog2/index.html',
