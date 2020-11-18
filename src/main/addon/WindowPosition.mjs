@@ -72,15 +72,22 @@ class WindowPosition extends Base {
      * @param {Object} data
      */
     adjustPositions(data) {
-        console.log('adjustPositions', data);
+        let me = this,
+            left, top;
 
-        let left = data.outerWidth + data.screenLeft,
-            top  = data.screenTop  + 28;
+        Object.entries(me.windows).forEach(([key, value]) => {
+            switch (value) {
+                case 'right':
+                    left = data.outerWidth + data.screenLeft;
+                    top  = data.screenTop  + 28;
+                    break;
+            }
 
-        Neo.Main.windowMoveTo({
-            windowName: 'SharedDialog2',
-            x         : left,
-            y         : top
+            Neo.Main.windowMoveTo({
+                windowName: key,
+                x         : left,
+                y         : top
+            });
         });
     }
 
