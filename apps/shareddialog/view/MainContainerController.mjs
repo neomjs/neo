@@ -120,9 +120,9 @@ console.log('onAppDisconnect', name);
      */
     openDockedWindow(data) {
         Neo.Main.getWindowData().then(data => {
-            let height = data.outerHeight - 50,
+            let height = data.outerHeight - 78,
                 left   = data.outerWidth  + data.screenLeft,
-                top    = data.screenTop,
+                top    = data.screenTop + 28,
                 width  = 400;
 
             Neo.Main.windowOpen({
