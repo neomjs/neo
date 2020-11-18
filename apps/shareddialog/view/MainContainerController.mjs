@@ -107,11 +107,22 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
+     * Creates a new popup window, which is initially docked to the right side of the main window
      * @param {Object} data
      */
-    openSecondWindow(data) {
-        console.log('openSecondWindow');
+    openDockedWindow(data) {
+        Neo.Main.getWindowData().then(winData => {
+            let height = winData.outerHeight - 50,
+                left   = winData.outerWidth  + winData.screenLeft,
+                top    = winData.screenTop,
+                width  = 300;
+
+            Neo.Main.windowOpen({
+                url           : '../shareddialog2/index.html',
+                windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+                windowName    : 'shareddialog2'
+            });
+        });
     }
 
     /**
