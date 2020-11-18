@@ -286,13 +286,15 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @param {String} name
+     * @param {Object} data
+     * @param {String} data.appName
      */
-    onAppConnect(name) {
-        console.log('onAppConnect', name);
-
-        let me = this,
+    onAppConnect(data) {
+        let me   = this,
+            name = data.appName,
             parentView, style, toolbar, view;
+
+        console.log('onAppConnect', name);
 
         switch (name) {
             case 'SharedCovidChart':
@@ -342,10 +344,12 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @param {String} name
+     * @param {Object} data
+     * @param {String} data.appName
      */
-    onAppDisconnect(name) {
+    onAppDisconnect(data) {
         let me         = this,
+            name       = data.appName,
             parentView = me.getMainView(name),
             view       = parentView.items[0],
             index, style, toolbar;
