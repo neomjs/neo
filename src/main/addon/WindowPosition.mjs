@@ -76,7 +76,11 @@ class WindowPosition extends Base {
             left, top;
 
         Object.entries(me.windows).forEach(([key, value]) => {
-            switch (value) {
+            switch (value.dock) {
+                case 'left':
+                    left = data.screenLeft - value.size;
+                    top  = data.screenTop  + 28;
+                    break;
                 case 'right':
                     left = data.outerWidth + data.screenLeft;
                     top  = data.screenTop  + 28;
@@ -142,9 +146,10 @@ class WindowPosition extends Base {
      * @param {Object} data
      * @param {String} data.dock
      * @param {String} data.name
+     * @param {Number} data.size
      */
     registerWindow(data) {
-        this.windows[data.name] = data.dock;
+        this.windows[data.name] = data;
     }
 
     /**
