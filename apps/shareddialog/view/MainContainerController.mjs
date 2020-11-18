@@ -124,7 +124,14 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onWindowPositionChange(data) {
-        console.log('onWindowPositionChange', data);
+        let left = data.outerWidth + data.screenLeft,
+            top  = data.screenTop  + 28;
+
+        Neo.Main.windowMoveTo({
+            windowName: 'SharedDialog2',
+            x         : left,
+            y         : top
+        });
     }
 
     /**
