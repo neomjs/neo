@@ -14,6 +14,14 @@ class WindowPosition extends Base {
          */
         className: 'Neo.main.addon.WindowPosition',
         /**
+         * @member {Number|null} screenLeft=null
+         */
+        screenLeft: null,
+        /**
+         * @member {Number|null} screenTop=null
+         */
+        screenTop: null,
+        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -27,6 +35,8 @@ class WindowPosition extends Base {
         super(config);
 
         console.log('main.addon.WindowPosition ctor');
+        this.screenLeft = window.screenLeft;
+        this.screenTop  = window.screenTop;
     }
 }
 
