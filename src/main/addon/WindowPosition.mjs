@@ -65,9 +65,8 @@ class WindowPosition extends Base {
             Manager.sendMessage('app', {
                 action: 'windowPositionChange',
                 data  : {
-                    appName   : Manager.appName,
-                    screenLeft: screenLeft,
-                    screenTop : screenTop
+                    appName: Manager.appName,
+                    ...Neo.Main.getWindowData()
                 }
             });
 
