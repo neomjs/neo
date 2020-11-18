@@ -18,6 +18,10 @@ class WindowPosition extends Base {
          */
         intervalId: null,
         /**
+         * @member {Number} intervalTime=100
+         */
+        intervalTime: 100,
+        /**
          * @member {Number|null} screenLeft=null
          */
         screenLeft: null,
@@ -63,7 +67,7 @@ class WindowPosition extends Base {
 
         if (!event.toElement) {
             if (!me.intervalId) {
-                me.intervalId = setInterval(me.checkMovement.bind(me), 200);
+                me.intervalId = setInterval(me.checkMovement.bind(me), me.intervalTime);
             }
         } else if (me.intervalId) {
             clearInterval(me.intervalId);
