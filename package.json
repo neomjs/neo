@@ -14,7 +14,7 @@
         "build-threads": "node ./buildScripts/webpack/buildThreads.js -f",
         "create-app": "node ./buildScripts/createApp.js",
         "generate-docs-json": "node ./buildScripts/docs/jsdocx.js",
-        "server-start": "webpack-dev-server --open",
+        "server-start": "webpack serve",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "keywords": [
@@ -52,10 +52,10 @@
         "postcss-loader": "^3.0.0",
         "sass-loader": "^8.0.2",
         "style-loader": "^1.2.1",
-        "webpack": "^4.44.2",
-        "webpack-cli": "^3.3.12",
+        "webpack": "^5.8.0",
+        "webpack-cli": "^4.2.0",
         "webpack-dev-server": "^3.11.0",
-        "webpack-node-externals": "^1.7.2",
+        "webpack-node-externals": "^2.5.2",
         "webpack-shell-plugin": "^0.5.0"
     },
     "devDependencies": {
