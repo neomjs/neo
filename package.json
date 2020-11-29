@@ -55,8 +55,8 @@
         "webpack": "^5.8.0",
         "webpack-cli": "^4.2.0",
         "webpack-dev-server": "^3.11.0",
-        "webpack-node-externals": "^2.5.2",
-        "webpack-shell-plugin": "^0.5.0"
+        "webpack-hook-plugin": "^1.0.7",
+        "webpack-node-externals": "^2.5.2"
     },
     "devDependencies": {
         "siesta-lite": "^5.5.0"
