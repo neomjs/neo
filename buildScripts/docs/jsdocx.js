@@ -376,12 +376,15 @@ jsdocx.parse(options)
 
         Object.keys(structure).forEach(key => {
             path = key.replace(/\./g, '/');
+            const struct = ns('Neo.' + key);
 
-            helper.writeJSON({
-                path  : './docs/output/src/' + path + '.json',
-                indent: 4,
-                force : true
-            }, ns('Neo.' + key));
+            if (struct) {
+                helper.writeJSON({
+                    path  : './docs/output/src/' + path + '.json',
+                    indent: 4,
+                    force : true
+                }, struct);
+            }
         });
 
         // console.log(Neo);
