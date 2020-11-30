@@ -197,7 +197,7 @@ class Main extends core.Base {
 
         Neo.config.mainThreadAddons.forEach(addon => {
             if (addon !== 'AnalyticsByGoogle' || Neo.config.useGoogleAnalytics && addon === 'AnalyticsByGoogle') {
-                imports.push(import(`./main/addon/${addon}.mjs`));
+                imports.push(import(/* webpackChunkName: 'src/main/addon/[request]' */ `./main/addon/${addon}.mjs`));
             }
         });
 
