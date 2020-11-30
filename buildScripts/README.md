@@ -425,7 +425,7 @@ There are several enhancements around it to polish it for our class system impro
 Source code: <a href="./docs/jsdocx.js">generate-docs-json</a>
 
 ## server-start
-> webpack-dev-server --open
+> webpack serve --open
 
 To open JS modules locally inside your Browser you need a web-server, since importing files is not possible
 otherwise for security reasons. You could enable this on an OS level, but this is definitely not recommended.

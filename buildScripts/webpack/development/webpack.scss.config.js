@@ -38,7 +38,10 @@ module.exports = env => {
                 test: /\.scss$/,
                 use : [
                     'style-loader',
-                    MiniCssExtractPlugin.loader,
+                    {
+                        loader: MiniCssExtractPlugin.loader,
+                        options: { esModule: false },
+                    },
                     {
                         loader : 'css-loader',
                         options: {
@@ -49,8 +52,8 @@ module.exports = env => {
                     {
                         loader : 'postcss-loader',
                         options: {
-                            config: {
-                                path: path.resolve(neoPath, 'buildScripts/webpack/development/')
+                            postcssOptions : {
+                                config: path.resolve(neoPath, 'buildScripts/webpack/development/')
                             },
                             sourceMap: true
                         }

@@ -23,6 +23,8 @@ module.exports = {
     },
 
     output: {
+        chunkFilename: 'chunks/[id].js',
+
         filename: (chunkData) => {
             if (chunkData.chunk.name === 'main') {
                 return config.mainOutput;

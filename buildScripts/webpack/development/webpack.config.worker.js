@@ -26,7 +26,7 @@ module.exports = env => {
         target: 'webworker',
 
         output: {
-            chunkFilename: '[name].js', // would default to '[id].js'=> e.g. src/main/lib/AmCharts => 1.js
+            chunkFilename: 'chunks/[id].js',
 
             filename: chunkData => {
                 let name = chunkData.chunk.name;
@@ -35,6 +35,7 @@ module.exports = env => {
                     return config.workers[name].output;
                 }
             },
+
             path: path.resolve(processRoot, buildTarget.folder)
         }
     }

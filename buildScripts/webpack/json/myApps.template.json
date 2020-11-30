@@ -79,7 +79,7 @@
         },
         "SharedDialog": {
             "input": "./apps/shareddialog/app.mjs",
-            "mainThreadAddons": "'DragDrop', 'Stylesheet'",
+            "mainThreadAddons": "'DragDrop', 'Stylesheet', 'WindowPosition'",
             "output": "/apps/shareddialog/",
             "title": "SharedDialog",
             "useSharedWorkers": true

@@ -67,13 +67,17 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @param {String} name
+     * @param {Object} data
+     * @param {String} data.appName
      */
-    onAppConnect(name) {
+    onAppConnect(data) {
         let me   = this,
+            name = data.appName,
             view = me.view;
 
-        NeoArray.add(me.connectedApps, name);
+        if (name !== 'SharedDialog') {
+            NeoArray.add(me.connectedApps, name);
+        }
 
         if (name === 'SharedDialog2') {
             me.getSecondWindowButton().disabled = true;
@@ -82,13 +86,25 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @param {String} name
+     * @param {Object} data
+     * @param {String} data.appName
      */
-    onAppDisconnect(name) {
+    onAppDisconnect(data) {
         let me   = this,
+            name = data.appName,
             view = me.view;
 
-        NeoArray.remove(me.connectedApps, name);
+        if (name === 'SharedDialog') {
+            Neo.Main.windowClose({
+                names: me.connectedApps,
+            });
+        } else {
+            NeoArray.remove(me.connectedApps, name);
+
+            Neo.main.addon.WindowPosition.unregisterWindow({
+                name: name
+            });
+        }
 
         if (name === 'SharedDialog2') {
             me.getSecondWindowButton().disabled = false;
@@ -107,11 +123,28 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
+     * Creates a new popup window, which is initially docked to the right side of the main window
      * @param {Object} data
      */
-    openSecondWindow(data) {
-        console.log('openSecondWindow');
+    openDockedWindow(data) {
+        Neo.Main.getWindowData().then(data => {
+            let height = data.outerHeight - 78,
+                left   = data.outerWidth  + data.screenLeft,
+                top    = data.screenTop   + 28,
+                width  = 400;
+
+            Neo.Main.windowOpen({
+                url           : '../shareddialog2/index.html',
+                windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+                windowName    : 'SharedDialog2'
+            });
+
+            Neo.main.addon.WindowPosition.registerWindow({
+                dock: 'right',
+                name: 'SharedDialog2',
+                size: 400
+            });
+        });
     }
 
     /**

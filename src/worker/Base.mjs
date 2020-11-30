@@ -138,6 +138,7 @@ class Base extends CoreBase {
 
     /**
      * Only relevant for SharedWorkers
+     * @param {Object} data
      */
     onDisconnect(data) {}
 

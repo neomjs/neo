@@ -55,7 +55,9 @@ class Main extends core.Base {
                 'getWindowData',
                 'setRoute',
                 'windowClose',
-                'windowOpen'
+                'windowMoveTo',
+                'windowOpen',
+                'windowResizeTo'
             ]
         },
         /**
@@ -194,16 +196,10 @@ class Main extends core.Base {
         }
 
         Neo.config.mainThreadAddons.forEach(addon => {
-            if (addon !== 'AnalyticsByGoogle') {
+            if (addon !== 'AnalyticsByGoogle' || Neo.config.useGoogleAnalytics && addon === 'AnalyticsByGoogle') {
                 imports.push(import(/* webpackChunkName: 'src/main/addon/[request]' */ `./main/addon/${addon}.mjs`));
             }
         });
-
-        // intended for the online examples where we need an easy way to add GA to every generated app
-        if (Neo.config.mainThreadAddons.includes('AnalyticsByGoogle') || Neo.config.useGoogleAnalytics) {
-            // for this use case webpack creates a chunk called "[request]" if not named manually.
-            imports.push(import(/* webpackChunkName: 'src/main/addon/AnalyticsByGoogle-mjs.js' */ './main/addon/AnalyticsByGoogle.mjs'));
-        }
 
         const modules = await Promise.all(imports);
 
@@ -398,6 +394,17 @@ class Main extends core.Base {
     }
 
     /**
+     * Move a popup window
+     * @param {Object} data
+     * @param {String} data.windowName
+     * @param {String} data.x
+     * @param {String} data.y
+     */
+    windowMoveTo(data) {
+        this.openWindows[data.windowName].moveTo(data.x, data.y);
+    }
+
+    /**
      * Open a new popup window
      * @param {Object} data
      * @param {String} data.url
@@ -406,6 +413,21 @@ class Main extends core.Base {
      */
     windowOpen(data) {
         this.openWindows[data.windowName] = window.open(data.url, data.windowName, data.windowFeatures);
+    }
+
+    /**
+     * Move a popup window
+     * @param {Object} data
+     * @param {Number} [data.height]
+     * @param {Number} [data.width]
+     * @param {String} data.windowName
+     */
+    windowResizeTo(data) {
+        let win    = this.openWindows[data.windowName],
+            height = data.height || win.outerHeight,
+            width  = data.width  || win.outerWidth;
+
+        win.resizeTo(width, height);
     }
 }
 

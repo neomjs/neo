@@ -2,7 +2,7 @@ const fs                 = require('fs'),
       path               = require('path'),
       buildTarget        = require('./buildTarget.json'),
       HtmlWebpackPlugin  = require('html-webpack-plugin'),
-      WebpackShellPlugin = require('webpack-shell-plugin'),
+      WebpackHookPlugin  = require('webpack-hook-plugin'),
       processRoot        = process.cwd(),
       configPath         = path.resolve(processRoot, 'buildScripts/myApps.json'),
       packageJson        = require(path.resolve(processRoot, 'package.json')),
@@ -120,13 +120,15 @@ module.exports = env => {
                     context.request = '../../' + context.request;
                 }
             }),
-            new WebpackShellPlugin({
-                onBuildExit: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.js')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(processRoot, buildTarget.folder, 'docs/resources')]
+            new WebpackHookPlugin({
+                onBuildEnd: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.js')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(processRoot, buildTarget.folder, 'docs/resources')]
             }),
             ...plugins
         ],
 
         output: {
+            chunkFilename: 'chunks/[id].js',
+
             filename: chunkData => {
                 let name = chunkData.chunk.name;
 
@@ -138,6 +140,7 @@ module.exports = env => {
 
                 return 'appworker.js';
             },
+
             path: path.resolve(processRoot, buildTarget.folder)
         }
     }

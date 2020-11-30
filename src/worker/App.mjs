@@ -44,12 +44,12 @@ class App extends Base {
 
     /**
      * Only needed for the SharedWorkers context
-     * @param {String} appName
      * @param {String} eventName
+     * @param {Object} data
      */
-    fireMainViewsEvent(appName, eventName) {
+    fireMainViewsEvent(eventName, data) {
         this.ports.forEach(port => {
-            Neo.apps[port.appName].mainViewInstance.fire(eventName, appName);
+            Neo.apps[port.appName].mainViewInstance.fire(eventName, data);
         });
     }
 
@@ -66,7 +66,6 @@ class App extends Base {
         return import(
             /* webpackInclude: /\/app.mjs$/ */
             /* webpackExclude: /\/node_modules/ */
-            /* webpackChunkName: "chunks/[request]" */
             /* webpackMode: "lazy" */
             `../../${path}.mjs`
         );
@@ -77,7 +76,7 @@ class App extends Base {
      */
     onDisconnect(data) {
         super.onDisconnect(data);
-        this.fireMainViewsEvent(data.appName, 'disconnect');
+        this.fireMainViewsEvent('disconnect', data);
     }
 
     /**
@@ -127,10 +126,18 @@ class App extends Base {
 
     /**
      *
-     * @param {String} name
+     * @param {Object} data
      */
-    registerMainView(name) {
-        this.fireMainViewsEvent(name, 'connect');
+    onWindowPositionChange(data) {
+        this.fireMainViewsEvent('windowPositionChange', data.data);
+    }
+
+    /**
+     *
+     * @param {String} appName
+     */
+    registerMainView(appName) {
+        this.fireMainViewsEvent('connect', {appName: appName});
     }
 }
 

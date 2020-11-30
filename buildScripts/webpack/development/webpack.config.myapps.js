@@ -96,6 +96,8 @@ module.exports = env => {
         ],
 
         output: {
+            chunkFilename: 'chunks/[id].js',
+
             filename: chunkData => {
                 let name = chunkData.chunk.name;
 
@@ -107,6 +109,7 @@ module.exports = env => {
 
                 return 'appworker.js';
             },
+
             path: path.resolve(processRoot, buildTarget.folder)
         }
     }

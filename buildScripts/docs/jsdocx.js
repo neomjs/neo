@@ -374,14 +374,30 @@ jsdocx.parse(options)
             force : true
         }, docs);
 
+        let firstChar, fileNs;
+
         Object.keys(structure).forEach(key => {
-            path = key.replace(/\./g, '/');
+            firstChar = key.charAt(0);
+            path      = key.replace(/\./g, '/');
+
+            // check for app related files
+            if (firstChar === firstChar.toUpperCase() && key.includes('.')) {
+                if (key.startsWith('Docs.')) {
+                    key = 'Docs.app' + key.substr(4);
+                }
+
+                fileNs = ns(key);
+                path   = 'apps/' + path + '.json';
+            } else {
+                fileNs = ns('Neo.' + key);
+                path   = 'src/' + path + '.json';
+            }
 
             helper.writeJSON({
-                path  : './docs/output/src/' + path + '.json',
+                path  : './docs/output/' + path,
                 indent: 4,
                 force : true
-            }, ns('Neo.' + key));
+            }, fileNs);
         });
 
         // console.log(Neo);

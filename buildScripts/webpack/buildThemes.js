@@ -97,16 +97,16 @@ inquirer.prompt(questions).then(answers => {
     }
     
     const buildEnv = p => {
-        cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=neo.structure.json'], cpOpts);
+        cp.spawnSync(webpack, ['--config', p, `--env insideNeo=${insideNeo}`, '--env json_file=neo.structure.json'], cpOpts);
 
         if (cssVars === 'all' || cssVars === 'yes') {
-            if (themes === 'all' || themes === 'dark')  {cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=theme.dark.json'],            cpOpts);}
-            if (themes === 'all' || themes === 'light') {cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=theme.light.json'],           cpOpts);}
+            if (themes === 'all' || themes === 'dark')  {cp.spawnSync(webpack, ['--config', p, `--env insideNeo=${insideNeo}`, '--env json_file=theme.dark.json'],            cpOpts);}
+            if (themes === 'all' || themes === 'light') {cp.spawnSync(webpack, ['--config', p, `--env insideNeo=${insideNeo}`, '--env json_file=theme.light.json'],           cpOpts);}
         }
 
         if (cssVars === 'all' || cssVars === 'no') {
-            if (themes === 'all' || themes === 'dark')  {cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=theme.dark.noCssVars.json'],  cpOpts);}
-            if (themes === 'all' || themes === 'light') {cp.spawnSync(webpack, ['--config', p, `--env.insideNeo=${insideNeo}`, '--env.json_file=theme.light.noCssVars.json'], cpOpts);}
+            if (themes === 'all' || themes === 'dark')  {cp.spawnSync(webpack, ['--config', p, `--env insideNeo=${insideNeo}`, '--env json_file=theme.dark.noCssVars.json'],  cpOpts);}
+            if (themes === 'all' || themes === 'light') {cp.spawnSync(webpack, ['--config', p, `--env insideNeo=${insideNeo}`, '--env json_file=theme.light.noCssVars.json'], cpOpts);}
         }
     };
 
