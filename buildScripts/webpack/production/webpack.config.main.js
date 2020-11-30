@@ -12,7 +12,7 @@ module.exports = {
     target: 'web',
 
     output: {
-        chunkFilename: '[name].js', // would default to '[id].js': src/main/lib/AmCharts => 1.js
+        chunkFilename: 'chunks/[id].js',
 
         filename: (chunkData) => {
             if (chunkData.chunk.name === 'main') {

@@ -66,7 +66,6 @@ class App extends Base {
         return import(
             /* webpackInclude: /\/app.mjs$/ */
             /* webpackExclude: /\/node_modules/ */
-            /* webpackChunkName: "chunks/[request]" */
             /* webpackMode: "lazy" */
             `../../${path}.mjs`
         );

@@ -90,7 +90,7 @@ module.exports = env => {
         ],
 
         output: {
-            chunkFilename: 'chunks/[id].js', // would default to '[id].js': src/main/lib/AmCharts => 1.js
+            chunkFilename: 'chunks/[id].js',
             filename     : 'appworker.js',
             path         : path.resolve(processRoot, buildTarget.folder)
         }

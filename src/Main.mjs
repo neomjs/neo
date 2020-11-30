@@ -196,16 +196,10 @@ class Main extends core.Base {
         }
 
         Neo.config.mainThreadAddons.forEach(addon => {
-            if (addon !== 'AnalyticsByGoogle') {
-                imports.push(import(/* webpackChunkName: 'src/main/addon/[request]' */ `./main/addon/${addon}.mjs`));
+            if (addon !== 'AnalyticsByGoogle' || Neo.config.useGoogleAnalytics && addon === 'AnalyticsByGoogle') {
+                imports.push(import(`./main/addon/${addon}.mjs`));
             }
         });
-
-        // intended for the online examples where we need an easy way to add GA to every generated app
-        if (Neo.config.mainThreadAddons.includes('AnalyticsByGoogle') || Neo.config.useGoogleAnalytics) {
-            // for this use case webpack creates a chunk called "[request]" if not named manually.
-            imports.push(import(/* webpackChunkName: 'src/main/addon/AnalyticsByGoogle-mjs.js' */ './main/addon/AnalyticsByGoogle.mjs'));
-        }
 
         const modules = await Promise.all(imports);
 
