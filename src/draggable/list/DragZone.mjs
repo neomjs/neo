@@ -67,7 +67,7 @@ class DragZone extends BaseDragZone {
             store = owner.store,
             vdom  = owner.vdom,
             node;
-        console.log('adjustListItemCls', store.getCount(), owner.rendered, owner.rendering);
+
         store.items.forEach((record, index) => {
             node = me.getItemVdom(record, index);
 
@@ -135,7 +135,7 @@ class DragZone extends BaseDragZone {
     /**
      *
      */
-    onStoreLoad() {console.log('onStoreLoad');
+    onStoreLoad() {
         this.adjustListItemCls(true);
     }
 
