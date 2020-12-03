@@ -20,9 +20,8 @@ module.exports = env => {
         entry,
         target: 'webworker',
 
-
         output: {
-            chunkFilename: 'chunks/[id].js',
+            chunkFilename: `chunks/${env.worker}/[id].js`,
 
             filename: chunkData => {
                 let name = chunkData.chunk.name;

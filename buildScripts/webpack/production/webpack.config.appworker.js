@@ -122,7 +122,7 @@ module.exports = env => {
         ],
 
         output: {
-            chunkFilename: 'chunks/[id].js',
+            chunkFilename: 'chunks/app/[id].js',
             filename     : 'appworker.js',
             path         : path.resolve(processRoot, buildTarget.folder)
         }

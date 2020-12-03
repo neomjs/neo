@@ -21,7 +21,7 @@ class MainContainer extends ConfigurationViewport {
 
     createConfigurationComponents() {
         let me       = this,
-            treeList = me.exampleComponent;
+            treeList = me.exampleComponent.items[0];
 
         return [{
             module        : CheckBox,

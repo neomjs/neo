@@ -12,7 +12,7 @@ module.exports = {
     target: 'web',
 
     output: {
-        chunkFilename: 'chunks/[id].js',
+        chunkFilename: 'chunks/main/[id].js',
 
         filename: (chunkData) => {
             if (chunkData.chunk.name === 'main') {

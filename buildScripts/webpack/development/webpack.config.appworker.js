@@ -127,7 +127,7 @@ module.exports = env => {
         ],
 
         output: {
-            chunkFilename: 'chunks/[id].js',
+            chunkFilename: 'chunks/app/[id].js',
 
             filename: chunkData => {
                 let name = chunkData.chunk.name;
