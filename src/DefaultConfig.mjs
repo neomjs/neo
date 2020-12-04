@@ -89,6 +89,14 @@ const DefaultConfig = {
      */
     locale: 'default',
     /**
+     * true will log the delta updates inside the main thread(s) as well as the requestAnimation frames
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.logDeltaUpdates
+     * @type Boolean
+     */
+    logDeltaUpdates: false,
+    /**
      * Add addons for the main thread
      * Possible values: AmCharts, AnalyticsByGoogle, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet
      * (src/main/addon)

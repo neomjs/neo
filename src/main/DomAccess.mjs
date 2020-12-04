@@ -15,10 +15,6 @@ class DomAccess extends Base {
          */
         className: 'Neo.main.DomAccess',
         /**
-         * @member {boolean} logDeltaUpdates=false
-         */
-        logDeltaUpdates: false,
-        /**
          * @member {Array} mixins=[DeltaUpdates, Observable]
          */
         mixins: [
@@ -73,7 +69,7 @@ class DomAccess extends Base {
 
         let me = this;
 
-        if (me.logDeltaUpdates) {
+        if (Neo.config.logDeltaUpdates) {
             me.countDeltas  = 0;
             me.countUpdates = 0;
         }

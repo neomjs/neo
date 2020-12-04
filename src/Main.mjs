@@ -26,10 +26,6 @@ class Main extends core.Base {
          */
         className: 'Neo.Main',
         /**
-         * @member {boolean} logAnimationFrames=false
-         */
-        logAnimationFrames: false,
-        /**
          * @member {String} mode='read'
          * @protected
          */
@@ -339,7 +335,7 @@ class Main extends core.Base {
             reading = me.mode === 'read',
             start   = new Date();
 
-        if (me.logAnimationFrames) {
+        if (Neo.config.logDeltaUpdates) {
             me.totalFrameCount++;
             console.log('Total Frames: ' + me.totalFrameCount);
         }
