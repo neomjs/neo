@@ -64,9 +64,14 @@ class MainContainerController extends ComponentController {
         me.dialog = Neo.create(DemoDialog, {
             animateTargetId    : data.component.id,
             appName            : view.appName,
-            boundaryContainerId: view.boundaryContainerId,
+            // boundaryContainerId: view.boundaryContainerId,
+            boundaryContainerId: null,
             cls                : [me.currentTheme, 'neo-dialog', 'neo-panel', 'neo-container'],
-            listeners          : {close: me.onWindowClose, scope: me}
+            listeners          : {close: me.onWindowClose, scope: me},
+
+            dragZoneConfig: {
+                alwaysFireDragMove: true
+            }
         });
     }
 
