@@ -435,15 +435,15 @@ class Base extends Panel {
      */
     onDragEnd(data) {
         let me = this,
-            style;
+            wrapperStyle;
 
         if (!me.maximized) {
             Neo.main.DomAccess.getBoundingClientRect({
                 id: me.dragZone.dragProxy.id
             }).then(rect => {
-                style = me.wrapperStyle;
+                wrapperStyle = me.wrapperStyle;
 
-                Object.assign(style, {
+                Object.assign(wrapperStyle, {
                     height   : `${rect.height}px`,
                     left     : `${rect.left}px`,
                     opacity  : 1,
@@ -452,7 +452,7 @@ class Base extends Panel {
                     width    : `${rect.width}px`
                 });
 
-                me.wrapperStyle = style;
+                me.wrapperStyle = wrapperStyle;
 
                 me.dragZone.dragEnd(data);
 
