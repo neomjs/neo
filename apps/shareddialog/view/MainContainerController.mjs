@@ -1,6 +1,7 @@
 import ComponentController from '../../../src/controller/Component.mjs';
 import DemoDialog          from './DemoDialog.mjs';
 import NeoArray            from '../../../src/util/Array.mjs';
+import Rectangle           from '../../../src/util/Rectangle.mjs';
 
 /**
  * @class SharedDialog.view.MainContainerController
@@ -140,6 +141,10 @@ class MainContainerController extends ComponentController {
 
     onDragMove(data) {
         console.log('onDragMove', data);
+
+        if (Rectangle.contains({}, {})) {
+            console.log('rectangle util imported');
+        }
     }
 
     /**
