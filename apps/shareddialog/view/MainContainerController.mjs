@@ -29,7 +29,11 @@ class MainContainerController extends ComponentController {
         /**
          * @member {String} defaultTheme='neo-theme-light'
          */
-        defaultTheme: 'neo-theme-light'
+        defaultTheme: 'neo-theme-light',
+        /**
+         * @member {Number} dockedWindowSize=400
+         */
+        dockedWindowSize: 500
     }}
 
     /**
@@ -142,19 +146,19 @@ class MainContainerController extends ComponentController {
         Neo.Main.getWindowData().then(data => {
             let height = data.outerHeight - 78,
                 left   = data.outerWidth  + data.screenLeft,
-                top    = data.screenTop   + 28,
-                width  = 400;
+                size   = this.dockedWindowSize,
+                top    = data.screenTop   + 28;
 
             Neo.Main.windowOpen({
                 url           : '../shareddialog2/index.html',
-                windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+                windowFeatures: `height=${height},left=${left},top=${top},width=${size}`,
                 windowName    : 'SharedDialog2'
             });
 
             Neo.main.addon.WindowPosition.registerWindow({
                 dock: 'right',
                 name: 'SharedDialog2',
-                size: 400
+                size: size
             });
         });
     }
