@@ -88,10 +88,12 @@ class MainContainerController extends ComponentController {
      */
     onAppDisconnect(data) {
         let me   = this,
-            name = data.appName,
-            view = me.view;
+            name = data.appName;
 
         if (name === 'SharedDialog') {
+            // we want to close all popup windows, which equals to all connected apps minus the main app
+            NeoArray.remove(me.connectedApps, 'SharedDialog');
+
             Neo.Main.windowClose({
                 names: me.connectedApps,
             });
