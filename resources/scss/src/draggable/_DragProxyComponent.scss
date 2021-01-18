@@ -1,6 +1,7 @@
 .neo-dragproxy {
     pointer-events     : none;
     position           : absolute !important;
+    transform          : none !important;
     transition-duration: 0ms;
     transition-property: none;
     will-change        : left, top;

@@ -21,7 +21,15 @@ class MainContainerController extends ComponentController {
         /**
          * @member {String[]} connectedApps=[]
          */
-        connectedApps: []
+        connectedApps: [],
+        /**
+         * @member {String} currentTheme='neo-theme-light'
+         */
+        currentTheme: 'neo-theme-light',
+        /**
+         * @member {String} defaultTheme='neo-theme-light'
+         */
+        defaultTheme: 'neo-theme-light'
     }}
 
     /**
@@ -53,6 +61,7 @@ class MainContainerController extends ComponentController {
             animateTargetId    : data.component.id,
             appName            : view.appName,
             boundaryContainerId: view.boundaryContainerId,
+            cls                : [me.currentTheme, 'neo-dialog', 'neo-panel', 'neo-container'],
             listeners          : {close: me.onWindowClose, scope: me}
         });
     }
@@ -72,11 +81,12 @@ class MainContainerController extends ComponentController {
      */
     onAppConnect(data) {
         let me   = this,
-            name = data.appName,
-            view = me.view;
+            name = data.appName;
 
-        if (name !== 'SharedDialog') {
-            NeoArray.add(me.connectedApps, name);
+        NeoArray.add(me.connectedApps, name);
+
+        if (name !== 'SharedDialog' && me.currentTheme !== 'neo-theme-light') {
+            me.switchThemeForApp(name, me.currentTheme);
         }
 
         if (name === 'SharedDialog2') {
@@ -91,10 +101,12 @@ class MainContainerController extends ComponentController {
      */
     onAppDisconnect(data) {
         let me   = this,
-            name = data.appName,
-            view = me.view;
+            name = data.appName;
 
         if (name === 'SharedDialog') {
+            // we want to close all popup windows, which equals to all connected apps minus the main app
+            NeoArray.remove(me.connectedApps, 'SharedDialog');
+
             Neo.Main.windowClose({
                 names: me.connectedApps,
             });
@@ -148,16 +160,17 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
+     * Switches the theme for all connected apps
      * @param {Object} data
      */
     switchTheme(data) {
         let me         = this,
             button     = data.component,
             buttonText = 'Theme Light',
+            dialog     = me.dialog,
             iconCls    = 'fa fa-sun',
             theme      = 'neo-theme-dark',
-            cls, view;
+            cls;
 
         if (button.text === 'Theme Light') {
             buttonText = 'Theme Dark';
@@ -166,24 +179,43 @@ class MainContainerController extends ComponentController {
         }
 
         me.connectedApps.forEach(appName => {
-            view = Neo.apps[appName].mainViewInstance;
-
-            cls = [...view.cls];
-
-            view.cls.forEach(item => {
-                if (item.includes('neo-theme')) {
-                    NeoArray.remove(cls, item);
-                }
-            });
-
-            NeoArray.add(cls, theme);
-            view.cls = cls;
+            me.switchThemeForApp(appName, theme);
         });
 
         button.set({
             iconCls: iconCls,
             text   : buttonText
         });
+
+        if (dialog) {
+            cls = dialog.cls;
+
+            NeoArray.remove(cls, me.currentTheme);
+            NeoArray.add(cls, theme);
+
+            dialog.cls = cls;
+        }
+
+        me.currentTheme = theme;
+    }
+
+    /**
+     *
+     * @param {String} appName
+     * @param {String} theme
+     */
+    switchThemeForApp(appName, theme) {
+        let view = Neo.apps[appName].mainViewInstance,
+            cls  = [...view.cls];
+
+        view.cls.forEach(item => {
+            if (item.includes('neo-theme')) {
+                NeoArray.remove(cls, item);
+            }
+        });
+
+        NeoArray.add(cls, theme);
+        view.cls = cls;
     }
 }
 
