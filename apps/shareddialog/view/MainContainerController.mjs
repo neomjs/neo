@@ -72,12 +72,9 @@ class MainContainerController extends ComponentController {
      */
     onAppConnect(data) {
         let me   = this,
-            name = data.appName,
-            view = me.view;
+            name = data.appName;
 
-        if (name !== 'SharedDialog') {
-            NeoArray.add(me.connectedApps, name);
-        }
+        NeoArray.add(me.connectedApps, name);
 
         if (name === 'SharedDialog2') {
             me.getSecondWindowButton().disabled = true;
