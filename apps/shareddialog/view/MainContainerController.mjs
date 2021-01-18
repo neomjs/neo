@@ -69,6 +69,12 @@ class MainContainerController extends ComponentController {
             cls                : [me.currentTheme, 'neo-dialog', 'neo-panel', 'neo-container'],
             listeners          : {close: me.onWindowClose, scope: me},
 
+            domListeners: [{
+                'drag:move': me.onDragMove,
+                scope      : me,
+                delegate   : '.neo-header-toolbar'
+            }],
+
             dragZoneConfig: {
                 alwaysFireDragMove: true
             }
@@ -130,6 +136,10 @@ class MainContainerController extends ComponentController {
         if (name === 'SharedDialog2') {
             me.getSecondWindowButton().disabled = false;
         }
+    }
+
+    onDragMove(data) {
+        console.log('onDragMove', data);
     }
 
     /**
