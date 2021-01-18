@@ -439,7 +439,7 @@ class Base extends Panel {
      */
     onDragEnd(data) {
         let me = this,
-            wrapperStyle;
+            initialTransitionProperty, wrapperStyle;
 
         if (!me.maximized) {
             Neo.main.DomAccess.getBoundingClientRect({
@@ -457,7 +457,17 @@ class Base extends Panel {
                 });
 
                 if (!me.animateOnDragEnd) {
+                    initialTransitionProperty = wrapperStyle.transitionProperty || null;
+
                     wrapperStyle.transitionProperty = 'none';
+
+                    setTimeout(() => {
+                        wrapperStyle = me.wrapperStyle;
+
+                        wrapperStyle.transitionProperty = initialTransitionProperty;
+
+                        me.wrapperStyle = wrapperStyle;
+                    }, 50);
                 }
 
                 me.wrapperStyle = wrapperStyle;
@@ -476,8 +486,8 @@ class Base extends Panel {
      * @param data
      */
     onDragStart(data) {
-        let me    = this,
-            style = me.wrapperStyle || {},
+        let me           = this,
+            wrapperStyle = me.wrapperStyle || {},
             resizablePlugin;
 
         if (!me.maximized) {
@@ -505,9 +515,9 @@ class Base extends Panel {
 
             me.dragZone.dragStart(data);
 
-            style.opacity = 0.3;
+            wrapperStyle.opacity = 0.3;
 
-            me.wrapperStyle = style;
+            me.wrapperStyle = wrapperStyle;
         }
     }
 }
