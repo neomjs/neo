@@ -20,7 +20,7 @@ class Rectangle extends Base {
      * @returns {Boolean}
      */
     static contains(rect1, rect2) {
-        console.log('contains');
+        // todo
 
         return true;
     }

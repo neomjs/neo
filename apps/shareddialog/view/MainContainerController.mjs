@@ -140,10 +140,10 @@ class MainContainerController extends ComponentController {
     }
 
     onDragMove(data) {
-        console.log('onDragMove', data);
+        //console.log('onDragMove', data);
 
         if (Rectangle.contains({}, {})) {
-            console.log('rectangle util imported');
+            console.log(data.clientX - Math.round(data.offsetX));
         }
     }
 
