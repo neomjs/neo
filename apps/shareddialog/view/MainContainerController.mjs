@@ -21,7 +21,15 @@ class MainContainerController extends ComponentController {
         /**
          * @member {String[]} connectedApps=[]
          */
-        connectedApps: []
+        connectedApps: [],
+        /**
+         * @member {String} currentTheme='neo-theme-light'
+         */
+        currentTheme: 'neo-theme-light',
+        /**
+         * @member {String} defaultTheme='neo-theme-light'
+         */
+        defaultTheme: 'neo-theme-light'
     }}
 
     /**
@@ -75,6 +83,10 @@ class MainContainerController extends ComponentController {
             name = data.appName;
 
         NeoArray.add(me.connectedApps, name);
+
+        if (name !== 'SharedDialog' && me.currentTheme !== 'neo-theme-light') {
+            me.switchThemeForApp(name, me.currentTheme);
+        }
 
         if (name === 'SharedDialog2') {
             me.getSecondWindowButton().disabled = true;
@@ -147,7 +159,7 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
+     * Switches the theme for all connected apps
      * @param {Object} data
      */
     switchTheme(data) {
@@ -155,8 +167,7 @@ class MainContainerController extends ComponentController {
             button     = data.component,
             buttonText = 'Theme Light',
             iconCls    = 'fa fa-sun',
-            theme      = 'neo-theme-dark',
-            cls, view;
+            theme      = 'neo-theme-dark';
 
         if (button.text === 'Theme Light') {
             buttonText = 'Theme Dark';
@@ -164,25 +175,35 @@ class MainContainerController extends ComponentController {
             theme      = 'neo-theme-light';
         }
 
+        me.currentTheme = theme;
+
         me.connectedApps.forEach(appName => {
-            view = Neo.apps[appName].mainViewInstance;
-
-            cls = [...view.cls];
-
-            view.cls.forEach(item => {
-                if (item.includes('neo-theme')) {
-                    NeoArray.remove(cls, item);
-                }
-            });
-
-            NeoArray.add(cls, theme);
-            view.cls = cls;
+            me.switchThemeForApp(appName, theme);
         });
 
         button.set({
             iconCls: iconCls,
             text   : buttonText
         });
+    }
+
+    /**
+     *
+     * @param {String} appName
+     * @param {String} theme
+     */
+    switchThemeForApp(appName, theme) {
+        let view = Neo.apps[appName].mainViewInstance,
+            cls  = [...view.cls];
+
+        view.cls.forEach(item => {
+            if (item.includes('neo-theme')) {
+                NeoArray.remove(cls, item);
+            }
+        });
+
+        NeoArray.add(cls, theme);
+        view.cls = cls;
     }
 }
 
