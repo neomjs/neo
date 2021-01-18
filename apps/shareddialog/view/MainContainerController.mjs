@@ -61,6 +61,7 @@ class MainContainerController extends ComponentController {
             animateTargetId    : data.component.id,
             appName            : view.appName,
             boundaryContainerId: view.boundaryContainerId,
+            cls                : [me.currentTheme, 'neo-dialog', 'neo-panel', 'neo-container'],
             listeners          : {close: me.onWindowClose, scope: me}
         });
     }
@@ -166,16 +167,16 @@ class MainContainerController extends ComponentController {
         let me         = this,
             button     = data.component,
             buttonText = 'Theme Light',
+            dialog     = me.dialog,
             iconCls    = 'fa fa-sun',
-            theme      = 'neo-theme-dark';
+            theme      = 'neo-theme-dark',
+            cls;
 
         if (button.text === 'Theme Light') {
             buttonText = 'Theme Dark';
             iconCls    = 'fa fa-moon';
             theme      = 'neo-theme-light';
         }
-
-        me.currentTheme = theme;
 
         me.connectedApps.forEach(appName => {
             me.switchThemeForApp(appName, theme);
@@ -185,6 +186,17 @@ class MainContainerController extends ComponentController {
             iconCls: iconCls,
             text   : buttonText
         });
+
+        if (dialog) {
+            cls = dialog.cls;
+
+            NeoArray.remove(cls, me.currentTheme);
+            NeoArray.add(cls, theme);
+
+            dialog.cls = cls;
+        }
+
+        me.currentTheme = theme;
     }
 
     /**
