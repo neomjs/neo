@@ -4,7 +4,7 @@ import Base from '../core/Base.mjs';
  * @class Neo.util.Rectangle
  * @extends Neo.core.Base
  */
-class ClassSystem extends Base {
+class Rectangle extends Base {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.util.Rectangle'
@@ -26,6 +26,6 @@ class ClassSystem extends Base {
     }
 }
 
-Neo.applyClassConfig(ClassSystem);
+Neo.applyClassConfig(Rectangle);
 
-export default ClassSystem;
+export default Rectangle;
