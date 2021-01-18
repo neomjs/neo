@@ -20,6 +20,10 @@ class Base extends Panel {
          */
         ntype: 'dialog',
         /**
+         * @member {Boolean} animateOnDragEnd=false
+         */
+        animateOnDragEnd: false,
+        /**
          * @member {String|null} animateTargetId=null
          */
         animateTargetId: null,
@@ -451,6 +455,10 @@ class Base extends Panel {
                     transform: 'none',
                     width    : `${rect.width}px`
                 });
+
+                if (!me.animateOnDragEnd) {
+                    wrapperStyle.transitionProperty = 'none';
+                }
 
                 me.wrapperStyle = wrapperStyle;
 
