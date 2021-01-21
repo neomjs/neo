@@ -142,6 +142,11 @@ class MainContainerController extends ComponentController {
     onDragMove(data) {
         //console.log('onDragMove', data);
 
+        let me       = this,
+            dragZone = me.view.dragZone;
+
+        console.log(dragZone.dragElementRect);
+
         if (Rectangle.contains({}, {})) {
             console.log(data.clientX - Math.round(data.offsetX));
         }
