@@ -509,6 +509,11 @@ class Base extends Panel {
                     useProxyWrapper    : false,
                     ...me.dragZoneConfig || {}
                 });
+
+                me.fire('dragZoneCreated', {
+                    dragZone: me.dragZone,
+                    id      : me.id
+                });
             } else {
                 me.dragZone.boundaryContainerId = me.boundaryContainerId;
             }
