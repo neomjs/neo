@@ -25,6 +25,27 @@ class Rectangle extends Base {
             && rect1.right  >= rect2.right
             && rect1.top    <= rect2.top;
     }
+
+    /**
+     * Adjusts a DOMRect object to a new position
+     * @param {Object} rect
+     * @param {Number|null} [x=null]
+     * @param {Number|null} [y=null]
+     * @returns {Boolean}
+     */
+    static moveBy(rect, x=null, y=null) {
+        if (Neo.isNumber(x)) {
+            rect.left  += x;
+            rect.right += x;
+            rect.x     += x;
+        }
+
+        if (Neo.isNumber(y)) {
+            rect.bottom += y;
+            rect.top    += y;
+            rect.y      += y;
+        }
+    }
 }
 
 Neo.applyClassConfig(Rectangle);
