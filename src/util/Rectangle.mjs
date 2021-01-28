@@ -31,20 +31,24 @@ class Rectangle extends Base {
      * @param {Object} rect
      * @param {Number|null} [x=null]
      * @param {Number|null} [y=null]
-     * @returns {Boolean}
+     * @returns {Object} movedRect
      */
     static moveBy(rect, x=null, y=null) {
+        let movedRect = {...rect};
+
         if (Neo.isNumber(x)) {
-            rect.left  += x;
-            rect.right += x;
-            rect.x     += x;
+            movedRect.left  += x;
+            movedRect.right += x;
+            movedRect.x     += x;
         }
 
         if (Neo.isNumber(y)) {
-            rect.bottom += y;
-            rect.top    += y;
-            rect.y      += y;
+            movedRect.bottom += y;
+            movedRect.top    += y;
+            movedRect.y      += y;
         }
+
+        return movedRect;
     }
 }
 
