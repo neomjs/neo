@@ -150,12 +150,12 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onDragMove(data) {
-        //console.log('onDragMove', data);
-
         let me       = this,
             dragZone = me.dialog.dragZone;
 
         console.log(me.mainWindowRect, dragZone.dragElementRect);
+
+        // todo: add the offsets to the dragElementRect
 
         if (Rectangle.contains(me.mainWindowRect, dragZone.dragElementRect)) {
             console.log('dialog contained inside main window')
