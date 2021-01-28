@@ -50,6 +50,31 @@ class Rectangle extends Base {
 
         return movedRect;
     }
+
+    /**
+     * Adjusts a DOMRect object to a new position
+     * @param {Object} rect
+     * @param {Number|null} [x=null]
+     * @param {Number|null} [y=null]
+     * @returns {Object} movedRect
+     */
+    static moveTo(rect, x=null, y=null) {
+        let movedRect = {...rect};
+
+        if (Neo.isNumber(x)) {
+            movedRect.left  = x;
+            movedRect.right = x + movedRect.width;
+            movedRect.x     = x;
+        }
+
+        if (Neo.isNumber(y)) {
+            movedRect.bottom = y;
+            movedRect.top    = y + movedRect.height;
+            movedRect.y      = y;
+        }
+
+        return movedRect;
+    }
 }
 
 Neo.applyClassConfig(Rectangle);
