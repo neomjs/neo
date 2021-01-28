@@ -157,7 +157,8 @@ class MainContainerController extends ComponentController {
 
         console.log(me.mainWindowRect, dragZone.dragElementRect);
 
-        if (Rectangle.contains({}, {})) {
+        if (Rectangle.contains(me.mainWindowRect, dragZone.dragElementRect)) {
+            console.log('dialog contained inside main window')
             console.log(data.clientX - Math.round(data.offsetX));
         }
     }

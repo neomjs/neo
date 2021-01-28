@@ -20,9 +20,10 @@ class Rectangle extends Base {
      * @returns {Boolean}
      */
     static contains(rect1, rect2) {
-        // todo
-
-        return true;
+        return rect1.bottom >= rect2.bottom
+            && rect1.left   <= rect2.left
+            && rect1.right  >= rect2.right
+            && rect1.top    <= rect2.top;
     }
 }
 
