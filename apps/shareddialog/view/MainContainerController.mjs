@@ -72,9 +72,10 @@ class MainContainerController extends ComponentController {
             listeners          : {close: me.onWindowClose, scope: me},
 
             domListeners: [{
-                'drag:move': me.onDragMove,
-                scope      : me,
-                delegate   : '.neo-header-toolbar'
+                'drag:move' : me.onDragMove,
+                'drag:start': me.onDragStart,
+                scope       : me,
+                delegate    : '.neo-header-toolbar'
             }],
 
             dragZoneConfig: {
@@ -140,6 +141,10 @@ class MainContainerController extends ComponentController {
         }
     }
 
+    /**
+     *
+     * @param {Object} data
+     */
     onDragMove(data) {
         //console.log('onDragMove', data);
 
@@ -159,6 +164,12 @@ class MainContainerController extends ComponentController {
      */
     onDragStart(data) {
         console.log('onDragStart', data);
+
+        Neo.main.DomAccess.getBoundingClientRect({
+            id: 'document.body'
+        }).then(data => {
+            console.log(data);
+        });
     }
 
     /**
