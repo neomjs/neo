@@ -128,7 +128,7 @@ class Manager extends Base {
      * @param {Object} opts
      * @returns {Worker}
      */
-    createWorker(opts) {console.log(opts);
+    createWorker(opts) {
         const me       = this,
               fileName = opts.fileName,
               filePath = (opts.basePath || me.basePath) + fileName,
