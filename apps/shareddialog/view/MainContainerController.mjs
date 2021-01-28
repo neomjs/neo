@@ -43,12 +43,13 @@ class MainContainerController extends ComponentController {
     onConstructed() {
         super.onConstructed();
 
-        const me = this;
+        let me = this;
 
         me.view.on({
-            connect   : me.onAppConnect,
-            disconnect: me.onAppDisconnect,
-            scope     : me
+            connect        : me.onAppConnect,
+            disconnect     : me.onAppDisconnect,
+            dragZoneCreated: me.onDragZoneCreated,
+            scope          : me
         });
     }
 
@@ -143,13 +144,29 @@ class MainContainerController extends ComponentController {
         //console.log('onDragMove', data);
 
         let me       = this,
-            dragZone = me.view.dragZone;
+            dragZone = me.dialog.dragZone;
 
         console.log(dragZone.dragElementRect);
 
         if (Rectangle.contains({}, {})) {
             console.log(data.clientX - Math.round(data.offsetX));
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragStart(data) {
+        console.log('onDragStart', data);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragZoneCreated(data) {
+        console.log('onDragZoneCreated', data);
     }
 
     /**
