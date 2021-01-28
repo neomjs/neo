@@ -34,7 +34,11 @@ class MainContainerController extends ComponentController {
         /**
          * @member {Number} dockedWindowSize=400
          */
-        dockedWindowSize: 500
+        dockedWindowSize: 500,
+        /**
+         * @member {Object} mainWindowRect=null
+         */
+        mainWindowRect: null
     }}
 
     /**
@@ -151,7 +155,7 @@ class MainContainerController extends ComponentController {
         let me       = this,
             dragZone = me.dialog.dragZone;
 
-        console.log(dragZone.dragElementRect);
+        console.log(me.mainWindowRect, dragZone.dragElementRect);
 
         if (Rectangle.contains({}, {})) {
             console.log(data.clientX - Math.round(data.offsetX));
@@ -163,13 +167,12 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onDragStart(data) {
-        console.log('onDragStart', data);
-
-        Neo.main.DomAccess.getBoundingClientRect({
-            id: 'document.body'
-        }).then(data => {
-            console.log(data);
-        });
+        for (const item of data.path) {
+            if (item.tagName === 'body') {
+                this.mainWindowRect = item.rect;
+                break;
+            }
+        }
     }
 
     /**
