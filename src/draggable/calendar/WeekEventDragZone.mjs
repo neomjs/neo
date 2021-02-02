@@ -189,11 +189,12 @@ class WeekEventDragZone extends DragZone {
             id: [me.getDragElementRoot().id, data.path[1].id]
         }).then(rects => {
             Object.assign(me, {
-                columnHeight : rects[1].height,
-                columnTop    : rects[1].top,
-                eventDuration: (me.eventRecord.endDate - me.eventRecord.startDate) / 60 / 1000,
-                offsetX      : data.clientX - rects[0].left,
-                offsetY      : data.clientY - rects[0].top
+                columnHeight   : rects[1].height,
+                columnTop      : rects[1].top,
+                dragElementRect: rects[0],
+                eventDuration  : (me.eventRecord.endDate - me.eventRecord.startDate) / 60 / 1000,
+                offsetX        : data.clientX - rects[0].left,
+                offsetY        : data.clientY - rects[0].top
             });
 
             me.createDragProxy(rects[0]);
