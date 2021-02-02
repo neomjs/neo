@@ -130,14 +130,16 @@ class Manager extends Base {
      */
     createWorker(opts) {
         const me       = this,
-              filePath = (opts.basePath || me.basePath) + opts.fileName,
-              s        = me.sharedWorkersEnabled && Neo.config.useSharedWorkers,
+              fileName = opts.fileName,
+              filePath = (opts.basePath || me.basePath) + fileName,
+              name     = `neomjs-${fileName.substring(0, fileName.indexOf('.')).toLowerCase()}-worker`,
+              isShared = me.sharedWorkersEnabled && Neo.config.useSharedWorkers,
               worker   = Neo.config.environment !== 'development'  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
-                  ? new (s ? SharedWorker : Worker)(filePath)
-                  : new (s ? SharedWorker : Worker)(filePath, {type: 'module'});
+                  ? new (isShared ? SharedWorker : Worker)(filePath, {name: name})
+                  : new (isShared ? SharedWorker : Worker)(filePath, {name: name, type: 'module'});
 
-        (s ? worker.port : worker).onmessage = me.onWorkerMessage.bind(me);
-        (s ? worker.port : worker).onerror   = me.onWorkerError.bind(me);
+        (isShared ? worker.port : worker).onmessage = me.onWorkerMessage.bind(me);
+        (isShared ? worker.port : worker).onerror   = me.onWorkerError.bind(me);
 
         return worker;
     }

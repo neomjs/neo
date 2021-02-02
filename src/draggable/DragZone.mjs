@@ -283,7 +283,8 @@ class DragZone extends Base {
     dragStart(data) {
         let me    = this,
             owner = me.owner,
-            cls   = owner.cls;
+            cls   = owner.cls,
+            offsetX, offsetY;
 
         me.setData();
 
@@ -295,13 +296,23 @@ class DragZone extends Base {
         Neo.main.DomAccess.getBoundingClientRect({
             id: me.getDragElementRoot().id
         }).then(rect => {
+            offsetX = data.clientX - rect.left;
+            offsetY = data.clientY - rect.top;
+
             Object.assign(me, {
                 dragElementRect: rect,
-                offsetX        : data.clientX - rect.left,
-                offsetY        : data.clientY - rect.top
+                offsetX        : offsetX,
+                offsetY        : offsetY
             });
 
             me.createDragProxy(rect);
+
+            me.fire('dragStart', {
+                dragElementRect: rect,
+                id             : me.id,
+                offsetX        : offsetX,
+                offsetY        : offsetY
+            });
         });
     }
 

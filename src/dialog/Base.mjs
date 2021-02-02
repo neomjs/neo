@@ -20,6 +20,10 @@ class Base extends Panel {
          */
         ntype: 'dialog',
         /**
+         * @member {Boolean} animateOnDragEnd=false
+         */
+        animateOnDragEnd: false,
+        /**
          * @member {String|null} animateTargetId=null
          */
         animateTargetId: null,
@@ -435,15 +439,15 @@ class Base extends Panel {
      */
     onDragEnd(data) {
         let me = this,
-            style;
+            initialTransitionProperty, wrapperStyle;
 
         if (!me.maximized) {
             Neo.main.DomAccess.getBoundingClientRect({
                 id: me.dragZone.dragProxy.id
             }).then(rect => {
-                style = me.wrapperStyle;
+                wrapperStyle = me.wrapperStyle;
 
-                Object.assign(style, {
+                Object.assign(wrapperStyle, {
                     height   : `${rect.height}px`,
                     left     : `${rect.left}px`,
                     opacity  : 1,
@@ -452,7 +456,21 @@ class Base extends Panel {
                     width    : `${rect.width}px`
                 });
 
-                me.wrapperStyle = style;
+                if (!me.animateOnDragEnd) {
+                    initialTransitionProperty = wrapperStyle.transitionProperty || null;
+
+                    wrapperStyle.transitionProperty = 'none';
+
+                    setTimeout(() => {
+                        wrapperStyle = me.wrapperStyle;
+
+                        wrapperStyle.transitionProperty = initialTransitionProperty;
+
+                        me.wrapperStyle = wrapperStyle;
+                    }, 50);
+                }
+
+                me.wrapperStyle = wrapperStyle;
 
                 me.dragZone.dragEnd(data);
 
@@ -468,8 +486,8 @@ class Base extends Panel {
      * @param data
      */
     onDragStart(data) {
-        let me    = this,
-            style = me.wrapperStyle || {},
+        let me           = this,
+            wrapperStyle = me.wrapperStyle || {},
             resizablePlugin;
 
         if (!me.maximized) {
@@ -491,15 +509,20 @@ class Base extends Panel {
                     useProxyWrapper    : false,
                     ...me.dragZoneConfig || {}
                 });
+
+                me.fire('dragZoneCreated', {
+                    dragZone: me.dragZone,
+                    id      : me.id
+                });
             } else {
                 me.dragZone.boundaryContainerId = me.boundaryContainerId;
             }
 
             me.dragZone.dragStart(data);
 
-            style.opacity = 0.3;
+            wrapperStyle.opacity = 0.3;
 
-            me.wrapperStyle = style;
+            me.wrapperStyle = wrapperStyle;
         }
     }
 }

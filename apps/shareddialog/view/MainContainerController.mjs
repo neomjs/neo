@@ -1,6 +1,7 @@
 import ComponentController from '../../../src/controller/Component.mjs';
 import DemoDialog          from './DemoDialog.mjs';
 import NeoArray            from '../../../src/util/Array.mjs';
+import Rectangle           from '../../../src/util/Rectangle.mjs';
 
 /**
  * @class SharedDialog.view.MainContainerController
@@ -29,7 +30,15 @@ class MainContainerController extends ComponentController {
         /**
          * @member {String} defaultTheme='neo-theme-light'
          */
-        defaultTheme: 'neo-theme-light'
+        defaultTheme: 'neo-theme-light',
+        /**
+         * @member {Number} dockedWindowSize=400
+         */
+        dockedWindowSize: 500,
+        /**
+         * @member {Object} mainWindowRect=null
+         */
+        mainWindowRect: null
     }}
 
     /**
@@ -38,12 +47,13 @@ class MainContainerController extends ComponentController {
     onConstructed() {
         super.onConstructed();
 
-        const me = this;
+        let me = this;
 
         me.view.on({
-            connect   : me.onAppConnect,
-            disconnect: me.onAppDisconnect,
-            scope     : me
+            connect        : me.onAppConnect,
+            disconnect     : me.onAppDisconnect,
+            dragZoneCreated: me.onDragZoneCreated,
+            scope          : me
         });
     }
 
@@ -60,9 +70,21 @@ class MainContainerController extends ComponentController {
         me.dialog = Neo.create(DemoDialog, {
             animateTargetId    : data.component.id,
             appName            : view.appName,
-            boundaryContainerId: view.boundaryContainerId,
+            // boundaryContainerId: view.boundaryContainerId,
+            boundaryContainerId: null,
             cls                : [me.currentTheme, 'neo-dialog', 'neo-panel', 'neo-container'],
-            listeners          : {close: me.onWindowClose, scope: me}
+            listeners          : {close: me.onWindowClose, scope: me},
+
+            domListeners: [{
+                'drag:move' : me.onDragMove,
+                'drag:start': me.onDragStart,
+                scope       : me,
+                delegate    : '.neo-header-toolbar'
+            }],
+
+            dragZoneConfig: {
+                alwaysFireDragMove: true
+            }
         });
     }
 
@@ -125,6 +147,43 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @param {Object} data
+     */
+    onDragMove(data) {
+        let me        = this,
+            proxyRect = Rectangle.moveTo(me.dialog.dragZone.dragElementRect, data.clientX - data.offsetX, data.clientY - data.offsetY);
+
+        console.log(proxyRect); // todo: use the full window rect, not just the dragZone (header toolbar)
+
+        if (Rectangle.contains(me.mainWindowRect, proxyRect)) {
+            console.log('dialog contained inside main window')
+            console.log(data.clientX - Math.round(data.offsetX));
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragStart(data) {
+        for (const item of data.path) {
+            if (item.tagName === 'body') {
+                this.mainWindowRect = item.rect;
+                break;
+            }
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragZoneCreated(data) {
+        console.log('onDragZoneCreated', data);
+    }
+
+    /**
+     *
      */
     onWindowClose() {
         let button = this.view.down({
@@ -142,19 +201,19 @@ class MainContainerController extends ComponentController {
         Neo.Main.getWindowData().then(data => {
             let height = data.outerHeight - 78,
                 left   = data.outerWidth  + data.screenLeft,
-                top    = data.screenTop   + 28,
-                width  = 400;
+                size   = this.dockedWindowSize,
+                top    = data.screenTop   + 28;
 
             Neo.Main.windowOpen({
                 url           : '../shareddialog2/index.html',
-                windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
+                windowFeatures: `height=${height},left=${left},top=${top},width=${size}`,
                 windowName    : 'SharedDialog2'
             });
 
             Neo.main.addon.WindowPosition.registerWindow({
                 dock: 'right',
                 name: 'SharedDialog2',
-                size: 400
+                size: size
             });
         });
     }

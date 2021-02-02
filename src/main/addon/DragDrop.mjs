@@ -295,7 +295,9 @@ class DragDrop extends Base {
         if (!me.dragProxyElement || me.alwaysFireDragMove) {
             DomEvents.sendMessageToApp({
                 ...me.getEventData(event),
-                type: 'drag:move'
+                offsetX: me.offsetX,
+                offsetY: me.offsetY,
+                type   : 'drag:move'
             });
         }
     }
