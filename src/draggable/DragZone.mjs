@@ -309,9 +309,9 @@ class DragZone extends Base {
 
             me.fire('dragStart', {
                 dragElementRect: rect,
-                id       : me.id,
-                offsetX  : offsetX,
-                offsetY  : offsetY
+                id             : me.id,
+                offsetX        : offsetX,
+                offsetY        : offsetY
             });
         });
     }
