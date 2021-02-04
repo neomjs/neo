@@ -41,6 +41,36 @@ class Rectangle extends Base {
     }
 
     /**
+     * Checks if rect2 is not contained inside rect1.
+     * This could be an intersection or being fully excluded.
+     * @param {Object} rect1
+     * @param {Object} rect2
+     * @param {String} side bottom, left, right or top
+     * @returns {Boolean}
+     */
+    static leavesSide(rect1, rect2, side) {
+        if (Rectangle.includes(rect1, rect2)) {
+            return false;
+        }
+
+        if (side === 'bottom') {
+            return rect1.bottom < rect2.bottom;
+        }
+
+        if (side === 'left') {
+            return rect1.left > rect2.left;
+        }
+
+        if (side === 'right') {
+            return rect1.right < rect2.right;
+        }
+
+        if (side === 'top') {
+            return rect1.top > rect2.top;
+        }
+    }
+
+    /**
      * Adjusts a DOMRect object to a new position
      * @param {Object} rect
      * @param {Number|null} [x=null]
