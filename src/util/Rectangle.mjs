@@ -27,6 +27,19 @@ class Rectangle extends Base {
     }
 
     /**
+     * Checks if rect1 does not have an intersection with rect2
+     * @param {Object} rect1
+     * @param {Object} rect2
+     * @returns {Boolean}
+     */
+    static excludes(rect1, rect2) {
+        return rect1.bottom < rect2.top     // rect2 is below rect1
+            || rect1.left   > rect2.right   // rect2 is left of rect1
+            || rect1.right  < rect2.left    // rect2 is right of rect1
+            || rect1.top    > rect2.bottom; // rect2 is above rect1
+    }
+
+    /**
      * Adjusts a DOMRect object to a new position
      * @param {Object} rect
      * @param {Number|null} [x=null]
