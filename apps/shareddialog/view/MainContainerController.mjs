@@ -155,7 +155,7 @@ class MainContainerController extends ComponentController {
 
         console.log(proxyRect); // todo: use the full window rect, not just the dragZone (header toolbar)
 
-        if (Rectangle.contains(me.mainWindowRect, proxyRect)) {
+        if (Rectangle.includes(me.mainWindowRect, proxyRect)) {
             console.log('dialog contained inside main window')
             console.log(data.clientX - Math.round(data.offsetX));
         }
