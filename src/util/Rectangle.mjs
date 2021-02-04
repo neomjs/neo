@@ -14,20 +14,8 @@ class Rectangle extends Base {
     }}
 
     /**
-     * Checks if rect2 is contained inside rect1
-     * @param {Object} rect1
-     * @param {Object} rect2
-     * @returns {Boolean}
-     */
-    static contains(rect1, rect2) {
-        return rect1.bottom >= rect2.bottom
-            && rect1.left   <= rect2.left
-            && rect1.right  >= rect2.right
-            && rect1.top    <= rect2.top;
-    }
-
-    /**
      * Checks if rect1 does not have an intersection with rect2
+     * !includes() is true for intersections as well
      * @param {Object} rect1
      * @param {Object} rect2
      * @returns {Boolean}
@@ -37,6 +25,19 @@ class Rectangle extends Base {
             || rect1.left   > rect2.right   // rect2 is left of rect1
             || rect1.right  < rect2.left    // rect2 is right of rect1
             || rect1.top    > rect2.bottom; // rect2 is above rect1
+    }
+
+    /**
+     * Checks if rect2 is fully contained inside rect1
+     * @param {Object} rect1
+     * @param {Object} rect2
+     * @returns {Boolean}
+     */
+    static includes(rect1, rect2) {
+        return rect1.bottom >= rect2.bottom
+            && rect1.left   <= rect2.left
+            && rect1.right  >= rect2.right
+            && rect1.top    <= rect2.top;
     }
 
     /**
