@@ -170,9 +170,13 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onDragStart(data) {
-        for (const item of data.path) {
-            if (item.tagName === 'body') {
-                this.mainWindowRect = item.rect;
+        let me = this;
+
+        for (let item of data.path) {
+            if (item.cls.includes('neo-dialog')) {
+                me.dialogRect = item.rect;
+            } else if (item.tagName === 'body') {
+                me.mainWindowRect = item.rect;
                 break;
             }
         }
