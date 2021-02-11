@@ -155,13 +155,17 @@ class MainContainerController extends ComponentController {
      */
     onDragMove(data) {
         let me        = this,
-            proxyRect = Rectangle.moveTo(me.dialog.dragZone.dragElementRect, data.clientX - data.offsetX, data.clientY - data.offsetY);
-
-        console.log(proxyRect); // todo: use the full window rect, not just the dragZone (header toolbar)
+            proxyRect = Rectangle.moveTo(me.dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY);
 
         if (Rectangle.includes(me.mainWindowRect, proxyRect)) {
-            console.log('dialog contained inside main window')
-            console.log(data.clientX - Math.round(data.offsetX));
+            console.log('include');
+            // todo: remove the proxy from the docked window, in case it exists
+        } else if (Rectangle.excludes(me.mainWindowRect, proxyRect)) {
+            console.log('exclude');
+            // todo: remove the proxy from the docked window, in case it exists
+        } else if (Rectangle.leavesSide(me.mainWindowRect, proxyRect, 'right')) {
+            console.log('leavesSide');
+            // todo: add the proxy to the docked window, in case it does not exist
         }
     }
 
