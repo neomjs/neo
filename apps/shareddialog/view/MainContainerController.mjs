@@ -36,6 +36,10 @@ class MainContainerController extends ComponentController {
          */
         dockedWindowSize: 500,
         /**
+         * @member {Object} dialogRect=null
+         */
+        dialogRect: null,
+        /**
          * @member {Object} mainWindowRect=null
          */
         mainWindowRect: null
