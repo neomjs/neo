@@ -112,8 +112,8 @@ class Rectangle extends Base {
         }
 
         if (Neo.isNumber(y)) {
-            movedRect.bottom = y;
-            movedRect.top    = y + movedRect.height;
+            movedRect.bottom = y + movedRect.height;
+            movedRect.top    = y;
             movedRect.y      = y;
         }
 
