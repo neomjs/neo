@@ -33,9 +33,9 @@ class MainContainerController extends ComponentController {
          */
         defaultTheme: 'neo-theme-light',
         /**
-         * @member {Object|null} dockedWindowProxyVdom=null
+         * @member {Neo.component.Base|null} dockedWindowProxy=null
          */
-        dockedWindowProxyVdom: null,
+        dockedWindowProxy: null,
         /**
          * @member {Number} dockedWindowSize=400
          */
@@ -162,7 +162,8 @@ class MainContainerController extends ComponentController {
         let me             = this,
             dialogRect     = me.dialogRect,
             mainWindowRect = me.mainWindowRect,
-            proxyRect      = Rectangle.moveTo(dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY);
+            proxyRect      = Rectangle.moveTo(dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
+            style, vdom;
 
         if (Rectangle.includes(mainWindowRect, proxyRect)) {
             console.log('include');
@@ -174,33 +175,36 @@ class MainContainerController extends ComponentController {
             console.log('leavesSide');
             // todo: add the proxy to the docked window, in case it does not exist
 
-            if (!me.dockedWindowProxyVdom) {
-                me.dockedWindowProxyVdom = Neo.clone(me.dialog.vdom, true);
+            if (!me.dockedWindowProxy) {
+                vdom = Neo.clone(me.dialog.dragZone.dragProxy.vdom, true);
 
-                Object.assign(me.dockedWindowProxyVdom.style, {
-                    height  : `${dialogRect.height}px`,
-                    left    : `${proxyRect.left - mainWindowRect.width + 100}px`,
-                    opacity : 1,
-                    position: 'absolute',
-                    top     : `${proxyRect.top}px`,
-                    width   : `${dialogRect.width}px`
+                delete vdom.id;
+
+                Object.assign(vdom.style, {
+                    left              : `${proxyRect.left - mainWindowRect.width}px`,
+                    top               : `${proxyRect.top}px`,
+                    transform         : 'none',
+                    transitionProperty: 'none'
                 });
 
-                Neo.create({
+                me.dockedWindowProxy = Neo.create({
                     module    : Component,
                     appName   : 'SharedDialog2',
                     autoMount : true,
                     autoRender: true,
+                    cls       : ['neo-dialog-wrapper'],
                     renderTo  : 'document.body',
-                    vdom      : me.dockedWindowProxyVdom
+                    vdom      : vdom
                 });
-
-                console.log(proxyRect.top);
             } else {
-                Object.assign(me.dockedWindowProxyVdom.style, {
+                style = me.dockedWindowProxy.style || {};
+
+                Object.assign(style, {
                     left: `${proxyRect.left -mainWindowRect.width}px`,
                     top : `${proxyRect.top}px`
                 });
+
+                me.dockedWindowProxy.style = style;
             }
         }
     }
