@@ -1,4 +1,5 @@
 import Button                  from '../../../src/button/Base.mjs';
+import CheckBox                from '../../../src/form/field/CheckBox.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import Toolbar                 from '../../../src/container/Toolbar.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
@@ -50,6 +51,27 @@ class MainContainer extends Viewport {
                 iconCls: 'fa fa-window-restore',
                 style  : {marginLeft: '1em'},
                 text   : 'Open docked Window'
+            }]
+        }, {
+            ntype: 'container',
+            flex : 'none',
+
+            itemDefaults: {
+                module        : CheckBox,
+                hideValueLabel: false,
+                labelText     : '',
+                labelWidth    : 50
+            },
+
+            items: [{
+                labelText     : 'Dock',
+                valueLabelText: 'Top'
+            }, {
+                valueLabelText: 'Right'
+            }, {
+                valueLabelText: 'Bottom'
+            }, {
+                valueLabelText: 'Left'
             }]
         }, {
             ntype: 'component',
