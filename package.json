@@ -43,7 +43,7 @@
         "envinfo": "^7.7.4",
         "fs-extra": "^9.1.0",
         "highlightjs-line-numbers.js": "^2.8.0",
-        "html-webpack-plugin": "^5.0.0",
+        "html-webpack-plugin": "^5.1.0",
         "inquirer": "^7.3.3",
         "jsdoc": "^3.6.6",
         "jsdoc-x": "^4.1.0",
