@@ -47,7 +47,12 @@ class MainContainerController extends ComponentController {
         /**
          * @member {Object} mainWindowRect=null
          */
-        mainWindowRect: null
+        mainWindowRect: null,
+        /**
+         * Valid values: bottom, left, right, top
+         * @member {String} windowDockSide_='right'
+         */
+        windowDockSide_: 'right'
     }}
 
     /**
@@ -64,6 +69,17 @@ class MainContainerController extends ComponentController {
             dragZoneCreated: me.onDragZoneCreated,
             scope          : me
         });
+    }
+
+
+    /**
+     * Triggered after the windowDockSide config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetWindowDockSide(value, oldValue) {
+        console.log('afterSetWindowDockSide', value);
     }
 
     /**
@@ -160,7 +176,7 @@ class MainContainerController extends ComponentController {
      */
     onDockedPositionChange(data) {
         if (data.value === true) {
-            console.log('onDockedPositionChange', data.component.value);
+            this.windowDockSide = data.component.value;
         }
     }
 
