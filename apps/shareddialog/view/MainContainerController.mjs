@@ -273,14 +273,31 @@ class MainContainerController extends ComponentController {
 
     /**
      * Creates a new popup window, which is initially docked to the right side of the main window
-     * @param {Object} data
+     * @param {Object} handlerData
      */
-    openDockedWindow(data) {
+    openDockedWindow(handlerData) {
         Neo.Main.getWindowData().then(data => {
-            let height = data.outerHeight - 78,
-                left   = data.outerWidth  + data.screenLeft,
+            let dock   = this.windowDockSide,
+                height = data.outerHeight - 78,
                 size   = this.dockedWindowSize,
-                top    = data.screenTop   + 28;
+                left, top;
+
+            switch (dock) {
+                case 'bottom':
+                    // todo
+                    break;
+                case 'left':
+                    left = data.screenLeft - size;
+                    top  = data.screenTop  + 28;
+                    break;
+                case 'right':
+                    left = data.outerWidth + data.screenLeft;
+                    top  = data.screenTop  + 28;
+                    break;
+                case 'top':
+                    // todo
+                    break;
+            }
 
             Neo.Main.windowOpen({
                 url           : '../shareddialog2/index.html',
@@ -289,7 +306,7 @@ class MainContainerController extends ComponentController {
             });
 
             Neo.main.addon.WindowPosition.registerWindow({
-                dock: 'right',
+                dock: dock,
                 name: 'SharedDialog2',
                 size: size
             });
