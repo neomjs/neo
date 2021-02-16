@@ -37,9 +37,9 @@ class MainContainerController extends ComponentController {
          */
         dockedWindowProxy: null,
         /**
-         * @member {Number} dockedWindowSize=200
+         * @member {Number} dockedWindowSize=300
          */
-        dockedWindowSize: 200,
+        dockedWindowSize: 300,
         /**
          * @member {Object} dialogRect=null
          */
