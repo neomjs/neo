@@ -81,6 +81,7 @@ class MainContainer extends Viewport {
                     labelText     : 'Dock',
                     valueLabelText: 'Top'
                 }, {
+                    checked       : true,
                     valueLabelText: 'Right'
                 }, {
                     valueLabelText: 'Bottom'
