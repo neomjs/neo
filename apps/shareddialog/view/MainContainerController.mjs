@@ -283,7 +283,10 @@ class MainContainerController extends ComponentController {
 
             switch (dock) {
                 case 'bottom':
-                    // todo
+                    height = size;
+                    left   = data.screenLeft;
+                    top    = data.outerHeight + data.screenTop - 52;
+                    width  = data.outerWidth;
                     break;
                 case 'left':
                     height = data.outerHeight - 78;
