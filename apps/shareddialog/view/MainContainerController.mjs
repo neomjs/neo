@@ -37,6 +37,11 @@ class MainContainerController extends ComponentController {
          */
         dockedWindowProxy: null,
         /**
+         * Valid values: bottom, left, right, top
+         * @member {String} dockedWindowSide_='right'
+         */
+        dockedWindowSide_: 'right',
+        /**
          * @member {Number} dockedWindowSize=300
          */
         dockedWindowSize: 300,
@@ -47,12 +52,7 @@ class MainContainerController extends ComponentController {
         /**
          * @member {Object} mainWindowRect=null
          */
-        mainWindowRect: null,
-        /**
-         * Valid values: bottom, left, right, top
-         * @member {String} windowDockSide_='right'
-         */
-        windowDockSide_: 'right'
+        mainWindowRect: null
     }}
 
     /**
@@ -73,13 +73,14 @@ class MainContainerController extends ComponentController {
 
 
     /**
-     * Triggered after the windowDockSide config got changed
+     * Triggered after the dockedWindowSide config got changed
      * @param {String} value
      * @param {String} oldValue
      * @protected
      */
-    afterSetWindowDockSide(value, oldValue) {
-        console.log('afterSetWindowDockSide', value);
+    afterSetDockedWindowSide(value, oldValue) {
+        console.log('afterSetDockedWindowSide', value);
+        // todo: move & resize the window (logic should happen inside Neo.main.addon.WindowPosition
     }
 
     /**
@@ -176,7 +177,7 @@ class MainContainerController extends ComponentController {
      */
     onDockedPositionChange(data) {
         if (data.value === true) {
-            this.windowDockSide = data.component.value;
+            this.dockedWindowSide = data.component.value;
         }
     }
 
@@ -277,7 +278,7 @@ class MainContainerController extends ComponentController {
      */
     openDockedWindow(handlerData) {
         Neo.Main.getWindowData().then(data => {
-            let dock   = this.windowDockSide,
+            let dock   = this.dockedWindowSide,
                 size   = this.dockedWindowSize,
                 height, left, top, width;
 
