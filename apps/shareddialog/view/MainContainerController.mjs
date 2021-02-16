@@ -158,6 +158,14 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} data
      */
+    onDockedPositionChange(data) {
+        console.log('onDockedPositionChange', data);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onDragMove(data) {
         let me             = this,
             dialogRect     = me.dialogRect,

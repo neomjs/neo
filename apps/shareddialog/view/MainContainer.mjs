@@ -74,7 +74,11 @@ class MainContainer extends Viewport {
                     hideValueLabel: false,
                     labelText     : '',
                     labelWidth    : 50,
-                    name          : 'dockedPosition'
+                    name          : 'dockedPosition',
+
+                    listeners: {
+                        change: 'onDockedPositionChange'
+                    }
                 },
 
                 items: [{
