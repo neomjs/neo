@@ -159,7 +159,9 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onDockedPositionChange(data) {
-        console.log('onDockedPositionChange', data);
+        if (data.value === true) {
+            console.log('onDockedPositionChange', data.component.value);
+        }
     }
 
     /**
