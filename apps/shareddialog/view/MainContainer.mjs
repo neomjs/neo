@@ -1,5 +1,5 @@
 import Button                  from '../../../src/button/Base.mjs';
-import CheckBox                from '../../../src/form/field/CheckBox.mjs';
+import Radio                   from '../../../src/form/field/Radio.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import Toolbar                 from '../../../src/container/Toolbar.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
@@ -70,10 +70,11 @@ class MainContainer extends Viewport {
                 flex : 'none',
 
                 itemDefaults: {
-                    module        : CheckBox,
+                    module        : Radio,
                     hideValueLabel: false,
                     labelText     : '',
-                    labelWidth    : 50
+                    labelWidth    : 50,
+                    name          : 'dockedPosition'
                 },
 
                 items: [{
