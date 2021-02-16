@@ -53,25 +53,39 @@ class MainContainer extends Viewport {
                 text   : 'Open docked Window'
             }]
         }, {
-            ntype: 'container',
-            flex : 'none',
+            ntype : 'container',
+            flex  : 'none',
+            layout: 'hbox',
 
-            itemDefaults: {
-                module        : CheckBox,
-                hideValueLabel: false,
-                labelText     : '',
-                labelWidth    : 50
+            style: {
+                marginRight: '1em',
+                marginTop  : '1em'
             },
 
-            items: [{
-                labelText     : 'Dock',
-                valueLabelText: 'Top'
+            items : [{
+                ntype: 'component',
+                flex : 1
             }, {
-                valueLabelText: 'Right'
-            }, {
-                valueLabelText: 'Bottom'
-            }, {
-                valueLabelText: 'Left'
+                ntype: 'container',
+                flex : 'none',
+
+                itemDefaults: {
+                    module        : CheckBox,
+                    hideValueLabel: false,
+                    labelText     : '',
+                    labelWidth    : 50
+                },
+
+                items: [{
+                    labelText     : 'Dock',
+                    valueLabelText: 'Top'
+                }, {
+                    valueLabelText: 'Right'
+                }, {
+                    valueLabelText: 'Bottom'
+                }, {
+                    valueLabelText: 'Left'
+                }]
             }]
         }, {
             ntype: 'component',
