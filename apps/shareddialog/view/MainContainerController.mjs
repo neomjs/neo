@@ -37,9 +37,9 @@ class MainContainerController extends ComponentController {
          */
         dockedWindowProxy: null,
         /**
-         * @member {Number} dockedWindowSize=400
+         * @member {Number} dockedWindowSize=200
          */
-        dockedWindowSize: 500,
+        dockedWindowSize: 200,
         /**
          * @member {Object} dialogRect=null
          */
@@ -278,30 +278,36 @@ class MainContainerController extends ComponentController {
     openDockedWindow(handlerData) {
         Neo.Main.getWindowData().then(data => {
             let dock   = this.windowDockSide,
-                height = data.outerHeight - 78,
                 size   = this.dockedWindowSize,
-                left, top;
+                height, left, top, width;
 
             switch (dock) {
                 case 'bottom':
                     // todo
                     break;
                 case 'left':
-                    left = data.screenLeft - size;
-                    top  = data.screenTop  + 28;
+                    height = data.outerHeight - 78;
+                    left   = data.screenLeft - size;
+                    top    = data.screenTop  + 28;
+                    width  = size;
                     break;
                 case 'right':
-                    left = data.outerWidth + data.screenLeft;
-                    top  = data.screenTop  + 28;
+                    height = data.outerHeight - 78;
+                    left   = data.outerWidth + data.screenLeft;
+                    top    = data.screenTop  + 28;
+                    width  = size;
                     break;
                 case 'top':
-                    // todo
+                    height = size;
+                    left   = data.screenLeft;
+                    top    = data.screenTop  - size - 52;
+                    width  = data.outerWidth;
                     break;
             }
 
             Neo.Main.windowOpen({
                 url           : '../shareddialog2/index.html',
-                windowFeatures: `height=${height},left=${left},top=${top},width=${size}`,
+                windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
                 windowName    : 'SharedDialog2'
             });
 
