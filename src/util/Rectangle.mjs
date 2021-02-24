@@ -34,7 +34,7 @@ class Rectangle extends Base {
      * @returns {Number} The area (x * y)
      */
     static getIntersection(rect1, rect2) {
-        return Rectangle.getIntersectionDetails(rect1, rect2).square;
+        return Rectangle.getIntersectionDetails(rect1, rect2).area;
     }
 
     /**
