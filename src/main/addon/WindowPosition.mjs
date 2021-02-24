@@ -22,6 +22,10 @@ class WindowPosition extends Base {
          */
         intervalTime: 20,
         /**
+         * @member {Object|null} lastPosition=null
+         */
+        lastPosition: null,
+        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
@@ -75,34 +79,52 @@ class WindowPosition extends Base {
      */
     adjustPositions(data) {
         let me = this,
-            left, top;
+            position;
+
+        me.lastPosition = data;
 
         Object.entries(me.windows).forEach(([key, value]) => {
-            switch (value.dock) {
-                case 'bottom':
-                    left = data.screenLeft;
-                    top  = data.outerHeight  + data.screenTop - 50;
-                    break;
-                case 'left':
-                    left = data.screenLeft - value.size;
-                    top  = data.screenTop  + 28;
-                    break;
-                case 'right':
-                    left = data.outerWidth + data.screenLeft;
-                    top  = data.screenTop  + 28;
-                    break;
-                case 'top':
-                    left = data.screenLeft;
-                    top  = data.screenTop - value.size;
-                    break;
-            }
+            position = me.getPosition(value.dock);
 
             Neo.Main.windowMoveTo({
                 windowName: key,
-                x         : left,
-                y         : top
+                x         : position.left,
+                y         : position.top
             });
         });
+    }
+
+    /**
+     *
+     * @param {String} dock
+     */
+    getPosition(dock) {
+        let data = this.lastPosition,
+            left, top;
+
+        switch (dock) {
+            case 'bottom':
+                left = data.screenLeft;
+                top  = data.outerHeight  + data.screenTop - 50;
+                break;
+            case 'left':
+                left = data.screenLeft - value.size;
+                top  = data.screenTop  + 28;
+                break;
+            case 'right':
+                left = data.outerWidth + data.screenLeft;
+                top  = data.screenTop  + 28;
+                break;
+            case 'top':
+                left = data.screenLeft;
+                top  = data.screenTop - value.size;
+                break;
+        }
+
+        return {
+            left: left,
+            top : top
+        };
     }
 
     /**
