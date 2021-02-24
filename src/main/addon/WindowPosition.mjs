@@ -72,7 +72,7 @@ class WindowPosition extends Base {
      *
      * @param {Object} data
      */
-    adjustPosition(data) {
+    adjustPositions(data) {
         let me = this,
             left, top;
 
@@ -118,7 +118,7 @@ class WindowPosition extends Base {
         if (me.screenLeft !== screenLeft || me.screenTop !== screenTop) {
             winData = Neo.Main.getWindowData();
 
-            me.adjustPosition(winData);
+            me.adjustPositions(winData);
 
             Manager.sendMessage('app', {
                 action: 'windowPositionChange',
@@ -178,7 +178,7 @@ class WindowPosition extends Base {
             });
         });
 
-        me.adjustPosition(winData);
+        me.adjustPositions(winData);
     }
 
     /**
