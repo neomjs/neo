@@ -22,10 +22,6 @@ class WindowPosition extends Base {
          */
         intervalTime: 20,
         /**
-         * @member {Object|null} lastPosition=null
-         */
-        lastPosition: null,
-        /**
          * Remote method access for other workers
          * @member {Object} remote
          * @protected
@@ -78,13 +74,10 @@ class WindowPosition extends Base {
      * @param {Object} data
      */
     adjustPositions(data) {
-        let me = this,
-            position;
+        let position;
 
-        me.lastPosition = data;
-
-        Object.entries(me.windows).forEach(([key, value]) => {
-            position = me.getPosition(value.dock);
+        Object.entries(this.windows).forEach(([key, value]) => {
+            position = this.getPosition(value);
 
             Neo.Main.windowMoveTo({
                 windowName: key,
@@ -96,28 +89,28 @@ class WindowPosition extends Base {
 
     /**
      *
-     * @param {String} dock
+     * @param {Object} data
      */
-    getPosition(dock) {
-        let data = this.lastPosition,
+    getPosition(data) {
+        let win = window,
             left, top;
 
-        switch (dock) {
+        switch (data.dock) {
             case 'bottom':
-                left = data.screenLeft;
-                top  = data.outerHeight  + data.screenTop - 50;
+                left = win.screenLeft;
+                top  = win.outerHeight  + win.screenTop - 50;
                 break;
             case 'left':
-                left = data.screenLeft - value.size;
-                top  = data.screenTop  + 28;
+                left = win.screenLeft - data.size;
+                top  = win.screenTop  + 28;
                 break;
             case 'right':
-                left = data.outerWidth + data.screenLeft;
-                top  = data.screenTop  + 28;
+                left = win.outerWidth + win.screenLeft;
+                top  = win.screenTop  + 28;
                 break;
             case 'top':
-                left = data.screenLeft;
-                top  = data.screenTop - value.size;
+                left = win.screenLeft;
+                top  = win.screenTop - data.size;
                 break;
         }
 
@@ -222,17 +215,19 @@ class WindowPosition extends Base {
      * @param {String} data.name
      */
     setDock(data) {
-        let me = this;
+        let me = this,
+            position;
 
         Object.entries(me.windows).forEach(([key, value]) => {
             if (data.name === value.name) {
                 value.dock = data.dock;
-                console.log(data);
+
+                position = me.getPosition(value);
 
                 Neo.Main.windowMoveTo({
                     windowName: key,
-                    x         : 100,
-                    y         : 100
+                    x         : position.left,
+                    y         : position.top
                 });
             }
         });
