@@ -29,6 +29,7 @@ class WindowPosition extends Base {
         remote: {
             app: [
                 'registerWindow',
+                'setDock',
                 'unregisterWindow'
             ]
         },
@@ -190,6 +191,29 @@ class WindowPosition extends Base {
      */
     registerWindow(data) {
         this.windows[data.name] = data;
+    }
+
+    /**
+     * Docks an existing window to a new side
+     * @param {Object} data
+     * @param {String} data.dock
+     * @param {String} data.name
+     */
+    setDock(data) {
+        let me = this;
+
+        Object.entries(me.windows).forEach(([key, value]) => {
+            if (data.name === value.name) {
+                value.dock = data.dock;
+                console.log(data);
+
+                Neo.Main.windowMoveTo({
+                    windowName: key,
+                    x         : 100,
+                    y         : 100
+                });
+            }
+        });
     }
 
     /**

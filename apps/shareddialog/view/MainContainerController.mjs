@@ -71,7 +71,6 @@ class MainContainerController extends ComponentController {
         });
     }
 
-
     /**
      * Triggered after the dockedWindowSide config got changed
      * @param {String} value
@@ -79,8 +78,12 @@ class MainContainerController extends ComponentController {
      * @protected
      */
     afterSetDockedWindowSide(value, oldValue) {
-        console.log('afterSetDockedWindowSide', value);
-        // todo: move & resize the window (logic should happen inside Neo.main.addon.WindowPosition
+        if (this.connectedApps.includes('SharedDialog2')) {
+            Neo.main.addon.WindowPosition.setDock({
+                name: 'SharedDialog2',
+                dock: value
+            });
+        }
     }
 
     /**
