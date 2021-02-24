@@ -78,9 +78,11 @@ class MainContainerController extends ComponentController {
      * @protected
      */
     afterSetDockedWindowSide(value, oldValue) {
-        if (this.connectedApps.includes('SharedDialog2')) {
+        let appName = 'SharedDialog2';
+
+        if (this.connectedApps.includes(appName)) {
             Neo.main.addon.WindowPosition.setDock({
-                name: 'SharedDialog2',
+                name: appName,
                 dock: value
             });
         }
