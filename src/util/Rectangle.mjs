@@ -28,6 +28,33 @@ class Rectangle extends Base {
     }
 
     /**
+     * Returns the overlapping area of rect1 & rect2
+     * @param {Object} rect1
+     * @param {Object} rect2
+     * @returns {Number} The area (x * y)
+     */
+    static getIntersection(rect1, rect2) {
+        return Rectangle.getIntersectionDetails(rect1, rect2).square;
+    }
+
+    /**
+     * Returns the overlapping area of rect1 & rect2
+     * @param {Object} rect1
+     * @param {Object} rect2
+     * @returns {Object} x, y & area
+     */
+    static getIntersectionDetails(rect1, rect2) {
+        let x = Math.max(0, rect1.left - rect2.left + rect1.width  - rect2.width),
+            y = Math.max(0, rect1.top  - rect2.top  + rect1.height - rect2.height);
+
+        return {
+            area: x * y,
+            x   : x,
+            y   : y
+        };
+    }
+
+    /**
      * Checks if rect2 is fully contained inside rect1
      * @param {Object} rect1
      * @param {Object} rect2
