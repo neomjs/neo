@@ -98,7 +98,7 @@ class WindowPosition extends Base {
         switch (data.dock) {
             case 'bottom':
                 left = win.screenLeft;
-                top  = win.outerHeight  + win.screenTop - 50;
+                top  = win.outerHeight + win.screenTop - 50;
                 break;
             case 'left':
                 left = win.screenLeft - data.size;
