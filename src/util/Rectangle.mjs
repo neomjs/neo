@@ -1,6 +1,7 @@
 import Base from '../core/Base.mjs';
 
 /**
+ * The class contains utility methods for working with DOMRect Objects
  * @class Neo.util.Rectangle
  * @extends Neo.core.Base
  */
