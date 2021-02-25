@@ -150,6 +150,18 @@ class WindowPosition extends Base {
     }
 
     /**
+     * Returns true in case the dock direction changes from horizontal (left, right)
+     * to vertical (bottom, top) or vice versa.
+     * @param {String} oldValue
+     * @param {String} newValue
+     * @returns {Boolean}
+     */
+    dockDirectionChange(oldValue, newValue) {
+        return (oldValue === 'bottom' || oldValue === 'top') && (newValue === 'left' || newValue === 'right')
+            || (newValue === 'bottom' || newValue === 'top') && (oldValue === 'left' || oldValue === 'right');
+    }
+
+    /**
      *
      * @param {MouseEvent} event
      */
@@ -221,7 +233,6 @@ class WindowPosition extends Base {
 
         if (win) {
             win.dock = data.dock;
-
             position = me.getPosition(win);
 
             Neo.Main.windowMoveTo({
