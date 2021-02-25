@@ -215,22 +215,21 @@ class WindowPosition extends Base {
      * @param {String} data.name
      */
     setDock(data) {
-        let me = this,
+        let me  = this,
+            win = me.windows[data.name],
             position;
 
-        Object.entries(me.windows).forEach(([key, value]) => {
-            if (data.name === value.name) {
-                value.dock = data.dock;
+        if (win) {
+            win.dock = data.dock;
 
-                position = me.getPosition(value);
+            position = me.getPosition(win);
 
-                Neo.Main.windowMoveTo({
-                    windowName: key,
-                    x         : position.left,
-                    y         : position.top
-                });
-            }
-        });
+            Neo.Main.windowMoveTo({
+                windowName: data.name,
+                x         : position.left,
+                y         : position.top
+            });
+        }
     }
 
     /**
