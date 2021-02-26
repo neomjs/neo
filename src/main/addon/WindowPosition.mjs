@@ -89,39 +89,6 @@ class WindowPosition extends Base {
 
     /**
      *
-     * @param {Object} data
-     */
-    getPosition(data) {
-        let win = window,
-            left, top;
-
-        switch (data.dock) {
-            case 'bottom':
-                left = win.screenLeft;
-                top  = win.outerHeight + win.screenTop - 50;
-                break;
-            case 'left':
-                left = win.screenLeft - data.size;
-                top  = win.screenTop  + 28;
-                break;
-            case 'right':
-                left = win.outerWidth + win.screenLeft;
-                top  = win.screenTop  + 28;
-                break;
-            case 'top':
-                left = win.screenLeft;
-                top  = win.screenTop - data.size;
-                break;
-        }
-
-        return {
-            left: left,
-            top : top
-        };
-    }
-
-    /**
-     *
      */
     checkMovement() {
         let me         = this,
@@ -159,6 +126,39 @@ class WindowPosition extends Base {
     dockDirectionChange(oldValue, newValue) {
         return (oldValue === 'bottom' || oldValue === 'top') && (newValue === 'left' || newValue === 'right')
             || (newValue === 'bottom' || newValue === 'top') && (oldValue === 'left' || oldValue === 'right');
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    getPosition(data) {
+        let win = window,
+            left, top;
+
+        switch (data.dock) {
+            case 'bottom':
+                left = win.screenLeft;
+                top  = win.outerHeight + win.screenTop - 50;
+                break;
+            case 'left':
+                left = win.screenLeft - data.size;
+                top  = win.screenTop  + 28;
+                break;
+            case 'right':
+                left = win.outerWidth + win.screenLeft;
+                top  = win.screenTop  + 28;
+                break;
+            case 'top':
+                left = win.screenLeft;
+                top  = win.screenTop - data.size;
+                break;
+        }
+
+        return {
+            left: left,
+            top : top
+        };
     }
 
     /**
