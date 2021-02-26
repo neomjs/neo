@@ -247,7 +247,7 @@ class WindowPosition extends Base {
 
             if (dockDirectionChange) {
                 Neo.Main.windowResizeTo({
-                    height    : dock === 'bottom' || dock === 'top'   ? win.size : window.outerHeight,
+                    height    : dock === 'bottom' || dock === 'top'   ? win.size : window.outerHeight - 28,
                     width     : dock === 'left'   || dock === 'right' ? win.size : window.outerWidth,
                     windowName: name
                 });
