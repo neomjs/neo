@@ -37,7 +37,7 @@ class MainContainer extends Viewport {
             items :[{
                 module : Button,
                 handler: 'createDialog',
-                iconCls: 'fa fa-window-maximize',
+                iconCls: 'far fa-window-maximize',
                 text   : 'Create Dialog',
             }]
         }, {

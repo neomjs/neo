@@ -38,7 +38,7 @@ class MainContainer extends Viewport {
             items :[{
                 module : Button,
                 handler: 'createDialog',
-                iconCls: 'fa fa-window-maximize',
+                iconCls: 'far fa-window-maximize',
                 text   : 'Create Dialog',
             }, '->', {
                 module : Button,
@@ -48,7 +48,7 @@ class MainContainer extends Viewport {
             }, {
                 module : Button,
                 handler: 'openDockedWindow',
-                iconCls: 'fa fa-window-restore',
+                iconCls: 'far fa-window-restore',
                 style  : {marginLeft: '1em'},
                 text   : 'Open docked Window'
             }]

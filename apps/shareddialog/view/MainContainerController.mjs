@@ -124,7 +124,7 @@ class MainContainerController extends ComponentController {
      * @returns {Neo.button.Base}
      */
     getSecondWindowButton() {
-        return this.view.down({iconCls: 'fa fa-window-restore'});
+        return this.view.down({iconCls: 'far fa-window-restore'});
     }
 
     /**
