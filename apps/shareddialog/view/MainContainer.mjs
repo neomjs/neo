@@ -58,7 +58,7 @@ class MainContainer extends Viewport {
             layout: 'hbox',
 
             style: {
-                height     : '100px',
+                height     : '72px',
                 marginRight: '1em',
                 marginTop  : '1em'
             },
@@ -109,7 +109,7 @@ class MainContainer extends Viewport {
                 display       : 'flex',
                 fontSize      : '200px',
                 justifyContent: 'center',
-                marginBottom  : '116px',
+                marginBottom  : '88px',
                 userSelect    : 'none'
             }
         }]
