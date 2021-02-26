@@ -216,7 +216,7 @@ class WindowPosition extends Base {
      * @param {String} data.name
      * @param {Number} data.size
      */
-    registerWindow(data) {console.log(data);
+    registerWindow(data) {
         this.windows[data.name] = data;
     }
 
@@ -239,12 +239,6 @@ class WindowPosition extends Base {
             win.dock = dock;
             position = me.getPosition(win);
 
-            Neo.Main.windowMoveTo({
-                windowName: name,
-                x         : position.left,
-                y         : position.top
-            });
-
             if (dockDirectionChange) {
                 Neo.Main.windowResizeTo({
                     height    : dock === 'bottom' || dock === 'top'   ? win.size : window.outerHeight - 28,
@@ -252,6 +246,12 @@ class WindowPosition extends Base {
                     windowName: name
                 });
             }
+
+            Neo.Main.windowMoveTo({
+                windowName: name,
+                x         : position.left,
+                y         : position.top
+            });
         }
     }
 
