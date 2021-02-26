@@ -71,9 +71,8 @@ class WindowPosition extends Base {
 
     /**
      *
-     * @param {Object} data
      */
-    adjustPositions(data) {
+    adjustPositions() {
         let position;
 
         Object.entries(this.windows).forEach(([key, value]) => {
@@ -101,7 +100,7 @@ class WindowPosition extends Base {
         if (me.screenLeft !== screenLeft || me.screenTop !== screenTop) {
             winData = Neo.Main.getWindowData();
 
-            me.adjustPositions(winData);
+            me.adjustPositions();
 
             Manager.sendMessage('app', {
                 action: 'windowPositionChange',
@@ -183,19 +182,19 @@ class WindowPosition extends Base {
      * @param {Object} event
      */
     onResize(event) {
-        let me      = this,
-            winData = Neo.Main.getWindowData(), // todo: use window instead
+        let me  = this,
+            win = window,
             height, width;
 
         Object.entries(me.windows).forEach(([key, value]) => {
             switch (value.dock) {
                 case 'bottom':
                 case 'top':
-                    width = winData.outerWidth;
+                    width = win.outerWidth;
                     break;
                 case 'left':
                 case 'right':
-                    height = winData.outerHeight - 28;
+                    height = win.outerHeight - 28;
                     break;
             }
 
@@ -206,7 +205,7 @@ class WindowPosition extends Base {
             });
         });
 
-        me.adjustPositions(winData);
+        me.adjustPositions();
     }
 
     /**
