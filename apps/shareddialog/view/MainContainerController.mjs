@@ -42,9 +42,9 @@ class MainContainerController extends ComponentController {
          */
         dockedWindowSide_: 'right',
         /**
-         * @member {Number} dockedWindowSize=300
+         * @member {Number} dockedWindowSize=500
          */
-        dockedWindowSize: 300,
+        dockedWindowSize: 500,
         /**
          * @member {Object} dialogRect=null
          */
