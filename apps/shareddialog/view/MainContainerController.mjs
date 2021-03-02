@@ -142,6 +142,10 @@ class MainContainerController extends ComponentController {
                 left = `${proxyRect.left - mainWindowRect.width}px`;
                 top  = `${proxyRect.top}px`;
                 break;
+            case 'top':
+                left = `${proxyRect.left}px`;
+                top  = `${me.dockedWindowSize + proxyRect.top}px`;
+                break;
         }
 
         return {
