@@ -121,6 +121,33 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @param {Object} proxyRect
+     * @returns {{left: String, top: String}}
+     */
+    getProxyPosition(proxyRect) {
+        let me             = this,
+            mainWindowRect = me.mainWindowRect,
+            left, top;
+
+        switch(me.dockedWindowSide) {
+            case 'left':
+                left = `${proxyRect.left - mainWindowRect.width}px`;
+                top  = `${proxyRect.top}px`;
+                break;
+            case 'right':
+                left = `${proxyRect.left - mainWindowRect.width}px`;
+                top  = `${proxyRect.top}px`;
+                break;
+        }
+
+        return {
+            left: left,
+            top : top
+        };
+    }
+
+    /**
+     *
      * @returns {Neo.button.Base}
      */
     getSecondWindowButton() {
@@ -195,7 +222,7 @@ class MainContainerController extends ComponentController {
             dialogRect     = me.dialogRect,
             mainWindowRect = me.mainWindowRect,
             proxyRect      = Rectangle.moveTo(dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
-            style, vdom;
+            proxyPosition, vdom;
 
         if (Rectangle.includes(mainWindowRect, proxyRect)) {
             console.log('include');
@@ -206,14 +233,15 @@ class MainContainerController extends ComponentController {
         }
 
         if (Rectangle.leavesSide(mainWindowRect, proxyRect, me.dockedWindowSide)) {
+            proxyPosition = me.getProxyPosition(proxyRect);
+
             if (!me.dockedWindowProxy) {
                 vdom = Neo.clone(me.dialog.dragZone.dragProxy.vdom, true);
 
                 delete vdom.id;
 
                 Object.assign(vdom.style, {
-                    left              : `${proxyRect.left - mainWindowRect.width}px`,
-                    top               : `${proxyRect.top}px`,
+                    ...proxyPosition,
                     transform         : 'none',
                     transitionProperty: 'none'
                 });
@@ -228,14 +256,7 @@ class MainContainerController extends ComponentController {
                     vdom      : vdom
                 });
             } else {
-                style = me.dockedWindowProxy.style || {};
-
-                Object.assign(style, {
-                    left: `${proxyRect.left -mainWindowRect.width}px`,
-                    top : `${proxyRect.top}px`
-                });
-
-                me.dockedWindowProxy.style = style;
+                me.dockedWindowProxy.style = Object.assign(me.dockedWindowProxy.style || {}, proxyPosition);
             }
         }
     }
