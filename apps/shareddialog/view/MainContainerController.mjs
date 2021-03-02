@@ -131,7 +131,7 @@ class MainContainerController extends ComponentController {
 
         switch(me.dockedWindowSide) {
             case 'left':
-                left = `${proxyRect.left - mainWindowRect.width}px`;
+                left = `${me.dockedWindowSize + proxyRect.left}px`;
                 top  = `${proxyRect.top}px`;
                 break;
             case 'right':
