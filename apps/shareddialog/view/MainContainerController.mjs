@@ -204,9 +204,6 @@ class MainContainerController extends ComponentController {
             console.log('exclude');
             // todo: remove the proxy from the docked window, in case it exists
         } else if (Rectangle.leavesSide(mainWindowRect, proxyRect, 'right')) {
-            console.log('leavesSide');
-            // todo: add the proxy to the docked window, in case it does not exist
-
             if (!me.dockedWindowProxy) {
                 vdom = Neo.clone(me.dialog.dragZone.dragProxy.vdom, true);
 
