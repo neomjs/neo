@@ -1324,7 +1324,7 @@ class Base extends CoreBase {
             action: 'updateDom',
             deltas: [{
                 action: 'removeNode',
-                id    : me.id
+                id    : me.getVdomRoot().id
             }]
         }).then(() => {
             me.mounted = false;
