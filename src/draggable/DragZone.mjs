@@ -219,8 +219,9 @@ class DragZone extends Base {
 
         setTimeout(() => {
             Neo.currentWorker.promiseMessage('main', {
-                action: 'updateDom',
-                deltas: [{action: 'removeNode', id: id}]
+                action : 'updateDom',
+                appName: me.appName,
+                deltas : [{action: 'removeNode', id: id}]
             });
         }, me.moveInMainThread ? 0 : 30);
 
