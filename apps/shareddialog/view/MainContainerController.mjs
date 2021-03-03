@@ -364,7 +364,7 @@ class MainContainerController extends ComponentController {
         Neo.Main.getWindowData({
             appName: me.dialog.appName === appName ? me.dockedWindowAppName : appName
         }).then(data => {
-            me.targetWindowSize = dockedHorizontal ? data.innerWidth : data.outerHeight;
+            me.targetWindowSize = dockedHorizontal ? data.innerWidth : data.innerHeight;
         });
     }
 
@@ -420,7 +420,7 @@ class MainContainerController extends ComponentController {
                 case 'top':
                     height = size;
                     left   = data.screenLeft;
-                    top    = data.screenTop - size - 52;
+                    top    = data.screenTop - size + 28;
                     width  = data.outerWidth;
                     break;
             }

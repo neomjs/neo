@@ -150,7 +150,7 @@ class WindowPosition extends Base {
                 break;
             case 'top':
                 left = win.screenLeft;
-                top  = win.screenTop - data.size;
+                top  = win.screenTop - data.size + 78;
                 break;
         }
 
