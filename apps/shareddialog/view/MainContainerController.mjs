@@ -227,7 +227,41 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onDragEnd(data) {
-        console.log('onDragEnd');
+        let me             = this,
+            dialog         = me.dialog,
+            mainWindowRect = me.mainWindowRect,
+            proxyRect      = Rectangle.moveTo(me.dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
+            proxyPosition, wrapperStyle;
+
+        if (Rectangle.leavesSide(mainWindowRect, proxyRect, me.dockedWindowSide)) {
+            proxyPosition  = me.getProxyPosition(proxyRect);
+
+            if (Rectangle.excludes(mainWindowRect, proxyRect)) {
+                dialog.unmount();
+
+                // we need a delay to ensure dialog.Base: onDragEnd() is done.
+                // we could use the dragEnd event of the dragZone instead.
+                setTimeout(() => {
+                    dialog.appName = 'SharedDialog2';
+
+                    wrapperStyle = dialog.wrapperStyle;
+
+                    wrapperStyle.left = proxyPosition.left;
+                    wrapperStyle.top  = proxyPosition.top;
+
+                    dialog.wrapperStyle = wrapperStyle;
+
+                    if (me.dockedWindowProxy) {
+                        me.dockedWindowProxy.destroy(true);
+                    }
+
+                    dialog.render(true);
+                }, 70);
+            } else {
+                // todo: dialog dropped between windows
+                console.log('dialog dropped between windows');
+            }
+        }
     }
 
     /**
@@ -242,10 +276,8 @@ class MainContainerController extends ComponentController {
             proxyPosition, vdom;
 
         if (Rectangle.includes(mainWindowRect, proxyRect)) {
-            console.log('include');
             // todo: remove the proxy from the docked window, in case it exists
         } else if (Rectangle.excludes(mainWindowRect, proxyRect)) {
-            console.log('exclude');
             // todo: remove the proxy from the docked window, in case it exists
         }
 
