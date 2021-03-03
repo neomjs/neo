@@ -1036,8 +1036,6 @@ class Base extends CoreBase {
 
             me.render(true);
         } else {
-            // console.log('mount', me.parentId, me.id);
-
             Neo.currentWorker.promiseMessage('main', {
                 action     : 'mountDom',
                 appName    : me.appName,
@@ -1402,7 +1400,9 @@ class Base extends CoreBase {
 
             if (vnode) {
                 vnode.vnode.style = newValue; // keep the vnode in sync
+            }
 
+            if (me.mounted) {
                 opts = {
                     action: 'updateDom',
                     deltas: [{
