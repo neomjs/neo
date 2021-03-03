@@ -1040,6 +1040,7 @@ class Base extends CoreBase {
 
             Neo.currentWorker.promiseMessage('main', {
                 action     : 'mountDom',
+                appName    : me.appName,
                 id         : me.id,
                 html       : me.vnode.outerHTML,
                 parentId   : me.parentId,
