@@ -864,8 +864,9 @@ class Base extends CoreBase {
 
             if (me.parentId === 'document.body') {
                 Neo.currentWorker.promiseMessage('main', {
-                    action: 'updateDom',
-                    deltas: [{action: 'removeNode', id: vdomId}]
+                    action : 'updateDom',
+                    appName: me.appName,
+                    deltas : [{action: 'removeNode', id: vdomId}]
                 });
             } else {
                 parent     = Neo.getComponent(me.parentId);
