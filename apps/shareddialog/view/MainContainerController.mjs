@@ -250,14 +250,22 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onDragEnd(data) {
-        let me             = this,
-            dialog         = me.dialog,
-            mainWindowRect = me.mainWindowRect,
-            proxyRect      = Rectangle.moveTo(me.dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
+        let me                  = this,
+            appName             = me.view.appName,
+            dialog              = me.dialog,
+            dockedWindowAppName = me.dockedWindowAppName,
+            mainWindowRect      = me.mainWindowRect,
+            proxyRect           = Rectangle.moveTo(me.dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
+            side                = me.dockedWindowSide,
             proxyPosition, wrapperStyle;
 
-        if (Rectangle.leavesSide(mainWindowRect, proxyRect, me.dockedWindowSide)) {
-            proxyPosition  = me.getProxyPosition(proxyRect, me.dockedWindowSide);
+        if (me.dialog.appName === dockedWindowAppName) {
+            dockedWindowAppName = me.view.appName;
+            side                = me.getOppositeSide(me.dockedWindowSide);
+        }
+
+        if (Rectangle.leavesSide(mainWindowRect, proxyRect, side)) {
+            proxyPosition  = me.getProxyPosition(proxyRect, side);
 
             if (Rectangle.excludes(mainWindowRect, proxyRect)) {
                 dialog.unmount();
@@ -265,7 +273,7 @@ class MainContainerController extends ComponentController {
                 // we need a delay to ensure dialog.Base: onDragEnd() is done.
                 // we could use the dragEnd event of the dragZone instead.
                 setTimeout(() => {
-                    dialog.appName = me.dockedWindowAppName;
+                    dialog.appName = dialog.appName === dockedWindowAppName ? appName : dockedWindowAppName;
 
                     wrapperStyle = dialog.wrapperStyle;
 
@@ -399,20 +407,20 @@ class MainContainerController extends ComponentController {
                     break;
                 case 'left':
                     height = data.outerHeight - 78;
-                    left   = data.screenLeft - size;
-                    top    = data.screenTop  + 28;
+                    left   = data.screenLeft  - size;
+                    top    = data.screenTop   + 28;
                     width  = size;
                     break;
                 case 'right':
                     height = data.outerHeight - 78;
-                    left   = data.outerWidth + data.screenLeft;
-                    top    = data.screenTop  + 28;
+                    left   = data.outerWidth  + data.screenLeft;
+                    top    = data.screenTop   + 28;
                     width  = size;
                     break;
                 case 'top':
                     height = size;
                     left   = data.screenLeft;
-                    top    = data.screenTop  - size - 52;
+                    top    = data.screenTop - size - 52;
                     width  = data.outerWidth;
                     break;
             }
