@@ -149,6 +149,20 @@ class Base extends Panel {
     }
 
     /**
+     * Triggered after the appName config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        if (this.dragZone) {
+            this.dragZone.appName = value;
+        }
+
+        super.afterSetAppName(value, oldValue);
+    }
+
+    /**
      * Triggered after the draggable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
