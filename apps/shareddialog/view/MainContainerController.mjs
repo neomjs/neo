@@ -297,12 +297,6 @@ class MainContainerController extends ComponentController {
             side           = me.dockedWindowSide,
             proxyPosition, vdom;
 
-        if (Rectangle.includes(mainWindowRect, proxyRect)) {
-            // todo: remove the proxy from the docked window, in case it exists
-        } else if (Rectangle.excludes(mainWindowRect, proxyRect)) {
-            // todo: remove the proxy from the main window
-        }
-
         if (me.dialog.appName === 'SharedDialog2') {
             appName = 'SharedDialog';
             side    = me.getOppositeSide(me.dockedWindowSide);
