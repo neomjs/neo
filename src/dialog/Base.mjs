@@ -457,7 +457,8 @@ class Base extends Panel {
 
         if (!me.maximized) {
             Neo.main.DomAccess.getBoundingClientRect({
-                id: me.dragZone.dragProxy.id
+                appName: me.appName,
+                id     : me.dragZone.dragProxy.id
             }).then(rect => {
                 wrapperStyle = me.wrapperStyle;
 
