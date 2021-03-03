@@ -291,7 +291,10 @@ class DragZone extends Base {
         NeoArray.add(cls, 'neo-is-dragging');
         owner.cls = cls;
 
-        Neo.main.addon.DragDrop.setConfigs(me.getMainThreadConfigs());
+        Neo.main.addon.DragDrop.setConfigs({
+            appName: me.appName,
+            ...me.getMainThreadConfigs()
+        });
 
         Neo.main.DomAccess.getBoundingClientRect({
             appName: me.appName,

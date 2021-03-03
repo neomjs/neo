@@ -451,6 +451,8 @@ class DragDrop extends Base {
         let me = this,
             node;
 
+        delete data.appName;
+
         if (data.boundaryContainerId) {
             node = DomAccess.getElementOrBody(data.boundaryContainerId);
             me.boundaryContainerRect = node.getBoundingClientRect();

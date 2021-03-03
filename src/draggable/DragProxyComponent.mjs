@@ -53,7 +53,8 @@ class DragProxyComponent extends Base {
     onMounted(id) {
         if (this.moveInMainThread) {
             Neo.main.addon.DragDrop.setDragProxyElement({
-                id: id
+                appName: this.appName,
+                id     : id
             });
         }
     }
