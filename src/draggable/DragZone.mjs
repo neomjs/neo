@@ -294,7 +294,8 @@ class DragZone extends Base {
         Neo.main.addon.DragDrop.setConfigs(me.getMainThreadConfigs());
 
         Neo.main.DomAccess.getBoundingClientRect({
-            id: me.getDragElementRoot().id
+            appName: me.appName,
+            id:      me.getDragElementRoot().id
         }).then(rect => {
             offsetX = data.clientX - rect.left;
             offsetY = data.clientY - rect.top;
