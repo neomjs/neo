@@ -107,6 +107,7 @@ class MainContainerController extends ComponentController {
             listeners          : {close: me.onWindowClose, scope: me},
 
             domListeners: [{
+                'drag:end'  : me.onDragEnd,
                 'drag:move' : me.onDragMove,
                 'drag:start': me.onDragStart,
                 scope       : me,
@@ -219,6 +220,14 @@ class MainContainerController extends ComponentController {
         if (data.value === true) {
             this.dockedWindowSide = data.component.value;
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDragEnd(data) {
+        console.log('onDragEnd');
     }
 
     /**
