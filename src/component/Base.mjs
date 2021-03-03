@@ -857,19 +857,21 @@ class Base extends CoreBase {
      */
     destroy(updateParentVdom=false, silent=false) {
         let me = this,
-            parent, parentVdom;
+            parent, parentVdom, vdomId;
 
         if (updateParentVdom && me.parentId) {
+            vdomId = me.getVdomRoot().id;
+
             if (me.parentId === 'document.body') {
                 Neo.currentWorker.promiseMessage('main', {
                     action: 'updateDom',
-                    deltas: [{action: 'removeNode', id: me.vdom.id}]
+                    deltas: [{action: 'removeNode', id: vdomId}]
                 });
             } else {
                 parent     = Neo.getComponent(me.parentId);
                 parentVdom = parent.vdom;
 
-                VDomUtil.removeVdomChild(parentVdom, me.vdom.id);
+                VDomUtil.removeVdomChild(parentVdom, vdomId);
                 parent[silent ? '_vdom' : 'vdom'] = parentVdom;
             }
         }
