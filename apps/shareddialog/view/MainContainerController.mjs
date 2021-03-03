@@ -52,7 +52,11 @@ class MainContainerController extends ComponentController {
         /**
          * @member {Object} mainWindowRect=null
          */
-        mainWindowRect: null
+        mainWindowRect: null,
+        /**
+         * @member {Number|null} targetWindowSize=0
+         */
+        targetWindowSize: 0
     }}
 
     /**
@@ -122,21 +126,36 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @param {Object} proxyRect
-     * @returns {{left: String, top: String}}
+     * @param {String}side
+     * @return {String}
      */
-    getProxyPosition(proxyRect) {
+    getOppositeSide(side) {
+        return {
+            bottom: 'top',
+            left  : 'right',
+            right : 'left',
+            top   : 'bottom'
+        }[side];
+    }
+
+    /**
+     *
+     * @param {Object} proxyRect
+     * @param {String} side
+     * @return {{left: String, top: String}}
+     */
+    getProxyPosition(proxyRect, side) {
         let me             = this,
             mainWindowRect = me.mainWindowRect,
             left, top;
 
-        switch(me.dockedWindowSide) {
+        switch(side) {
             case 'bottom':
                 left = `${proxyRect.left}px`;
                 top  = `${proxyRect.top - mainWindowRect.height}px`;
                 break;
             case 'left':
-                left = `${me.dockedWindowSize + proxyRect.left}px`;
+                left = `${me.targetWindowSize + proxyRect.left}px`;
                 top  = `${proxyRect.top}px`;
                 break;
             case 'right':
@@ -145,7 +164,7 @@ class MainContainerController extends ComponentController {
                 break;
             case 'top':
                 left = `${proxyRect.left}px`;
-                top  = `${me.dockedWindowSize + proxyRect.top}px`;
+                top  = `${me.targetWindowSize + proxyRect.top}px`;
                 break;
         }
 
@@ -157,7 +176,7 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @returns {Neo.button.Base}
+     * @return {Neo.button.Base}
      */
     getSecondWindowButton() {
         return this.view.down({iconCls: 'far fa-window-restore'});
@@ -234,7 +253,7 @@ class MainContainerController extends ComponentController {
             proxyPosition, wrapperStyle;
 
         if (Rectangle.leavesSide(mainWindowRect, proxyRect, me.dockedWindowSide)) {
-            proxyPosition  = me.getProxyPosition(proxyRect);
+            proxyPosition  = me.getProxyPosition(proxyRect, me.dockedWindowSide);
 
             if (Rectangle.excludes(mainWindowRect, proxyRect)) {
                 dialog.unmount();
@@ -253,6 +272,7 @@ class MainContainerController extends ComponentController {
 
                     if (me.dockedWindowProxy) {
                         me.dockedWindowProxy.destroy(true);
+                        me.dockedWindowProxy = null;
                     }
 
                     dialog.render(true);
@@ -270,19 +290,26 @@ class MainContainerController extends ComponentController {
      */
     onDragMove(data) {
         let me             = this,
+            appName        = 'SharedDialog2',
             dialogRect     = me.dialogRect,
             mainWindowRect = me.mainWindowRect,
             proxyRect      = Rectangle.moveTo(dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
+            side           = me.dockedWindowSide,
             proxyPosition, vdom;
 
         if (Rectangle.includes(mainWindowRect, proxyRect)) {
             // todo: remove the proxy from the docked window, in case it exists
         } else if (Rectangle.excludes(mainWindowRect, proxyRect)) {
-            // todo: remove the proxy from the docked window, in case it exists
+            // todo: remove the proxy from the main window
         }
 
-        if (Rectangle.leavesSide(mainWindowRect, proxyRect, me.dockedWindowSide)) {
-            proxyPosition = me.getProxyPosition(proxyRect);
+        if (me.dialog.appName === 'SharedDialog2') {
+            appName = 'SharedDialog';
+            side    = me.getOppositeSide(me.dockedWindowSide);
+        }
+
+        if (Rectangle.leavesSide(mainWindowRect, proxyRect, side)) {
+            proxyPosition = me.getProxyPosition(proxyRect, side);
 
             if (!me.dockedWindowProxy) {
                 vdom = Neo.clone(me.dialog.dragZone.dragProxy.vdom, true);
@@ -297,7 +324,7 @@ class MainContainerController extends ComponentController {
 
                 me.dockedWindowProxy = Neo.create({
                     module    : Component,
-                    appName   : 'SharedDialog2',
+                    appName   : appName,
                     autoMount : true,
                     autoRender: true,
                     cls       : ['neo-dialog-wrapper'],
@@ -315,7 +342,8 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onDragStart(data) {
-        let me = this;
+        let me      = this,
+            appName = me.view.appName;
 
         for (let item of data.path) {
             if (item.cls.includes('neo-dialog')) {
@@ -325,6 +353,15 @@ class MainContainerController extends ComponentController {
                 break;
             }
         }
+
+        console.log(appName !== me.dialog.appName ? appName : me.dialog.appName);
+
+        Neo.main.DomAccess.getBoundingClientRect({
+            appName: appName !== me.dialog.appName ? appName : me.dialog.appName,
+            id     : 'document.body'
+        }).then(rect => {
+            me.targetWindowSize = rect.width; // todo: height for dock bottom or top
+        });
     }
 
     /**
