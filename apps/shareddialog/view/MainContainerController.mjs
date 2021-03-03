@@ -33,6 +33,10 @@ class MainContainerController extends ComponentController {
          */
         defaultTheme: 'neo-theme-light',
         /**
+         * @member {String} dockedWindowAppName='SharedDialog2'
+         */
+        dockedWindowAppName: 'SharedDialog2',
+        /**
          * @member {Neo.component.Base|null} dockedWindowProxy=null
          */
         dockedWindowProxy: null,
@@ -82,7 +86,7 @@ class MainContainerController extends ComponentController {
      * @protected
      */
     afterSetDockedWindowSide(value, oldValue) {
-        let appName = 'SharedDialog2';
+        let appName = this.dockedWindowAppName;
 
         if (this.connectedApps.includes(appName)) {
             Neo.main.addon.WindowPosition.setDock({
@@ -197,7 +201,7 @@ class MainContainerController extends ComponentController {
             me.switchThemeForApp(name, me.currentTheme);
         }
 
-        if (name === 'SharedDialog2') {
+        if (name === me.dockedWindowAppName) {
             me.getSecondWindowButton().disabled = true;
         }
     }
@@ -226,7 +230,7 @@ class MainContainerController extends ComponentController {
             });
         }
 
-        if (name === 'SharedDialog2') {
+        if (name === me.dockedWindowAppName) {
             me.getSecondWindowButton().disabled = false;
         }
     }
@@ -261,7 +265,7 @@ class MainContainerController extends ComponentController {
                 // we need a delay to ensure dialog.Base: onDragEnd() is done.
                 // we could use the dragEnd event of the dragZone instead.
                 setTimeout(() => {
-                    dialog.appName = 'SharedDialog2';
+                    dialog.appName = me.dockedWindowAppName;
 
                     wrapperStyle = dialog.wrapperStyle;
 
@@ -289,17 +293,17 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onDragMove(data) {
-        let me             = this,
-            appName        = 'SharedDialog2',
-            dialogRect     = me.dialogRect,
-            mainWindowRect = me.mainWindowRect,
-            proxyRect      = Rectangle.moveTo(dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
-            side           = me.dockedWindowSide,
+        let me                  = this,
+            dialogRect          = me.dialogRect,
+            dockedWindowAppName = me.dockedWindowAppName,
+            mainWindowRect      = me.mainWindowRect,
+            proxyRect           = Rectangle.moveTo(dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
+            side                = me.dockedWindowSide,
             proxyPosition, vdom;
 
-        if (me.dialog.appName === 'SharedDialog2') {
-            appName = 'SharedDialog';
-            side    = me.getOppositeSide(me.dockedWindowSide);
+        if (me.dialog.appName === dockedWindowAppName) {
+            dockedWindowAppName = me.view.appName;
+            side                = me.getOppositeSide(me.dockedWindowSide);
         }
 
         if (Rectangle.leavesSide(mainWindowRect, proxyRect, side)) {
@@ -318,7 +322,7 @@ class MainContainerController extends ComponentController {
 
                 me.dockedWindowProxy = Neo.create({
                     module    : Component,
-                    appName   : appName,
+                    appName   : dockedWindowAppName,
                     autoMount : true,
                     autoRender: true,
                     cls       : ['neo-dialog-wrapper'],
@@ -347,8 +351,6 @@ class MainContainerController extends ComponentController {
                 break;
             }
         }
-
-        console.log(appName !== me.dialog.appName ? appName : me.dialog.appName);
 
         Neo.main.DomAccess.getBoundingClientRect({
             appName: appName !== me.dialog.appName ? appName : me.dialog.appName,
@@ -383,8 +385,9 @@ class MainContainerController extends ComponentController {
      */
     openDockedWindow(handlerData) {
         Neo.Main.getWindowData().then(data => {
-            let dock   = this.dockedWindowSide,
-                size   = this.dockedWindowSize,
+            let me     = this,
+                dock   = me.dockedWindowSide,
+                size   = me.dockedWindowSize,
                 height, left, top, width;
 
             switch (dock) {
@@ -417,12 +420,12 @@ class MainContainerController extends ComponentController {
             Neo.Main.windowOpen({
                 url           : '../shareddialog2/index.html',
                 windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
-                windowName    : 'SharedDialog2'
+                windowName    : me.dockedWindowAppName
             });
 
             Neo.main.addon.WindowPosition.registerWindow({
                 dock: dock,
-                name: 'SharedDialog2',
+                name: me.dockedWindowAppName,
                 size: size
             });
         });
