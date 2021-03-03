@@ -1322,10 +1322,11 @@ class Base extends CoreBase {
         let me = this;
 
         Neo.currentWorker.promiseMessage('main', {
-            action: 'updateDom',
-            deltas: [{
+            action : 'updateDom',
+            appName: me.appName,
+            deltas : [{
                 action: 'removeNode',
-                id    : me.getVdomRoot().id
+                id    : me.vdom.id
             }]
         }).then(() => {
             me.mounted = false;
