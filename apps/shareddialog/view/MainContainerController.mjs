@@ -348,8 +348,9 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onDragStart(data) {
-        let me      = this,
-            appName = me.view.appName;
+        let me               = this,
+            appName          = me.view.appName,
+            dockedHorizontal = me.dockedWindowSide === 'left' || me.dockedWindowSide === 'right';
 
         for (let item of data.path) {
             if (item.cls.includes('neo-dialog')) {
@@ -360,11 +361,10 @@ class MainContainerController extends ComponentController {
             }
         }
 
-        Neo.main.DomAccess.getBoundingClientRect({
-            appName: appName !== me.dialog.appName ? appName : me.dialog.appName,
-            id     : 'document.body'
-        }).then(rect => {
-            me.targetWindowSize = rect.width; // todo: height for dock bottom or top
+        Neo.Main.getWindowData({
+            appName: me.dialog.appName === appName ? me.dockedWindowAppName : appName
+        }).then(data => {
+            me.targetWindowSize = dockedHorizontal ? data.innerWidth : data.outerHeight;
         });
     }
 
