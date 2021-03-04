@@ -99,17 +99,16 @@ class MainContainerController extends ComponentController {
     /**
      *
      * @param {Object} data
+     * @param {String} appName
      */
-    createDialog(data) {
-        let me   = this,
-            view = me.view;
+    createDialog(data, appName) {
+        let me = this;
 
         data.component.disabled = true;
 
         me.dialog = Neo.create(DemoDialog, {
             animateTargetId    : data.component.id,
-            appName            : view.appName,
-            // boundaryContainerId: view.boundaryContainerId,
+            appName            : appName,
             boundaryContainerId: null,
             cls                : [me.currentTheme, 'neo-dialog', 'neo-panel', 'neo-container'],
             listeners          : {close: me.onWindowClose, scope: me},
@@ -233,6 +232,14 @@ class MainContainerController extends ComponentController {
         if (name === me.dockedWindowAppName) {
             me.getSecondWindowButton().disabled = false;
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onCreateDialogButtonClick(data) {
+        this.createDialog(data, this.view.appName);
     }
 
     /**
