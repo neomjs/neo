@@ -86,11 +86,9 @@ class MainContainerController extends ComponentController {
      * @protected
      */
     afterSetDockedWindowSide(value, oldValue) {
-        let appName = this.dockedWindowAppName;
-
-        if (this.connectedApps.includes(appName)) {
+        if (this.hasDockedWindow()) {
             Neo.main.addon.WindowPosition.setDock({
-                name: appName,
+                name: this.dockedWindowAppName,
                 dock: value
             });
         }
@@ -183,6 +181,14 @@ class MainContainerController extends ComponentController {
      */
     getSecondWindowButton() {
         return this.view.down({iconCls: 'far fa-window-restore'});
+    }
+
+    /**
+     *
+     * @return {Boolean}
+     */
+    hasDockedWindow() {
+        return this.connectedApps.includes(this.dockedWindowAppName);
     }
 
     /**
@@ -368,7 +374,7 @@ class MainContainerController extends ComponentController {
             }
         }
 
-        if (me.connectedApps.includes(me.dockedWindowAppName)) {
+        if (me.hasDockedWindow()) {
             Neo.Main.getWindowData({
                 appName: me.dialog.appName === appName ? me.dockedWindowAppName : appName
             }).then(data => {
