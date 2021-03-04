@@ -162,8 +162,8 @@ class Base extends Panel {
             me.dragZone.appName = value;
         }
 
-        if (resizable && resizable.dragZone) {
-            resizable.dragZone.appName = value;
+        if (resizable) {
+            resizable.appName = value;
         }
 
         super.afterSetAppName(value, oldValue);
@@ -264,6 +264,7 @@ class Base extends Panel {
                 if (!me.getPlugin({flag: 'resizable'})) {
                     plugins.push({
                         module       : module.default,
+                        appName      : me.appName,
                         delegationCls: 'neo-dialog',
                         flag         : 'resizable',
                         ...me.resizablePluginConfig || {}
