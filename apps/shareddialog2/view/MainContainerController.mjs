@@ -1,5 +1,4 @@
 import ComponentController from '../../../src/controller/Component.mjs';
-import DemoDialog          from './DemoDialog.mjs';
 
 /**
  * @class SharedDialog2.view.MainContainerController
@@ -23,29 +22,12 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} data
      */
-    createDialog(data) {
-        let me   = this,
-            view = me.view;
+    onCreateDialogButtonClick(data) {
+        let app  = Neo.apps['SharedDialog'];
 
-        data.component.disabled = true;
-
-        me.dialog = Neo.create(DemoDialog, {
-            animateTargetId    : data.component.id,
-            appName            : view.appName,
-            boundaryContainerId: view.boundaryContainerId,
-            listeners          : {close: me.onWindowClose, scope: me}
-        });
-    }
-
-    /**
-     *
-     */
-    onWindowClose() {
-        let button = this.view.down({
-            text: 'Create Dialog'
-        });
-
-        button.disabled = false;
+        if (app) {
+            app.mainViewInstance.controller.createDialog(data, this.view.appName);
+        }
     }
 }
 

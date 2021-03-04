@@ -219,8 +219,9 @@ class DragZone extends Base {
 
         setTimeout(() => {
             Neo.currentWorker.promiseMessage('main', {
-                action: 'updateDom',
-                deltas: [{action: 'removeNode', id: id}]
+                action : 'updateDom',
+                appName: me.appName,
+                deltas : [{action: 'removeNode', id: id}]
             });
         }, me.moveInMainThread ? 0 : 30);
 
@@ -291,10 +292,14 @@ class DragZone extends Base {
         NeoArray.add(cls, 'neo-is-dragging');
         owner.cls = cls;
 
-        Neo.main.addon.DragDrop.setConfigs(me.getMainThreadConfigs());
+        Neo.main.addon.DragDrop.setConfigs({
+            appName: me.appName,
+            ...me.getMainThreadConfigs()
+        });
 
         Neo.main.DomAccess.getBoundingClientRect({
-            id: me.getDragElementRoot().id
+            appName: me.appName,
+            id:      me.getDragElementRoot().id
         }).then(rect => {
             offsetX = data.clientX - rect.left;
             offsetY = data.clientY - rect.top;

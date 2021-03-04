@@ -862,8 +862,9 @@ class Base extends CoreBase {
         if (updateParentVdom && me.parentId) {
             if (me.parentId === 'document.body') {
                 Neo.currentWorker.promiseMessage('main', {
-                    action: 'updateDom',
-                    deltas: [{action: 'removeNode', id: me.vdom.id}]
+                    action : 'updateDom',
+                    appName: me.appName,
+                    deltas : [{action: 'removeNode', id: me.vdom.id}]
                 });
             } else {
                 parent     = Neo.getComponent(me.parentId);
@@ -1035,10 +1036,9 @@ class Base extends CoreBase {
 
             me.render(true);
         } else {
-            // console.log('mount', me.parentId, me.id);
-
             Neo.currentWorker.promiseMessage('main', {
                 action     : 'mountDom',
+                appName    : me.appName,
                 id         : me.id,
                 html       : me.vnode.outerHTML,
                 parentId   : me.parentId,
@@ -1319,10 +1319,11 @@ class Base extends CoreBase {
         let me = this;
 
         Neo.currentWorker.promiseMessage('main', {
-            action: 'updateDom',
-            deltas: [{
+            action : 'updateDom',
+            appName: me.appName,
+            deltas : [{
                 action: 'removeNode',
-                id    : me.id
+                id    : me.vdom.id
             }]
         }).then(() => {
             me.mounted = false;
@@ -1399,7 +1400,9 @@ class Base extends CoreBase {
 
             if (vnode) {
                 vnode.vnode.style = newValue; // keep the vnode in sync
+            }
 
+            if (me.mounted) {
                 opts = {
                     action: 'updateDom',
                     deltas: [{

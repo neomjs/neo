@@ -29,6 +29,7 @@ class WindowPosition extends Base {
         remote: {
             app: [
                 'registerWindow',
+                'setDock',
                 'unregisterWindow'
             ]
         },
@@ -70,36 +71,17 @@ class WindowPosition extends Base {
 
     /**
      *
-     * @param {Object} data
      */
-    adjustPositions(data) {
-        let me = this,
-            left, top;
+    adjustPositions() {
+        let position;
 
-        Object.entries(me.windows).forEach(([key, value]) => {
-            switch (value.dock) {
-                case 'bottom':
-                    left = data.screenLeft;
-                    top  = data.outerHeight  + data.screenTop - 50;
-                    break;
-                case 'left':
-                    left = data.screenLeft - value.size;
-                    top  = data.screenTop  + 28;
-                    break;
-                case 'right':
-                    left = data.outerWidth + data.screenLeft;
-                    top  = data.screenTop  + 28;
-                    break;
-                case 'top':
-                    left = data.screenLeft;
-                    top  = data.screenTop - value.size;
-                    break;
-            }
+        Object.entries(this.windows).forEach(([key, value]) => {
+            position = this.getPosition(value);
 
             Neo.Main.windowMoveTo({
                 windowName: key,
-                x         : left,
-                y         : top
+                x         : position.left,
+                y         : position.top
             });
         });
     }
@@ -118,7 +100,7 @@ class WindowPosition extends Base {
         if (me.screenLeft !== screenLeft || me.screenTop !== screenTop) {
             winData = Neo.Main.getWindowData();
 
-            me.adjustPositions(winData);
+            me.adjustPositions();
 
             Manager.sendMessage('app', {
                 action: 'windowPositionChange',
@@ -131,6 +113,51 @@ class WindowPosition extends Base {
             me.screenLeft = screenLeft;
             me.screenTop  = screenTop;
         }
+    }
+
+    /**
+     * Returns true in case the dock direction changes from horizontal (left, right)
+     * to vertical (bottom, top) or vice versa.
+     * @param {String} oldValue
+     * @param {String} newValue
+     * @returns {Boolean}
+     */
+    dockDirectionChange(oldValue, newValue) {
+        return (oldValue === 'bottom' || oldValue === 'top') && (newValue === 'left' || newValue === 'right')
+            || (newValue === 'bottom' || newValue === 'top') && (oldValue === 'left' || oldValue === 'right');
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    getPosition(data) {
+        let win = window,
+            left, top;
+
+        switch (data.dock) {
+            case 'bottom':
+                left = win.screenLeft;
+                top  = win.outerHeight + win.screenTop - 50;
+                break;
+            case 'left':
+                left = win.screenLeft - data.size;
+                top  = win.screenTop  + 28;
+                break;
+            case 'right':
+                left = win.outerWidth + win.screenLeft;
+                top  = win.screenTop  + 28;
+                break;
+            case 'top':
+                left = win.screenLeft;
+                top  = win.screenTop - data.size + 78;
+                break;
+        }
+
+        return {
+            left: left,
+            top : top
+        };
     }
 
     /**
@@ -155,19 +182,19 @@ class WindowPosition extends Base {
      * @param {Object} event
      */
     onResize(event) {
-        let me      = this,
-            winData = Neo.Main.getWindowData(),
+        let me  = this,
+            win = window,
             height, width;
 
         Object.entries(me.windows).forEach(([key, value]) => {
             switch (value.dock) {
                 case 'bottom':
                 case 'top':
-                    width = winData.outerWidth;
+                    width = win.outerWidth;
                     break;
                 case 'left':
                 case 'right':
-                    height = winData.outerHeight - 28;
+                    height = win.outerHeight - 28;
                     break;
             }
 
@@ -178,7 +205,7 @@ class WindowPosition extends Base {
             });
         });
 
-        me.adjustPositions(winData);
+        me.adjustPositions();
     }
 
     /**
@@ -190,6 +217,41 @@ class WindowPosition extends Base {
      */
     registerWindow(data) {
         this.windows[data.name] = data;
+    }
+
+    /**
+     * Docks an existing window to a new side
+     * @param {Object} data
+     * @param {String} data.dock
+     * @param {String} data.name
+     */
+    setDock(data) {
+        let me   = this,
+            dock = data.dock,
+            name = data.name,
+            win  = me.windows[name],
+            dockDirectionChange, position;
+
+        if (win) {
+            dockDirectionChange = me.dockDirectionChange(dock, win.dock);
+
+            win.dock = dock;
+            position = me.getPosition(win);
+
+            if (dockDirectionChange) {
+                Neo.Main.windowResizeTo({
+                    height    : dock === 'bottom' || dock === 'top'   ? win.size : window.outerHeight - 28,
+                    width     : dock === 'left'   || dock === 'right' ? win.size : window.outerWidth,
+                    windowName: name
+                });
+            }
+
+            Neo.Main.windowMoveTo({
+                windowName: name,
+                x         : position.left,
+                y         : position.top
+            });
+        }
     }
 
     /**

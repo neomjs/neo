@@ -209,8 +209,10 @@ class DragDrop extends Base {
 
         DomEvents.sendMessageToApp({
             ...parsedEvent,
-            isDrop: isDrop,
-            type  : 'drag:end'
+            isDrop : isDrop,
+            offsetX: me.offsetX,
+            offsetY: me.offsetY,
+            type   : 'drag:end'
         });
 
         if (isDrop) {
@@ -448,6 +450,8 @@ class DragDrop extends Base {
     setConfigs(data) {
         let me = this,
             node;
+
+        delete data.appName;
 
         if (data.boundaryContainerId) {
             node = DomAccess.getElementOrBody(data.boundaryContainerId);

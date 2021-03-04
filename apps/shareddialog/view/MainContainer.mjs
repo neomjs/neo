@@ -1,4 +1,5 @@
 import Button                  from '../../../src/button/Base.mjs';
+import Radio                   from '../../../src/form/field/Radio.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import Toolbar                 from '../../../src/container/Toolbar.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
@@ -36,8 +37,8 @@ class MainContainer extends Viewport {
             flex  : 'none',
             items :[{
                 module : Button,
-                handler: 'createDialog',
-                iconCls: 'fa fa-window-maximize',
+                handler: 'onCreateDialogButtonClick',
+                iconCls: 'far fa-window-maximize',
                 text   : 'Create Dialog',
             }, '->', {
                 module : Button,
@@ -47,9 +48,55 @@ class MainContainer extends Viewport {
             }, {
                 module : Button,
                 handler: 'openDockedWindow',
-                iconCls: 'fa fa-window-restore',
+                iconCls: 'far fa-window-restore',
                 style  : {marginLeft: '1em'},
                 text   : 'Open docked Window'
+            }]
+        }, {
+            ntype : 'container',
+            flex  : 'none',
+            layout: 'hbox',
+
+            style: {
+                height     : '72px',
+                marginRight: '1em',
+                marginTop  : '1em'
+            },
+
+            items : [{
+                ntype: 'component',
+                flex : 1
+            }, {
+                ntype: 'container',
+                flex : 'none',
+
+                itemDefaults: {
+                    module        : Radio,
+                    hideValueLabel: false,
+                    labelText     : '',
+                    labelWidth    : 50,
+                    name          : 'dockedPosition',
+
+                    listeners: {
+                        change: 'onDockedPositionChange'
+                    }
+                },
+
+                items: [{
+                    labelText     : 'Dock',
+                    valueLabelText: 'Top',
+                    value         : 'top'
+                }, {
+                    checked       : true,
+                    valueLabelText: 'Right',
+                    value         : 'right'
+                }, {
+                    valueLabelText: 'Bottom',
+                    value         : 'bottom'
+                }, {
+                    valueLabelText: 'Left',
+                    value         : 'left'
+                }]
             }]
         }, {
             ntype: 'component',
@@ -62,6 +109,7 @@ class MainContainer extends Viewport {
                 display       : 'flex',
                 fontSize      : '200px',
                 justifyContent: 'center',
+                marginBottom  : '88px',
                 userSelect    : 'none'
             }
         }]

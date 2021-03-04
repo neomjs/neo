@@ -149,6 +149,27 @@ class Base extends Panel {
     }
 
     /**
+     * Triggered after the appName config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        let me        = this,
+            resizable = me.getPlugin({flag: 'resizable'});
+
+        if (me.dragZone) {
+            me.dragZone.appName = value;
+        }
+
+        if (resizable) {
+            resizable.appName = value;
+        }
+
+        super.afterSetAppName(value, oldValue);
+    }
+
+    /**
      * Triggered after the draggable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -243,6 +264,7 @@ class Base extends Panel {
                 if (!me.getPlugin({flag: 'resizable'})) {
                     plugins.push({
                         module       : module.default,
+                        appName      : me.appName,
                         delegationCls: 'neo-dialog',
                         flag         : 'resizable',
                         ...me.resizablePluginConfig || {}
@@ -318,7 +340,8 @@ class Base extends Panel {
         me.autoRender = false;
 
         Neo.main.DomAccess.getBoundingClientRect({
-            id: me.animateTargetId
+            appName: appName,
+            id     : me.animateTargetId
         }).then(rect => {
             Neo.currentWorker.promiseMessage('main', {
                 action  : 'mountDom',
@@ -443,7 +466,8 @@ class Base extends Panel {
 
         if (!me.maximized) {
             Neo.main.DomAccess.getBoundingClientRect({
-                id: me.dragZone.dragProxy.id
+                appName: me.appName,
+                id     : me.dragZone.dragProxy.id
             }).then(rect => {
                 wrapperStyle = me.wrapperStyle;
 
@@ -520,7 +544,7 @@ class Base extends Panel {
 
             me.dragZone.dragStart(data);
 
-            wrapperStyle.opacity = 0.3;
+            wrapperStyle.opacity = 0.7;
 
             me.wrapperStyle = wrapperStyle;
         }
