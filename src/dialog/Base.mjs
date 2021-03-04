@@ -155,8 +155,15 @@ class Base extends Panel {
      * @protected
      */
     afterSetAppName(value, oldValue) {
-        if (this.dragZone) {
-            this.dragZone.appName = value;
+        let me        = this,
+            resizable = me.getPlugin({flag: 'resizable'});
+
+        if (me.dragZone) {
+            me.dragZone.appName = value;
+        }
+
+        if (resizable && resizable.dragZone) {
+            resizable.dragZone.appName = value;
         }
 
         super.afterSetAppName(value, oldValue);

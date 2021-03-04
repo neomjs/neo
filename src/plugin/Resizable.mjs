@@ -236,8 +236,9 @@ class Resizable extends Base {
         me.owner.wrapperStyle = style;
 
         Neo.main.DomAccess.setStyle({
-            id   : 'document.body',
-            style: {cursor: null}
+            appName: me.owner.appName,
+            id     : 'document.body',
+            style  : {cursor: null}
         });
 
         me.dragZone.dragEnd();
@@ -338,6 +339,7 @@ class Resizable extends Base {
             i           = 0,
             len         = data.path.length,
             owner       = me.owner,
+            appName     = owner.appName,
             style       = owner.wrapperStyle, // todo: delegation target
             target;
 
@@ -363,21 +365,23 @@ class Resizable extends Base {
 
         if (!me.boundaryContainerRect) {
             Neo.main.DomAccess.getBoundingClientRect({
-                id: me.boundaryContainerRect
+                appName: appName,
+                id     : me.boundaryContainerRect
             }).then(rect => {
                 me.boundaryContainerRect = rect;
             });
         }
 
         Neo.main.DomAccess.setStyle({
-            id   : 'document.body',
-            style: {cursor: `${Resizable.cursorPositions[Resizable.positions.indexOf(me.currentNodeName)]}-resize !important`}
+            appName: appName,
+            id     : 'document.body',
+            style  : {cursor: `${Resizable.cursorPositions[Resizable.positions.indexOf(me.currentNodeName)]}-resize !important`}
         });
 
         if (!me.dragZone) {
             me.dragZone = Neo.create({
                 module             : DragZone,
-                appName            : owner.appName,
+                appName            : appName,
                 boundaryContainerId: owner.boundaryContainerId,
                 dragElement        : owner.vdom,
                 moveInMainThread   : false,
