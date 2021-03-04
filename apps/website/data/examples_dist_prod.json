@@ -2,7 +2,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "(SharedWorkers)"],
         "environments": ["Desktop"],
-        "id"          : 16,
+        "id"          : 17,
         "image"       : "devmode/sharedcovid.png",
         "name"        : "Multi Window Covid App",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/apps/sharedcovid",
@@ -11,7 +11,7 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 15,
+        "id"          : 16,
         "image"       : "devmode/calendar-preview.png",
         "name"        : "Calendar Sneak Preview",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/src/calendar",
@@ -20,11 +20,20 @@
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
-        "id"          : 14,
+        "id"          : 15,
         "image"       : "devmode/covidDashboard.png",
         "name"        : "Covid Dashboard",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/apps/covid",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/covid/index.html#mainview=table"
+    },
+    {
+        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
+        "environments": ["Desktop"],
+        "id"          : 14,
+        "image"       : "devmode/multi_window_dd.png",
+        "name"        : "Multi Window Drag&Drop",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/apps/shareddialog",
+        "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/shareddialog/index.html"
     },
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
