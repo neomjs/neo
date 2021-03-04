@@ -263,48 +263,50 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onDragEnd(data) {
-        let me                  = this,
-            appName             = me.view.appName,
-            dialog              = me.dialog,
-            dockedWindowAppName = me.dockedWindowAppName,
-            mainWindowRect      = me.mainWindowRect,
-            proxyRect           = Rectangle.moveTo(me.dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
-            side                = me.dockedWindowSide,
-            proxyPosition, wrapperStyle;
+        if (this.hasDockedWindow()) {
+            let me                  = this,
+                appName             = me.view.appName,
+                dialog              = me.dialog,
+                dockedWindowAppName = me.dockedWindowAppName,
+                mainWindowRect      = me.mainWindowRect,
+                proxyRect           = Rectangle.moveTo(me.dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
+                side                = me.dockedWindowSide,
+                proxyPosition, wrapperStyle;
 
-        if (me.dialog.appName === dockedWindowAppName) {
-            dockedWindowAppName = me.view.appName;
-            side                = me.getOppositeSide(me.dockedWindowSide);
-        }
+            if (me.dialog.appName === dockedWindowAppName) {
+                dockedWindowAppName = me.view.appName;
+                side                = me.getOppositeSide(me.dockedWindowSide);
+            }
 
-        if (Rectangle.leavesSide(mainWindowRect, proxyRect, side)) {
-            proxyPosition  = me.getProxyPosition(proxyRect, side);
+            if (Rectangle.leavesSide(mainWindowRect, proxyRect, side)) {
+                proxyPosition  = me.getProxyPosition(proxyRect, side);
 
-            if (Rectangle.excludes(mainWindowRect, proxyRect)) {
-                dialog.unmount();
+                if (Rectangle.excludes(mainWindowRect, proxyRect)) {
+                    dialog.unmount();
 
-                // we need a delay to ensure dialog.Base: onDragEnd() is done.
-                // we could use the dragEnd event of the dragZone instead.
-                setTimeout(() => {
-                    dialog.appName = dialog.appName === dockedWindowAppName ? appName : dockedWindowAppName;
+                    // we need a delay to ensure dialog.Base: onDragEnd() is done.
+                    // we could use the dragEnd event of the dragZone instead.
+                    setTimeout(() => {
+                        dialog.appName = dialog.appName === dockedWindowAppName ? appName : dockedWindowAppName;
 
-                    wrapperStyle = dialog.wrapperStyle;
+                        wrapperStyle = dialog.wrapperStyle;
 
-                    wrapperStyle.left = proxyPosition.left;
-                    wrapperStyle.top  = proxyPosition.top;
+                        wrapperStyle.left = proxyPosition.left;
+                        wrapperStyle.top  = proxyPosition.top;
 
-                    dialog.wrapperStyle = wrapperStyle;
+                        dialog.wrapperStyle = wrapperStyle;
 
-                    if (me.dockedWindowProxy) {
-                        me.dockedWindowProxy.destroy(true);
-                        me.dockedWindowProxy = null;
-                    }
+                        if (me.dockedWindowProxy) {
+                            me.dockedWindowProxy.destroy(true);
+                            me.dockedWindowProxy = null;
+                        }
 
-                    dialog.render(true);
-                }, 70);
-            } else {
-                // todo: dialog dropped between windows
-                console.log('dialog dropped between windows');
+                        dialog.render(true);
+                    }, 70);
+                } else {
+                    // todo: dialog dropped between windows
+                    console.log('dialog dropped between windows');
+                }
             }
         }
     }
@@ -314,44 +316,46 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onDragMove(data) {
-        let me                  = this,
-            dialogRect          = me.dialogRect,
-            dockedWindowAppName = me.dockedWindowAppName,
-            mainWindowRect      = me.mainWindowRect,
-            proxyRect           = Rectangle.moveTo(dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
-            side                = me.dockedWindowSide,
-            proxyPosition, vdom;
+        if (this.hasDockedWindow()) {
+            let me                  = this,
+                dialogRect          = me.dialogRect,
+                dockedWindowAppName = me.dockedWindowAppName,
+                mainWindowRect      = me.mainWindowRect,
+                proxyRect           = Rectangle.moveTo(dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
+                side                = me.dockedWindowSide,
+                proxyPosition, vdom;
 
-        if (me.dialog.appName === dockedWindowAppName) {
-            dockedWindowAppName = me.view.appName;
-            side                = me.getOppositeSide(me.dockedWindowSide);
-        }
+            if (me.dialog.appName === dockedWindowAppName) {
+                dockedWindowAppName = me.view.appName;
+                side                = me.getOppositeSide(me.dockedWindowSide);
+            }
 
-        if (Rectangle.leavesSide(mainWindowRect, proxyRect, side)) {
-            proxyPosition = me.getProxyPosition(proxyRect, side);
+            if (Rectangle.leavesSide(mainWindowRect, proxyRect, side)) {
+                proxyPosition = me.getProxyPosition(proxyRect, side);
 
-            if (!me.dockedWindowProxy) {
-                vdom = Neo.clone(me.dialog.dragZone.dragProxy.vdom, true);
+                if (!me.dockedWindowProxy) {
+                    vdom = Neo.clone(me.dialog.dragZone.dragProxy.vdom, true);
 
-                delete vdom.id;
+                    delete vdom.id;
 
-                Object.assign(vdom.style, {
-                    ...proxyPosition,
-                    transform         : 'none',
-                    transitionProperty: 'none'
-                });
+                    Object.assign(vdom.style, {
+                        ...proxyPosition,
+                        transform         : 'none',
+                        transitionProperty: 'none'
+                    });
 
-                me.dockedWindowProxy = Neo.create({
-                    module    : Component,
-                    appName   : dockedWindowAppName,
-                    autoMount : true,
-                    autoRender: true,
-                    cls       : ['neo-dialog-wrapper'],
-                    renderTo  : 'document.body',
-                    vdom      : vdom
-                });
-            } else {
-                me.dockedWindowProxy.style = Object.assign(me.dockedWindowProxy.style || {}, proxyPosition);
+                    me.dockedWindowProxy = Neo.create({
+                        module    : Component,
+                        appName   : dockedWindowAppName,
+                        autoMount : true,
+                        autoRender: true,
+                        cls       : ['neo-dialog-wrapper'],
+                        renderTo  : 'document.body',
+                        vdom      : vdom
+                    });
+                } else {
+                    me.dockedWindowProxy.style = Object.assign(me.dockedWindowProxy.style || {}, proxyPosition);
+                }
             }
         }
     }
