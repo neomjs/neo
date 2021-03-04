@@ -27,7 +27,7 @@
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/apps/covid/index.html#mainview=table"
     },
     {
-        "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
+        "browsers"    : ["Chrome", "Edge", "Firefox"],
         "environments": ["Desktop"],
         "id"          : 14,
         "image"       : "devmode/multi_window_dd.png",
