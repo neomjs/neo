@@ -33,7 +33,7 @@
         "image"       : "devmode/multi_window_dd.png",
         "name"        : "Multi Window Drag&Drop",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/apps/shareddialog",
-        "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/shareddialog/index.html"
+        "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/apps/shareddialog/index.html"
     },
     {
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
