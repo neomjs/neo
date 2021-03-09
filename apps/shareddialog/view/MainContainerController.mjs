@@ -110,7 +110,7 @@ class MainContainerController extends ComponentController {
             appName            : appName,
             boundaryContainerId: null,
             cls                : [me.currentTheme, 'neo-dialog', 'neo-panel', 'neo-container'],
-            listeners          : {close: me.onWindowClose, scope: me},
+            listeners          : {close: me.onDialogClose, scope: me},
 
             domListeners: [{
                 'drag:end'  : me.onDragEnd,
@@ -265,6 +265,13 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     */
+    onDialogClose() {
+        this.enableOpenDialogButtons(true);
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onDockedPositionChange(data) {
@@ -408,13 +415,6 @@ class MainContainerController extends ComponentController {
      */
     onDragZoneCreated(data) {
         console.log('onDragZoneCreated', data);
-    }
-
-    /**
-     *
-     */
-    onWindowClose() {
-        this.enableOpenDialogButtons(true);
     }
 
     /**
