@@ -285,7 +285,8 @@ class Base extends Panel {
             id      = me.getAnimateTargetId();
 
         Neo.main.DomAccess.getBoundingClientRect({
-            id: [me.id, me.animateTargetId]
+            appName: appName,
+            id     : [me.id, me.animateTargetId]
         }).then(rects => {
             Neo.currentWorker.promiseMessage('main', {
                 action  : 'mountDom',
