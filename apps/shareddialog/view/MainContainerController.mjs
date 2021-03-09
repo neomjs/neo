@@ -1,5 +1,6 @@
 import Component           from '../../../src/component/Base.mjs';
 import ComponentController from '../../../src/controller/Component.mjs';
+import ComponentManager    from '../../../src/manager/Component.mjs';
 import DemoDialog          from './DemoDialog.mjs';
 import NeoArray            from '../../../src/util/Array.mjs';
 import Rectangle           from '../../../src/util/Rectangle.mjs';
@@ -102,7 +103,7 @@ class MainContainerController extends ComponentController {
     createDialog(data, appName) {
         let me = this;
 
-        data.component.disabled = true;
+        me.enableOpenDialogButtons(false);
 
         me.dialog = Neo.create(DemoDialog, {
             animateTargetId    : data.component.id,
@@ -122,6 +123,18 @@ class MainContainerController extends ComponentController {
             dragZoneConfig: {
                 alwaysFireDragMove: true
             }
+        });
+    }
+
+    /**
+     *
+     * @param {Boolean} enable
+     */
+    enableOpenDialogButtons(enable) {
+        ComponentManager.find({
+            flag: 'open-dialog-button'
+        }).forEach(button => {
+            button.disabled = !enable;
         });
     }
 
@@ -209,6 +222,8 @@ class MainContainerController extends ComponentController {
         if (name === me.dockedWindowAppName) {
             me.getSecondWindowButton().disabled = true;
         }
+
+        me.enableOpenDialogButtons(!me.dialog);
     }
 
     /**
@@ -399,11 +414,7 @@ class MainContainerController extends ComponentController {
      *
      */
     onWindowClose() {
-        let button = this.view.down({
-            text: 'Create Dialog'
-        });
-
-        button.disabled = false;
+        this.enableOpenDialogButtons(true);
     }
 
     /**

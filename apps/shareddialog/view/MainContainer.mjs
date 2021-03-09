@@ -37,6 +37,7 @@ class MainContainer extends Viewport {
             flex  : 'none',
             items :[{
                 module : Button,
+                flag   : 'open-dialog-button',
                 handler: 'onCreateDialogButtonClick',
                 iconCls: 'far fa-window-maximize',
                 text   : 'Create Dialog',

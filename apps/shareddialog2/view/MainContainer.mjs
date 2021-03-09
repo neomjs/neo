@@ -35,10 +35,12 @@ class MainContainer extends Viewport {
             module: Toolbar,
             flex  : 'none',
             items :[{
-                module : Button,
-                handler: 'onCreateDialogButtonClick',
-                iconCls: 'far fa-window-maximize',
-                text   : 'Create Dialog',
+                module  : Button,
+                disabled: true,
+                flag    : 'open-dialog-button',
+                handler : 'onCreateDialogButtonClick',
+                iconCls : 'far fa-window-maximize',
+                text    : 'Create Dialog'
             }]
         }, {
             ntype: 'component',
