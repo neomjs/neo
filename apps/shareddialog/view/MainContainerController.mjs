@@ -311,6 +311,14 @@ class MainContainerController extends ComponentController {
                     setTimeout(() => {
                         dialog.appName = dialog.appName === dockedWindowAppName ? appName : dockedWindowAppName;
 
+                        ComponentManager.find({
+                            flag: 'open-dialog-button'
+                        }).forEach(button => {
+                            if (button.appName === dialog.appName) {
+                                dialog.animateTargetId = button.id;
+                            }
+                        });
+
                         wrapperStyle = dialog.wrapperStyle;
 
                         wrapperStyle.left = proxyPosition.left;
@@ -322,14 +330,6 @@ class MainContainerController extends ComponentController {
                             me.dockedWindowProxy.destroy(true);
                             me.dockedWindowProxy = null;
                         }
-
-                        ComponentManager.find({
-                            flag: 'open-dialog-button'
-                        }).forEach(button => {
-                            if (button.appName === dockedWindowAppName) {
-                                dialog.animateTargetId = button.id;
-                            }
-                        });
 
                         dialog.render(true);
                     }, 70);
