@@ -131,10 +131,17 @@ class MainContainerController extends ComponentController {
      * @param {Boolean} enable
      */
     enableOpenDialogButtons(enable) {
-        ComponentManager.find({
-            flag: 'open-dialog-button'
-        }).forEach(button => {
+        this.getOpenDialogButtons().forEach(button => {
             button.disabled = !enable;
+        });
+    }
+
+    /**
+     *
+     */
+    getOpenDialogButtons() {
+        return ComponentManager.find({
+            flag: 'open-dialog-button'
         });
     }
 
@@ -311,9 +318,7 @@ class MainContainerController extends ComponentController {
                     setTimeout(() => {
                         dialog.appName = dialog.appName === dockedWindowAppName ? appName : dockedWindowAppName;
 
-                        ComponentManager.find({
-                            flag: 'open-dialog-button'
-                        }).forEach(button => {
+                        me.getOpenDialogButtons().forEach(button => {
                             if (button.appName === dialog.appName) {
                                 dialog.animateTargetId = button.id;
                             }
