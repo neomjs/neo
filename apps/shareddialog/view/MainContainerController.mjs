@@ -147,7 +147,7 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @param {String}side
+     * @param {String} side
      * @return {String}
      */
     getOppositeSide(side) {
