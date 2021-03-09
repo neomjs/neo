@@ -323,6 +323,14 @@ class MainContainerController extends ComponentController {
                             me.dockedWindowProxy = null;
                         }
 
+                        ComponentManager.find({
+                            flag: 'open-dialog-button'
+                        }).forEach(button => {
+                            if (button.appName === dockedWindowAppName) {
+                                dialog.animateTargetId = button.id;
+                            }
+                        });
+
                         dialog.render(true);
                     }, 70);
                 } else {
