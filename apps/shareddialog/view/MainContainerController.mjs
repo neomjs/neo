@@ -73,10 +73,9 @@ class MainContainerController extends ComponentController {
         let me = this;
 
         me.view.on({
-            connect        : me.onAppConnect,
-            disconnect     : me.onAppDisconnect,
-            dragZoneCreated: me.onDragZoneCreated,
-            scope          : me
+            connect   : me.onAppConnect,
+            disconnect: me.onAppDisconnect,
+            scope     : me
         });
     }
 
@@ -110,7 +109,6 @@ class MainContainerController extends ComponentController {
             appName            : appName,
             boundaryContainerId: null,
             cls                : [me.currentTheme, 'neo-dialog', 'neo-panel', 'neo-container'],
-            listeners          : {close: me.onDialogClose, scope: me},
 
             domListeners: [{
                 'drag:end'  : me.onDragEnd,
@@ -122,6 +120,12 @@ class MainContainerController extends ComponentController {
 
             dragZoneConfig: {
                 alwaysFireDragMove: true
+            },
+
+            listeners: {
+                close          : me.onDialogClose,
+                dragZoneCreated: me.onDragZoneCreated,
+                scope          : me
             }
         });
     }
