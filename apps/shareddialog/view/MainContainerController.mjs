@@ -528,17 +528,17 @@ class MainContainerController extends ComponentController {
      * @param {String} theme
      */
     switchThemeForApp(appName, theme) {
-        let view = Neo.apps[appName].mainViewInstance,
-            cls  = [...view.cls];
-
-        view.cls.forEach(item => {
-            if (item.includes('neo-theme')) {
-                NeoArray.remove(cls, item);
+        Neo.currentWorker.promiseMessage('main', {
+            action : 'updateDom',
+            appName: appName,
+            deltas : {
+                id : 'document.body',
+                cls: {
+                    add   : [theme],
+                    remove: [this.currentTheme]
+                }
             }
         });
-
-        NeoArray.add(cls, theme);
-        view.cls = cls;
     }
 }
 
