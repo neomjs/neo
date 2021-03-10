@@ -230,8 +230,9 @@ class DragZone extends Base {
 
     /**
      *
+     * @param {Object} data
      */
-    dragEnd() {
+    dragEnd(data) {
         let me    = this,
             owner = me.owner,
             cls   = owner.cls;
@@ -250,6 +251,8 @@ class DragZone extends Base {
             offsetY          : 0,
             scrollContainerId: null
         });
+
+        me.fire('dragEnd', data);
 
         me.resetData();
     }
