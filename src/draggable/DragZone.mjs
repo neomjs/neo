@@ -310,6 +310,8 @@ class DragZone extends Base {
         me.createDragProxy(rect);
 
         me.fire('dragStart', {
+            clientX        : data.clientX,
+            clientY        : data.clientY,
             dragElementRect: rect,
             eventData      : data,
             id             : me.id,
