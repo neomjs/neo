@@ -285,6 +285,7 @@ class DragZone extends Base {
         let me    = this,
             owner = me.owner,
             cls   = owner.cls,
+            rect  = me.getDragElementRect(data),
             offsetX, offsetY;
 
         me.setData();
@@ -297,29 +298,48 @@ class DragZone extends Base {
             ...me.getMainThreadConfigs()
         });
 
-        Neo.main.DomAccess.getBoundingClientRect({
-            appName: me.appName,
-            id:      me.getDragElementRoot().id
-        }).then(rect => {
-            offsetX = data.clientX - rect.left;
-            offsetY = data.clientY - rect.top;
+        offsetX = data.clientX - rect.left;
+        offsetY = data.clientY - rect.top;
 
-            Object.assign(me, {
-                dragElementRect: rect,
-                offsetX        : offsetX,
-                offsetY        : offsetY
-            });
-
-            me.createDragProxy(rect);
-
-            me.fire('dragStart', {
-                dragElementRect: rect,
-                eventData      : data,
-                id             : me.id,
-                offsetX        : offsetX,
-                offsetY        : offsetY
-            });
+        Object.assign(me, {
+            dragElementRect: rect,
+            offsetX        : offsetX,
+            offsetY        : offsetY
         });
+
+        me.createDragProxy(rect);
+
+        me.fire('dragStart', {
+            dragElementRect: rect,
+            eventData      : data,
+            id             : me.id,
+            offsetX        : offsetX,
+            offsetY        : offsetY
+        });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @return {Object}
+     */
+    getDragElementRect(data) {
+        let me = this,
+            id = me.getDragElementRoot().id;
+
+        for (let item of data.path) {
+            if (item.id === id) {
+                return item.rect;
+            }
+        }
+
+        for (let item of data.targetPath) {
+            if (item.id === id) {
+                return item.rect;
+            }
+        }
+
+        return null;
     }
 
     /**
