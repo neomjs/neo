@@ -111,7 +111,6 @@ class MainContainerController extends ComponentController {
             cls                : [me.currentTheme, 'neo-dialog', 'neo-panel', 'neo-container'],
 
             domListeners: [{
-                'drag:end'  : me.onDragEnd,
                 'drag:move' : me.onDragMove,
                 scope       : me,
                 delegate    : '.neo-header-toolbar'
@@ -433,6 +432,7 @@ class MainContainerController extends ComponentController {
         let me = this;
 
         data.dragZone.on({
+            dragEnd  : me.onDragEnd,
             dragStart: me.onDragStart,
             scope    : me
         });
