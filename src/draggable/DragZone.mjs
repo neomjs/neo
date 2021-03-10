@@ -314,6 +314,7 @@ class DragZone extends Base {
 
             me.fire('dragStart', {
                 dragElementRect: rect,
+                eventData      : data,
                 id             : me.id,
                 offsetX        : offsetX,
                 offsetY        : offsetY

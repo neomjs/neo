@@ -113,7 +113,6 @@ class MainContainerController extends ComponentController {
             domListeners: [{
                 'drag:end'  : me.onDragEnd,
                 'drag:move' : me.onDragMove,
-                'drag:start': me.onDragStart,
                 scope       : me,
                 delegate    : '.neo-header-toolbar'
             }],
@@ -408,10 +407,10 @@ class MainContainerController extends ComponentController {
             appName          = me.view.appName,
             dockedHorizontal = me.dockedWindowSide === 'left' || me.dockedWindowSide === 'right';
 
-        for (let item of data.path) {
-            if (item.cls.includes('neo-dialog')) {
-                me.dialogRect = item.rect;
-            } else if (item.tagName === 'body') {
+        me.dialogRect = data.dragElementRect;
+
+        for (let item of data.eventData.path) {
+            if (item.tagName === 'body') {
                 me.mainWindowRect = item.rect;
                 break;
             }
@@ -431,7 +430,13 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onDragZoneCreated(data) {
-        console.log('onDragZoneCreated', data);
+        let me = this;
+
+        data.dragZone.on({
+            dragStart: me.onDragStart,
+            scope    : me
+        });
+
     }
 
     /**
