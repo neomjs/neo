@@ -130,9 +130,23 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @param {Object} proxyRect
      */
-    dropDialogBetweenWindows() {
-        console.log('dialog dropped between windows');
+    dropDialogBetweenWindows(proxyRect) {
+        let me           = this,
+            intersection = Rectangle.getIntersectionDetails(me.dragStartWindowRect, proxyRect),
+            size         = proxyRect.height * proxyRect.width;
+
+        if (intersection.area > size / 2) {
+            console.log('dropped in this window');
+        } else {
+            console.log('dropped in other window');
+        }
+
+        console.log(proxyRect);
+        console.log(me.dragStartWindowRect);
+        console.log(intersection);
+        console.log(size);
     }
 
     /**
@@ -348,7 +362,7 @@ class MainContainerController extends ComponentController {
                         dialog.render(true);
                     }, 70);
                 } else {
-                    me.dropDialogBetweenWindows();
+                    me.dropDialogBetweenWindows(proxyRect);
                 }
             }
         }
