@@ -130,6 +130,13 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     */
+    dropDialogBetweenWindows() {
+        console.log('dialog dropped between windows');
+    }
+
+    /**
+     *
      * @param {Boolean} enable
      */
     enableOpenDialogButtons(enable) {
@@ -341,8 +348,7 @@ class MainContainerController extends ComponentController {
                         dialog.render(true);
                     }, 70);
                 } else {
-                    // todo: dialog dropped between windows
-                    console.log('dialog dropped between windows');
+                    me.dropDialogBetweenWindows();
                 }
             }
         }
