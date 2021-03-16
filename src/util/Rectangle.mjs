@@ -45,8 +45,8 @@ class Rectangle extends Base {
      * @returns {Object} x, y & area
      */
     static getIntersectionDetails(rect1, rect2) {
-        let x = Math.max(0, Math.abs(rect1.left - rect2.left + rect1.width  - rect2.width)),
-            y = Math.max(0, Math.abs(rect1.top  - rect2.top  + rect1.height - rect2.height));
+        let x = Math.max(0, Math.min(rect1.right,  rect2.right)  - Math.max(rect1.left, rect2.left)),
+            y = Math.max(0, Math.min(rect1.bottom, rect2.bottom) - Math.max(rect1.top,  rect2.top));
 
         return {
             area: x * y,
