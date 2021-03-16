@@ -55,9 +55,9 @@ class MainContainerController extends ComponentController {
          */
         dialogRect: null,
         /**
-         * @member {Object} mainWindowRect=null
+         * @member {Object} dragStartWindowRect=null
          */
-        mainWindowRect: null,
+        dragStartWindowRect: null,
         /**
          * @member {Number|null} targetWindowSize=0
          */
@@ -168,21 +168,21 @@ class MainContainerController extends ComponentController {
      * @return {{left: String, top: String}}
      */
     getProxyPosition(proxyRect, side) {
-        let me             = this,
-            mainWindowRect = me.mainWindowRect,
+        let me                  = this,
+            dragStartWindowRect = me.dragStartWindowRect,
             left, top;
 
         switch(side) {
             case 'bottom':
                 left = `${proxyRect.left}px`;
-                top  = `${proxyRect.top - mainWindowRect.height}px`;
+                top  = `${proxyRect.top - dragStartWindowRect.height}px`;
                 break;
             case 'left':
                 left = `${me.targetWindowSize + proxyRect.left}px`;
                 top  = `${proxyRect.top}px`;
                 break;
             case 'right':
-                left = `${proxyRect.left - mainWindowRect.width}px`;
+                left = `${proxyRect.left - dragStartWindowRect.width}px`;
                 top  = `${proxyRect.top}px`;
                 break;
             case 'top':
@@ -299,7 +299,7 @@ class MainContainerController extends ComponentController {
                 appName             = me.view.appName,
                 dialog              = me.dialog,
                 dockedWindowAppName = me.dockedWindowAppName,
-                mainWindowRect      = me.mainWindowRect,
+                dragStartWindowRect = me.dragStartWindowRect,
                 proxyRect           = Rectangle.moveTo(me.dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
                 side                = me.dockedWindowSide,
                 proxyPosition, wrapperStyle;
@@ -309,10 +309,10 @@ class MainContainerController extends ComponentController {
                 side                = me.getOppositeSide(me.dockedWindowSide);
             }
 
-            if (Rectangle.leavesSide(mainWindowRect, proxyRect, side)) {
+            if (Rectangle.leavesSide(dragStartWindowRect, proxyRect, side)) {
                 proxyPosition  = me.getProxyPosition(proxyRect, side);
 
-                if (Rectangle.excludes(mainWindowRect, proxyRect)) {
+                if (Rectangle.excludes(dragStartWindowRect, proxyRect)) {
                     dialog.unmount();
 
                     // we need a delay to ensure dialog.Base: onDragEnd() is done.
@@ -357,7 +357,7 @@ class MainContainerController extends ComponentController {
             let me                  = this,
                 dialogRect          = me.dialogRect,
                 dockedWindowAppName = me.dockedWindowAppName,
-                mainWindowRect      = me.mainWindowRect,
+                dragStartWindowRect = me.dragStartWindowRect,
                 proxyRect           = Rectangle.moveTo(dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
                 side                = me.dockedWindowSide,
                 proxyPosition, vdom;
@@ -367,7 +367,7 @@ class MainContainerController extends ComponentController {
                 side                = me.getOppositeSide(me.dockedWindowSide);
             }
 
-            if (Rectangle.leavesSide(mainWindowRect, proxyRect, side)) {
+            if (Rectangle.leavesSide(dragStartWindowRect, proxyRect, side)) {
                 proxyPosition = me.getProxyPosition(proxyRect, side);
 
                 if (!me.dockedWindowProxy) {
@@ -410,7 +410,7 @@ class MainContainerController extends ComponentController {
 
         for (let item of data.eventData.path) {
             if (item.tagName === 'body') {
-                me.mainWindowRect = item.rect;
+                me.dragStartWindowRect = item.rect;
                 break;
             }
         }
