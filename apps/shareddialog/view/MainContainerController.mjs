@@ -588,8 +588,7 @@ class MainContainerController extends ComponentController {
         if (dialog) {
             cls = dialog.cls;
 
-            NeoArray.remove(cls, me.currentTheme);
-            NeoArray.add(cls, theme);
+            NeoArray.removeAdd(cls, me.currentTheme, theme);
 
             dialog.cls = cls;
         }

@@ -42,7 +42,7 @@ class NeoArray extends Base {
     }
 
     /**
-     * Checks if the index of item is > -1
+     * Checks if the item is included by reference inside the array
      * @param {Array} arr
      * @param {*} item
      */
@@ -142,7 +142,19 @@ class NeoArray extends Base {
     }
 
     /**
-     * Removes an item from an array in case it does  exist, otherwise adds it
+     * Convenience method to combine add & remove in one call.
+     * You can pass single items or an array of items to add or to remove.
+     * @param {Array} arr
+     * @param {*} removeItems
+     * @param {*} addItems
+     */
+    static removeAdd(arr, removeItems, addItems) {
+        this.remove(arr, removeItems);
+        this.add(arr, addItems);
+    }
+
+    /**
+     * Removes an item from an array in case it does exist, otherwise adds it
      * @param {Array} arr
      * @param {*} item
      */
