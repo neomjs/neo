@@ -91,6 +91,10 @@ class Base extends Panel {
          */
         resizablePluginConfig: null,
         /**
+         * @member {String} title='Dialog Title'
+         */
+        title: 'Dialog Title',
+        /**
          * @member {Object} _vdom
          */
         _vdom: {
@@ -409,7 +413,7 @@ class Base extends Panel {
             id   : me.getHeaderToolbarId(),
             items: [{
                 ntype: 'label',
-                text : 'Dialog Title'
+                text : me.title
             }, '->', {
                 iconCls: 'far fa-window-maximize',
                 handler: me.maximize.bind(me)
