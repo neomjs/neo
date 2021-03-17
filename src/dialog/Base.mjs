@@ -203,8 +203,14 @@ class Base extends Panel {
                         {'drag:start': me.onDragStart, scope: me, delegate: '.neo-header-toolbar'}
                     );
 
+                    if (me.dragZoneConfig && me.dragZoneConfig.alwaysFireDragMove) {
+                        domListeners.push(
+                            {'drag:move': me.onDragMove, scope: me, delegate: '.neo-header-toolbar'}
+                        );
+                    }
+
                     me.domListeners       = domListeners;
-                    me.dragListenersAdded = true; // todo: multi window apps
+                    me.dragListenersAdded = true;
                 }
             });
         }
@@ -309,7 +315,7 @@ class Base extends Panel {
                                 height: `${rects[1].height}px`,
                                 left  : `${rects[1].left  }px`,
                                 top   : `${rects[1].top   }px`,
-                                width : `${rects[1].width }px`,
+                                width : `${rects[1].width }px`
                             }
                         }]
                     }).then(() => {
@@ -508,6 +514,14 @@ class Base extends Panel {
                 me.isDragging                   = false;
             });
         }
+    }
+
+    /**
+     * This method will only get triggered in case alwaysFireDragMove is included inside the dragZoneConfig
+     * @param data
+     */
+    onDragMove(data) {
+        this.dragZone.dragMove(data);
     }
 
     /**

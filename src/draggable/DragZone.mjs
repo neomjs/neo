@@ -283,6 +283,8 @@ class DragZone extends Base {
 
             me.dragProxy.style = style;
         }
+
+        me.fire('dragMove', data);
     }
 
     /**
