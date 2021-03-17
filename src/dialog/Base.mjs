@@ -470,6 +470,10 @@ class Base extends Panel {
             initialTransitionProperty, wrapperStyle;
 
         if (!me.maximized) {
+            Neo.main.DomAccess.setBodyCls({
+                remove: ['neo-cursor-move-important']
+            });
+
             Neo.main.DomAccess.getBoundingClientRect({
                 appName: me.appName,
                 id     : me.dragZone.dragProxy.id
@@ -521,6 +525,10 @@ class Base extends Panel {
 
         if (!me.maximized) {
             me.isDragging = true;
+
+            Neo.main.DomAccess.setBodyCls({
+                add: ['neo-cursor-move-important']
+            });
 
             resizablePlugin = me.getPlugin({flag: 'resizable'});
 
