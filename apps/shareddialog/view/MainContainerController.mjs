@@ -130,6 +130,18 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     */
+    destroyDockedWindowProxy() {
+        let me = this;
+
+        if (me.dockedWindowProxy) {
+            me.dockedWindowProxy.destroy(true);
+            me.dockedWindowProxy = null;
+        }
+    }
+
+    /**
+     *
      * @param {Object} proxyRect
      */
     dropDialogBetweenWindows(proxyRect) {
@@ -139,10 +151,7 @@ class MainContainerController extends ComponentController {
             wrapperStyle;
 
         if (intersection.area > size / 2) { // drop the dialog fully into the dragStart window
-            if (me.dockedWindowProxy) {
-                me.dockedWindowProxy.destroy(true);
-                me.dockedWindowProxy = null;
-            }
+            me.destroyDockedWindowProxy();
 
             wrapperStyle = me.dialog.wrapperStyle;
 
@@ -298,10 +307,7 @@ class MainContainerController extends ComponentController {
 
             dialog.wrapperStyle = wrapperStyle;
 
-            if (me.dockedWindowProxy) {
-                me.dockedWindowProxy.destroy(true);
-                me.dockedWindowProxy = null;
-            }
+            me.destroyDockedWindowProxy();
 
             dialog.render(true);
         }, 70);
