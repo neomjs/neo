@@ -17,11 +17,6 @@ class MainContainerController extends ComponentController {
          */
         className: 'SharedDialog.view.MainContainerController',
         /**
-         * @member {String} ntype='maincontainer-controller'
-         * @protected
-         */
-        ntype: 'maincontainer-controller',
-        /**
          * @member {String[]} connectedApps=[]
          */
         connectedApps: [],
