@@ -234,6 +234,49 @@ class MainContainerController extends ComponentController {
         return this.connectedApps.includes(this.dockedWindowAppName);
     }
 
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.appName
+     * @param {Object} data.proxyRect
+     * @param {String} data.side
+     */
+    mountDialogInOtherWindow(data) {
+        let me            = this,
+            dialog        = me.dialog,
+            proxyPosition = me.getProxyPosition(data.proxyRect, data.side),
+            wrapperStyle;
+
+        dialog.unmount();
+
+        // we need a delay to ensure dialog.Base: onDragEnd() is done.
+        // we could use the dragEnd event of the dragZone instead.
+        setTimeout(() => {
+            dialog.appName = data.appName;
+
+            me.getOpenDialogButtons().forEach(button => {
+                if (button.appName === dialog.appName) {
+                    dialog.animateTargetId = button.id;
+                }
+            });
+
+            wrapperStyle = dialog.wrapperStyle;
+
+            wrapperStyle.left = proxyPosition.left;
+            wrapperStyle.top  = proxyPosition.top;
+
+            dialog.wrapperStyle = wrapperStyle;
+
+            if (me.dockedWindowProxy) {
+                me.dockedWindowProxy.destroy(true);
+                me.dockedWindowProxy = null;
+            }
+
+            dialog.render(true);
+        }, 70);
+    }
+
     /**
      *
      * @param {Object} data
@@ -322,8 +365,7 @@ class MainContainerController extends ComponentController {
                 dockedWindowAppName = me.dockedWindowAppName,
                 dragStartWindowRect = me.dragStartWindowRect,
                 proxyRect           = Rectangle.moveTo(me.dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
-                side                = me.dockedWindowSide,
-                proxyPosition, wrapperStyle;
+                side                = me.dockedWindowSide;
 
             if (me.dialog.appName === dockedWindowAppName) {
                 dockedWindowAppName = me.view.appName;
@@ -331,36 +373,12 @@ class MainContainerController extends ComponentController {
             }
 
             if (Rectangle.leavesSide(dragStartWindowRect, proxyRect, side)) {
-                proxyPosition  = me.getProxyPosition(proxyRect, side);
-
                 if (Rectangle.excludes(dragStartWindowRect, proxyRect)) {
-                    dialog.unmount();
-
-                    // we need a delay to ensure dialog.Base: onDragEnd() is done.
-                    // we could use the dragEnd event of the dragZone instead.
-                    setTimeout(() => {
-                        dialog.appName = dialog.appName === dockedWindowAppName ? appName : dockedWindowAppName;
-
-                        me.getOpenDialogButtons().forEach(button => {
-                            if (button.appName === dialog.appName) {
-                                dialog.animateTargetId = button.id;
-                            }
-                        });
-
-                        wrapperStyle = dialog.wrapperStyle;
-
-                        wrapperStyle.left = proxyPosition.left;
-                        wrapperStyle.top  = proxyPosition.top;
-
-                        dialog.wrapperStyle = wrapperStyle;
-
-                        if (me.dockedWindowProxy) {
-                            me.dockedWindowProxy.destroy(true);
-                            me.dockedWindowProxy = null;
-                        }
-
-                        dialog.render(true);
-                    }, 70);
+                    me.mountDialogInOtherWindow({
+                        appName  : dialog.appName === dockedWindowAppName ? appName : dockedWindowAppName,
+                        proxyRect: proxyRect,
+                        side     : side
+                    });
                 } else {
                     me.dropDialogBetweenWindows(proxyRect);
                 }
