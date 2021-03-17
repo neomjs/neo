@@ -135,11 +135,34 @@ class MainContainerController extends ComponentController {
     dropDialogBetweenWindows(proxyRect) {
         let me           = this,
             intersection = Rectangle.getIntersectionDetails(me.dragStartWindowRect, proxyRect),
-            size         = proxyRect.height * proxyRect.width;
+            size         = proxyRect.height * proxyRect.width,
+            wrapperStyle;
 
-        if (intersection.area > size / 2) {
-            console.log('dropped in this window');
-        } else {
+        if (intersection.area > size / 2) { // drop the dialog fully into the dragStart window
+            if (me.dockedWindowProxy) {
+                me.dockedWindowProxy.destroy(true);
+                me.dockedWindowProxy = null;
+            }
+
+            wrapperStyle = me.dialog.wrapperStyle;
+
+            switch (me.dockedWindowSide) {
+                case 'bottom':
+                    wrapperStyle.top = `${me.dragStartWindowRect.height - proxyRect.height}px`;
+                    break;
+                case 'left':
+                    wrapperStyle.left = '0px';
+                    break;
+                case 'right':
+                    wrapperStyle.left = `${me.dragStartWindowRect.width - proxyRect.width}px`;
+                    break;
+                case 'top':
+                    wrapperStyle.top = '0px';
+                    break;
+            }
+
+            me.dialog.wrapperStyle = wrapperStyle;
+        } else { // drop the dialog fully into the dragEnd window
             me.mountDialogInOtherWindow({
                 fullyIncludeIntoWindow: true,
                 proxyRect             : proxyRect
