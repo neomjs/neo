@@ -511,7 +511,6 @@ class MainContainerController extends ComponentController {
             dragStart: me.onDragStart,
             scope    : me
         });
-
     }
 
     /**
