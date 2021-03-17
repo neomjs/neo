@@ -19,6 +19,11 @@ class DragDrop extends Base {
          */
         alwaysFireDragMove: false,
         /**
+         * Optionally set a fixed cursor style to the document.body during drag operations
+         * @member {String|null} bodyCursorStyle=null
+         */
+        bodyCursorStyle: null,
+        /**
          * @member {DOMRect|null} scrollContainerRect=null
          */
         boundaryContainerRect: null,
@@ -207,6 +212,15 @@ class DragDrop extends Base {
             remove: ['neo-unselectable']
         });
 
+        if (me.bodyCursorStyle) {
+            DomAccess.setStyle({
+                id   : 'document.body',
+                style: {
+                    cursor: null
+                }
+            });
+        }
+
         DomEvents.sendMessageToApp({
             ...parsedEvent,
             isDrop : isDrop,
@@ -225,6 +239,7 @@ class DragDrop extends Base {
 
         Object.assign(me, {
             alwaysFireDragMove    : false,
+            bodyCursorStyle       : null,
             boundaryContainerRect : null,
             dragElementRootId     : null,
             dragElementRootRect   : null,
@@ -480,6 +495,16 @@ class DragDrop extends Base {
                 console.error('unknown key passed inside setConfigs()', key);
             }
         });
+
+        // we need to apply the custom style here, since onDragStart() triggers before we get the configs
+        if (me.bodyCursorStyle) {
+            DomAccess.setStyle({
+                id   : 'document.body',
+                style: {
+                    cursor: me.bodyCursorStyle
+                }
+            });
+        }
     }
 
     /**

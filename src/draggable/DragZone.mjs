@@ -46,6 +46,11 @@ class DragZone extends Base {
          */
         appName: null,
         /**
+         * Optionally set a fixed cursor style to the document.body during drag operations
+         * @member {String|null} bodyCursorStyle=null
+         */
+        bodyCursorStyle: null,
+        /**
          * @member {String|null} boundaryContainerId=null
          */
         boundaryContainerId: null,
@@ -293,13 +298,13 @@ class DragZone extends Base {
 
         me.setData();
 
-        NeoArray.add(cls, 'neo-is-dragging');
-        owner.cls = cls;
-
         Neo.main.addon.DragDrop.setConfigs({
             appName: me.appName,
             ...me.getMainThreadConfigs()
         });
+
+        NeoArray.add(cls, 'neo-is-dragging');
+        owner.cls = cls;
 
         offsetX = data.clientX - rect.left;
         offsetY = data.clientY - rect.top;
@@ -367,6 +372,7 @@ class DragZone extends Base {
 
         return {
             alwaysFireDragMove : me.alwaysFireDragMove,
+            bodyCursorStyle    : me.bodyCursorStyle,
             boundaryContainerId: me.boundaryContainerId,
             dragElementRootId  : me.getDragElementRoot().id,
             dragProxyCls       : me.dragProxyCls,
