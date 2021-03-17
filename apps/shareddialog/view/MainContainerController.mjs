@@ -25,10 +25,6 @@ class MainContainerController extends ComponentController {
          */
         currentTheme: 'neo-theme-light',
         /**
-         * @member {String} defaultTheme='neo-theme-light'
-         */
-        defaultTheme: 'neo-theme-light',
-        /**
          * @member {String} dockedWindowAppName='SharedDialog2'
          */
         dockedWindowAppName: 'SharedDialog2',
