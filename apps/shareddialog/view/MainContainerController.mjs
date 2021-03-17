@@ -197,6 +197,14 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     * @return {Neo.button.Base}
+     */
+    getDockedWindowButton() {
+        return this.view.down({iconCls: 'far fa-window-restore'});
+    }
+
+    /**
+     *
      */
     getOpenDialogButtons() {
         return ComponentManager.find({
@@ -253,14 +261,6 @@ class MainContainerController extends ComponentController {
             left: left,
             top : top
         };
-    }
-
-    /**
-     *
-     * @return {Neo.button.Base}
-     */
-    getDockedWindowButton() {
-        return this.view.down({iconCls: 'far fa-window-restore'});
     }
 
     /**
