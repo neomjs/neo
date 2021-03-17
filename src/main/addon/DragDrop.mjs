@@ -454,7 +454,8 @@ class DragDrop extends Base {
     }
 
     /**
-     *
+     * DragZones will set these configs inside their dragStart() method.
+     * They only persist until the end of a drag OP.
      * @param {Object}  data
      * @param {Boolean} data.alwaysFireDragMove
      * @param {String}  data.boundaryContainerId
