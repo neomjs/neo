@@ -140,13 +140,11 @@ class MainContainerController extends ComponentController {
         if (intersection.area > size / 2) {
             console.log('dropped in this window');
         } else {
-            me.mountDialogInOtherWindow(proxyRect);
+            me.mountDialogInOtherWindow({
+                fullyIncludeIntoWindow: true,
+                proxyRect             : proxyRect
+            });
         }
-
-        console.log(proxyRect);
-        console.log(me.dragStartWindowRect);
-        console.log(intersection);
-        console.log(size);
     }
 
     /**
@@ -186,9 +184,10 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} proxyRect
      * @param {String} side
+     * @param {Boolean} [fullyIncludeIntoWindow=false]
      * @return {{left: String, top: String}}
      */
-    getProxyPosition(proxyRect, side) {
+    getProxyPosition(proxyRect, side, fullyIncludeIntoWindow=false) {
         let me                  = this,
             dragStartWindowRect = me.dragStartWindowRect,
             left, top;
@@ -196,19 +195,19 @@ class MainContainerController extends ComponentController {
         switch(side) {
             case 'bottom':
                 left = `${proxyRect.left}px`;
-                top  = `${proxyRect.top - dragStartWindowRect.height}px`;
+                top  = `${fullyIncludeIntoWindow ? 0 : proxyRect.top - dragStartWindowRect.height}px`;
                 break;
             case 'left':
-                left = `${me.targetWindowSize + proxyRect.left}px`;
+                left = `${fullyIncludeIntoWindow ? me.targetWindowSize - proxyRect.width : me.targetWindowSize + proxyRect.left}px`;
                 top  = `${proxyRect.top}px`;
                 break;
             case 'right':
-                left = `${proxyRect.left - dragStartWindowRect.width}px`;
+                left = `${fullyIncludeIntoWindow ? 0 : proxyRect.left - dragStartWindowRect.width}px`;
                 top  = `${proxyRect.top}px`;
                 break;
             case 'top':
                 left = `${proxyRect.left}px`;
-                top  = `${me.targetWindowSize + proxyRect.top}px`;
+                top  = `${fullyIncludeIntoWindow ? me.targetWindowSize - proxyRect.height : me.targetWindowSize + proxyRect.top}px`;
                 break;
         }
 
@@ -237,9 +236,11 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @param {Object} proxyRect
+     * @param {Object} data
+     * @param {Object} data.proxyRect
+     * @param {Boolean} [data.fullyIncludeIntoWindow]
      */
-    mountDialogInOtherWindow(proxyRect) {
+    mountDialogInOtherWindow(data) {
         let me                   = this,
             appName              = me.view.appName,
             dialog               = me.dialog,
@@ -252,7 +253,7 @@ class MainContainerController extends ComponentController {
             side                 = me.getOppositeSide(me.dockedWindowSide);
         }
 
-        proxyPosition = me.getProxyPosition(proxyRect, side)
+        proxyPosition = me.getProxyPosition(data.proxyRect, side, data.fullyIncludeIntoWindow);
 
         dialog.unmount();
 
@@ -377,7 +378,9 @@ class MainContainerController extends ComponentController {
 
             if (Rectangle.leavesSide(dragStartWindowRect, proxyRect, side)) {
                 if (Rectangle.excludes(dragStartWindowRect, proxyRect)) {
-                    me.mountDialogInOtherWindow(proxyRect);
+                    me.mountDialogInOtherWindow({
+                        proxyRect: proxyRect
+                    });
                 } else {
                     me.dropDialogBetweenWindows(proxyRect);
                 }
