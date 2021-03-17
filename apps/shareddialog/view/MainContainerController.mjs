@@ -236,6 +236,7 @@ class MainContainerController extends ComponentController {
     getProxyPosition(proxyRect, side, fullyIncludeIntoWindow=false) {
         let me                  = this,
             dragStartWindowRect = me.dragStartWindowRect,
+            targetWindowSize    = me.targetWindowSize,
             left, top;
 
         switch(side) {
@@ -244,7 +245,7 @@ class MainContainerController extends ComponentController {
                 top  = `${fullyIncludeIntoWindow ? 0 : proxyRect.top - dragStartWindowRect.height}px`;
                 break;
             case 'left':
-                left = `${fullyIncludeIntoWindow ? me.targetWindowSize - proxyRect.width : me.targetWindowSize + proxyRect.left}px`;
+                left = `${fullyIncludeIntoWindow ? targetWindowSize - proxyRect.width : targetWindowSize + proxyRect.left}px`;
                 top  = `${proxyRect.top}px`;
                 break;
             case 'right':
@@ -253,7 +254,7 @@ class MainContainerController extends ComponentController {
                 break;
             case 'top':
                 left = `${proxyRect.left}px`;
-                top  = `${fullyIncludeIntoWindow ? me.targetWindowSize - proxyRect.height : me.targetWindowSize + proxyRect.top}px`;
+                top  = `${fullyIncludeIntoWindow ? targetWindowSize - proxyRect.height : targetWindowSize + proxyRect.top}px`;
                 break;
         }
 
