@@ -140,7 +140,7 @@ class MainContainerController extends ComponentController {
         if (intersection.area > size / 2) {
             console.log('dropped in this window');
         } else {
-            console.log('dropped in other window');
+            me.mountDialogInOtherWindow(proxyRect);
         }
 
         console.log(proxyRect);
@@ -237,23 +237,29 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @param {Object} data
-     * @param {String} data.appName
-     * @param {Object} data.proxyRect
-     * @param {String} data.side
+     * @param {Object} proxyRect
      */
-    mountDialogInOtherWindow(data) {
-        let me            = this,
-            dialog        = me.dialog,
-            proxyPosition = me.getProxyPosition(data.proxyRect, data.side),
-            wrapperStyle;
+    mountDialogInOtherWindow(proxyRect) {
+        let me                   = this,
+            appName              = me.view.appName,
+            dialog               = me.dialog,
+            dragEndWindowAppName = me.dockedWindowAppName,
+            side                 = me.dockedWindowSide,
+            proxyPosition, wrapperStyle;
+
+        if (dialog.appName === dragEndWindowAppName) {
+            dragEndWindowAppName = me.view.appName;
+            side                 = me.getOppositeSide(me.dockedWindowSide);
+        }
+
+        proxyPosition = me.getProxyPosition(proxyRect, side)
 
         dialog.unmount();
 
         // we need a delay to ensure dialog.Base: onDragEnd() is done.
         // we could use the dragEnd event of the dragZone instead.
         setTimeout(() => {
-            dialog.appName = data.appName;
+            dialog.appName = dialog.appName === dragEndWindowAppName ? appName : dragEndWindowAppName;
 
             me.getOpenDialogButtons().forEach(button => {
                 if (button.appName === dialog.appName) {
@@ -360,25 +366,18 @@ class MainContainerController extends ComponentController {
     onDragEnd(data) {
         if (this.hasDockedWindow()) {
             let me                  = this,
-                appName             = me.view.appName,
                 dialog              = me.dialog,
-                dockedWindowAppName = me.dockedWindowAppName,
                 dragStartWindowRect = me.dragStartWindowRect,
                 proxyRect           = Rectangle.moveTo(me.dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
                 side                = me.dockedWindowSide;
 
-            if (me.dialog.appName === dockedWindowAppName) {
-                dockedWindowAppName = me.view.appName;
-                side                = me.getOppositeSide(me.dockedWindowSide);
+            if (dialog.appName === me.dockedWindowAppName) {
+                side = me.getOppositeSide(me.dockedWindowSide);
             }
 
             if (Rectangle.leavesSide(dragStartWindowRect, proxyRect, side)) {
                 if (Rectangle.excludes(dragStartWindowRect, proxyRect)) {
-                    me.mountDialogInOtherWindow({
-                        appName  : dialog.appName === dockedWindowAppName ? appName : dockedWindowAppName,
-                        proxyRect: proxyRect,
-                        side     : side
-                    });
+                    me.mountDialogInOtherWindow(proxyRect);
                 } else {
                     me.dropDialogBetweenWindows(proxyRect);
                 }
