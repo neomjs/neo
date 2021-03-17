@@ -199,7 +199,7 @@ class MainContainerController extends ComponentController {
      *
      * @return {Neo.button.Base}
      */
-    getDockedWindowButton() {
+    getOpenDockedWindowButton() {
         return this.view.down({iconCls: 'far fa-window-restore'});
     }
 
@@ -335,7 +335,7 @@ class MainContainerController extends ComponentController {
         }
 
         if (name === me.dockedWindowAppName) {
-            me.getDockedWindowButton().disabled = true;
+            me.getOpenDockedWindowButton().disabled = true;
         }
 
         me.enableOpenDialogButtons(!me.dialog);
@@ -366,7 +366,7 @@ class MainContainerController extends ComponentController {
         }
 
         if (name === me.dockedWindowAppName) {
-            me.getDockedWindowButton().disabled = false;
+            me.getOpenDockedWindowButton().disabled = false;
         }
     }
 
