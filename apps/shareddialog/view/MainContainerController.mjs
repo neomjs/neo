@@ -515,7 +515,7 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     * Creates a new popup window, which is initially docked to the right side of the main window
+     * Creates a new popup window, which is initially docked to this.dockedWindowSide of the main window
      * @param {Object} handlerData
      */
     openDockedWindow(handlerData) {
