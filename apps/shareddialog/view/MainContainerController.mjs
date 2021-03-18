@@ -1,5 +1,6 @@
 import Component           from '../../../src/component/Base.mjs';
 import ComponentController from '../../../src/controller/Component.mjs';
+import ComponentManager    from '../../../src/manager/Component.mjs';
 import DemoDialog          from './DemoDialog.mjs';
 import NeoArray            from '../../../src/util/Array.mjs';
 import Rectangle           from '../../../src/util/Rectangle.mjs';
@@ -16,11 +17,6 @@ class MainContainerController extends ComponentController {
          */
         className: 'SharedDialog.view.MainContainerController',
         /**
-         * @member {String} ntype='maincontainer-controller'
-         * @protected
-         */
-        ntype: 'maincontainer-controller',
-        /**
          * @member {String[]} connectedApps=[]
          */
         connectedApps: [],
@@ -28,10 +24,6 @@ class MainContainerController extends ComponentController {
          * @member {String} currentTheme='neo-theme-light'
          */
         currentTheme: 'neo-theme-light',
-        /**
-         * @member {String} defaultTheme='neo-theme-light'
-         */
-        defaultTheme: 'neo-theme-light',
         /**
          * @member {String} dockedWindowAppName='SharedDialog2'
          */
@@ -54,9 +46,9 @@ class MainContainerController extends ComponentController {
          */
         dialogRect: null,
         /**
-         * @member {Object} mainWindowRect=null
+         * @member {Object} dragStartWindowRect=null
          */
-        mainWindowRect: null,
+        dragStartWindowRect: null,
         /**
          * @member {Number|null} targetWindowSize=0
          */
@@ -64,7 +56,7 @@ class MainContainerController extends ComponentController {
     }}
 
     /**
-     *
+     * The App main view will receive connect & disconnect events inside the SharedWorkers context
      */
     onConstructed() {
         super.onConstructed();
@@ -72,10 +64,9 @@ class MainContainerController extends ComponentController {
         let me = this;
 
         me.view.on({
-            connect        : me.onAppConnect,
-            disconnect     : me.onAppDisconnect,
-            dragZoneCreated: me.onDragZoneCreated,
-            scope          : me
+            connect   : me.onAppConnect,
+            disconnect: me.onAppDisconnect,
+            scope     : me
         });
     }
 
@@ -102,32 +93,113 @@ class MainContainerController extends ComponentController {
     createDialog(data, appName) {
         let me = this;
 
-        data.component.disabled = true;
+        me.enableOpenDialogButtons(false);
 
         me.dialog = Neo.create(DemoDialog, {
             animateTargetId    : data.component.id,
             appName            : appName,
             boundaryContainerId: null,
             cls                : [me.currentTheme, 'neo-dialog', 'neo-panel', 'neo-container'],
-            listeners          : {close: me.onWindowClose, scope: me},
-
-            domListeners: [{
-                'drag:end'  : me.onDragEnd,
-                'drag:move' : me.onDragMove,
-                'drag:start': me.onDragStart,
-                scope       : me,
-                delegate    : '.neo-header-toolbar'
-            }],
 
             dragZoneConfig: {
                 alwaysFireDragMove: true
+            },
+
+            listeners: {
+                close          : me.onDialogClose,
+                dragZoneCreated: me.onDragZoneCreated,
+                scope          : me
             }
         });
     }
 
     /**
      *
-     * @param {String}side
+     */
+    destroyDockedWindowProxy() {
+        let me = this;
+
+        if (me.dockedWindowProxy) {
+            me.dockedWindowProxy.destroy(true);
+            me.dockedWindowProxy = null;
+        }
+    }
+
+    /**
+     *
+     * @param {Object} proxyRect
+     */
+    dropDialogBetweenWindows(proxyRect) {
+        let me           = this,
+            dialog       = me.dialog,
+            intersection = Rectangle.getIntersectionDetails(me.dragStartWindowRect, proxyRect),
+            side         = me.dockedWindowSide,
+            size         = proxyRect.height * proxyRect.width,
+            wrapperStyle;
+
+        if (intersection.area > size / 2) { // drop the dialog fully into the dragStart window
+            me.destroyDockedWindowProxy();
+
+            wrapperStyle = dialog.wrapperStyle;
+
+            if (dialog.appName === me.dockedWindowAppName) {
+                side = me.getOppositeSide(side);
+            }
+
+            switch (side) {
+                case 'bottom':
+                    wrapperStyle.top = `${me.dragStartWindowRect.height - proxyRect.height}px`;
+                    break;
+                case 'left':
+                    wrapperStyle.left = '0px';
+                    break;
+                case 'right':
+                    wrapperStyle.left = `${me.dragStartWindowRect.width - proxyRect.width}px`;
+                    break;
+                case 'top':
+                    wrapperStyle.top = '0px';
+                    break;
+            }
+
+            dialog.wrapperStyle = wrapperStyle;
+        } else { // drop the dialog fully into the dragEnd window
+            me.mountDialogInOtherWindow({
+                fullyIncludeIntoWindow: true,
+                proxyRect             : proxyRect
+            });
+        }
+    }
+
+    /**
+     *
+     * @param {Boolean} enable
+     */
+    enableOpenDialogButtons(enable) {
+        this.getOpenDialogButtons().forEach(button => {
+            button.disabled = !enable;
+        });
+    }
+
+    /**
+     *
+     * @return {Neo.button.Base}
+     */
+    getOpenDockedWindowButton() {
+        return this.view.down({iconCls: 'far fa-window-restore'});
+    }
+
+    /**
+     *
+     */
+    getOpenDialogButtons() {
+        return ComponentManager.find({
+            flag: 'open-dialog-button'
+        });
+    }
+
+    /**
+     *
+     * @param {String} side
      * @return {String}
      */
     getOppositeSide(side) {
@@ -143,29 +215,31 @@ class MainContainerController extends ComponentController {
      *
      * @param {Object} proxyRect
      * @param {String} side
+     * @param {Boolean} [fullyIncludeIntoWindow=false]
      * @return {{left: String, top: String}}
      */
-    getProxyPosition(proxyRect, side) {
-        let me             = this,
-            mainWindowRect = me.mainWindowRect,
+    getProxyPosition(proxyRect, side, fullyIncludeIntoWindow=false) {
+        let me                  = this,
+            dragStartWindowRect = me.dragStartWindowRect,
+            targetWindowSize    = me.targetWindowSize,
             left, top;
 
         switch(side) {
             case 'bottom':
                 left = `${proxyRect.left}px`;
-                top  = `${proxyRect.top - mainWindowRect.height}px`;
+                top  = `${fullyIncludeIntoWindow ? 0 : proxyRect.top - dragStartWindowRect.height}px`;
                 break;
             case 'left':
-                left = `${me.targetWindowSize + proxyRect.left}px`;
+                left = `${fullyIncludeIntoWindow ? targetWindowSize - proxyRect.width : targetWindowSize + proxyRect.left}px`;
                 top  = `${proxyRect.top}px`;
                 break;
             case 'right':
-                left = `${proxyRect.left - mainWindowRect.width}px`;
+                left = `${fullyIncludeIntoWindow ? 0 : proxyRect.left - dragStartWindowRect.width}px`;
                 top  = `${proxyRect.top}px`;
                 break;
             case 'top':
                 left = `${proxyRect.left}px`;
-                top  = `${me.targetWindowSize + proxyRect.top}px`;
+                top  = `${fullyIncludeIntoWindow ? targetWindowSize - proxyRect.height : targetWindowSize + proxyRect.top}px`;
                 break;
         }
 
@@ -177,18 +251,58 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @return {Neo.button.Base}
-     */
-    getSecondWindowButton() {
-        return this.view.down({iconCls: 'far fa-window-restore'});
-    }
-
-    /**
-     *
      * @return {Boolean}
      */
     hasDockedWindow() {
         return this.connectedApps.includes(this.dockedWindowAppName);
+    }
+
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Object} data.proxyRect
+     * @param {Boolean} [data.fullyIncludeIntoWindow]
+     */
+    mountDialogInOtherWindow(data) {
+        let me                   = this,
+            appName              = me.view.appName,
+            dialog               = me.dialog,
+            dragEndWindowAppName = me.dockedWindowAppName,
+            side                 = me.dockedWindowSide,
+            proxyPosition, wrapperStyle;
+
+        if (dialog.appName === dragEndWindowAppName) {
+            dragEndWindowAppName = me.view.appName;
+            side                 = me.getOppositeSide(me.dockedWindowSide);
+        }
+
+        proxyPosition = me.getProxyPosition(data.proxyRect, side, data.fullyIncludeIntoWindow);
+
+        dialog.unmount();
+
+        // we need a delay to ensure dialog.Base: onDragEnd() is done.
+        // we could use the dragEnd event of the dragZone instead.
+        setTimeout(() => {
+            dialog.appName = dialog.appName === dragEndWindowAppName ? appName : dragEndWindowAppName;
+
+            me.getOpenDialogButtons().forEach(button => {
+                if (button.appName === dialog.appName) {
+                    dialog.animateTargetId = button.id;
+                }
+            });
+
+            wrapperStyle = dialog.wrapperStyle;
+
+            wrapperStyle.left = proxyPosition.left;
+            wrapperStyle.top  = proxyPosition.top;
+
+            dialog.wrapperStyle = wrapperStyle;
+
+            me.destroyDockedWindowProxy();
+
+            dialog.render(true);
+        }, 70);
     }
 
     /**
@@ -207,8 +321,10 @@ class MainContainerController extends ComponentController {
         }
 
         if (name === me.dockedWindowAppName) {
-            me.getSecondWindowButton().disabled = true;
+            me.getOpenDockedWindowButton().disabled = true;
         }
+
+        me.enableOpenDialogButtons(!me.dialog);
     }
 
     /**
@@ -236,7 +352,7 @@ class MainContainerController extends ComponentController {
         }
 
         if (name === me.dockedWindowAppName) {
-            me.getSecondWindowButton().disabled = false;
+            me.getOpenDockedWindowButton().disabled = false;
         }
     }
 
@@ -246,6 +362,13 @@ class MainContainerController extends ComponentController {
      */
     onCreateDialogButtonClick(data) {
         this.createDialog(data, this.view.appName);
+    }
+
+    /**
+     *
+     */
+    onDialogClose() {
+        this.enableOpenDialogButtons(true);
     }
 
     /**
@@ -265,47 +388,22 @@ class MainContainerController extends ComponentController {
     onDragEnd(data) {
         if (this.hasDockedWindow()) {
             let me                  = this,
-                appName             = me.view.appName,
                 dialog              = me.dialog,
-                dockedWindowAppName = me.dockedWindowAppName,
-                mainWindowRect      = me.mainWindowRect,
+                dragStartWindowRect = me.dragStartWindowRect,
                 proxyRect           = Rectangle.moveTo(me.dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
-                side                = me.dockedWindowSide,
-                proxyPosition, wrapperStyle;
+                side                = me.dockedWindowSide;
 
-            if (me.dialog.appName === dockedWindowAppName) {
-                dockedWindowAppName = me.view.appName;
-                side                = me.getOppositeSide(me.dockedWindowSide);
+            if (dialog.appName === me.dockedWindowAppName) {
+                side = me.getOppositeSide(me.dockedWindowSide);
             }
 
-            if (Rectangle.leavesSide(mainWindowRect, proxyRect, side)) {
-                proxyPosition  = me.getProxyPosition(proxyRect, side);
-
-                if (Rectangle.excludes(mainWindowRect, proxyRect)) {
-                    dialog.unmount();
-
-                    // we need a delay to ensure dialog.Base: onDragEnd() is done.
-                    // we could use the dragEnd event of the dragZone instead.
-                    setTimeout(() => {
-                        dialog.appName = dialog.appName === dockedWindowAppName ? appName : dockedWindowAppName;
-
-                        wrapperStyle = dialog.wrapperStyle;
-
-                        wrapperStyle.left = proxyPosition.left;
-                        wrapperStyle.top  = proxyPosition.top;
-
-                        dialog.wrapperStyle = wrapperStyle;
-
-                        if (me.dockedWindowProxy) {
-                            me.dockedWindowProxy.destroy(true);
-                            me.dockedWindowProxy = null;
-                        }
-
-                        dialog.render(true);
-                    }, 70);
+            if (Rectangle.leavesSide(dragStartWindowRect, proxyRect, side)) {
+                if (Rectangle.excludes(dragStartWindowRect, proxyRect)) {
+                    me.mountDialogInOtherWindow({
+                        proxyRect: proxyRect
+                    });
                 } else {
-                    // todo: dialog dropped between windows
-                    console.log('dialog dropped between windows');
+                    me.dropDialogBetweenWindows(proxyRect);
                 }
             }
         }
@@ -320,17 +418,19 @@ class MainContainerController extends ComponentController {
             let me                  = this,
                 dialogRect          = me.dialogRect,
                 dockedWindowAppName = me.dockedWindowAppName,
-                mainWindowRect      = me.mainWindowRect,
+                dragStartWindowRect = me.dragStartWindowRect,
                 proxyRect           = Rectangle.moveTo(dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
                 side                = me.dockedWindowSide,
                 proxyPosition, vdom;
 
+            // in case we trigger the drag:start inside the docked window,
+            // we can keep the same logic with just flipping the side.
             if (me.dialog.appName === dockedWindowAppName) {
                 dockedWindowAppName = me.view.appName;
                 side                = me.getOppositeSide(me.dockedWindowSide);
             }
 
-            if (Rectangle.leavesSide(mainWindowRect, proxyRect, side)) {
+            if (Rectangle.leavesSide(dragStartWindowRect, proxyRect, side)) {
                 proxyPosition = me.getProxyPosition(proxyRect, side);
 
                 if (!me.dockedWindowProxy) {
@@ -354,8 +454,13 @@ class MainContainerController extends ComponentController {
                         vdom      : vdom
                     });
                 } else {
-                    me.dockedWindowProxy.style = Object.assign(me.dockedWindowProxy.style || {}, proxyPosition);
+                    me.updateDockedWindowProxyStyle({
+                        ...proxyPosition,
+                        visibility: null
+                    });
                 }
+            } else {
+                me.updateDockedWindowProxyStyle({visibility: 'hidden'});
             }
         }
     }
@@ -369,11 +474,11 @@ class MainContainerController extends ComponentController {
             appName          = me.view.appName,
             dockedHorizontal = me.dockedWindowSide === 'left' || me.dockedWindowSide === 'right';
 
-        for (let item of data.path) {
-            if (item.cls.includes('neo-dialog')) {
-                me.dialogRect = item.rect;
-            } else if (item.tagName === 'body') {
-                me.mainWindowRect = item.rect;
+        me.dialogRect = data.dragElementRect;
+
+        for (let item of data.eventData.path) {
+            if (item.tagName === 'body') {
+                me.dragStartWindowRect = item.rect;
                 break;
             }
         }
@@ -392,22 +497,18 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onDragZoneCreated(data) {
-        console.log('onDragZoneCreated', data);
-    }
+        let me = this;
 
-    /**
-     *
-     */
-    onWindowClose() {
-        let button = this.view.down({
-            text: 'Create Dialog'
+        data.dragZone.on({
+            dragEnd  : me.onDragEnd,
+            dragMove : me.onDragMove,
+            dragStart: me.onDragStart,
+            scope    : me
         });
-
-        button.disabled = false;
     }
 
     /**
-     * Creates a new popup window, which is initially docked to the right side of the main window
+     * Creates a new popup window, which is initially docked to this.dockedWindowSide of the main window
      * @param {Object} handlerData
      */
     openDockedWindow(handlerData) {
@@ -489,8 +590,7 @@ class MainContainerController extends ComponentController {
         if (dialog) {
             cls = dialog.cls;
 
-            NeoArray.remove(cls, me.currentTheme);
-            NeoArray.add(cls, theme);
+            NeoArray.removeAdd(cls, me.currentTheme, theme);
 
             dialog.cls = cls;
         }
@@ -504,17 +604,29 @@ class MainContainerController extends ComponentController {
      * @param {String} theme
      */
     switchThemeForApp(appName, theme) {
-        let view = Neo.apps[appName].mainViewInstance,
-            cls  = [...view.cls];
-
-        view.cls.forEach(item => {
-            if (item.includes('neo-theme')) {
-                NeoArray.remove(cls, item);
+        Neo.currentWorker.promiseMessage('main', {
+            action : 'updateDom',
+            appName: appName,
+            deltas : {
+                id : 'document.body',
+                cls: {
+                    add   : [theme],
+                    remove: [this.currentTheme]
+                }
             }
         });
+    }
 
-        NeoArray.add(cls, theme);
-        view.cls = cls;
+    /**
+     *
+     * @param {Object} style
+     */
+    updateDockedWindowProxyStyle(style) {
+        let dockedWindowProxy = this.dockedWindowProxy;
+
+        if (dockedWindowProxy) {
+            dockedWindowProxy.style = Object.assign(dockedWindowProxy.style || {}, style);
+        }
     }
 }
 

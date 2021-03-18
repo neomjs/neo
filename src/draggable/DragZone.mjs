@@ -46,6 +46,11 @@ class DragZone extends Base {
          */
         appName: null,
         /**
+         * Optionally set a fixed cursor style to the document.body during drag operations
+         * @member {String|null} bodyCursorStyle=null
+         */
+        bodyCursorStyle: null,
+        /**
          * @member {String|null} boundaryContainerId=null
          */
         boundaryContainerId: null,
@@ -230,8 +235,9 @@ class DragZone extends Base {
 
     /**
      *
+     * @param {Object} data
      */
-    dragEnd() {
+    dragEnd(data) {
         let me    = this,
             owner = me.owner,
             cls   = owner.cls;
@@ -250,6 +256,8 @@ class DragZone extends Base {
             offsetY          : 0,
             scrollContainerId: null
         });
+
+        me.fire('dragEnd', data);
 
         me.resetData();
     }
@@ -275,6 +283,8 @@ class DragZone extends Base {
 
             me.dragProxy.style = style;
         }
+
+        me.fire('dragMove', data);
     }
 
     /**
@@ -285,40 +295,63 @@ class DragZone extends Base {
         let me    = this,
             owner = me.owner,
             cls   = owner.cls,
+            rect  = me.getDragElementRect(data),
             offsetX, offsetY;
 
         me.setData();
-
-        NeoArray.add(cls, 'neo-is-dragging');
-        owner.cls = cls;
 
         Neo.main.addon.DragDrop.setConfigs({
             appName: me.appName,
             ...me.getMainThreadConfigs()
         });
 
-        Neo.main.DomAccess.getBoundingClientRect({
-            appName: me.appName,
-            id:      me.getDragElementRoot().id
-        }).then(rect => {
-            offsetX = data.clientX - rect.left;
-            offsetY = data.clientY - rect.top;
+        NeoArray.add(cls, 'neo-is-dragging');
+        owner.cls = cls;
 
-            Object.assign(me, {
-                dragElementRect: rect,
-                offsetX        : offsetX,
-                offsetY        : offsetY
-            });
+        offsetX = data.clientX - rect.left;
+        offsetY = data.clientY - rect.top;
 
-            me.createDragProxy(rect);
-
-            me.fire('dragStart', {
-                dragElementRect: rect,
-                id             : me.id,
-                offsetX        : offsetX,
-                offsetY        : offsetY
-            });
+        Object.assign(me, {
+            dragElementRect: rect,
+            offsetX        : offsetX,
+            offsetY        : offsetY
         });
+
+        me.createDragProxy(rect);
+
+        me.fire('dragStart', {
+            clientX        : data.clientX,
+            clientY        : data.clientY,
+            dragElementRect: rect,
+            eventData      : data,
+            id             : me.id,
+            offsetX        : offsetX,
+            offsetY        : offsetY
+        });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @return {Object}
+     */
+    getDragElementRect(data) {
+        let me = this,
+            id = me.getDragElementRoot().id;
+
+        for (let item of data.path) {
+            if (item.id === id) {
+                return item.rect;
+            }
+        }
+
+        for (let item of data.targetPath) {
+            if (item.id === id) {
+                return item.rect;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -341,6 +374,7 @@ class DragZone extends Base {
 
         return {
             alwaysFireDragMove : me.alwaysFireDragMove,
+            bodyCursorStyle    : me.bodyCursorStyle,
             boundaryContainerId: me.boundaryContainerId,
             dragElementRootId  : me.getDragElementRoot().id,
             dragProxyCls       : me.dragProxyCls,

@@ -14,8 +14,12 @@ html, .neo-body-viewport {
 }
 
 .neo-body, .neo-body * {
-     box-sizing: border-box;
+    box-sizing: border-box;
  }
+
+.neo-cursor-move-important {
+    cursor: move !important;
+}
 
 .neo-disabled {
     opacity       : v(neo-disabled-opacity);

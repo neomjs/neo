@@ -8,6 +8,7 @@ import TextField from '../../../src/form/field/Text.mjs';
 class DemoDialog extends Dialog {
     static getConfig() {return {
         className: 'SharedDialog.view.DemoWindow',
+        title    : 'Drag me across Windows!',
 
         containerConfig: {
             style: {

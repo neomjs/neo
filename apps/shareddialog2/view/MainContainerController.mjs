@@ -10,12 +10,7 @@ class MainContainerController extends ComponentController {
          * @member {String} className='SharedDialog2.view.MainContainerController'
          * @protected
          */
-        className: 'SharedDialog2.view.MainContainerController',
-        /**
-         * @member {String} ntype='maincontainer2-controller'
-         * @protected
-         */
-        ntype: 'maincontainer2-controller'
+        className: 'SharedDialog2.view.MainContainerController'
     }}
 
     /**

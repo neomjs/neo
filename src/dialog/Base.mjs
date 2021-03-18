@@ -91,6 +91,10 @@ class Base extends Panel {
          */
         resizablePluginConfig: null,
         /**
+         * @member {String} title='Dialog Title'
+         */
+        title: 'Dialog Title',
+        /**
          * @member {Object} _vdom
          */
         _vdom: {
@@ -199,8 +203,14 @@ class Base extends Panel {
                         {'drag:start': me.onDragStart, scope: me, delegate: '.neo-header-toolbar'}
                     );
 
+                    if (me.dragZoneConfig && me.dragZoneConfig.alwaysFireDragMove) {
+                        domListeners.push(
+                            {'drag:move': me.onDragMove, scope: me, delegate: '.neo-header-toolbar'}
+                        );
+                    }
+
                     me.domListeners       = domListeners;
-                    me.dragListenersAdded = true; // todo: multi window apps
+                    me.dragListenersAdded = true;
                 }
             });
         }
@@ -285,7 +295,8 @@ class Base extends Panel {
             id      = me.getAnimateTargetId();
 
         Neo.main.DomAccess.getBoundingClientRect({
-            id: [me.id, me.animateTargetId]
+            appName: appName,
+            id     : [me.id, me.animateTargetId]
         }).then(rects => {
             Neo.currentWorker.promiseMessage('main', {
                 action  : 'mountDom',
@@ -304,7 +315,7 @@ class Base extends Panel {
                                 height: `${rects[1].height}px`,
                                 left  : `${rects[1].left  }px`,
                                 top   : `${rects[1].top   }px`,
-                                width : `${rects[1].width }px`,
+                                width : `${rects[1].width }px`
                             }
                         }]
                     }).then(() => {
@@ -408,7 +419,7 @@ class Base extends Panel {
             id   : me.getHeaderToolbarId(),
             items: [{
                 ntype: 'label',
-                text : 'Dialog Title'
+                text : me.title
             }, '->', {
                 iconCls: 'far fa-window-maximize',
                 handler: me.maximize.bind(me)
@@ -506,6 +517,14 @@ class Base extends Panel {
     }
 
     /**
+     * This method will only get triggered in case alwaysFireDragMove is included inside the dragZoneConfig
+     * @param data
+     */
+    onDragMove(data) {
+        this.dragZone.dragMove(data);
+    }
+
+    /**
      *
      * @param data
      */
@@ -527,6 +546,7 @@ class Base extends Panel {
                 me.dragZone = Neo.create({
                     module             : DragZone,
                     appName            : me.appName,
+                    bodyCursorStyle    : 'move !important',
                     boundaryContainerId: me.boundaryContainerId,
                     dragElement        : me.vdom,
                     owner              : me,
