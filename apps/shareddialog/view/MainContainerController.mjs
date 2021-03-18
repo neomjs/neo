@@ -418,6 +418,7 @@ class MainContainerController extends ComponentController {
             let me                  = this,
                 dialogRect          = me.dialogRect,
                 dockedWindowAppName = me.dockedWindowAppName,
+                dockedWindowProxy   = me.dockedWindowProxy,
                 dragStartWindowRect = me.dragStartWindowRect,
                 proxyRect           = Rectangle.moveTo(dialogRect, data.clientX - data.offsetX, data.clientY - data.offsetY),
                 side                = me.dockedWindowSide,
@@ -431,7 +432,7 @@ class MainContainerController extends ComponentController {
             if (Rectangle.leavesSide(dragStartWindowRect, proxyRect, side)) {
                 proxyPosition = me.getProxyPosition(proxyRect, side);
 
-                if (!me.dockedWindowProxy) {
+                if (!dockedWindowProxy) {
                     vdom = Neo.clone(me.dialog.dragZone.dragProxy.vdom, true);
 
                     delete vdom.id;
@@ -452,8 +453,15 @@ class MainContainerController extends ComponentController {
                         vdom      : vdom
                     });
                 } else {
-                    me.dockedWindowProxy.style = Object.assign(me.dockedWindowProxy.style || {}, proxyPosition);
+                    dockedWindowProxy.style = Object.assign(dockedWindowProxy.style || {}, {
+                        ...proxyPosition,
+                        visibility: null
+                    });
                 }
+            } else if (dockedWindowProxy) {
+                dockedWindowProxy.style = Object.assign(dockedWindowProxy.style || {}, {
+                    visibility: 'hidden'
+                });
             }
         }
     }
