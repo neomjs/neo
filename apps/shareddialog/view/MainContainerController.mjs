@@ -423,6 +423,8 @@ class MainContainerController extends ComponentController {
                 side                = me.dockedWindowSide,
                 proxyPosition, vdom;
 
+            // in case we trigger the drag:start inside the docked window,
+            // we can keep the same logic with just flipping the side.
             if (me.dialog.appName === dockedWindowAppName) {
                 dockedWindowAppName = me.view.appName;
                 side                = me.getOppositeSide(me.dockedWindowSide);
