@@ -453,15 +453,13 @@ class MainContainerController extends ComponentController {
                         vdom      : vdom
                     });
                 } else {
-                    dockedWindowProxy.style = Object.assign(dockedWindowProxy.style || {}, {
+                    me.updateDockedWindowProxyStyle({
                         ...proxyPosition,
                         visibility: null
                     });
                 }
-            } else if (dockedWindowProxy) {
-                dockedWindowProxy.style = Object.assign(dockedWindowProxy.style || {}, {
-                    visibility: 'hidden'
-                });
+            } else {
+                me.updateDockedWindowProxyStyle({visibility: 'hidden'});
             }
         }
     }
@@ -616,6 +614,18 @@ class MainContainerController extends ComponentController {
                 }
             }
         });
+    }
+
+    /**
+     *
+     * @param {Object} style
+     */
+    updateDockedWindowProxyStyle(style) {
+        let dockedWindowProxy = this.dockedWindowProxy;
+
+        if (dockedWindowProxy) {
+            dockedWindowProxy.style = Object.assign(dockedWindowProxy.style || {}, style);
+        }
     }
 }
 
