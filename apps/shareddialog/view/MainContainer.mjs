@@ -16,20 +16,6 @@ class MainContainer extends Viewport {
         layout    : {ntype: 'vbox', align: 'stretch'},
         style     : {padding: '20px'},
 
-        /**
-         * Custom config which gets passed to the dialog
-         * Either a dom node id, 'document.body' or null
-         * @member {String|null} boundaryContainerId='document.body'
-         */
-        boundaryContainerId: 'document.body',
-        /**
-         * Custom config
-         * @member {Neo.dialog.Base|null} dialog=null
-         */
-        dialog: null,
-        /**
-         * @member {Array} items
-         */
         items: [{
             module: Toolbar,
             flex  : 'none',
