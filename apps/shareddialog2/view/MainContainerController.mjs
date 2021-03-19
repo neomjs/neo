@@ -18,7 +18,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onCreateDialogButtonClick(data) {
-        let app  = Neo.apps['SharedDialog'];
+        let app = Neo.apps['SharedDialog'];
 
         if (app) {
             app.mainViewInstance.controller.createDialog(data, this.view.appName);
