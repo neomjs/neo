@@ -85,11 +85,15 @@ class MainContainerController extends ComponentController {
         me.loadData();
         me.loadSummaryData();
 
-        me.view.on({
+        Neo.currentWorker.on({
             connect   : me.onAppConnect,
             disconnect: me.onAppDisconnect,
-            mounted   : me.onMainViewMounted,
             scope     : me
+        });
+
+        me.view.on({
+            mounted: me.onMainViewMounted,
+            scope  : me
         });
 
         setTimeout(() => {
