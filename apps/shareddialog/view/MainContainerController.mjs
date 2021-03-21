@@ -301,7 +301,7 @@ class MainContainerController extends ComponentController {
 
             me.destroyDockedWindowProxy();
 
-            dialog.render(true);
+            dialog.mount();
         }, 70);
     }
 
