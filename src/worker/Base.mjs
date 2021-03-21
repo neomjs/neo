@@ -112,6 +112,18 @@ class Base extends CoreBase {
 
     /**
      * Only relevant for SharedWorkers
+     * @param {Object} data
+     */
+    onConnect(data) {
+        setTimeout(() => {
+            this.fire('connect', {
+                appName: data.appName
+            });
+        }, 10);
+    }
+
+    /**
+     * Only relevant for SharedWorkers
      * @param {Object} e
      */
     onConnected(e) {
@@ -128,8 +140,6 @@ class Base extends CoreBase {
 
         me.ports[me.ports.length - 1].port.onmessage = me.onMessage.bind(me);
 
-        me.fire('connected');
-
         // todo: find a better way to ensure the remotes are registered before triggering workerConstructed
         setTimeout(() => {
             me.sendMessage('main', {action: 'workerConstructed', port: id});
@@ -140,7 +150,11 @@ class Base extends CoreBase {
      * Only relevant for SharedWorkers
      * @param {Object} data
      */
-    onDisconnect(data) {}
+    onDisconnect(data) {
+        this.fire('disconnect', {
+            appName: data.appName
+        });
+    }
 
     /**
      *
@@ -217,11 +231,17 @@ class Base extends CoreBase {
      * @param {String} name
      */
     registerApp(name) {
-        this.ports.forEach(port => {
+        let me = this;
+
+        me.ports.forEach(port => {
             if (!port.appName) {
                 port.appName = name;
 
-                this.sendMessage('main', {
+                me.onConnect({
+                    appName: name
+                });
+
+                me.sendMessage('main', {
                     action :'registerAppName',
                     appName: name
                 });

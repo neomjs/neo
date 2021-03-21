@@ -72,16 +72,6 @@ class App extends Base {
     }
 
     /**
-     * Only relevant for SharedWorkers
-     */
-    onDisconnect(data) {
-        super.onDisconnect(data);console.log(data);
-        this.fire('disconnect', {
-            appName: data.appName
-        });
-    }
-
-    /**
      * Every dom event will get forwarded as a worker message from main and ends up here first
      * @param {Object} data useful event properties, differs for different event types. See Neo.main.DomEvents.
      */
@@ -138,9 +128,7 @@ class App extends Base {
      *
      * @param {String} appName
      */
-    registerMainView(appName) {
-        this.fire('connect', {appName: appName});
-    }
+    registerMainView(appName) {}
 }
 
 Neo.applyClassConfig(App);
