@@ -115,6 +115,7 @@ class Base extends CoreBase {
      * @param {Object} data
      */
     onConnect(data) {
+        // short delay to ensure app VCs are in place
         setTimeout(() => {
             this.fire('connect', {
                 appName: data.appName
