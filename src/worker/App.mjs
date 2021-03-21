@@ -75,8 +75,10 @@ class App extends Base {
      * Only relevant for SharedWorkers
      */
     onDisconnect(data) {
-        super.onDisconnect(data);
-        this.fireMainViewsEvent('disconnect', data);
+        super.onDisconnect(data);console.log(data);
+        this.fire('disconnect', {
+            appName: data.appName
+        });
     }
 
     /**
@@ -137,7 +139,7 @@ class App extends Base {
      * @param {String} appName
      */
     registerMainView(appName) {
-        this.fireMainViewsEvent('connect', {appName: appName});
+        this.fire('connect', {appName: appName});
     }
 }
 

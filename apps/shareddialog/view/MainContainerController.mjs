@@ -63,7 +63,7 @@ class MainContainerController extends ComponentController {
 
         let me = this;
 
-        me.view.on({
+        Neo.currentWorker.on({
             connect   : me.onAppConnect,
             disconnect: me.onAppDisconnect,
             scope     : me
