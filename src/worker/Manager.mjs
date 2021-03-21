@@ -30,10 +30,10 @@ class Manager extends Base {
          */
         singleton: true,
         /**
-         * @member {String|null} appName=null
+         * @member {Array} appNames=[]
          * @protected
          */
-        appName: null,
+        appNames: [],
         /**
          * The base path for the worker file URLs, can e.g. get set inside the index.html.
          * @member {String|null} basePath=Neo.config.workerBasePath || 'worker/'
@@ -155,10 +155,9 @@ class Manager extends Base {
         // pass the initial hash value as Neo.configs
         if (hash) {
             Neo.config.hash = {
-                appName   : me.appName, // null at this point
                 hash      : DomEvents.parseHash(hash.substr(1)),
                 hashString: hash.substr(1)
-            }
+            };
         }
 
         for ([key, value] of Object.entries(me.workers)) {
@@ -311,7 +310,7 @@ class Manager extends Base {
 
         // only needed for SharedWorkers
         else if (dest === 'main' && action === 'registerAppName') {
-            me.appName = data.appName;
+            me.appNames.push(data.appName);
         }
 
         else if (dest === 'main' && action === 'remoteMethod') {
