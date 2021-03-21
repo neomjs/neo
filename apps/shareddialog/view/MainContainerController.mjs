@@ -56,7 +56,7 @@ class MainContainerController extends ComponentController {
     }}
 
     /**
-     * The App main view will receive connect & disconnect events inside the SharedWorkers context
+     * The App worker will receive connect & disconnect events inside the SharedWorkers context
      */
     onConstructed() {
         super.onConstructed();
