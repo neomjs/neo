@@ -1,5 +1,6 @@
 import Panel    from '../container/Panel.mjs';
 import NeoArray from '../util/Array.mjs';
+import VDomUtil from '../util/VDom.mjs';
 
 let DragZone;
 
@@ -449,6 +450,20 @@ class Base extends Panel {
     }
 
     /**
+     *
+     * @return {Object} vdom
+     */
+    getProxyVdom() {
+        let vdom = VDomUtil.clone(this.vdom);
+
+        // this call expects a fixed dialog structure
+        // todo: a panel content container could get a flag which we can query for instead
+        vdom.cn[0].cn[1].cn = [];
+
+        return vdom;
+    }
+
+    /**
      * Returns the id of the header toolbar
      * @returns {String}
      */
@@ -542,13 +557,14 @@ class Base extends Panel {
                 resizablePlugin.removeAllNodes();
             }
 
-            if (!me.dragZone) {
+            if (!me.dragZone) {console.log(1);
                 me.dragZone = Neo.create({
                     module             : DragZone,
                     appName            : me.appName,
                     bodyCursorStyle    : 'move !important',
                     boundaryContainerId: me.boundaryContainerId,
                     dragElement        : me.vdom,
+                    dragProxyConfig    : {vdom: me.getProxyVdom()},
                     owner              : me,
                     useProxyWrapper    : false,
                     ...me.dragZoneConfig || {}
