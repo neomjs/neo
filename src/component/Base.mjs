@@ -1396,6 +1396,10 @@ class Base extends CoreBase {
             opts;
 
         if (delta) {
+            if (!me.hasUnmountedVdomChanges) {
+                me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted;
+            }
+
             vdom.vdom.style = newValue; // keep the vdom in sync
 
             if (vnode) {
