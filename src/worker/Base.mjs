@@ -227,29 +227,6 @@ class Base extends CoreBase {
     }
 
     /**
-     * Only needed for SharedWorkers
-     * @param {String} name
-     */
-    registerApp(name) {
-        let me = this;
-
-        me.ports.forEach(port => {
-            if (!port.appName) {
-                port.appName = name;
-
-                me.onConnect({
-                    appName: name
-                });
-
-                me.sendMessage('main', {
-                    action :'registerAppName',
-                    appName: name
-                });
-            }
-        });
-    }
-
-    /**
      * @param {String} dest app, data, main or vdom (excluding the current worker)
      * @param {Object} opts configs for Neo.worker.Message
      * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.

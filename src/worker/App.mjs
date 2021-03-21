@@ -125,6 +125,29 @@ class App extends Base {
     }
 
     /**
+     * Only needed for SharedWorkers
+     * @param {String} name
+     */
+    registerApp(name) {
+        let me = this;
+
+        me.ports.forEach(port => {
+            if (!port.appName) {
+                port.appName = name;
+
+                me.onConnect({
+                    appName: name
+                });
+
+                me.sendMessage('main', {
+                    action :'registerAppName',
+                    appName: name
+                });
+            }
+        });
+    }
+
+    /**
      *
      * @param {String} appName
      */
