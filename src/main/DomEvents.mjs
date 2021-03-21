@@ -378,12 +378,14 @@ class DomEvents extends Base {
      * @param {Object} event
      */
     onBeforeUnload(event) {
-        const M = Neo.worker.Manager;
+        let M = Neo.worker.Manager;
 
-        M.broadcast({
-            action : 'disconnect',
-            appName: M.appName
-        });
+        M.appNames.forEach(appName => {
+            M.broadcast({
+                action : 'disconnect',
+                appName: appName
+            });
+        })
     }
 
     /**

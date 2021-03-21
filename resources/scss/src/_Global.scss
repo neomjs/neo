@@ -17,10 +17,6 @@ html, .neo-body-viewport {
     box-sizing: border-box;
  }
 
-.neo-cursor-move-important {
-    cursor: move !important;
-}
-
 .neo-disabled {
     opacity       : v(neo-disabled-opacity);
     pointer-events: none;

@@ -178,15 +178,15 @@ class DragZone extends Base {
     createDragProxy(data) {
         let me        = this,
             component = Neo.getComponent(me.getDragElementRoot().id) || me.owner,
-            clone     = VDomUtil.clone(me.dragElement),
-            rect      = me.dragElementRect;
+            rect      = me.dragElementRect,
+            vdom      = me.dragProxyConfig && me.dragProxyConfig.vdom,
+            clone     = VDomUtil.clone(vdom ? vdom : me.dragElement);
 
         const config = {
             module          : DragProxyComponent,
             appName         : me.appName,
             moveInMainThread: me.moveInMainThread,
             parentId        : me.proxyParentId,
-            vdom            : me.useProxyWrapper ? {cn: [clone]} : clone,
 
             style: {
                 height: `${data.height}px`,
@@ -195,7 +195,9 @@ class DragZone extends Base {
                 width : `${data.width}px`
             },
 
-            ...me.dragProxyConfig || {}
+            ...me.dragProxyConfig || {},
+
+            vdom: me.useProxyWrapper ? {cn: [clone]} : clone // we want to override dragProxyConfig.vdom if needed
         };
 
         config.cls = config.cls || [];
@@ -204,7 +206,7 @@ class DragZone extends Base {
             config.cls.push(component.getTheme());
         }
 
-        if (!me.useProxyWrapper) {
+        if (clone.cls && !me.useProxyWrapper) {
             config.cls.push(...clone.cls);
         }
 
