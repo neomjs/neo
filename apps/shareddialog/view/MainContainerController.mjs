@@ -257,7 +257,6 @@ class MainContainerController extends ComponentController {
         return this.connectedApps.includes(this.dockedWindowAppName);
     }
 
-
     /**
      *
      * @param {Object} data
