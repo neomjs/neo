@@ -469,25 +469,27 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onDragStart(data) {
-        let me               = this,
-            appName          = me.view.appName,
-            dockedHorizontal = me.dockedWindowSide === 'left' || me.dockedWindowSide === 'right';
+        if (this.hasDockedWindow()) {
+            let me               = this,
+                appName          = me.view.appName,
+                dockedHorizontal = me.dockedWindowSide === 'left' || me.dockedWindowSide === 'right';
 
-        me.dialogRect = data.dragElementRect;
+            me.dialogRect = data.dragElementRect;
 
-        for (let item of data.eventData.path) {
-            if (item.tagName === 'body') {
-                me.dragStartWindowRect = item.rect;
-                break;
+            for (let item of data.eventData.path) {
+                if (item.tagName === 'body') {
+                    me.dragStartWindowRect = item.rect;
+                    break;
+                }
             }
-        }
 
-        if (me.hasDockedWindow()) {
-            Neo.Main.getWindowData({
-                appName: me.dialog.appName === appName ? me.dockedWindowAppName : appName
-            }).then(data => {
-                me.targetWindowSize = dockedHorizontal ? data.innerWidth : data.innerHeight;
-            });
+            if (me.hasDockedWindow()) {
+                Neo.Main.getWindowData({
+                    appName: me.dialog.appName === appName ? me.dockedWindowAppName : appName
+                }).then(data => {
+                    me.targetWindowSize = dockedHorizontal ? data.innerWidth : data.innerHeight;
+                });
+            }
         }
     }
 
