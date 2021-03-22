@@ -27,7 +27,7 @@ class RemoteMethodAccess extends Base {
      *
      * @param {Object} remote
      * @param method
-     * @returns {function(*=, *=): Promise<any>}
+     * @return {function(*=, *=): Promise<any>}
      */
     generateRemote(remote, method) {
         let me     = this,

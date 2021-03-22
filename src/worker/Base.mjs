@@ -141,10 +141,10 @@ class Base extends CoreBase {
 
         me.ports[me.ports.length - 1].port.onmessage = me.onMessage.bind(me);
 
-        // todo: find a better way to ensure the remotes are registered before triggering workerConstructed
-        setTimeout(() => {
-            me.sendMessage('main', {action: 'workerConstructed', port: id});
-        }, 100);
+        // core.Base: initRemote() subscribes to this event for the SharedWorkers context
+        me.fire('connected');
+
+        me.sendMessage('main', {action: 'workerConstructed', port: id});
     }
 
     /**
