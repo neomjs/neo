@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Mar 21, 2021",
+        "id"          : 24,
+        "image"       : "re-sorting-web-based-tabs.png",
+        "name"        : "Web based multi-screen apps including drag & drop",
+        "provider"    : "Medium",
+        "publisher"   : "",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://tobiasuhlig.medium.com/web-based-multi-screen-apps-including-drag-drop-5e161da6507b?source=friends_link&sk=3c53f7b9cf882a93fb2929c726bd7721"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Oct 25, 2020",
         "id"          : 23,
         "image"       : "re-sorting-web-based-tabs.png",
