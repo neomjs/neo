@@ -122,7 +122,7 @@ class DragZone extends Base {
          */
         offsetY: 0,
         /**
-         * @member {Neo.component.Base} owner=null
+         * @member {Neo.component.Base|null} owner=null
          */
         owner: null,
         /**
