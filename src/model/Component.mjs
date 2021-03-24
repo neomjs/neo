@@ -34,7 +34,18 @@ class Component extends Base {
      * @protected
      */
     afterSetData(value, oldValue) {
-        console.log('afterSetData', value);
+        console.log('afterSetData', value, oldValue);
+    }
+
+    /**
+     * Triggered before the data config gets changed
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    beforeSetData(value, oldValue) {
+        console.log('beforeSetData', value, oldValue);
+        return value;
     }
 }
 
