@@ -10,12 +10,20 @@ class MainContainerController extends Component {
         ntype    : 'main-container-controller'
     }}
 
+    /**
+     *
+     * @param {Object} data
+     */
     onButton1Click(data) {
-        console.log('onButton1Click');
+        this.view.model.data['button1Text'] = 'Button 1';
     }
 
+    /**
+     *
+     * @param {Object} data
+     */
     onButton2Click(data) {
-        console.log('onButton2Click');
+        this.view.model.data['button1Text'] = 'Button 2';
     }
 }
 
