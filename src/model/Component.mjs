@@ -112,6 +112,7 @@ class Component extends Base {
      *
      * @param {Object|String} key
      * @param {*} value
+     * @override overrides the config setter in core.Base
      */
     set(key, value) {
         let me = this;
