@@ -6,6 +6,15 @@ import Base from '../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class Component extends Base {
+    static getStaticConfig() {return {
+        /**
+         * True automatically applies the core/Observable.mjs mixin
+         * @member {Boolean} observable=true
+         * @static
+         */
+        observable: true
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.model.Component'
@@ -29,12 +38,23 @@ class Component extends Base {
 
     /**
      * Triggered after the data config got changed
-     * @param {Object|null} value
-     * @param {Object|null} oldValue
+     * @param {Object} value={}
+     * @param {Object} oldValue={}
      * @protected
      */
-    afterSetData(value, oldValue) {
-        console.log('afterSetData', value, oldValue);
+    afterSetData(value={}, oldValue={}) {
+        let data = this.data,
+            descriptor, keyValue;
+
+        Object.keys(value).forEach(key => {
+            descriptor = Object.getOwnPropertyDescriptor(data, key);
+
+            if (!(typeof descriptor === 'object' && typeof descriptor.set === 'function')) {
+                keyValue = value[key];
+                this.createDataProperty(key);
+                data[key] = keyValue;
+            }
+        });
     }
 
     /**
@@ -47,14 +67,37 @@ class Component extends Base {
     }
 
     /**
-     * Triggered before the data config gets changed
-     * @param {Object|null} value
-     * @param {Object|null} oldValue
-     * @protected
+     *
+     * @param {String} key
      */
-    beforeSetData(value, oldValue) {
-        console.log('beforeSetData', value, oldValue);
-        return value;
+    createDataProperty(key) {
+        let me = this;
+
+        Object.defineProperty(me.data, key, {
+            get() {
+                return me.data['_' + key];
+            },
+
+            set(value) {
+                let oldValue = me.data['_' + key];
+
+                me.data['_' + key] = value;
+
+                if (value !== oldValue) {
+                    me.onDataPropertyChange(key, value, oldValue);
+                }
+            }
+        });
+    }
+
+    /**
+     *
+     * @param {String} key
+     * @param {*} value
+     * @param {*} oldValue
+     */
+    onDataPropertyChange(key, value, oldValue) {
+        console.log('onDataPropertyChange', key, value, oldValue);
     }
 }
 
