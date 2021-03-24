@@ -633,8 +633,35 @@ class Base extends CoreBase {
      * @param {Object|null} oldValue
      * @protected
      */
-    afterSetModel(value, oldValue) {
-        console.log('afterSetModel', value);
+    afterSetModel(value, oldValue) {console.log('afterSetModel', value);
+        let me = this,
+            config;
+
+        if (value) {
+            config = {
+                owner: me,
+                ...value
+            };
+
+            if (config.module) {
+                me._model = Neo.create(config);
+            } else if (Neo.component.Model) {
+                me._model = Neo.create({
+                    module: Neo.component.Model,
+                    ...config
+                });
+            } else {
+                import(
+                    /* webpackChunkName: 'src/model/Component-mjs.js' */
+                    '../model/Component.mjs'
+                    ).then(module => {
+                    me._model = Neo.create({
+                        module: module.default,
+                        ...config
+                    });
+                });
+            }
+        }
     }
 
     /**
