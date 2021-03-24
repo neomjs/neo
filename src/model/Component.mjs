@@ -38,6 +38,15 @@ class Component extends Base {
     }
 
     /**
+     * Triggered when accessing the data config
+     * @param {Object} value
+     * @protected
+     */
+    beforeGetData(value) {
+        return value || {};
+    }
+
+    /**
      * Triggered before the data config gets changed
      * @param {Object|null} value
      * @param {Object|null} oldValue
