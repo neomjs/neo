@@ -165,6 +165,11 @@ class Base extends CoreBase {
          */
         minWidth_: null,
         /**
+         * Optionally add a model.Component
+         * @member {Object|null} model_=null
+         */
+        model_: null,
+        /**
          * True in case the component is mounted to the DOM
          * @member {Boolean} mounted_=false
          * @protected
@@ -620,6 +625,16 @@ class Base extends CoreBase {
      */
     afterSetMinWidth(value, oldValue) {
         this.changeVdomRootKey('minWidth', value);
+    }
+
+    /**
+     * Triggered after the model config got changed
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetModel(value, oldValue) {
+        console.log('afterSetModel', value);
     }
 
     /**
