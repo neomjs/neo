@@ -95,6 +95,7 @@ class Component extends Base {
      * @param {String} key
      */
     get(key) {
+        // todo: check for parent VMs in case a prop does not exist
         return this.data[key];
     }
 
