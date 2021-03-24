@@ -20,7 +20,11 @@ class Component extends Base {
         /**
          * @member {Object|null} data_=null
          */
-        data_: null
+        data_: null,
+        /**
+         * @member {Neo.component.Base|null} owner=null
+         */
+        owner: null
     }}
 
     /**
