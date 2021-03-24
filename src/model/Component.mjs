@@ -93,11 +93,37 @@ class Component extends Base {
     /**
      *
      * @param {String} key
+     */
+    get(key) {
+        return this.data[key];
+    }
+
+    /**
+     *
+     * @param {String} key
      * @param {*} value
      * @param {*} oldValue
      */
     onDataPropertyChange(key, value, oldValue) {
         console.log('onDataPropertyChange', key, value, oldValue);
+    }
+
+    /**
+     *
+     * @param {Object|String} key
+     * @param {*} value
+     */
+    set(key, value) {
+        let me = this;
+
+        // todo: check for parent VMs in case a prop does not exist
+        // todo: create a data property in case no match is found
+
+        if (Neo.isObject(key)) {
+            Object.assign(me.data, key);
+        } else {
+            me.data[key] = value;
+        }
     }
 }
 
