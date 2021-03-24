@@ -633,11 +633,11 @@ class Base extends CoreBase {
      * @param {Object|null} oldValue
      * @protected
      */
-    afterSetModel(value, oldValue) {console.log('afterSetModel', value);
+    afterSetModel(value, oldValue) {
         let me = this,
             config;
 
-        if (value) {
+        if (value) {console.log('afterSetModel', me.id, value);
             config = {
                 owner: me,
                 ...value

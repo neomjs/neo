@@ -15,6 +15,13 @@ class MainContainer extends Viewport {
         autoMount : true,
         controller: MainContainerController,
 
+        model: {
+            data: {
+                button1Text: 'Button 1',
+                button2Text: 'Button 2'
+            }
+        },
+
         style: {
             padding: '20px'
         },
