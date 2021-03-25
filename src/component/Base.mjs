@@ -975,6 +975,31 @@ class Base extends CoreBase {
     }
 
     /**
+     * Returns this.model or the closest parent model
+     * @param {String} [ntype]
+     * @returns {Neo.model.Component|null}
+     */
+    getModel(ntype) {
+        let me    = this,
+            model = me.model,
+            parentComponent;
+
+        if (model && (!ntype || ntype === model.ntype)) {
+            return model;
+        }
+
+        if (me.parentId) {
+            parentComponent = Neo.getComponent(me.parentId);
+
+            if (parentComponent) {
+                return parentComponent.getModel(ntype);
+            }
+        }
+
+        return null;
+    }
+
+    /**
      *
      * @param {Object|String} opts
      * @returns {Neo.plugin.Base|null}
