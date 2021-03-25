@@ -1,4 +1,5 @@
-import Base from '../core/Base.mjs';
+import Base        from '../core/Base.mjs';
+import NeoFunction from '../util/Function.mjs';
 
 /**
  * An optional component model for adding bindings to configs
@@ -27,6 +28,10 @@ class Component extends Base {
          */
         ntype: 'component-model',
         /**
+         * @member {Object|null} bindings_=null
+         */
+        bindings_: null,
+        /**
          * @member {Object|null} data_=null
          */
         data_: null,
@@ -35,6 +40,21 @@ class Component extends Base {
          */
         owner: null
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me = this;
+
+        me.bindings = {};
+
+        // console.log('model.Component ctor', me.owner);
+        NeoFunction.createSequence(me.owner, 'onConstructed', me.resolveBindings, me);
+    }
 
     /**
      * Triggered after the data config got changed
@@ -107,6 +127,14 @@ class Component extends Base {
      */
     onDataPropertyChange(key, value, oldValue) {
         console.log('onDataPropertyChange', key, value, oldValue);
+    }
+
+    /**
+     *
+     * @param {Neo.component.Base} component
+     */
+    resolveBindings(component) {
+        console.log('resolveBindings', component);
     }
 
     /**
