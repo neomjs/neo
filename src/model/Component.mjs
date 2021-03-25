@@ -94,7 +94,7 @@ class Component extends Base {
      *
      * @param {String} key
      */
-    get(key) {
+    getData(key) {
         // todo: check for parent VMs in case a prop does not exist
         return this.data[key];
     }
@@ -113,9 +113,8 @@ class Component extends Base {
      *
      * @param {Object|String} key
      * @param {*} value
-     * @override overrides the config setter in core.Base
      */
-    set(key, value) {
+    setData(key, value) {
         let me = this;
 
         // todo: check for parent VMs in case a prop does not exist
