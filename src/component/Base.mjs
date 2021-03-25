@@ -303,8 +303,6 @@ class Base extends CoreBase {
 
         let me = this;
 
-        me.fire('constructed', {id: me.id}); // testing
-
         if (me.keys) {
             me.keys.register(me);
         }
