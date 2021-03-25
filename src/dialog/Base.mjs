@@ -451,7 +451,7 @@ class Base extends Panel {
 
     /**
      *
-     * @return {Object} vdom
+     * @returns {Object} vdom
      */
     getProxyVdom() {
         let vdom = VDomUtil.clone(this.vdom);

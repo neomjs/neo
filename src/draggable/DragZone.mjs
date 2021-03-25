@@ -335,7 +335,7 @@ class DragZone extends Base {
     /**
      *
      * @param {Object} data
-     * @return {Object}
+     * @returns {Object}
      */
     getDragElementRect(data) {
         let me = this,
