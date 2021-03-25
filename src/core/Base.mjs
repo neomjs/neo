@@ -93,10 +93,6 @@ class Base {
 
         me.initConfig(config);
 
-        if (me.controller) {
-            me.controller.parseConfig();
-        }
-
         Object.defineProperty(me, 'configsApplied', {
             enumerable: false,
             value     : true
@@ -128,7 +124,7 @@ class Base {
     }
 
     /**
-     * Gets triggered after onConstructed is done
+     * Gets triggered after onConstructed() is done
      * @see {@link Neo.core.Base#onConstructed onConstructed}
      * @tutorial 02_ClassSystem
      */

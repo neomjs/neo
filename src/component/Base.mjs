@@ -1066,6 +1066,21 @@ class Base extends CoreBase {
     }
 
     /**
+     * We are using this method as a ctor hook here to add the initial controller.Component parsing
+     * @param {Object} config
+     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
+     */
+    initConfig(config, preventOriginalConfig) {
+        super.initConfig(config, preventOriginalConfig);
+
+        let me = this;
+
+        if (me.controller) {
+            me.controller.parseConfig();
+        }
+    }
+
+    /**
      * Can get called after the component got rendered. See the autoMount config as well.
      */
     mount() {
