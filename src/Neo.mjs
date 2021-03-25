@@ -115,6 +115,10 @@ Neo = self.Neo = Object.assign({
 
             if (mixins.length > 0) {
                 applyMixins(ctor, mixins);
+
+                if (Neo.ns('Neo.core.Observable', false, ctor.prototype.mixins)) {
+                    staticCfg.observable = true;
+                }
             }
 
             delete cfg.mixins;
