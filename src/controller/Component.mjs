@@ -67,6 +67,19 @@ class Component extends Base {
     }
 
     /**
+     * sameLevelOnly=false will return the closest VM inside the component parent tree,
+     * in case there is none on the same level.
+     * @param {Boolean} [sameLevelOnly=false]
+     */
+    getModel(sameLevelOnly=false) {
+        if (sameLevelOnly) {
+            return this.view.model;
+        }
+
+        return this.view.getModel();
+    }
+
+    /**
      *
      * @param {String} [ntype]
      * @returns {Neo.controller.Component|null}
