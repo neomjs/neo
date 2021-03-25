@@ -69,6 +69,20 @@ class Clear extends Base {
     }
 
     /**
+     * Triggered before the hidden config gets changed.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    beforeSetHidden(value, oldValue) {
+        if (this.showOnHover && !this.isHovered) {
+            return true;
+        }
+
+        return value;
+    }
+
+    /**
      *
      * @returns {Boolean} true in case the trigger should be hidden
      */
@@ -94,6 +108,16 @@ class Clear extends Base {
      */
     onFieldChange(opts) {
         this.hidden = this.getHiddenState();
+    }
+
+    /**
+     * @override
+     */
+    onMouseEnter() {
+        let me = this;
+
+        me.isHovered = true;
+        me.hidden    = me.getHiddenState();
     }
 
     /**

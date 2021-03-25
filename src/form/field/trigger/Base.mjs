@@ -49,6 +49,11 @@ class Base extends Component {
          */
         iconCls_: null,
         /**
+         * @member {Boolean} isHovered=false
+         * @protected
+         */
+        isHovered: false,
+        /**
          * The scope of the trigger handler
          * @member {Neo.core.Base|null} scope=null
          */
@@ -56,7 +61,7 @@ class Base extends Component {
         /**
          * @member {Boolean} showOnHover=false
          */
-        showOnHover: true,
+        showOnHover: false,
         /**
          * Internal flag used by field.getTrigger()
          * @member {String} type='base'
@@ -97,8 +102,8 @@ class Base extends Component {
                 fieldListeners = me.field.domListeners || [];
 
                 fieldListeners.push(
-                    {mouseenter: {fn: me.onMouseEnter, scope : me}},
-                    {mouseleave: {fn: me.onMouseLeave, scope : me}}
+                    {mouseenter: {fn: me.onMouseEnter, scope: me}},
+                    {mouseleave: {fn: me.onMouseLeave, scope: me}}
                 );
 
                 me.field.domListeners = fieldListeners;
@@ -173,14 +178,16 @@ class Base extends Component {
      *
      */
     onMouseEnter() {
-        this.hidden = false;
+        this.isHovered = true;
+        this.hidden    = false;
     }
 
     /**
      *
      */
     onMouseLeave() {
-        this.hidden = true;
+        this.isHovered = false;
+        this.hidden    = true;
     }
 
     /**
