@@ -113,7 +113,7 @@ Neo = self.Neo = Object.assign({
                 mixins.push(...cfg.mixins);
             }
 
-            if (mixins.length) {
+            if (mixins.length > 0) {
                 applyMixins(ctor, mixins);
             }
 
@@ -331,6 +331,7 @@ Neo = self.Neo = Object.assign({
         instance = new cls(config);
 
         instance.onConstructed();
+        instance.onAfterConstructed();
         instance.init();
 
         return instance;

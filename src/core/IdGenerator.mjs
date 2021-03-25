@@ -54,6 +54,8 @@ class IdGenerator {
 
     onConstructed() {}
 
+    onAfterConstructed() {}
+
     init() {}
 
     /**

@@ -45,6 +45,12 @@ class Base {
          */
         ntype: 'base',
         /**
+         * Neo.create() will change this flag to true after the onConstructed() chain is done.
+         * @member {Boolean} isConstructed=false
+         * @protected
+         */
+        isConstructed: false,
+        /**
          * Add mixins as an array of classNames, imported modules or a mixed version
          * @member {String[]|Neo.core.Base[]|null} mixins=null
          */
@@ -108,11 +114,39 @@ class Base {
     onConstructed() {}
 
     /**
+     *
+     */
+    onAfterConstructed() {
+        let me = this;
+
+        me.isConstructed = true;
+
+        console.log(me.getStaticConfig('observable'));
+
+        // We can only fire the event in case the Observable mixin is included.
+        if (me.getStaticConfig('observable')) {
+            me.fire('constructed', me);
+        }
+    }
+
+    /**
      * Gets triggered after onConstructed is done
      * @see {@link Neo.core.Base#onConstructed onConstructed}
      * @tutorial 02_ClassSystem
      */
     init() {}
+
+    /**
+     * Triggered after the droppable config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetIsConstructed(value, oldValue) {
+        if (value === true) {
+            console.log('afterSetIsConstructed');
+        }
+    }
 
     /**
      * Convenience method for beforeSet functions which test if a given value is inside a static array
