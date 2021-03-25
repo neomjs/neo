@@ -951,23 +951,22 @@ class Base extends CoreBase {
     /**
      * Returns this.controller or the closest parent controller
      * @param {String} [ntype]
-     * @returns {Neo.controller.Base|null}
+     * @returns {Neo.controller.Component|null}
      */
     getController(ntype) {
-        let controller = this.controller,
-            i, len, parents;
+        let me         = this,
+            controller = me.controller,
+            parentComponent;
 
         if (controller && (!ntype || ntype === controller.ntype)) {
             return controller;
         }
 
-        parents = ComponentManager.getParents(this);
-        i       = 0;
-        len     = parents.length;
+        if (me.parentId) {
+            parentComponent = Neo.getComponent(me.parentId);
 
-        for (; i < len; i++) {
-            if (parents[i].controller && (!ntype || ntype === parents[i].controller.ntype)) {
-                return parents[i].controller;
+            if (parentComponent) {
+                return parentComponent.getController(ntype);
             }
         }
 
