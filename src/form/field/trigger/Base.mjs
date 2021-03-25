@@ -56,7 +56,7 @@ class Base extends Component {
         /**
          * @member {Boolean} showOnHover=false
          */
-        showOnHover: false,
+        showOnHover: true,
         /**
          * Internal flag used by field.getTrigger()
          * @member {String} type='base'
@@ -86,35 +86,24 @@ class Base extends Component {
             domListeners   = Neo.clone(me.domListeners, true, true),
             fieldListeners;
 
-        domListeners.push({
-            click: {
-                fn   : me.onTriggerClick,
-                scope: me
-            }
-        });
+        domListeners.push({click: {fn: me.onTriggerClick, scope: me}});
+
+        me.domListeners = domListeners;
 
         if (me.showOnHover) {
-            me.hiden = true;
+            me.hidden = true;
 
             me.field.on('constructed', () => {
                 fieldListeners = !me.field.domListeners ? [] : Neo.clone(me.field.domListeners, true, true);
-                fieldListeners.push({
-                    mouseenter: {
-                        fn    : me.onMouseEnter,
-                        scope : me
-                    }
-                }, {
-                    mouseleave: {
-                        fn    : me.onMouseLeave,
-                        scope : me
-                    }
-                });
+
+                fieldListeners.push(
+                    {mouseenter: {fn: me.onMouseEnter, scope : me}},
+                    {mouseleave: {fn: me.onMouseLeave, scope : me}}
+                );
+
                 me.field.domListeners = fieldListeners;
-                
             }, me);
         }
-
-        me.domListeners = domListeners;
     }
 
     /**
@@ -141,7 +130,7 @@ class Base extends Component {
             style = vdom.style || {};
 
         style.display = value ? 'none' : 'inline-block';
-        this.vdom  = vdom;
+        this.vdom = vdom;
     }
 
     /**
