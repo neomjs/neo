@@ -121,8 +121,6 @@ class Base {
 
         me.isConstructed = true;
 
-        console.log(me.getStaticConfig('observable'));
-
         // We can only fire the event in case the Observable mixin is included.
         if (me.getStaticConfig('observable')) {
             me.fire('constructed', me);
