@@ -83,7 +83,7 @@ class Base extends Component {
         super(config);
 
         let me             = this,
-            domListeners   = Neo.clone(me.domListeners, true, true),
+            domListeners   = me.domListeners || [],
             fieldListeners;
 
         domListeners.push({click: {fn: me.onTriggerClick, scope: me}});
@@ -94,7 +94,7 @@ class Base extends Component {
             me.hidden = true;
 
             me.field.on('constructed', () => {
-                fieldListeners = !me.field.domListeners ? [] : Neo.clone(me.field.domListeners, true, true);
+                fieldListeners = me.field.domListeners || [];
 
                 fieldListeners.push(
                     {mouseenter: {fn: me.onMouseEnter, scope : me}},
