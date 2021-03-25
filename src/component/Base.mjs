@@ -949,28 +949,40 @@ class Base extends CoreBase {
     }
 
     /**
-     * Returns this.controller or the closest parent controller
+     * Find an instance stored inside a config via optionally passing an ntype.
+     * Returns this[configName] or the closest parent component with a match.
+     * Used by getController() & getModel()
+     * @param {String} configName
      * @param {String} [ntype]
-     * @returns {Neo.controller.Component|null}
+     * @returns {Neo.core.Base|null}
      */
-    getController(ntype) {
-        let me         = this,
-            controller = me.controller,
+    getConfigInstanceByNtype(configName, ntype) {
+        let me     = this,
+            config = me[configName],
             parentComponent;
 
-        if (controller && (!ntype || ntype === controller.ntype)) {
-            return controller;
+        if (config && (!ntype || ntype === config.ntype)) {
+            return config;
         }
 
         if (me.parentId) {
             parentComponent = Neo.getComponent(me.parentId);
 
             if (parentComponent) {
-                return parentComponent.getController(ntype);
+                return parentComponent.getConfigInstanceByNtype(configName, ntype);
             }
         }
 
         return null;
+    }
+
+    /**
+     * Returns this.controller or the closest parent controller
+     * @param {String} [ntype]
+     * @returns {Neo.controller.Component|null}
+     */
+    getController(ntype) {
+        return this.getConfigInstanceByNtype('controller', ntype);
     }
 
     /**
@@ -979,23 +991,7 @@ class Base extends CoreBase {
      * @returns {Neo.model.Component|null}
      */
     getModel(ntype) {
-        let me    = this,
-            model = me.model,
-            parentComponent;
-
-        if (model && (!ntype || ntype === model.ntype)) {
-            return model;
-        }
-
-        if (me.parentId) {
-            parentComponent = Neo.getComponent(me.parentId);
-
-            if (parentComponent) {
-                return parentComponent.getModel(ntype);
-            }
-        }
-
-        return null;
+        return this.getConfigInstanceByNtype('model', ntype);
     }
 
     /**
