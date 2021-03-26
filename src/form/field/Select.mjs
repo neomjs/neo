@@ -76,7 +76,7 @@ class Select extends Picker {
 
     /**
      *
-     * @param config
+     * @param {Object} config
      */
     constructor(config) {
         super(config);

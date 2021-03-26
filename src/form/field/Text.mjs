@@ -134,23 +134,6 @@ class Text extends Base {
     }
 
     /**
-     *
-     * @param {Object} config
-     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
-     * @returns {Object} config
-     */
-    mergeConfig(...args) {
-        let me       = this,
-            config   = super.mergeConfig(...args),
-            triggers = config.triggers || me.triggers;
-
-        me[triggers ? 'triggers' : '_triggers'] = triggers;
-
-        delete config.triggers;
-        return config;
-    }
-
-    /**
      * Triggered after the clearable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -688,6 +671,23 @@ class Text extends Base {
         }
 
         return super.isValid();
+    }
+
+    /**
+     *
+     * @param {Object} config
+     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
+     * @returns {Object} config
+     */
+    mergeConfig(...args) {
+        let me       = this,
+            config   = super.mergeConfig(...args),
+            triggers = config.triggers || me.triggers;
+
+        me[triggers ? 'triggers' : '_triggers'] = triggers;
+
+        delete config.triggers;
+        return config;
     }
 
     /**

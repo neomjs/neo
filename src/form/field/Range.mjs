@@ -78,7 +78,7 @@ class Range extends Number {
      * @protected
      */
     afterSetTickmarks(value, oldValue) {
-        //console.log('updateTickmarks');
+        // todo
     }
 }
 

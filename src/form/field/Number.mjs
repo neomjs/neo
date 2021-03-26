@@ -72,14 +72,6 @@ class Number extends Text {
     }}
 
     /**
-     *
-     */
-    onConstructed() {
-        this.updateTriggers();
-        super.onConstructed();
-    }
-
-    /**
      * Triggered after the inputEditable config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -180,6 +172,14 @@ class Number extends Text {
      */
     beforeSetTriggerPosition(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'triggerPosition');
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        this.updateTriggers();
+        super.onConstructed();
     }
 
     /**
