@@ -231,18 +231,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered after the locale config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetLocale(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.setViewConfig('locale', value);
-        }
-    }
-
-    /**
      * Triggered after the eventStore config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -255,14 +243,27 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered after the showWeekends config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * Triggered after the locale config got changed
+     * @param {String} value
+     * @param {String} oldValue
      * @protected
      */
-    afterSetShowWeekends(value, oldValue) {
+    afterSetLocale(value, oldValue) {
         if (oldValue !== undefined) {
-            this.setViewConfig('showWeekends', value);
+            this.setViewConfig('locale', value);
+        }
+    }
+
+    /**
+     * Triggered after the scrollNewYearFromTop config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetScrollNewYearFromTop(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.dateSelector .scrollNewYearFromTop = value;
+            this.yearComponent.scrollNewYearFromTop = value;
         }
     }
 
@@ -286,15 +287,14 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered after the scrollNewYearFromTop config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * Triggered after the showWeekends config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
      * @protected
      */
-    afterSetScrollNewYearFromTop(value, oldValue) {
+    afterSetShowWeekends(value, oldValue) {
         if (oldValue !== undefined) {
-            this.dateSelector .scrollNewYearFromTop = value;
-            this.yearComponent.scrollNewYearFromTop = value;
+            this.setViewConfig('showWeekends', value);
         }
     }
 
@@ -428,7 +428,7 @@ class MainContainer extends Container {
 
     /**
      *
-     * @returns {Neo.component.Base[]}
+     * @returns {Object[]}
      */
     createHeaderItems() {
         let me    = this,
@@ -533,7 +533,7 @@ class MainContainer extends Container {
 
     /**
      *
-     * @returns {Neo.component.Base[]}
+     * @returns {Object[]}
      */
     createViewHeaderButtons() {
         let me          = this,
