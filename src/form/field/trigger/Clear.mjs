@@ -39,23 +39,6 @@ class Clear extends Base {
     }}
 
     /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        me.field.on({
-            change                    : me.onFieldChange,
-            changeClearToOriginalValue: me.onFieldChange,
-            scope                     : me
-        });
-
-        me.hidden = me.getHiddenState();
-    }
-
-    /**
      * Triggered after the hidden config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -108,6 +91,23 @@ class Clear extends Base {
      */
     onFieldChange(opts) {
         this.hidden = this.getHiddenState();
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        me.field.on({
+            change                    : me.onFieldChange,
+            changeClearToOriginalValue: me.onFieldChange,
+            scope                     : me
+        });
+
+        me.hidden = me.getHiddenState();
     }
 
     /**

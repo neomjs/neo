@@ -33,6 +33,10 @@ class SpinDown extends Base {
         type: 'spindown'
     }}
 
+    /**
+     *
+     * @param {Object} data
+     */
     onTriggerClick(data) {
         this.field.onSpinButtonDownClick();
     }

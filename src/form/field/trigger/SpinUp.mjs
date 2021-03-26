@@ -29,6 +29,10 @@ class SpinUp extends Base {
         type: 'spinup'
     }}
 
+    /**
+     *
+     * @param {Object} data
+     */
     onTriggerClick(data) {
         this.field.onSpinButtonUpClick();
     }

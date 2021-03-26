@@ -37,6 +37,9 @@ class SpinUpDown extends Base {
         type: 'spinupdown'
     }}
 
+    /**
+     *
+     */
     onConstructed() {
         let me   = this,
             vdom = me.vdom;
@@ -51,6 +54,10 @@ class SpinUpDown extends Base {
         super.onConstructed();
     }
 
+    /**
+     *
+     * @param {Object} data
+     */
     onTriggerClick(data) {
         let me     = this,
             target = data.path[0],

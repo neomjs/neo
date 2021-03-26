@@ -123,22 +123,6 @@ class DateField extends Picker {
     }
 
     /**
-     *
-     * @param {Object} data
-     * @protected
-     */
-    onKeyDownEnter(data) {
-        let me = this;
-
-        if (me.pickerIsMounted) {
-            me.dateSelector.focusCurrentItem();
-            super.onKeyDownEnter(data);
-        } else {
-            super.onKeyDownEnter(data, me.dateSelector.focusCurrentItem, me.dateSelector);
-        }
-    }
-
-    /**
      * @param {Object} data
      * @protected
      */
@@ -153,6 +137,22 @@ class DateField extends Picker {
             if (value !== oldValue) {
                 me.dateSelector.value = value;
             }
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @protected
+     */
+    onKeyDownEnter(data) {
+        let me = this;
+
+        if (me.pickerIsMounted) {
+            me.dateSelector.focusCurrentItem();
+            super.onKeyDownEnter(data);
+        } else {
+            super.onKeyDownEnter(data, me.dateSelector.focusCurrentItem, me.dateSelector);
         }
     }
 }

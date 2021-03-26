@@ -1,6 +1,7 @@
 import Base               from '../core/Base.mjs';
 import DragProxyComponent from './DragProxyComponent.mjs';
 import NeoArray           from '../util/Array.mjs';
+import Observable         from '../core/Observable.mjs';
 import VDomUtil           from '../util/VDom.mjs';
 
 /**

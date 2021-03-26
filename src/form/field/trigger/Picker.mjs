@@ -29,6 +29,10 @@ class Picker extends Base {
         type: 'picker'
     }}
 
+    /**
+     *
+     * @param {Object} data
+     */
     onTriggerClick(data) {
         this.field.onPickerTriggerClick();
     }
