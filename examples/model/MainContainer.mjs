@@ -10,7 +10,7 @@ import Viewport                from '../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
+        className: 'ComponentModelExample.MainContainer',
         ntype    : 'main-container',
 
         autoMount : true,

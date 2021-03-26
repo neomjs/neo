@@ -6,7 +6,7 @@ import Component from '../../src/controller/Component.mjs';
  */
 class MainContainerController extends Component {
     static getConfig() {return {
-        className: 'TestApp.MainContainerController',
+        className: 'ComponentModelExample.MainContainerController',
         ntype    : 'main-container-controller'
     }}
 
