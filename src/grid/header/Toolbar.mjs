@@ -46,32 +46,6 @@ class Toolbar extends BaseToolbar {
 
     /**
      *
-     * @param dock
-     * @returns {String} layoutConfig
-     * @override
-     */
-    getLayoutConfig(dock) {
-        return 'base';
-    }
-
-    /**
-     *
-     * @returns {Object}
-     */
-    getVdomRoot() {
-        return this.vdom.cn[0];
-    }
-
-    /**
-     *
-     * @returns {Object}
-     */
-    getVnodeRoot() {
-        return this.vnode.childNodes[0];
-    }
-
-    /**
-     *
      * @param {Array} items
      */
     createItems(items) {
@@ -102,11 +76,28 @@ class Toolbar extends BaseToolbar {
 
     /**
      *
+     * @param dock
+     * @returns {String} layoutConfig
+     * @override
      */
-    render() {
-        console.log(this.items);
+    getLayoutConfig(dock) {
+        return 'base';
+    }
 
-        super.render();
+    /**
+     *
+     * @returns {Object}
+     */
+    getVdomRoot() {
+        return this.vdom.cn[0];
+    }
+
+    /**
+     *
+     * @returns {Object}
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[0];
     }
 }
 

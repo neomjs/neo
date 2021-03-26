@@ -43,23 +43,6 @@ class CopyToClipboard extends Base {
     }}
 
     /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        me.field.on({
-            change     : me.onFieldChange,
-            constructed: me.onFieldChange,
-            scope      : me
-        });
-
-        me.hidden = me.getHiddenState();
-    }
-
-    /**
      * Triggered after the hidden config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -81,16 +64,37 @@ class CopyToClipboard extends Base {
 
     /**
      *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        me.field.on({
+            change     : me.onFieldChange,
+            constructed: me.onFieldChange,
+            scope      : me
+        });
+
+        me.hidden = me.getHiddenState();
+    }
+
+    /**
+     *
      * @param {Object} opts
      */
     onFieldChange(opts) {
         this.hidden = this.getHiddenState();
     }
 
+    /**
+     *
+     * @param {Object} data
+     */
     onTriggerClick(data) {
         Neo.main.DomAccess.selectNode({
             id: this.field.getInputEl().id
-        }).then(function(data) {
+        }).then(data => {
             Neo.main.DomAccess.execCommand({
                 command: 'copy'
             });

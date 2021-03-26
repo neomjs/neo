@@ -26,7 +26,10 @@ class Helper extends Base {
          * @protected
          */
         remote: {
-            app: ['create', 'update']
+            app: [
+                'create',
+                'update'
+            ]
         },
         /**
          * @member {Boolean} returnChildNodeOuterHtml=false
@@ -105,235 +108,11 @@ class Helper extends Base {
     }
 
     /**
-     * Creates a Neo.vdom.VNode tree for the given vdom template and compares the new vnode with the current one
-     * to calculate the vdom deltas.
-     * @param {Object} opts
-     * @param {Object} opts.vdom
-     * @param {Object} opts.vnode
-     * @returns {Object}
-     */
-    update(opts) {
-        let me     = this,
-            node   = me.parseHelper(opts.vdom),
-            deltas = me.createDeltas({
-                newVnode: node,
-                oldVnode: opts.vnode
-            });
-
-        return {
-            deltas    : deltas,
-            updateVdom: true,
-            vnode     : node
-        };
-    }
-
-    /**
-     *
-     * @param {Object} vnode
-     */
-    createStringFromVnode(vnode) {
-        let me = this;
-
-        switch (vnode.vtype) {
-            case 'root':
-                return me.createStringFromVnode(vnode.childNodes[0]);
-            case 'text':
-                return vnode.innerHTML === undefined ? '' : String(vnode.innerHTML);
-            case 'vnode':
-                return me.createOpenTag(vnode) + me.createTagContent(vnode) + me.createCloseTag(vnode);
-            default:
-                return '';
-        }
-    }
-
-    /**
-     * @param {Object} vnode
-     * @protected
-     */
-    createOpenTag(vnode) {
-        let string     = '<' + vnode.nodeName,
-            attributes = vnode.attributes,
-            cls        = vnode.className,
-            style;
-
-        if (vnode.style) {
-            style = Neo.createStyles(vnode.style);
-
-            if (style !== '') {
-                string += ' style="' + style + '"';
-            }
-        }
-
-        if (cls) {
-            if (Neo.isArray(cls)) {
-                cls = cls.join(' ');
-            }
-
-            if (cls !== '') {
-                string += ' class="' + cls + '"';
-            }
-        }
-
-        if (vnode.id) {
-            string += ' id="' + vnode.id + '"';
-        }
-
-        Object.entries(attributes).forEach(([key, value]) => {
-            if (this.voidAttributes.includes(key)) {
-                if (value === 'true') { // vnode attribute values get converted into strings
-                    string += (' ' + key);
-                }
-            } else if (key !== 'removeDom') {
-                string += (' ' + key + '="' + value + '"');
-            }
-        });
-
-        return string + '>';
-    }
-
-    /**
-     * @param {Object} vnode
-     * @protected
-     */
-    createTagContent(vnode) {
-        if (vnode.innerHTML) {
-            return vnode.innerHTML;
-        }
-
-        let string = '',
-            len    = vnode.childNodes ? vnode.childNodes.length : 0,
-            i      = 0,
-            childNode, outerHTML;
-
-        for (; i < len; i++) {
-            childNode = vnode.childNodes[i];
-
-            outerHTML = this.createStringFromVnode(childNode);
-
-            if (childNode.innerHTML !== outerHTML) {
-                if (this.returnChildNodeOuterHtml) {
-                    childNode.outerHTML = outerHTML;
-                }
-            }
-
-            string += outerHTML;
-        }
-
-        return string;
-    }
-
-    /**
      * @param {Object} vnode
      * @protected
      */
     createCloseTag(vnode) {
         return this.voidElements.indexOf(vnode.nodeName) > -1 ? '' : '</' + vnode.nodeName + '>';
-    }
-
-    /**
-     *
-     * @param {Object} opts
-     * @returns {Object|Neo.vdom.VNode|null}
-     */
-    parseHelper(opts) {
-        if (opts.removeDom === true) {
-            return null;
-        }
-
-        if (typeof opts === 'string') {
-
-        }
-
-        if (opts.vtype === 'text') {
-            if (!opts.id) {
-                opts.id = Neo.getId('vtext'); // adding an id to be able to find vtype='text' items inside the vnode tree
-            }
-
-            opts.innerHTML = `<!-- ${opts.id} -->${opts.html || ''}<!-- /neo-vtext -->`;
-            delete opts.html;
-            return opts;
-        }
-
-        let me   = this,
-            node = {attributes: {}, childNodes: [], style: {}},
-            potentialNode;
-
-        if (!opts.tag) {
-            opts.tag = 'div';
-        }
-
-        Object.entries(opts).forEach(([key, value]) => {
-            let hasUnit, newValue, style;
-
-            if (value !== undefined && value !== null && key !== 'flag') {
-                switch (key) {
-                    case 'tag':
-                    case 'nodeName':
-                        node.nodeName = value;
-                        break;
-                    case 'html':
-                    case 'innerHTML':
-                        node.innerHTML = value.toString(); // support for numbers
-                        break;
-                    case 'children':
-                    case 'childNodes':
-                    case 'cn':
-                        if (!Neo.isArray(value)) {
-                            value = [value];
-                        }
-
-                        newValue = [];
-
-                        value.forEach(item => {
-                            if (item.removeDom !== true) {
-                                delete item.removeDom; // could be false
-                                potentialNode = me.parseHelper(item);
-
-                                if (potentialNode) { // don't add null values
-                                    newValue.push(potentialNode);
-                                }
-                            }
-                        });
-
-                        node.childNodes = newValue;
-                        break;
-                    case 'cls':
-                        if (value && !Array.isArray(value)) {
-                            node.className = [value];
-                        } else if (!(Neo.isArray(value) && value.length < 1)) {
-                            node.className = value;
-                        }
-                        break;
-                    case 'height':
-                    case 'maxHeight':
-                    case 'maxWidth':
-                    case 'minHeight':
-                    case 'minWidth':
-                    case 'width':
-                        hasUnit = value != parseInt(value);
-                        node.style[key] = value + (hasUnit ? '' : 'px');
-                        break;
-                    case 'id':
-                        node.id = value;
-                        break;
-                    case 'style':
-                        style = node.style;
-                        if (Neo.isString(value)) {
-                            node.style = Object.assign(style, Neo.core.Util.createStyleObject(value));
-                        } else {
-                            node.style = Object.assign(style, value);
-                        }
-                        break;
-                    default:
-                        if (key !== 'removeDom') { // could be set to false
-                            node.attributes[key] = value + '';
-                        }
-                        break;
-                }
-            }
-        });
-
-        return new VNode(node);
     }
 
     /**
@@ -416,8 +195,8 @@ class Helper extends Base {
                 movedNode    = me.findVnode(newVnodeRoot, oldVnode.id, newVnode);
                 movedOldNode = me.findVnode(oldVnodeRoot, newVnode.id, oldVnode);
 
-                 // console.log('movedNode', movedNode);
-                 // console.log('movedOldNode', movedOldNode);
+                // console.log('movedNode', movedNode);
+                // console.log('movedOldNode', movedOldNode);
 
                 if (!movedNode && !movedOldNode) {
                     // console.log('replace node', oldVnode.id, '('+newVnode.id+')');
@@ -748,6 +527,101 @@ class Helper extends Base {
     }
 
     /**
+     * @param {Object} vnode
+     * @protected
+     */
+    createOpenTag(vnode) {
+        let string     = '<' + vnode.nodeName,
+            attributes = vnode.attributes,
+            cls        = vnode.className,
+            style;
+
+        if (vnode.style) {
+            style = Neo.createStyles(vnode.style);
+
+            if (style !== '') {
+                string += ' style="' + style + '"';
+            }
+        }
+
+        if (cls) {
+            if (Neo.isArray(cls)) {
+                cls = cls.join(' ');
+            }
+
+            if (cls !== '') {
+                string += ' class="' + cls + '"';
+            }
+        }
+
+        if (vnode.id) {
+            string += ' id="' + vnode.id + '"';
+        }
+
+        Object.entries(attributes).forEach(([key, value]) => {
+            if (this.voidAttributes.includes(key)) {
+                if (value === 'true') { // vnode attribute values get converted into strings
+                    string += (' ' + key);
+                }
+            } else if (key !== 'removeDom') {
+                string += (' ' + key + '="' + value + '"');
+            }
+        });
+
+        return string + '>';
+    }
+
+    /**
+     *
+     * @param {Object} vnode
+     */
+    createStringFromVnode(vnode) {
+        let me = this;
+
+        switch (vnode.vtype) {
+            case 'root':
+                return me.createStringFromVnode(vnode.childNodes[0]);
+            case 'text':
+                return vnode.innerHTML === undefined ? '' : String(vnode.innerHTML);
+            case 'vnode':
+                return me.createOpenTag(vnode) + me.createTagContent(vnode) + me.createCloseTag(vnode);
+            default:
+                return '';
+        }
+    }
+
+    /**
+     * @param {Object} vnode
+     * @protected
+     */
+    createTagContent(vnode) {
+        if (vnode.innerHTML) {
+            return vnode.innerHTML;
+        }
+
+        let string = '',
+            len    = vnode.childNodes ? vnode.childNodes.length : 0,
+            i      = 0,
+            childNode, outerHTML;
+
+        for (; i < len; i++) {
+            childNode = vnode.childNodes[i];
+
+            outerHTML = this.createStringFromVnode(childNode);
+
+            if (childNode.innerHTML !== outerHTML) {
+                if (this.returnChildNodeOuterHtml) {
+                    childNode.outerHTML = outerHTML;
+                }
+            }
+
+            string += outerHTML;
+        }
+
+        return string;
+    }
+
+    /**
      *
      * @param {Neo.vdom.VNode} vnode
      * @param {String} id
@@ -792,6 +666,135 @@ class Helper extends Base {
         }
 
         return returnValue;
+    }
+
+    /**
+     *
+     * @param {Object} opts
+     * @returns {Object|Neo.vdom.VNode|null}
+     */
+    parseHelper(opts) {
+        if (opts.removeDom === true) {
+            return null;
+        }
+
+        if (typeof opts === 'string') {
+
+        }
+
+        if (opts.vtype === 'text') {
+            if (!opts.id) {
+                opts.id = Neo.getId('vtext'); // adding an id to be able to find vtype='text' items inside the vnode tree
+            }
+
+            opts.innerHTML = `<!-- ${opts.id} -->${opts.html || ''}<!-- /neo-vtext -->`;
+            delete opts.html;
+            return opts;
+        }
+
+        let me   = this,
+            node = {attributes: {}, childNodes: [], style: {}},
+            potentialNode;
+
+        if (!opts.tag) {
+            opts.tag = 'div';
+        }
+
+        Object.entries(opts).forEach(([key, value]) => {
+            let hasUnit, newValue, style;
+
+            if (value !== undefined && value !== null && key !== 'flag') {
+                switch (key) {
+                    case 'tag':
+                    case 'nodeName':
+                        node.nodeName = value;
+                        break;
+                    case 'html':
+                    case 'innerHTML':
+                        node.innerHTML = value.toString(); // support for numbers
+                        break;
+                    case 'children':
+                    case 'childNodes':
+                    case 'cn':
+                        if (!Neo.isArray(value)) {
+                            value = [value];
+                        }
+
+                        newValue = [];
+
+                        value.forEach(item => {
+                            if (item.removeDom !== true) {
+                                delete item.removeDom; // could be false
+                                potentialNode = me.parseHelper(item);
+
+                                if (potentialNode) { // don't add null values
+                                    newValue.push(potentialNode);
+                                }
+                            }
+                        });
+
+                        node.childNodes = newValue;
+                        break;
+                    case 'cls':
+                        if (value && !Array.isArray(value)) {
+                            node.className = [value];
+                        } else if (!(Neo.isArray(value) && value.length < 1)) {
+                            node.className = value;
+                        }
+                        break;
+                    case 'height':
+                    case 'maxHeight':
+                    case 'maxWidth':
+                    case 'minHeight':
+                    case 'minWidth':
+                    case 'width':
+                        hasUnit = value != parseInt(value);
+                        node.style[key] = value + (hasUnit ? '' : 'px');
+                        break;
+                    case 'id':
+                        node.id = value;
+                        break;
+                    case 'style':
+                        style = node.style;
+                        if (Neo.isString(value)) {
+                            node.style = Object.assign(style, Neo.core.Util.createStyleObject(value));
+                        } else {
+                            node.style = Object.assign(style, value);
+                        }
+                        break;
+                    default:
+                        if (key !== 'removeDom') { // could be set to false
+                            node.attributes[key] = value + '';
+                        }
+                        break;
+                }
+            }
+        });
+
+        return new VNode(node);
+    }
+
+    /**
+     * Creates a Neo.vdom.VNode tree for the given vdom template and compares the new vnode with the current one
+     * to calculate the vdom deltas.
+     * @param {Object} opts
+     * @param {Object} opts.vdom
+     * @param {Object} opts.vnode
+     * @returns {Object}
+     */
+    update(opts) {
+        let me     = this,
+            node   = me.parseHelper(opts.vdom),
+            deltas = me.createDeltas({
+                newVnode: node,
+                oldVnode: opts.vnode
+            });
+
+        return {
+            deltas    : deltas,
+            updateVdom: true,
+            vnode     : node
+        };
     }
 }
 

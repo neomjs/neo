@@ -39,14 +39,6 @@ class Base extends CoreBase {
     }}
 
     /**
-     *
-     */
-    onConstructed() {
-        this.attach();
-        super.onConstructed();
-    }
-
-    /**
      * Attaches sensors event listeners to the DOM
      */
     attach() {}
@@ -55,6 +47,14 @@ class Base extends CoreBase {
      * Detaches sensors event listeners from the DOM
      */
     detach() {}
+
+    /**
+     *
+     */
+    onConstructed() {
+        this.attach();
+        super.onConstructed();
+    }
 
     /**
      * Triggers a custom event on the target element

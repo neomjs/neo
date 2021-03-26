@@ -30,7 +30,7 @@ class WeekContainer extends Container {
 
     /**
      *
-     * @param config
+     * @param {Object} config
      */
     constructor(config) {
         super(config);
@@ -139,7 +139,7 @@ class WeekContainer extends Container {
 
     /**
      *
-     * @param data
+     * @param {Object} data
      */
     onTimeAxisPositionChange(data) {
         if (data.value) {

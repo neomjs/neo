@@ -327,14 +327,12 @@ class Base extends Component {
      * @protected
      */
     changeRoute() {
-        const me = this;
+        let me = this;
 
         if (me.editRoute) {
-            Neo.Main.editRoute(this.route);
+            Neo.Main.editRoute(me.route);
         } else {
-            Neo.Main.setRoute({
-                value: me.route
-            });
+            Neo.Main.setRoute({value: me.route});
         }
     }
 }

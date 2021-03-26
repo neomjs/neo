@@ -78,8 +78,6 @@ class KeyNavigation extends Base {
 
             upperCaseKey = me.parseUpperCaseKey(upperCaseKey);
 
-            // console.log('KeyNavigation onKeyDown', upperCaseKey, data, me.keys);
-
             me.keys.forEach(key => {
                 scope = Neo.get(key.scope);
 

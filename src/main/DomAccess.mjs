@@ -368,6 +368,24 @@ class DomAccess extends Base {
     /**
      *
      * @param {Object} data
+     * @param {String} data.direction left, top
+     * @param {String} data.id
+     * @param {Number} data.value
+     * @returns {Object} obj.id => the passed id
+     */
+    scrollBy(data) {
+        let node = this.getElement(data.id);
+
+        if (node) {
+            node[`scroll${Neo.capitalize(data.direction)}`] += data.value;
+        }
+
+        return {id: data.id};
+    }
+
+    /**
+     *
+     * @param {Object} data
      * @param {String} data.id
      * @param {String} [data.behavior='smooth']
      * @param {String} [data.block='start']
@@ -383,24 +401,6 @@ class DomAccess extends Base {
                 block   : data.block    || 'start',
                 inline  : data.inline   || 'nearest'
             });
-        }
-
-        return {id: data.id};
-    }
-
-    /**
-     *
-     * @param {Object} data
-     * @param {String} data.direction left, top
-     * @param {String} data.id
-     * @param {Number} data.value
-     * @returns {Object} obj.id => the passed id
-     */
-    scrollBy(data) {
-        let node = this.getElement(data.id);
-
-        if (node) {
-            node[`scroll${Neo.capitalize(data.direction)}`] += data.value;
         }
 
         return {id: data.id};

@@ -107,16 +107,6 @@ class Base extends Component {
         me.domListeners = domListeners;
     }
 
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        if (me.selectionModel) {
-            me.selectionModel.register(me);
-        }
-    }
-
     /**
      * Triggered after the disableSelection config got changed
      * @param {Boolean} value
@@ -377,6 +367,16 @@ class Base extends Component {
             me.onContainerClick(data);
         }  else if (data.path[0].cls.includes(me.itemCls)) {
             me.onItemClick(data);
+        }
+    }
+
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        if (me.selectionModel) {
+            me.selectionModel.register(me);
         }
     }
 

@@ -1,6 +1,6 @@
 import ClassSystemUtil  from '../util/ClassSystem.mjs';
-import CoreBase         from '../core/Base.mjs';
 import ComponentManager from '../manager/Component.mjs';
+import CoreBase         from '../core/Base.mjs';
 import DomEventManager  from '../manager/DomEvent.mjs';
 import KeyNavigation    from '../util/KeyNavigation.mjs';
 import Logger           from '../core/Logger.mjs';
@@ -165,6 +165,11 @@ class Base extends CoreBase {
          */
         minWidth_: null,
         /**
+         * Optionally add a model.Component
+         * @member {Object|null} model_=null
+         */
+        model_: null,
+        /**
          * True in case the component is mounted to the DOM
          * @member {Boolean} mounted_=false
          * @protected
@@ -232,87 +237,6 @@ class Base extends CoreBase {
          */
         _vdom: {}
     }}
-
-    /**
-     * Specify a different vdom root if needed to apply the top level style attributes on a different level.
-     * Make sure to use getVnodeRoot() as well, to keep the vdom & vnode trees in sync.
-     * @returns {Object} The new vdom root
-     */
-    getVdomRoot() {
-        return this.vdom;
-    }
-
-    /**
-     * Specify a different vnode root if needed to apply the top level style attributes on a different level.
-     * Make sure to use getVdomRoot() as well, to keep the vdom & vnode trees in sync.
-     * @returns {Object} The new vnode root
-     */
-    getVnodeRoot() {
-        return this.vnode;
-    }
-
-    /**
-     * Override this method to change the order configs are applied to this instance.
-     * @param {Object} config
-     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
-     * @returns {Object} config
-     */
-    mergeConfig(...args) {
-        let me     = this,
-            config = super.mergeConfig(...args),
-
-            // it should be possible to set custom configs for the vdom on instance level,
-            // however there will be already added attributes (e.g. id), so a merge seems to be the best strategy.
-            vdom = {...me._vdom || {}, ...config.vdom || {}};
-
-        // avoid any interference on prototype level
-        // does not clone existing Neo instances
-        me._vdom        = Neo.clone(vdom, true, true);
-        me.cls          = config.cls;
-        me._style       = config.style;
-        me.wrapperStyle = Neo.clone(config.wrapperStyle, false);
-
-        delete config.cls;
-        delete config.style;
-        delete config._vdom;
-        delete config.vdom;
-        delete config.wrapperStyle;
-
-        return config;
-    }
-
-    /**
-     *
-     * @param {Object} config
-     */
-    constructor(config) {
-        super(config);
-        ComponentManager.register(this);
-    }
-
-    /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        me.fire('constructed', {id: me.id}); // testing
-
-        if (me.keys) {
-            me.keys.register(me);
-        }
-    }
-
-    /**
-     *
-     */
-    init() {
-        if (this.autoRender) {
-            this.render();
-        }
-    }
 
     /**
      * CSS selectors to apply to the top level node of this component
@@ -463,6 +387,15 @@ class Base extends CoreBase {
 
             me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted;
         }
+    }
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+        ComponentManager.register(this);
     }
 
     /**
@@ -620,6 +553,43 @@ class Base extends CoreBase {
      */
     afterSetMinWidth(value, oldValue) {
         this.changeVdomRootKey('minWidth', value);
+    }
+
+    /**
+     * Triggered after the model config got changed
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetModel(value, oldValue) {
+        let me = this,
+            config;
+
+        if (value) {console.log('afterSetModel', me.id, value);
+            config = {
+                owner: me,
+                ...value
+            };
+
+            if (config.module) {
+                me._model = Neo.create(config);
+            } else if (Neo.component.Model) {
+                me._model = Neo.create({
+                    module: Neo.component.Model,
+                    ...config
+                });
+            } else {
+                import(
+                    /* webpackChunkName: 'src/model/Component-mjs.js' */
+                    '../model/Component.mjs'
+                    ).then(module => {
+                    me._model = Neo.create({
+                        module: module.default,
+                        ...config
+                    });
+                });
+            }
+        }
     }
 
     /**
@@ -907,29 +877,49 @@ class Base extends CoreBase {
     }
 
     /**
-     * Returns this.controller or the closest parent controller
+     * Find an instance stored inside a config via optionally passing an ntype.
+     * Returns this[configName] or the closest parent component with a match.
+     * Used by getController() & getModel()
+     * @param {String} configName
      * @param {String} [ntype]
-     * @returns {Neo.controller.Base|null}
+     * @returns {Neo.core.Base|null}
      */
-    getController(ntype) {
-        let controller = this.controller,
-            i, len, parents;
+    getConfigInstanceByNtype(configName, ntype) {
+        let me     = this,
+            config = me[configName],
+            parentComponent;
 
-        if (controller && (!ntype || ntype === controller.ntype)) {
-            return controller;
+        if (config && (!ntype || ntype === config.ntype)) {
+            return config;
         }
 
-        parents = ComponentManager.getParents(this);
-        i       = 0;
-        len     = parents.length;
+        if (me.parentId) {
+            parentComponent = Neo.getComponent(me.parentId);
 
-        for (; i < len; i++) {
-            if (parents[i].controller && (!ntype || ntype === parents[i].controller.ntype)) {
-                return parents[i].controller;
+            if (parentComponent) {
+                return parentComponent.getConfigInstanceByNtype(configName, ntype);
             }
         }
 
         return null;
+    }
+
+    /**
+     * Returns this.controller or the closest parent controller
+     * @param {String} [ntype]
+     * @returns {Neo.controller.Component|null}
+     */
+    getController(ntype) {
+        return this.getConfigInstanceByNtype('controller', ntype);
+    }
+
+    /**
+     * Returns this.model or the closest parent model
+     * @param {String} [ntype]
+     * @returns {Neo.model.Component|null}
+     */
+    getModel(ntype) {
+        return this.getConfigInstanceByNtype('model', ntype);
     }
 
     /**
@@ -1006,6 +996,82 @@ class Base extends CoreBase {
     }
 
     /**
+     * Specify a different vdom root if needed to apply the top level style attributes on a different level.
+     * Make sure to use getVnodeRoot() as well, to keep the vdom & vnode trees in sync.
+     * @returns {Object} The new vdom root
+     */
+    getVdomRoot() {
+        return this.vdom;
+    }
+
+    /**
+     * Specify a different vnode root if needed to apply the top level style attributes on a different level.
+     * Make sure to use getVdomRoot() as well, to keep the vdom & vnode trees in sync.
+     * @returns {Object} The new vnode root
+     */
+    getVnodeRoot() {
+        return this.vnode;
+    }
+
+    /**
+     *
+     */
+    init() {
+        if (this.autoRender) {
+            this.render();
+        }
+    }
+
+    /**
+     * We are using this method as a ctor hook here to add the initial model.Component & controller.Component parsing
+     * @param {Object} config
+     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
+     */
+    initConfig(config, preventOriginalConfig) {
+        super.initConfig(config, preventOriginalConfig);
+
+        let me = this;
+
+        if (me.model && me.model.constructor.isClass) { // todo: test if we can lazy load models
+            me.model.parseConfig();
+        }
+
+        if (me.controller) {
+            me.controller.parseConfig();
+        }
+    }
+
+    /**
+     * Override this method to change the order configs are applied to this instance.
+     * @param {Object} config
+     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
+     * @returns {Object} config
+     */
+    mergeConfig(...args) {
+        let me     = this,
+            config = super.mergeConfig(...args),
+
+            // it should be possible to set custom configs for the vdom on instance level,
+            // however there will be already added attributes (e.g. id), so a merge seems to be the best strategy.
+            vdom = {...me._vdom || {}, ...config.vdom || {}};
+
+        // avoid any interference on prototype level
+        // does not clone existing Neo instances
+        me._vdom        = Neo.clone(vdom, true, true);
+        me.cls          = config.cls;
+        me._style       = config.style;
+        me.wrapperStyle = Neo.clone(config.wrapperStyle, false);
+
+        delete config.cls;
+        delete config.style;
+        delete config._vdom;
+        delete config.vdom;
+        delete config.wrapperStyle;
+
+        return config;
+    }
+
+    /**
      * Can get called after the component got rendered. See the autoMount config as well.
      */
     mount() {
@@ -1046,6 +1112,19 @@ class Base extends CoreBase {
             }).then(() => {
                 me.mounted = true;
             });
+        }
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        if (me.keys) {
+            me.keys.register(me);
         }
     }
 

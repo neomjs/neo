@@ -106,14 +106,6 @@ class Container extends BaseContainer {
     }}
 
     /**
-     *
-     */
-    onConstructed() {
-        this._layout = this.getLayoutConfig(); // silent update
-        super.onConstructed();
-    }
-
-    /**
      * Adds one or multiple tabs at the end of the header
      * @param {Object|Array} item
      * @returns {Neo.component.Base|Neo.component.Base[]}
@@ -505,6 +497,14 @@ class Container extends BaseContainer {
         });
 
         return returnValue;
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        this._layout = this.getLayoutConfig(); // silent update
+        super.onConstructed();
     }
 
     /**

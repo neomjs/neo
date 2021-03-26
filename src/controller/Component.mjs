@@ -2,7 +2,6 @@ import Base             from './Base.mjs';
 import ComponentManager from '../manager/Component.mjs';
 import DomEventManager  from '../manager/DomEvent.mjs';
 import Logger           from '../core/Logger.mjs';
-import NeoFunction      from '../util/Function.mjs';
 
 /**
  * @class Neo.controller.Component
@@ -43,7 +42,13 @@ class Component extends Base {
 
         me.references = {};
 
-        NeoFunction.createSequence(me.view, 'onConstructed', me.onViewConstructed, me);
+        if (me.view.isConstructed) {
+            me.onViewConstructed();
+        } else {
+            me.view.on('constructed', () => {
+                me.onViewConstructed();
+            });
+        }
     }
 
     /**
@@ -64,6 +69,19 @@ class Component extends Base {
      */
     beforeSetView(value, oldValue) {
         return value.id;
+    }
+
+    /**
+     * sameLevelOnly=false will return the closest VM inside the component parent tree,
+     * in case there is none on the same level.
+     * @param {Boolean} [sameLevelOnly=false]
+     */
+    getModel(sameLevelOnly=false) {
+        if (sameLevelOnly) {
+            return this.view.model;
+        }
+
+        return this.view.getModel();
     }
 
     /**
@@ -148,9 +166,9 @@ class Component extends Base {
 
     /**
      *
-     * @param {Neo.component.Base} view
+     * @param {Neo.component.Base} [view=null]
      */
-    onViewConstructed(view) {
+    onViewConstructed(view=null) {
         let me        = this,
             childCall = !!view,
             domListeners, eventHandler, fn, parentController;

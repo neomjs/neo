@@ -60,34 +60,6 @@ class Tree extends Base {
     }}
 
     /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me   = this,
-            vdom = me.vdom;
-
-        if (me.showCollapseExpandAllIcons) {
-            vdom.cn.unshift({
-                cls: ['neo-treelist-menu-item', 'neo-treelist-collapse-all-icon'],
-                cn : [{
-                    tag: 'span',
-                    cls: ['neo-treelist-menu-item-content']
-                }]
-            }, {
-                cls: ['neo-treelist-menu-item', 'neo-treelist-expand-all-icon'],
-                cn : [{
-                    tag: 'span',
-                    cls: ['neo-treelist-menu-item-content']
-                }]
-            });
-
-            me.vdom = vdom;
-        }
-    }
-
-    /**
      * Triggered after the draggable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -355,6 +327,34 @@ class Tree extends Base {
             this.onMenuItemClick(data.target.cls);
         } else {
             super.onClick(data);
+        }
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me   = this,
+            vdom = me.vdom;
+
+        if (me.showCollapseExpandAllIcons) {
+            vdom.cn.unshift({
+                cls: ['neo-treelist-menu-item', 'neo-treelist-collapse-all-icon'],
+                cn : [{
+                    tag: 'span',
+                    cls: ['neo-treelist-menu-item-content']
+                }]
+            }, {
+                cls: ['neo-treelist-menu-item', 'neo-treelist-expand-all-icon'],
+                cn : [{
+                    tag: 'span',
+                    cls: ['neo-treelist-menu-item-content']
+                }]
+            });
+
+            me.vdom = vdom;
         }
     }
 

@@ -168,19 +168,6 @@ class DateSelector extends Component {
     }
 
     /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        if (me.selectionModel) {
-            me.selectionModel.register(me);
-        }
-    }
-
-    /**
      * Triggered after the currentDate config got changed
      * @param {Date} value
      * @param {Date} oldValue
@@ -230,6 +217,24 @@ class DateSelector extends Component {
     }
 
     /**
+     * Triggered after the isUpdating config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetIsUpdating(value, oldValue) {
+        if (value === false) {
+            let me = this;
+
+            if (me.cachedUpdate && me.cachedUpdate !== new Date(me.value)) {
+                me.afterSetValue(me.value, DateUtil.convertToyyyymmdd(me.cachedUpdate));
+            }
+
+            me.cachedUpdate = null;
+        }
+    }
+
+    /**
      * Triggered after the locale config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -261,24 +266,6 @@ class DateSelector extends Component {
 
         NeoArray[value ? 'remove' : 'add'](cls, 'neo-hide-inner-borders');
         me.cls = cls;
-    }
-
-    /**
-     * Triggered after the isUpdating config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetIsUpdating(value, oldValue) {
-        if (value === false) {
-            let me = this;
-
-            if (me.cachedUpdate && me.cachedUpdate !== new Date(me.value)) {
-                me.afterSetValue(me.value, DateUtil.convertToyyyymmdd(me.cachedUpdate));
-            }
-
-            me.cachedUpdate = null;
-        }
     }
 
     /**
@@ -747,6 +734,19 @@ class DateSelector extends Component {
      *
      * @param {Object} data
      */
+    onCellClick(data) {
+        let me     = this,
+            cellEl = VDomUtil.findVdomChild(me.vdom, data.path[0].id),
+            date   = me.currentDate; // cloned
+
+        date.setDate(parseInt(cellEl.vdom.cn[0].html));
+        me.value = DateUtil.convertToyyyymmdd(date);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onComponentClick(data) {
         let me  = this,
             cls = data.path[0].cls,
@@ -761,19 +761,6 @@ class DateSelector extends Component {
             date.setMonth(date.getMonth() + monthIncrement);
             me.value = DateUtil.convertToyyyymmdd(date);
         }
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onCellClick(data) {
-        let me     = this,
-            cellEl = VDomUtil.findVdomChild(me.vdom, data.path[0].id),
-            date   = me.currentDate; // cloned
-
-        date.setDate(parseInt(cellEl.vdom.cn[0].html));
-        me.value = DateUtil.convertToyyyymmdd(date);
     }
 
     /**
@@ -805,6 +792,19 @@ class DateSelector extends Component {
             date = me.currentDate; // cloned
             date.setFullYear(date.getFullYear() + yearIncrement);
             me.value = DateUtil.convertToyyyymmdd(date);
+        }
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        if (me.selectionModel) {
+            me.selectionModel.register(me);
         }
     }
 

@@ -85,27 +85,6 @@ class Picker extends Text {
 
     /**
      *
-     * @returns {Neo.container.Base}
-     */
-    createPicker() {
-        let me              = this,
-            pickerComponent = me.createPickerComponent();
-
-        return Neo.create(Container, {
-            appName  : me.appName,
-            cls      : ['neo-picker-container', 'neo-container'],
-            height   : me.pickerHeight,
-            id       : me.getPickerId(),
-            items    : pickerComponent ? [pickerComponent] : [],
-            maxHeight: me.pickerMaxHeight,
-            vdom     : {cn: [], tabIndex: -1},
-            width    : me.pickerWidth,
-            ...me.pickerConfig || {}
-        });
-    }
-
-    /**
-     *
      * @param {Boolean} silent
      */
     applyClientRects(silent) {
@@ -125,6 +104,27 @@ class Picker extends Text {
         });
 
         me.picker[silent ? '_vdom' : 'vdom'] = vdom;
+    }
+
+    /**
+     *
+     * @returns {Neo.container.Base}
+     */
+    createPicker() {
+        let me              = this,
+            pickerComponent = me.createPickerComponent();
+
+        return Neo.create(Container, {
+            appName  : me.appName,
+            cls      : ['neo-picker-container', 'neo-container'],
+            height   : me.pickerHeight,
+            id       : me.getPickerId(),
+            items    : pickerComponent ? [pickerComponent] : [],
+            maxHeight: me.pickerMaxHeight,
+            vdom     : {cn: [], tabIndex: -1},
+            width    : me.pickerWidth,
+            ...me.pickerConfig || {}
+        });
     }
 
     /**

@@ -76,48 +76,6 @@ class Base extends Component {
     }}
 
     /**
-     * Override this method to change the order configs are applied to this instance.
-     * @param {Object} config
-     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
-     * @returns {Object} config
-     */
-    mergeConfig(...args) {
-        let me     = this,
-            config = super.mergeConfig(...args);
-
-        // avoid any interference on prototype level
-        // does not clone existing Neo instances
-
-        if (config.itemDefaults) {
-            me._itemDefaults = Neo.clone(config.itemDefaults, true, true);
-            delete config.itemDefaults;
-        }
-
-        if (config.items) {
-            me._items = Neo.clone(config.items, true, true);
-            delete config.items;
-        }
-
-        return config;
-    }
-
-    /**
-     *
-     */
-    onConstructed() {
-        let me = this;
-
-        // in case the Container does not have a layout config, the setter won't trigger
-        me._layout = me.createLayout(me.layout);
-        me._layout.applyRenderAttributes();
-
-        super.onConstructed();
-
-        me.parseItemConfigs(me.items);
-        me.createItems();
-    }
-
-    /**
      * Inserts an item or array of items at the last index
      * @param {Object|Array} item
      * @returns {Neo.component.Base|Neo.component.Base[]}
@@ -413,6 +371,32 @@ class Base extends Component {
     }
 
     /**
+     * Override this method to change the order configs are applied to this instance.
+     * @param {Object} config
+     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
+     * @returns {Object} config
+     */
+    mergeConfig(...args) {
+        let me     = this,
+            config = super.mergeConfig(...args);
+
+        // avoid any interference on prototype level
+        // does not clone existing Neo instances
+
+        if (config.itemDefaults) {
+            me._itemDefaults = Neo.clone(config.itemDefaults, true, true);
+            delete config.itemDefaults;
+        }
+
+        if (config.items) {
+            me._items = Neo.clone(config.items, true, true);
+            delete config.items;
+        }
+
+        return config;
+    }
+
+    /**
      * Moves an existing item to a new index
      * @param {Number} fromIndex
      * @param {Number} toIndex
@@ -429,6 +413,26 @@ class Base extends Component {
         return item;
     }
 
+    /**
+     *
+     */
+    onConstructed() {
+        let me = this;
+
+        // in case the Container does not have a layout config, the setter won't trigger
+        me._layout = me.createLayout(me.layout);
+        me._layout.applyRenderAttributes();
+
+        super.onConstructed();
+
+        me.parseItemConfigs(me.items);
+        me.createItems();
+    }
+
+    /**
+     *
+     * @param {Object[]} items
+     */
     parseItemConfigs(items) {
         let me = this;
 

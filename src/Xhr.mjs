@@ -22,10 +22,13 @@ class Xhr extends XhrConnection {
          * @protected
          */
         remote: {
-            app: ['promiseRequest', 'promiseJson']
+            app: [
+                'promiseJson',
+                'promiseRequest'
+            ]
         },
         /**
-         * @member {boolean} singleton=true
+         * @member {Boolean} singleton=true
          * @protected
          */
         singleton: true

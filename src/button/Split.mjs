@@ -56,22 +56,6 @@ class Split extends Button {
 
     /**
      *
-     * @returns {Object} The new vdom root
-     */
-    getVdomRoot() {
-        return this.vdom.cn[0];
-    }
-
-    /**
-     *
-     * @returns {Object} The new vnode root
-     */
-    getVnodeRoot() {
-        return this.vnode.childNodes[0];
-    }
-
-    /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -149,6 +133,22 @@ class Split extends Button {
     destroy(updateParentVdom=false, silent=false) {
         this.triggerButton.destroy(); // default opts => no parent update
         super.destroy(updateParentVdom, silent);
+    }
+
+    /**
+     *
+     * @returns {Object} The new vdom root
+     */
+    getVdomRoot() {
+        return this.vdom.cn[0];
+    }
+
+    /**
+     *
+     * @returns {Object} The new vnode root
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[0];
     }
 
     /**

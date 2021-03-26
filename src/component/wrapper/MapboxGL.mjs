@@ -81,20 +81,6 @@ class MapboxGL extends Component {
     }}
 
     /**
-     *
-     */
-    getVdomRoot() {
-        return this.vdom.cn[0].cn[0];
-    }
-
-    /**
-     *
-     */
-    getVnodeRoot() {
-        return this.vnode.childNodes[0].childNodes[0];
-    }
-
-    /**
      * Triggered after the center config got changed
      * @param {Object} value
      * @param {Object} oldValue
@@ -343,6 +329,20 @@ class MapboxGL extends Component {
         me._center = {lat: value.lat, lng: value.lng}; // silent update
 
         me.centerMap(value, true);
+    }
+
+    /**
+     *
+     */
+    getVdomRoot() {
+        return this.vdom.cn[0].cn[0];
+    }
+
+    /**
+     *
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[0].childNodes[0];
     }
 
     /**

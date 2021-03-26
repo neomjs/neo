@@ -23,43 +23,6 @@ class Observable extends Base {
         mixin: true
     }}
 
-    initObservable(config) {
-        let me = this,
-            proto = me.__proto__,
-            listeners;
-
-        if (config.listeners) {
-            me.listeners = config.listeners;
-            delete config.listeners;
-        }
-
-        listeners = me.listeners;
-
-        me.listeners = {};
-
-        if (listeners) {
-            if (Neo.isObject(listeners)) {
-                listeners = {...listeners};
-            }
-
-            me.addListener(listeners);
-        }
-
-        while (proto && proto.constructor.isClass) {
-            if (proto.constructor.staticConfig.observable && !proto.constructor.listeners) {
-                Object.assign(proto.constructor, {
-                    addListener   : me.addListener,
-                    fire          : me.fire,
-                    listeners     : {},
-                    on            : me.on,
-                    removeListener: me.removeListener,
-                    un            : me.un
-                });
-            }
-            proto = proto.__proto__;
-        }
-    }
-
     /**
      *
      * @param {Object|String} name
@@ -151,6 +114,57 @@ class Observable extends Base {
         }
     }
 
+    initObservable(config) {
+        let me = this,
+            proto = me.__proto__,
+            listeners;
+
+        if (config.listeners) {
+            me.listeners = config.listeners;
+            delete config.listeners;
+        }
+
+        listeners = me.listeners;
+
+        me.listeners = {};
+
+        if (listeners) {
+            if (Neo.isObject(listeners)) {
+                listeners = {...listeners};
+            }
+
+            me.addListener(listeners);
+        }
+
+        while (proto && proto.constructor.isClass) {
+            if (proto.constructor.staticConfig.observable && !proto.constructor.listeners) {
+                Object.assign(proto.constructor, {
+                    addListener   : me.addListener,
+                    fire          : me.fire,
+                    listeners     : {},
+                    on            : me.on,
+                    removeListener: me.removeListener,
+                    un            : me.un
+                });
+            }
+            proto = proto.__proto__;
+        }
+    }
+
+    /**
+     * Alias for addListener
+     * @param {Object|String} name
+     * @param {Object} [opts]
+     * @param {Object} [scope]
+     * @param {String} [eventId]
+     * @param {Object} [data]
+     * @param {Number} [order]
+     * @returns {String} eventId
+     */
+    on(...args) {
+        return this.addListener(...args);
+    }
+
     /**
      *
      * @param name
@@ -184,20 +198,6 @@ class Observable extends Base {
     // resumeListeners: function() {
 
     // }
-
-    /**
-     * Alias for addListener
-     * @param {Object|String} name
-     * @param {Object} [opts]
-     * @param {Object} [scope]
-     * @param {String} [eventId]
-     * @param {Object} [data]
-     * @param {Number} [order]
-     * @returns {String} eventId
-     */
-    on(...args) {
-        return this.addListener(...args);
-    }
 
     /**
      * Alias for removeListener

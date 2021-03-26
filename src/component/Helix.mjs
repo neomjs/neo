@@ -283,24 +283,6 @@ class Helix extends Component {
     }
 
     /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        if (me.selectionModel) {
-            me.selectionModel.register(me);
-        }
-
-        // load data for the example collection
-        if (!(me.store instanceof Store)) {
-            me.loadData();
-        }
-    }
-
-    /**
      * Triggered after the flipped config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -856,6 +838,24 @@ class Helix extends Component {
      */
     onClick(data) {
         this.fire(data.id === this.id ? 'containerClick' : 'itemClick', data);
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        if (me.selectionModel) {
+            me.selectionModel.register(me);
+        }
+
+        // load data for the example collection
+        if (!(me.store instanceof Store)) {
+            me.loadData();
+        }
     }
 
     /**

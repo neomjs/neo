@@ -21,7 +21,7 @@ class YearContainer extends Container {
 
     /**
      *
-     * @param config
+     * @param {Object} config
      */
     constructor(config) {
         super(config);

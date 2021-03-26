@@ -219,38 +219,6 @@ class Gallery extends Component {
     }
 
     /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        if (me.selectionModel) {
-            me.selectionModel.register(me);
-        }
-
-        // load data for the example collection
-        if (!(me.store instanceof Store)) {
-            Neo.Xhr.promiseJson({
-                insideNeo: true,
-                url      : '../../resources/examples/data/ai_contacts.json'
-            }).then(data => {
-                me.store.items = data.json.data;
-                setTimeout(() => { // todo: rendering check
-                    me.createItems();
-
-                    if (me.selectOnMount) {
-                        me.afterSetMounted(true, false);
-                    }
-                }, 100);
-            }).catch(err => {
-                console.log('Error for Neo.Xhr.request', err, me.id);
-            });
-        }
-    }
-
-    /**
      * Triggered after the amountRows config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -376,10 +344,15 @@ class Gallery extends Component {
         }
     }
 
+    afterSetTranslateX() {this.moveOrigin();}
+    afterSetTranslateY() {this.moveOrigin();}
+    afterSetTranslateZ() {this.moveOrigin();}
+
     /**
      * Triggered before the store config gets changed.
      * @param {Neo.data.Store|null} value
      * @param {Neo.data.Store|null} oldValue
+     * @returns {Neo.collection.Base|Neo.data.Store}
      * @protected
      */
     beforeSetStore(value, oldValue) {
@@ -408,10 +381,6 @@ class Gallery extends Component {
             }
         });
     }
-
-    afterSetTranslateX() {this.moveOrigin();}
-    afterSetTranslateY() {this.moveOrigin();}
-    afterSetTranslateZ() {this.moveOrigin();}
 
     /**
      *
@@ -625,6 +594,38 @@ class Gallery extends Component {
      */
     onClick(data) {
         this.fire(data.id === this.id ? 'containerClick' : 'itemClick', data);
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        if (me.selectionModel) {
+            me.selectionModel.register(me);
+        }
+
+        // load data for the example collection
+        if (!(me.store instanceof Store)) {
+            Neo.Xhr.promiseJson({
+                insideNeo: true,
+                url      : '../../resources/examples/data/ai_contacts.json'
+            }).then(data => {
+                me.store.items = data.json.data;
+                setTimeout(() => { // todo: rendering check
+                    me.createItems();
+
+                    if (me.selectOnMount) {
+                        me.afterSetMounted(true, false);
+                    }
+                }, 100);
+            }).catch(err => {
+                console.log('Error for Neo.Xhr.request', err, me.id);
+            });
+        }
     }
 
     /**

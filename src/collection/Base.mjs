@@ -246,16 +246,6 @@ class Base extends CoreBase {
 
     /**
      *
-     * @param {Map|null} value
-     * @param {Map|null} oldValue
-     * @protected
-     */
-    beforeSetMap(value, oldValue) {
-        return !value ? new Map() : value;
-    }
-
-    /**
-     *
      * @param {Array} value
      * @param {Array} oldValue
      * @protected
@@ -310,6 +300,16 @@ class Base extends CoreBase {
         }
 
         return value;
+    }
+
+    /**
+     *
+     * @param {Map|null} value
+     * @param {Map|null} oldValue
+     * @protected
+     */
+    beforeSetMap(value, oldValue) {
+        return !value ? new Map() : value;
     }
 
     /**
@@ -371,7 +371,8 @@ class Base extends CoreBase {
      * @protected
      */
     cacheUpdate(opts) {
-        console.log('cacheUpdate', opts, this[toAddArray]);return;
+        console.log('cacheUpdate', opts, this[toAddArray]);
+        return;
 
         let me          = this,
             keyProperty = me.keyProperty,

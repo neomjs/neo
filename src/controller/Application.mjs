@@ -45,6 +45,10 @@ class Application extends Base {
         rendering: false
     }}
 
+    /**
+     *
+     * @param {Object} config
+     */
     constructor(config) {
         super(config);
 
@@ -61,6 +65,9 @@ class Application extends Base {
         }
     }
 
+    /**
+     *
+     */
     renderMainView() {
         let me    = this,
             delay = Neo.config.hash ? 200 : 10;

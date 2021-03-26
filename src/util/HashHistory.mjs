@@ -1,4 +1,5 @@
-import Base from '../core/Base.mjs';
+import Base       from '../core/Base.mjs';
+import Observable from '../core/Observable.mjs';
 
 /**
  * @class Neo.util.HashHistory

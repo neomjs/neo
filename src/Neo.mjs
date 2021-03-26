@@ -48,17 +48,15 @@ Neo = self.Neo = Object.assign({
     applyClassConfig(cls) {
         let baseCfg       = null,
             baseStaticCfg = null,
-            config        = {},
             proto         = cls.prototype || cls,
             protos        = [],
-            staticConfig  = {},
-            ctor;
+            config, ctor, staticConfig;
 
         while (proto.__proto__) {
             ctor = proto.constructor;
 
             if (ctor.hasOwnProperty('classConfigApplied')) {
-                baseCfg       = Neo.clone(ctor.config, true);
+                baseCfg       = Neo.clone(ctor.config,       true);
                 baseStaticCfg = Neo.clone(ctor.staticConfig, true);
                 break;
             }
@@ -67,8 +65,8 @@ Neo = self.Neo = Object.assign({
             proto = proto.__proto__;
         }
 
-        config       = baseCfg       ? baseCfg       : config;
-        staticConfig = baseStaticCfg ? baseStaticCfg : staticConfig;
+        config       = baseCfg       ? baseCfg       : {};
+        staticConfig = baseStaticCfg ? baseStaticCfg : {};
 
         protos.forEach(element => {
             ctor = element.constructor;
@@ -113,8 +111,12 @@ Neo = self.Neo = Object.assign({
                 mixins.push(...cfg.mixins);
             }
 
-            if (mixins.length) {
+            if (mixins.length > 0) {
                 applyMixins(ctor, mixins);
+
+                if (Neo.ns('Neo.core.Observable', false, ctor.prototype.mixins)) {
+                    staticCfg.observable = true;
+                }
             }
 
             delete cfg.mixins;
@@ -331,6 +333,7 @@ Neo = self.Neo = Object.assign({
         instance = new cls(config);
 
         instance.onConstructed();
+        instance.onAfterConstructed();
         instance.init();
 
         return instance;

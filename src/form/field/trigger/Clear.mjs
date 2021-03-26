@@ -39,23 +39,6 @@ class Clear extends Base {
     }}
 
     /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        me.field.on({
-            change                    : me.onFieldChange,
-            changeClearToOriginalValue: me.onFieldChange,
-            scope                     : me
-        });
-
-        me.hidden = me.getHiddenState();
-    }
-
-    /**
      * Triggered after the hidden config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -66,6 +49,20 @@ class Clear extends Base {
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-is-hidden');
         this.cls = cls;
+    }
+
+    /**
+     * Triggered before the hidden config gets changed.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    beforeSetHidden(value, oldValue) {
+        if (this.showOnHover && !this.isHovered) {
+            return true;
+        }
+
+        return value;
     }
 
     /**
@@ -94,6 +91,33 @@ class Clear extends Base {
      */
     onFieldChange(opts) {
         this.hidden = this.getHiddenState();
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        me.field.on({
+            change                    : me.onFieldChange,
+            changeClearToOriginalValue: me.onFieldChange,
+            scope                     : me
+        });
+
+        me.hidden = me.getHiddenState();
+    }
+
+    /**
+     * @override
+     */
+    onMouseEnter() {
+        let me = this;
+
+        me.isHovered = true;
+        me.hidden    = me.getHiddenState();
     }
 
     /**

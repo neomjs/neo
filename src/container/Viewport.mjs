@@ -27,6 +27,9 @@ class Viewport extends Container {
         cls: ['neo-viewport']
     }}
 
+    /**
+     *
+     */
     onConstructed() {
         super.onConstructed();
 

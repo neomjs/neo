@@ -39,20 +39,6 @@ class Strip extends Component {
     }}
 
     /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        me.getTabContainer().on({
-            activeIndexChange: me.getActiveTabRectThenMove,
-            scope            : me
-        });
-    }
-
-    /**
      * Triggered after the useActiveTabIndicator config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -172,6 +158,20 @@ class Strip extends Component {
                 }, 300);
             }
         }
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        me.getTabContainer().on({
+            activeIndexChange: me.getActiveTabRectThenMove,
+            scope            : me
+        });
     }
 }
 

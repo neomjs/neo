@@ -54,15 +54,47 @@ class Panel extends Container {
     constructor(config) {
         super(config);
 
-        let me = this,
-            hf = config && config.verticalHeadersFirst === true || me.verticalHeadersFirst === true;
-
-        if (hf) {
-            me.layout = {
+        if (config && config.verticalHeadersFirst === true || this.verticalHeadersFirst === true) {
+            this.layout = {
                 ntype: 'hbox',
                 align: 'stretch'
             };
         }
+    }
+
+    /**
+     *
+     * @param {Object} header the header config
+     * @returns {Object}
+     */
+    static createHeaderConfig(header) {
+        let config = {
+            ntype: 'toolbar',
+            flex : '0 1 auto'
+        };
+
+        if (header.text) {
+            config.items = [
+                {
+                    ntype: 'label',
+                    cls  : ['neo-panel-header-text', 'neo-label'],
+                    text : header.text
+                }
+            ];
+
+            delete header.text;
+        }
+
+        // assuming all labels inside a Panel Header are meant to be titles -> look the same way
+        if (Neo.isArray(header.items)) {
+            header.items.forEach(item => {
+                if (item.ntype === 'label') {
+                    item.cls = ['neo-panel-header-text', 'neo-label'];
+                }
+            });
+        }
+
+        return {...config, ...header};
     }
 
     /**
@@ -139,41 +171,6 @@ class Panel extends Container {
         me.itemDefaults = null;
 
         super.createItems();
-    }
-
-    /**
-     *
-     * @param {Object} header the header config
-     * @returns {Object}
-     */
-    static createHeaderConfig(header) {
-        let config = {
-            ntype: 'toolbar',
-            flex : '0 1 auto'
-        };
-
-        if (header.text) {
-            config.items = [
-                {
-                    ntype: 'label',
-                    cls  : ['neo-panel-header-text', 'neo-label'],
-                    text : header.text
-                }
-            ];
-
-            delete header.text;
-        }
-
-        // assuming all labels inside a Panel Header are meant to be titles -> look the same way
-        if (Neo.isArray(header.items)) {
-            header.items.forEach(item => {
-                if (item.ntype === 'label') {
-                    item.cls = ['neo-panel-header-text', 'neo-label'];
-                }
-            });
-        }
-
-        return {...config, ...header};
     }
 }
 
