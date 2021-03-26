@@ -557,7 +557,7 @@ class Base extends Panel {
                 resizablePlugin.removeAllNodes();
             }
 
-            if (!me.dragZone) {console.log(1);
+            if (!me.dragZone) {
                 me.dragZone = Neo.create({
                     module             : DragZone,
                     appName            : me.appName,
