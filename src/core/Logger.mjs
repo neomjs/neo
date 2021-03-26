@@ -63,8 +63,8 @@ class Logger extends Base {
      *
      * @param args
      */
-    log(...args) {
-        this.level = 'log';
+    info(...args) {
+        this.level = 'info';
         this.write(...args);
     }
 
@@ -72,8 +72,8 @@ class Logger extends Base {
      *
      * @param args
      */
-    info(...args) {
-        this.level = 'info';
+    log(...args) {
+        this.level = 'log';
         this.write(...args);
     }
 
