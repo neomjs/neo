@@ -20,6 +20,13 @@ class Matrix extends Base {
     }}
 
     /**
+     * shortcut for getElement
+     */
+    e(i, j) {
+        return this.getElement(i, j);
+    }
+
+    /**
      * Returns the element (i,j) of the matrix
      * @param i
      * @param j
@@ -36,10 +43,21 @@ class Matrix extends Base {
     }
 
     /**
-     * shortcut for getElement
+     *
      */
-    e(i, j) {
-        return this.getElement(i, j);
+    getTransformStyle() {
+        let me = this,
+            p  = 10, // precision
+            s;
+
+        s  = 'matrix3d(';
+        s += me.e(1,1).toFixed(p) + ',' + me.e(1,2).toFixed(p) + ',' + me.e(1,3).toFixed(p) + ',' + me.e(1,4).toFixed(p) + ',';
+        s += me.e(2,1).toFixed(p) + ',' + me.e(2,2).toFixed(p) + ',' + me.e(2,3).toFixed(p) + ',' + me.e(2,4).toFixed(p) + ',';
+        s += me.e(3,1).toFixed(p) + ',' + me.e(3,2).toFixed(p) + ',' + me.e(3,3).toFixed(p) + ',' + me.e(3,4).toFixed(p) + ',';
+        s += me.e(4,1).toFixed(p) + ',' + me.e(4,2).toFixed(p) + ',' + me.e(4,3).toFixed(p) + ',' + me.e(4,4).toFixed(p);
+        s += ')';
+
+        return s;
     }
 
     /**
@@ -78,13 +96,6 @@ class Matrix extends Base {
         matrix.items = els;
 
         return matrix;
-    }
-
-    /**
-     * shortcut for multiply
-     */
-    x(matrix) {
-        return this.multiply(matrix);
     }
 
     /**
@@ -139,21 +150,10 @@ class Matrix extends Base {
     }
 
     /**
-     *
+     * shortcut for multiply
      */
-    getTransformStyle() {
-        let me = this,
-            p  = 10, // precision
-            s;
-
-        s  = 'matrix3d(';
-        s += me.e(1,1).toFixed(p) + ',' + me.e(1,2).toFixed(p) + ',' + me.e(1,3).toFixed(p) + ',' + me.e(1,4).toFixed(p) + ',';
-        s += me.e(2,1).toFixed(p) + ',' + me.e(2,2).toFixed(p) + ',' + me.e(2,3).toFixed(p) + ',' + me.e(2,4).toFixed(p) + ',';
-        s += me.e(3,1).toFixed(p) + ',' + me.e(3,2).toFixed(p) + ',' + me.e(3,3).toFixed(p) + ',' + me.e(3,4).toFixed(p) + ',';
-        s += me.e(4,1).toFixed(p) + ',' + me.e(4,2).toFixed(p) + ',' + me.e(4,3).toFixed(p) + ',' + me.e(4,4).toFixed(p);
-        s += ')';
-
-        return s;
+    x(matrix) {
+        return this.multiply(matrix);
     }
 }
 

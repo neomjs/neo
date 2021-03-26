@@ -144,7 +144,7 @@ class Base extends Container {
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetText(value) {
+    afterSetText(value, oldValue) {
         if (value) {
             let me    = this,
                 items = me.items || [],
