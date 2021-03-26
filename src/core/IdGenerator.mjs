@@ -52,12 +52,6 @@ class IdGenerator {
         Neo.getId = me.getId.bind(me);
     }
 
-    onConstructed() {}
-
-    onAfterConstructed() {}
-
-    init() {}
-
     /**
      *
      * @param name
@@ -74,6 +68,12 @@ class IdGenerator {
 
         return me.base + (name === 'neo' ? '' : name + '-') + count;
     }
+
+    init() {}
+
+    onAfterConstructed() {}
+
+    onConstructed() {}
 }
 
 Neo.applyClassConfig(IdGenerator);
