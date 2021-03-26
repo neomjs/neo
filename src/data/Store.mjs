@@ -76,6 +76,10 @@ class Store extends Base {
         url: null
     }}
 
+    /**
+     *
+     * @param {Object} config
+     */
     constructor(config) {
         super(config);
 
@@ -87,25 +91,6 @@ class Store extends Base {
             sort  : me.onCollectionSort,
             scope : me
         });
-    }
-
-    /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        if (me.data) {
-            me.afterSetData(me.data);
-        }
-
-        if (me.autoLoad) {
-            setTimeout(() => { // todo
-                me.load();
-            }, 100);
-        }
     }
 
     /**
@@ -256,6 +241,25 @@ class Store extends Base {
         if (me.configsApplied) {
             // console.log('onCollectionSort', me.collection.items);
             // me.fire('load', me.items);
+        }
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        if (me.data) {
+            me.afterSetData(me.data);
+        }
+
+        if (me.autoLoad) {
+            setTimeout(() => { // todo
+                me.load();
+            }, 100);
         }
     }
 

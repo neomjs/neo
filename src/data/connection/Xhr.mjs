@@ -35,6 +35,119 @@ class Xhr extends Base {
     }}
 
     /**
+     * We cannot clone event objects across messaging
+     * @param {Object} event
+     */
+    getResponse(event) {
+        let target = event.target;
+
+        return {
+            readyState: target.readyState,
+            response  : target.response,
+            status    : target.status,
+            statusText: target.statusText,
+            headers   : target.getAllResponseHeaders()
+        };
+    }
+
+    /**
+     *
+     * @param {Object} e
+     */
+    onError(e) {
+        let me      = this,
+            id      = e.currentTarget.neoId,
+            request = me.requests[id],
+            cb      = request.callback;
+
+        cb && cb.apply(request.scope || me, [me.getResponse(e), false]);
+
+        Object.entries(request).forEach(([key, value]) => {
+            request[key] = null;
+        });
+
+        delete me.requests[id];
+    }
+
+    /**
+     *
+     * @param {Object} e
+     */
+    onLoad(e) {
+        let me      = this,
+            id      = e.currentTarget.neoId,
+            request = me.requests[id],
+            cb      = request.callback;
+
+        cb && cb.apply(request.scope || me, [me.getResponse(e), true]);
+
+        Object.entries(request).forEach(([key, value]) => {
+            request[key] = null;
+        });
+
+        delete me.requests[id];
+    }
+
+    /**
+     *
+     */
+    onProgress() {
+
+    }
+
+    /**
+     *
+     * @param {Object} opts
+     * @returns {Promise<any>}
+     */
+    promiseJson(opts) {
+        let me = this;
+
+        return new Promise((resolve, reject) => {
+            opts.callback = function(data, success) {
+                if (success) {
+                    let json;
+                    try {
+                        json = JSON.parse(data.response);
+
+                        resolve(Object.assign(data, {
+                            json: json
+                        }));
+                    } catch(err) {
+                        reject({
+                            reject : true,
+                            error  : err.message
+                        });
+                    }
+                } else {
+                    reject(data);
+                }
+            };
+            me.request(opts);
+        });
+    }
+
+    /**
+     *
+     * @param {Object} opts
+     * @returns {Promise<any>}
+     */
+    promiseRequest(opts) {
+        let me = this;
+
+        return new Promise((resolve, reject) => {
+            opts.callback = function(data, success) {
+                if (success) {
+                    resolve(data);
+                } else {
+                    reject(data);
+                }
+            };
+            me.request(opts);
+        });
+    }
+
+    /**
      *
      * @param {Object} opts
      * @param {Function} opts.callback
@@ -107,119 +220,6 @@ class Xhr extends Base {
         opts.data = new FormData(form);
 
         return this.request(opts);
-    }
-
-    /**
-     *
-     * @param {Object} e
-     */
-    onLoad(e) {
-        let me      = this,
-            id      = e.currentTarget.neoId,
-            request = me.requests[id],
-            cb      = request.callback;
-
-        cb && cb.apply(request.scope || me, [me.getResponse(e), true]);
-
-        Object.entries(request).forEach(([key, value]) => {
-            request[key] = null;
-        });
-
-        delete me.requests[id];
-    }
-
-    /**
-     *
-     * @param {Object} e
-     */
-    onError(e) {
-        let me      = this,
-            id      = e.currentTarget.neoId,
-            request = me.requests[id],
-            cb      = request.callback;
-
-        cb && cb.apply(request.scope || me, [me.getResponse(e), false]);
-
-        Object.entries(request).forEach(([key, value]) => {
-            request[key] = null;
-        });
-
-        delete me.requests[id];
-    }
-
-    /**
-     * We cannot clone event objects across messaging
-     * @param {Object} e
-     */
-    getResponse(e) {
-        let target = e.target;
-
-        return {
-            readyState: target.readyState,
-            response  : target.response,
-            status    : target.status,
-            statusText: target.statusText,
-            headers   : target.getAllResponseHeaders()
-        };
-    }
-
-    /**
-     *
-     */
-    onProgress() {
-
-    }
-
-    /**
-     *
-     * @param {Object} opts
-     * @returns {Promise<any>}
-     */
-    promiseRequest(opts) {
-        let me = this;
-
-        return new Promise((resolve, reject) => {
-            opts.callback = function(data, success) {
-                if (success) {
-                    resolve(data);
-                } else {
-                    reject(data);
-                }
-            };
-            me.request(opts);
-        });
-    }
-
-    /**
-     *
-     * @param {Object} opts
-     * @returns {Promise<any>}
-     */
-    promiseJson(opts) {
-        let me = this;
-
-        return new Promise((resolve, reject) => {
-            opts.callback = function(data, success) {
-                if (success) {
-                    let json;
-                    try {
-                        json = JSON.parse(data.response);
-
-                        resolve(Object.assign(data, {
-                            json: json
-                        }));
-                    } catch(err) {
-                        reject({
-                            reject : true,
-                            error  : err.message
-                        });
-                    }
-                } else {
-                    reject(data);
-                }
-            };
-            me.request(opts);
-        });
     }
 }
 

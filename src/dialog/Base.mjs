@@ -108,22 +108,6 @@ class Base extends Panel {
 
     /**
      *
-     * @returns {Object} The new vdom root
-     */
-    getVdomRoot() {
-        return this.vdom.cn[0];
-    }
-
-    /**
-     *
-     * @returns {Object} The new vnode root
-     */
-    getVnodeRoot() {
-        return this.vnode.childNodes[0];
-    }
-
-    /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -138,19 +122,6 @@ class Base extends Panel {
         if (me.animateTargetId) {
             me.animateShow();
         }
-    }
-
-    /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        me.headerToolbar = me.down({
-            id: me.getHeaderToolbarId()
-        });
     }
 
     /**
@@ -464,6 +435,22 @@ class Base extends Panel {
     }
 
     /**
+     *
+     * @returns {Object} The new vdom root
+     */
+    getVdomRoot() {
+        return this.vdom.cn[0];
+    }
+
+    /**
+     *
+     * @returns {Object} The new vnode root
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[0];
+    }
+
+    /**
      * Returns the id of the header toolbar
      * @returns {String}
      */
@@ -480,6 +467,19 @@ class Base extends Panel {
         data.component.iconCls = me.maximized ? me.maximizeCls : me.minimizeCls;
 
         me.maximized = !me.maximized;
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        me.headerToolbar = me.down({
+            id: me.getHeaderToolbarId()
+        });
     }
 
     /**
