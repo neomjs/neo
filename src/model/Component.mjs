@@ -52,7 +52,13 @@ class Component extends Base {
 
         me.bindings = {};
 
-        NeoFunction.createSequence(me.owner, 'onConstructed', me.onComponentConstructed, me);
+        if (me.owner.isConstructed) {
+            me.onComponentConstructed();
+        } else {
+            me.owner.on('constructed', () => {
+                me.onComponentConstructed();
+            });
+        }
     }
 
     /**
