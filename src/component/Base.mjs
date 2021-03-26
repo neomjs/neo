@@ -1,6 +1,6 @@
 import ClassSystemUtil  from '../util/ClassSystem.mjs';
-import CoreBase         from '../core/Base.mjs';
 import ComponentManager from '../manager/Component.mjs';
+import CoreBase         from '../core/Base.mjs';
 import DomEventManager  from '../manager/DomEvent.mjs';
 import KeyNavigation    from '../util/KeyNavigation.mjs';
 import Logger           from '../core/Logger.mjs';
@@ -239,85 +239,6 @@ class Base extends CoreBase {
     }}
 
     /**
-     * Specify a different vdom root if needed to apply the top level style attributes on a different level.
-     * Make sure to use getVnodeRoot() as well, to keep the vdom & vnode trees in sync.
-     * @returns {Object} The new vdom root
-     */
-    getVdomRoot() {
-        return this.vdom;
-    }
-
-    /**
-     * Specify a different vnode root if needed to apply the top level style attributes on a different level.
-     * Make sure to use getVdomRoot() as well, to keep the vdom & vnode trees in sync.
-     * @returns {Object} The new vnode root
-     */
-    getVnodeRoot() {
-        return this.vnode;
-    }
-
-    /**
-     * Override this method to change the order configs are applied to this instance.
-     * @param {Object} config
-     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
-     * @returns {Object} config
-     */
-    mergeConfig(...args) {
-        let me     = this,
-            config = super.mergeConfig(...args),
-
-            // it should be possible to set custom configs for the vdom on instance level,
-            // however there will be already added attributes (e.g. id), so a merge seems to be the best strategy.
-            vdom = {...me._vdom || {}, ...config.vdom || {}};
-
-        // avoid any interference on prototype level
-        // does not clone existing Neo instances
-        me._vdom        = Neo.clone(vdom, true, true);
-        me.cls          = config.cls;
-        me._style       = config.style;
-        me.wrapperStyle = Neo.clone(config.wrapperStyle, false);
-
-        delete config.cls;
-        delete config.style;
-        delete config._vdom;
-        delete config.vdom;
-        delete config.wrapperStyle;
-
-        return config;
-    }
-
-    /**
-     *
-     * @param {Object} config
-     */
-    constructor(config) {
-        super(config);
-        ComponentManager.register(this);
-    }
-
-    /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        if (me.keys) {
-            me.keys.register(me);
-        }
-    }
-
-    /**
-     *
-     */
-    init() {
-        if (this.autoRender) {
-            this.render();
-        }
-    }
-
-    /**
      * CSS selectors to apply to the top level node of this component
      * @member {String[]} cls=['neo-component']
      */
@@ -466,6 +387,15 @@ class Base extends CoreBase {
 
             me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted;
         }
+    }
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+        ComponentManager.register(this);
     }
 
     /**
@@ -1066,6 +996,33 @@ class Base extends CoreBase {
     }
 
     /**
+     * Specify a different vdom root if needed to apply the top level style attributes on a different level.
+     * Make sure to use getVnodeRoot() as well, to keep the vdom & vnode trees in sync.
+     * @returns {Object} The new vdom root
+     */
+    getVdomRoot() {
+        return this.vdom;
+    }
+
+    /**
+     * Specify a different vnode root if needed to apply the top level style attributes on a different level.
+     * Make sure to use getVdomRoot() as well, to keep the vdom & vnode trees in sync.
+     * @returns {Object} The new vnode root
+     */
+    getVnodeRoot() {
+        return this.vnode;
+    }
+
+    /**
+     *
+     */
+    init() {
+        if (this.autoRender) {
+            this.render();
+        }
+    }
+
+    /**
      * We are using this method as a ctor hook here to add the initial model.Component & controller.Component parsing
      * @param {Object} config
      * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
@@ -1082,6 +1039,36 @@ class Base extends CoreBase {
         if (me.controller) {
             me.controller.parseConfig();
         }
+    }
+
+    /**
+     * Override this method to change the order configs are applied to this instance.
+     * @param {Object} config
+     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
+     * @returns {Object} config
+     */
+    mergeConfig(...args) {
+        let me     = this,
+            config = super.mergeConfig(...args),
+
+            // it should be possible to set custom configs for the vdom on instance level,
+            // however there will be already added attributes (e.g. id), so a merge seems to be the best strategy.
+            vdom = {...me._vdom || {}, ...config.vdom || {}};
+
+        // avoid any interference on prototype level
+        // does not clone existing Neo instances
+        me._vdom        = Neo.clone(vdom, true, true);
+        me.cls          = config.cls;
+        me._style       = config.style;
+        me.wrapperStyle = Neo.clone(config.wrapperStyle, false);
+
+        delete config.cls;
+        delete config.style;
+        delete config._vdom;
+        delete config.vdom;
+        delete config.wrapperStyle;
+
+        return config;
     }
 
     /**
@@ -1125,6 +1112,19 @@ class Base extends CoreBase {
             }).then(() => {
                 me.mounted = true;
             });
+        }
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        if (me.keys) {
+            me.keys.register(me);
         }
     }
 
