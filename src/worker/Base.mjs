@@ -50,9 +50,9 @@ class Base extends CoreBase {
 
     /**
      *
-     * @param {Object} config={}
+     * @param {Object} config
      */
-    constructor(config={}) {
+    constructor(config) {
         super(config);
 
         let me = this;
@@ -100,17 +100,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        if (!this.isSharedWorker) {
-            this.sendMessage('main', {action: 'workerConstructed'});
-        }
-    }
-
-    /**
      * Only relevant for SharedWorkers
      * @param {Object} data
      */
@@ -145,6 +134,17 @@ class Base extends CoreBase {
         me.fire('connected');
 
         me.sendMessage('main', {action: 'workerConstructed', port: id});
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        if (!this.isSharedWorker) {
+            this.sendMessage('main', {action: 'workerConstructed'});
+        }
     }
 
     /**

@@ -2,6 +2,7 @@ import Neo           from './Neo.mjs';
 import * as core     from './core/_export.mjs';
 import DomAccess     from './main/DomAccess.mjs';
 import DomEvents     from './main/DomEvents.mjs';
+import Observable    from './core/Observable.mjs';
 import WorkerManager from './worker/Manager.mjs';
 
 /**
@@ -173,6 +174,11 @@ class Main extends core.Base {
         };
     }
 
+    // todo: https://developer.mozilla.org/en-US/docs/Web/Events/resize
+    globalResizeListener(event) {
+        console.log('globalResizeListener', event);
+    }
+
     /**
      *
      */
@@ -213,11 +219,6 @@ class Main extends core.Base {
         WorkerManager.onWorkerConstructed({
             origin: 'main'
         });
-    }
-
-    // todo: https://developer.mozilla.org/en-US/docs/Web/Events/resize
-    globalResizeListener(event) {
-        console.log('globalResizeListener', event);
     }
 
     /**
