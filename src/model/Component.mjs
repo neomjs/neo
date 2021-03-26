@@ -144,8 +144,8 @@ class Component extends Base {
     /**
      *
      */
-    resolveBindings() {
-        console.log('resolveBindings');
+    parseConfig() {
+        console.log('parseConfig');
     }
 
     /**

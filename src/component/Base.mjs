@@ -1076,7 +1076,7 @@ class Base extends CoreBase {
         let me = this;
 
         if (me.model && me.model.constructor.isClass) { // todo: test if we can lazy load models
-            me.model.resolveBindings();
+            me.model.parseConfig();
         }
 
         if (me.controller) {
