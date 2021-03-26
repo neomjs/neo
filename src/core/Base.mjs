@@ -104,33 +104,6 @@ class Base {
     }
 
     /**
-     * Gets triggered after all constructors are done
-     * @tutorial 02_ClassSystem
-     */
-    onConstructed() {}
-
-    /**
-     *
-     */
-    onAfterConstructed() {
-        let me = this;
-
-        me.isConstructed = true;
-
-        // We can only fire the event in case the Observable mixin is included.
-        if (me.getStaticConfig('observable')) {
-            me.fire('constructed', me);
-        }
-    }
-
-    /**
-     * Gets triggered after onConstructed() is done
-     * @see {@link Neo.core.Base#onConstructed onConstructed}
-     * @tutorial 02_ClassSystem
-     */
-    init() {}
-
-    /**
      * Triggered after the droppable config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -223,6 +196,13 @@ class Base {
     }
 
     /**
+     * Gets triggered after onConstructed() is done
+     * @see {@link Neo.core.Base#onConstructed onConstructed}
+     * @tutorial 02_ClassSystem
+     */
+    init() {}
+
+    /**
      * Applies all class configs to this instance
      * @param {Object} config
      * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
@@ -281,6 +261,26 @@ class Base {
 
         return {...ctor.config, ...config};
     }
+
+    /**
+     *
+     */
+    onAfterConstructed() {
+        let me = this;
+
+        me.isConstructed = true;
+
+        // We can only fire the event in case the Observable mixin is included.
+        if (me.getStaticConfig('observable')) {
+            me.fire('constructed', me);
+        }
+    }
+
+    /**
+     * Gets triggered after all constructors are done
+     * @tutorial 02_ClassSystem
+     */
+    onConstructed() {}
 
     /**
      * When using set(), configs without a trailing underscore can already be assigned,
