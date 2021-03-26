@@ -106,24 +106,6 @@ class Button extends BaseButton {
     }}
 
     /**
-     * Specify a different vdom root if needed to apply the top level style attributes on a different level.
-     * Make sure to use getVnodeRoot() as well, to keep the vdom & vnode trees in sync.
-     * @returns {Object} The new vdom root
-     */
-    getVdomRoot() {
-        return this.vdom.cn[0];
-    }
-
-    /**
-     * Specify a different vnode root if needed to apply the top level style attributes on a different level.
-     * Make sure to use getVdomRoot() as well, to keep the vdom & vnode trees in sync.
-     * @returns {Object} The new vnode root
-     */
-    getVnodeRoot() {
-        return this.vnode.childNodes[0];
-    }
-
-    /**
      *
      * @param {Object} config
      */
@@ -272,6 +254,24 @@ class Button extends BaseButton {
         }
 
         super.destroy(...args);
+    }
+
+    /**
+     * Specify a different vdom root if needed to apply the top level style attributes on a different level.
+     * Make sure to use getVnodeRoot() as well, to keep the vdom & vnode trees in sync.
+     * @returns {Object} The new vdom root
+     */
+    getVdomRoot() {
+        return this.vdom.cn[0];
+    }
+
+    /**
+     * Specify a different vnode root if needed to apply the top level style attributes on a different level.
+     * Make sure to use getVdomRoot() as well, to keep the vdom & vnode trees in sync.
+     * @returns {Object} The new vnode root
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[0];
     }
 
     /**

@@ -144,26 +144,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        if (me.selectionModel) {
-            me.selectionModel.register(me);
-        }
-
-        if (me.createRandomData) {
-            // todo: if mounting apply after mount
-            setTimeout(() => {
-                me.createRandomViewData(me.amountRows);
-            }, 50);
-        }
-    }
-
-    /**
      * Triggered after the selectionModel config got changed
      * @param {Neo.selection.Model} value
      * @param {Neo.selection.Model} oldValue
@@ -392,6 +372,26 @@ class Container extends BaseContainer {
         }).catch(err => {
             console.log('Error attempting to call createRandomViewData', err, me);
         });
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        if (me.selectionModel) {
+            me.selectionModel.register(me);
+        }
+
+        if (me.createRandomData) {
+            // todo: if mounting apply after mount
+            setTimeout(() => {
+                me.createRandomViewData(me.amountRows);
+            }, 50);
+        }
     }
 
     /**
