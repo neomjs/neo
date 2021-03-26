@@ -1,5 +1,4 @@
-import Base        from '../core/Base.mjs';
-import NeoFunction from '../util/Function.mjs';
+import Base from '../core/Base.mjs';
 
 /**
  * An optional component model for adding bindings to configs
