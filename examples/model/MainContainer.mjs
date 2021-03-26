@@ -1,3 +1,4 @@
+import ComponentModel          from '../../src/model/Component.mjs';
 import MainContainerController from './MainContainerController.mjs'
 import Panel                   from '../../src/container/Panel.mjs';
 import TextField               from '../../src/form/field/Text.mjs';
@@ -16,6 +17,8 @@ class MainContainer extends Viewport {
         controller: MainContainerController,
 
         model: {
+            module: ComponentModel, // testing if it can be optional
+
             data: {
                 button1Text: 'Button 1',
                 button2Text: 'Button 2'

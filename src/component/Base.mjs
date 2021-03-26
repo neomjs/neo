@@ -1066,7 +1066,7 @@ class Base extends CoreBase {
     }
 
     /**
-     * We are using this method as a ctor hook here to add the initial controller.Component parsing
+     * We are using this method as a ctor hook here to add the initial model.Component & controller.Component parsing
      * @param {Object} config
      * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
      */
@@ -1074,6 +1074,10 @@ class Base extends CoreBase {
         super.initConfig(config, preventOriginalConfig);
 
         let me = this;
+
+        if (me.model && me.model.constructor.isClass) { // todo: test if we can lazy load models
+            me.model.resolveBindings();
+        }
 
         if (me.controller) {
             me.controller.parseConfig();

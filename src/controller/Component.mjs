@@ -161,9 +161,9 @@ class Component extends Base {
 
     /**
      *
-     * @param {Neo.component.Base} view
+     * @param {Neo.component.Base} [view=null]
      */
-    onViewConstructed(view) {
+    onViewConstructed(view=null) {
         let me        = this,
             childCall = !!view,
             domListeners, eventHandler, fn, parentController;

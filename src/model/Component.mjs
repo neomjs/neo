@@ -52,8 +52,7 @@ class Component extends Base {
 
         me.bindings = {};
 
-        // console.log('model.Component ctor', me.owner);
-        NeoFunction.createSequence(me.owner, 'onConstructed', me.resolveBindings, me);
+        NeoFunction.createSequence(me.owner, 'onConstructed', me.onComponentConstructed, me);
     }
 
     /**
@@ -121,6 +120,14 @@ class Component extends Base {
 
     /**
      *
+     * @param {Neo.component.Base} [component=null]
+     */
+    onComponentConstructed(component=null) {
+        console.log('onComponentConstructed', component);
+    }
+
+    /**
+     *
      * @param {String} key
      * @param {*} value
      * @param {*} oldValue
@@ -131,10 +138,9 @@ class Component extends Base {
 
     /**
      *
-     * @param {Neo.component.Base} component
      */
-    resolveBindings(component) {
-        console.log('resolveBindings', component);
+    resolveBindings() {
+        console.log('resolveBindings');
     }
 
     /**
