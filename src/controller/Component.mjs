@@ -2,7 +2,6 @@ import Base             from './Base.mjs';
 import ComponentManager from '../manager/Component.mjs';
 import DomEventManager  from '../manager/DomEvent.mjs';
 import Logger           from '../core/Logger.mjs';
-import NeoFunction      from '../util/Function.mjs';
 
 /**
  * @class Neo.controller.Component
@@ -43,7 +42,13 @@ class Component extends Base {
 
         me.references = {};
 
-        NeoFunction.createSequence(me.view, 'onConstructed', me.onViewConstructed, me);
+        if (me.view.isConstructed) {
+            me.onViewConstructed();
+        } else {
+            me.view.on('constructed', () => {
+                me.onViewConstructed();
+            });
+        }
     }
 
     /**
