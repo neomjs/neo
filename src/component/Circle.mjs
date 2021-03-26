@@ -192,21 +192,6 @@ class Circle extends Component {
     }
 
     /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        if (me.selectionModel) {
-            me.selectionModel.register(me);
-        }
-
-        me.loadData();
-    }
-
-    /**
      * Triggered after the innerRadius config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -620,12 +605,27 @@ class Circle extends Component {
      * @param {Object} data
      */
     onBacksideIconClick(data) {
-        let me   = this,
-            path = data.path;
+        let me  = this,
+            cls = data.path[0].cls;
 
-             if (path[0].cls.includes('neo-flip'))   {me.flipCircle();}
-        else if (path[0].cls.includes('neo-pencil')) {console.log('edit circle');}
-        else if (path[0].cls.includes('neo-trash'))  {console.log('delete circle');}
+             if (cls.includes('neo-flip'))   {me.flipCircle();}
+        else if (cls.includes('neo-pencil')) {console.log('edit circle');}
+        else if (cls.includes('neo-trash'))  {console.log('delete circle');}
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        if (me.selectionModel) {
+            me.selectionModel.register(me);
+        }
+
+        me.loadData();
     }
 
     /**
