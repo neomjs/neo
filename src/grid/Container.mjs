@@ -72,16 +72,6 @@ class Container extends BaseContainer {
         }
     }}
 
-    /**
-     *
-     * @param {Object} config
-     */
-    constructor(config) {
-        super(config);
-
-        this.createRandomViewData(this.amountRows);
-    }
-
     get columns() {
         return this._columns;
     }
@@ -90,19 +80,13 @@ class Container extends BaseContainer {
     }
 
     /**
-     * @override
-     * @returns {*}
+     *
+     * @param {Object} config
      */
-    getVdomRoot() {
-        return this.vdom.cn[0];
-    }
+    constructor(config) {
+        super(config);
 
-    /**
-     * @override
-     * @returns {Neo.vdom.VNode}
-     */
-    getVnodeRoot() {
-        return this.vnode.childNodes[0];
+        this.createRandomViewData(this.amountRows);
     }
 
     /**
@@ -166,6 +150,22 @@ class Container extends BaseContainer {
         }
 
         me.items[1].vdom = vdom;
+    }
+
+    /**
+     * @override
+     * @returns {*}
+     */
+    getVdomRoot() {
+        return this.vdom.cn[0];
+    }
+
+    /**
+     * @override
+     * @returns {Neo.vdom.VNode}
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[0];
     }
 }
 

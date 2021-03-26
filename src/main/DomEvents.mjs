@@ -244,6 +244,11 @@ class DomEvents extends Base {
         Neo.worker.Manager.sendMessage('app', config);
     }
 
+    /**
+     *
+     * @param {Object} event
+     * @returns {Object}
+     */
     getEventData(event) {
         let path = event.path || event.composedPath(); // FF does not support path
 
@@ -255,6 +260,11 @@ class DomEvents extends Base {
         };
     }
 
+    /**
+     *
+     * @param {Object} event
+     * @returns {Object}
+     */
     getKeyboardEventData(event) {
         const {altKey, code, ctrlKey, key, keyCode, metaKey, shiftKey} = event;
 
@@ -270,6 +280,11 @@ class DomEvents extends Base {
         };
     }
 
+    /**
+     *
+     * @param {Object} event
+     * @returns {Object}
+     */
     getMouseEventData(event) {
         const {altKey, clientX, clientY, ctrlKey, metaKey, offsetX, offsetY, pageX, pageY, screenX, screenY, shiftKey} = event;
 
@@ -404,7 +419,7 @@ class DomEvents extends Base {
      *
      * @param {Object} event
      */
-    onDoubleClick(event) {
+    onClick(event) {
         let me = this;
 
         me.sendMessageToApp(me.getMouseEventData(event));
@@ -440,7 +455,7 @@ class DomEvents extends Base {
      *
      * @param {Object} event
      */
-    onClick(event) {
+    onDoubleClick(event) {
         let me = this;
 
         me.sendMessageToApp(me.getMouseEventData(event));
