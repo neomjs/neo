@@ -66,35 +66,6 @@ class AmChart extends Component {
     }}
 
     /**
-     *
-     */
-    getVdomRoot() {
-        return this.vdom.cn[0].cn[0];
-    }
-
-    /**
-     *
-     */
-    getVnodeRoot() {
-        return this.vnode.childNodes[0].childNodes[0];
-    }
-
-    /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        const me = this;
-
-        if (!me.chartConfig) {
-            Logger.logError('wrapper.AmChart defined without a chartConfig', me.id);
-        }
-
-        me.parseChartConfig(me.chartConfig);
-    }
-
-    /**
      * Triggered after the data config got changed
      * @param {Array|null} value
      * @param {Array|null} oldValue
@@ -154,10 +125,39 @@ class AmChart extends Component {
     }
 
     /**
+     *
+     */
+    getVdomRoot() {
+        return this.vdom.cn[0].cn[0];
+    }
+
+    /**
+     *
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[0].childNodes[0];
+    }
+
+    /**
      * Override this method to trigger logic after the chart got mounted into the dom
      */
     onChartMounted() {
 
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        const me = this;
+
+        if (!me.chartConfig) {
+            Logger.logError('wrapper.AmChart defined without a chartConfig', me.id);
+        }
+
+        me.parseChartConfig(me.chartConfig);
     }
 
     /**
