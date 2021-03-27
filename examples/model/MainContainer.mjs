@@ -70,14 +70,22 @@ class MainContainer extends Viewport {
                 labelText : 'Button1 Text:',
                 labelWidth: 110,
                 maxWidth  : 300,
-                value     : 'Button1'
+                value     : 'Button1',
+
+                listeners: {
+                    change: 'onTextField1Change'
+                }
             }, {
                 module    : TextField,
                 flex      : 'none',
                 labelText : 'Button2 Text:',
                 labelWidth: 110,
                 maxWidth  : 300,
-                value     : 'Button2'
+                value     : 'Button2',
+
+                listeners: {
+                    change: 'onTextField2Change'
+                }
             }]
         }]
     }}
