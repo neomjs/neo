@@ -17,7 +17,7 @@ class MainContainer extends Viewport {
         controller: MainContainerController,
 
         model: {
-            module: ComponentModel, // testing if it can be optional
+            module: ComponentModel,
 
             data: {
                 button1Text: 'Button 1',
