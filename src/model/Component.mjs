@@ -155,7 +155,23 @@ class Component extends Base {
      * @param {*} oldValue
      */
     onDataPropertyChange(key, value, oldValue) {
-        console.log('onDataPropertyChange', key, value, oldValue);
+        let binding = this.bindings && this.bindings[key],
+            component, config;
+
+        if (binding) {
+            Object.entries(binding).forEach(([componentId, configArray]) => {
+                component = Neo.getComponent(componentId);
+                config    = {};
+
+                configArray.forEach(key => {
+                    config[key] = value;
+                });
+
+                if (component) {
+                    component.set(config);
+                }
+            });
+        }
     }
 
     /**
