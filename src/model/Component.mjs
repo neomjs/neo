@@ -212,8 +212,6 @@ class Component extends Base {
             items = component.items || [];
 
         if (component.bind) {
-            console.log('binding found', component.id, component.bind);
-
             me.createBinding(component);
 
             Object.entries(component.bind).forEach(([key, value]) => {
