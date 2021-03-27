@@ -156,7 +156,7 @@ class Component extends Base {
         }
 
         me.parseConfigArrays.forEach(value => {
-            if (component[value]) {
+            if (Array.isArray(component[value])) {
                 component[value].forEach(item => {
                     if (!item.model) {
                         me.parseConfig(item);
