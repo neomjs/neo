@@ -10,12 +10,27 @@ import Viewport                from '../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
+        /**
+         * @member {String} className='ComponentModelExample.MainContainer'
+         * @protected
+         */
         className: 'ComponentModelExample.MainContainer',
-        ntype    : 'main-container',
-
+        /**
+         * @member {String} ntype='main-container'
+         * @protected
+         */
+        ntype: 'main-container',
+        /**
+         * @member {Boolean} autoMount=true
+         */
         autoMount : true,
+        /**
+         * @member {Neo.controller.Component} controller=MainContainerController
+         */
         controller: MainContainerController,
-
+        /**
+         * @member {Object|Neo.model.Component} model
+         */
         model: {
             module: ComponentModel,
 
@@ -24,11 +39,15 @@ class MainContainer extends Viewport {
                 button2Text: 'Button 2'
             }
         },
-
+        /**
+         * @member {Object} style
+         */
         style: {
             padding: '20px'
         },
-
+        /**
+         * @member {Object[]} items
+         */
         items: [{
             module: Panel,
 
