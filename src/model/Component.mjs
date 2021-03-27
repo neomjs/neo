@@ -29,6 +29,7 @@ class Component extends Base {
         ntype: 'component-model',
         /**
          * @member {Object|null} bindings_=null
+         * @protected
          */
         bindings_: null,
         /**
@@ -37,6 +38,7 @@ class Component extends Base {
         data_: null,
         /**
          * @member {Neo.component.Base|null} owner=null
+         * @protected
          */
         owner: null,
         /**
