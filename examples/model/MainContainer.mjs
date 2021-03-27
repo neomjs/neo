@@ -54,7 +54,7 @@ class MainContainer extends Viewport {
                         text: 'button1Text'
                     }
                 }, {
-                    handler: 'onButton1Click',
+                    handler: 'onButton2Click',
                     iconCls: 'fa fa-user',
                     style  : {marginLeft: '10px'},
 
@@ -67,10 +67,13 @@ class MainContainer extends Viewport {
             items: [{
                 module    : TextField,
                 flex      : 'none',
-                labelText : 'Button1 Text:',
+                labelText : 'Button1 text:',
                 labelWidth: 110,
                 maxWidth  : 300,
-                value     : 'Button1',
+
+                bind: {
+                    value: 'button1Text'
+                },
 
                 listeners: {
                     change: 'onTextField1Change'
@@ -78,10 +81,13 @@ class MainContainer extends Viewport {
             }, {
                 module    : TextField,
                 flex      : 'none',
-                labelText : 'Button2 Text:',
+                labelText : 'Button2 text:',
                 labelWidth: 110,
                 maxWidth  : 300,
-                value     : 'Button2',
+
+                bind: {
+                    value: 'button2Text'
+                },
 
                 listeners: {
                     change: 'onTextField2Change'
