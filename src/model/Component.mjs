@@ -96,6 +96,27 @@ class Component extends Base {
 
     /**
      *
+     * @param {Neo.component.Base} component
+     */
+    createBinding(component) {
+        let me       = this,
+            bindings = me.bindings;
+
+        Object.entries(component.bind).forEach(([key, value]) => {
+            if (me.data[value]) {
+                bindings[value] = bindings[value] || {};
+
+                bindings[value][component.id] = bindings[value][component.id] || [];
+
+                bindings[value][component.id].push(key);
+            } else {
+                // todo: create inside parent VM
+            }
+        })
+    }
+
+    /**
+     *
      * @param {String} key
      */
     createDataProperty(key) {
@@ -176,6 +197,8 @@ class Component extends Base {
 
         if (component.bind) {
             console.log('binding found', component.id, component.bind);
+
+            me.createBinding(component);
 
             Object.entries(component.bind).forEach(([key, value]) => {
                 if (!me.data.hasOwnProperty(value)) {
