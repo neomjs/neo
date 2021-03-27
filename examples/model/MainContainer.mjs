@@ -49,12 +49,18 @@ class MainContainer extends Viewport {
                 }, {
                     handler: 'onButton1Click',
                     iconCls: 'fa fa-home',
-                    text   : 'Button 1'
+
+                    bind: {
+                        text: 'button1Text'
+                    }
                 }, {
                     handler: 'onButton1Click',
                     iconCls: 'fa fa-user',
                     style  : {marginLeft: '10px'},
-                    text   : 'Button 2'
+
+                    bind: {
+                        text: 'button2Text'
+                    }
                 }]
             }],
 

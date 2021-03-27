@@ -37,7 +37,11 @@ class Component extends Base {
         /**
          * @member {Neo.component.Base|null} owner=null
          */
-        owner: null
+        owner: null,
+        /**
+         * @member {String[]} parseConfigArrays=['headers','items']
+         */
+        parseConfigArrays: ['headers', 'items']
     }}
 
     /**
@@ -142,10 +146,32 @@ class Component extends Base {
     }
 
     /**
-     *
+     * This method will assign binding values at the earliest possible point inside the component lifecycle.
+     * It can not store bindings though, since child component ids most likely do not exist yet.
+     * @param {Object} [target=this.owner]
      */
-    parseConfig() {
-        console.log('parseConfig');
+    parseConfig(target=this.owner) {
+        let me = this;
+
+        if (target.bind) {
+            Object.entries(target.bind).forEach(([key, value]) => {
+                if (!me.data.hasOwnProperty(value)) {
+                    // todo: check if me.data[value] does exist inside a parent VM
+                } else {
+                    target[key] = me.data[value];
+                }
+            });
+        }
+
+        me.parseConfigArrays.forEach(value => {
+            if (target[value]) {
+                target[value].forEach(item => {
+                    if (!item.model) {
+                        me.parseConfig(item);
+                    }
+                });
+            }
+        });
     }
 
     /**
