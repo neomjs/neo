@@ -1,4 +1,5 @@
-import Base from '../core/Base.mjs';
+import Base       from '../core/Base.mjs';
+import Observable from '../core/Observable.mjs';
 
 /**
  * An optional component model for adding bindings to configs
