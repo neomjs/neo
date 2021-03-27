@@ -56,10 +56,10 @@ class Component extends Base {
         me.bindings = {};
 
         if (me.owner.isConstructed) {
-            me.onComponentConstructed();
+            me.resolveBindings();
         } else {
             me.owner.on('constructed', () => {
-                me.onComponentConstructed();
+                me.resolveBindings();
             });
         }
     }
@@ -129,14 +129,6 @@ class Component extends Base {
 
     /**
      *
-     * @param {Neo.component.Base} [component=null]
-     */
-    onComponentConstructed(component=null) {
-        console.log('onComponentConstructed', component);
-    }
-
-    /**
-     *
      * @param {String} key
      * @param {*} value
      * @param {*} oldValue
@@ -170,6 +162,33 @@ class Component extends Base {
                         me.parseConfig(item);
                     }
                 });
+            }
+        });
+    }
+
+    /**
+     *
+     * @param {Neo.component.Base} [component=this.owner]
+     */
+    resolveBindings(component=this.owner) {
+        let me    = this,
+            items = component.items || [];
+
+        if (component.bind) {
+            console.log('binding found', component.id, component.bind);
+
+            Object.entries(component.bind).forEach(([key, value]) => {
+                if (!me.data.hasOwnProperty(value)) {
+                    // todo: check if me.data[value] does exist inside a parent VM
+                } else {
+                    component[key] = me.data[value];
+                }
+            });
+        }
+
+        items.forEach(item => {
+            if (!item.model) {
+                me.resolveBindings(item);
             }
         });
     }
