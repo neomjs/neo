@@ -5,18 +5,15 @@ import DemoDialog from './DemoDialog.mjs';
 import Viewport   from '../../src/container/Viewport.mjs';
 
 /**
- * @class Dialog.MainContainer
+ * @class Neo.examples.dialog.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className: 'Dialog.MainContainer',
-        ntype    : 'main-container',
-
+        className: 'Neo.examples.dialog.MainContainer',
         autoMount: true,
         layout   : 'base',
         style    : {padding: '20px'},
-
         /**
          * Custom config which gets passed to the dialog
          * Either a dom node id, 'document.body' or null
