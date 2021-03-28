@@ -2,16 +2,16 @@ import ComponentController from '../../../src/controller/Component.mjs';
 import NeoArray            from '../../../src/util/Array.mjs';
 
 /**
- * @class CalendarBasic.MainContainerController
+ * @class Neo.examples.calendar.basic.MainContainerController
  * @extends Neo.controller.Component
  */
 class MainContainerController extends ComponentController {
     static getConfig() {return {
         /**
-         * @member {String} className='CalendarBasic.MainContainerController'
+         * @member {String} className='Neo.examples.calendar.basic.MainContainerController'
          * @protected
          */
-        className: 'CalendarBasic.MainContainerController'
+        className: 'Neo.examples.calendar.basic.MainContainerController'
     }}
 
     /**
