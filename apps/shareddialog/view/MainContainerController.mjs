@@ -605,16 +605,10 @@ class MainContainerController extends ComponentController {
      * @param {String} theme
      */
     switchThemeForApp(appName, theme) {
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'updateDom',
+        Neo.main.DomAccess.setBodyCls({
             appName: appName,
-            deltas : {
-                id : 'document.body',
-                cls: {
-                    add   : [theme],
-                    remove: [this.currentTheme]
-                }
-            }
+            add    : [theme],
+            remove : [this.currentTheme]
         });
     }
 
