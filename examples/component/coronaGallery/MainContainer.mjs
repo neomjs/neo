@@ -4,13 +4,13 @@ import RangeField     from '../../../src/form/field/Range.mjs';
 import Viewport       from '../../../src/container/Viewport.mjs';
 
 /**
- * @class Neo.examples.component.coronaGallery.GalleryMainContainer
+ * @class Neo.examples.component.coronaGallery.MainContainer
  * @extends Neo.container.Viewport
  */
-class GalleryMainContainer extends Viewport {
+class MainContainer extends Viewport {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.examples.component.coronaGallery.GalleryMainContainer'
+         * @member {String} className='Neo.examples.component.coronaGallery.MainContainer'
          * @protected
          */
         className: 'Neo.examples.component.coronaGallery.MainContainer',
@@ -373,6 +373,6 @@ class GalleryMainContainer extends Viewport {
     }
 }
 
-Neo.applyClassConfig(GalleryMainContainer);
+Neo.applyClassConfig(MainContainer);
 
-export {GalleryMainContainer as default};
+export {MainContainer as default};
