@@ -1,5 +1,6 @@
 import Button     from '../../src/button/Base.mjs';
 import CheckBox   from '../../src/form/field/CheckBox.mjs';
+import NeoArray   from '../../src/util/Array.mjs';
 import Toolbar    from '../../src/container/Toolbar.mjs';
 import DemoDialog from './DemoDialog.mjs';
 import Viewport   from '../../src/container/Viewport.mjs';
@@ -53,7 +54,7 @@ class MainContainer extends Viewport {
                 valueLabelText: 'Limit Drag&Drop to the document.body'
             }, '->', {
                 module : Button,
-                handler: MainContainer.switchTheme.bind(me),
+                handler: me.switchTheme.bind(me),
                 iconCls: 'fa fa-moon',
                 text   : 'Theme Dark'
             }]
@@ -100,12 +101,14 @@ class MainContainer extends Viewport {
      *
      * @param {Object} data
      */
-    static switchTheme(data) {
+    switchTheme(data) {
         let button     = data.component,
             buttonText = 'Theme Light',
+            dialog     = this.dialog,
             iconCls    = 'fa fa-sun',
             oldTheme   = 'neo-theme-light',
-            theme      = 'neo-theme-dark';
+            theme      = 'neo-theme-dark',
+            cls;
 
         if (button.text === 'Theme Light') {
             buttonText = 'Theme Dark';
@@ -123,6 +126,12 @@ class MainContainer extends Viewport {
             iconCls: iconCls,
             text   : buttonText
         });
+
+        if (dialog) {
+            cls = dialog.cls;
+            NeoArray.removeAdd(cls, oldTheme, theme);
+            dialog.cls = cls;
+        }
     }
 }
 
