@@ -1,9 +1,9 @@
-import HelixMainContainer  from './HelixMainContainer.mjs';
+import MainContainer  from './MainContainer.mjs';
 
 const onStart = () => Neo.app({
     appPath : 'examples/component/coronaHelix/',
-    mainView: HelixMainContainer,
-    name    : 'TestApp'
+    mainView: MainContainer,
+    name    : 'Neo.examples.component.coronaHelix'
 });
 
 export {onStart as onStart};
