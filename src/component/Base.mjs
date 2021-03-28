@@ -556,43 +556,6 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered after the model config got changed
-     * @param {Object|null} value
-     * @param {Object|null} oldValue
-     * @protected
-     */
-    afterSetModel(value, oldValue) {
-        let me = this,
-            config;
-
-        if (value) {console.log('afterSetModel', me.id, value);
-            config = {
-                owner: me,
-                ...value
-            };
-
-            if (config.module) {
-                me._model = Neo.create(config);
-            } else if (Neo.component.Model) {
-                me._model = Neo.create({
-                    module: Neo.component.Model,
-                    ...config
-                });
-            } else {
-                import(
-                    /* webpackChunkName: 'src/model/Component-mjs.js' */
-                    '../model/Component.mjs'
-                    ).then(module => {
-                    me._model = Neo.create({
-                        module: module.default,
-                        ...config
-                    });
-                });
-            }
-        }
-    }
-
-    /**
      * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -701,7 +664,7 @@ class Base extends CoreBase {
 
     /**
      * Triggered before the controller config gets changed.
-     * Creates a ComponentController instance if needed.
+     * Creates a controller.Component instance if needed.
      * @param {Object} value
      * @param {Object} oldValue
      * @returns {String} id
@@ -752,6 +715,24 @@ class Base extends CoreBase {
         }
 
         return value;
+    }
+
+    /**
+     * Triggered before the model config gets changed.
+     * Creates a model.Component instance if needed.
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @returns {Neo.model.Component} model
+     * @protected
+     */
+    beforeSetModel(value, oldValue) {
+        if (oldValue) {
+            oldValue.destroy();
+        }
+
+        return ClassSystemUtil.beforeSetInstance(value, null, {
+            owner: this
+        });
     }
 
     /**
