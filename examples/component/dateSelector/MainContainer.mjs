@@ -5,13 +5,12 @@ import Radio                 from '../../../src/form/field/Radio.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
 
 /**
- * @class TestApp.MainContainer
+ * @class Neo.examples.component.dateSelector.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
-        ntype    : 'main-container'
+        className: 'Neo.examples.component.dateSelector.MainContainer'
     }}
 
     createConfigurationComponents() {
