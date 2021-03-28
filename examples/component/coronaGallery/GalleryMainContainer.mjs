@@ -4,16 +4,16 @@ import RangeField     from '../../../src/form/field/Range.mjs';
 import Viewport       from '../../../src/container/Viewport.mjs';
 
 /**
- * @class TestApp.GalleryMainContainer
+ * @class Neo.examples.component.coronaGallery.GalleryMainContainer
  * @extends Neo.container.Viewport
  */
 class GalleryMainContainer extends Viewport {
     static getConfig() {return {
         /**
-         * @member {String} className='TestApp.GalleryMainContainer'
+         * @member {String} className='Neo.examples.component.coronaGallery.GalleryMainContainer'
          * @protected
          */
-        className: 'TestApp.MainContainer',
+        className: 'Neo.examples.component.coronaGallery.MainContainer',
         /**
          * @member {Boolean} autoMount=true
          */

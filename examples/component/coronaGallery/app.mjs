@@ -3,7 +3,7 @@ import GalleryMainContainer  from './GalleryMainContainer.mjs';
 const onStart = () => Neo.app({
     appPath : 'examples/component/coronaGallery/',
     mainView: GalleryMainContainer,
-    name    : 'TestApp'
+    name    : 'Neo.examples.component.coronaGallery'
 });
 
 export {onStart as onStart};
