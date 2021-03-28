@@ -4,14 +4,12 @@ import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import RangeField            from '../../../src/form/field/Range.mjs';
 
 /**
- * @class TestApp.MainContainer
+ * @class Neo.examples.component.circle.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
-        ntype    : 'main-container',
-
+        className: 'Neo.examples.component.circle.MainContainer',
         autoMount: true,
         layout   : {ntype: 'hbox', align: 'stretch'}
     }}
