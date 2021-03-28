@@ -1,4 +1,4 @@
-import Component from '../../src/controller/Component.mjs';
+import Component from '../../../src/controller/Component.mjs';
 
 /**
  * @class ComponentModelExample.MainContainerController
