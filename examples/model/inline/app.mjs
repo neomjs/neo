@@ -1,7 +1,7 @@
 import MainContainer from './MainContainer.mjs';
 
 const onStart = () => Neo.app({
-    appPath : 'examples/panel/',
+    appPath : 'examples/model/inline/',
     mainView: MainContainer,
     name    : 'ComponentModelExample'
 });
