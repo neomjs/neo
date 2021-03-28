@@ -1,16 +1,16 @@
 import Component from '../../../src/controller/Component.mjs';
 
 /**
- * @class ComponentModelExample.MainContainerController
+ * @class Neo.examples.model.extendedClass.MainContainerController
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='ComponentModelExample.MainContainerController'
+         * @member {String} className='Neo.examples.model.extendedClass.MainContainerController'
          * @protected
          */
-        className: 'ComponentModelExample.MainContainerController'
+        className: 'Neo.examples.model.extendedClass.MainContainerController'
     }}
 
     /**

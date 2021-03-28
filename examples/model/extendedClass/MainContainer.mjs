@@ -5,16 +5,16 @@ import TextField               from '../../../src/form/field/Text.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
- * @class ComponentModelExample.MainContainer
+ * @class Neo.examples.model.extendedClass.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
         /**
-         * @member {String} className='ComponentModelExample.MainContainer'
+         * @member {String} className='Neo.examples.model.extendedClass.MainContainer'
          * @protected
          */
-        className: 'ComponentModelExample.MainContainer',
+        className: 'Neo.examples.model.extendedClass.MainContainer',
         /**
          * @member {Boolean} autoMount=true
          */
