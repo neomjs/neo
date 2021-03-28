@@ -12,11 +12,6 @@ class MainContainerModel extends Component {
          */
         className: 'ComponentModelExample.MainContainerModel',
         /**
-         * @member {String} ntype='main-container-model'
-         * @protected
-         */
-        ntype: 'main-container-model',
-        /**
          * @member {Object} data
          */
         data: {

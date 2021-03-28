@@ -16,11 +16,6 @@ class MainContainer extends Viewport {
          */
         className: 'ComponentModelExample.MainContainer',
         /**
-         * @member {String} ntype='main-container'
-         * @protected
-         */
-        ntype: 'main-container',
-        /**
          * @member {Boolean} autoMount=true
          */
         autoMount : true,

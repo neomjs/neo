@@ -10,12 +10,7 @@ class MainContainerController extends Component {
          * @member {String} className='ComponentModelExample.MainContainerController'
          * @protected
          */
-        className: 'ComponentModelExample.MainContainerController',
-        /**
-         * @member {String} ntype='main-container-controller'
-         * @protected
-         */
-        ntype: 'main-container-controller'
+        className: 'ComponentModelExample.MainContainerController'
     }}
 
     /**
