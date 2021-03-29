@@ -1,13 +1,12 @@
 import Model  from '../../src/data/Model.mjs';
 
 /**
- * @class TableFiltering.MainModel
+ * @class Neo.examples.tableFiltering.MainModel
  * @extends Neo.data.Model
  */
 class MainModel extends Model {
     static getConfig() {return {
-        className: 'TableFiltering.MainModel',
-        ntype    : 'main-model',
+        className: 'Neo.examples.tableFiltering.MainModel',
 
         fields: [{
             name: 'country',

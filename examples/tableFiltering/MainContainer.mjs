@@ -10,14 +10,12 @@ import TableContainer   from '../../src/table/Container.mjs';
 import Viewport         from '../../src/container/Viewport.mjs';
 
 /**
- * @class TableFiltering.MainContainer
+ * @class Neo.examples.tableFiltering.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className: 'TableFiltering.MainContainer',
-        ntype    : 'main-container',
-
+        className: 'Neo.examples.tableFiltering.MainContainer',
         autoMount: true,
         layout   : {ntype: 'vbox', align: 'stretch'},
         style    : {padding: '20px'},
