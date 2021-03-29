@@ -730,7 +730,7 @@ class Base extends CoreBase {
             oldValue.destroy();
         }
 
-        return ClassSystemUtil.beforeSetInstance(value, null, {
+        return ClassSystemUtil.beforeSetInstance(value, 'Neo.model.Component', {
             owner: this
         });
     }
