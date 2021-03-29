@@ -11,14 +11,12 @@ import RowModel              from '../../../src/selection/table/RowModel.mjs';
 import TableContainer        from '../../../src/table/Container.mjs';
 
 /**
- * @class TestApp.MainContainer
+ * @class Neo.examples.table.container.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
-        ntype    : 'main-container',
-
+        className           : 'Neo.examples.table.container.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 130,
         configPanelFlex     : 1.5,
