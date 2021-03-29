@@ -27,8 +27,6 @@ class MainContainer extends Viewport {
          * @member {Object|Neo.model.Component} model
          */
         model: {
-            module: ComponentModel,
-
             data: {
                 button1Text: 'Button 1'
             }
@@ -44,6 +42,12 @@ class MainContainer extends Viewport {
          */
         items: [{
             module: Panel,
+
+            model: {
+                data: {
+                    button2Text: 'Button 2'
+                }
+            },
 
             containerConfig: {
                 style: {
@@ -73,12 +77,6 @@ class MainContainer extends Viewport {
 
                     bind: {
                         text: 'button2Text'
-                    },
-
-                    model: {
-                        data: {
-                            button2Text: 'Button 2'
-                        }
                     }
                 }]
             }],
