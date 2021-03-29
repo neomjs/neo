@@ -2,12 +2,12 @@ import Container      from '../../src/container/Base.mjs';
 import TableContainer from '../../src/table/Container.mjs';
 
 /**
- * @class Neo.examples.tablePerformance3.MainContainer3
+ * @class Neo.examples.tablePerformance.MainContainer3
  * @extends Neo.container.Base
  */
 class MainContainer3 extends Container {
     static getConfig() {return {
-        className: 'Neo.examples.tablePerformance3.MainContainer3',
+        className: 'Neo.examples.tablePerformance.MainContainer3',
         autoMount: true,
 
         layout: {
