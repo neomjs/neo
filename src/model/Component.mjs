@@ -99,23 +99,34 @@ class Component extends Base {
 
     /**
      *
-     * @param {Neo.component.Base} component
+     * @param {String} componentId
+     * @param {String} key
+     * @param {*} value
      */
-    createBinding(component) {
+    createBinding(componentId, key, value) {
         let me       = this,
             bindings = me.bindings;
 
+        if (me.data[value]) {
+            bindings[value] = bindings[value] || {};
+
+            bindings[value][componentId] = bindings[value][componentId] || [];
+
+            bindings[value][componentId].push(key);
+        } else {
+            console.log('create inside parent VM', value);
+            // todo: create inside parent VM
+        }
+    }
+
+    /**
+     *
+     * @param {Neo.component.Base} component
+     */
+    createBindings(component) {
         Object.entries(component.bind).forEach(([key, value]) => {
-            if (me.data[value]) {
-                bindings[value] = bindings[value] || {};
-
-                bindings[value][component.id] = bindings[value][component.id] || [];
-
-                bindings[value][component.id].push(key);
-            } else {
-                // todo: create inside parent VM
-            }
-        })
+            this.createBinding(component.id, key, value);
+        });
     }
 
     /**
@@ -149,6 +160,17 @@ class Component extends Base {
     getData(key) {
         // todo: check for parent VMs in case a prop does not exist
         return this.data[key];
+    }
+
+    /**
+     * Get the closest model inside the components parent tree
+     * @returns {Neo.model.Component|null}
+     */
+    getParent() {
+        let parentId        = this.owner.parentId,
+            parentComponent = parentId && Neo.getComponent(parentId);
+
+        return parentComponent.getModel();
     }
 
     /**
@@ -215,7 +237,7 @@ class Component extends Base {
             items = component.items || [];
 
         if (component.bind) {
-            me.createBinding(component);
+            me.createBindings(component);
 
             Object.entries(component.bind).forEach(([key, value]) => {
                 if (!me.data.hasOwnProperty(value)) {
