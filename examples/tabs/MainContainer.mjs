@@ -4,14 +4,12 @@ import PasswordField from '../../src/form/field/Password.mjs';
 import TextField     from '../../src/form/field/Text.mjs';
 
 /**
- * @class TestApp.MainContainer
+ * @class Neo.examples.tabs.MainContainer
  * @extends Neo.tab.Container
  */
 class MainContainer extends TabContainer {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
-        ntype    : 'main-container',
-
+        className  : 'Neo.examples.tabs.MainContainer',
         activeIndex: 0,
         autoMount  : true,
         height     : 500,

@@ -5,14 +5,14 @@ const onStart = () => {
     Neo.app({
         appPath : 'examples/tabs/',
         mainView: MainContainer,
-        name    : 'TestApp',
+        name    : 'Neo.examples.tabs',
         parentId: 'main-container'
     });
 
     Neo.app({
         appPath : 'examples/tabs/',
         mainView: MainContainer2,
-        name    : 'TestApp2',
+        name    : 'Neo.examples.tabs2',
         parentId: 'main-container2'
     });
 };
