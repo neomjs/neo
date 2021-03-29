@@ -9,14 +9,12 @@ import TableContainer  from '../../src/table/Container.mjs';
 import Viewport        from '../../src/container/Viewport.mjs';
 
 /**
- * @class TestApp.MainContainer
+ * @class  Neo.examples.tableStore.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
-        ntype    : 'main-container',
-
+        className: ' Neo.examples.tableStore.MainContainer',
         autoMount: true,
         layout   : {ntype: 'vbox', align: 'stretch'},
         style    : {padding: '20px'},
