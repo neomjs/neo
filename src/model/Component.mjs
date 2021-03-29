@@ -98,14 +98,16 @@ class Component extends Base {
     }
 
     /**
-     *
+     * Registers a new binding in case a matching data property does exist.
+     * Otherwise it will use the closest model with a match.
      * @param {String} componentId
      * @param {String} key
      * @param {*} value
      */
     createBinding(componentId, key, value) {
         let me       = this,
-            bindings = me.bindings;
+            bindings = me.bindings,
+            parentModel;
 
         if (me.data[value]) {
             bindings[value] = bindings[value] || {};
@@ -114,8 +116,13 @@ class Component extends Base {
 
             bindings[value][componentId].push(key);
         } else {
-            console.log('create inside parent VM', value);
-            // todo: create inside parent VM
+            parentModel = me.getParent();
+
+            if (parentModel) {
+                parentModel.createBinding(componentId, key, value);
+            } else {
+                console.error('No model.Component found with the specified data property', value);
+            }
         }
     }
 
