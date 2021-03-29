@@ -2,14 +2,12 @@ import MainContainerController from './MainContainerController.mjs'
 import Panel                   from '../../src/container/Panel.mjs';
 
 /**
- * @class TestApp.MainContainer
+ * @class Neo.examples.panel.MainContainer
  * @extends Neo.container.Panel
  */
 class MainContainer extends Panel {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
-        ntype    : 'main-container',
-
+        className : 'Neo.examples.panel.MainContainer',
         autoMount : true,
         controller: MainContainerController,
 

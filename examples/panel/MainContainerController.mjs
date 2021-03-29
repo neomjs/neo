@@ -1,13 +1,12 @@
 import Component from '../../src/controller/Component.mjs';
 
 /**
- * @class TestApp.MainContainerController
+ * @class Neo.examples.panel.MainContainerController
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Component {
     static getConfig() {return {
-        className: 'TestApp.MainContainerController',
-        ntype    : 'main-container-controller'
+        className: 'Neo.examples.panel.MainContainerController'
     }}
 
     onButton1Click(data) {
