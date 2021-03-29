@@ -5,14 +5,12 @@ import MainStore             from './MainStore.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
 
 /**
- * @class TestApp.MainContainer
+ * @class Neo.examples.list.base.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
-        ntype    : 'main-container',
-
+        className           : 'Neo.examples.list.base.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 130,
         configItemWidth     : 230,

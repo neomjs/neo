@@ -1,14 +1,12 @@
 import Model  from '../../../src/data/Model.mjs';
 
 /**
- * @class TestApp.MainModel
+ * @class Neo.examples.list.base.MainModel
  * @extends Neo.data.Model
  */
 class MainModel extends Model {
     static getConfig() {return {
-        className: 'TestApp.MainModel',
-        ntype    : 'main-model',
-
+        className  : 'Neo.examples.list.base.MainModel',
         keyProperty: 'githubId',
 
         fields: [{
