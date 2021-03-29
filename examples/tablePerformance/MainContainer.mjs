@@ -3,14 +3,12 @@ import NumberField    from '../../src/form/field/Number.mjs';
 import TableContainer from '../../src/table/Container.mjs';
 
 /**
- * @class TestApp.MainContainer
+ * @class Neo.examples.tablePerformance.MainContainer
  * @extends Neo.container.Base
  */
 class MainContainer extends Container {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
-        ntype    : 'main-container',
-
+        className: 'Neo.examples.tablePerformance.MainContainer',
         autoMount: true,
 
         layout: {

@@ -6,21 +6,21 @@ const onStart = () => {
     Neo.app({
         appPath : 'examples/tablePerformance/',
         mainView: MainContainer,
-        name    : 'TestApp',
+        name    : 'Neo.examples.tablePerformance',
         parentId: 'main-container'
     });
 
     Neo.app({
         appPath : 'examples/tablePerformance/',
         mainView: MainContainer2,
-        name    : 'TestApp2',
+        name    : 'Neo.examples.tablePerformance2',
         parentId: 'main-container2'
     });
 
     Neo.app({
         appPath : 'examples/tablePerformance/',
         mainView: MainContainer3,
-        name    : 'TestApp3',
+        name    : 'Neo.examples.tablePerformance3',
         parentId: 'main-container3'
     });
 };
