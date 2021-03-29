@@ -1,10 +1,10 @@
 import ArticlePreviews    from '../../store/ArticlePreviews.mjs'
 import Helix              from './Helix.mjs'
-import HelixMainContainer from '../../../../examples/component/helix/HelixMainContainer.mjs';
+import HelixMainContainer from '../../../../examples/component/helix/MainContainer.mjs';
 
 /**
  * @class RealWorld2.view.article.HelixContainer
- * @extends Neo.examples.component.helix.HelixMainContainer
+ * @extends Neo.examples.component.helix.MainContainer
  */
 class HelixContainer extends HelixMainContainer {
     static getConfig() {return {
