@@ -1,9 +1,9 @@
-import GalleryMainContainer  from './GalleryMainContainer.mjs';
+import MainContainer from './MainContainer.mjs';
 
 const onStart = () => Neo.app({
     appPath : 'examples/component/coronaGallery/',
-    mainView: GalleryMainContainer,
-    name    : 'TestApp'
+    mainView: MainContainer,
+    name    : 'Neo.examples.component.coronaGallery'
 });
 
 export {onStart as onStart};

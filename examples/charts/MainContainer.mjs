@@ -2,14 +2,12 @@ import AmChartComponent from '../../src/component/wrapper/AmChart.mjs';
 import Viewport         from '../../src/container/Viewport.mjs';
 
 /**
- * @class TestApp.MainContainer
+ * @class Neo.examples.charts.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
-        ntype    : 'main-container',
-
+        className: 'Neo.examples.charts.MainContainer',
         autoMount: true,
         layout   : 'fit',
 

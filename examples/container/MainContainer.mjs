@@ -2,17 +2,14 @@ import Button    from '../../src/button/Base.mjs';
 import Container from '../../src/container/Base.mjs';
 
 /**
- * @class TestApp.MainContainer
+ * @class Neo.examples.container.MainContainer
  * @extends Neo.container.Base
  */
 class MainContainer extends Container {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
-        ntype    : 'main-container',
-
-        autoMount : true,
-
-        layout: 'vbox',
+        className: 'Neo.examples.container.MainContainer',
+        autoMount: true,
+        layout   : 'vbox',
 
         items: [
             {

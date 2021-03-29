@@ -7,8 +7,7 @@ import Store        from '../../../src/data/Store.mjs';
  */
 class CountryStore extends Store {
     static getConfig() {return {
-        className: 'Neo.examples.component.coronaHelix.CountryStore',
-
+        className  : 'Neo.examples.component.coronaHelix.CountryStore',
         keyProperty: 'country',
         model      : CountryModel
     }}

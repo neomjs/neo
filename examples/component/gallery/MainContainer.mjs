@@ -5,14 +5,12 @@ import RangeField  from '../../../src/form/field/Range.mjs';
 import Viewport    from '../../../src/container/Viewport.mjs';
 
 /**
- * @class TestApp.GalleryMainContainer
- * @extends Neo.tab.Container
+ * @class Neo.examples.component.gallery.MainContainer
+ * @extends Neo.container.Viewport
  */
-class GalleryMainContainer extends Viewport {
+class MainContainer extends Viewport {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
-        ntype: 'main-container',
-
+        className: 'Neo.examples.component.gallery.MainContainer',
         autoMount: true,
         /**
          * @member {Neo.component.Gallery|null} gallery=null
@@ -213,6 +211,6 @@ class GalleryMainContainer extends Viewport {
     }
 }
 
-Neo.applyClassConfig(GalleryMainContainer);
+Neo.applyClassConfig(MainContainer);
 
-export {GalleryMainContainer as default};
+export {MainContainer as default};

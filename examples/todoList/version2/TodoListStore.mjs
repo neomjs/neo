@@ -2,14 +2,12 @@ import Store         from '../../../src/data/Store.mjs';
 import TodoListModel from './TodoListModel.mjs';
 
 /**
- * @class TestApp.TodoListStore
+ * @class Neo.examples.todoList.version2.TodoListStore
  * @extends Neo.data.Store
  */
 class TodoListStore extends Store {
     static getConfig() {return {
-        className: 'TestApp.TodoListStore',
-        ntype    : 'todolist-store',
-
+        className  : 'Neo.examples.todoList.version2.TodoListStore',
         keyProperty: 'id',
         model      : TodoListModel,
 
@@ -23,7 +21,7 @@ class TodoListStore extends Store {
             property : 'done',
             direction: 'DESC'
         }, {
-            property : 'text',
+            property : 'id',
             direction: 'ASC'
         }]
     }}

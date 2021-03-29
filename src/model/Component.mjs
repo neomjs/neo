@@ -1,4 +1,5 @@
-import Base from '../core/Base.mjs';
+import Base       from '../core/Base.mjs';
+import Observable from '../core/Observable.mjs';
 
 /**
  * An optional component model for adding bindings to configs
@@ -28,6 +29,7 @@ class Component extends Base {
         ntype: 'component-model',
         /**
          * @member {Object|null} bindings_=null
+         * @protected
          */
         bindings_: null,
         /**
@@ -36,8 +38,13 @@ class Component extends Base {
         data_: null,
         /**
          * @member {Neo.component.Base|null} owner=null
+         * @protected
          */
-        owner: null
+        owner: null,
+        /**
+         * @member {String[]} parseConfigArrays=['headers','items']
+         */
+        parseConfigArrays: ['headers', 'items']
     }}
 
     /**
@@ -52,10 +59,10 @@ class Component extends Base {
         me.bindings = {};
 
         if (me.owner.isConstructed) {
-            me.onComponentConstructed();
+            me.resolveBindings();
         } else {
             me.owner.on('constructed', () => {
-                me.onComponentConstructed();
+                me.resolveBindings();
             });
         }
     }
@@ -88,6 +95,27 @@ class Component extends Base {
      */
     beforeGetData(value) {
         return value || {};
+    }
+
+    /**
+     *
+     * @param {Neo.component.Base} component
+     */
+    createBinding(component) {
+        let me       = this,
+            bindings = me.bindings;
+
+        Object.entries(component.bind).forEach(([key, value]) => {
+            if (me.data[value]) {
+                bindings[value] = bindings[value] || {};
+
+                bindings[value][component.id] = bindings[value][component.id] || [];
+
+                bindings[value][component.id].push(key);
+            } else {
+                // todo: create inside parent VM
+            }
+        })
     }
 
     /**
@@ -125,27 +153,84 @@ class Component extends Base {
 
     /**
      *
-     * @param {Neo.component.Base} [component=null]
-     */
-    onComponentConstructed(component=null) {
-        console.log('onComponentConstructed', component);
-    }
-
-    /**
-     *
      * @param {String} key
      * @param {*} value
      * @param {*} oldValue
      */
     onDataPropertyChange(key, value, oldValue) {
-        console.log('onDataPropertyChange', key, value, oldValue);
+        let binding = this.bindings && this.bindings[key],
+            component, config;
+
+        if (binding) {
+            Object.entries(binding).forEach(([componentId, configArray]) => {
+                component = Neo.getComponent(componentId);
+                config    = {};
+
+                configArray.forEach(key => {
+                    config[key] = value;
+                });
+
+                if (component) {
+                    component.set(config);
+                }
+            });
+        }
+    }
+
+    /**
+     * This method will assign binding values at the earliest possible point inside the component lifecycle.
+     * It can not store bindings though, since child component ids most likely do not exist yet.
+     * @param {Object} [component=this.owner]
+     */
+    parseConfig(component=this.owner) {
+        let me = this;
+
+        if (component.bind) {
+            Object.entries(component.bind).forEach(([key, value]) => {
+                if (!me.data.hasOwnProperty(value)) {
+                    // todo: check if me.data[value] does exist inside a parent VM
+                } else {
+                    component[key] = me.data[value];
+                }
+            });
+        }
+
+        me.parseConfigArrays.forEach(value => {
+            if (Array.isArray(component[value])) {
+                component[value].forEach(item => {
+                    if (!item.model) {
+                        me.parseConfig(item);
+                    }
+                });
+            }
+        });
     }
 
     /**
      *
+     * @param {Neo.component.Base} [component=this.owner]
      */
-    parseConfig() {
-        console.log('parseConfig');
+    resolveBindings(component=this.owner) {
+        let me    = this,
+            items = component.items || [];
+
+        if (component.bind) {
+            me.createBinding(component);
+
+            Object.entries(component.bind).forEach(([key, value]) => {
+                if (!me.data.hasOwnProperty(value)) {
+                    // todo: check if me.data[value] does exist inside a parent VM
+                } else {
+                    component[key] = me.data[value];
+                }
+            });
+        }
+
+        items.forEach(item => {
+            if (!item.model) {
+                me.resolveBindings(item);
+            }
+        });
     }
 
     /**

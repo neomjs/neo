@@ -2,14 +2,12 @@ import MainContainerController from './MainContainerController.mjs'
 import Panel                   from '../../src/container/Panel.mjs';
 
 /**
- * @class TestApp.MainContainer
+ * @class Neo.examples.panel.MainContainer
  * @extends Neo.container.Panel
  */
 class MainContainer extends Panel {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
-        ntype    : 'main-container',
-
+        className : 'Neo.examples.panel.MainContainer',
         autoMount : true,
         controller: MainContainerController,
 
@@ -29,22 +27,16 @@ class MainContainer extends Panel {
                 ntype: 'label',
                 text : 'Title Top'
             }, {
+                handler: 'onButton1Click',
                 iconCls: 'fa fa-home',
-                text   : 'Button 1',
-                domListeners: {
-                    click: {
-                        fn: 'onButton1Click'
-                    }
-                }
+                text   : 'Button 1'
             }, {
                 ntype: 'component',
                 flex : 1
             }, {
+                handler: 'onButton2Click',
                 iconCls: 'fa fa-user',
-                text   : 'Button 2',
-                domListeners: {
-                    click: 'onButton2Click'
-                }
+                text   : 'Button 2'
             }]
         }, {
             dock : 'left',

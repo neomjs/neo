@@ -357,13 +357,15 @@ class Button extends BaseButton {
     onDrop(data) {
         let me             = this,
             headerToolbar  = Neo.getComponent(me.parentId),
+            style          = me.style,
             tableContainer = Neo.getComponent(headerToolbar.parentId);
-
-        delete Neo.getComponent(data.srcId).getVdomRoot().style.opacity;
 
         me.onDragLeave();
         headerToolbar.switchItems(me.id, data.srcId);
         tableContainer.createViewData(tableContainer.store.data);
+
+        style.opacity = 1;
+        me.style = style;
     }
 
     /**

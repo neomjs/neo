@@ -10,12 +10,13 @@
         Neo = self.Neo || {}; Neo.config = Neo.config || {};
 
         Object.assign(Neo.config, {
-            appPath    : 'examples/model/app.mjs',
-            basePath   : '../../',
-            environment: 'development'
+            appPath    : 'examples/model/extendedClass/app.mjs',
+            basePath   : '../../../',
+            environment: 'development',
+            themes     : ['neo-theme-dark']
         });
     </script>
 
-    <script src="../../src/Main.mjs" type="module"></script>
+    <script src="../../../src/Main.mjs" type="module"></script>
 </body>
 </html>

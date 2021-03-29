@@ -412,8 +412,6 @@ class Text extends Base {
         let me   = this,
             vdom = me.vdom;
 
-        super.afterSetValue(value, oldValue);
-
         me.getInputEl().value = value;
 
         if (!!value !== !!oldValue) { // change from empty to non empty
@@ -423,6 +421,8 @@ class Text extends Base {
         NeoArray[me.originalConfig.value !== value ? 'add' : 'remove'](me._cls, 'neo-is-dirty');
 
         me.vdom = vdom;
+
+        super.afterSetValue(value, oldValue); // fires the change event
     }
 
     /**

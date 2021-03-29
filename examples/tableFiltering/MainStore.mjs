@@ -2,14 +2,12 @@ import Store from '../../src/data/Store.mjs';
 import Model from './MainModel.mjs';
 
 /**
- * @class TableFiltering.MainStore
+ * @class Neo.examples.tableFiltering.MainStore
  * @extends Neo.data.Store
  */
 class MainStore extends Store {
     static getConfig() {return {
-        className: 'TableFiltering.MainStore',
-        ntype    : 'main-store',
-
+        className  : 'Neo.examples.tableFiltering.MainStore',
         keyProperty: 'id',
         model      : Model,
 

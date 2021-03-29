@@ -3,14 +3,12 @@ import Container from '../../src/tab/Container.mjs';
 import * as form from '../../src/form/_export.mjs';
 
 /**
- * @class TestApp.MainContainer
+ * @class Neo.examples.fields.MainContainer
  * @extends Neo.tab.Container
  */
 class MainContainer extends Container {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
-        ntype    : 'main-container',
-
+        className  : 'Neo.examples.fields.MainContainer',
         activeIndex: 0,
         autoMount  : true,
         height     : 500,

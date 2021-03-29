@@ -2,14 +2,12 @@ import TabContainer from '../../src/tab/Container.mjs';
 import Viewport     from '../../src/container/Viewport.mjs';
 
 /**
- * @class TestApp.MainContainer
+ * @class Neo.examples.viewport.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
-        ntype    : 'main-container',
-
+        className: 'Neo.examples.viewport.MainContainer',
         autoMount: true,
 
         layout: {

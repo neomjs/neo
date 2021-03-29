@@ -5,14 +5,12 @@ import Radio                 from '../../../../src/form/field/Radio.mjs';
 import TextField             from '../../../../src/form/field/Text.mjs';
 
 /**
- * @class TestApp.MainContainer
+ * @class Neo.examples.form.field.text.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
-        ntype    : 'main-container',
-
+        className           : 'Neo.examples.form.field.text.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 160,
         layout              : {ntype: 'hbox', align: 'stretch'}

@@ -3,7 +3,7 @@ import MainContainer from './MainContainer.mjs';
 const onStart = () => Neo.app({
     appPath : 'examples/tableStore/',
     mainView: MainContainer,
-    name    : 'TestApp'
+    name    : ' Neo.examples.tableStore'
 });
 
 export {onStart as onStart};

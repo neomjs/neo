@@ -53,7 +53,7 @@ class View extends Component {
         let me         = this,
             amountRows = inputData.length,
             container  = Neo.getComponent(me.parentId),
-            hasStore   = container.store.model, // todo: remove as soon as all tables use stores (examples table)
+            hasStore   = container.store && container.store.model, // todo: remove as soon as all tables use stores (examples table)
             columns    = container.items[0].items,
             colCount   = columns.length,
             data       = [],

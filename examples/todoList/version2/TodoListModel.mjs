@@ -1,14 +1,12 @@
 import Model  from '../../../src/data/Model.mjs';
 
 /**
- * @class TestApp.TodoListModel
+ * @class Neo.examples.todoList.version2.TodoListModel
  * @extends Neo.data.Model
  */
 class TodoListModel extends Model {
     static getConfig() {return {
-        className: 'TestApp.MainModel',
-        ntype    : 'todolist-model',
-
+        className  : 'Neo.examples.todoList.version2.MainModel',
         keyProperty: 'id',
 
         fields: [{

@@ -4,16 +4,16 @@ import RangeField   from '../../../src/form/field/Range.mjs';
 import Viewport     from '../../../src/container/Viewport.mjs';
 
 /**
- * @class TestApp.HelixMainContainer
+ * @class Neo.examples.component.coronaHelix.MainContainer
  * @extends Neo.container.Viewport
  */
-class HelixMainContainer extends Viewport {
+class MainContainer extends Viewport {
     static getConfig() {return {
         /**
-         * @member {String} className='TestApp.HelixMainContainer'
+         * @member {String} className='Neo.examples.component.coronaHelix.MainContainer'
          * @protected
          */
-        className: 'TestApp.HelixMainContainer',
+        className: 'Neo.examples.component.coronaHelix.MainContainer',
         /**
          * @member {Boolean} autoMount=true
          */
@@ -425,6 +425,6 @@ class HelixMainContainer extends Viewport {
     }
 }
 
-Neo.applyClassConfig(HelixMainContainer);
+Neo.applyClassConfig(MainContainer);
 
-export {HelixMainContainer as default};
+export {MainContainer as default};

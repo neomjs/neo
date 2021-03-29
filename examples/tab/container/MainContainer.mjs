@@ -6,14 +6,12 @@ import TextField             from '../../../src/form/field/Text.mjs';
 import TabContainer          from '../../../src/tab/Container.mjs';
 
 /**
- * @class TestApp.MainContainer
+ * @class Neo.examples.tab.container.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
-        ntype    : 'main-container',
-
+        className           : 'Neo.examples.tab.container.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 130,
         layout              : {ntype: 'hbox', align: 'stretch'}
@@ -165,7 +163,7 @@ class MainContainer extends ConfigurationViewport {
      * @param {Object} opts
      */
     onFirstTabHeaderConfigChange(config, opts) {
-        this.exampleComponent.getTabBar().items[0][config] = opts.value;;
+        this.exampleComponent.getTabBar().items[0][config] = opts.value;
     }
 
     /**

@@ -3,7 +3,7 @@ import MainContainer from './MainContainer.mjs';
 const onStart = () => Neo.app({
     appPath : 'examples/panel/',
     mainView: MainContainer,
-    name    : 'TestApp',
+    name    : 'Neo.examples.panel',
     parentId: 'main-container'
 });
 

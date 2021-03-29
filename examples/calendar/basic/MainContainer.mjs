@@ -5,14 +5,12 @@ import Toolbar                 from '../../../src/container/Toolbar.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
- * @class CalendarBasic.MainContainer
+ * @class Neo.examples.calendar.basic.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className: 'CalendarBasic.MainContainer',
-        ntype    : 'calendar-basic-maincontainer',
-
+        className : 'Neo.examples.calendar.basic.MainContainer',
         autoMount : true,
         controller: MainContainerController,
         layout    : {ntype: 'vbox', align: 'stretch'},
