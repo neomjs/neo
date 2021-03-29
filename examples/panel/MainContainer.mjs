@@ -27,22 +27,16 @@ class MainContainer extends Panel {
                 ntype: 'label',
                 text : 'Title Top'
             }, {
+                handler: 'onButton1Click',
                 iconCls: 'fa fa-home',
-                text   : 'Button 1',
-                domListeners: {
-                    click: {
-                        fn: 'onButton1Click'
-                    }
-                }
+                text   : 'Button 1'
             }, {
                 ntype: 'component',
                 flex : 1
             }, {
+                handler: 'onButton2Click',
                 iconCls: 'fa fa-user',
-                text   : 'Button 2',
-                domListeners: {
-                    click: 'onButton2Click'
-                }
+                text   : 'Button 2'
             }]
         }, {
             dock : 'left',
