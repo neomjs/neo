@@ -6,14 +6,12 @@ import TextField             from '../../../../src/form/field/Text.mjs';
 import TimeField             from '../../../../src/form/field/Time.mjs';
 
 /**
- * @class TestApp.MainContainer
+ * @class Neo.examples.form.field.time.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
-        className: 'TestApp.MainContainer',
-        ntype    : 'main-container',
-
+        className           : 'Neo.examples.form.field.time.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 160,
         layout              : {ntype: 'hbox', align: 'stretch'}
