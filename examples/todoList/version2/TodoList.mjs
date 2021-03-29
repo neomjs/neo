@@ -1,14 +1,12 @@
 import List from '../../../src/list/Base.mjs';
 
 /**
- * @class TodoListApp2.TodoList
+ * @class Neo.examples.todoList.version2.TodoList
  * @extends Neo.list.Base
  */
 class TodoList extends List {
     static getConfig() {return {
-        className: 'TodoListApp2.TodoList',
-        ntype    : 'todolistapp2-todolist',
-
+        className   : 'Neo.examples.todoList.version2.TodoList',
         displayField: 'text'
     }}
 

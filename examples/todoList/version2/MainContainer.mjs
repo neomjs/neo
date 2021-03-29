@@ -6,14 +6,12 @@ import TodoListStore from './TodoListStore.mjs';
 import Toolbar       from '../../../src/container/Toolbar.mjs';
 
 /**
- * @class TodoListApp2.MainContainer
+ * @class Neo.examples.todoList.version2.MainContainer
  * @extends Neo.container.Base
  */
 class MainContainer extends Container {
     static getConfig() {return {
-        className: 'TodoListApp2.MainContainer',
-        ntype    : 'todolistapp2-maincontainer',
-
+        className: 'Neo.examples.todoList.version2.MainContainer',
         autoMount: true,
         height   : 300,
         margin   : 20,
@@ -22,9 +20,9 @@ class MainContainer extends Container {
         width    : 300,
 
         /**
-         * @member {Number} idCounter=0
+         * @member {Number} idCounter=3
          */
-        idCounter: 0,
+        idCounter: 3,
 
         /**
          * @member {Neo.data.Store|null} store=null
@@ -51,6 +49,7 @@ class MainContainer extends Container {
             dock  : 'bottom',
             items : [{
                 module       : TextField,
+                flex         : 1,
                 labelPosition: 'inline',
                 labelText    : 'Item Text',
                 reference    : 'addItemField'
@@ -69,9 +68,9 @@ class MainContainer extends Container {
         let me    = this,
             field = me.down({reference: 'addItemField'}),
             data;
-
+console.log(field.value);
         if (field.value) {
-            me.idCounter--;
+            me.idCounter++;
 
             data = me.store.data;
 

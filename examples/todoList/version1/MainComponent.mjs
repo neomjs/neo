@@ -3,14 +3,12 @@ import NeoArray  from '../../../src/util/Array.mjs';
 import VdomUtil  from '../../../src/util/VDom.mjs';
 
 /**
- * @class TodoListApp1.MainComponent
+ * @class Neo.examples.todoList.version1.MainComponent
  * @extends Neo.component.Base
  */
 class MainComponent extends Component {
     static getConfig() {return {
-        className: 'TodoListApp1.MainComponent',
-        ntype    : 'todolistapp1-maincomponent',
-
+        className: 'Neo.examples.todoList.version1.MainComponent',
         autoMount: true,
         height   : 200,
         margin   : 10,
