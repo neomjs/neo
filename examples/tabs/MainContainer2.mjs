@@ -60,8 +60,9 @@ class MainContainer2 extends Container {
                         },
 
                         items: [{
-                            ntype     : 'table-container',
-                            amountRows: 20,
+                            module          : TableContainer,
+                            amountRows      : 20,
+                            createRandomData: true,
 
                             columnDefaults: {
                                 renderer: function(data) {
