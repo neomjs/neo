@@ -1,10 +1,10 @@
 import ArticlePreviews      from '../../store/ArticlePreviews.mjs'
 import Gallery              from './Gallery.mjs'
-import GalleryMainContainer from '../../../../examples/component/gallery/GalleryMainContainer.mjs';
+import GalleryMainContainer from '../../../../examples/component/gallery/MainContainer.mjs';
 
 /**
  * @class RealWorld2.view.article.GalleryContainer
- * @extends Neo.examples.component.gallery.GalleryMainContainer
+ * @extends Neo.examples.component.gallery.MainContainer
  */
 class GalleryContainer extends GalleryMainContainer {
     static getConfig() {return {
