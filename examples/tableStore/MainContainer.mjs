@@ -32,69 +32,57 @@ class MainContainer extends Viewport {
                 ntype: 'component',
                 flex : 1
             }, {
-                ntype       : 'button',
-                iconCls     : 'fa fa-edit',
-                style       : {marginRight: '10px'},
-                text        : 'Change Cell Value',
-                domListeners: {
-                    click: {
-                        fn: function () {
-                            let tabContainer = Neo.getComponent('myTableStoreContainer'),
-                                store        = tabContainer.store,
-                                record       = store.items[0];
+                ntype  : 'button',
+                iconCls: 'fa fa-edit',
+                style  : {marginRight: '10px'},
+                text   : 'Change Cell Value',
+                handler: function () {
+                    let tabContainer = Neo.getComponent('myTableStoreContainer'),
+                        store        = tabContainer.store,
+                        record       = store.items[0];
 
-                            record.firstname = record.firstname + '<span style="color:red;"> Foo</span>';
-                        }
-                    }
+                    record.firstname = record.firstname + '<span style="color:red;"> Foo</span>';
                 }
             }, {
-                ntype       : 'button',
-                iconCls     : 'fa fa-edit',
-                style       : {marginRight: '10px'},
-                text        : 'Update all cells 100x',
-                domListeners: {
-                    click: {
-                        fn: function () {
-                            let tabContainer = Neo.getComponent('myTableStoreContainer'),
-                                store        = tabContainer.store,
-                                countRecords = store.getCount(),
-                                j            = 0,
-                                repeats      = 100,
-                                string1      = '<span style="color:red;">Foo</span> ',
-                                string2      = '<span style="color:blue;">Bar</span> ',
-                                i, newValue, record;
+                ntype  : 'button',
+                iconCls: 'fa fa-edit',
+                style  : {marginRight: '10px'},
+                text   : 'Update all cells 100x',
+                handler: function () {
+                    let tabContainer = Neo.getComponent('myTableStoreContainer'),
+                        store        = tabContainer.store,
+                        countRecords = store.getCount(),
+                        j            = 0,
+                        repeats      = 100,
+                        string1      = '<span style="color:red;">Foo</span> ',
+                        string2      = '<span style="color:blue;">Bar</span> ',
+                        i, newValue, record;
 
-                            for (; j < repeats; j++) {
-                                for (i=0; i < countRecords; i++) {
-                                    record = store.items[i];
-                                    Object.entries(record).forEach(([field, value]) => {
-                                        if (field !== 'githubId') {
-                                            if (value.includes(string1)) {
-                                                newValue = value.replace(string1, string2);
-                                            } else if (value.includes(string2)) {
-                                                newValue = value.replace(string2, string1);
-                                            } else {
-                                                newValue = string1 + value;
-                                            }
+                    for (; j < repeats; j++) {
+                        for (i=0; i < countRecords; i++) {
+                            record = store.items[i];
+                            Object.entries(record).forEach(([field, value]) => {
+                                if (field !== 'githubId') {
+                                    if (value.includes(string1)) {
+                                        newValue = value.replace(string1, string2);
+                                    } else if (value.includes(string2)) {
+                                        newValue = value.replace(string2, string1);
+                                    } else {
+                                        newValue = string1 + value;
+                                    }
 
-                                            record[field] = newValue; // triggers the change
-                                        }
-                                    });
+                                    record[field] = newValue; // triggers the change
                                 }
-                            }
+                            });
                         }
                     }
                 }
             }, {
-                ntype       : 'button',
-                iconCls     : 'fa fa-sync-alt',
-                text        : 'Reset Sorting',
-                domListeners: {
-                    click: {
-                        fn: function () {
-                            Neo.getComponent('myTableStoreContainer').store.sort();
-                        }
-                    }
+                ntype  : 'button',
+                iconCls: 'fa fa-sync-alt',
+                text   : 'Reset Sorting',
+                handler: function () {
+                    Neo.getComponent('myTableStoreContainer').store.sort();
                 }
             }]
         }, {
@@ -199,7 +187,7 @@ class MainContainer extends Viewport {
                 }
             }]
         }, {
-            ntype         : 'table-container',
+            module        : TableContainer,
             id            : 'myTableStoreContainer',
             selectionModel: CellModel,
             store         : MainStore,
