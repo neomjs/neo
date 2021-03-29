@@ -10,7 +10,7 @@ class Tutorial extends Model {
          * @member {String} className='Docs.app.model.Tutorial'
          * @protected
          */
-        className: 'Docs.app.model.Example',
+        className: 'Docs.app.model.Tutorial',
         /**
          * @member {Object[]} fields
          */

@@ -69,7 +69,7 @@ class MainContainerController extends Component {
                 /* webpackIgnore: true */
                 record.path).then((module) => {
                     contentTabContainer.add({
-                        ntype          : module.default.prototype.ntype,
+                        module         : module.default,
                         id             : name,
                         tabButtonConfig: tabButtonConfig
                     });
@@ -85,7 +85,7 @@ class MainContainerController extends Component {
 
                 modules.forEach(module => {
                     items.push({
-                        ntype: module.default.prototype.ntype
+                        module: module.default
                     });
                 });
 
