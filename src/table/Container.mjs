@@ -131,10 +131,11 @@ class Container extends BaseContainer {
             showHeaderFilters: me.showHeaderFilters,
             ...me.headerToolbarConfig || {}
         }, {
-            module     : View,
-            containerId: me.id,
-            id         : me.viewId,
-            store      : me.store,
+            module         : View,
+            containerId    : me.id,
+            id             : me.viewId,
+            store          : me.store,
+            useRowRecordIds: !me.createRandomData,
             ...me.viewConfig || {}
         }];
 
@@ -249,20 +250,22 @@ class Container extends BaseContainer {
             oldValue.destroy();
         }
 
-        let me = this;
+        if (value) {
+            let me = this;
 
-        value = ClassSystemUtil.beforeSetInstance(value, Store, {
-            listeners: {
-                filter      : me.onStoreFilter,
-                load        : me.onStoreLoad,
-                recordChange: me.onStoreRecordChange,
-                scope       : me
+            value = ClassSystemUtil.beforeSetInstance(value, Store, {
+                listeners: {
+                    filter      : me.onStoreFilter,
+                    load        : me.onStoreLoad,
+                    recordChange: me.onStoreRecordChange,
+                    scope       : me
+                }
+            });
+
+            // in case we dynamically change the store, the view needs to get the new reference
+            if (me.view) {
+                me.view.store = value;
             }
-        });
-
-        // in case we dynamically change the store, the view needs to get the new reference
-        if (me.view) {
-            me.view.store = value;
         }
 
         return value;
@@ -286,7 +289,7 @@ class Container extends BaseContainer {
     createColumns(columns) {
         let me             = this,
             columnDefaults = me.columnDefaults,
-            sorters        = me.store.sorters;
+            sorters        = me.store && me.store.sorters;
 
         if (!columns || !columns.length) {
             Neo.logError('Attempting to create a table.Container without defined columns', me.id);
@@ -369,8 +372,6 @@ class Container extends BaseContainer {
 
         Neo.manager.Store.createRandomData([countColumns, countRows]).then(data => {
             me.createViewData(data);
-        }).catch(err => {
-            console.log('Error attempting to call createRandomViewData', err, me);
         });
     }
 
