@@ -60,14 +60,14 @@
         "isLeaf"  : true,
         "name"    : "Gallery",
         "parentId": 5,
-        "path"    : "../../../examples/component/gallery/GalleryMainContainer.mjs"
+        "path"    : "../../../examples/component/gallery/MainContainer.mjs"
     },
     {
         "id"      : 10,
         "isLeaf"  : true,
         "name"    : "Helix",
         "parentId": 5,
-        "path"    : "../../../examples/component/helix/HelixMainContainer.mjs"
+        "path"    : "../../../examples/component/helix/MainContainer.mjs"
     },
     {
         "id"      : 11,
@@ -264,11 +264,7 @@
         "isLeaf"  : true,
         "name"    : "Table Performance",
         "parentId": 34,
-        "path"    : [
-            "../../../examples/tablePerformance/MainContainer.mjs",
-            "../../../examples/tablePerformance/MainContainer2.mjs",
-            "../../../examples/tablePerformance/MainContainer3.mjs"
-        ]
+        "path"    : "../../../examples/tablePerformance/Viewport.mjs"
     },
     {
         "id"      : 39,
