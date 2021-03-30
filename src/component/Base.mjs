@@ -841,7 +841,7 @@ class Base extends CoreBase {
      * @returns {Neo.core.Base} The matching instance or null
      */
     down(config) {
-        return ComponentManager.down(this.id, config);
+        return ComponentManager.down(this, config);
     }
 
     /**

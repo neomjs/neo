@@ -36,13 +36,16 @@ class Component extends Base {
 
     /**
      * Returns the first component which matches the config-selector moving down the component items tree
-     * @param {String} componentId
+     * @param {Neo.component.Base|String} component
      * @param {Object|String|null} config
      * @returns {Neo.component.Base|null}
      */
-    down(componentId, config) {
+    down(component, config) {console.log(component, this.getById(component));
+        if (Neo.isString(component)) {
+            component = this.getById(component);
+        }
+
         let me          = this,
-            component   = me.getById(componentId),
             matchArray  = [],
             returnValue = null,
             i           = 0,
@@ -71,7 +74,7 @@ class Component extends Base {
         }
 
         for (; i < len; i++) {
-            returnValue = me.down(component.items[i].id, config);
+            returnValue = me.down(component.items[i], config);
             if (returnValue !== null) {
                 return returnValue;
             }
