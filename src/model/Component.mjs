@@ -176,7 +176,7 @@ class Component extends Base {
         parentModel = me.getParent();
 
         if (!parentModel) {
-            console.error(`data property ${key} does not exist.`, me.id);
+            console.error(`data property "${key}" does not exist.`, me.id);
         }
 
         return parentModel.getData(key);
@@ -271,13 +271,12 @@ class Component extends Base {
      *
      * @param {Object|String} key
      * @param {*} value
+     * @param {Neo.model.Component} [originModel=this] for internal usage only
      */
-    setData(key, value) {
+    setData(key, value, originModel=this) {
         let me   = this,
             data = me.data,
             parentModel;
-
-        // todo: create a data property in case no match is found
 
         if (Neo.isObject(key)) {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
@@ -290,9 +289,10 @@ class Component extends Base {
                 parentModel = me.getParent();
 
                 if (parentModel) {
-                    parentModel.setData(key, value);
+                    parentModel.setData(key, value, originModel);
                 } else {
-                    console.error('No data property found inside the parent model tree', key, me.id);
+                    originModel.createDataProperty(key);
+                    originModel.data[key] = value;
                 }
             }
         }
