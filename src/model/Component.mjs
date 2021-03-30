@@ -268,7 +268,8 @@ class Component extends Base {
     }
 
     /**
-     *
+     * The method will assign all values to the closest model where it finds an existing key.
+     * In case no match is found inside the parent chain, a new data property will get generated.
      * @param {Object|String} key
      * @param {*} value
      * @param {Neo.model.Component} [originModel=this] for internal usage only
@@ -295,6 +296,29 @@ class Component extends Base {
                     originModel.data[key] = value;
                 }
             }
+        }
+    }
+
+    /**
+     * Use this method instead of setData() in case you want to enforce
+     * to set all keys on this instance instead of looking for matches inside parent models.
+     * @param {Object|String} key
+     * @param {*} value
+     */
+    setDataAtSameLevel(key, value) {
+        let me   = this,
+            data = me.data;
+
+        if (Neo.isObject(key)) {
+            Object.entries(key).forEach(([dataKey, dataValue]) => {
+                me.setDataAtSameLevel(dataKey, dataValue);
+            });
+        } else {
+            if (!data.hasOwnProperty(key)) {
+                me.createDataProperty(key);
+            }
+
+            data[key] = value;
         }
     }
 }
