@@ -61,7 +61,7 @@ class Component extends Base {
         if (me.owner.isConstructed) {
             me.resolveBindings();
         } else {
-            me.owner.on('constructed', () => {console.log('constructed', me.owner.id);
+            me.owner.on('constructed', () => {
                 me.resolveBindings();
             });
         }
