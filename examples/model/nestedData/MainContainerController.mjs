@@ -18,7 +18,7 @@ class MainContainerController extends Component {
      * @param {Object} data
      */
     onButton1Click(data) {
-        this.updateButton1Text('Button 1');
+        this.updateButton1Text('Nils');
     }
 
     /**
@@ -26,7 +26,7 @@ class MainContainerController extends Component {
      * @param {Object} data
      */
     onButton2Click(data) {
-        this.updateButton2Text('Button 2');
+        this.updateButton2Text('Dehl');
     }
 
     /**
@@ -54,7 +54,7 @@ class MainContainerController extends Component {
      * @param {String} value
      */
     updateButton1Text(value) {
-        this.getModel().data['button1Text'] = value;
+        this.getModel().data.user.details.firstname = value;
     }
 
     /**
@@ -63,7 +63,7 @@ class MainContainerController extends Component {
      */
     updateButton2Text(value) {
         this.getModel().setData({
-            button2Text: value
+            'user.details.lastname': value
         });
     }
 }
