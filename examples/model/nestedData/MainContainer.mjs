@@ -27,11 +27,13 @@ class MainContainer extends Viewport {
          * @member {Object|Neo.model.Component} model
          */
         model: {
-            module: ComponentModel,
-
             data: {
-                button1Text: 'Button 1',
-                button2Text: 'Button 2'
+                user: {
+                    details: {
+                        firstName: 'Nils',
+                        lastName : 'Dehl'
+                    }
+                }
             }
         },
         /**
@@ -65,7 +67,7 @@ class MainContainer extends Viewport {
                     iconCls: 'fa fa-home',
 
                     bind: {
-                        text: 'button1Text'
+                        text: 'user.details.firstName'
                     }
                 }, {
                     handler: 'onButton2Click',
@@ -73,7 +75,7 @@ class MainContainer extends Viewport {
                     style  : {marginLeft: '10px'},
 
                     bind: {
-                        text: 'button2Text'
+                        text: 'user.details.lastName'
                     }
                 }]
             }],
@@ -86,7 +88,7 @@ class MainContainer extends Viewport {
                 maxWidth  : 300,
 
                 bind: {
-                    value: 'button1Text'
+                    value: 'user.details.firstName'
                 },
 
                 listeners: {
@@ -100,7 +102,7 @@ class MainContainer extends Viewport {
                 maxWidth  : 300,
 
                 bind: {
-                    value: 'button2Text'
+                    value: 'user.details.lastName'
                 },
 
                 listeners: {
