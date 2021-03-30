@@ -63,7 +63,8 @@ class MainContainerController extends Component {
      */
     updateButton2Text(value) {
         this.getModel().setData({
-            'user.details.lastname': value
+            'user.details.lastname': value,
+            'foo.bar.baz'          : 'hello'
         });
     }
 }

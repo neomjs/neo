@@ -140,17 +140,19 @@ class Component extends Base {
             descriptor, keyValue, newPath;
 
         Object.entries(config).forEach(([key, value]) => {
-            descriptor = Object.getOwnPropertyDescriptor(root, key);
-            newPath    = `${path}.${key}`
+            if (!key.startsWith('_')) {
+                descriptor = Object.getOwnPropertyDescriptor(root, key);
+                newPath    = `${path}.${key}`
 
-            if (!(typeof descriptor === 'object' && typeof descriptor.set === 'function')) {
-                keyValue = config[key];
-                this.createDataProperty(key, newPath, root);
-                root[key] = keyValue;
-            }
+                if (!(typeof descriptor === 'object' && typeof descriptor.set === 'function')) {
+                    keyValue = config[key];
+                    me.createDataProperty(key, newPath, root);
+                    root[key] = keyValue;
+                }
 
-            if (Neo.isObject(value)) {
-                this.createDataProperties(config[key], newPath);
+                if (Neo.isObject(value)) {
+                    me.createDataProperties(config[key], newPath);
+                }
             }
         });
     }
@@ -162,7 +164,12 @@ class Component extends Base {
      * @param {Object} [root=this.data]
      */
     createDataProperty(key, path, root=this.data) {
-        let me = this;
+        let me          = this,
+            parentScope = me.getParentDataScope(key),
+            data        = parentScope.scope,
+            keyLeaf     = parentScope.key;
+
+        console.log('createDataProperty', key, keyLeaf, data);
 
         if (path && path.startsWith('data.')) {
             path = path.substring(5);
@@ -325,25 +332,33 @@ class Component extends Base {
      * @param {Neo.model.Component} [originModel=this] for internal usage only
      */
     setData(key, value, originModel=this) {
-        let me   = this,
-            data = me.data,
-            parentModel;
+        let me = this,
+            data, keyLeaf, parentModel, parentScope;
 
         if (Neo.isObject(key)) {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
                 me.setData(dataKey, dataValue);
             });
         } else {
-            if (data.hasOwnProperty(key)) {
-                data[key] = value;
+            parentScope = me.getParentDataScope(key);
+            data        = parentScope.scope;
+            keyLeaf     = parentScope.key;
+
+            if (data && data.hasOwnProperty(keyLeaf)) {
+                data[keyLeaf] = value;
             } else {
                 parentModel = me.getParent();
 
                 if (parentModel) {
                     parentModel.setData(key, value, originModel);
                 } else {
-                    originModel.createDataProperty(key);
-                    originModel.data[key] = value;
+                    // todo: new helper method
+                    Neo.ns(key, true, me.data);
+                    parentScope = me.getParentDataScope(key);
+                    data        = parentScope.scope;
+
+                    data[keyLeaf] = value;
+                    originModel.createDataProperties(me.data, 'data');
                 }
             }
         }
@@ -358,19 +373,29 @@ class Component extends Base {
      * @param {*} value
      */
     setDataAtSameLevel(key, value) {
-        let me   = this,
-            data = me.data;
+        let me = this,
+            data, keyLeaf, parentScope;
 
         if (Neo.isObject(key)) {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
                 me.setDataAtSameLevel(dataKey, dataValue);
             });
         } else {
-            if (!data.hasOwnProperty(key)) {
-                me.createDataProperty(key);
-            }
+            parentScope = me.getParentDataScope(key);
+            data        = parentScope.scope;
+            keyLeaf     = parentScope.key;
 
-            data[key] = value;
+            if (data && data.hasOwnProperty(keyLeaf)) {
+                data[keyLeaf] = value;
+            } else {
+                // todo: new helper method
+                Neo.ns(key, true, me.data);
+                parentScope = me.getParentDataScope(key);
+                data        = parentScope.scope;
+
+                data[keyLeaf] = value;
+                originModel.createDataProperties(me.data, 'data');
+            }
         }
     }
 }
