@@ -30,8 +30,8 @@ class MainContainer extends Viewport {
             data: {
                 user: {
                     details: {
-                        firstName: 'Nils',
-                        lastName : 'Dehl'
+                        firstname: 'Nils',
+                        lastname : 'Dehl'
                     }
                 }
             }
@@ -67,7 +67,7 @@ class MainContainer extends Viewport {
                     iconCls: 'fa fa-home',
 
                     bind: {
-                        text: 'user.details.firstName'
+                        text: 'user.details.firstname'
                     }
                 }, {
                     handler: 'onButton2Click',
@@ -75,7 +75,7 @@ class MainContainer extends Viewport {
                     style  : {marginLeft: '10px'},
 
                     bind: {
-                        text: 'user.details.lastName'
+                        text: 'user.details.lastname'
                     }
                 }]
             }],
@@ -88,7 +88,7 @@ class MainContainer extends Viewport {
                 maxWidth  : 300,
 
                 bind: {
-                    value: 'user.details.firstName'
+                    value: 'user.details.firstname'
                 },
 
                 listeners: {
@@ -102,7 +102,7 @@ class MainContainer extends Viewport {
                 maxWidth  : 300,
 
                 bind: {
-                    value: 'user.details.lastName'
+                    value: 'user.details.lastname'
                 },
 
                 listeners: {
