@@ -40,7 +40,7 @@ class Component extends Base {
      * @param {Object|String|null} config
      * @returns {Neo.component.Base|null}
      */
-    down(component, config) {console.log(component, this.getById(component));
+    down(component, config) {
         if (Neo.isString(component)) {
             component = this.getById(component);
         }
