@@ -277,7 +277,6 @@ class Component extends Base {
             data = me.data,
             parentModel;
 
-        console.log('setData', me.id, key, value);
         // todo: create a data property in case no match is found
 
         if (Neo.isObject(key)) {
