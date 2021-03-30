@@ -185,20 +185,14 @@ class Component extends Base {
      * @returns {*} value
      */
     getData(key) {
-        let me           = this,
-            data         = me.data,
-            dataProperty = key,
-            parentKey, parentModel;
+        let me          = this,
+            parentScope = me.getParentDataScope(key),
+            data        = parentScope.scope,
+            keyLeaf     = parentScope.key,
+            parentModel;
 
-        if (key.includes('.')) {
-            parentKey    = key.split('.');
-            dataProperty = parentKey.pop();
-            parentKey    = parentKey.join('.');
-            data         = Neo.ns(parentKey, false, me.data);
-        }
-
-        if (data.hasOwnProperty(dataProperty)) {
-            return data[dataProperty];
+        if (data.hasOwnProperty(keyLeaf)) {
+            return data[keyLeaf];
         }
 
         parentModel = me.getParent();
