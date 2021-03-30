@@ -60,7 +60,7 @@ class MainContainer extends Viewport {
                 dock : 'top',
                 items: [{
                     ntype: 'label',
-                    text : 'Title Top'
+                    text : 'model.Component: advanced'
                 }, {
                     ntype: 'component',
                     flex : 1

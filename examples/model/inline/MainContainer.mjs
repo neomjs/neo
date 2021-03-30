@@ -56,7 +56,7 @@ class MainContainer extends Viewport {
                 dock : 'top',
                 items: [{
                     ntype: 'label',
-                    text : 'Title Top'
+                    text : 'model.Component: inline definition'
                 }, {
                     ntype: 'component',
                     flex : 1
