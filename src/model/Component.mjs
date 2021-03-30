@@ -92,19 +92,22 @@ class Component extends Base {
      * Otherwise it will use the closest model with a match.
      * @param {String} componentId
      * @param {String} key
-     * @param {*} value
+     * @param {String} value
      */
     createBinding(componentId, key, value) {
-        let me       = this,
-            bindings = me.bindings,
+        let me          = this,
+            parentScope = me.getParentDataScope(key),
+            data        = parentScope.scope,
+            keyLeaf     = parentScope.key,
+            bindings    = me.bindings,
             parentModel;
 
-        if (me.data[value]) {
-            bindings[value] = bindings[value] || {};
+        if (data[keyLeaf]) {
+            bindings[key] = bindings[key] || {};
 
-            bindings[value][componentId] = bindings[value][componentId] || [];
+            bindings[key][componentId] = bindings[key][componentId] || [];
 
-            bindings[value][componentId].push(key);
+            bindings[key][componentId].push(value);
         } else {
             parentModel = me.getParent();
 
@@ -122,7 +125,7 @@ class Component extends Base {
      */
     createBindings(component) {
         Object.entries(component.bind).forEach(([key, value]) => {
-            this.createBinding(component.id, key, value);
+            this.createBinding(component.id, value, key);
         });
     }
 
@@ -216,6 +219,28 @@ class Component extends Base {
             parentComponent = parentId && Neo.getComponent(parentId);
 
         return parentComponent && parentComponent.getModel();
+    }
+
+    /**
+     * Helper method to get the parent namespace for a nested data property via Neo.ns() if needed.
+     * @param key
+     * @returns {Object}
+     */
+    getParentDataScope(key) {
+        let me      = this,
+            keyLeaf = key,
+            data    = me.data;
+
+        if (key.includes('.')) {
+            key     = key.split('.');
+            keyLeaf = key.pop();
+            data    = Neo.ns(key.join('.'), false, data);
+        }
+
+        return {
+            key  : keyLeaf,
+            scope: data
+        };
     }
 
     /**
