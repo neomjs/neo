@@ -74,18 +74,8 @@ class Component extends Base {
      * @protected
      */
     afterSetData(value={}, oldValue={}) {
-        let data = this.data,
-            descriptor, keyValue;
-
-        Object.keys(value).forEach(key => {
-            descriptor = Object.getOwnPropertyDescriptor(data, key);
-
-            if (!(typeof descriptor === 'object' && typeof descriptor.set === 'function')) {
-                keyValue = value[key];
-                this.createDataProperty(key);
-                data[key] = keyValue;
-            }
-        });
+        this.createDataProperties(value, 'data');
+        console.log('afterSetData', this.data);
     }
 
     /**
@@ -138,20 +128,46 @@ class Component extends Base {
 
     /**
      *
-     * @param {String} key
+     * @param {Object} config
+     * @param {string} path
      */
-    createDataProperty(key) {
+    createDataProperties(config, path) {
+        let me   = this,
+            root = Neo.ns(path, false, me),
+            descriptor, keyValue;
+
+        Object.entries(config).forEach(([key, value]) => {
+            descriptor = Object.getOwnPropertyDescriptor(root, key);
+
+            if (!(typeof descriptor === 'object' && typeof descriptor.set === 'function')) {
+                keyValue = config[key];
+                this.createDataProperty(key, root);
+                root[key] = keyValue;
+            }
+
+            if (Neo.isObject(value)) {
+                this.createDataProperties(config[key], `${path}.${key}`);
+            }
+        });
+    }
+
+    /**
+     *
+     * @param {String} key
+     * @param {Object} [root=this.data]
+     */
+    createDataProperty(key, root=this.data) {
         let me = this;
 
-        Object.defineProperty(me.data, key, {
+        Object.defineProperty(root, key, {
             get() {
-                return me.data['_' + key];
+                return root['_' + key];
             },
 
             set(value) {
-                let oldValue = me.data['_' + key];
+                let oldValue = root['_' + key];
 
-                me.data['_' + key] = value;
+                root['_' + key] = value;
 
                 if (value !== oldValue) {
                     me.onDataPropertyChange(key, value, oldValue);
