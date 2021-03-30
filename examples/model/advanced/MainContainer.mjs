@@ -41,7 +41,8 @@ class MainContainer extends Viewport {
          * @member {Object[]} items
          */
         items: [{
-            module: Panel,
+            module   : Panel,
+            reference: 'panel',
 
             model: {
                 data: {

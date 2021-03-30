@@ -61,7 +61,7 @@ class Component extends Base {
         if (me.owner.isConstructed) {
             me.resolveBindings();
         } else {
-            me.owner.on('constructed', () => {
+            me.owner.on('constructed', () => {console.log('constructed', me.owner.id);
                 me.resolveBindings();
             });
         }
@@ -163,10 +163,23 @@ class Component extends Base {
     /**
      *
      * @param {String} key
+     * @returns {*} value
      */
     getData(key) {
-        // todo: check for parent VMs in case a prop does not exist
-        return this.data[key];
+        let me = this,
+            parentModel;
+
+        if (me.data.hasOwnProperty(key)) {
+            return me.data[key];
+        }
+
+        parentModel = me.getParent();
+
+        if (!parentModel) {
+            console.error(`data property ${key} does not exist.`, me.id);
+        }
+
+        return parentModel.getData(key);
     }
 
     /**
@@ -177,7 +190,7 @@ class Component extends Base {
         let parentId        = this.owner.parentId,
             parentComponent = parentId && Neo.getComponent(parentId);
 
-        return parentComponent.getModel();
+        return parentComponent && parentComponent.getModel();
     }
 
     /**
@@ -216,11 +229,7 @@ class Component extends Base {
 
         if (component.bind) {
             Object.entries(component.bind).forEach(([key, value]) => {
-                if (!me.data.hasOwnProperty(value)) {
-                    // todo: check if me.data[value] does exist inside a parent VM
-                } else {
-                    component[key] = me.data[value];
-                }
+                component[key] = me.getData(value);
             });
         }
 
@@ -247,11 +256,7 @@ class Component extends Base {
             me.createBindings(component);
 
             Object.entries(component.bind).forEach(([key, value]) => {
-                if (!me.data.hasOwnProperty(value)) {
-                    // todo: check if me.data[value] does exist inside a parent VM
-                } else {
-                    component[key] = me.data[value];
-                }
+                component[key] = me.getData(value);
             });
         }
 
@@ -268,15 +273,29 @@ class Component extends Base {
      * @param {*} value
      */
     setData(key, value) {
-        let me = this;
+        let me   = this,
+            data = me.data,
+            parentModel;
 
-        // todo: check for parent VMs in case a prop does not exist
+        console.log('setData', me.id, key, value);
         // todo: create a data property in case no match is found
 
         if (Neo.isObject(key)) {
-            Object.assign(me.data, key);
+            Object.entries(key).forEach(([dataKey, dataValue]) => {
+                me.setData(dataKey, dataValue);
+            });
         } else {
-            me.data[key] = value;
+            if (data.hasOwnProperty(key)) {
+                data[key] = value;
+            } else {
+                parentModel = me.getParent();
+
+                if (parentModel) {
+                    parentModel.setData(key, value);
+                } else {
+                    console.error('No data property found inside the parent model tree', key, me.id);
+                }
+            }
         }
     }
 }
