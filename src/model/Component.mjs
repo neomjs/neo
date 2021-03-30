@@ -132,24 +132,25 @@ class Component extends Base {
     /**
      *
      * @param {Object} config
-     * @param {string} path
+     * @param {String} path
      */
     createDataProperties(config, path) {
         let me   = this,
             root = Neo.ns(path, false, me),
-            descriptor, keyValue;
+            descriptor, keyValue, newPath;
 
         Object.entries(config).forEach(([key, value]) => {
             descriptor = Object.getOwnPropertyDescriptor(root, key);
+            newPath    = `${path}.${key}`
 
             if (!(typeof descriptor === 'object' && typeof descriptor.set === 'function')) {
                 keyValue = config[key];
-                this.createDataProperty(key, root);
+                this.createDataProperty(key, newPath, root);
                 root[key] = keyValue;
             }
 
             if (Neo.isObject(value)) {
-                this.createDataProperties(config[key], `${path}.${key}`);
+                this.createDataProperties(config[key], newPath);
             }
         });
     }
@@ -157,10 +158,15 @@ class Component extends Base {
     /**
      *
      * @param {String} key
+     * @param {String} path
      * @param {Object} [root=this.data]
      */
-    createDataProperty(key, root=this.data) {
+    createDataProperty(key, path, root=this.data) {
         let me = this;
+
+        if (path && path.startsWith('data.')) {
+            path = path.substring(5);
+        }
 
         Object.defineProperty(root, key, {
             get() {
@@ -172,8 +178,8 @@ class Component extends Base {
 
                 root['_' + key] = value;
 
-                if (value !== oldValue) {
-                    me.onDataPropertyChange(key, value, oldValue);
+                if (value !== oldValue) {console.log(path);
+                    me.onDataPropertyChange(path ? path : key, value, oldValue);
                 }
             }
         });
@@ -341,6 +347,8 @@ class Component extends Base {
                 }
             }
         }
+
+        console.log(me.data, me.bindings);
     }
 
     /**
