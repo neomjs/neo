@@ -27,7 +27,7 @@ class MainContainerController extends Component {
      * @param {String} oldValue
      * @protected
      */
-    afterSetButton1Text(value, oldValue) {console.log('afterSetButton1Text', value, oldValue);
+    afterSetButton1Text(value, oldValue) {
         if (oldValue !== undefined) { // we can not use the initial state change, since the view is not parsed yet
             this.updateReferences(value, 'button1', 'textfield1');
         }
