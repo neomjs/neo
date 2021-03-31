@@ -94,17 +94,8 @@ class MainContainerController extends Component {
      * @param {String} textfieldReference
      */
     updateReferences(value, buttonReference, textfieldReference) {
-        let me        = this,
-            button    = me.getReference(buttonReference),
-            textfield = me.getReference(textfieldReference);
-
-        if (button) {
-            button.text = value;
-        }
-
-        if (textfield) {
-            textfield.value = value;
-        }
+        this.getReference(buttonReference)   .text  = value;
+        this.getReference(textfieldReference).value = value;
     }
 }
 
