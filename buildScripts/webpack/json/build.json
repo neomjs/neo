@@ -119,21 +119,25 @@
         "modelAdvanced": {
             "input": "./examples/model/advanced/app.mjs",
             "output": "/examples/model/advanced/",
+            "themes": "'neo-theme-dark'",
             "title": "model.Component: advanced"
         },
         "modelExtendedClass": {
             "input": "./examples/model/extendedClass/app.mjs",
             "output": "/examples/model/extendedClass/",
+            "themes": "'neo-theme-dark'",
             "title": "model.Component: extended class"
         },
         "modelInline": {
             "input": "./examples/model/inline/app.mjs",
             "output": "/examples/model/inline/",
+            "themes": "'neo-theme-dark'",
             "title": "model.Component: inline definition"
         },
         "modelNestedData": {
             "input": "./examples/model/nestedData/app.mjs",
             "output": "/examples/model/nestedData/",
+            "themes": "'neo-theme-dark'",
             "title": "model.Component: nested data"
         },
         "numberfield": {
