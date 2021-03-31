@@ -1,4 +1,3 @@
-import ComponentModel          from '../../../src/model/Component.mjs';
 import MainContainerController from './MainContainerController.mjs'
 import Panel                   from '../../../src/container/Panel.mjs';
 import TextField               from '../../../src/form/field/Text.mjs';
@@ -23,17 +22,6 @@ class MainContainer extends Viewport {
          * @member {Neo.controller.Component} controller=MainContainerController
          */
         controller: MainContainerController,
-        /**
-         * @member {Object|Neo.model.Component} model
-         */
-        model: {
-            module: ComponentModel,
-
-            data: {
-                button1Text: 'Button 1',
-                button2Text: 'Button 2'
-            }
-        },
         /**
          * @member {Object} style
          */
@@ -61,25 +49,19 @@ class MainContainer extends Viewport {
                 dock : 'top',
                 items: [{
                     ntype: 'label',
-                    text : 'model.Component: inline definition'
+                    text : 'inline example without using a model.Component'
                 }, {
                     ntype: 'component',
                     flex : 1
                 }, {
-                    handler: 'onButton1Click',
-                    iconCls: 'fa fa-home',
-
-                    bind: {
-                        text: 'button1Text'
-                    }
+                    handler  : 'onButton1Click',
+                    iconCls  : 'fa fa-home',
+                    reference: 'button1'
                 }, {
-                    handler: 'onButton2Click',
-                    iconCls: 'fa fa-user',
-                    style  : {marginLeft: '10px'},
-
-                    bind: {
-                        text: 'button2Text'
-                    }
+                    handler  : 'onButton2Click',
+                    iconCls  : 'fa fa-user',
+                    reference: 'button2',
+                    style    : {marginLeft: '10px'},
                 }]
             }],
 
@@ -88,11 +70,8 @@ class MainContainer extends Viewport {
                 flex      : 'none',
                 labelText : 'Button1 text:',
                 labelWidth: 110,
+                reference : 'textfield1',
                 width     : 300,
-
-                bind: {
-                    value: 'button1Text'
-                },
 
                 listeners: {
                     change: 'onTextField1Change'
@@ -102,11 +81,8 @@ class MainContainer extends Viewport {
                 flex      : 'none',
                 labelText : 'Button2 text:',
                 labelWidth: 110,
+                reference : 'textfield2',
                 width     : 300,
-
-                bind: {
-                    value: 'button2Text'
-                },
 
                 listeners: {
                     change: 'onTextField2Change'
