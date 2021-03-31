@@ -10,7 +10,15 @@ class MainContainerController extends Component {
          * @member {String} className='Neo.examples.model.inlineNoModel.MainContainerController'
          * @protected
          */
-        className: 'Neo.examples.model.inlineNoModel.MainContainerController'
+        className: 'Neo.examples.model.inlineNoModel.MainContainerController',
+        /**
+         * @member {String} button1Text_='Button 1'
+         */
+        button1Text_: 'Button 1',
+        /**
+         * @member {String} button1Text_='Button 2'
+         */
+        button2Text_: 'Button 2'
     }}
 
     /**
@@ -18,7 +26,7 @@ class MainContainerController extends Component {
      * @param {Object} data
      */
     onButton1Click(data) {
-        this.updateButton1Text('Button 1');
+        this.button1Text = 'Button 1';
     }
 
     /**
@@ -26,7 +34,7 @@ class MainContainerController extends Component {
      * @param {Object} data
      */
     onButton2Click(data) {
-        this.updateButton2Text('Button 2');
+        this.button2Text = 'Button 2';
     }
 
     /**
@@ -35,7 +43,7 @@ class MainContainerController extends Component {
      */
     onTextField1Change(data) {
         if (data.oldValue !== null) {
-            this.updateButton1Text(data.value);
+            this.button1Text = data.value;
         }
     }
 
@@ -45,26 +53,8 @@ class MainContainerController extends Component {
      */
     onTextField2Change(data) {
         if (data.oldValue !== null) {
-            this.updateButton2Text(data.value);
+            this.button2Text = data.value;
         }
-    }
-
-    /**
-     *
-     * @param {String} value
-     */
-    updateButton1Text(value) {
-        this.getModel().data['button1Text'] = value;
-    }
-
-    /**
-     *
-     * @param {String} value
-     */
-    updateButton2Text(value) {
-        this.getModel().setData({
-            button2Text: value
-        });
     }
 }
 
