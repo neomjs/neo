@@ -57,6 +57,19 @@ class Base extends CoreBase {
          */
         autoRender: false,
         /**
+         * Bind configs to model.Component data properties.
+         * Example for a button.Base:
+         * @example
+         * {
+         *     bind: {
+         *         text: 'myDataProperty.foo.bar'
+         *     }
+         * }
+         * @see https://github.com/neomjs/neo/blob/dev/examples/model/inline/MainContainer.mjs
+         * @member {Object|null} bind=null
+         */
+        bind: null,
+        /**
          * manager.Focus will change this flag on focusin & out dom events
          * @member {Boolean} containsFocus_=false
          * @protected
