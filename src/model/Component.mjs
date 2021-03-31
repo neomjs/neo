@@ -350,6 +350,24 @@ class Component extends Base {
     }
 
     /**
+     * Removes all bindings for a given component id inside this model
+     * as well as inside all parent models.
+     * @param {String} componentId
+     */
+    removeBindings(componentId) {
+        let me          = this,
+            parentModel = me.getParent();
+
+        Object.entries(me.bindings).forEach(([dataProperty, binding]) => {
+            delete binding[componentId];
+        });
+
+        if (parentModel) {
+            parentModel.removeBindings(componentId);
+        }
+    }
+
+    /**
      * The method will assign all values to the closest model where it finds an existing key.
      * In case no match is found inside the parent chain, a new data property will get generated.
      * @param {Object|String} key

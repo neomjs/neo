@@ -811,8 +811,13 @@ class Base extends CoreBase {
      * todo: unregister events
      */
     destroy(updateParentVdom=false, silent=false) {
-        let me = this,
+        let me    = this,
+            model = me.getModel(),
             parent, parentVdom;
+
+        if (model) {
+            model.removeBindings(me.id);
+        }
 
         if (updateParentVdom && me.parentId) {
             if (me.parentId === 'document.body') {
