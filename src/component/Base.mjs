@@ -832,6 +832,10 @@ class Base extends CoreBase {
             model.removeBindings(me.id);
         }
 
+        if (me.controller) {
+            me.controller.destroy();
+        }
+
         if (updateParentVdom && me.parentId) {
             if (me.parentId === 'document.body') {
                 Neo.currentWorker.promiseMessage('main', {
