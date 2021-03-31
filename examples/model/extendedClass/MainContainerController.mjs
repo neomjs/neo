@@ -33,6 +33,14 @@ class MainContainerController extends Component {
      *
      * @param {Object} data
      */
+    onLogModelIntoConsoleButtonClick(data) {
+        console.log(this.getModel());
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onTextField1Change(data) {
         if (data.oldValue !== null) {
             this.updateButton1Text(data.value);
