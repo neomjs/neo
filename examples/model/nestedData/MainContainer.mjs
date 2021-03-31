@@ -1,20 +1,20 @@
+import ComponentModel          from '../../../src/model/Component.mjs';
 import MainContainerController from './MainContainerController.mjs'
-import MainContainerModel      from './MainContainerModel.mjs'
 import Panel                   from '../../../src/container/Panel.mjs';
 import TextField               from '../../../src/form/field/Text.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
- * @class Neo.examples.model.extendedClass.MainContainer
+ * @class Neo.examples.model.nestedData.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.examples.model.extendedClass.MainContainer'
+         * @member {String} className='Neo.examples.model.nestedData.MainContainer'
          * @protected
          */
-        className: 'Neo.examples.model.extendedClass.MainContainer',
+        className: 'Neo.examples.model.nestedData.MainContainer',
         /**
          * @member {Boolean} autoMount=true
          */
@@ -24,9 +24,18 @@ class MainContainer extends Viewport {
          */
         controller: MainContainerController,
         /**
-         * @member {Object|Neo.model.Component} model=MainContainerModel
+         * @member {Object|Neo.model.Component} model
          */
-        model: MainContainerModel,
+        model: {
+            data: {
+                user: {
+                    details: {
+                        firstname: 'Nils',
+                        lastname : 'Dehl'
+                    }
+                }
+            }
+        },
         /**
          * @member {Object} style
          */
@@ -54,7 +63,7 @@ class MainContainer extends Viewport {
                 dock : 'top',
                 items: [{
                     ntype: 'label',
-                    text : 'model.Component: extended class'
+                    text : 'model.Component: nested data'
                 }, {
                     ntype: 'component',
                     flex : 1
@@ -63,7 +72,7 @@ class MainContainer extends Viewport {
                     iconCls: 'fa fa-home',
 
                     bind: {
-                        text: 'button1Text'
+                        text: 'user.details.firstname'
                     }
                 }, {
                     handler: 'onButton2Click',
@@ -71,7 +80,7 @@ class MainContainer extends Viewport {
                     style  : {marginLeft: '10px'},
 
                     bind: {
-                        text: 'button2Text'
+                        text: 'user.details.lastname'
                     }
                 }]
             }],
@@ -84,7 +93,7 @@ class MainContainer extends Viewport {
                 width     : 300,
 
                 bind: {
-                    value: 'button1Text'
+                    value: 'user.details.firstname'
                 },
 
                 listeners: {
@@ -98,7 +107,7 @@ class MainContainer extends Viewport {
                 width     : 300,
 
                 bind: {
-                    value: 'button2Text'
+                    value: 'user.details.lastname'
                 },
 
                 listeners: {

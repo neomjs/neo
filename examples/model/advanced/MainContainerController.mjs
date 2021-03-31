@@ -1,16 +1,16 @@
 import Component from '../../../src/controller/Component.mjs';
 
 /**
- * @class Neo.examples.model.inline.MainContainerController
+ * @class Neo.examples.model.advanced.MainContainerController
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.examples.model.inline.MainContainerController'
+         * @member {String} className='Neo.examples.model.advanced.MainContainerController'
          * @protected
          */
-        className: 'Neo.examples.model.inline.MainContainerController'
+        className: 'Neo.examples.model.advanced.MainContainerController'
     }}
 
     /**
@@ -33,7 +33,15 @@ class MainContainerController extends Component {
      *
      * @param {Object} data
      */
-    onLogModelIntoConsoleButtonClick(data) {
+    onLogChildModelIntoConsoleButtonClick(data) {
+        console.log(this.getReference('panel').model);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onLogMainModelIntoConsoleButtonClick(data) {
         console.log(this.getModel());
     }
 
@@ -62,7 +70,11 @@ class MainContainerController extends Component {
      * @param {String} value
      */
     updateButton1Text(value) {
-        this.getModel().data['button1Text'] = value;
+        // test to access a child model instead to check if the data value bubbles up
+        this.getReference('panel').getModel().setData('button1Text', value);
+
+        // of course a direct access will work as well
+        // this.getModel().data['button1Text'] = value;
     }
 
     /**
@@ -70,7 +82,7 @@ class MainContainerController extends Component {
      * @param {String} value
      */
     updateButton2Text(value) {
-        this.getModel().setData({
+        this.getReference('panel').getModel().setData({
             button2Text: value
         });
     }

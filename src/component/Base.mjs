@@ -57,6 +57,19 @@ class Base extends CoreBase {
          */
         autoRender: false,
         /**
+         * Bind configs to model.Component data properties.
+         * Example for a button.Base:
+         * @example
+         * {
+         *     bind: {
+         *         text: 'myDataProperty.foo.bar'
+         *     }
+         * }
+         * @see https://github.com/neomjs/neo/blob/dev/examples/model/inline/MainContainer.mjs
+         * @member {Object|null} bind=null
+         */
+        bind: null,
+        /**
          * manager.Focus will change this flag on focusin & out dom events
          * @member {Boolean} containsFocus_=false
          * @protected
@@ -730,9 +743,13 @@ class Base extends CoreBase {
             oldValue.destroy();
         }
 
-        return ClassSystemUtil.beforeSetInstance(value, null, {
-            owner: this
-        });
+        if (value) {
+            return ClassSystemUtil.beforeSetInstance(value, 'Neo.model.Component', {
+                owner: this
+            });
+        }
+
+        return null;
     }
 
     /**
@@ -807,8 +824,22 @@ class Base extends CoreBase {
      * todo: unregister events
      */
     destroy(updateParentVdom=false, silent=false) {
-        let me = this,
-            parent, parentVdom;
+        let me          = this,
+            parent      = Neo.getComponent(me.parentId),
+            parentModel = parent && parent.getModel(),
+            parentVdom;
+
+        if (parentModel) {
+            parentModel.removeBindings(me.id);
+        }
+
+        if (me.controller) {
+            me.controller.destroy();
+        }
+
+        if (me.model) {
+            me.model.destroy();
+        }
 
         if (updateParentVdom && me.parentId) {
             if (me.parentId === 'document.body') {
@@ -818,7 +849,6 @@ class Base extends CoreBase {
                     deltas : [{action: 'removeNode', id: me.vdom.id}]
                 });
             } else {
-                parent     = Neo.getComponent(me.parentId);
                 parentVdom = parent.vdom;
 
                 VDomUtil.removeVdomChild(parentVdom, me.vdom.id);
@@ -826,7 +856,7 @@ class Base extends CoreBase {
             }
         }
 
-        ComponentManager.unregister(this);
+        ComponentManager.unregister(me);
 
         super.destroy();
     }
@@ -837,7 +867,7 @@ class Base extends CoreBase {
      * @returns {Neo.core.Base} The matching instance or null
      */
     down(config) {
-        return ComponentManager.down(this.id, config);
+        return ComponentManager.down(this, config);
     }
 
     /**

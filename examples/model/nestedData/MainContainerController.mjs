@@ -1,16 +1,16 @@
 import Component from '../../../src/controller/Component.mjs';
 
 /**
- * @class Neo.examples.model.inline.MainContainerController
+ * @class Neo.examples.model.nestedData.MainContainerController
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.examples.model.inline.MainContainerController'
+         * @member {String} className='Neo.examples.model.nestedData.MainContainerController'
          * @protected
          */
-        className: 'Neo.examples.model.inline.MainContainerController'
+        className: 'Neo.examples.model.nestedData.MainContainerController'
     }}
 
     /**
@@ -18,7 +18,7 @@ class MainContainerController extends Component {
      * @param {Object} data
      */
     onButton1Click(data) {
-        this.updateButton1Text('Button 1');
+        this.updateButton1Text('Nils');
     }
 
     /**
@@ -26,7 +26,7 @@ class MainContainerController extends Component {
      * @param {Object} data
      */
     onButton2Click(data) {
-        this.updateButton2Text('Button 2');
+        this.updateButton2Text('Dehl');
     }
 
     /**
@@ -62,7 +62,7 @@ class MainContainerController extends Component {
      * @param {String} value
      */
     updateButton1Text(value) {
-        this.getModel().data['button1Text'] = value;
+        this.getModel().data.user.details.firstname = value;
     }
 
     /**
@@ -71,7 +71,8 @@ class MainContainerController extends Component {
      */
     updateButton2Text(value) {
         this.getModel().setData({
-            button2Text: value
+            'user.details.lastname': value,
+            'foo.bar.baz'          : 'hello'
         });
     }
 }

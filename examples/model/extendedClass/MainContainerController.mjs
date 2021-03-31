@@ -33,8 +33,18 @@ class MainContainerController extends Component {
      *
      * @param {Object} data
      */
+    onLogModelIntoConsoleButtonClick(data) {
+        console.log(this.getModel());
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onTextField1Change(data) {
-        this.updateButton1Text(data.value);
+        if (data.oldValue !== null) {
+            this.updateButton1Text(data.value);
+        }
     }
 
     /**
@@ -42,7 +52,9 @@ class MainContainerController extends Component {
      * @param {Object} data
      */
     onTextField2Change(data) {
-        this.updateButton2Text(data.value);
+        if (data.oldValue !== null) {
+            this.updateButton2Text(data.value);
+        }
     }
 
     /**
