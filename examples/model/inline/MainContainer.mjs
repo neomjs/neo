@@ -47,6 +47,11 @@ class MainContainer extends Viewport {
             module: Panel,
 
             containerConfig: {
+                layout: {
+                    ntype: 'vbox',
+                    align: 'start'
+                },
+
                 style: {
                     padding: '20px'
                 }
@@ -83,7 +88,7 @@ class MainContainer extends Viewport {
                 flex      : 'none',
                 labelText : 'Button1 text:',
                 labelWidth: 110,
-                maxWidth  : 300,
+                width     : 300,
 
                 bind: {
                     value: 'button1Text'
@@ -97,7 +102,7 @@ class MainContainer extends Viewport {
                 flex      : 'none',
                 labelText : 'Button2 text:',
                 labelWidth: 110,
-                maxWidth  : 300,
+                width     : 300,
 
                 bind: {
                     value: 'button2Text'
@@ -106,6 +111,11 @@ class MainContainer extends Viewport {
                 listeners: {
                     change: 'onTextField2Change'
                 }
+            }, {
+                ntype  : 'button',
+                handler: 'onLogModelIntoConsoleButtonClick',
+                style  : {marginTop: '2em'},
+                text   : 'Log model into console'
             }]
         }]
     }}

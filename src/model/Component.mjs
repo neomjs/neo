@@ -2,7 +2,7 @@ import Base       from '../core/Base.mjs';
 import Observable from '../core/Observable.mjs';
 
 /**
- * An optional component model for adding bindings to configs
+ * An optional component (view) model for adding bindings to configs
  * @class Neo.model.Component
  * @extends Neo.core.Base
  */
