@@ -34,7 +34,7 @@ class MainContainerController extends Component {
     }
 
     /**
-     * Triggered after the button1Text config got changed
+     * Triggered after the button2Text config got changed
      * @param {String} value
      * @param {String} oldValue
      * @protected
