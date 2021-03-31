@@ -111,11 +111,6 @@ class MainContainer extends Viewport {
                 listeners: {
                     change: 'onTextField2Change'
                 }
-            }, {
-                ntype  : 'button',
-                handler: 'onLogModelIntoConsoleButtonClick',
-                style  : {marginTop: '2em'},
-                text   : 'Log model into console'
             }]
         }]
     }}
