@@ -77,6 +77,9 @@ class MainContainerController extends Component {
         this.button2Text = data.value;
     }
 
+    /**
+     *
+     */
     onViewParsed() {
         let me = this;
 
