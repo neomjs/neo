@@ -12,7 +12,7 @@ const fs                 = require('fs'),
       webpack            = require('webpack');
 
 let excludeExamples = false,
-    basePath, config, i, indexPath, treeLevel, workerBasePath;
+    config, i;
 
 if (fs.existsSync(configPath)) {
     config          = require(configPath);
@@ -31,77 +31,66 @@ if (!buildTarget.folder) {
     buildTarget.folder = 'dist/production';
 }
 
+function createHtmlWebpackPlugin(value) {
+    let basePath       = '',
+        workerBasePath = '',
+        treeLevel      = value.output.split('/').length,
+        indexPath;
+
+    for (i=0; i < treeLevel; i++)  {
+        basePath += '../';
+
+        if (i > 1) {
+            workerBasePath += '../';
+        }
+    }
+
+    indexPath = path.resolve(processRoot, buildTarget.folder) + value.output + 'index.html';
+
+    plugins.push(new HtmlWebpackPlugin({
+        chunks  : [],
+        filename: indexPath,
+        template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
+        templateParameters: {
+            appPath         : value.output + 'app.mjs',
+            basePath,
+            bodyTag         : value.bodyTag || config.bodyTag,
+            environment     : 'dist/production',
+            mainPath        : workerBasePath + 'main.js',
+            mainThreadAddons: value.mainThreadAddons || "'Stylesheet'",
+            themes          : value.themes           || "'neo-theme-light', 'neo-theme-dark'",
+            title           : value.title,
+            useSharedWorkers: value.useSharedWorkers || false,
+            workerBasePath
+        }
+    }));
+}
+
+function createHtmlWebpackPlugins(config) {
+    let firstProperty;
+
+    Object.entries(config).forEach(([key, value]) => {
+        firstProperty = value[Object.keys(value)[0]];
+
+        if (typeof firstProperty === 'object') {
+            createHtmlWebpackPlugins(value);
+        } else {
+            createHtmlWebpackPlugin(value);
+        }
+    });
+}
+
 module.exports = env => {
     const insideNeo = env.insideNeo == 'true';
 
     if (config.apps) {
         Object.entries(config.apps).forEach(([key, value]) => {
-            basePath       = '';
-            workerBasePath = '';
-            treeLevel      = value.output.split('/').length;
-
-            for (i=0; i < treeLevel; i++)  {
-                basePath += '../';
-
-                if (i > 1) {
-                    workerBasePath += '../';
-                }
-            }
-
-            indexPath = path.resolve(processRoot, buildTarget.folder) + value.output + 'index.html';
-
-            plugins.push(new HtmlWebpackPlugin({
-                chunks  : [],
-                filename: indexPath,
-                template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
-                templateParameters: {
-                    appPath         : value.output + 'app.mjs',
-                    basePath,
-                    bodyTag         : value.bodyTag || config.bodyTag,
-                    environment     : 'dist/production',
-                    mainPath        : workerBasePath + 'main.js',
-                    mainThreadAddons: value.mainThreadAddons || "'Stylesheet'",
-                    themes          : value.themes           || "'neo-theme-light', 'neo-theme-dark'",
-                    title           : value.title,
-                    useSharedWorkers: value.useSharedWorkers || false,
-                    workerBasePath
-                }
-            }));
+            createHtmlWebpackPlugin(value);
         });
     }
 
     if (!excludeExamples && examplesConfig.examples) {
-        Object.entries(examplesConfig.examples).forEach(([key, value]) => {
-            basePath       = '';
-            workerBasePath = '';
-            treeLevel      = value.output.split('/').length;
-
-            for (i=0; i < treeLevel; i++)  {
-                basePath += '../';
-
-                if (i > 1) {
-                    workerBasePath += '../';
-                }
-            }
-
-            plugins.push(new HtmlWebpackPlugin({
-                chunks  : [],
-                filename: path.resolve(processRoot, buildTarget.folder) + value.output + 'index.html',
-                template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
-                templateParameters: {
-                    appPath         : value.output + 'app.mjs',
-                    basePath,
-                    bodyTag         : value.bodyTag || config.bodyTag,
-                    environment     : 'dist/production',
-                    mainPath        : workerBasePath + 'main.js',
-                    mainThreadAddons: value.mainThreadAddons || "'Stylesheet'",
-                    themes          : value.themes           || "'neo-theme-light', 'neo-theme-dark'",
-                    title           : value.title,
-                    useSharedWorkers: value.useSharedWorkers || false,
-                    workerBasePath
-                }
-            }));
-        });
+        createHtmlWebpackPlugins(examplesConfig.examples);
     }
 
     return {
