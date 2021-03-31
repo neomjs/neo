@@ -116,6 +116,26 @@
             "output": "/examples/list/chip/",
             "title": "Neo List"
         },
+        "modelAdvanced": {
+            "input": "./examples/model/advanced/app.mjs",
+            "output": "/examples/model/advanced/",
+            "title": "model.Component: advanced"
+        },
+        "modelExtendedClass": {
+            "input": "./examples/model/extendedClass/app.mjs",
+            "output": "/examples/model/extendedClass/",
+            "title": "model.Component: extended class"
+        },
+        "modelInline": {
+            "input": "./examples/model/inline/app.mjs",
+            "output": "/examples/model/inline/",
+            "title": "model.Component: inline definition"
+        },
+        "modelNestedData": {
+            "input": "./examples/model/nestedData/app.mjs",
+            "output": "/examples/model/nestedData/",
+            "title": "model.Component: nested data"
+        },
         "numberfield": {
             "input": "./examples/form/field/number/app.mjs",
             "output": "/examples/form/field/number/",
