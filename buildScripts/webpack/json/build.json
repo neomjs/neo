@@ -134,6 +134,12 @@
             "themes": "'neo-theme-dark'",
             "title": "model.Component: inline definition"
         },
+        "modelInlineNoModel": {
+            "input": "./examples/model/inlineNoModel/app.mjs",
+            "output": "/examples/model/inlineNoModel/",
+            "themes": "'neo-theme-dark'",
+            "title": "inline example without using a model.Component"
+        },
         "modelNestedData": {
             "input": "./examples/model/nestedData/app.mjs",
             "output": "/examples/model/nestedData/",
