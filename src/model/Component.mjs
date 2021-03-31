@@ -274,7 +274,8 @@ class Component extends Base {
      * @param {*} oldValue
      */
     onDataPropertyChange(key, value, oldValue) {
-        let binding = this.bindings && this.bindings[key],
+        let me      = this,
+            binding = me.bindings && me.bindings[key],
             component, config;
 
         if (binding) {
@@ -291,6 +292,13 @@ class Component extends Base {
                 }
             });
         }
+
+        me.fire('dataPropertyChange', {
+            key     : key,
+            id      : me.id,
+            oldValue: oldValue,
+            value   : value
+        });
     }
 
     /**
