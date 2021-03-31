@@ -18,58 +18,69 @@
     },
     "examples": {
         "button": {
-            "input": "./examples/button/base/app.mjs",
-            "output": "/examples/button/base/",
-            "title": "Neo Button"
+            "base": {
+                "input": "./examples/button/base/app.mjs",
+                "output": "/examples/button/base/",
+                "title": "Neo Button"
+            },
+            "split": {
+                "input": "./examples/button/split/app.mjs",
+                "output": "/examples/button/split/",
+                "title": "Neo Button"
+            }
         },
-        "calendarBasic": {
-            "input": "./examples/calendar/basic/app.mjs",
-            "mainThreadAddons": "'DragDrop', 'Stylesheet'",
-            "output": "/examples/calendar/basic/",
-            "title": "neo.mjs Calendar Basic"
+        "calendar": {
+            "basic": {
+                "input": "./examples/calendar/basic/app.mjs",
+                "mainThreadAddons": "'DragDrop', 'Stylesheet'",
+                "output": "/examples/calendar/basic/",
+                "title": "neo.mjs Calendar Basic"
+            }
         },
-        "chip": {
-            "input": "./examples/component/chip/app.mjs",
-            "output": "/examples/component/chip/",
-            "title": "Neo Chip"
-        },
-        "chipfield": {
-            "input": "./examples/form/field/chip/app.mjs",
-            "output": "/examples/form/field/chip/",
-            "title": "Neo ChipField"
-        },
-        "circle": {
-            "input": "./examples/component/circle/app.mjs",
-            "output": "/examples/component/circle/",
-            "title": "Neo Circle"
+        "component": {
+            "chip": {
+                "input": "./examples/component/chip/app.mjs",
+                "output": "/examples/component/chip/",
+                "title": "Neo Chip"
+            },
+            "circle": {
+                "input": "./examples/component/circle/app.mjs",
+                "output": "/examples/component/circle/",
+                "title": "Neo Circle"
+            },
+            "coronaGallery": {
+                "input": "./examples/component/coronaGallery/app.mjs",
+                "output": "/examples/component/coronaGallery/",
+                "themes": "'neo-theme-dark'",
+                "title": "COVID19 Gallery"
+            },
+            "coronaHelix": {
+                "input": "./examples/component/coronaHelix/app.mjs",
+                "output": "/examples/component/coronaHelix/",
+                "themes": "'neo-theme-dark'",
+                "title": "COVID19 Helix"
+            },
+            "dateSelector": {
+                "input": "./examples/component/dateSelector/app.mjs",
+                "output": "/examples/component/dateSelector/",
+                "title": "Neo DateSelector"
+            },
+            "gallery": {
+                "input": "./examples/component/gallery/app.mjs",
+                "output": "/examples/component/gallery/",
+                "title": "Neo Gallery"
+            },
+            "helix": {
+                "input": "./examples/component/helix/app.mjs",
+                "output": "/examples/component/helix/",
+                "title": "Neo Helix"
+            }
         },
         "container": {
             "bodyTag": "<body style='margin: 10px'><p>Container Demo</p><div id='main-container'></div>",
             "input": "./examples/container/app.mjs",
             "output": "/examples/container/",
             "title": "Neo Containers"
-        },
-        "coronaGallery": {
-            "input": "./examples/component/coronaGallery/app.mjs",
-            "output": "/examples/component/coronaGallery/",
-            "themes": "'neo-theme-dark'",
-            "title": "COVID19 Gallery"
-        },
-        "coronaHelix": {
-            "input": "./examples/component/coronaHelix/app.mjs",
-            "output": "/examples/component/coronaHelix/",
-            "themes": "'neo-theme-dark'",
-            "title": "COVID19 Helix"
-        },
-        "datefield": {
-            "input": "./examples/form/field/date/app.mjs",
-            "output": "/examples/form/field/date/",
-            "title": "Neo DateField"
-        },
-        "dateSelector": {
-            "input": "./examples/component/dateSelector/app.mjs",
-            "output": "/examples/component/dateSelector/",
-            "title": "Neo DateSelector"
         },
         "dialog": {
             "input": "./examples/dialog/app.mjs",
@@ -83,73 +94,101 @@
             "output": "/docs/",
             "title": "Neo Docs"
         },
-        "emailfield": {
-            "input": "./examples/form/field/email/app.mjs",
-            "output": "/examples/form/field/email/",
-            "title": "Neo EmailField"
-        },
         "fields": {
             "bodyTag": "<body style='margin: 10px'><p>Fields Demo</p><div id='main-container'></div>",
             "input": "./examples/fields/app.mjs",
             "output": "/examples/fields/",
             "title": "Neo Fields"
         },
-        "gallery": {
-            "input": "./examples/component/gallery/app.mjs",
-            "output": "/examples/component/gallery/",
-            "title": "Neo Gallery"
+        "form": {
+            "field": {
+                "chip": {
+                    "input": "./examples/form/field/chip/app.mjs",
+                    "output": "/examples/form/field/chip/",
+                    "title": "Neo ChipField"
+                },
+                "date": {
+                    "input": "./examples/form/field/date/app.mjs",
+                    "output": "/examples/form/field/date/",
+                    "title": "Neo DateField"
+                },
+                "email": {
+                    "input": "./examples/form/field/email/app.mjs",
+                    "output": "/examples/form/field/email/",
+                    "title": "Neo EmailField"
+                },
+                "number": {
+                    "input": "./examples/form/field/number/app.mjs",
+                    "output": "/examples/form/field/number/",
+                    "title": "Neo NumberField"
+                },
+                "picker": {
+                    "input": "./examples/form/field/picker/app.mjs",
+                    "output": "/examples/form/field/picker/",
+                    "title": "Neo PickerField"
+                },
+                "select": {
+                    "input": "./examples/form/field/select/app.mjs",
+                    "output": "/examples/form/field/select/",
+                    "title": "Neo SelectField"
+                },
+                "text": {
+                    "input": "./examples/form/field/text/app.mjs",
+                    "output": "/examples/form/field/text/",
+                    "title": "Neo TextField"
+                },
+                "time": {
+                    "input": "./examples/form/field/time/app.mjs",
+                    "output": "/examples/form/field/time/",
+                    "title": "Neo TimeField"
+                }
+            }
         },
-        "helix": {
-            "input": "./examples/component/helix/app.mjs",
-            "output": "/examples/component/helix/",
-            "title": "Neo Helix"
+        "list": {
+            "base": {
+                "input": "./examples/list/base/app.mjs",
+                "mainThreadAddons": "'DragDrop', 'Stylesheet'",
+                "output": "/examples/list/base/",
+                "title": "Neo List"
+            },
+            "chip": {
+                "input": "./examples/list/chip/app.mjs",
+                "mainThreadAddons": "'DragDrop', 'Stylesheet'",
+                "output": "/examples/list/chip/",
+                "title": "Neo List"
+            }
         },
-        "listBase": {
-            "input": "./examples/list/base/app.mjs",
-            "mainThreadAddons": "'DragDrop', 'Stylesheet'",
-            "output": "/examples/list/base/",
-            "title": "Neo List"
-        },
-        "listChip": {
-            "input": "./examples/list/chip/app.mjs",
-            "mainThreadAddons": "'DragDrop', 'Stylesheet'",
-            "output": "/examples/list/chip/",
-            "title": "Neo List"
-        },
-        "modelAdvanced": {
-            "input": "./examples/model/advanced/app.mjs",
-            "output": "/examples/model/advanced/",
-            "themes": "'neo-theme-dark'",
-            "title": "model.Component: advanced"
-        },
-        "modelExtendedClass": {
-            "input": "./examples/model/extendedClass/app.mjs",
-            "output": "/examples/model/extendedClass/",
-            "themes": "'neo-theme-dark'",
-            "title": "model.Component: extended class"
-        },
-        "modelInline": {
-            "input": "./examples/model/inline/app.mjs",
-            "output": "/examples/model/inline/",
-            "themes": "'neo-theme-dark'",
-            "title": "model.Component: inline definition"
-        },
-        "modelInlineNoModel": {
-            "input": "./examples/model/inlineNoModel/app.mjs",
-            "output": "/examples/model/inlineNoModel/",
-            "themes": "'neo-theme-dark'",
-            "title": "inline example without using a model.Component"
-        },
-        "modelNestedData": {
-            "input": "./examples/model/nestedData/app.mjs",
-            "output": "/examples/model/nestedData/",
-            "themes": "'neo-theme-dark'",
-            "title": "model.Component: nested data"
-        },
-        "numberfield": {
-            "input": "./examples/form/field/number/app.mjs",
-            "output": "/examples/form/field/number/",
-            "title": "Neo NumberField"
+        "model": {
+            "advanced": {
+                "input": "./examples/model/advanced/app.mjs",
+                "output": "/examples/model/advanced/",
+                "themes": "'neo-theme-dark'",
+                "title": "model.Component: advanced"
+            },
+            "extendedClass": {
+                "input": "./examples/model/extendedClass/app.mjs",
+                "output": "/examples/model/extendedClass/",
+                "themes": "'neo-theme-dark'",
+                "title": "model.Component: extended class"
+            },
+            "inline": {
+                "input": "./examples/model/inline/app.mjs",
+                "output": "/examples/model/inline/",
+                "themes": "'neo-theme-dark'",
+                "title": "model.Component: inline definition"
+            },
+            "inlineNoModel": {
+                "input": "./examples/model/inlineNoModel/app.mjs",
+                "output": "/examples/model/inlineNoModel/",
+                "themes": "'neo-theme-dark'",
+                "title": "inline example without using a model.Component"
+            },
+            "nestedData": {
+                "input": "./examples/model/nestedData/app.mjs",
+                "output": "/examples/model/nestedData/",
+                "themes": "'neo-theme-dark'",
+                "title": "model.Component: nested data"
+            }
         },
         "panel": {
             "bodyTag": "<body style='margin: 10px'><p>Panel Demo</p><div id='main-container'></div>",
@@ -157,31 +196,20 @@
             "output": "/examples/panel/",
             "title": "Neo Panels"
         },
-        "pickerfield": {
-            "input": "./examples/form/field/picker/app.mjs",
-            "output": "/examples/form/field/picker/",
-            "title": "Neo PickerField"
+        "tab": {
+            "container": {
+                "input": "./examples/tab/container/app.mjs",
+                "mainThreadAddons": "'DragDrop', 'Stylesheet'",
+                "output": "/examples/tab/container/",
+                "title": "Neo TabContainer"
+            }
         },
-        "selectfield": {
-            "input": "./examples/form/field/select/app.mjs",
-            "output": "/examples/form/field/select/",
-            "title": "Neo SelectField"
-        },
-        "splitButton": {
-            "input": "./examples/button/split/app.mjs",
-            "output": "/examples/button/split/",
-            "title": "Neo Button"
-        },
-        "tabContainer": {
-            "input": "./examples/tab/container/app.mjs",
-            "mainThreadAddons": "'DragDrop', 'Stylesheet'",
-            "output": "/examples/tab/container/",
-            "title": "Neo TabContainer"
-        },
-        "tableContainer": {
-            "input": "./examples/table/container/app.mjs",
-            "output": "/examples/table/container/",
-            "title": "Neo TableContainer"
+        "table": {
+            "container": {
+                "input": "./examples/table/container/app.mjs",
+                "output": "/examples/table/container/",
+                "title": "Neo TableContainer"
+            }
         },
         "tableFiltering": {
             "input": "./examples/tableFiltering/app.mjs",
@@ -205,16 +233,6 @@
             "mainThreadAddons": "'DragDrop', 'Stylesheet'",
             "output": "/examples/tabs/",
             "title": "Neo Tabs"
-        },
-        "textfield": {
-            "input": "./examples/form/field/text/app.mjs",
-            "output": "/examples/form/field/text/",
-            "title": "Neo TextField"
-        },
-        "timefield": {
-            "input": "./examples/form/field/time/app.mjs",
-            "output": "/examples/form/field/time/",
-            "title": "Neo TimeField"
         },
         "tree": {
             "input": "./examples/tree/app.mjs",
