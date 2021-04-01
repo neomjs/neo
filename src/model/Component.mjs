@@ -392,12 +392,12 @@ console.log('getData', key);
      *
      * @param {Neo.component.Base} [component=this.owner]
      */
-    resolveBindings(component=this.owner) {return;
+    resolveBindings(component=this.owner) {
         if (component.bind) {
             this.createBindings(component);
 
             Object.entries(component.bind).forEach(([key, value]) => {
-                component[key] = this.getData(value);
+                component[key] = this.resolveFormatter(value);
             });
         }
     }
