@@ -1,5 +1,9 @@
 import Base       from '../core/Base.mjs';
+import NeoArray   from '../util/Array.mjs';
 import Observable from '../core/Observable.mjs';
+
+const expressionContentRegex = /\${(.+?)}/g,
+      dataVariableRegex      = /data\.[a-zA-z0-9\._]+/g;
 
 /**
  * An optional component (view) model for adding bindings to configs
@@ -40,11 +44,7 @@ class Component extends Base {
          * @member {Neo.component.Base|null} owner=null
          * @protected
          */
-        owner: null,
-        /**
-         * @member {String[]} parseConfigArrays=['headers','items']
-         */
-        parseConfigArrays: ['headers', 'items']
+        owner: null
     }}
 
     /**
@@ -52,19 +52,9 @@ class Component extends Base {
      * @param {Object} config
      */
     constructor(config) {
+        Neo.currentWorker.isUsingViewModels = true;
         super(config);
-
-        let me = this;
-
-        me.bindings = {};
-
-        if (me.owner.isConstructed) {
-            me.resolveBindings();
-        } else {
-            me.owner.on('constructed', () => {
-                me.resolveBindings();
-            });
-        }
+        this.bindings = {};
     }
 
     /**
@@ -113,28 +103,56 @@ class Component extends Base {
      * Registers a new binding in case a matching data property does exist.
      * Otherwise it will use the closest model with a match.
      * @param {String} componentId
-     * @param {String} key
+     * @param {String} formatter
      * @param {String} value
      */
-    createBinding(componentId, key, value) {
+    createBindingByFormatter(componentId, formatter, value) {
+        let me            = this,
+            formatterVars = me.getFormatterVariables(formatter),
+            data, keyLeaf, parentModel, parentScope;
+
+        formatterVars.forEach(key => {
+            parentScope = me.getParentDataScope(key);
+            data        = parentScope.scope;
+            keyLeaf     = parentScope.key;
+
+            if (data[keyLeaf]) {
+                me.createBinding(componentId, key, value, formatter);
+            } else {
+                parentModel = me.getParent();
+
+                if (parentModel) {
+                    parentModel.createBinding(componentId, key, value, formatter);
+                } else {
+                    console.error('No model.Component found with the specified data property', value);
+                }
+            }
+        });
+    }
+
+    /**
+     * Registers a new binding in case a matching data property does exist.
+     * Otherwise it will use the closest model with a match.
+     * @param {String} componentId
+     * @param {String} key
+     * @param {String} value
+     * @param {String} formatter
+     */
+    createBinding(componentId, key, value, formatter) {
         let me          = this,
             parentScope = me.getParentDataScope(key),
             data        = parentScope.scope,
             keyLeaf     = parentScope.key,
-            bindings    = me.bindings,
-            parentModel;
+            bindingScope, parentModel;
 
         if (data[keyLeaf]) {
-            bindings[key] = bindings[key] || {};
-
-            bindings[key][componentId] = bindings[key][componentId] || [];
-
-            bindings[key][componentId].push(value);
+            bindingScope = Neo.ns(`${key}.${componentId}`, true, me.bindings);
+            bindingScope[value] = formatter;
         } else {
             parentModel = me.getParent();
 
             if (parentModel) {
-                parentModel.createBinding(componentId, key, value);
+                parentModel.createBinding(componentId, key, value, formatter);
             } else {
                 console.error('No model.Component found with the specified data property', value);
             }
@@ -147,7 +165,7 @@ class Component extends Base {
      */
     createBindings(component) {
         Object.entries(component.bind).forEach(([key, value]) => {
-            this.createBinding(component.id, value, key);
+            this.createBindingByFormatter(component.id, value, key);
         });
     }
 
@@ -198,9 +216,18 @@ class Component extends Base {
             },
 
             set(value) {
-                let oldValue = root['_' + key];
+                let _key     = `_${key}`,
+                    oldValue = root[_key];
 
-                root['_' + key] = value;
+                if (!root[_key]) {
+                    Object.defineProperty(root, _key, {
+                        enumerable: false,
+                        value     : value,
+                        writable  : true
+                    });
+                } else {
+                    root[_key] = value;
+                }
 
                 if (value !== oldValue) {
                     me.onDataPropertyChange(path ? path : key, value, oldValue);
@@ -228,10 +255,62 @@ class Component extends Base {
         parentModel = me.getParent();
 
         if (!parentModel) {
-            console.error(`data property "${key}" does not exist.`, me.id);
+            console.error(`data property '${key}' does not exist.`, me.id);
         }
 
         return parentModel.getData(key);
+    }
+
+    /**
+     * Extracts data variables from a given formatter string
+     * @param {String} value
+     */
+    getFormatterVariables(value) {
+        let parts  = value.match(expressionContentRegex) || [],
+            result = [],
+            dataVars;
+
+        parts.forEach(part => {
+            dataVars = part.match(dataVariableRegex) || [];
+
+            dataVars.forEach(variable => {
+                NeoArray.add(result, variable.substr(5)); // remove the "data." at the start
+            })
+        });
+
+        result.sort();
+
+        return result;
+    }
+
+    /**
+     * Returns the merged data
+     * @param {Object} data
+     * @returns {Object} data
+     */
+    getHierarchyData(data=this.getPlainData()) {
+        let me     = this,
+            parent = me.getParent();
+
+        if (parent) {
+            data = {
+                ...parent.getHierarchyData(data),
+                ...me.getPlainData()
+            };
+        } else {
+            return me.getPlainData();
+        }
+
+        return data;
+    }
+
+    /**
+     * Returns a plain version of this.data.
+     * This excludes the property getters & setters.
+     * @returns {Object}
+     */
+    getPlainData() {
+        return JSON.parse(JSON.stringify(this.data));
     }
 
     /**
@@ -279,12 +358,14 @@ class Component extends Base {
             component, config;
 
         if (binding) {
-            Object.entries(binding).forEach(([componentId, configArray]) => {
+            Object.entries(binding).forEach(([componentId, configObject]) => {
                 component = Neo.getComponent(componentId);
                 config    = {};
 
-                configArray.forEach(key => {
-                    config[key] = value;
+                Object.entries(configObject).forEach(([configField, formatter]) => {
+                    // we can not call me.resolveFormatter(), since a data property inside a parent model
+                    // could have changed which is relying on data properties inside a closer model
+                    config[configField] = component.getModel().resolveFormatter(formatter);
                 });
 
                 if (component) {
@@ -311,42 +392,9 @@ class Component extends Base {
 
         if (component.bind) {
             Object.entries(component.bind).forEach(([key, value]) => {
-                component[key] = me.getData(value);
+                component[key] = me.resolveFormatter(value);
             });
         }
-
-        me.parseConfigArrays.forEach(value => {
-            if (Array.isArray(component[value])) {
-                component[value].forEach(item => {
-                    if (!item.model) {
-                        me.parseConfig(item);
-                    }
-                });
-            }
-        });
-    }
-
-    /**
-     *
-     * @param {Neo.component.Base} [component=this.owner]
-     */
-    resolveBindings(component=this.owner) {
-        let me    = this,
-            items = component.items || [];
-
-        if (component.bind) {
-            me.createBindings(component);
-
-            Object.entries(component.bind).forEach(([key, value]) => {
-                component[key] = me.getData(value);
-            });
-        }
-
-        items.forEach(item => {
-            if (!item.model) {
-                me.resolveBindings(item);
-            }
-        });
     }
 
     /**
@@ -365,6 +413,28 @@ class Component extends Base {
         if (parentModel) {
             parentModel.removeBindings(componentId);
         }
+    }
+
+    /**
+     *
+     * @param {Neo.component.Base} [component=this.owner]
+     */
+    resolveBindings(component=this.owner) {
+        if (component.bind) {
+            this.createBindings(component);
+
+            Object.entries(component.bind).forEach(([key, value]) => {
+                component[key] = this.resolveFormatter(value);
+            });
+        }
+    }
+
+    /**
+     *
+     * @param {String} formatter
+     */
+    resolveFormatter(formatter) {
+        return new Function('let data=this.getHierarchyData(); return `' + formatter +'`;').call(this);
     }
 
     /**

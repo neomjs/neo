@@ -70,7 +70,7 @@ class MainContainer extends Viewport {
                     iconCls: 'fa fa-home',
 
                     bind: {
-                        text: 'button1Text'
+                        text: '${data.button1Text}'
                     }
                 }, {
                     handler: 'onButton2Click',
@@ -78,7 +78,7 @@ class MainContainer extends Viewport {
                     style  : {marginLeft: '10px'},
 
                     bind: {
-                        text: 'button2Text'
+                        text: '${data.button2Text}'
                     }
                 }]
             }],
@@ -91,7 +91,7 @@ class MainContainer extends Viewport {
                 width     : 300,
 
                 bind: {
-                    value: 'button1Text'
+                    value: '${data.button1Text}'
                 },
 
                 listeners: {
@@ -105,7 +105,7 @@ class MainContainer extends Viewport {
                 width     : 300,
 
                 bind: {
-                    value: 'button2Text'
+                    value: '${data.button2Text}'
                 },
 
                 listeners: {

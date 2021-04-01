@@ -30,7 +30,7 @@ class MainContainerController extends Component {
             width     : 300,
 
             bind: {
-                value: 'button3Text'
+                value: '${data.button3Text}'
             },
 
             listeners: {
@@ -46,7 +46,7 @@ class MainContainerController extends Component {
             style       : {marginLeft: '10px'},
 
             bind: {
-                text: 'button3Text'
+                text: '${data.button3Text}'
             }
         });
     }
@@ -117,7 +117,7 @@ class MainContainerController extends Component {
      */
     onTextField3Change(data) {
         if (data.oldValue !== null) {
-            this.updateButton3Text(data.value);
+            this.updateButton3Text(data.value || '');
         }
     }
 
@@ -127,7 +127,7 @@ class MainContainerController extends Component {
      */
     updateButton1Text(value) {
         // test to access a child model instead to check if the data value bubbles up
-        this.getReference('panel').getModel().setData('button1Text', value);
+        this.getReference('panel').getModel().setData('button1Text', value || '');
     }
 
     /**
@@ -136,7 +136,7 @@ class MainContainerController extends Component {
      */
     updateButton2Text(value) {
         this.getReference('panel').getModel().setData({
-            button2Text: value
+            button2Text: value || ''
         });
     }
 
