@@ -345,6 +345,10 @@ class Base extends Component {
                 }
 
                 item = Neo[item.className ? 'create' : 'ntype'](item);
+
+                if (model) {
+                    model.resolveBindings(item);
+                }
             } else {
                 Object.assign(item, {
                     appName    : me.appName,
