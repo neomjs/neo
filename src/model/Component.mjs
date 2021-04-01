@@ -1,4 +1,5 @@
 import Base       from '../core/Base.mjs';
+import NeoArray   from '../util/Array.mjs';
 import Observable from '../core/Observable.mjs';
 
 const expressionContentRegex = /\${(.+?)}/g,
@@ -235,21 +236,23 @@ console.log('getData', key);
     }
 
     /**
-     *
+     * Extracts data variables from a given formatter string
      * @param {String} value
      */
     getFormatterVariables(value) {
-        let parts = value.match(expressionContentRegex) || [],
+        let parts  = value.match(expressionContentRegex) || [],
+            result = [],
             dataVars;
 
         parts.forEach(part => {
-            console.log(part);
             dataVars = part.match(dataVariableRegex) || [];
 
-            console.log(dataVars);
+            NeoArray.add(result, part.match(dataVariableRegex) || []);
         });
 
-        console.log('getFormatterVariables', parts);
+        result.sort();
+
+        return result;
     }
 
     /**
