@@ -930,6 +930,10 @@ class Base extends CoreBase {
      * @returns {Neo.model.Component|null}
      */
     getModel(ntype) {
+        if (!Neo.currentWorker.isUsingViewModels) {
+            return null;
+        }
+
         return this.getConfigInstanceByNtype('model', ntype);
     }
 

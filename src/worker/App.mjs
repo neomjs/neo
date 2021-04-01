@@ -31,6 +31,11 @@ class App extends Base {
          */
         data: null,
         /**
+         * @member {Boolean} isUsingViewModels=false
+         * @protected
+         */
+        isUsingViewModels: false,
+        /**
          * @member {Boolean} singleton=true
          * @protected
          */
