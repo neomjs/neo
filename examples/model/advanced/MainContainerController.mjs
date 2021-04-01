@@ -71,7 +71,7 @@ class MainContainerController extends Component {
      *
      * @param {Object} data
      */
-    onButton3Click(data) {console.log(this);
+    onButton3Click(data) {
         this.updateButton3Text('Button 3');
     }
 
@@ -128,9 +128,6 @@ class MainContainerController extends Component {
     updateButton1Text(value) {
         // test to access a child model instead to check if the data value bubbles up
         this.getReference('panel').getModel().setData('button1Text', value);
-
-        // of course a direct access will work as well
-        // this.getModel().data['button1Text'] = value;
     }
 
     /**
