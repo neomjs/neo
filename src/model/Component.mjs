@@ -40,11 +40,7 @@ class Component extends Base {
          * @member {Neo.component.Base|null} owner=null
          * @protected
          */
-        owner: null,
-        /**
-         * @member {String[]} parseConfigArrays=['headers','items']
-         */
-        parseConfigArrays: ['headers', 'items']
+        owner: null
     }}
 
     /**
@@ -53,18 +49,7 @@ class Component extends Base {
      */
     constructor(config) {
         super(config);
-
-        let me = this;
-
-        me.bindings = {};
-
-        if (me.owner.isConstructed) {
-            me.resolveBindings();
-        } else {
-            me.owner.on('constructed', () => {
-                me.resolveBindings();
-            });
-        }
+        this.bindings = {};
     }
 
     /**
@@ -314,16 +299,6 @@ class Component extends Base {
                 component[key] = me.getData(value);
             });
         }
-
-        me.parseConfigArrays.forEach(value => {
-            if (Array.isArray(component[value])) {
-                component[value].forEach(item => {
-                    if (!item.model) {
-                        me.parseConfig(item);
-                    }
-                });
-            }
-        });
     }
 
     /**
@@ -331,22 +306,13 @@ class Component extends Base {
      * @param {Neo.component.Base} [component=this.owner]
      */
     resolveBindings(component=this.owner) {
-        let me    = this,
-            items = component.items || [];
-
         if (component.bind) {
-            me.createBindings(component);
+            this.createBindings(component);
 
             Object.entries(component.bind).forEach(([key, value]) => {
-                component[key] = me.getData(value);
+                component[key] = this.getData(value);
             });
         }
-
-        items.forEach(item => {
-            if (!item.model) {
-                me.resolveBindings(item);
-            }
-        });
     }
 
     /**

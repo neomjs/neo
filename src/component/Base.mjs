@@ -1041,10 +1041,11 @@ class Base extends CoreBase {
     initConfig(config, preventOriginalConfig) {
         super.initConfig(config, preventOriginalConfig);
 
-        let me = this;
+        let me    = this,
+            model = me.getModel();
 
-        if (me.model && me.model.constructor.isClass) { // todo: test if we can lazy load models
-            me.model.parseConfig();
+        if (model) {
+            model.parseConfig(me);
         }
 
         if (me.controller) {
@@ -1124,6 +1125,20 @@ class Base extends CoreBase {
                 me.mounted = true;
             });
         }
+    }
+
+    /**
+     *
+     */
+    onAfterConstructed() {
+        let me    = this,
+            model = me.getModel();
+
+        if (model) {
+            model.resolveBindings(me);
+        }
+
+        super.onAfterConstructed();
     }
 
     /**
