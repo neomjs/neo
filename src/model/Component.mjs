@@ -103,6 +103,46 @@ class Component extends Base {
      * Registers a new binding in case a matching data property does exist.
      * Otherwise it will use the closest model with a match.
      * @param {String} componentId
+     * @param {String} formatter
+     * @param {String} value
+     */
+    createBindingByFormatter(componentId, formatter, value) {
+        let me            = this,
+            formatterVars = me.getFormatterVariables(formatter),
+            bindings      = me.bindings,
+            data, keyLeaf, parentModel, parentScope;
+
+        console.log('createBindingByFormatter', componentId, formatterVars, value);
+
+        formatterVars.forEach(key => {
+            parentScope = me.getParentDataScope(key);
+            data        = parentScope.scope;
+            keyLeaf     = parentScope.key;
+
+            console.log(key, keyLeaf, data);
+
+            if (data[keyLeaf]) {
+                bindings[key] = bindings[key] || {};
+
+                bindings[key][componentId] = bindings[key][componentId] || [];
+
+                bindings[key][componentId].push(value);
+            } else {
+                parentModel = me.getParent();
+
+                if (parentModel) {
+                    parentModel.createBinding(componentId, key, value);
+                } else {
+                    console.error('No model.Component found with the specified data property', value);
+                }
+            }
+        });
+    }
+
+    /**
+     * Registers a new binding in case a matching data property does exist.
+     * Otherwise it will use the closest model with a match.
+     * @param {String} componentId
      * @param {String} key
      * @param {String} value
      */
@@ -139,7 +179,7 @@ class Component extends Base {
      */
     createBindings(component) {
         Object.entries(component.bind).forEach(([key, value]) => {
-            this.createBinding(component.id, value, key);
+            this.createBindingByFormatter(component.id, value, key);
         });
     }
 
@@ -247,7 +287,9 @@ console.log('getData', key);
         parts.forEach(part => {
             dataVars = part.match(dataVariableRegex) || [];
 
-            NeoArray.add(result, part.match(dataVariableRegex) || []);
+            dataVars.forEach(variable => {
+                NeoArray.add(result, variable.substr(5)); // remove the "data." at the start
+            })
         });
 
         result.sort();
