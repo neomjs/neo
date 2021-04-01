@@ -110,6 +110,8 @@ class Component extends Base {
             bindings    = me.bindings,
             parentModel;
 
+        console.log('createBinding', componentId, key, value);
+
         if (data[keyLeaf]) {
             bindings[key] = bindings[key] || {};
 
@@ -171,7 +173,7 @@ class Component extends Base {
      * @param {String} path
      * @param {Object} [root=this.data]
      */
-    createDataProperty(key, path, root=this.data) {
+    createDataProperty(key, path, root=this.data) {console.log('createDataProperty', key, path);
         let me = this;
 
         if (path && path.startsWith('data.')) {
@@ -184,9 +186,18 @@ class Component extends Base {
             },
 
             set(value) {
-                let oldValue = root['_' + key];
+                let _key     = `_${key}`,
+                    oldValue = root[_key];
 
-                root['_' + key] = value;
+                if (!root[_key]) {
+                    Object.defineProperty(root, _key, {
+                        enumerable: false,
+                        value     : value,
+                        writable  : true
+                    });
+                } else {
+                    root[_key] = value;
+                }
 
                 if (value !== oldValue) {
                     me.onDataPropertyChange(path ? path : key, value, oldValue);
@@ -206,7 +217,7 @@ class Component extends Base {
             data        = parentScope.scope,
             keyLeaf     = parentScope.key,
             parentModel;
-
+console.log('getData', key);
         if (data.hasOwnProperty(keyLeaf)) {
             return data[keyLeaf];
         }
@@ -214,10 +225,40 @@ class Component extends Base {
         parentModel = me.getParent();
 
         if (!parentModel) {
-            console.error(`data property "${key}" does not exist.`, me.id);
+            console.error(`data property '${key}' does not exist.`, me.id);
         }
 
         return parentModel.getData(key);
+    }
+
+    /**
+     * Returns the merged data
+     * @param {Object} data
+     * @returns {Object} data
+     */
+    getHierarchyData(data=this.getPlainData()) {
+        let me     = this,
+            parent = me.getParent();
+
+        if (parent) {
+            data = {
+                ...parent.getHierarchyData(data),
+                ...me.getPlainData()
+            };
+        } else {
+            return me.getPlainData();
+        }
+
+        return data;
+    }
+
+    /**
+     * Returns a plain version of this.data.
+     * This excludes the property getters & setters.
+     * @returns {Object}
+     */
+    getPlainData() {
+        return JSON.parse(JSON.stringify(this.data));
     }
 
     /**
@@ -297,21 +338,10 @@ class Component extends Base {
 
         if (component.bind) {
             Object.entries(component.bind).forEach(([key, value]) => {
-                component[key] = me.getData(value);
-            });
-        }
-    }
-
-    /**
-     *
-     * @param {Neo.component.Base} [component=this.owner]
-     */
-    resolveBindings(component=this.owner) {
-        if (component.bind) {
-            this.createBindings(component);
-
-            Object.entries(component.bind).forEach(([key, value]) => {
-                component[key] = this.getData(value);
+                console.log('parseConfig', value);
+                console.log('resolveFormatter', me.resolveFormatter(value));
+                console.log('getHierarchyData', me.id, me.getHierarchyData())
+                component[key] = me.resolveFormatter(value);
             });
         }
     }
@@ -332,6 +362,28 @@ class Component extends Base {
         if (parentModel) {
             parentModel.removeBindings(componentId);
         }
+    }
+
+    /**
+     *
+     * @param {Neo.component.Base} [component=this.owner]
+     */
+    resolveBindings(component=this.owner) {return;
+        if (component.bind) {
+            this.createBindings(component);
+
+            Object.entries(component.bind).forEach(([key, value]) => {
+                component[key] = this.getData(value);
+            });
+        }
+    }
+
+    /**
+     *
+     * @param {String} value
+     */
+    resolveFormatter(value) {
+        return new Function('let data=this.getHierarchyData(); return `' + value +'`;').call(this);
     }
 
     /**

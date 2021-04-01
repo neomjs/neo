@@ -30,7 +30,7 @@ class MainContainerController extends Component {
             width     : 300,
 
             bind: {
-                value: 'button3Text'
+                value: '${data.button3Text}'
             },
 
             listeners: {
@@ -46,7 +46,7 @@ class MainContainerController extends Component {
             style       : {marginLeft: '10px'},
 
             bind: {
-                text: 'button3Text'
+                text: '${data.button3Text}'
             }
         });
     }
