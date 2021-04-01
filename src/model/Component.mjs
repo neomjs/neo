@@ -109,29 +109,20 @@ class Component extends Base {
     createBindingByFormatter(componentId, formatter, value) {
         let me            = this,
             formatterVars = me.getFormatterVariables(formatter),
-            bindings      = me.bindings,
             data, keyLeaf, parentModel, parentScope;
-
-        console.log('createBindingByFormatter', componentId, formatterVars, value);
 
         formatterVars.forEach(key => {
             parentScope = me.getParentDataScope(key);
             data        = parentScope.scope;
             keyLeaf     = parentScope.key;
 
-            console.log(key, keyLeaf, data);
-
             if (data[keyLeaf]) {
-                bindings[key] = bindings[key] || {};
-
-                bindings[key][componentId] = bindings[key][componentId] || [];
-
-                bindings[key][componentId].push(value);
+                me.createBinding(componentId, key, value, formatter);
             } else {
                 parentModel = me.getParent();
 
                 if (parentModel) {
-                    parentModel.createBinding(componentId, key, value);
+                    parentModel.createBinding(componentId, key, value, formatter);
                 } else {
                     console.error('No model.Component found with the specified data property', value);
                 }
@@ -145,28 +136,25 @@ class Component extends Base {
      * @param {String} componentId
      * @param {String} key
      * @param {String} value
+     * @param {String} formatter
      */
-    createBinding(componentId, key, value) {
+    createBinding(componentId, key, value, formatter) {
         let me          = this,
             parentScope = me.getParentDataScope(key),
             data        = parentScope.scope,
             keyLeaf     = parentScope.key,
-            bindings    = me.bindings,
-            parentModel;
+            bindingScope, parentModel;
 
-        console.log('createBinding', componentId, key, value);
+        console.log('createBinding', componentId, key, value, formatter);
 
         if (data[keyLeaf]) {
-            bindings[key] = bindings[key] || {};
-
-            bindings[key][componentId] = bindings[key][componentId] || [];
-
-            bindings[key][componentId].push(value);
+            bindingScope = Neo.ns(`${key}.${componentId}`, true, me.bindings);
+            bindingScope[value] = formatter;
         } else {
             parentModel = me.getParent();
 
             if (parentModel) {
-                parentModel.createBinding(componentId, key, value);
+                parentModel.createBinding(componentId, key, value, formatter);
             } else {
                 console.error('No model.Component found with the specified data property', value);
             }
