@@ -1,6 +1,9 @@
 import Base       from '../core/Base.mjs';
 import Observable from '../core/Observable.mjs';
 
+const expressionContentRegex = /\${(.+?)}/g,
+      dataVariableRegex      = /data\.[a-zA-z0-9\._]+/g;
+
 /**
  * An optional component (view) model for adding bindings to configs
  * @class Neo.model.Component
@@ -236,12 +239,12 @@ console.log('getData', key);
      * @param {String} value
      */
     getFormatterVariables(value) {
-        let parts = value.match(/\${(.+?)}/g) || [], // only look at the ${} parts inside the formatter string
+        let parts = value.match(expressionContentRegex) || [],
             dataVars;
 
         parts.forEach(part => {
             console.log(part);
-            dataVars = part.match(/data\.[a-zA-z0-9\._]+/g) || [];
+            dataVars = part.match(dataVariableRegex) || [];
 
             console.log(dataVars);
         });
