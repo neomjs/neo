@@ -309,7 +309,7 @@ class Base extends Component {
         let me    = this,
             items = me.items,
             vdom  = me.vdom,
-            i, len;
+            i, len, model;
 
         if (Array.isArray(item)) {
             i   = 0;
@@ -335,6 +335,14 @@ class Base extends Component {
 
                     ...item
                 };
+
+                if (!item.model) {
+                    model = me.getModel();
+
+                    if (model) {
+                        model.parseConfig(item);
+                    }
+                }
 
                 item = Neo[item.className ? 'create' : 'ntype'](item);
             } else {
