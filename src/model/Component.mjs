@@ -145,8 +145,6 @@ class Component extends Base {
             keyLeaf     = parentScope.key,
             bindingScope, parentModel;
 
-        console.log('createBinding', componentId, key, value, formatter);
-
         if (data[keyLeaf]) {
             bindingScope = Neo.ns(`${key}.${componentId}`, true, me.bindings);
             bindingScope[value] = formatter;
@@ -249,7 +247,7 @@ class Component extends Base {
             data        = parentScope.scope,
             keyLeaf     = parentScope.key,
             parentModel;
-console.log('getData', key);
+
         if (data.hasOwnProperty(keyLeaf)) {
             return data[keyLeaf];
         }
@@ -360,12 +358,14 @@ console.log('getData', key);
             component, config;
 
         if (binding) {
-            Object.entries(binding).forEach(([componentId, configArray]) => {
+            Object.entries(binding).forEach(([componentId, configObject]) => {
                 component = Neo.getComponent(componentId);
                 config    = {};
 
-                configArray.forEach(key => {
-                    config[key] = value;
+                Object.entries(configObject).forEach(([configField, formatter]) => {
+                    // we can not call me.resolveFormatter(), since a data property inside a parent model
+                    // could have changed which is relying on data properties inside a closer model
+                    config[configField] = component.getModel().resolveFormatter(formatter);
                 });
 
                 if (component) {
@@ -392,9 +392,6 @@ console.log('getData', key);
 
         if (component.bind) {
             Object.entries(component.bind).forEach(([key, value]) => {
-                console.log('parseConfig', value);
-                console.log('resolveFormatter', me.resolveFormatter(value));
-                console.log('getFormatterVariables', me.id, me.getFormatterVariables(value));
                 component[key] = me.resolveFormatter(value);
             });
         }
@@ -434,10 +431,10 @@ console.log('getData', key);
 
     /**
      *
-     * @param {String} value
+     * @param {String} formatter
      */
-    resolveFormatter(value) {
-        return new Function('let data=this.getHierarchyData(); return `' + value +'`;').call(this);
+    resolveFormatter(formatter) {
+        return new Function('let data=this.getHierarchyData(); return `' + formatter +'`;').call(this);
     }
 
     /**
