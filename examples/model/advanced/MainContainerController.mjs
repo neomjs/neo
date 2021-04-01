@@ -17,6 +17,44 @@ class MainContainerController extends Component {
      *
      * @param {Object} data
      */
+    onAddButtonTextfieldButtonClick(data) {
+        let me = this;
+
+        data.component.disabled = true;
+
+        me.getReference('content-container').insert(2, {
+            ntype     : 'textfield',
+            flex      : 'none',
+            labelText : 'Button3 text:',
+            labelWidth: 110,
+            width     : 300,
+
+            bind: {
+                value: 'button2Text'
+            },
+
+            listeners: {
+                change: me.onTextField3Change,
+                scope : me
+            }
+        });
+
+        me.getReference('header-toolbar').add({
+            handler     : me.onButton3Click,
+            handlerScope: me,
+            iconCls     : 'fa fa-user',
+            style       : {marginLeft: '10px'},
+
+            bind: {
+                text: 'button3Text'
+            }
+        });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onButton1Click(data) {
         this.updateButton1Text('Button 1');
     }
@@ -27,6 +65,14 @@ class MainContainerController extends Component {
      */
     onButton2Click(data) {
         this.updateButton2Text('Button 2');
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onButton3Click(data) {console.log(this);
+        this.updateButton3Text('Button 3');
     }
 
     /**
@@ -67,6 +113,16 @@ class MainContainerController extends Component {
 
     /**
      *
+     * @param {Object} data
+     */
+    onTextField3Change(data) {
+        if (data.oldValue !== null) {
+            this.updateButton3Text(data.value);
+        }
+    }
+
+    /**
+     *
      * @param {String} value
      */
     updateButton1Text(value) {
@@ -85,6 +141,14 @@ class MainContainerController extends Component {
         this.getReference('panel').getModel().setData({
             button2Text: value
         });
+    }
+
+    /**
+     *
+     * @param {String} value
+     */
+    updateButton3Text(value) {
+        this.getModel().data['button3Text'] = value;
     }
 }
 

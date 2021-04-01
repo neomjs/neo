@@ -28,7 +28,8 @@ class MainContainer extends Viewport {
          */
         model: {
             data: {
-                button1Text: 'Button 1'
+                button1Text: 'Button 1',
+                button3Text: 'Button 3'
             }
         },
         /**
@@ -51,18 +52,19 @@ class MainContainer extends Viewport {
             },
 
             containerConfig: {
+                reference: 'content-container',
+                style    : {padding: '20px'},
+
                 layout: {
                     ntype: 'vbox',
                     align: 'start'
-                },
-
-                style: {
-                    padding: '20px'
                 }
             },
 
             headers: [{
-                dock : 'top',
+                dock     : 'top',
+                reference: 'header-toolbar',
+
                 items: [{
                     ntype: 'label',
                     text : 'model.Component: advanced'
@@ -117,8 +119,13 @@ class MainContainer extends Viewport {
                 }
             }, {
                 ntype  : 'button',
-                handler: 'onLogMainModelIntoConsoleButtonClick',
+                handler: 'onAddButtonTextfieldButtonClick',
                 style  : {marginTop: '2em'},
+                text   : 'Add a third button & textfield'
+            }, {
+                ntype  : 'button',
+                handler: 'onLogMainModelIntoConsoleButtonClick',
+                style  : {marginTop: '1em'},
                 text   : 'Log main model into console'
             }, {
                 ntype  : 'button',
