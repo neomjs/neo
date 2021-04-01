@@ -173,7 +173,7 @@ class Component extends Base {
      * @param {String} path
      * @param {Object} [root=this.data]
      */
-    createDataProperty(key, path, root=this.data) {console.log('createDataProperty', key, path);
+    createDataProperty(key, path, root=this.data) {
         let me = this;
 
         if (path && path.startsWith('data.')) {
@@ -229,6 +229,24 @@ console.log('getData', key);
         }
 
         return parentModel.getData(key);
+    }
+
+    /**
+     *
+     * @param {String} value
+     */
+    getFormatterVariables(value) {
+        let parts = value.match(/\${(.+?)}/g) || [], // only look at the ${} parts inside the formatter string
+            dataVars;
+
+        parts.forEach(part => {
+            console.log(part);
+            dataVars = part.match(/data\.[a-zA-z0-9\._]+/g) || [];
+
+            console.log(dataVars);
+        });
+
+        console.log('getFormatterVariables', parts);
     }
 
     /**
@@ -340,7 +358,7 @@ console.log('getData', key);
             Object.entries(component.bind).forEach(([key, value]) => {
                 console.log('parseConfig', value);
                 console.log('resolveFormatter', me.resolveFormatter(value));
-                console.log('getHierarchyData', me.id, me.getHierarchyData())
+                console.log('getFormatterVariables', me.id, me.getFormatterVariables(value));
                 component[key] = me.resolveFormatter(value);
             });
         }

@@ -76,7 +76,7 @@ class MainContainer extends Viewport {
                     iconCls: 'fa fa-home',
 
                     bind: {
-                        text: '${data.button1Text}'
+                        text: 'Hello ${data.button1Text} ${1+2} ${data.button1Text + data.button2Text}'
                     }
                 }, {
                     handler: 'onButton2Click',
