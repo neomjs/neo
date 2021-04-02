@@ -482,7 +482,7 @@ class Text extends Base {
      * @returns {String}
      */
     beforeSetAutoCapitalize(value, oldValue) {
-        return this.beforeSetEnumValue(value, oldValue, 'autoCapitalizeValues');
+        return this.beforeSetEnumValue(value, oldValue, 'autoCapitalize', 'autoCapitalizeValues');
     }
 
     /**
