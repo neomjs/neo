@@ -360,18 +360,19 @@ class Component extends Base {
     onDataPropertyChange(key, value, oldValue) {
         let me      = this,
             binding = me.bindings && me.bindings[key],
-            component, config, model;
+            component, config, hierarchyData, model;
 
         if (binding) {
             Object.entries(binding).forEach(([componentId, configObject]) => {
-                component = Neo.getComponent(componentId);
-                config    = {};
-                model     = component.getModel();
+                component     = Neo.getComponent(componentId);
+                config        = {};
+                model         = component.getModel();
+                hierarchyData = model.getHierarchyData();
 
                 Object.entries(configObject).forEach(([configField, formatter]) => {
                     // we can not call me.resolveFormatter(), since a data property inside a parent model
                     // could have changed which is relying on data properties inside a closer model
-                    config[configField] = model.resolveFormatter(formatter);
+                    config[configField] = model.resolveFormatter(formatter, hierarchyData);
                 });
 
                 if (component) {
@@ -438,22 +439,28 @@ class Component extends Base {
     /**
      *
      * @param {String} formatter
+     * @param {Object} [data=null] optionally pass this.getHierarchyData() for performance reasons
      */
-    resolveFormatter(formatter) {
+    resolveFormatter(formatter, data=null) {
         let me = this,
             fn;
 
         if (me.cacheFormatterFunctions && formatterCache[formatter]) {
-            return formatterCache[formatter].call(me);
+            return formatterCache[formatter].call(me, data);
         }
 
-        fn = new Function('let data=this.getHierarchyData(); return `' + formatter +'`;');
+        fn = new Function('data', [
+            'if (!data) {',
+                'data = this.getHierarchyData();',
+            '}',
+            'return `' + formatter + '`;'
+        ].join(''));
 
         if (me.cacheFormatterFunctions) {
             formatterCache[formatter] = fn;
         }
 
-        return fn.call(me);
+        return fn.call(me, data);
     }
 
     /**
