@@ -23,20 +23,28 @@ class MainContainerController extends Component {
         data.component.disabled = true;
 
         me.getReference('content-container').insert(2, {
-            ntype     : 'textfield',
-            flex      : 'none',
-            labelText : 'Button3 text:',
-            labelWidth: 110,
-            width     : 300,
+            items: [{
+                ntype     : 'textfield',
+                flex      : 'none',
+                labelText : 'data.button2Text:',
+                labelWidth: 150,
+                width     : 300,
 
-            bind: {
-                value: '${data.button3Text}'
-            },
+                bind: {
+                    value: '${data.button3Text}'
+                },
 
-            listeners: {
-                change: me.onTextField3Change,
-                scope : me
-            }
+                listeners: {
+                    change: me.onTextField3Change,
+                    scope : me
+                }
+            }, {
+                ntype    : 'displayfield',
+                labelText: 'Button3 formatter:',
+                style    : {marginLeft: '2em'},
+                value    : '${data.button3Text}',
+                width    : 600
+            }]
         });
 
         me.getReference('header-toolbar').add({
