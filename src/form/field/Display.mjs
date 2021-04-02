@@ -22,7 +22,11 @@ class Display extends Text {
          * @member {Boolean} clearable=false
          * @protected
          */
-        clearable: false
+        clearable: false,
+        /**
+         * @member {String[]} cls=['neo-displayfield','neo-textfield']
+         */
+        cls: ['neo-displayfield', 'neo-textfield']
     }}
 }
 
