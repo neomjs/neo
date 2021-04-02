@@ -28,6 +28,23 @@ class Display extends Text {
          */
         cls: ['neo-displayfield', 'neo-textfield']
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me      = this,
+            vdom    = me.vdom,
+            inputEl = me.getInputEl();
+
+        inputEl.readonly = 'readonly';
+        inputEl.tabindex = '-1';
+
+        me.vdom = vdom;
+    }
 }
 
 Neo.applyClassConfig(Display);
