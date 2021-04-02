@@ -363,16 +363,21 @@ class Component extends Base {
             component, config, hierarchyData, model;
 
         if (binding) {
+            hierarchyData = {};
+
             Object.entries(binding).forEach(([componentId, configObject]) => {
-                component     = Neo.getComponent(componentId);
-                config        = {};
-                model         = component.getModel();
-                hierarchyData = model.getHierarchyData();
+                component = Neo.getComponent(componentId);
+                config    = {};
+                model     = component.getModel();
+
+                if (!hierarchyData[model.id]) {
+                    hierarchyData[model.id] = model.getHierarchyData();
+                }
 
                 Object.entries(configObject).forEach(([configField, formatter]) => {
                     // we can not call me.resolveFormatter(), since a data property inside a parent model
                     // could have changed which is relying on data properties inside a closer model
-                    config[configField] = model.resolveFormatter(formatter, hierarchyData);
+                    config[configField] = model.resolveFormatter(formatter, hierarchyData[model.id]);
                 });
 
                 if (component) {
