@@ -4,7 +4,6 @@ import Text from './Text.mjs';
  * An extended form.field.Text, which is read-only.
  * @class Neo.form.field.Display
  * @extends Neo.form.field.Text
- * @abstract
  */
 class Display extends Text {
     static getConfig() {return {
