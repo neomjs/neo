@@ -3,7 +3,8 @@ import NeoArray   from '../util/Array.mjs';
 import Observable from '../core/Observable.mjs';
 
 const expressionContentRegex = /\${(.+?)}/g,
-      dataVariableRegex      = /data\.[a-zA-z0-9\._]+/g;
+      dataVariableRegex      = /data\.[a-zA-z0-9\._]+/g,
+      formatterCache         = {};
 
 /**
  * An optional component (view) model for adding bindings to configs
@@ -36,6 +37,10 @@ class Component extends Base {
          * @protected
          */
         bindings_: null,
+        /**
+         * @member {Boolean} cacheFormatterFunctions=true
+         */
+        cacheFormatterFunctions: true,
         /**
          * @member {Object|null} data_=null
          */
@@ -435,7 +440,20 @@ class Component extends Base {
      * @param {String} formatter
      */
     resolveFormatter(formatter) {
-        return new Function('let data=this.getHierarchyData(); return `' + formatter +'`;').call(this);
+        let me = this,
+            fn;
+
+        if (me.cacheFormatterFunctions && formatterCache[formatter]) {
+            return formatterCache[formatter].call(me);
+        }
+
+        fn = new Function('let data=this.getHierarchyData(); return `' + formatter +'`;');
+
+        if (me.cacheFormatterFunctions) {
+            formatterCache[formatter] = fn;
+        }
+
+        return fn.call(me);
     }
 
     /**
