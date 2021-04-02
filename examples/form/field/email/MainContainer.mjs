@@ -11,7 +11,7 @@ import TextField             from '../../../../src/form/field/Text.mjs';
  */
 class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
-        className           : 'TestApp.MainContainer',
+        className           : 'Neo.examples.form.field.email.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 160,
         layout              : {ntype: 'hbox', align: 'stretch'}
