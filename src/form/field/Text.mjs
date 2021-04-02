@@ -155,7 +155,7 @@ class Text extends Base {
      * @protected
      */
     afterSetAutoCapitalize(value, oldValue) {
-        this.changeInputElKey('autocapitalize', value);
+        this.changeInputElKey('autocapitalize', value === 'off' || value === 'none' ? null : value);
     }
 
     /**
