@@ -39,11 +39,11 @@ class Text extends Base {
          */
         centerBorderElWidth: null,
         /**
-         * True to set the field's DOM element auto-capitalize attribute to "on", false to
-         * set to "off".
-         * @member {Boolean} autoCapitalize=null'
+         * An enumerated attribute that controls whether and how text input is automatically capitalized as it is
+         * entered/edited by the user.
+         * @member {String} autoCapitalize=off'
          */
-        autoCapitalize_: null,
+        autoCapitalize_: 'off',
         /**
          * True shows a clear trigger in case the field has a non empty value.
          * @member {Boolean} clearable_=true
@@ -146,7 +146,7 @@ class Text extends Base {
      * @protected
      */
     afterSetAutoCapitalize(value, oldValue) {
-        this.changeInputElKey('autocapitalize', value ? 'on' : 'off');
+        this.changeInputElKey('autocapitalize', value);
     }
 
     /**
@@ -450,15 +450,6 @@ class Text extends Base {
     afterSetWidth(value, oldValue) {
         super.afterSetWidth(value, oldValue);
         this.updateInputWidth();
-    }
-
-    /**
-     * Triggered before the autoCapitalize config gets changed
-     * @param {Boolen|null} value
-     * @protected
-     */
-    beforeSetAutoCapitalize(value) {
-        return value === true || value === 'on';
     }
 
     /**
