@@ -2,6 +2,7 @@ import Base     from './Base.mjs';
 import CheckBox from './CheckBox.mjs';
 import Chip     from './Chip.mjs';
 import Date     from './Date.mjs';
+import Display  from './Display.mjs';
 import Email    from './Email.mjs';
 import Number   from './Number.mjs';
 import Password from './Password.mjs';
@@ -13,5 +14,6 @@ import Select   from './Select.mjs';
 import Text     from './Text.mjs';
 import TextArea from './TextArea.mjs';
 import Time     from './Time.mjs';
+import Url      from './Url.mjs';
 
-export {Base, CheckBox, Chip, Date, Email, Number, Password, Picker, Radio, Range, Search, Select, Text, TextArea, Time};
+export {Base, CheckBox, Chip, Date, Display, Email, Number, Password, Picker, Radio, Range, Search, Select, Text, TextArea, Time, Url};
