@@ -22,12 +22,7 @@ class Url extends Text {
          * Value for the inputType_ textfield config
          * @member {String} inputType='url'
          */
-        inputType: 'url',
-        /**
-         * Value for the autoCapitalize_ textfield config
-         * @member {Boolean} autoCapitalize='false'
-         */
-        autoCapitalize: false
+        inputType: 'url'
     }}
 }
 
