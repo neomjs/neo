@@ -20,7 +20,7 @@ class Text extends Base {
         autoCapitalizeValues: ['characters', 'none', 'on', 'off', 'sentences', 'words'],
         /**
          * Valid values for labelPosition
-         * @member {String[]} labelPositions=['bottom', 'inline', 'left', 'right', 'top']
+         * @member {String[]} labelPositions=['bottom','inline','left','right','top']
          * @protected
          * @static
          */
