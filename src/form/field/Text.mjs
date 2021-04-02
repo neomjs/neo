@@ -39,6 +39,12 @@ class Text extends Base {
          */
         centerBorderElWidth: null,
         /**
+         * True to set the field's DOM element auto-capitalize attribute to "on", false to
+         * set to "off".
+         * @member {Boolean} autoCapitalize=null'
+         */
+        autoCapitalize_: null,
+        /**
          * True shows a clear trigger in case the field has a non empty value.
          * @member {Boolean} clearable_=true
          */
@@ -131,6 +137,16 @@ class Text extends Base {
         });
 
         me.domListeners = domListeners;
+    }
+
+    /**
+     * Triggered after the autoCapitalize config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetAutoCapitalize(value, oldValue) {
+        this.changeInputElKey('autocapitalize', value ? 'on' : 'off');
     }
 
     /**
@@ -434,6 +450,15 @@ class Text extends Base {
     afterSetWidth(value, oldValue) {
         super.afterSetWidth(value, oldValue);
         this.updateInputWidth();
+    }
+
+    /**
+     * Triggered before the autoCapitalize config gets changed
+     * @param {Boolen|null} value
+     * @protected
+     */
+    beforeSetAutoCapitalize(value) {
+        return value === true || value === 'on';
     }
 
     /**
