@@ -355,17 +355,18 @@ class Component extends Base {
     onDataPropertyChange(key, value, oldValue) {
         let me      = this,
             binding = me.bindings && me.bindings[key],
-            component, config;
+            component, config, model;
 
         if (binding) {
             Object.entries(binding).forEach(([componentId, configObject]) => {
                 component = Neo.getComponent(componentId);
                 config    = {};
+                model     = component.getModel();
 
                 Object.entries(configObject).forEach(([configField, formatter]) => {
                     // we can not call me.resolveFormatter(), since a data property inside a parent model
                     // could have changed which is relying on data properties inside a closer model
-                    config[configField] = component.getModel().resolveFormatter(formatter);
+                    config[configField] = model.resolveFormatter(formatter);
                 });
 
                 if (component) {
