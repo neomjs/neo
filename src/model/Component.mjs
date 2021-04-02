@@ -244,9 +244,10 @@ class Component extends Base {
     /**
      *
      * @param {String} key
+     * @param {Neo.model.Component} [originModel=this] for internal usage only
      * @returns {*} value
      */
-    getData(key) {
+    getData(key, originModel=this) {
         let me          = this,
             parentScope = me.getParentDataScope(key),
             data        = parentScope.scope,
@@ -260,10 +261,10 @@ class Component extends Base {
         parentModel = me.getParent();
 
         if (!parentModel) {
-            console.error(`data property '${key}' does not exist.`, me.id);
+            console.error(`data property '${key}' does not exist.`, originModel.id);
         }
 
-        return parentModel.getData(key);
+        return parentModel.getData(key, originModel);
     }
 
     /**
