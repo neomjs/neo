@@ -1,4 +1,5 @@
 import ComponentModel          from '../../../src/model/Component.mjs';
+import DisplayField            from '../../../src/form/field/Display.mjs';
 import MainContainerController from './MainContainerController.mjs'
 import Panel                   from '../../../src/container/Panel.mjs';
 import TextField               from '../../../src/form/field/Text.mjs';
@@ -89,34 +90,55 @@ class MainContainer extends Viewport {
                 }]
             }],
 
+            itemDefaults: {
+                ntype : 'container',
+                layout: {ntype: 'hbox', align: 'stretch'}
+            },
+
             items: [{
-                module    : TextField,
-                flex      : 'none',
-                labelText : 'Button1 text:',
-                labelWidth: 110,
-                width     : 300,
+                items: [{
+                    module    : TextField,
+                    flex      : 'none',
+                    labelText : 'data.button1Text:',
+                    labelWidth: 150,
+                    width     : 300,
 
-                bind: {
-                    value: '${data.button1Text}'
-                },
+                    bind: {
+                        value: '${data.button1Text}'
+                    },
 
-                listeners: {
-                    change: 'onTextField1Change'
-                }
+                    listeners: {
+                        change: 'onTextField1Change'
+                    }
+                }, {
+                    module   : DisplayField,
+                    labelText: 'Button1 formatter:',
+                    style    : {marginLeft: '2em'},
+                    value    : 'Hello ${data.button2Text} ${1+2} ${data.button1Text + data.button2Text}',
+                    width    : 600
+                }]
             }, {
-                module    : TextField,
-                flex      : 'none',
-                labelText : 'Button2 text:',
-                labelWidth: 110,
-                width     : 300,
+                items: [{
+                    module    : TextField,
+                    flex      : 'none',
+                    labelText : 'data.button2Text:',
+                    labelWidth: 150,
+                    width     : 300,
 
-                bind: {
-                    value: '${data.button2Text}'
-                },
+                    bind: {
+                        value: '${data.button2Text}'
+                    },
 
-                listeners: {
-                    change: 'onTextField2Change'
-                }
+                    listeners: {
+                        change: 'onTextField2Change'
+                    }
+                }, {
+                    module   : DisplayField,
+                    labelText: 'Button2 formatter:',
+                    style    : {marginLeft: '2em'},
+                    value    : '${data.button2Text}',
+                    width    : 600
+                }]
             }, {
                 ntype  : 'button',
                 handler: 'onAddButtonTextfieldButtonClick',
