@@ -374,8 +374,6 @@ class Text extends Base {
             postTriggers = [],
             width;
 
-        // console.log(value && [...value], oldValue && [...oldValue]);
-
         if (oldValue) {
             oldValue.forEach(item => {
                 if (!me.getTrigger(item.type)) {
