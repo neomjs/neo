@@ -3,7 +3,8 @@ import NeoArray   from '../util/Array.mjs';
 import Observable from '../core/Observable.mjs';
 
 const expressionContentRegex = /\${(.+?)}/g,
-      dataVariableRegex      = /data\.[a-zA-z0-9\._]+/g;
+      dataVariableRegex      = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi,
+      formatterCache         = {};
 
 /**
  * An optional component (view) model for adding bindings to configs
@@ -36,6 +37,10 @@ class Component extends Base {
          * @protected
          */
         bindings_: null,
+        /**
+         * @member {Boolean} cacheFormatterFunctions=true
+         */
+        cacheFormatterFunctions: true,
         /**
          * @member {Object|null} data_=null
          */
@@ -239,9 +244,10 @@ class Component extends Base {
     /**
      *
      * @param {String} key
+     * @param {Neo.model.Component} [originModel=this] for internal usage only
      * @returns {*} value
      */
-    getData(key) {
+    getData(key, originModel=this) {
         let me          = this,
             parentScope = me.getParentDataScope(key),
             data        = parentScope.scope,
@@ -255,10 +261,10 @@ class Component extends Base {
         parentModel = me.getParent();
 
         if (!parentModel) {
-            console.error(`data property '${key}' does not exist.`, me.id);
+            console.error(`data property '${key}' does not exist.`, originModel.id);
         }
 
-        return parentModel.getData(key);
+        return parentModel.getData(key, originModel);
     }
 
     /**
@@ -355,17 +361,24 @@ class Component extends Base {
     onDataPropertyChange(key, value, oldValue) {
         let me      = this,
             binding = me.bindings && me.bindings[key],
-            component, config;
+            component, config, hierarchyData, model;
 
         if (binding) {
+            hierarchyData = {};
+
             Object.entries(binding).forEach(([componentId, configObject]) => {
                 component = Neo.getComponent(componentId);
                 config    = {};
+                model     = component.getModel();
+
+                if (!hierarchyData[model.id]) {
+                    hierarchyData[model.id] = model.getHierarchyData();
+                }
 
                 Object.entries(configObject).forEach(([configField, formatter]) => {
                     // we can not call me.resolveFormatter(), since a data property inside a parent model
                     // could have changed which is relying on data properties inside a closer model
-                    config[configField] = component.getModel().resolveFormatter(formatter);
+                    config[configField] = model.resolveFormatter(formatter, hierarchyData[model.id]);
                 });
 
                 if (component) {
@@ -432,9 +445,28 @@ class Component extends Base {
     /**
      *
      * @param {String} formatter
+     * @param {Object} [data=null] optionally pass this.getHierarchyData() for performance reasons
      */
-    resolveFormatter(formatter) {
-        return new Function('let data=this.getHierarchyData(); return `' + formatter +'`;').call(this);
+    resolveFormatter(formatter, data=null) {
+        let me = this,
+            fn;
+
+        if (me.cacheFormatterFunctions && formatterCache[formatter]) {
+            return formatterCache[formatter].call(me, data);
+        }
+
+        fn = new Function('data', [
+            'if (!data) {',
+                'data = this.getHierarchyData();',
+            '}',
+            'return `' + formatter + '`;'
+        ].join(''));
+
+        if (me.cacheFormatterFunctions) {
+            formatterCache[formatter] = fn;
+        }
+
+        return fn.call(me, data);
     }
 
     /**

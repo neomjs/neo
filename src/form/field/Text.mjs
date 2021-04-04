@@ -12,8 +12,15 @@ import VNodeUtil    from '../../util/VNode.mjs';
 class Text extends Base {
     static getStaticConfig() {return {
         /**
+         * Valid values for autoCapitalize
+         * @member {String[]} autoCapitalizeValues=['characters','none','on','off','sentences','words']
+         * @protected
+         * @static
+         */
+        autoCapitalizeValues: ['characters', 'none', 'on', 'off', 'sentences', 'words'],
+        /**
          * Valid values for labelPosition
-         * @member {String[]} labelPositions=['bottom', 'inline', 'left', 'right', 'top']
+         * @member {String[]} labelPositions=['bottom','inline','left','right','top']
          * @protected
          * @static
          */
@@ -31,6 +38,13 @@ class Text extends Base {
          * @protected
          */
         ntype: 'textfield',
+        /**
+         * An enumerated attribute that controls whether and how text input is automatically capitalized as it is
+         * entered/edited by the user.
+         * Valid values: 'characters', 'none', 'on', 'off', 'sentences', 'words'
+         * @member {String} autoCapitalize=off'
+         */
+        autoCapitalize_: 'off',
         /**
          * Internal variable to store the actual width for the label centerBorderEl
          * (only needed for labelPosition: 'inline')
@@ -62,6 +76,7 @@ class Text extends Base {
          */
         inputType_: 'text',
         /**
+         * Valid values: 'bottom', 'inline', 'left', 'right', 'top'
          * @member {String} labelPosition_='left'
          */
         labelPosition_: 'left',
@@ -131,6 +146,16 @@ class Text extends Base {
         });
 
         me.domListeners = domListeners;
+    }
+
+    /**
+     * Triggered after the autoCapitalize config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetAutoCapitalize(value, oldValue) {
+        this.changeInputElKey('autocapitalize', value === 'off' || value === 'none' ? null : value);
     }
 
     /**
@@ -349,8 +374,6 @@ class Text extends Base {
             postTriggers = [],
             width;
 
-        // console.log(value && [...value], oldValue && [...oldValue]);
-
         if (oldValue) {
             oldValue.forEach(item => {
                 if (!me.getTrigger(item.type)) {
@@ -447,6 +470,17 @@ class Text extends Base {
         }
 
         return value;
+    }
+
+    /**
+     * Triggered before the autoCapitalize config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     * @returns {String}
+     */
+    beforeSetAutoCapitalize(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'autoCapitalize', 'autoCapitalizeValues');
     }
 
     /**

@@ -1,17 +1,17 @@
 import CheckBox              from '../../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../../ConfigurationViewport.mjs';
-import EmailField            from '../../../../src/form/field/Email.mjs';
+import UrlField            from '../../../../src/form/field/Url.mjs';
 import NumberField           from '../../../../src/form/field/Number.mjs';
 import Radio                 from '../../../../src/form/field/Radio.mjs';
 import TextField             from '../../../../src/form/field/Text.mjs';
 
 /**
- * @class Neo.examples.form.field.email.MainContainer
+ * @class Neo.examples.form.field.url.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
-        className           : 'Neo.examples.form.field.email.MainContainer',
+        className           : 'Neo.examples.form.field.url.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 160,
         layout              : {ntype: 'hbox', align: 'stretch'}
@@ -117,13 +117,13 @@ class MainContainer extends ConfigurationViewport {
     }
 
     createExampleComponent() {
-        return Neo.create(EmailField, {
-            autoRender: false,
-            clearable : true,
-            labelText : 'Label',
-            labelWidth: 70,
-            value     : 'foo@test.com',
-            width     : 200
+        return Neo.create(UrlField, {
+            autoRender      : false,
+            clearable       : true,
+            labelText       : 'Label',
+            labelWidth      : 70,
+            placeholderText : 'http://domain.com',
+            width           : 250
         });
     }
 }

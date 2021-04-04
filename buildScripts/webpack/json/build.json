@@ -141,6 +141,11 @@
                     "input": "./examples/form/field/time/app.mjs",
                     "output": "/examples/form/field/time/",
                     "title": "Neo TimeField"
+                },
+                "url": {
+                    "input": "./examples/form/field/url/app.mjs",
+                    "output": "/examples/form/field/url/",
+                    "title": "Neo UrlField"
                 }
             }
         },
