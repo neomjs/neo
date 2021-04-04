@@ -85,7 +85,7 @@ class MainContainer extends Viewport {
                     style  : {marginLeft: '10px'},
 
                     bind: {
-                        text: '${data.button2Text}'
+                        text: '${data.button2Text.toLowerCase()}'
                     }
                 }]
             }],

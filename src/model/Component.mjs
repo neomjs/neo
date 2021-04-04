@@ -3,7 +3,7 @@ import NeoArray   from '../util/Array.mjs';
 import Observable from '../core/Observable.mjs';
 
 const expressionContentRegex = /\${(.+?)}/g,
-      dataVariableRegex      = /data\.[a-zA-z0-9\._]+/g,
+      dataVariableRegex      = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi,
       formatterCache         = {};
 
 /**
