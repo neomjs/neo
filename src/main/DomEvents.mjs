@@ -514,8 +514,10 @@ class DomEvents extends Base {
     onKeyDown(event) {
         this.sendMessageToApp(this.getKeyboardEventData(event));
 
-        if (['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp'].includes(event.key)) {
-            event.preventDefault();
+        if (event.target.nodeName !== 'INPUT') { // see: https://github.com/neomjs/neo/issues/1729
+            if (['ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowUp'].includes(event.key)) {
+                event.preventDefault();
+            }
         }
     }
 

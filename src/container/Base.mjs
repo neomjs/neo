@@ -443,7 +443,7 @@ class Base extends Component {
                 } else if (typeof value === 'string' && value.startsWith('@config:')) {
                     value = value.substr(8);
 
-                    if (!me[value]) {
+                    if (!me.hasOwnProperty(value)) {
                         Logger.logError('The used @config does not exist:', value, me);
                     } else {
                         item[key] = me[value];

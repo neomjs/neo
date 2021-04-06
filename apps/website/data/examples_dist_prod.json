@@ -3,7 +3,7 @@
         "browsers"    : ["Chrome", "Edge", "Firefox", "Safari"],
         "environments": ["Desktop"],
         "id"          : 18,
-        "image"       : "model-component-example.png",
+        "image"       : "devmode/model-component-example.png",
         "name"        : "View Models Example",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/model/advanced",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/examples/model/advanced/index.html"
