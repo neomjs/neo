@@ -136,7 +136,7 @@ class MainContainer extends Viewport {
                     module   : DisplayField,
                     labelText: 'Button2 formatter:',
                     style    : {marginLeft: '2em'},
-                    value    : '${data.button2Text}',
+                    value    : '${data.button2Text.toLowerCase()}',
                     width    : 600
                 }]
             }, {

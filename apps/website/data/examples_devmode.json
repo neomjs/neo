@@ -1,5 +1,14 @@
 [
     {
+        "browsers"    : ["Chrome", "Edge"],
+        "environments": ["Desktop"],
+        "id"          : 19,
+        "image"       : "model-component-example.png",
+        "name"        : "View Models Example",
+        "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/examples/model/advanced",
+        "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/examples/model/advanced/index.html"
+    },
+    {
         "browsers"    : ["Chrome", "(SharedWorkers)"],
         "environments": ["Desktop"],
         "id"          : 18,
