@@ -2,7 +2,7 @@ import Component from '../../../src/model/Component.mjs';
 
 /**
  * @class Neo.examples.model.extendedClass.MainContainerModel
- * @extends Neo.controller.Component
+ * @extends Neo.model.Component
  */
 class MainContainerModel extends Component {
     static getConfig() {return {
