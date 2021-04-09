@@ -1,12 +1,12 @@
-import Model  from '../../src/data/Model.mjs';
+import Model  from '../../../src/data/Model.mjs';
 
 /**
- * @class Neo.examples.tableStore.MainModel
+ * @class  Neo.examples.model.table.MainModel
  * @extends Neo.data.Model
  */
 class MainModel extends Model {
     static getConfig() {return {
-        className: 'Neo.examples.tableStore.MainModel',
+        className: 'Neo.examples.model.table.MainModel',
 
         fields: [{
             name: 'country',

@@ -193,6 +193,11 @@
                 "output": "/examples/model/nestedData/",
                 "themes": "'neo-theme-dark'",
                 "title": "model.Component: nested data"
+            },
+            "table": {
+                "input": "./examples/model/table/app.mjs",
+                "output": "/examples/model/table/",
+                "title": "Neo table & bound store"
             }
         },
         "panel": {

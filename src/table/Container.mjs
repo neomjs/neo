@@ -253,14 +253,24 @@ class Container extends BaseContainer {
         if (value) {
             let me = this;
 
-            value = ClassSystemUtil.beforeSetInstance(value, Store, {
-                listeners: {
-                    filter      : me.onStoreFilter,
-                    load        : me.onStoreLoad,
-                    recordChange: me.onStoreRecordChange,
-                    scope       : me
+            const listeners = {
+                filter      : me.onStoreFilter,
+                load        : me.onStoreLoad,
+                recordChange: me.onStoreRecordChange,
+                scope       : me
+            };
+
+            if (value instanceof Store) {
+                value.on(listeners);
+
+                if (value.getCount() > 0) {
+                    me.onStoreLoad(value.items);
                 }
-            });
+            } else {
+                value = ClassSystemUtil.beforeSetInstance(value, Store, {
+                    listeners: listeners
+                });
+            }
 
             // in case we dynamically change the store, the view needs to get the new reference
             if (me.view) {

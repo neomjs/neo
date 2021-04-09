@@ -9,12 +9,12 @@ import TableContainer  from '../../src/table/Container.mjs';
 import Viewport        from '../../src/container/Viewport.mjs';
 
 /**
- * @class  Neo.examples.tableStore.MainContainer
+ * @class Neo.examples.tableStore.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className: ' Neo.examples.tableStore.MainContainer',
+        className: 'Neo.examples.tableStore.MainContainer',
         autoMount: true,
         layout   : {ntype: 'vbox', align: 'stretch'},
         style    : {padding: '20px'},
@@ -195,17 +195,17 @@ class MainContainer extends Viewport {
             wrapperStyle  : {height: '300px'},
 
             columns: [{
-                text     : 'Firstname',
-                dataField: 'firstname'
+                dataField: 'firstname',
+                text     : 'Firstname'
             }, {
-                text     : 'Lastname',
-                dataField: 'lastname'
+                dataField: 'lastname',
+                text     : 'Lastname'
             }, {
-                text     : 'Github Id',
-                dataField: 'githubId'
+                dataField: 'githubId',
+                text     : 'Github Id'
             }, {
-                text     : 'Country',
-                dataField: 'country'
+                dataField: 'country',
+                text     : 'Country'
             }]
         }]
     }}

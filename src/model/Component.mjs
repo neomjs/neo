@@ -1,6 +1,7 @@
-import Base       from '../core/Base.mjs';
-import NeoArray   from '../util/Array.mjs';
-import Observable from '../core/Observable.mjs';
+import Base            from '../core/Base.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import NeoArray        from '../util/Array.mjs';
+import Observable      from '../core/Observable.mjs';
 
 const expressionContentRegex = /\${(.+?)}/g,
       dataVariableRegex      = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi,
@@ -49,7 +50,11 @@ class Component extends Base {
          * @member {Neo.component.Base|null} owner=null
          * @protected
          */
-        owner: null
+        owner: null,
+        /**
+         * @member {Object|null} stores_=null
+         */
+        stores_: null
     }}
 
     /**
@@ -87,12 +92,26 @@ class Component extends Base {
 
     /**
      * Triggered after the data config got changed
-     * @param {Object} value={}
-     * @param {Object} oldValue={}
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
      * @protected
      */
-    afterSetData(value={}, oldValue={}) {
-        this.createDataProperties(value, 'data');
+    afterSetData(value, oldValue) {
+        if (value) {
+            this.createDataProperties(value, 'data');
+        }
+    }
+
+    /**
+     * Triggered after the stores config got changed
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @protected
+     */
+    afterSetStores(value, oldValue) {
+        if (value) {
+            console.log('afterSetStores', value);
+        }
     }
 
     /**
@@ -102,6 +121,52 @@ class Component extends Base {
      */
     beforeGetData(value) {
         return value || {};
+    }
+
+    /**
+     * Triggered before the stores config gets changed.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @returns {Object|null}
+     * @protected
+     */
+    beforeSetStores(value, oldValue) {
+        if (value) {
+            Object.entries(value).forEach(([key, storeValue]) => {
+                value[key] = ClassSystemUtil.beforeSetInstance(storeValue);
+            });
+        }
+
+        return value;
+    }
+
+    /**
+     * Registers a new binding in case a matching data property does exist.
+     * Otherwise it will use the closest model with a match.
+     * @param {String} componentId
+     * @param {String} key
+     * @param {String} value
+     * @param {String} formatter
+     */
+    createBinding(componentId, key, value, formatter) {
+        let me          = this,
+            parentScope = me.getParentDataScope(key),
+            data        = parentScope.scope,
+            keyLeaf     = parentScope.key,
+            bindingScope, parentModel;
+
+        if (data[keyLeaf]) {
+            bindingScope = Neo.ns(`${key}.${componentId}`, true, me.bindings);
+            bindingScope[value] = formatter;
+        } else {
+            parentModel = me.getParent();
+
+            if (parentModel) {
+                parentModel.createBinding(componentId, key, value, formatter);
+            } else {
+                console.error('No model.Component found with the specified data property', value);
+            }
+        }
     }
 
     /**
@@ -136,41 +201,14 @@ class Component extends Base {
     }
 
     /**
-     * Registers a new binding in case a matching data property does exist.
-     * Otherwise it will use the closest model with a match.
-     * @param {String} componentId
-     * @param {String} key
-     * @param {String} value
-     * @param {String} formatter
-     */
-    createBinding(componentId, key, value, formatter) {
-        let me          = this,
-            parentScope = me.getParentDataScope(key),
-            data        = parentScope.scope,
-            keyLeaf     = parentScope.key,
-            bindingScope, parentModel;
-
-        if (data[keyLeaf]) {
-            bindingScope = Neo.ns(`${key}.${componentId}`, true, me.bindings);
-            bindingScope[value] = formatter;
-        } else {
-            parentModel = me.getParent();
-
-            if (parentModel) {
-                parentModel.createBinding(componentId, key, value, formatter);
-            } else {
-                console.error('No model.Component found with the specified data property', value);
-            }
-        }
-    }
-
-    /**
      *
      * @param {Neo.component.Base} component
      */
     createBindings(component) {
         Object.entries(component.bind).forEach(([key, value]) => {
-            this.createBindingByFormatter(component.id, value, key);
+            if (!this.isStoreValue(value)) {
+                this.createBindingByFormatter(component.id, value, key);
+            }
         });
     }
 
@@ -353,6 +391,15 @@ class Component extends Base {
     }
 
     /**
+     * Internal convenience method to check if a binding value is supposed to match a store
+     * @param {String} value
+     * @returns {Boolean}
+     */
+    isStoreValue(value) {
+        return value.startsWith('stores.');
+    }
+
+    /**
      *
      * @param {String} key
      * @param {*} value
@@ -405,7 +452,11 @@ class Component extends Base {
 
         if (component.bind) {
             Object.entries(component.bind).forEach(([key, value]) => {
-                component[key] = me.resolveFormatter(value);
+                if (me.isStoreValue(value)) {
+                    me.resolveStore(component, key, value.substring(7));
+                } else {
+                    component[key] = me.resolveFormatter(value);
+                }
             });
         }
     }
@@ -433,11 +484,15 @@ class Component extends Base {
      * @param {Neo.component.Base} [component=this.owner]
      */
     resolveBindings(component=this.owner) {
+        let me = this;
+
         if (component.bind) {
-            this.createBindings(component);
+            me.createBindings(component);
 
             Object.entries(component.bind).forEach(([key, value]) => {
-                component[key] = this.resolveFormatter(value);
+                if (!me.isStoreValue(value)) { // bound stores already got resolved inside parseConfig()
+                    component[key] = me.resolveFormatter(value);
+                }
             });
         }
     }
@@ -451,22 +506,45 @@ class Component extends Base {
         let me = this,
             fn;
 
+        if (!data) {
+            data = this.getHierarchyData();
+        }
+
         if (me.cacheFormatterFunctions && formatterCache[formatter]) {
             return formatterCache[formatter].call(me, data);
         }
 
-        fn = new Function('data', [
-            'if (!data) {',
-                'data = this.getHierarchyData();',
-            '}',
-            'return `' + formatter + '`;'
-        ].join(''));
+        fn = new Function('data', 'return `' + formatter + '`;');
 
         if (me.cacheFormatterFunctions) {
             formatterCache[formatter] = fn;
         }
 
         return fn.call(me, data);
+    }
+
+    /**
+     *
+     * @param {Neo.component.Base} component
+     * @param {String} configName
+     * @param {String} storeName
+     * @param {Neo.model.Component} [originModel=this] for internal usage only
+     */
+    resolveStore(component, configName, storeName, originModel=this) {
+        let me = this,
+            parentModel;
+
+        if (!me.stores || !me.stores.hasOwnProperty(storeName)) {
+            parentModel = me.getParent();
+
+            if (parentModel) {
+                parentModel.resolveStore(component, configName, storeName);
+            } else {
+                console.error('bound store not found inside this model or parents:', storeName, originModel);
+            }
+        } else {
+            component[configName] = me.stores[storeName];
+        }
     }
 
     /**
