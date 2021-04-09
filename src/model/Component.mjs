@@ -100,6 +100,16 @@ class Component extends Base {
     }
 
     /**
+     * Triggered after the stores config got changed
+     * @param {Object} value={}
+     * @param {Object} oldValue={}
+     * @protected
+     */
+    afterSetStores(value={}, oldValue={}) {
+        console.log('afterSetStores', value);
+    }
+
+    /**
      * Triggered when accessing the data config
      * @param {Object} value
      * @protected
