@@ -91,12 +91,14 @@ class Component extends Base {
 
     /**
      * Triggered after the data config got changed
-     * @param {Object} value={}
-     * @param {Object} oldValue={}
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
      * @protected
      */
-    afterSetData(value={}, oldValue={}) {
-        this.createDataProperties(value, 'data');
+    afterSetData(value, oldValue) {
+        if (value) {
+            this.createDataProperties(value, 'data');
+        }
     }
 
     /**
