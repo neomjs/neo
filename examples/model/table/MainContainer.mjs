@@ -39,7 +39,7 @@ class MainContainer extends Viewport {
             wrapperStyle: {height: '300px'},
 
             bind: {
-                store: 'main'
+                store: 'stores.main'
             },
 
             columns: [{

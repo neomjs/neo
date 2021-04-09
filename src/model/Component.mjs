@@ -442,13 +442,8 @@ class Component extends Base {
 
         if (component.bind) {
             Object.entries(component.bind).forEach(([key, value]) => {
-                if (key === 'store') {
-                    if (!me.stores.hasOwnProperty(value)) {
-                        // todo: add support for stores inside a top level model
-                        console.error('bound store not found inside this model:', value, me);
-                    } else {
-                        component.store = me.stores[value];
-                    }
+                if (value.startsWith('stores.')) {
+                    me.resolveStore(component, key, value.substring(7));
                 } else {
                     component[key] = me.resolveFormatter(value);
                 }
@@ -520,6 +515,25 @@ class Component extends Base {
         }
 
         return fn.call(me, data);
+    }
+
+    /**
+     *
+     * @param {Neo.component.Base} component
+     * @param {String} configName
+     * @param {String} storeName
+     */
+    resolveStore(component, configName, storeName) {
+        let me = this;
+
+        console.log('resolveStore', me.id, component.id, configName, storeName);
+
+        if (!me.stores.hasOwnProperty(storeName)) {
+            // todo: add support for stores inside a top level model
+            console.error('bound store not found inside this model:', storeName, me);
+        } else {
+            component[configName] = me.stores[storeName];
+        }
     }
 
     /**
