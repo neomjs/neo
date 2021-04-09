@@ -34,7 +34,6 @@ class MainContainer extends Viewport {
          */
         items: [{
             module      : TableContainer,
-            id          : 'myTableStoreContainer',
             width       : '100%',
             wrapperStyle: {height: '300px'},
 
