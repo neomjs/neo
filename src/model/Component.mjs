@@ -103,12 +103,14 @@ class Component extends Base {
 
     /**
      * Triggered after the stores config got changed
-     * @param {Object} value={}
-     * @param {Object} oldValue={}
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
      * @protected
      */
-    afterSetStores(value={}, oldValue={}) {
-        console.log('afterSetStores', value);
+    afterSetStores(value, oldValue) {
+        if (value) {
+            console.log('afterSetStores', value);
+        }
     }
 
     /**
