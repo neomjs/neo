@@ -1,5 +1,4 @@
-import MainContainerModel from './MainContainerModel.mjs'
-import MainStore          from './MainStore.mjs';
+import MainContainerModel from './MainContainerModel.mjs';
 import TableContainer     from '../../../src/table/Container.mjs';
 import Viewport           from '../../../src/container/Viewport.mjs';
 
@@ -36,9 +35,12 @@ class MainContainer extends Viewport {
         items: [{
             module      : TableContainer,
             id          : 'myTableStoreContainer',
-            store       : MainStore,
             width       : '100%',
             wrapperStyle: {height: '300px'},
+
+            bind: {
+                store: 'main'
+            },
 
             columns: [{
                 dataField: 'firstname',
