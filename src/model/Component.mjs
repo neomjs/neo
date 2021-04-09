@@ -49,7 +49,11 @@ class Component extends Base {
          * @member {Neo.component.Base|null} owner=null
          * @protected
          */
-        owner: null
+        owner: null,
+        /**
+         * @member {Object|null} stores_=null
+         */
+        stores_: null
     }}
 
     /**
