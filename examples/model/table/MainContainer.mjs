@@ -9,15 +9,30 @@ import Viewport           from '../../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
+        /**
+         * @member {String} className='Neo.examples.model.table.MainContainer'
+         * @protected
+         */
         className: 'Neo.examples.model.table.MainContainer',
+        /**
+         * @member {Boolean} autoMount=true
+         */
         autoMount: true,
-        layout   : {ntype: 'fit'},
+        /**
+         * @member {Object} layout
+         */
+        layout: {ntype: 'fit'},
         /**
          * @member {Object|Neo.model.Component} model=MainContainerModel
          */
         model: MainContainerModel,
-        style    : {padding: '20px'},
-
+        /**
+         * @member {Object} style
+         */
+        style: {padding: '20px'},
+        /**
+         * @member {Object[]} items
+         */
         items: [{
             module      : TableContainer,
             id          : 'myTableStoreContainer',
