@@ -41,12 +41,6 @@ class MainContainer extends Viewport {
                 store: 'stores.main'
             },
 
-            model: {
-                data: {
-                    foo: 'bar'
-                }
-            },
-
             columns: [{
                 dataField: 'firstname',
                 text     : 'Firstname'

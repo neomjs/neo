@@ -528,8 +528,6 @@ class Component extends Base {
         let me = this,
             parentModel;
 
-        console.log('resolveStore', me.id, component.id, configName, storeName);
-
         if (!me.stores || !me.stores.hasOwnProperty(storeName)) {
             parentModel = me.getParent();
 
