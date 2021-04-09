@@ -1,6 +1,7 @@
-import Base       from '../core/Base.mjs';
-import NeoArray   from '../util/Array.mjs';
-import Observable from '../core/Observable.mjs';
+import Base            from '../core/Base.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import NeoArray        from '../util/Array.mjs';
+import Observable      from '../core/Observable.mjs';
 
 const expressionContentRegex = /\${(.+?)}/g,
       dataVariableRegex      = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi,
@@ -120,6 +121,24 @@ class Component extends Base {
      */
     beforeGetData(value) {
         return value || {};
+    }
+
+    /**
+     * Triggered before the stores config gets changed.
+     * Creates a model.Component instance if needed.
+     * @param {Object|null} value
+     * @param {Object|null} oldValue
+     * @returns {Object|null}
+     * @protected
+     */
+    beforeSetStores(value, oldValue) {
+        if (value) {
+            Object.entries(value).forEach(([key, storeValue]) => {
+                value[key] = ClassSystemUtil.beforeSetInstance(storeValue);
+            });
+        }
+
+        return value;
     }
 
     /**
