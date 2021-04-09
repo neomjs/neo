@@ -1,6 +1,7 @@
-import MainStore      from './MainStore.mjs';
-import TableContainer from '../../../src/table/Container.mjs';
-import Viewport       from '../../../src/container/Viewport.mjs';
+import MainContainerModel from './MainContainerModel.mjs'
+import MainStore          from './MainStore.mjs';
+import TableContainer     from '../../../src/table/Container.mjs';
+import Viewport           from '../../../src/container/Viewport.mjs';
 
 /**
  * @class  Neo.examples.model.table.MainContainer
@@ -11,14 +12,18 @@ class MainContainer extends Viewport {
         className: 'Neo.examples.model.table.MainContainer',
         autoMount: true,
         layout   : {ntype: 'fit'},
+        /**
+         * @member {Object|Neo.model.Component} model=MainContainerModel
+         */
+        model: MainContainerModel,
         style    : {padding: '20px'},
 
         items: [{
-            module        : TableContainer,
-            id            : 'myTableStoreContainer',
-            store         : MainStore,
-            width         : '100%',
-            wrapperStyle  : {height: '300px'},
+            module      : TableContainer,
+            id          : 'myTableStoreContainer',
+            store       : MainStore,
+            width       : '100%',
+            wrapperStyle: {height: '300px'},
 
             columns: [{
                 dataField: 'firstname',
