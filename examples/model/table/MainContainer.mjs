@@ -21,17 +21,17 @@ class MainContainer extends Viewport {
             wrapperStyle  : {height: '300px'},
 
             columns: [{
-                text     : 'Firstname',
-                dataField: 'firstname'
+                dataField: 'firstname',
+                text     : 'Firstname'
             }, {
-                text     : 'Lastname',
-                dataField: 'lastname'
+                dataField: 'lastname',
+                text     : 'Lastname'
             }, {
-                text     : 'Github Id',
-                dataField: 'githubId'
+                dataField: 'githubId',
+                text     : 'Github Id'
             }, {
-                text     : 'Country',
-                dataField: 'country'
+                dataField: 'country',
+                text     : 'Country'
             }]
         }]
     }}
