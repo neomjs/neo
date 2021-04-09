@@ -125,7 +125,6 @@ class Component extends Base {
 
     /**
      * Triggered before the stores config gets changed.
-     * Creates a model.Component instance if needed.
      * @param {Object|null} value
      * @param {Object|null} oldValue
      * @returns {Object|null}
@@ -207,7 +206,9 @@ class Component extends Base {
      */
     createBindings(component) {
         Object.entries(component.bind).forEach(([key, value]) => {
-            this.createBindingByFormatter(component.id, value, key);
+            if (!this.isStoreValue(value)) {
+                this.createBindingByFormatter(component.id, value, key);
+            }
         });
     }
 
@@ -390,6 +391,15 @@ class Component extends Base {
     }
 
     /**
+     * Internal convenience method to check if a binding value is supposed to match a store
+     * @param {String} value
+     * @returns {Boolean}
+     */
+    isStoreValue(value) {
+        return value.startsWith('stores.');
+    }
+
+    /**
      *
      * @param {String} key
      * @param {*} value
@@ -442,7 +452,7 @@ class Component extends Base {
 
         if (component.bind) {
             Object.entries(component.bind).forEach(([key, value]) => {
-                if (value.startsWith('stores.')) {
+                if (me.isStoreValue(value)) {
                     me.resolveStore(component, key, value.substring(7));
                 } else {
                     component[key] = me.resolveFormatter(value);
@@ -474,20 +484,16 @@ class Component extends Base {
      * @param {Neo.component.Base} [component=this.owner]
      */
     resolveBindings(component=this.owner) {
-        let me = this,
-            bindings;
+        let me = this;
 
         if (component.bind) {
-            bindings = {...component.bind};
-            delete bindings.store;
+            me.createBindings(component);
 
-            if (Object.keys(bindings).length > 0) {
-                me.createBindings(component);
-
-                Object.entries(bindings).forEach(([key, value]) => {
+            Object.entries(component.bind).forEach(([key, value]) => {
+                if (!me.isStoreValue(value)) { // bound stores already got resolved inside parseConfig()
                     component[key] = me.resolveFormatter(value);
-                });
-            }
+                }
+            });
         }
     }
 
