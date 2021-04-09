@@ -144,6 +144,35 @@ class Component extends Base {
      * Registers a new binding in case a matching data property does exist.
      * Otherwise it will use the closest model with a match.
      * @param {String} componentId
+     * @param {String} key
+     * @param {String} value
+     * @param {String} formatter
+     */
+    createBinding(componentId, key, value, formatter) {
+        let me          = this,
+            parentScope = me.getParentDataScope(key),
+            data        = parentScope.scope,
+            keyLeaf     = parentScope.key,
+            bindingScope, parentModel;
+
+        if (data[keyLeaf]) {
+            bindingScope = Neo.ns(`${key}.${componentId}`, true, me.bindings);
+            bindingScope[value] = formatter;
+        } else {
+            parentModel = me.getParent();
+
+            if (parentModel) {
+                parentModel.createBinding(componentId, key, value, formatter);
+            } else {
+                console.error('No model.Component found with the specified data property', value);
+            }
+        }
+    }
+
+    /**
+     * Registers a new binding in case a matching data property does exist.
+     * Otherwise it will use the closest model with a match.
+     * @param {String} componentId
      * @param {String} formatter
      * @param {String} value
      */
@@ -169,35 +198,6 @@ class Component extends Base {
                 }
             }
         });
-    }
-
-    /**
-     * Registers a new binding in case a matching data property does exist.
-     * Otherwise it will use the closest model with a match.
-     * @param {String} componentId
-     * @param {String} key
-     * @param {String} value
-     * @param {String} formatter
-     */
-    createBinding(componentId, key, value, formatter) {
-        let me          = this,
-            parentScope = me.getParentDataScope(key),
-            data        = parentScope.scope,
-            keyLeaf     = parentScope.key,
-            bindingScope, parentModel;
-
-        if (data[keyLeaf]) {
-            bindingScope = Neo.ns(`${key}.${componentId}`, true, me.bindings);
-            bindingScope[value] = formatter;
-        } else {
-            parentModel = me.getParent();
-
-            if (parentModel) {
-                parentModel.createBinding(componentId, key, value, formatter);
-            } else {
-                console.error('No model.Component found with the specified data property', value);
-            }
-        }
     }
 
     /**
