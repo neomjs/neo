@@ -451,16 +451,15 @@ class Component extends Base {
         let me = this,
             fn;
 
+        if (!data) {
+            data = this.getHierarchyData();
+        }
+
         if (me.cacheFormatterFunctions && formatterCache[formatter]) {
             return formatterCache[formatter].call(me, data);
         }
 
-        fn = new Function('data', [
-            'if (!data) {',
-                'data = this.getHierarchyData();',
-            '}',
-            'return `' + formatter + '`;'
-        ].join(''));
+        fn = new Function('data', 'return `' + formatter + '`;');
 
         if (me.cacheFormatterFunctions) {
             formatterCache[formatter] = fn;
