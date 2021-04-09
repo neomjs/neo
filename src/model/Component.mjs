@@ -522,15 +522,22 @@ class Component extends Base {
      * @param {Neo.component.Base} component
      * @param {String} configName
      * @param {String} storeName
+     * @param {Neo.model.Component} [originModel=this] for internal usage only
      */
-    resolveStore(component, configName, storeName) {
-        let me = this;
+    resolveStore(component, configName, storeName, originModel=this) {
+        let me = this,
+            parentModel;
 
         console.log('resolveStore', me.id, component.id, configName, storeName);
 
-        if (!me.stores.hasOwnProperty(storeName)) {
-            // todo: add support for stores inside a top level model
-            console.error('bound store not found inside this model:', storeName, me);
+        if (!me.stores || !me.stores.hasOwnProperty(storeName)) {
+            parentModel = me.getParent();
+
+            if (parentModel) {
+                parentModel.resolveStore(component, configName, storeName);
+            } else {
+                console.error('bound store not found inside this model or parents:', storeName, originModel);
+            }
         } else {
             component[configName] = me.stores[storeName];
         }
