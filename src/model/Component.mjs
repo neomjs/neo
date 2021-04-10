@@ -396,7 +396,8 @@ class Component extends Base {
      * Internal method to avoid code redundancy.
      * Use setData() or setDataAtSameLevel() instead.
      *
-     * Passing an originModel param will try to set each key on the closest match inside the parent model chain => setData()
+     * Passing an originModel param will try to set each key on the closest property match
+     * inside the parent model chain => setData()
      * Not passing it will set all values on the model where the method gets called => setDataAtSameLevel()
      * @param {Object|String} key
      * @param {*} value
