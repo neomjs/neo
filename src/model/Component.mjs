@@ -583,7 +583,7 @@ class Component extends Base {
 
     /**
      * Use this method instead of setData() in case you want to enforce
-     * to set all keys on this instance instead of looking for matches inside parent models.
+     * setting all keys on this instance instead of looking for matches inside parent models.
      * @param {Object|String} key
      * @param {*} value
      */
