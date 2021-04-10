@@ -393,6 +393,48 @@ class Component extends Base {
     }
 
     /**
+     * Internal method to avoid code redundancy.
+     * Use setData() or setDataAtSameLevel() instead.
+     *
+     * Passing an originModel param will try to set each key on the closest match inside the parent model chain => setData()
+     * Not passing it will set all values on the model where the method gets called => setDataAtSameLevel()
+     * @param {Object|String} key
+     * @param {*} value
+     * @param {Neo.model.Component} [originModel]
+     * @protected
+     */
+    internalSetData(key, value, originModel) {
+        let me = this,
+            data, keyLeaf, parentModel, scope;
+
+        if (Neo.isObject(key)) {
+            Object.entries(key).forEach(([dataKey, dataValue]) => {
+                me.internalSetData(dataKey, dataValue, originModel);
+            });
+        } else {
+            data    = me.getDataScope(key);
+            scope   = data.scope;
+            keyLeaf = data.key;
+
+            if (scope && scope.hasOwnProperty(keyLeaf)) {
+                scope[keyLeaf] = value;
+            } else {
+                if (originModel) {
+                    parentModel = me.getParent();
+
+                    if (parentModel) {
+                        parentModel.internalSetData(key, value, originModel);
+                    } else {
+                        originModel.addDataProperty(key, value);
+                    }
+                } else {
+                    me.addDataProperty(key, value);
+                }
+            }
+        }
+    }
+
+    /**
      * Internal convenience method to check if a binding value is supposed to match a store
      * @param {String} value
      * @returns {Boolean}
@@ -554,33 +596,9 @@ class Component extends Base {
      * In case no match is found inside the parent chain, a new data property will get generated.
      * @param {Object|String} key
      * @param {*} value
-     * @param {Neo.model.Component} [originModel=this] for internal usage only
      */
-    setData(key, value, originModel=this) {
-        let me = this,
-            data, keyLeaf, parentModel, scope;
-
-        if (Neo.isObject(key)) {
-            Object.entries(key).forEach(([dataKey, dataValue]) => {
-                me.setData(dataKey, dataValue);
-            });
-        } else {
-            data    = me.getDataScope(key);
-            scope   = data.scope;
-            keyLeaf = data.key;
-
-            if (scope && scope.hasOwnProperty(keyLeaf)) {
-                scope[keyLeaf] = value;
-            } else {
-                parentModel = me.getParent();
-
-                if (parentModel) {
-                    parentModel.setData(key, value, originModel);
-                } else {
-                    originModel.addDataProperty(key, value);
-                }
-            }
-        }
+    setData(key, value) {
+        this.internalSetData(key, value, this);
     }
 
     /**
@@ -590,24 +608,7 @@ class Component extends Base {
      * @param {*} value
      */
     setDataAtSameLevel(key, value) {
-        let me = this,
-            data, keyLeaf, scope;
-
-        if (Neo.isObject(key)) {
-            Object.entries(key).forEach(([dataKey, dataValue]) => {
-                me.setDataAtSameLevel(dataKey, dataValue);
-            });
-        } else {
-            data    = me.getDataScope(key);
-            scope   = data.scope;
-            keyLeaf = data.key;
-
-            if (scope && scope.hasOwnProperty(keyLeaf)) {
-                scope[keyLeaf] = value;
-            } else {
-                me.addDataProperty(key, value);
-            }
-        }
+        this.internalSetData(key, value);
     }
 }
 
