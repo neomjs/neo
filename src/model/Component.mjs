@@ -453,7 +453,7 @@ class Component extends Base {
         if (component.bind) {
             Object.entries(component.bind).forEach(([key, value]) => {
                 if (me.isStoreValue(value)) {
-                    me.resolveStore(component, key, value.substring(7));
+                    me.resolveStore(component, key, value.substring(7)); // remove the "stores." at the start
                 } else {
                     component[key] = me.resolveFormatter(value);
                 }
