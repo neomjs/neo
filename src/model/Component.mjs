@@ -77,15 +77,14 @@ class Component extends Base {
      */
     addDataProperty(key, value) {
         let me = this,
-            dataRoot, keyLeaf, parentScope;
+            data, scope;
 
         Neo.ns(key, true, me.data);
 
-        parentScope = me.getParentDataScope(key);
-        dataRoot    = parentScope.scope;
-        keyLeaf     = parentScope.key;
+        data  = me.getDataScope(key);
+        scope = data.scope;
 
-        dataRoot[keyLeaf] = value;
+        scope[data.key] = value;
 
         me.createDataProperties(me.data, 'data');
     }
@@ -149,13 +148,13 @@ class Component extends Base {
      * @param {String} formatter
      */
     createBinding(componentId, key, value, formatter) {
-        let me          = this,
-            parentScope = me.getParentDataScope(key),
-            data        = parentScope.scope,
-            keyLeaf     = parentScope.key,
+        let me      = this,
+            data    = me.getDataScope(key),
+            scope   = data.scope,
+            keyLeaf = data.key,
             bindingScope, parentModel;
 
-        if (data[keyLeaf]) {
+        if (scope[keyLeaf]) {
             bindingScope = Neo.ns(`${key}.${componentId}`, true, me.bindings);
             bindingScope[value] = formatter;
         } else {
@@ -179,14 +178,14 @@ class Component extends Base {
     createBindingByFormatter(componentId, formatter, value) {
         let me            = this,
             formatterVars = me.getFormatterVariables(formatter),
-            data, keyLeaf, parentModel, parentScope;
+            data, keyLeaf, parentModel, scope;
 
         formatterVars.forEach(key => {
-            parentScope = me.getParentDataScope(key);
-            data        = parentScope.scope;
-            keyLeaf     = parentScope.key;
+            data    = me.getDataScope(key);
+            scope   = data.scope;
+            keyLeaf = data.key;
 
-            if (data[keyLeaf]) {
+            if (scope[keyLeaf]) {
                 me.createBinding(componentId, key, value, formatter);
             } else {
                 parentModel = me.getParent();
@@ -286,23 +285,48 @@ class Component extends Base {
      * @returns {*} value
      */
     getData(key, originModel=this) {
-        let me          = this,
-            parentScope = me.getParentDataScope(key),
-            data        = parentScope.scope,
-            keyLeaf     = parentScope.key,
+        let me      = this,
+            data    = me.getDataScope(key),
+            scope   = data.scope,
+            keyLeaf = data.key,
             parentModel;
 
-        if (data.hasOwnProperty(keyLeaf)) {
-            return data[keyLeaf];
+        if (scope.hasOwnProperty(keyLeaf)) {
+            return scope[keyLeaf];
         }
 
         parentModel = me.getParent();
 
         if (!parentModel) {
-            console.error(`data property '${key}' does not exist.`, originModel.id);
+            console.error(`data property '${key}' does not exist.`, originModel);
         }
 
         return parentModel.getData(key, originModel);
+    }
+
+    /**
+     * Helper method to get the scope for a nested data property via Neo.ns() if needed.
+     *
+     * Example: passing the value 'foo.bar.baz' will return the bar object as the scope
+     * and 'baz' as the key.
+     * @param key
+     * @returns {Object}
+     */
+    getDataScope(key) {
+        let me      = this,
+            keyLeaf = key,
+            data    = me.data;
+
+        if (key.includes('.')) {
+            key     = key.split('.');
+            keyLeaf = key.pop();
+            data    = Neo.ns(key.join('.'), false, data);
+        }
+
+        return {
+            key  : keyLeaf,
+            scope: data
+        };
     }
 
     /**
@@ -366,28 +390,6 @@ class Component extends Base {
             parentComponent = parentId && Neo.getComponent(parentId);
 
         return parentComponent && parentComponent.getModel();
-    }
-
-    /**
-     * Helper method to get the parent namespace for a nested data property via Neo.ns() if needed.
-     * @param key
-     * @returns {Object}
-     */
-    getParentDataScope(key) {
-        let me      = this,
-            keyLeaf = key,
-            data    = me.data;
-
-        if (key.includes('.')) {
-            key     = key.split('.');
-            keyLeaf = key.pop();
-            data    = Neo.ns(key.join('.'), false, data);
-        }
-
-        return {
-            key  : keyLeaf,
-            scope: data
-        };
     }
 
     /**
@@ -556,19 +558,19 @@ class Component extends Base {
      */
     setData(key, value, originModel=this) {
         let me = this,
-            data, keyLeaf, parentModel, parentScope;
+            data, keyLeaf, parentModel, scope;
 
         if (Neo.isObject(key)) {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
                 me.setData(dataKey, dataValue);
             });
         } else {
-            parentScope = me.getParentDataScope(key);
-            data        = parentScope.scope;
-            keyLeaf     = parentScope.key;
+            data    = me.getDataScope(key);
+            scope   = data.scope;
+            keyLeaf = data.key;
 
-            if (data && data.hasOwnProperty(keyLeaf)) {
-                data[keyLeaf] = value;
+            if (scope && scope.hasOwnProperty(keyLeaf)) {
+                scope[keyLeaf] = value;
             } else {
                 parentModel = me.getParent();
 
@@ -589,19 +591,19 @@ class Component extends Base {
      */
     setDataAtSameLevel(key, value) {
         let me = this,
-            data, keyLeaf, parentScope;
+            data, keyLeaf, scope;
 
         if (Neo.isObject(key)) {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
                 me.setDataAtSameLevel(dataKey, dataValue);
             });
         } else {
-            parentScope = me.getParentDataScope(key);
-            data        = parentScope.scope;
-            keyLeaf     = parentScope.key;
+            data    = me.getDataScope(key);
+            scope   = data.scope;
+            keyLeaf = data.key;
 
-            if (data && data.hasOwnProperty(keyLeaf)) {
-                data[keyLeaf] = value;
+            if (scope && scope.hasOwnProperty(keyLeaf)) {
+                scope[keyLeaf] = value;
             } else {
                 me.addDataProperty(key, value);
             }
