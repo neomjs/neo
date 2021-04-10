@@ -450,7 +450,7 @@ class Component extends Base {
      */
     onDataPropertyChange(key, value, oldValue) {
         let me      = this,
-            binding = me.bindings && me.bindings[key],
+            binding = me.bindings && Neo.ns(key, false, me.bindings),
             component, config, hierarchyData, model;
 
         if (binding) {
