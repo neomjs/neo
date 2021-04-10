@@ -353,7 +353,7 @@ class Component extends Base {
 
     /**
      * Returns the merged data
-     * @param {Object} data
+     * @param {Object} data=this.getPlainData()
      * @returns {Object} data
      */
     getHierarchyData(data=this.getPlainData()) {
@@ -361,15 +361,13 @@ class Component extends Base {
             parent = me.getParent();
 
         if (parent) {
-            data = {
+            return {
                 ...parent.getHierarchyData(data),
                 ...me.getPlainData()
             };
         } else {
             return me.getPlainData();
         }
-
-        return data;
     }
 
     /**
