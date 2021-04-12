@@ -43,7 +43,7 @@ class MainContainerController extends Component {
      */
     onTextField1Change(data) {
         if (data.oldValue !== null) {
-            this.updateButton1Text(data.value);
+            this.updateButton1Text(data.value || '');
         }
     }
 
@@ -53,7 +53,7 @@ class MainContainerController extends Component {
      */
     onTextField2Change(data) {
         if (data.oldValue !== null) {
-            this.updateButton2Text(data.value);
+            this.updateButton2Text(data.value || '');
         }
     }
 

@@ -105,7 +105,7 @@ class MainContainerController extends Component {
      */
     onTextField1Change(data) {
         if (data.oldValue !== null) {
-            this.updateButton1Text(data.value);
+            this.updateButton1Text(data.value || '');
         }
     }
 
@@ -115,7 +115,7 @@ class MainContainerController extends Component {
      */
     onTextField2Change(data) {
         if (data.oldValue !== null) {
-            this.updateButton2Text(data.value);
+            this.updateButton2Text(data.value || '');
         }
     }
 
@@ -135,7 +135,7 @@ class MainContainerController extends Component {
      */
     updateButton1Text(value) {
         // test to access a child model instead to check if the data value bubbles up
-        this.getReference('panel').getModel().setData('button1Text', value || '');
+        this.getReference('panel').getModel().setData('button1Text', value);
     }
 
     /**
@@ -144,7 +144,7 @@ class MainContainerController extends Component {
      */
     updateButton2Text(value) {
         this.getReference('panel').getModel().setData({
-            button2Text: value || ''
+            button2Text: value
         });
     }
 
