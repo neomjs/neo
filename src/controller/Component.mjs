@@ -20,6 +20,10 @@ class Component extends Base {
          */
         ntype: 'component-controller',
         /**
+         * @member {Neo.controller.Component|null} parent_=null
+         */
+        parent_: null,
+        /**
          * @member {Object} references=null
          * @protected
          */
@@ -62,6 +66,20 @@ class Component extends Base {
     }
 
     /**
+     * Triggered before the parent config gets changed
+     * @param {Neo.controller.Component|null} value
+     * @param {Neo.controller.Component|null} oldValue
+     * @protected
+     */
+    beforeSetParent(value, oldValue) {
+        if (!value) {
+            return this.getParent();
+        }
+
+        return value;
+    }
+
+    /**
      * Triggered before the view config gets changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -85,33 +103,21 @@ class Component extends Base {
     }
 
     /**
-     *
-     * @param {String} [ntype]
+     * Get the closest controller inside the components parent tree
      * @returns {Neo.controller.Component|null}
      */
-    getParent(ntype) {
-        let me      = this,
-            view    = me.view,
-            parents = ComponentManager.getParents(view),
-            i       = 0,
-            len     = parents.length,
-            controller;
+    getParent() {
+        let me = this,
+            parentComponent, parentId;
 
-        for (; i < len; i++) {
-            controller = parents[i].controller;
-
-            if (controller) {
-                if (ntype) {
-                    if (ntype === controller.ntype) {
-                        return controller;
-                    }
-                } else {
-                    return controller;
-                }
-            }
+        if (me.parent) {
+            return me.parent;
         }
 
-        return null;
+        parentId        = me.view.parentId;
+        parentComponent = parentId && Neo.getComponent(parentId);
+
+        return parentComponent && parentComponent.getController() || null;
     }
 
     /**

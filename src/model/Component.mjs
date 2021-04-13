@@ -387,7 +387,7 @@ class Component extends Base {
         let parentId        = this.owner.parentId,
             parentComponent = parentId && Neo.getComponent(parentId);
 
-        return parentComponent && parentComponent.getModel();
+        return parentComponent && parentComponent.getModel() || null;
     }
 
     /**
