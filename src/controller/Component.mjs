@@ -293,10 +293,6 @@ class Component extends Base {
         if (component.listeners) {
             Object.entries(component.listeners).forEach(([key, value]) => {
                 if (key !== 'scope' && key !== 'delegate') {
-                    if (!Array.isArray(value)) {
-                        value = [value];
-                    }
-
                     value.forEach(listener => {
                         eventHandler = null;
 
