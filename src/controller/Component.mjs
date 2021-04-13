@@ -177,6 +177,7 @@ class Component extends Base {
     parseConfig(component=this.view) {
         let me           = this,
             domListeners = component.domListeners,
+            listeners    = component.listeners,
             eventHandler, fn, parentController;
 
         if (domListeners) {
@@ -227,8 +228,8 @@ class Component extends Base {
             });
         }
 
-        if (component.listeners) {
-            Object.entries(component.listeners).forEach(([key, value]) => {
+        if (listeners) {
+            Object.entries(listeners).forEach(([key, value]) => {
                 if (key !== 'scope' && key !== 'delegate') {
                     value.forEach(listener => {
                         eventHandler = null;
