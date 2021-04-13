@@ -488,7 +488,7 @@ class Component extends Base {
     /**
      * This method will assign binding values at the earliest possible point inside the component lifecycle.
      * It can not store bindings though, since child component ids most likely do not exist yet.
-     * @param {Object} [component=this.owner]
+     * @param {Neo.component.Base} [component=this.owner]
      */
     parseConfig(component=this.owner) {
         let me = this;

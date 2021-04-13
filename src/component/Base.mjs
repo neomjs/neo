@@ -1045,15 +1045,16 @@ class Base extends CoreBase {
     initConfig(config, preventOriginalConfig) {
         super.initConfig(config, preventOriginalConfig);
 
-        let me    = this,
-            model = me.getModel();
+        let me         = this,
+            controller = me.getController(),
+            model      = me.getModel();
+
+        if (controller) {
+            controller.parseConfig(me);
+        }
 
         if (model) {
             model.parseConfig(me);
-        }
-
-        if (me.controller) {
-            me.controller.parseConfig();
         }
     }
 

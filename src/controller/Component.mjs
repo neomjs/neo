@@ -49,6 +49,8 @@ class Component extends Base {
                 me.onViewConstructed();
             });
         }
+
+        console.log('constructor', this.view.id);
     }
 
     /**
@@ -230,26 +232,6 @@ class Component extends Base {
             });
         }
 
-        if (view.listeners) {
-            Object.entries(view.listeners).forEach(([name, listener]) => {
-                if (Array.isArray(listener)) {
-                    listener.forEach(key => {
-                        eventHandler = null;
-
-                        if (Neo.isObject(key) && key.hasOwnProperty('fn') && Neo.isString(key.fn)) {
-                            eventHandler = key.fn;
-
-                            if (!me[eventHandler]) {
-                                Logger.logError('Unknown event handler for', view, eventHandler);
-                            } else {
-                                key.fn = me[eventHandler].bind(me);
-                            }
-                        }
-                    });
-                }
-            });
-        }
-
         if (view.items) {
             view.items.forEach(item => {
                 if (!item.controller) {
@@ -268,17 +250,16 @@ class Component extends Base {
      * (instead of using onConstructed() inside your controller)
      */
     onViewParsed() {
-
+        console.log('onViewParsed', this.view.id);
     }
 
     /**
      *
-     * @param {Object} config
+     * @param {Neo.component.Base} [component=this.view]
      */
-    parseConfig(config) {
+    parseConfig(component=this.view) {
         let me           = this,
-            view         = config || me.view,
-            domListeners = view.domListeners,
+            domListeners = component.domListeners,
             eventHandler;
 
         if (domListeners) {
@@ -299,9 +280,8 @@ class Component extends Base {
 
                         if (eventHandler) {
                             if (!me[eventHandler]) {
-                                Logger.logError('Unknown domEvent handler for', view, eventHandler);
-                            } else {console.log('#', key, me.id);
-                                console.log('parseConfig', eventHandler);
+                                Logger.logError('Unknown domEvent handler for', component, eventHandler);
+                            } else {
                                 domListener[key] = me[eventHandler].bind(me);
                             }
                         }
@@ -310,40 +290,26 @@ class Component extends Base {
             });
         }
 
-        if (view.listeners) {
-            Object.entries(view.listeners).forEach(([key, value]) => {
-                eventHandler = null;
-
+        if (component.listeners) {
+            Object.entries(component.listeners).forEach(([key, value]) => {
                 if (key !== 'scope' && key !== 'delegate') {
-                    if (Neo.isString(value)) {
-                        eventHandler = value;
-                    } else if (Neo.isObject(value) && value.hasOwnProperty('fn') && Neo.isString(value.fn)) {
-                        eventHandler = value.fn;
+                    if (!Array.isArray(value)) {
+                        value = [value];
                     }
 
-                    if (eventHandler) {
-                        if (!me[eventHandler]) {
-                            Logger.logError('Unknown event handler for', view, eventHandler);
-                        } else {
-                            view.listeners[key] = me[eventHandler].bind(me);
+                    value.forEach(listener => {
+                        eventHandler = null;
+
+                        if (Neo.isObject(listener) && listener.hasOwnProperty('fn') && Neo.isString(listener.fn)) {
+                            eventHandler = listener.fn;
+
+                            if (!me[eventHandler]) {
+                                Logger.logError('Unknown event handler for', component, eventHandler);
+                            } else {
+                                listener.fn = me[eventHandler].bind(me);
+                            }
                         }
-                    }
-                }
-            });
-        }
-
-        if (view.headers) {
-            view.headers.forEach(header => {
-                if (!header.controller) {
-                    me.parseConfig(header);
-                }
-            });
-        }
-
-        if (view.items) {
-            view.items.forEach(item => {
-                if (!item.controller) {
-                    me.parseConfig(item);
+                    });
                 }
             });
         }
