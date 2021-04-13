@@ -667,20 +667,11 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered when accessing the controller config
-     * @param {Object} value
-     * @protected
-     */
-    beforeGetController(value) {
-        return value && Neo.get(value);
-    }
-
-    /**
      * Triggered before the controller config gets changed.
      * Creates a controller.Component instance if needed.
      * @param {Object} value
      * @param {Object} oldValue
-     * @returns {String} id
+     * @returns {Neo.controller.Component}
      * @protected
      */
     beforeSetController(value, oldValue) {
@@ -688,11 +679,13 @@ class Base extends CoreBase {
             oldValue.destroy();
         }
 
-        value = ClassSystemUtil.beforeSetInstance(value, null, {
-            component: this
-        });
+        if (value) {
+            return ClassSystemUtil.beforeSetInstance(value, null, {
+                component: this
+            });
+        }
 
-        return value && value.id;
+        return value;
     }
 
     /**
@@ -735,7 +728,7 @@ class Base extends CoreBase {
      * Creates a model.Component instance if needed.
      * @param {Object} value
      * @param {Object} oldValue
-     * @returns {Neo.model.Component} model
+     * @returns {Neo.model.Component}
      * @protected
      */
     beforeSetModel(value, oldValue) {
