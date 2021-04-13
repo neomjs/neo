@@ -178,6 +178,7 @@ class Component extends Base {
         let me           = this,
             domListeners = component.domListeners,
             listeners    = component.listeners,
+            reference    = component.reference,
             eventHandler, fn, parentController;
 
         if (domListeners) {
@@ -246,6 +247,10 @@ class Component extends Base {
                     });
                 }
             });
+        }
+
+        if (reference) {
+            me.references[reference] = component.id;
         }
     }
 }
