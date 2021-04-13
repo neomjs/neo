@@ -32,7 +32,7 @@ class MainContainerController extends ComponentController {
     /**
      *
      */
-    onViewConstructed() {
+    onComponentConstructed() {
         let me = this;
 
         me.getReference('examples-tab-container').on('moveTo', me.onTabMove.bind(me, 'examplesTabs'));

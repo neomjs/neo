@@ -47,10 +47,10 @@ class Component extends Base {
         me.references = {};
 
         if (me.component.isConstructed) {
-            me.onViewConstructed();
+            me.onComponentConstructed();
         } else {
             me.component.on('constructed', () => {
-                me.onViewConstructed();
+                me.onComponentConstructed();
             });
         }
     }
@@ -154,7 +154,7 @@ class Component extends Base {
      * Override this method inside your view controllers as a starting point in case you need references
      * (instead of using onConstructed() inside your controller)
      */
-    onViewConstructed() {}
+    onComponentConstructed() {}
 
     /**
      *

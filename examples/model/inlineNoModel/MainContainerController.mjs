@@ -80,7 +80,7 @@ class MainContainerController extends Component {
     /**
      *
      */
-    onViewConstructed() {
+    onComponentConstructed() {
         let me = this;
 
         me.updateReferences(me.button1Text, 'button1', 'textfield1');
