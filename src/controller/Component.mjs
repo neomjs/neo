@@ -179,7 +179,7 @@ class Component extends Base {
             domListeners = component.domListeners,
             listeners    = component.listeners,
             reference    = component.reference,
-            eventHandler, fn, parentController;
+            domEventOpts, eventHandler, fn, parentController;
 
         if (domListeners) {
             domListeners.forEach(domListener => {
@@ -194,21 +194,25 @@ class Component extends Base {
                         }
 
                         if (eventHandler) {
+                            domEventOpts = {
+                                componentId     : component.id,
+                                eventHandlerName: eventHandler,
+                                eventName       : key,
+                                scope           : parentController
+                            };
+
                             if (!me[eventHandler]) {
                                 parentController = me.getParentHandlerScope(eventHandler);
 
                                 if (!parentController) {
-                                    Logger.logError('Unknown domEvent handler for', view, eventHandler);
+                                    Logger.logError('Unknown domEvent handler for', component, eventHandler);
                                 } else {
                                     fn               = parentController[eventHandler].bind(parentController);
                                     domListener[key] = fn;
 
                                     DomEventManager.updateListenerPlaceholder({
-                                        componentId       : view.id,
-                                        eventHandlerMethod: fn,
-                                        eventHandlerName  : eventHandler,
-                                        eventName         : key,
-                                        scope             : parentController
+                                        ...domEventOpts,
+                                        eventHandlerMethod: fn
                                     });
                                 }
                             } else {
@@ -216,11 +220,8 @@ class Component extends Base {
                                 domListener[key] = fn;
 
                                 DomEventManager.updateListenerPlaceholder({
-                                    componentId       : component.id,
-                                    eventHandlerMethod: fn,
-                                    eventHandlerName  : eventHandler,
-                                    eventName         : key,
-                                    scope             : me
+                                    ...domEventOpts,
+                                    eventHandlerMethod: fn
                                 });
                             }
                         }
