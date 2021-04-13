@@ -263,10 +263,6 @@ class Component extends Base {
             eventHandler;
 
         if (domListeners) {
-            if (!Array.isArray(domListeners)) {
-                domListeners = [domListeners];
-            }
-
             domListeners.forEach(domListener => {
                 Object.entries(domListener).forEach(([key, value]) => {
                     eventHandler = null;
