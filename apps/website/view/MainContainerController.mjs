@@ -136,9 +136,9 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onSwitchThemeButtonClick(data) {
-        let me     = this,
-            button = data.component,
-            view   = me.view,
+        let me        = this,
+            button    = data.component,
+            component = me.component,
             cls, iconCls, theme;
 
         if (button.iconCls === 'fa fa-sun') {
@@ -149,16 +149,16 @@ class MainContainerController extends ComponentController {
             theme   = 'neo-theme-dark';
         }
 
-        cls = [...view.cls];
+        cls = [...component.cls];
 
-        view.cls.forEach(item => {
+        component.cls.forEach(item => {
             if (item.includes('neo-theme')) {
                 NeoArray.remove(cls, item);
             }
         });
 
         NeoArray.add(cls, theme);
-        view.cls = cls;
+        component.cls = cls;
 
         button.iconCls = iconCls;
     }

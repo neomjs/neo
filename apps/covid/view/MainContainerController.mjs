@@ -72,7 +72,7 @@ class MainContainerController extends ComponentController {
         me.loadData();
         me.loadSummaryData();
 
-        me.view.on('mounted', me.onMainViewMounted, me);
+        me.component.on('mounted', me.onMainViewMounted, me);
     }
 
     /**
@@ -396,7 +396,7 @@ class MainContainerController extends ComponentController {
         const me        = this,
               activeTab = me.getReference('tab-container').getActiveCard();
 
-        me.view.remove(me.getReference('footer'), true);
+        me.component.remove(me.getReference('footer'), true);
 
         if (activeTab.ntype === 'covid-mapboxgl-container') {
             me.getReference('mapboxglmap').autoResize();
@@ -407,13 +407,13 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onSwitchThemeButtonClick(data) {
-        let me       = this,
-            button   = data.component,
-            logo     = me.getReference('logo'),
-            logoPath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
-            mapView  = me.getReference('mapboxglmap'),
-            vdom     = logo.vdom,
-            view     = me.view,
+        let me        = this,
+            button    = data.component,
+            component = me.component,
+            logo      = me.getReference('logo'),
+            logoPath  = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
+            mapView   = me.getReference('mapboxglmap'),
+            vdom      = logo.vdom,
             buttonText, cls, href, iconCls, mapViewStyle, theme;
 
         if (button.text === 'Theme Light') {
@@ -435,16 +435,16 @@ class MainContainerController extends ComponentController {
 
 
         if (Neo.config.useCssVars) {
-            cls = [...view.cls];
+            cls = [...component.cls];
 
-            view.cls.forEach(item => {
+            component.cls.forEach(item => {
                 if (item.includes('neo-theme')) {
                     NeoArray.remove(cls, item);
                 }
             });
 
             NeoArray.add(cls, theme);
-            view.cls = cls;
+            component.cls = cls;
 
             button.set({
                 iconCls: iconCls,

@@ -49,7 +49,7 @@ class TableContainerController extends ComponentController {
 
         const me = this;
 
-        me.view.on('countrySelect', me.onTableSelect, me);
+        me.component.on('countrySelect', me.onTableSelect, me);
     }
 
     /**
@@ -199,7 +199,7 @@ class TableContainerController extends ComponentController {
         const panel  = this.getReference('controls-panel'),
               expand = panel.width === 40;
 
-        panel.width = expand ? this.view.historyPanelWidth : 40;
+        panel.width = expand ? this.component.historyPanelWidth : 40;
 
         data.component.text = expand ? 'X' : '+';
     }

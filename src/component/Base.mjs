@@ -689,7 +689,7 @@ class Base extends CoreBase {
         }
 
         value = ClassSystemUtil.beforeSetInstance(value, null, {
-            view: this
+            component: this
         });
 
         return value && value.id;
@@ -745,7 +745,7 @@ class Base extends CoreBase {
 
         if (value) {
             return ClassSystemUtil.beforeSetInstance(value, 'Neo.model.Component', {
-                owner: this
+                component: this
             });
         }
 

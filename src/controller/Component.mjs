@@ -15,10 +15,15 @@ class Component extends Base {
          */
         className: 'Neo.controller.Component',
         /**
-         * @member {String} ntype='view-controller'
+         * @member {String} ntype='component-controller'
          * @protected
          */
         ntype: 'component-controller',
+        /**
+         * @member {Object} component=null
+         * @protected
+         */
+        component: null,
         /**
          * @member {Neo.controller.Component|null} parent_=null
          */
@@ -27,12 +32,7 @@ class Component extends Base {
          * @member {Object} references=null
          * @protected
          */
-        references: null,
-        /**
-         * @member {Object} view_=null
-         * @protected
-         */
-        view_: null
+        references: null
     }}
 
     /**
@@ -46,23 +46,13 @@ class Component extends Base {
 
         me.references = {};
 
-        if (me.view.isConstructed) {
+        if (me.component.isConstructed) {
             me.onViewConstructed();
         } else {
-            me.view.on('constructed', () => {
+            me.component.on('constructed', () => {
                 me.onViewConstructed();
             });
         }
-    }
-
-    /**
-     * Triggered when accessing the view config
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    beforeGetView(value, oldValue) {
-        return Neo.get(value);
     }
 
     /**
@@ -80,26 +70,16 @@ class Component extends Base {
     }
 
     /**
-     * Triggered before the view config gets changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    beforeSetView(value, oldValue) {
-        return value.id;
-    }
-
-    /**
      * sameLevelOnly=false will return the closest VM inside the component parent tree,
      * in case there is none on the same level.
      * @param {Boolean} [sameLevelOnly=false]
      */
     getModel(sameLevelOnly=false) {
         if (sameLevelOnly) {
-            return this.view.model;
+            return this.component.model;
         }
 
-        return this.view.getModel();
+        return this.component.getModel();
     }
 
     /**
@@ -114,7 +94,7 @@ class Component extends Base {
             return me.parent;
         }
 
-        parentId        = me.view.parentId;
+        parentId        = me.component.parentId;
         parentComponent = parentId && Neo.getComponent(parentId);
 
         return parentComponent && parentComponent.getController() || null;
@@ -126,11 +106,11 @@ class Component extends Base {
      * @returns {Neo.controller.Component|null}
      */
     getParentHandlerScope(handlerName) {
-        let me      = this,
-            view    = me.view,
-            parents = ComponentManager.getParents(view),
-            i       = 0,
-            len     = parents.length,
+        let me        = this,
+            component = me.component,
+            parents   = ComponentManager.getParents(component),
+            i         = 0,
+            len       = parents.length,
             controller;
 
         for (; i < len; i++) {
@@ -160,7 +140,7 @@ class Component extends Base {
         }
 
         if (!component) {
-            component = me.view.down({reference: name});
+            component = me.component.down({reference: name});
 
             if (component) {
                 me.references[name] = component.id;
@@ -178,9 +158,9 @@ class Component extends Base {
 
     /**
      *
-     * @param {Neo.component.Base} [component=this.view]
+     * @param {Neo.component.Base} [component=this.component]
      */
-    parseConfig(component=this.view) {
+    parseConfig(component=this.component) {
         let me           = this,
             domListeners = component.domListeners,
             listeners    = component.listeners,

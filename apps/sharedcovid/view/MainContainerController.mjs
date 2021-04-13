@@ -91,7 +91,7 @@ class MainContainerController extends ComponentController {
             scope     : me
         });
 
-        me.view.on({
+        me.component.on({
             mounted: me.onMainViewMounted,
             scope  : me
         });
@@ -229,7 +229,7 @@ class MainContainerController extends ComponentController {
      */
     getMainView(appName) {
         if (!appName || appName === 'Covid') {
-            return this.view;
+            return this.component;
         }
 
         return Neo.apps[appName].mainViewInstance;
@@ -591,7 +591,7 @@ class MainContainerController extends ComponentController {
         const me        = this,
               activeTab = me.getReference('tab-container').getActiveCard();
 
-        me.view.remove(me.getReference('footer'), true);
+        me.component.remove(me.getReference('footer'), true);
 
         if (activeTab.ntype === 'covid-mapboxgl-container') {
             me.getReference('mapboxglmap').autoResize();
@@ -602,12 +602,12 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onSwitchThemeButtonClick(data) {
-        let me       = this,
-            button   = data.component,
-            logo     = me.getReference('logo'),
-            logoPath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
-            vdom     = logo.vdom,
-            view     = me.view,
+        let me        = this,
+            button    = data.component,
+            component = me.component,
+            logo      = me.getReference('logo'),
+            logoPath  = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
+            vdom      = logo.vdom,
             buttonText, cls, href, iconCls, mapView, mapViewStyle, theme;
 
         if (me.connectedApps.includes('SharedCovidMap')) {
@@ -635,19 +635,19 @@ class MainContainerController extends ComponentController {
 
 
         if (Neo.config.useCssVars) {
-            [view.appName, ...me.connectedApps].forEach(appName => {
-                view = me.getMainView(appName);
+            [component.appName, ...me.connectedApps].forEach(appName => {
+                component = me.getMainView(appName);
 
-                cls = [...view.cls];
+                cls = [...component.cls];
 
-                view.cls.forEach(item => {
+                component.cls.forEach(item => {
                     if (item.includes('neo-theme')) {
                         NeoArray.remove(cls, item);
                     }
                 });
 
                 NeoArray.add(cls, theme);
-                view.cls = cls;
+                component.cls = cls;
             });
 
             button.set({
@@ -655,7 +655,7 @@ class MainContainerController extends ComponentController {
                 text   : buttonText
             });
         } else {
-            [view.appName, ...me.connectedApps].forEach(appName => {
+            [component.appName, ...me.connectedApps].forEach(appName => {
                 Neo.main.addon.Stylesheet.swapStyleSheet({
                     appName: appName,
                     href   : href,

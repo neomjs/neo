@@ -43,14 +43,14 @@ class Component extends Base {
          */
         cacheFormatterFunctions: true,
         /**
+         * @member {Neo.component.Base|null} component=null
+         * @protected
+         */
+        component: null,
+        /**
          * @member {Object|null} data_=null
          */
         data_: null,
-        /**
-         * @member {Neo.component.Base|null} owner=null
-         * @protected
-         */
-        owner: null,
         /**
          * @member {Object|null} stores_=null
          */
@@ -384,7 +384,7 @@ class Component extends Base {
      * @returns {Neo.model.Component|null}
      */
     getParent() {
-        let parentId        = this.owner.parentId,
+        let parentId        = this.component.parentId,
             parentComponent = parentId && Neo.getComponent(parentId);
 
         return parentComponent && parentComponent.getModel() || null;
@@ -488,9 +488,9 @@ class Component extends Base {
     /**
      * This method will assign binding values at the earliest possible point inside the component lifecycle.
      * It can not store bindings though, since child component ids most likely do not exist yet.
-     * @param {Neo.component.Base} [component=this.owner]
+     * @param {Neo.component.Base} [component=this.component]
      */
-    parseConfig(component=this.owner) {
+    parseConfig(component=this.component) {
         let me = this;
 
         if (component.bind) {
@@ -524,9 +524,9 @@ class Component extends Base {
 
     /**
      *
-     * @param {Neo.component.Base} [component=this.owner]
+     * @param {Neo.component.Base} [component=this.component]
      */
-    resolveBindings(component=this.owner) {
+    resolveBindings(component=this.component) {
         let me = this;
 
         if (component.bind) {

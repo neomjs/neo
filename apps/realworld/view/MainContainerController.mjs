@@ -254,7 +254,7 @@ class MainContainerController extends ComponentController {
         if (!me[key]) {
             me[key] = Neo.create({
                 module   : module,
-                parentId : me.view.id,
+                parentId : me.component.id,
                 reference: reference
             });
         }
@@ -306,22 +306,20 @@ class MainContainerController extends ComponentController {
      */
     onHashChange(value, oldValue) {
         let me         = this,
+            component  = me.component,
             hash       = value.hash,
             hashString = value.hashString,
-            view       = me.view,
             newView, slug;
 
-        if (!view.mounted) { // the initial hash change gets triggered before the vnode got back from the vdom worker (using autoMount)
-            view.on('mounted', () => {
+        if (!component.mounted) { // the initial hash change gets triggered before the vnode got back from the vdom worker (using autoMount)
+            component.on('mounted', () => {
                 me.onHashChange(value, oldValue);
             });
         } else {
-            console.log('onHashChange', value, oldValue);
-
             me.hashString = hashString;
 
             // adjust the active header link
-            view.items[0].activeItem = Object.keys(hash)[0];
+            component.items[0].activeItem = Object.keys(hash)[0];
 
                  if (hashString === '/')                {newView = me.getView('homeComponent',     HomeComponent,     'home');}
             else if (hashString.includes('/article/'))  {newView = me.getView('articleComponent',  ArticleComponent,  'article');}
@@ -335,12 +333,12 @@ class MainContainerController extends ComponentController {
                 oldValue.hash.hasOwnProperty('/login')    && hash.hasOwnProperty('/register') ||
                 oldValue.hash.hasOwnProperty('/register') && hash.hasOwnProperty('/login')))
             ) {
-                if (view.items.length > 2) {
-                    view.removeAt(1, false, true);
+                if (component.items.length > 2) {
+                    component.removeAt(1, false, true);
                 }
 
                 if (newView) {
-                    view.insert(1, newView);
+                    component.insert(1, newView);
                 }
             }
 
