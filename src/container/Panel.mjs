@@ -70,6 +70,7 @@ class Panel extends Container {
     static createHeaderConfig(header) {
         let config = {
             ntype: 'toolbar',
+            cls  : ['neo-panel-header-toolbar', 'neo-toolbar'],
             flex : '0 1 auto'
         };
 
