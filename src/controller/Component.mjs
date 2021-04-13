@@ -37,20 +37,7 @@ class Component extends Base {
      */
     constructor(config) {
         super(config);
-
-        let me = this;
-
-        me.references = {};
-
-        /*if (me.view.isConstructed) {
-            me.onViewConstructed();
-        } else {
-            me.view.on('constructed', () => {
-                me.onViewConstructed();
-            });
-        }*/
-
-        console.log('constructor', this.view.id);
+        this.references = {};
     }
 
     /**
@@ -164,87 +151,6 @@ class Component extends Base {
         }
 
         return component || null;
-    }
-
-    /**
-     *
-     * @param {Neo.component.Base} [view=null]
-     */
-    onViewConstructed(view=null) {
-        let me        = this,
-            childCall = !!view,
-            domListeners, eventHandler, fn, parentController;
-
-        view = view || me.view;
-
-        view.domListeners = Neo.clone(view.domListeners, true, true); // ensure there is no interference on prototype level
-        domListeners = view.domListeners;
-
-        if (domListeners) {
-            console.log('onViewConstructed', childCall, view.id, domListeners);
-
-            if (!Array.isArray(domListeners)) {
-                domListeners = [domListeners];
-            }
-
-            domListeners.forEach(domListener => {
-                Object.entries(domListener).forEach(([key, value]) => {
-                    eventHandler = null;
-
-                    if (key !== 'scope' && key !== 'delegate') {
-                        if (Neo.isString(value)) {
-                            eventHandler = value;
-                        } else if (Neo.isObject(value) && value.hasOwnProperty('fn') && Neo.isString(value.fn)) {
-                            eventHandler = value.fn;
-                        }
-
-                        if (eventHandler) {
-                            if (!me[eventHandler]) {
-                                parentController = me.getParentHandlerScope(eventHandler);
-
-                                if (!parentController) {
-                                    Logger.logError('Unknown domEvent handler for', view, eventHandler);
-                                } else {
-                                    fn               = parentController[eventHandler].bind(parentController);
-                                    domListener[key] = fn;
-
-                                    DomEventManager.updateListenerPlaceholder({
-                                        componentId       : view.id,
-                                        eventHandlerMethod: fn,
-                                        eventHandlerName  : eventHandler,
-                                        eventName         : key,
-                                        scope             : parentController
-                                    });
-                                }
-                            } else {
-                                fn               = me[eventHandler].bind(me);
-                                domListener[key] = fn;
-
-                                DomEventManager.updateListenerPlaceholder({
-                                    componentId       : view.id,
-                                    eventHandlerMethod: fn,
-                                    eventHandlerName  : eventHandler,
-                                    eventName         : key,
-                                    scope             : me
-                                });
-                            }
-                        }
-                    }
-                });
-            });
-        }
-
-        if (view.items) {
-            view.items.forEach(item => {
-                if (!item.controller) {
-                    me.onViewConstructed(item);
-                }
-            });
-        }
-
-        if (!childCall) {
-            me.onViewParsed();
-        }
     }
 
     /**
