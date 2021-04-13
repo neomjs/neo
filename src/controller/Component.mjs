@@ -37,7 +37,18 @@ class Component extends Base {
      */
     constructor(config) {
         super(config);
-        this.references = {};
+
+        let me = this;
+
+        me.references = {};
+
+        if (me.view.isConstructed) {
+            me.onViewConstructed();
+        } else {
+            me.view.on('constructed', () => {
+                me.onViewConstructed();
+            });
+        }
     }
 
     /**
@@ -152,6 +163,12 @@ class Component extends Base {
 
         return component || null;
     }
+
+    /**
+     * Override this method inside your view controllers as a starting point in case you need references
+     * (instead of using onConstructed() inside your controller)
+     */
+    onViewConstructed() {}
 
     /**
      *
