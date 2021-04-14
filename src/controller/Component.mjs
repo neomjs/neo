@@ -78,13 +78,9 @@ class Component extends Base {
         let me     = this,
             parent = me.parent;
 
-        if (Neo.isFunction(me[handlerName])) {
-            return me;
-        } else if (parent) {
-            return parent.getHandlerScope(handlerName);
-        }
-
-        return null;
+        return Neo.isFunction(me[handlerName]) ?
+            me : parent ?
+            parent.getHandlerScope(handlerName) : null;
     }
 
     /**
