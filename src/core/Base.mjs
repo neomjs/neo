@@ -87,7 +87,7 @@ class Base {
             delete me.constructor.config.id;
         }
 
-        if (me.getStaticConfig('observable') || me.mixins && Neo.ns('Neo.core.Observable', me.mixins)) {
+        if (me.getStaticConfig('observable')) {
             me.initObservable(config);
         }
 
