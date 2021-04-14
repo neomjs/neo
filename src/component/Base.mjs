@@ -667,20 +667,11 @@ class Base extends CoreBase {
     }
 
     /**
-     * Triggered when accessing the controller config
-     * @param {Object} value
-     * @protected
-     */
-    beforeGetController(value) {
-        return value && Neo.get(value);
-    }
-
-    /**
      * Triggered before the controller config gets changed.
      * Creates a controller.Component instance if needed.
      * @param {Object} value
      * @param {Object} oldValue
-     * @returns {String} id
+     * @returns {Neo.controller.Component}
      * @protected
      */
     beforeSetController(value, oldValue) {
@@ -688,11 +679,13 @@ class Base extends CoreBase {
             oldValue.destroy();
         }
 
-        value = ClassSystemUtil.beforeSetInstance(value, null, {
-            view: this
-        });
+        if (value) {
+            return ClassSystemUtil.beforeSetInstance(value, null, {
+                component: this
+            });
+        }
 
-        return value && value.id;
+        return value;
     }
 
     /**
@@ -735,7 +728,7 @@ class Base extends CoreBase {
      * Creates a model.Component instance if needed.
      * @param {Object} value
      * @param {Object} oldValue
-     * @returns {Neo.model.Component} model
+     * @returns {Neo.model.Component}
      * @protected
      */
     beforeSetModel(value, oldValue) {
@@ -745,7 +738,7 @@ class Base extends CoreBase {
 
         if (value) {
             return ClassSystemUtil.beforeSetInstance(value, 'Neo.model.Component', {
-                owner: this
+                component: this
             });
         }
 
@@ -827,18 +820,24 @@ class Base extends CoreBase {
         let me          = this,
             parent      = Neo.getComponent(me.parentId),
             parentModel = parent && parent.getModel(),
-            parentVdom;
-
-        if (parentModel) {
-            parentModel.removeBindings(me.id);
-        }
+            parentController, parentVdom;
 
         if (me.controller) {
             me.controller.destroy();
+        } else if (me.reference) {
+            parentController = me.getController();
+
+            if (parentController) {
+                parentController.removeReference(me);
+            }
         }
 
         if (me.model) {
             me.model.destroy();
+        }
+
+        if (me.bind && parentModel) {
+            parentModel.removeBindings(me.id);
         }
 
         if (updateParentVdom && me.parentId) {
@@ -1045,15 +1044,16 @@ class Base extends CoreBase {
     initConfig(config, preventOriginalConfig) {
         super.initConfig(config, preventOriginalConfig);
 
-        let me    = this,
-            model = me.getModel();
+        let me         = this,
+            controller = me.getController(),
+            model      = me.getModel();
+
+        if (controller) {
+            controller.parseConfig(me);
+        }
 
         if (model) {
             model.parseConfig(me);
-        }
-
-        if (me.controller) {
-            me.controller.parseConfig();
         }
     }
 

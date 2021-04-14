@@ -5,13 +5,13 @@ import MainContainer3 from './MainContainer3.mjs';
 
 /**
  * @class Neo.examples.tablePerformance.Viewport
- * @extends Neo.container.Base
+ * @extends Neo.container.Viewport
  */
 class Viewport extends BaseViewport {
     static getConfig() {return {
         className: 'Neo.examples.tablePerformance.Viewport',
         autoMount: true,
-        style    : {padding: '10px'},
+        style    : {overflow: 'hidden', padding: '10px'},
 
         layout: {
             ntype: 'vbox',

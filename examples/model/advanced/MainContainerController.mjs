@@ -35,8 +35,7 @@ class MainContainerController extends Component {
                 },
 
                 listeners: {
-                    change: me.onTextField3Change,
-                    scope : me
+                    change: 'onTextField3Change'
                 }
             }, {
                 ntype    : 'displayfield',

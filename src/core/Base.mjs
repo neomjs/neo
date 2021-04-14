@@ -87,7 +87,7 @@ class Base {
             delete me.constructor.config.id;
         }
 
-        if (me.getStaticConfig('observable') || me.mixins && Neo.ns('Neo.core.Observable', me.mixins)) {
+        if (me.getStaticConfig('observable')) {
             me.initObservable(config);
         }
 
@@ -226,7 +226,7 @@ class Base {
             listenerId;
 
         if (!me.singleton) {
-            throw new Error('Remote method access only functional for Singleton classes ' + className);
+            throw new Error('Remote method access is only functional for Singleton classes ' + className);
         }
 
         if (!Neo.config.unitTestMode && Neo.isObject(remote)) {

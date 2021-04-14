@@ -21,9 +21,9 @@ class MainContainerController extends ComponentController {
     onSwitchThemeButtonClick(data) {
         let me            = this,
             button        = data.component,
+            component     = me.component,
             headerToolbar = me.getReference('headerToolbar'),
-            view          = me.view,
-            buttonText, cls, headerColor, iconCls, theme;
+            buttonText, cls, headerColor, iconCls, style, theme;
 
         if (button.text === 'Theme Light') {
             buttonText  = 'Theme Dark';
@@ -37,23 +37,23 @@ class MainContainerController extends ComponentController {
             theme       = 'neo-theme-dark';
         }
 
-        cls = [...view.cls];
+        cls = [...component.cls];
 
-        view.cls.forEach(item => {
+        component.cls.forEach(item => {
             if (item.includes('neo-theme')) {
                 NeoArray.remove(cls, item);
             }
         });
 
         NeoArray.add(cls, theme);
-        view.cls = cls;
+        component.cls = cls;
 
         button.set({
             iconCls: iconCls,
             text   : buttonText
         });
 
-        let style = headerToolbar.style || {};
+        style = headerToolbar.style || {};
         style.backgroundColor = headerColor;
         headerToolbar.style = style;
     }

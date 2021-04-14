@@ -185,7 +185,7 @@ class MainContainerController extends ComponentController {
      * @return {Neo.button.Base}
      */
     getOpenDockedWindowButton() {
-        return this.view.down({iconCls: 'far fa-window-restore'});
+        return this.component.down({iconCls: 'far fa-window-restore'});
     }
 
     /**
@@ -265,14 +265,14 @@ class MainContainerController extends ComponentController {
      */
     mountDialogInOtherWindow(data) {
         let me                   = this,
-            appName              = me.view.appName,
+            appName              = me.component.appName,
             dialog               = me.dialog,
             dragEndWindowAppName = me.dockedWindowAppName,
             side                 = me.dockedWindowSide,
             proxyPosition, wrapperStyle;
 
         if (dialog.appName === dragEndWindowAppName) {
-            dragEndWindowAppName = me.view.appName;
+            dragEndWindowAppName = me.component.appName;
             side                 = me.getOppositeSide(me.dockedWindowSide);
         }
 
@@ -360,7 +360,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onCreateDialogButtonClick(data) {
-        this.createDialog(data, this.view.appName);
+        this.createDialog(data, this.component.appName);
     }
 
     /**
@@ -425,7 +425,7 @@ class MainContainerController extends ComponentController {
             // in case we trigger the drag:start inside the docked window,
             // we can keep the same logic with just flipping the side.
             if (me.dialog.appName === dockedWindowAppName) {
-                dockedWindowAppName = me.view.appName;
+                dockedWindowAppName = me.component.appName;
                 side                = me.getOppositeSide(me.dockedWindowSide);
             }
 
@@ -471,7 +471,7 @@ class MainContainerController extends ComponentController {
     onDragStart(data) {
         if (this.hasDockedWindow()) {
             let me               = this,
-                appName          = me.view.appName,
+                appName          = me.component.appName,
                 dockedHorizontal = me.dockedWindowSide === 'left' || me.dockedWindowSide === 'right';
 
             me.dialogRect = data.dragElementRect;

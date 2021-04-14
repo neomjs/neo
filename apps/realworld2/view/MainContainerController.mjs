@@ -270,13 +270,13 @@ class MainContainerController extends ComponentController {
      */
     onHashChange(value, oldValue) {
         let me         = this,
+            component  = me.component,
             hash       = value.hash,
             hashString = value.hashString,
-            view       = me.view,
             cards, newView, slug;
 
-        if (!view.mounted) { // the initial hash change gets triggered before the vnode got back from the vdom worker (using autoMount)
-            view.on('mounted', () => {
+        if (!component.mounted) { // the initial hash change gets triggered before the vnode got back from the vdom worker (using autoMount)
+            component.on('mounted', () => {
                 me.onHashChange(value, oldValue, hashString);
             });
         } else {
@@ -303,8 +303,8 @@ class MainContainerController extends ComponentController {
                 oldValue.hasOwnProperty('/login')    && value.hasOwnProperty('/register') ||
                 oldValue.hasOwnProperty('/register') && value.hasOwnProperty('/login')))
             ) {
-                if (view.items.length > 2) {
-                    view.removeAt(1, false, true);
+                if (component.items.length > 2) {
+                    component.removeAt(1, false, true);
                 }
 
                 if (newView) {

@@ -18,11 +18,13 @@ class MainContainer extends Panel {
         },
 
         style: {
-            backgroundColor: '#2b2b2b'
+            border: 0
         },
 
         headers: [{
             dock : 'top',
+            style: {borderBottomColor: 'transparent'},
+
             items: [{
                 ntype: 'label',
                 text : 'Title Top'
@@ -40,6 +42,8 @@ class MainContainer extends Panel {
             }]
         }, {
             dock : 'left',
+            style: {borderRightColor: 'transparent'},
+
             items: [{
                 ntype: 'label',
                 text : 'Title Left'
@@ -54,12 +58,18 @@ class MainContainer extends Panel {
                 text   : 'Button 4'
             }]
         }, {
-            text: 'Title Bottom',
-            dock: 'bottom'
+            dock: 'bottom',
+            style: {borderTopColor: 'transparent'},
+            text: 'Title Bottom'
         }],
 
         items: [{
-            ntype : 'panel',
+            ntype: 'panel',
+
+            style: {
+                borderBottom: 0,
+                padding     : '10px'
+            },
 
             itemDefaults: {
                 style: {
@@ -72,6 +82,8 @@ class MainContainer extends Panel {
                 dock: 'top'
             }, {
                 dock : 'right',
+                style: {borderTopColor   : 'transparent'},
+
                 items: [{
                     ntype: 'label',
                     text : 'Title Right 2'
@@ -83,7 +95,13 @@ class MainContainer extends Panel {
                     text   : 'Button 5'
                 }]
             }, {
-                dock : 'right',
+                dock: 'right',
+
+                style: {
+                    borderLeftColor  : 'transparent',
+                    borderTopColor   : 'transparent'
+                },
+
                 items: [{
                     ntype: 'label',
                     text : 'Title Right'
@@ -111,6 +129,8 @@ class MainContainer extends Panel {
 
             headers: [{
                 dock : 'top',
+                style: {borderRightColor: 'transparent'},
+
                 items: [{
                     iconCls: 'fa fa-home',
                     text   : 'Button 7'
