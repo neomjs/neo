@@ -221,7 +221,7 @@ class Component extends Base {
     }
 
     /**
-     *
+     * Will get called by component.Base: destroy() in case the component has a reference config
      * @param {String} componentId
      */
     removeReference(componentId) {
