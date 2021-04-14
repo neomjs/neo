@@ -219,6 +219,23 @@ class Component extends Base {
             me.references[reference] = component.id;
         }
     }
+
+    /**
+     *
+     * @param {String} componentId
+     */
+    removeReference(componentId) {
+        let me = this,
+            references = me.references,
+            key;
+
+        for (key in references) {
+            if (componentId === references[key]) {
+                delete references[key];
+                break;
+            }
+        }
+    }
 }
 
 Neo.applyClassConfig(Component);
