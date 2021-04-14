@@ -119,25 +119,19 @@ class Component extends Base {
     }
 
     /**
-     * todo: cleanup no longer existing references
      * todo: update changed references (e.g. container.remove() then container.add() using the same key)
      * @param {String} name
      * @returns {*}
      */
     getReference(name) {
-        let me          = this,
-            componentId = me.references[name],
-            component;
-
-        if (componentId) {
-            component = Neo.getComponent(componentId);
-        }
+        let me        = this,
+            component = me.references[name];
 
         if (!component) {
             component = me.component.down({reference: name});
 
             if (component) {
-                me.references[name] = component.id;
+                me.references[name] = component;
             }
         }
 
@@ -216,21 +210,21 @@ class Component extends Base {
         }
 
         if (reference) {
-            me.references[reference] = component.id;
+            me.references[reference] = component;
         }
     }
 
     /**
      * Will get called by component.Base: destroy() in case the component has a reference config
-     * @param {String} componentId
+     * @param {Neo.component.Base} component
      */
-    removeReference(componentId) {
+    removeReference(component) {
         let me = this,
             references = me.references,
             key;
 
         for (key in references) {
-            if (componentId === references[key]) {
+            if (component === references[key]) {
                 delete references[key];
                 break;
             }
