@@ -817,14 +817,8 @@ class Base extends CoreBase {
      * todo: unregister events
      */
     destroy(updateParentVdom=false, silent=false) {
-        let me          = this,
-            parent      = Neo.getComponent(me.parentId),
-            parentModel = parent && parent.getModel(),
-            parentController, parentVdom;
-
-        if (parentModel) {
-            parentModel.removeBindings(me.id);
-        }
+        let me = this,
+            parent, parentController, parentModel, parentVdom;
 
         if (me.controller) {
             me.controller.destroy();
@@ -838,6 +832,12 @@ class Base extends CoreBase {
 
         if (me.model) {
             me.model.destroy();
+        } else if (me.bind) {
+            parentModel = me.getModel();
+
+            if (parentModel) {
+                parentModel.removeBindings(me.id);
+            }
         }
 
         if (updateParentVdom && me.parentId) {
@@ -848,6 +848,7 @@ class Base extends CoreBase {
                     deltas : [{action: 'removeNode', id: me.vdom.id}]
                 });
             } else {
+                parent     = Neo.getComponent(me.parentId);
                 parentVdom = parent.vdom;
 
                 VDomUtil.removeVdomChild(parentVdom, me.vdom.id);
