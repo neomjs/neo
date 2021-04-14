@@ -89,11 +89,8 @@ class Component extends Base {
      * @param {Boolean} [sameLevelOnly=false]
      */
     getModel(sameLevelOnly=false) {
-        if (sameLevelOnly) {
-            return this.component.model;
-        }
-
-        return this.component.getModel();
+        let component = this.component;
+        return sameLevelOnly ? component.model : component.getModel();
     }
 
     /**
