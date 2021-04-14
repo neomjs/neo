@@ -118,7 +118,6 @@ inquirer.prompt(questions).then(answers => {
             "import MainContainer from './MainContainer.mjs';",
             "",
             "const onStart = () => Neo.app({",
-            "    appPath : '" + appPath + "',",
             "    mainView: MainContainer,",
             "    name    : '" + appName + "'",
             "});",
