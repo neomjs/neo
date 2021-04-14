@@ -70,6 +70,24 @@ class Component extends Base {
     }
 
     /**
+     *
+     * @param {String} handlerName
+     * @returns {Neo.controller.Component|null}
+     */
+    getHandlerScope(handlerName) {
+        let me     = this,
+            parent = me.parent;
+
+        if (Neo.isFunction(me[handlerName])) {
+            return me;
+        } else if (parent) {
+            return parent.getHandlerScope(handlerName);
+        }
+
+        return null;
+    }
+
+    /**
      * sameLevelOnly=false will return the closest VM inside the component parent tree,
      * in case there is none on the same level.
      * @param {Boolean} [sameLevelOnly=false]
@@ -98,30 +116,6 @@ class Component extends Base {
         parentComponent = parentId && Neo.getComponent(parentId);
 
         return parentComponent && parentComponent.getController() || null;
-    }
-
-    /**
-     *
-     * @param {String} handlerName
-     * @returns {Neo.controller.Component|null}
-     */
-    getParentHandlerScope(handlerName) {
-        let me        = this,
-            component = me.component,
-            parents   = ComponentManager.getParents(component),
-            i         = 0,
-            len       = parents.length,
-            controller;
-
-        for (; i < len; i++) {
-            controller = parents[i].controller;
-
-            if (controller && controller[handlerName]) {
-                return controller;
-            }
-        }
-
-        return null;
     }
 
     /**
@@ -165,7 +159,7 @@ class Component extends Base {
             domListeners = component.domListeners,
             listeners    = component.listeners,
             reference    = component.reference,
-            domEventOpts, eventHandler, fn, parentController;
+            eventHandler, fn, handlerScope, parentController;
 
         if (domListeners) {
             domListeners.forEach(domListener => {
@@ -180,34 +174,20 @@ class Component extends Base {
                         }
 
                         if (eventHandler) {
-                            domEventOpts = {
-                                componentId     : component.id,
-                                eventHandlerName: eventHandler,
-                                eventName       : key,
-                                scope           : parentController
-                            };
+                            handlerScope = me.getHandlerScope(eventHandler);
 
-                            if (!me[eventHandler]) {
-                                parentController = me.getParentHandlerScope(eventHandler);
-
-                                if (!parentController) {
-                                    Logger.logError('Unknown domEvent handler for', component, eventHandler);
-                                } else {
-                                    fn               = parentController[eventHandler].bind(parentController);
-                                    domListener[key] = fn;
-
-                                    DomEventManager.updateListenerPlaceholder({
-                                        ...domEventOpts,
-                                        eventHandlerMethod: fn
-                                    });
-                                }
+                            if (!handlerScope) {
+                                Logger.logError('Unknown domEvent handler for', eventHandler, component);
                             } else {
-                                fn               = me[eventHandler].bind(me);
+                                fn               = handlerScope[eventHandler].bind(handlerScope);
                                 domListener[key] = fn;
 
                                 DomEventManager.updateListenerPlaceholder({
-                                    ...domEventOpts,
-                                    eventHandlerMethod: fn
+                                    componentId       : component.id,
+                                    eventHandlerMethod: fn,
+                                    eventHandlerName  : eventHandler,
+                                    eventName         : key,
+                                    scope             : parentController
                                 });
                             }
                         }
@@ -220,15 +200,14 @@ class Component extends Base {
             Object.entries(listeners).forEach(([key, value]) => {
                 if (key !== 'scope' && key !== 'delegate') {
                     value.forEach(listener => {
-                        eventHandler = null;
-
                         if (Neo.isObject(listener) && listener.hasOwnProperty('fn') && Neo.isString(listener.fn)) {
                             eventHandler = listener.fn;
+                            handlerScope = me.getHandlerScope(eventHandler);
 
-                            if (!me[eventHandler]) {
-                                Logger.logError('Unknown event handler for', component, eventHandler);
+                            if (!handlerScope) {
+                                Logger.logError('Unknown event handler for', eventHandler, component);
                             } else {
-                                listener.fn = me[eventHandler].bind(me);
+                                listener.fn = handlerScope[eventHandler].bind(handlerScope);
                             }
                         }
                     });
