@@ -820,7 +820,7 @@ class Base extends CoreBase {
         let me          = this,
             parent      = Neo.getComponent(me.parentId),
             parentModel = parent && parent.getModel(),
-            parentVdom;
+            parentController, parentVdom;
 
         if (parentModel) {
             parentModel.removeBindings(me.id);
@@ -828,6 +828,12 @@ class Base extends CoreBase {
 
         if (me.controller) {
             me.controller.destroy();
+        } else if (me.reference) {
+            parentController = me.getController();
+
+            if (parentController) {
+                parentController.removeReference(me.id);
+            }
         }
 
         if (me.model) {
