@@ -1,4 +1,5 @@
-import Base from './Base.mjs';
+import Base            from './Base.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
 
 /**
  * @class Neo.controller.Application
@@ -12,19 +13,9 @@ class Application extends Base {
          */
         className: 'Neo.controller.Application',
         /**
-         * @member {Boolean} createMainView=true
-         */
-        createMainView: true,
-        /**
          * @member {Neo.component.Base} mainView_=null
          */
         mainView_: null,
-        /**
-         * mainView will get passed as a module, so we store the matching instance here
-         * @member {Neo.component.Base} mainViewInstance=null
-         * @protected
-         */
-        mainViewInstance: null,
         /**
          * @member {String} name='MyApp'
          */
@@ -50,39 +41,44 @@ class Application extends Base {
      * @param {Object} config
      */
     constructor(config) {
-        super(config);
+        Neo.currentWorker.registerApp(config.name || Application.prototype.name);
 
-        let me = this;
+        super(config);
 
         Neo.apps = Neo.apps || {};
 
-        Neo.apps[me.name] = me;
-
-        Neo.currentWorker.registerApp(me.name);
-
-        if (me.createMainView) {
-            me.renderMainView(config);
-        }
+        Neo.apps[this.name] = this;
     }
 
     /**
-     *
+     * Triggered after the mainView config got changed
+     * @param {Neo.component.Base} value
+     * @param {Neo.component.Base|null} oldValue
+     * @protected
      */
-    renderMainView() {
-        let me    = this,
-            delay = Neo.config.hash ? 200 : 10;
-
-        me.mainViewInstance = Neo.create(me.mainView, {
-            appName : me.name,
-            parentId: me.parentId
-        });
-
-        Neo.currentWorker.registerMainView(me.name);
-
+    afterSetMainView(value, oldValue) {
         // short delay to ensure changes from onHashChange() got applied
         setTimeout(() => {
-            me.mainViewInstance.render(true);
-        }, delay);
+            value.render(true);
+        }, Neo.config.hash ? 200 : 10);
+    }
+
+    /**
+     * Triggered before the mainView config gets changed.
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @returns {Neo.component.Base}
+     * @protected
+     */
+    beforeSetMainView(value, oldValue) {
+        if (value) {
+            return ClassSystemUtil.beforeSetInstance(value, null, {
+                appName : this.name,
+                parentId: this.parentId
+            });
+        }
+
+        return null;
     }
 }
 

@@ -151,12 +151,6 @@ class App extends Base {
             }
         });
     }
-
-    /**
-     *
-     * @param {String} appName
-     */
-    registerMainView(appName) {}
 }
 
 Neo.applyClassConfig(App);

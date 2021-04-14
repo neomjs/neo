@@ -232,7 +232,7 @@ class MainContainerController extends ComponentController {
             return this.component;
         }
 
-        return Neo.apps[appName].mainViewInstance;
+        return Neo.apps[appName].mainView;
     }
 
     /**
