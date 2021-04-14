@@ -62,7 +62,7 @@ class Base extends CoreBase {
          * @example
          * {
          *     bind: {
-         *         text: 'myDataProperty.foo.bar'
+         *         text: '${myDataProperty.foo.bar}'
          *     }
          * }
          * @see https://github.com/neomjs/neo/blob/dev/examples/model/inline/MainContainer.mjs
