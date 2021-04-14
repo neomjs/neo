@@ -446,7 +446,7 @@ class MainContainerController extends ComponentController {
             delaySelection    = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
             id, selectionModel;
 
-        if (me.firstHashChange || value.appName) {console.log('onHashChange', value);
+        if (me.firstHashChange || value.appNames) {console.log('onHashChange', value);
             selectionModel = activeView.selectionModel;
 
             tabContainer.activeIndex = activeIndex;
