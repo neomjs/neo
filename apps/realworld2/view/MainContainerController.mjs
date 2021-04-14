@@ -47,7 +47,7 @@ class MainContainerController extends ComponentController {
         // default route => home
         if (!Neo.config.hash) {
             me.onHashChange({
-                appName   : 'RealWorld2',
+                appNames  : ['RealWorld2'],
                 hash      : {'/': ''},
                 hashString: '/'
             }, null);

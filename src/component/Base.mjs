@@ -62,7 +62,7 @@ class Base extends CoreBase {
          * @example
          * {
          *     bind: {
-         *         text: 'myDataProperty.foo.bar'
+         *         text: '${myDataProperty.foo.bar}'
          *     }
          * }
          * @see https://github.com/neomjs/neo/blob/dev/examples/model/inline/MainContainer.mjs
@@ -342,7 +342,7 @@ class Base extends CoreBase {
     }
     set vdom(value) {
         let me       = this,
-            app      = Neo.apps[me.appName],
+            app      = Neo.apps && Neo.apps[me.appName],
             vdom     = value,
             cls      = me.cls,
             height   = me.height,
@@ -981,7 +981,7 @@ class Base extends CoreBase {
         }
 
         app      = Neo.apps[me.appName];
-        mainView = app && app.mainViewInstance;
+        mainView = app && app.mainView;
 
         if (mainView) {
             parentNodes = VDomUtil.getParentNodes(mainView.vdom, me.id);
