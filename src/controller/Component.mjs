@@ -62,11 +62,7 @@ class Component extends Base {
      * @protected
      */
     beforeSetParent(value, oldValue) {
-        if (!value) {
-            return this.getParent();
-        }
-
-        return value;
+        return value ? value : this.getParent();
     }
 
     /**
