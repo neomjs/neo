@@ -500,7 +500,7 @@ class DomEvents extends Base {
         Manager.sendMessage('app', {
             action: 'hashChange',
             data  : {
-                appName   : Manager.appName,
+                appNames  : Manager.appNames,
                 hash      : this.parseHash(hashString),
                 hashString: hashString
             }
