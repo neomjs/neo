@@ -828,7 +828,7 @@ class Base extends CoreBase {
             parentController = me.getController();
 
             if (parentController) {
-                parentController.removeReference(me.id);
+                parentController.removeReference(me);
             }
         }
 
