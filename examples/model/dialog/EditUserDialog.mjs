@@ -9,12 +9,17 @@ class EditUserDialog extends Dialog {
     static getConfig() {return {
         className: 'Neo.examples.model.dialog.DemoWindow',
 
+        containerConfig: {
+            style: {
+                padding: '1em'
+            }
+        },
+
         items: [{
             module    : TextField,
             flex      : 'none',
             labelText : 'Firstname:',
             labelWidth: 110,
-            width     : 300,
 
             /*bind: {
                 value: '${data.user.firstname}'
