@@ -187,7 +187,7 @@ class Component extends Base {
             scope   = data.scope;
             keyLeaf = data.key;
 
-            if (scope[keyLeaf]) {
+            if (scope && scope[keyLeaf]) {
                 me.createBinding(componentId, key, value, formatter);
             } else {
                 parentModel = me.getParent();
@@ -317,7 +317,7 @@ class Component extends Base {
     getDataScope(key) {
         let me      = this,
             keyLeaf = key,
-            data    = me.data;
+            data    = me.data || {};
 
         if (key.includes('.')) {
             key     = key.split('.');
