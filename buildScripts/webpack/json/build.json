@@ -170,6 +170,13 @@
                 "themes": "'neo-theme-dark'",
                 "title": "model.Component: advanced"
             },
+            "dialog": {
+                "input": "./examples/model/dialog/app.mjs",
+                "mainThreadAddons": "'DragDrop', 'Stylesheet'",
+                "output": "/examples/model/dialog/",
+                "themes": "'neo-theme-dark'",
+                "title": "model.Component: dialog"
+            },
             "extendedClass": {
                 "input": "./examples/model/extendedClass/app.mjs",
                 "output": "/examples/model/extendedClass/",
