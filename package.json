@@ -53,7 +53,7 @@
         "postcss-loader": "^4.2.0",
         "sass-loader": "^10.1.1",
         "style-loader": "^2.0.0",
-        "webpack": "^5.32.0",
+        "webpack": "^5.33.2",
         "webpack-cli": "^4.5.0",
         "webpack-dev-server": "^3.11.2",
         "webpack-hook-plugin": "^1.0.7",
