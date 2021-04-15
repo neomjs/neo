@@ -321,8 +321,7 @@ class Base extends Panel {
                     });
                 }, 30);
 
-                me.fire('close');
-                me.destroy(true);
+                me.closeOrHide(false);
             });
         });
     }
@@ -388,16 +387,25 @@ class Base extends Panel {
 
     /**
      *
+     * @param {Boolean} [animate=!!this.animateTargetId]
      */
-    close() {
+    close(animate=!!this.animateTargetId) {
         let me = this;
 
-        if (me.animateTargetId) {
+        if (animate) {
             me.animateHide();
         } else {
             me.fire('close');
             me.destroy(true);
         }
+    }
+
+    /**
+     *
+     * @param {Boolean} [animate=!!this.animateTargetId]
+     */
+    closeOrHide(animate=!!this.animateTargetId) {
+        this[this.closeAction](animate);
     }
 
     /**
@@ -424,7 +432,7 @@ class Base extends Panel {
                 handler: me.maximize.bind(me)
             }, {
                 iconCls: 'far fa-window-close',
-                handler: me.close.bind(me)
+                handler: me.closeOrHide.bind(me)
             }]
         });
 
@@ -483,6 +491,20 @@ class Base extends Panel {
      */
     getWrapperId() {
         return this.id + '-wrapper';
+    }
+
+    /**
+     *
+     * @param {Boolean} [animate=!!this.animateTargetId]
+     */
+    hide(animate=!!this.animateTargetId) {
+        let me = this;
+
+        if (animate) {
+            me.animateHide();
+        } else {
+            me.fire('hide');
+        }
     }
 
     /**
