@@ -9,6 +9,16 @@ let DragZone;
  * @extends Neo.container.Panel
  */
 class Base extends Panel {
+    static getStaticConfig() {return {
+        /**
+         * Valid values for closeAction
+         * @member {String[]} closeActions=['close', 'hide']
+         * @protected
+         * @static
+         */
+        iconPositions: ['top', 'right', 'bottom', 'left']
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.dialog.Base'
@@ -41,6 +51,13 @@ class Base extends Panel {
          * @member {String|null} boundaryContainerId='document.body'
          */
         boundaryContainerId: 'document.body',
+        /**
+         * Define what happens in case you click on the close button
+         * close will destroy the instance, hide will keep it for later re-use.
+         * Valid values: close, hide
+         * @member {String} closeAction='close'
+         */
+        closeAction: 'close',
         /**
          * @member {String[]} cls=['neo-dialog','neo-panel','neo-container']
          * @protected
@@ -357,6 +374,16 @@ class Base extends Panel {
                 }, 30);
             });
         });
+    }
+
+    /**
+     * Triggered before the closeAction config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetCloseAction(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'closeAction');
     }
 
     /**
