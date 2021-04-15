@@ -26,8 +26,8 @@ class EditUserDialog extends Dialog {
         }],
 
         wrapperStyle: {
-            height: '150px',
-            width : '300px'
+            height: '300px',
+            width : '400px'
         }
     }}
 }
