@@ -8,44 +8,48 @@ import TextField                from '../../../src/form/field/Text.mjs';
  */
 class EditUserDialog extends Dialog {
     static getConfig() {return {
-        className: 'Neo.examples.model.dialog.DemoWindow',
-
+        /**
+         * @member {String} className='Neo.examples.model.dialog.EditUserDialog'
+         * @protected
+         */
+        className: 'Neo.examples.model.dialog.EditUserDialog',
+        /**
+         * @member {Object} containerConfig={style:{padding:'1em'}}
+         */
         containerConfig: {
             style: {
                 padding: '1em'
             }
         },
-
+        /**
+         * @member {Neo.controller.Component} controller=EditUserDialogController
+         */
         controller: EditUserDialogController,
-
+        /**
+         * @member {String} title='Edit User'
+         */
+        title: 'Edit User',
+        /**
+         * @member {Object[]} items
+         */
         items: [{
             module    : TextField,
+            bind      : {value: '${data.user.firstname}'},
             flex      : 'none',
             labelText : 'Firstname:',
             labelWidth: 110,
-
-            bind: {
-                value: '${data.user.firstname}'
-            },
-
-            listeners: {
-                change: 'onFirstnameTextFieldChange'
-            }
+            listeners : {change: 'onFirstnameTextFieldChange'}
         }, {
             module    : TextField,
+            bind      : {value: '${data.user.lastname}'},
             flex      : 'none',
             labelText : 'Lastname:',
             labelWidth: 110,
-
-            bind: {
-                value: '${data.user.lastname}'
-            },
-
-            listeners: {
-                change: 'onLastnameTextFieldChange'
-            }
+            listeners : {change: 'onLastnameTextFieldChange'}
         }],
-
+        /**
+         * @member {Object} wrapperStyle={height: '300px',width : '400px'}
+         */
         wrapperStyle: {
             height: '300px',
             width : '400px'
