@@ -38,16 +38,6 @@ class MainContainerController extends Component {
 
         //me.dialog.show();
     }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onFirstnameTextFieldChange(data) {
-        if (data.oldValue !== null) {
-            console.log('change', data);
-        }
-    }
 }
 
 Neo.applyClassConfig(MainContainerController);

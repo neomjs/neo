@@ -1,5 +1,6 @@
-import Dialog    from '../../../src/dialog/Base.mjs';
-import TextField from '../../../src/form/field/Text.mjs';
+import Dialog                   from '../../../src/dialog/Base.mjs';
+import EditUserDialogController from './EditUserDialogController.mjs';
+import TextField                from '../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.model.dialog.EditUserDialog
@@ -14,6 +15,8 @@ class EditUserDialog extends Dialog {
                 padding: '1em'
             }
         },
+
+        controller: EditUserDialogController,
 
         items: [{
             module    : TextField,
