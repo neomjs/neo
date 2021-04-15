@@ -52,6 +52,10 @@ class Component extends Base {
          */
         data_: null,
         /**
+         * @member {Neo.model.Component|null} parent_=null
+         */
+        parent_: null,
+        /**
          * @member {Object|null} stores_=null
          */
         stores_: null
@@ -108,6 +112,16 @@ class Component extends Base {
      */
     beforeGetData(value) {
         return value || {};
+    }
+
+    /**
+     * Triggered before the parent config gets changed
+     * @param {Neo.model.Component|null} value
+     * @param {Neo.model.Component|null} oldValue
+     * @protected
+     */
+    beforeSetParent(value, oldValue) {
+        return value ? value : this.getParent();
     }
 
     /**
@@ -173,7 +187,7 @@ class Component extends Base {
             scope   = data.scope;
             keyLeaf = data.key;
 
-            if (scope[keyLeaf]) {
+            if (scope && scope[keyLeaf]) {
                 me.createBinding(componentId, key, value, formatter);
             } else {
                 parentModel = me.getParent();
@@ -303,7 +317,7 @@ class Component extends Base {
     getDataScope(key) {
         let me      = this,
             keyLeaf = key,
-            data    = me.data;
+            data    = me.data || {};
 
         if (key.includes('.')) {
             key     = key.split('.');
@@ -372,8 +386,15 @@ class Component extends Base {
      * @returns {Neo.model.Component|null}
      */
     getParent() {
-        let parentId        = this.component.parentId,
-            parentComponent = parentId && Neo.getComponent(parentId);
+        let me = this,
+            parentComponent, parentId;
+
+        if (me.parent) {
+            return me.parent;
+        }
+
+        parentId        = me.component.parentId;
+        parentComponent = parentId && Neo.getComponent(parentId);
 
         return parentComponent && parentComponent.getModel() || null;
     }

@@ -9,6 +9,16 @@ let DragZone;
  * @extends Neo.container.Panel
  */
 class Base extends Panel {
+    static getStaticConfig() {return {
+        /**
+         * Valid values for closeAction
+         * @member {String[]} closeActions=['close', 'hide']
+         * @protected
+         * @static
+         */
+        iconPositions: ['top', 'right', 'bottom', 'left']
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.dialog.Base'
@@ -25,9 +35,9 @@ class Base extends Panel {
          */
         animateOnDragEnd: false,
         /**
-         * @member {String|null} animateTargetId=null
+         * @member {String|null} animateTargetId_=null
          */
-        animateTargetId: null,
+        animateTargetId_: null,
         /**
          * @member {Boolean} autoMount=true
          */
@@ -41,6 +51,13 @@ class Base extends Panel {
          * @member {String|null} boundaryContainerId='document.body'
          */
         boundaryContainerId: 'document.body',
+        /**
+         * Define what happens in case you click on the close button
+         * close will destroy the instance, hide will keep it for later re-use.
+         * Valid values: close, hide
+         * @member {String} closeAction='close'
+         */
+        closeAction: 'close',
         /**
          * @member {String[]} cls=['neo-dialog','neo-panel','neo-container']
          * @protected
@@ -122,6 +139,17 @@ class Base extends Panel {
         if (me.animateTargetId) {
             me.animateShow();
         }
+    }
+
+    /**
+     * Triggered after the animateTargetId config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAnimateTargetId(value, oldValue) {
+        this.autoMount  = !value;
+        this.autoRender = !value;
     }
 
     /**
@@ -304,8 +332,7 @@ class Base extends Panel {
                     });
                 }, 30);
 
-                me.fire('close');
-                me.destroy(true);
+                me.closeOrHide(false);
             });
         });
     }
@@ -314,13 +341,9 @@ class Base extends Panel {
      *
      */
     animateShow() {
-        let me        = this,
-            appName   = me.appName,
-            autoMount = me.autoMount,
-            id        = me.getAnimateTargetId();
-
-        me.autoMount  = false;
-        me.autoRender = false;
+        let me      = this,
+            appName = me.appName,
+            id      = me.getAnimateTargetId();
 
         Neo.main.DomAccess.getBoundingClientRect({
             appName: appName,
@@ -348,11 +371,9 @@ class Base extends Panel {
                             }
                         }]
                     }).then(() => {
-                        if (autoMount) {
-                            setTimeout(() => {
-                                me.render(true);
-                            }, 200);
-                        }
+                        setTimeout(() => {
+                            me.show(false);
+                        }, 200);
                     });
                 }, 30);
             });
@@ -360,17 +381,36 @@ class Base extends Panel {
     }
 
     /**
-     *
+     * Triggered before the closeAction config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
      */
-    close() {
+    beforeSetCloseAction(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'closeAction');
+    }
+
+    /**
+     *
+     * @param {Boolean} [animate=!!this.animateTargetId]
+     */
+    close(animate=!!this.animateTargetId) {
         let me = this;
 
-        if (me.animateTargetId) {
+        if (animate) {
             me.animateHide();
         } else {
             me.fire('close');
             me.destroy(true);
         }
+    }
+
+    /**
+     *
+     * @param {Boolean} [animate=!!this.animateTargetId]
+     */
+    closeOrHide(animate=!!this.animateTargetId) {
+        this[this.closeAction](animate);
     }
 
     /**
@@ -397,7 +437,7 @@ class Base extends Panel {
                 handler: me.maximize.bind(me)
             }, {
                 iconCls: 'far fa-window-close',
-                handler: me.close.bind(me)
+                handler: me.closeOrHide.bind(me)
             }]
         });
 
@@ -456,6 +496,21 @@ class Base extends Panel {
      */
     getWrapperId() {
         return this.id + '-wrapper';
+    }
+
+    /**
+     *
+     * @param {Boolean} [animate=!!this.animateTargetId]
+     */
+    hide(animate=!!this.animateTargetId) {
+        let me = this;
+
+        if (animate) {
+            me.animateHide();
+        } else {
+            me.unmount();
+            me.fire('hide');
+        }
     }
 
     /**
@@ -583,6 +638,21 @@ class Base extends Panel {
             wrapperStyle.opacity = 0.7;
 
             me.wrapperStyle = wrapperStyle;
+        }
+    }
+
+    /**
+     *
+     * @param {Boolean} [animate=!!this.animateTargetId]
+     */
+    show(animate=!!this.animateTargetId) {
+        let me = this;
+
+        if (animate) {
+            me.animateShow();
+        } else {
+            me.render(true);
+            me.fire('show');
         }
     }
 }
