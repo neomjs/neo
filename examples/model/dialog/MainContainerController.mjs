@@ -1,5 +1,4 @@
-import Component      from '../../../src/controller/Component.mjs';
-import EditUserDialog from './EditUserDialog.mjs';
+import Component from '../../../src/controller/Component.mjs';
 
 /**
  * @class Neo.examples.model.dialog.MainContainerController
@@ -26,14 +25,19 @@ class MainContainerController extends Component {
         let me = this;
 
         if (!me.dialog) {
-            me.dialog = Neo.create(EditUserDialog, {
-                animateTargetId: me.getReference('edit-user-button').id,
-                appName        : me.component.appName,
-                closeAction    : 'hide',
+            import(
+                /* webpackChunkName: 'examples/model/dialog/EditUserDialog-mjs.js' */
+                './EditUserDialog.mjs'
+                ).then(module => {
+                me.dialog = Neo.create(module.default, {
+                    animateTargetId: me.getReference('edit-user-button').id,
+                    appName        : me.component.appName,
+                    closeAction    : 'hide',
 
-                model: {
-                    parent: me.getModel()
-                }
+                    model: {
+                        parent: me.getModel()
+                    }
+                });
             });
         } else {
             me.dialog.show();
