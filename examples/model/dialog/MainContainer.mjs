@@ -78,7 +78,7 @@ class MainContainer extends Viewport {
 
             items: [{
                 ntype: 'label',
-                text : 'Click the edit user button to edit the user data inside the view model.'
+                text : 'Click the edit user button to edit the user data inside this container view model.'
             }]
         }]
     }}
