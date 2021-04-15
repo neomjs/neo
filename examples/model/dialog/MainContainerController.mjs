@@ -29,14 +29,15 @@ class MainContainerController extends Component {
             me.dialog = Neo.create(EditUserDialog, {
                 animateTargetId: me.getReference('edit-user-button').id,
                 appName        : me.component.appName,
+                closeAction    : 'hide',
 
                 model: {
                     parent: me.getModel()
                 }
             });
+        } else {
+            me.dialog.show();
         }
-
-        //me.dialog.show();
     }
 }
 
