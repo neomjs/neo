@@ -41,13 +41,24 @@ class Application extends Base {
      * @param {Object} config
      */
     constructor(config) {
-        Neo.currentWorker.registerApp(config.name || Application.prototype.name);
+        // to guarantee that the main view can access Neo.apps at any point,
+        // we need to trigger its assignment at the end of the ctor.
+        let mainView = config.mainView;
+        delete config.mainView;
 
         super(config);
 
+        let me = this;
+
         Neo.apps = Neo.apps || {};
 
-        Neo.apps[this.name] = this;
+        Neo.apps[me.name] = me;
+
+        Neo.currentWorker.registerApp(me.name);
+
+        if (mainView) {
+            me.mainView = mainView;
+        }
     }
 
     /**
@@ -57,17 +68,19 @@ class Application extends Base {
      * @protected
      */
     afterSetMainView(value, oldValue) {
-        // short delay to ensure changes from onHashChange() got applied
-        setTimeout(() => {
-            value.render(true);
-        }, Neo.config.hash ? 200 : 10);
+        if (value) {
+            // short delay to ensure changes from onHashChange() got applied
+            setTimeout(() => {
+                value.render(true);
+            }, Neo.config.hash ? 200 : 10);
+        }
     }
 
     /**
      * Triggered before the mainView config gets changed.
      * @param {Object} value
      * @param {Object} oldValue
-     * @returns {Neo.component.Base}
+     * @returns {Neo.component.Base|null}
      * @protected
      */
     beforeSetMainView(value, oldValue) {

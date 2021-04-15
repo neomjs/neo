@@ -342,7 +342,7 @@ class Base extends CoreBase {
     }
     set vdom(value) {
         let me       = this,
-            app      = Neo.apps && Neo.apps[me.appName],
+            app      = Neo.apps[me.appName],
             vdom     = value,
             cls      = me.cls,
             height   = me.height,
@@ -891,7 +891,7 @@ class Base extends CoreBase {
      * @returns {Neo.controller.Application}
      */
     getApp() {
-        return Neo.apps && Neo.apps[this.appName];
+        return Neo.apps[this.appName];
     }
 
     /**
