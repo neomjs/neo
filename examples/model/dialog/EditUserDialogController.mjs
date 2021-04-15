@@ -18,10 +18,8 @@ class MainContainerController extends Component {
      * @param {Object} data
      */
     onFirstnameTextFieldChange(data) {
-        console.log(this.getModel());
-
         this.getModel().setData({
-            'user.firstname': data.value
+            'user.firstname': data.value || ''
         });
     }
 }

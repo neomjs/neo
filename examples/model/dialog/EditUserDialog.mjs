@@ -24,9 +24,9 @@ class EditUserDialog extends Dialog {
             labelText : 'Firstname:',
             labelWidth: 110,
 
-            /*bind: {
+            bind: {
                 value: '${data.user.firstname}'
-            },*/
+            },
 
             listeners: {
                 change: 'onFirstnameTextFieldChange'
