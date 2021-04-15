@@ -31,6 +31,19 @@ class EditUserDialog extends Dialog {
             listeners: {
                 change: 'onFirstnameTextFieldChange'
             }
+        }, {
+            module    : TextField,
+            flex      : 'none',
+            labelText : 'Lastname:',
+            labelWidth: 110,
+
+            bind: {
+                value: '${data.user.lastname}'
+            },
+
+            listeners: {
+                change: 'onLastnameTextFieldChange'
+            }
         }],
 
         wrapperStyle: {

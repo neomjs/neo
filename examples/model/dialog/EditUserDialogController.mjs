@@ -22,6 +22,16 @@ class MainContainerController extends Component {
             'user.firstname': data.value || ''
         });
     }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onLastnameTextFieldChange(data) {
+        this.getModel().setData({
+            'user.lastname': data.value || ''
+        });
+    }
 }
 
 Neo.applyClassConfig(MainContainerController);
