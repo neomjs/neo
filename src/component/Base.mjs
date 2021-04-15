@@ -887,6 +887,14 @@ class Base extends CoreBase {
     }
 
     /**
+     * Convenience method to access the App this component belongs to
+     * @returns {Neo.controller.Application}
+     */
+    getApp() {
+        return Neo.apps && Neo.apps[this.appName];
+    }
+
+    /**
      * Find an instance stored inside a config via optionally passing an ntype.
      * Returns this[configName] or the closest parent component with a match.
      * Used by getController() & getModel()
