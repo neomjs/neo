@@ -35,9 +35,9 @@ class Base extends Panel {
          */
         animateOnDragEnd: false,
         /**
-         * @member {String|null} animateTargetId=null
+         * @member {String|null} animateTargetId_=null
          */
-        animateTargetId: null,
+        animateTargetId_: null,
         /**
          * @member {Boolean} autoMount=true
          */
@@ -139,6 +139,17 @@ class Base extends Panel {
         if (me.animateTargetId) {
             me.animateShow();
         }
+    }
+
+    /**
+     * Triggered after the animateTargetId config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAnimateTargetId(value, oldValue) {
+        this.autoMount  = !value;
+        this.autoRender = !value;
     }
 
     /**
@@ -330,13 +341,9 @@ class Base extends Panel {
      *
      */
     animateShow() {
-        let me        = this,
-            appName   = me.appName,
-            autoMount = me.autoMount,
-            id        = me.getAnimateTargetId();
-
-        me.autoMount  = false;
-        me.autoRender = false;
+        let me      = this,
+            appName = me.appName,
+            id      = me.getAnimateTargetId();
 
         Neo.main.DomAccess.getBoundingClientRect({
             appName: appName,
@@ -364,11 +371,9 @@ class Base extends Panel {
                             }
                         }]
                     }).then(() => {
-                        if (autoMount) {
-                            setTimeout(() => {
-                                me.render(true);
-                            }, 200);
-                        }
+                        setTimeout(() => {
+                            me.show(false);
+                        }, 200);
                     });
                 }, 30);
             });
@@ -503,6 +508,7 @@ class Base extends Panel {
         if (animate) {
             me.animateHide();
         } else {
+            me.unmount();
             me.fire('hide');
         }
     }
@@ -632,6 +638,21 @@ class Base extends Panel {
             wrapperStyle.opacity = 0.7;
 
             me.wrapperStyle = wrapperStyle;
+        }
+    }
+
+    /**
+     *
+     * @param {Boolean} [animate=!!this.animateTargetId]
+     */
+    show(animate=!!this.animateTargetId) {
+        let me = this;
+
+        if (animate) {
+            me.animateShow();
+        } else {
+            me.render(true);
+            me.fire('show');
         }
     }
 }
