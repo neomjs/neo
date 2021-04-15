@@ -342,7 +342,7 @@ class Base extends CoreBase {
     }
     set vdom(value) {
         let me       = this,
-            app      = Neo.apps && Neo.apps[me.appName],
+            app      = Neo.apps[me.appName],
             vdom     = value,
             cls      = me.cls,
             height   = me.height,
@@ -884,6 +884,14 @@ class Base extends CoreBase {
         }).catch(err => {
             console.log('Error attempting to receive focus for component', err, me);
         });
+    }
+
+    /**
+     * Convenience method to access the App this component belongs to
+     * @returns {Neo.controller.Application}
+     */
+    getApp() {
+        return Neo.apps[this.appName];
     }
 
     /**

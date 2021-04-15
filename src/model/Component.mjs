@@ -353,9 +353,9 @@ class Component extends Base {
                 ...parent.getHierarchyData(data),
                 ...me.getPlainData()
             };
-        } else {
-            return me.getPlainData();
         }
+
+        return me.getPlainData();
     }
 
     /**

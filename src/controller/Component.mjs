@@ -62,11 +62,7 @@ class Component extends Base {
      * @protected
      */
     beforeSetParent(value, oldValue) {
-        if (!value) {
-            return this.getParent();
-        }
-
-        return value;
+        return value ? value : this.getParent();
     }
 
     /**
@@ -78,13 +74,9 @@ class Component extends Base {
         let me     = this,
             parent = me.parent;
 
-        if (Neo.isFunction(me[handlerName])) {
-            return me;
-        } else if (parent) {
-            return parent.getHandlerScope(handlerName);
-        }
-
-        return null;
+        return Neo.isFunction(me[handlerName]) ?
+            me : parent ?
+            parent.getHandlerScope(handlerName) : null;
     }
 
     /**
@@ -93,11 +85,8 @@ class Component extends Base {
      * @param {Boolean} [sameLevelOnly=false]
      */
     getModel(sameLevelOnly=false) {
-        if (sameLevelOnly) {
-            return this.component.model;
-        }
-
-        return this.component.getModel();
+        let component = this.component;
+        return sameLevelOnly ? component.model : component.getModel();
     }
 
     /**
