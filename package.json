@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "1.5.12",
+    "version": "1.5.13",
     "description": "The webworkers driven UI framework",
     "repository": {
         "type": "git",
@@ -14,7 +14,7 @@
         "build-threads": "node ./buildScripts/webpack/buildThreads.js -f",
         "create-app": "node ./buildScripts/createApp.js",
         "generate-docs-json": "node ./buildScripts/docs/jsdocx.js",
-        "server-start": "webpack serve",
+        "server-start": "webpack serve -c ./buildScripts/webpack/webpack.server.config.js --open",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "keywords": [
@@ -48,22 +48,19 @@
         "jsdoc": "^3.6.6",
         "jsdoc-x": "^4.1.0",
         "mini-css-extract-plugin": "^1.4.1",
-        "node-sass": "^5.0.0",
         "postcss": "^8.2.10",
         "postcss-loader": "^4.2.0",
+        "sass": "^1.32.8",
         "sass-loader": "^10.1.1",
         "style-loader": "^2.0.0",
         "webpack": "^5.33.2",
         "webpack-cli": "^4.5.0",
-        "webpack-dev-server": "^3.11.2",
+        "webpack-dev-server": "4.0.0-beta.2",
         "webpack-hook-plugin": "^1.0.7",
         "webpack-node-externals": "^2.5.2"
     },
     "devDependencies": {
         "siesta-lite": "^5.5.1"
-    },
-    "optionalDependencies": {
-        "fsevents": "^2.3"
     },
     "funding": {
         "type": "GitHub Sponsors",
