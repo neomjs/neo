@@ -55,15 +55,12 @@
         "style-loader": "^2.0.0",
         "webpack": "^5.33.2",
         "webpack-cli": "^4.5.0",
-        "webpack-dev-server": "^3.11.2",
+        "webpack-dev-server": "4.0.0-beta.2",
         "webpack-hook-plugin": "^1.0.7",
         "webpack-node-externals": "^2.5.2"
     },
     "devDependencies": {
         "siesta-lite": "^5.5.1"
-    },
-    "optionalDependencies": {
-        "fsevents": "^2.3"
     },
     "funding": {
         "type": "GitHub Sponsors",
