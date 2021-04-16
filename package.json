@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "1.5.11",
+    "version": "1.5.12",
     "description": "The webworkers driven UI framework",
     "repository": {
         "type": "git",
@@ -61,6 +61,9 @@
     },
     "devDependencies": {
         "siesta-lite": "^5.5.1"
+    },
+    "optionalDependencies": {
+        "fsevents": "^2.3"
     },
     "funding": {
         "type": "GitHub Sponsors",
