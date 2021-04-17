@@ -46,20 +46,22 @@ class Base extends CoreBase {
      */
     onConstructed() {
         super.onConstructed();
-        this.onAfterConstructed();
+        this.afterConstructed();
     }
 
     /**
-     * todo: this construct is just a workaround until webpack based builds are changed to the worker target
-     * and lazy loading apps is supported in dist/*
+     * The class extensions Article, Favorite, Profile, Tag, User are singletons
+     * and get directly imported into the MainContainer(Controller)
+     * => their creation happens before the app is constructed
+     * => Neo.apps['RealWorld'] does most likely not exist yet.
      */
-    onAfterConstructed() {
-        const me = this;
+    afterConstructed() {
+        let me = this;
 
         if (!Neo.apps || !Neo.apps['RealWorld']) {
             setTimeout(() => {
-                me.onAfterConstructed();
-            }, 200);
+                me.afterConstructed();
+            }, 100);
         } else {
             if (Neo.apps['RealWorld'].rendered) {
                 me.onAppRendered();
