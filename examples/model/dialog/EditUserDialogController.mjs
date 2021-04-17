@@ -4,7 +4,7 @@ import Component from '../../../src/controller/Component.mjs';
  * @class Neo.examples.model.dialog.EditUserDialogController
  * @extends Neo.controller.Component
  */
-class MainContainerController extends Component {
+class EditUserDialogController extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.examples.model.dialog.EditUserDialogController'
@@ -34,6 +34,6 @@ class MainContainerController extends Component {
     }
 }
 
-Neo.applyClassConfig(MainContainerController);
+Neo.applyClassConfig(EditUserDialogController);
 
-export {MainContainerController as default};
+export {EditUserDialogController as default};
