@@ -71,7 +71,7 @@ class Observable extends Base {
             if (existing = me.listeners && me.listeners[name]) {
                 existing.forEach(cfg => {
                     if (cfg.id === eventId || (cfg.fn === listener && cfg.scope === scope)) {
-                        throw new Error('Duplicate event handler attached: ' + name);
+                        console.error('Duplicate event handler attached:', name, me);
                     }
                 });
 
