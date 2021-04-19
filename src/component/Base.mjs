@@ -1142,20 +1142,6 @@ class Base extends CoreBase {
     /**
      *
      */
-    onAfterConstructed() {
-        let me    = this,
-            model = me.getModel();
-
-        if (model) {
-            model.resolveBindings(me);
-        }
-
-        super.onAfterConstructed();
-    }
-
-    /**
-     *
-     */
     onConstructed() {
         super.onConstructed();
 

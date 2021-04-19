@@ -503,6 +503,8 @@ class Component extends Base {
         let me = this;
 
         if (component.bind) {
+            me.createBindings(component);
+
             Object.entries(component.bind).forEach(([key, value]) => {
                 if (me.isStoreValue(value)) {
                     me.resolveStore(component, key, value.substring(7)); // remove the "stores." at the start
@@ -528,24 +530,6 @@ class Component extends Base {
 
         if (parentModel) {
             parentModel.removeBindings(componentId);
-        }
-    }
-
-    /**
-     *
-     * @param {Neo.component.Base} [component=this.component]
-     */
-    resolveBindings(component=this.component) {
-        let me = this;
-
-        if (component.bind) {
-            me.createBindings(component);
-
-            Object.entries(component.bind).forEach(([key, value]) => {
-                if (!me.isStoreValue(value)) { // bound stores already got resolved inside parseConfig()
-                    component[key] = me.resolveFormatter(value);
-                }
-            });
         }
     }
 
