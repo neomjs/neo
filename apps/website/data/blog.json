@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Apr 19, 2021",
+        "id"          : 26,
+        "image"       : "using-template-literals-to-create-a-binding-engine.png",
+        "name"        : "Using template literals to create a binding engine",
+        "provider"    : "Medium",
+        "publisher"   : "",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://tobiasuhlig.medium.com/using-template-literals-to-create-a-binding-engine-1cb33155a6e8?source=friends_link&sk=97c92fe8008d3e48c54933403723bf95"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Apr 7, 2021",
         "id"          : 25,
         "image"       : "introducing-view-models.png",
