@@ -500,7 +500,8 @@ class Component extends Base {
      * @param {Neo.component.Base} [component=this.component]
      */
     parseConfig(component=this.component) {
-        let me = this;
+        let me     = this,
+            config = {};
 
         if (component.bind) {
             me.createBindings(component);
@@ -509,9 +510,11 @@ class Component extends Base {
                 if (me.isStoreValue(value)) {
                     me.resolveStore(component, key, value.substring(7)); // remove the "stores." at the start
                 } else {
-                    component[key] = me.resolveFormatter(value);
+                    config[key] = me.resolveFormatter(value);
                 }
             });
+
+            component.set(config);
         }
     }
 
