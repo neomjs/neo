@@ -179,25 +179,10 @@ class Component extends Base {
      */
     createBindingByFormatter(componentId, formatter, value) {
         let me            = this,
-            formatterVars = me.getFormatterVariables(formatter),
-            data, keyLeaf, parentModel, scope;
+            formatterVars = me.getFormatterVariables(formatter);
 
         formatterVars.forEach(key => {
-            data    = me.getDataScope(key);
-            scope   = data.scope;
-            keyLeaf = data.key;
-
-            if (scope && scope[keyLeaf]) {
-                me.createBinding(componentId, key, value, formatter);
-            } else {
-                parentModel = me.getParent();
-
-                if (parentModel) {
-                    parentModel.createBinding(componentId, key, value, formatter);
-                } else {
-                    console.error('No model.Component found with the specified data property', value);
-                }
-            }
+            me.createBinding(componentId, key, value, formatter);
         });
     }
 
