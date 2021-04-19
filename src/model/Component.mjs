@@ -156,7 +156,7 @@ class Component extends Base {
             keyLeaf = data.key,
             bindingScope, parentModel;
 
-        if (scope[keyLeaf]) {
+        if (scope && scope[keyLeaf]) {
             bindingScope = Neo.ns(`${key}.${componentId}`, true, me.bindings);
             bindingScope[value] = formatter;
         } else {
@@ -293,7 +293,7 @@ class Component extends Base {
             keyLeaf = data.key,
             parentModel;
 
-        if (scope.hasOwnProperty(keyLeaf)) {
+        if (scope && scope.hasOwnProperty(keyLeaf)) {
             return scope[keyLeaf];
         }
 
