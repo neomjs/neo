@@ -452,10 +452,6 @@ class MainContainerController extends ComponentController {
             tabContainer.activeIndex = activeIndex;
             me.activeMainTabIndex    = activeIndex;
 
-            if (activeView.ntype === 'helix') {
-                activeView.getOffsetValues();
-            }
-
             // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
 
             if (me.data && activeView.store && activeView.store.getCount() < 1) {
@@ -493,6 +489,8 @@ class MainContainerController extends ComponentController {
                     }
 
                     if (activeView.ntype === 'helix' || me.connectedApps.includes('SharedCovidHelix')) {
+                        activeView.getOffsetValues();
+
                         if (country && !me.helixView.selectionModel.isSelected(country)) {
                             me.helixView.selectionModel.select(country, false);
                             me.helixView.onKeyDownSpace(null);

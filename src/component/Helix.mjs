@@ -157,14 +157,14 @@ class Helix extends Component {
         /**
          * The DOM element offsetHeight of the top level div.
          * Gets fetched after the helix got mounted.
-         * @member {Boolean} mouseWheelEnabled=true
+         * @member {Number|null} offsetHeight=null
          * @protected
          */
         offsetHeight: null,
         /**
          * The DOM element offsetWidth of the top level div.
          * Gets fetched after the helix got mounted.
-         * @member {Boolean} mouseWheelEnabled=true
+         * @member {Number|null} offsetWidth=null
          * @protected
          */
         offsetWidth: null,
