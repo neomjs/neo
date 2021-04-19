@@ -68,9 +68,7 @@ class Component extends Base {
     constructor(config) {
         Neo.currentWorker.isUsingViewModels = true;
         super(config);
-
         this.bindings = {};
-        this.data     = {};
     }
 
     /**
@@ -319,7 +317,7 @@ class Component extends Base {
     getDataScope(key) {
         let me      = this,
             keyLeaf = key,
-            data    = me.data || {};
+            data    = me.data;
 
         if (key.includes('.')) {
             key     = key.split('.');
