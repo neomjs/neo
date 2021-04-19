@@ -260,10 +260,6 @@ class MainContainerController extends ComponentController {
         tabContainer.activeIndex = activeIndex;
         me.activeMainTabIndex    = activeIndex;
 
-        if (activeView.ntype === 'helix') {
-            activeView.getOffsetValues();
-        }
-
         // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
 
         if (me.data && activeView.store && activeView.store.getCount() < 1) {
@@ -313,6 +309,8 @@ class MainContainerController extends ComponentController {
                             }
                             break;
                         case 'helix':
+                            activeView.getOffsetValues();
+
                             if (country && !selectionModel.isSelected(country)) {
                                 selectionModel.select(country, false);
                                 activeView.onKeyDownSpace(null);
