@@ -4,7 +4,7 @@ import NeoArray        from '../util/Array.mjs';
 import Observable      from '../core/Observable.mjs';
 
 const expressionContentRegex = /\${(.+?)}/g,
-      dataVariableRegex      = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi;
+      dataVariableRegex      = /(data|[a-z])((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi;
 
 /**
  * An optional component (view) model for adding bindings to configs
