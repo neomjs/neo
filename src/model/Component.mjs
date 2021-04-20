@@ -4,8 +4,7 @@ import NeoArray        from '../util/Array.mjs';
 import Observable      from '../core/Observable.mjs';
 
 const expressionContentRegex = /\${(.+?)}/g,
-      dataVariableRegex      = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi,
-      formatterCache         = {};
+      dataVariableRegex      = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi;
 
 /**
  * An optional component (view) model for adding bindings to configs
@@ -38,10 +37,6 @@ class Component extends Base {
          * @protected
          */
         bindings_: null,
-        /**
-         * @member {Boolean} cacheFormatterFunctions=true
-         */
-        cacheFormatterFunctions: true,
         /**
          * @member {Neo.component.Base|null} component=null
          * @protected
