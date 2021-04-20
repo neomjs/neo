@@ -342,8 +342,10 @@ class Component extends Base {
             dataVars = part.match(dataVariableRegex) || [];
 
             dataVars.forEach(variable => {
-                NeoArray.add(result, variable.substr(5)); // remove the "data." at the start
-            })
+                // remove the "data." at the start in dev mode or "e." (1 character) in dist/production
+                variable = variable.substr(variable.indexOf('.') + 1);
+                NeoArray.add(result, variable);
+            });
         });
 
         result.sort();
