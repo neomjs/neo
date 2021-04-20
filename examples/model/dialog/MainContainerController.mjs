@@ -26,7 +26,7 @@ class MainContainerController extends Component {
 
         if (!me.dialog) {
             import(
-                /* webpackChunkName: 'examples/model/dialog/EditUserDialog-mjs.js' */
+                /* webpackChunkName: 'examples/model/dialog/EditUserDialog' */
                 './EditUserDialog.mjs'
             ).then(module => {
                 me.dialog = Neo.create({
