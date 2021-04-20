@@ -4,8 +4,7 @@ import NeoArray        from '../util/Array.mjs';
 import Observable      from '../core/Observable.mjs';
 
 const expressionContentRegex = /\${(.+?)}/g,
-      dataVariableRegex      = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi,
-      formatterCache         = {};
+      dataVariableRegex      = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi;
 
 /**
  * An optional component (view) model for adding bindings to configs
@@ -38,10 +37,6 @@ class Component extends Base {
          * @protected
          */
         bindings_: null,
-        /**
-         * @member {Boolean} cacheFormatterFunctions=true
-         */
-        cacheFormatterFunctions: true,
         /**
          * @member {Neo.component.Base|null} component=null
          * @protected
@@ -139,6 +134,20 @@ class Component extends Base {
         }
 
         return value;
+    }
+
+    /**
+     *
+     * @param {Function} formatter
+     * @param {Object} [data=null] optionally pass this.getHierarchyData() for performance reasons
+     * @returns {String}
+     */
+    callFormatter(formatter, data=null) {
+        if (!data) {
+            data = this.getHierarchyData();
+        }
+
+        return formatter.call(this, data);
     }
 
     /**
@@ -321,6 +330,10 @@ class Component extends Base {
      * @param {String} value
      */
     getFormatterVariables(value) {
+        if (Neo.isFunction(value)) {
+            value = value.toString();
+        }
+
         let parts  = value.match(expressionContentRegex) || [],
             result = [],
             dataVars;
@@ -433,7 +446,7 @@ class Component extends Base {
      * @returns {Boolean}
      */
     isStoreValue(value) {
-        return value.startsWith('stores.');
+        return Neo.isString(value) && value.startsWith('stores.');
     }
 
     /**
@@ -460,9 +473,9 @@ class Component extends Base {
                 }
 
                 Object.entries(configObject).forEach(([configField, formatter]) => {
-                    // we can not call me.resolveFormatter(), since a data property inside a parent model
+                    // we can not call me.callFormatter(), since a data property inside a parent model
                     // could have changed which is relying on data properties inside a closer model
-                    config[configField] = model.resolveFormatter(formatter, hierarchyData[model.id]);
+                    config[configField] = model.callFormatter(formatter, hierarchyData[model.id]);
                 });
 
                 if (component) {
@@ -495,7 +508,7 @@ class Component extends Base {
                 if (me.isStoreValue(value)) {
                     me.resolveStore(component, key, value.substring(7)); // remove the "stores." at the start
                 } else {
-                    config[key] = me.resolveFormatter(value);
+                    config[key] = me.callFormatter(value);
                 }
             });
 
@@ -519,32 +532,6 @@ class Component extends Base {
         if (parentModel) {
             parentModel.removeBindings(componentId);
         }
-    }
-
-    /**
-     *
-     * @param {String} formatter
-     * @param {Object} [data=null] optionally pass this.getHierarchyData() for performance reasons
-     */
-    resolveFormatter(formatter, data=null) {
-        let me = this,
-            fn;
-
-        if (!data) {
-            data = this.getHierarchyData();
-        }
-
-        if (me.cacheFormatterFunctions && formatterCache[formatter]) {
-            return formatterCache[formatter].call(me, data);
-        }
-
-        fn = new Function('data', 'return `' + formatter + '`;');
-
-        if (me.cacheFormatterFunctions) {
-            formatterCache[formatter] = fn;
-        }
-
-        return fn.call(me, data);
     }
 
     /**

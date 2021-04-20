@@ -63,7 +63,7 @@ class MainContainer extends Viewport {
                 items: [{
                     ntype: 'label',
                     bind : {
-                        text: 'Current user: ${data.user.firstname} ${data.user.lastname}'
+                        text: data => `Current user: ${data.user.firstname} ${data.user.lastname}`
                     }
                 }, {
                     ntype: 'component',

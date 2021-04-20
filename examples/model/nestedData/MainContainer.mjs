@@ -72,7 +72,7 @@ class MainContainer extends Viewport {
                     iconCls: 'fa fa-home',
 
                     bind: {
-                        text: '${data.user.details.firstname}'
+                        text: data => `${data.user.details.firstname}`
                     }
                 }, {
                     handler: 'onButton2Click',
@@ -80,7 +80,7 @@ class MainContainer extends Viewport {
                     style  : {marginLeft: '10px'},
 
                     bind: {
-                        text: '${data.user.details.lastname}'
+                        text: data => `${data.user.details.lastname}`
                     }
                 }]
             }],
@@ -93,7 +93,7 @@ class MainContainer extends Viewport {
                 width     : 300,
 
                 bind: {
-                    value: '${data.user.details.firstname}'
+                    value: data => `${data.user.details.firstname}`
                 },
 
                 listeners: {
@@ -107,7 +107,7 @@ class MainContainer extends Viewport {
                 width     : 300,
 
                 bind: {
-                    value: '${data.user.details.lastname}'
+                    value: data => `${data.user.details.lastname}`
                 },
 
                 listeners: {

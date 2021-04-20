@@ -34,14 +34,14 @@ class EditUserDialog extends Dialog {
          */
         items: [{
             module    : TextField,
-            bind      : {value: '${data.user.firstname}'},
+            bind      : {value: data => `${data.user.firstname}`},
             flex      : 'none',
             labelText : 'Firstname:',
             labelWidth: 110,
             listeners : {change: 'onFirstnameTextFieldChange'}
         }, {
             module    : TextField,
-            bind      : {value: '${data.user.lastname}'},
+            bind      : {value: data => `${data.user.lastname}`},
             flex      : 'none',
             labelText : 'Lastname:',
             labelWidth: 110,
