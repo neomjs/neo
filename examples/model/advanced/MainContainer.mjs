@@ -77,7 +77,7 @@ class MainContainer extends Viewport {
                     iconCls: 'fa fa-home',
 
                     bind: {
-                        text: 'Hello ${data.button2Text} ${1+2} ${data.button1Text + data.button2Text}'
+                        text: data => `Hello ${data.button2Text} ${1+2} ${data.button1Text + data.button2Text}`
                     }
                 }, {
                     handler: 'onButton2Click',
@@ -85,7 +85,7 @@ class MainContainer extends Viewport {
                     style  : {marginLeft: '10px'},
 
                     bind: {
-                        text: '${data.button2Text.toLowerCase()}'
+                        text: data => `${data.button2Text.toLowerCase()}`
                     }
                 }]
             }],
@@ -104,7 +104,7 @@ class MainContainer extends Viewport {
                     width     : 300,
 
                     bind: {
-                        value: '${data.button1Text}'
+                        value: data => `${data.button1Text}`
                     },
 
                     listeners: {
@@ -126,7 +126,7 @@ class MainContainer extends Viewport {
                     width     : 300,
 
                     bind: {
-                        value: '${data.button2Text}'
+                        value: data => `${data.button2Text}`
                     },
 
                     listeners: {
