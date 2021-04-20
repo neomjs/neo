@@ -26,7 +26,7 @@ class MainContainerController extends Component {
             items: [{
                 ntype     : 'textfield',
                 flex      : 'none',
-                labelText : 'data.button2Text:',
+                labelText : 'data.button3Text:',
                 labelWidth: 150,
                 width     : 300,
 
