@@ -4,7 +4,7 @@ import NeoArray        from '../util/Array.mjs';
 import Observable      from '../core/Observable.mjs';
 
 const expressionContentRegex = /\${(.+?)}/g,
-      dataVariableRegex      = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi;
+      dataVariableRegex      = /(data|[a-z])((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi;
 
 /**
  * An optional component (view) model for adding bindings to configs
@@ -342,8 +342,10 @@ class Component extends Base {
             dataVars = part.match(dataVariableRegex) || [];
 
             dataVars.forEach(variable => {
-                NeoArray.add(result, variable.substr(5)); // remove the "data." at the start
-            })
+                // remove the "data." at the start in dev mode or "e." (1 character) in dist/production
+                variable = variable.substr(variable.indexOf('.') + 1);
+                NeoArray.add(result, variable);
+            });
         });
 
         result.sort();
