@@ -21,7 +21,7 @@ class MainContainer extends Viewport {
          */
         autoMount: true,
         /**
-         * @member {Number} b_=null
+         * @member {Number|null} b_=null
          */
         b_: null,
         /**
