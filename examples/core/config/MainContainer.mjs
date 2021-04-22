@@ -53,12 +53,10 @@ class MainContainer extends Viewport {
                 dock : 'top',
                 items: [{
                     ntype: 'label',
-                    flag : 'label1',
-                    text : me.a
+                    flag : 'label1'
                 }, {
                     ntype: 'label',
-                    flag : 'label2',
-                    text : me.b
+                    flag : 'label2'
                 }, {
                     ntype: 'component',
                     flex : 1
