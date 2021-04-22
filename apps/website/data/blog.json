@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Apr 22, 2021",
+        "id"          : 28,
+        "image"       : "using-template-literals-to-create-a-binding-engine.png",
+        "name"        : "Enhance your frontend state management with view models — Part2",
+        "provider"    : "Medium",
+        "publisher"   : "",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://tobiasuhlig.medium.com/enhance-your-frontend-state-management-with-view-models-part2-5a9384bd863c?source=friends_link&sk=e63a577e4118c767de0d289af266482c"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Apr 21, 2021",
         "id"          : 27,
         "image"       : "enhance-your-frontend-state-management-with-view-models.png",
@@ -148,7 +161,7 @@
         "date"        : "Jun 24, 2020",
         "id"          : 16,
         "image"       : "how-to-create-a-webworkers-driven-multithreading-app-part-2.png",
-        "name"        : "How to create a webworkers driven multithreading App - Part 2",
+        "name"        : "How to create a webworkers driven multithreading App - Part 2",
         "provider"    : "Medium",
         "publisher"   : "The Startup",
         "selectedInto": ["Javascript"],
