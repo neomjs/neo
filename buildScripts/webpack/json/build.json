@@ -82,6 +82,14 @@
             "output": "/examples/container/",
             "title": "Neo Containers"
         },
+        "core": {
+            "config": {
+                "input": "./examples/core/config/app.mjs",
+                "output": "/examples/core/config/",
+                "themes": "'neo-theme-dark'",
+                "title": "neo.mjs config system"
+            }
+        },
         "dialog": {
             "input": "./examples/dialog/app.mjs",
             "mainThreadAddons": "'DragDrop', 'Stylesheet'",
