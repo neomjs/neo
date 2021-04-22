@@ -498,6 +498,7 @@ function autoGenerateGetSet(proto, key) {
                 if (hasNewKey) {
                     me[key] = value; // we do want to trigger the setter => beforeSet, afterSet
                     value = me['_' + key]; // return the value parsed by the setter
+                    delete me[configSymbol][key];
                 }
 
                 if (typeof me[beforeGet] === 'function') {
