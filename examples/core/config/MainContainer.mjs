@@ -87,8 +87,8 @@ class MainContainer extends Viewport {
 
     /**
      * Triggered after the a config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
      * @protected
      */
     afterSetA(value, oldValue) {
@@ -99,8 +99,8 @@ class MainContainer extends Viewport {
 
     /**
      * Triggered after the b config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
      * @protected
      */
     afterSetB(value, oldValue) {
