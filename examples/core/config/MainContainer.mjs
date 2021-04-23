@@ -21,7 +21,7 @@ class MainContainer extends Viewport {
          */
         autoMount: true,
         /**
-         * @member {Number} b_=null
+         * @member {Number|null} b_=null
          */
         b_: null,
         /**
@@ -53,12 +53,10 @@ class MainContainer extends Viewport {
                 dock : 'top',
                 items: [{
                     ntype: 'label',
-                    flag : 'label1',
-                    text : me.a
+                    flag : 'label1'
                 }, {
                     ntype: 'label',
-                    flag : 'label2',
-                    text : me.b
+                    flag : 'label2'
                 }, {
                     ntype: 'component',
                     flex : 1
@@ -89,8 +87,8 @@ class MainContainer extends Viewport {
 
     /**
      * Triggered after the a config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
      * @protected
      */
     afterSetA(value, oldValue) {
@@ -101,8 +99,8 @@ class MainContainer extends Viewport {
 
     /**
      * Triggered after the b config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
+     * @param {Number|null} value
+     * @param {Number|null} oldValue
      * @protected
      */
     afterSetB(value, oldValue) {
