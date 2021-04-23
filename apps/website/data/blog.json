@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Apr 23, 2021",
+        "id"          : 27,
+        "image"       : "the-webworkers-driven-ui-framework-neomjs-version-2-release-announcement.png",
+        "name"        : "The webworkers driven UI framework neo.mjs version 2 release announcement",
+        "provider"    : "Medium",
+        "publisher"   : "",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://tobiasuhlig.medium.com/the-webworkers-driven-ui-framework-neo-mjs-version-2-release-announcement-b91b476d6f16?source=friends_link&sk=e6eb21f75475f431ad9215d63a44fb53"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Apr 22, 2021",
         "id"          : 26,
         "image"       : "using-template-literals-to-create-a-binding-engine.png",
