@@ -306,10 +306,9 @@ class Base extends Panel {
             }).then(() => {
                 setTimeout(() => {
                     Neo.currentWorker.promiseMessage('main', {
-                        action  : 'updateDom',
-                        appName : appName,
-
-                        deltas: [{
+                        action : 'updateDom',
+                        appName: appName,
+                        deltas : [{
                             id   : id,
                             style: {
                                 height: `${rects[1].height}px`,
