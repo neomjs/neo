@@ -1,11 +1,12 @@
-import Component from '../../../src/controller/Component.mjs';
-import NeoArray  from '../../../src/util/Array.mjs';
+import ComponentController from '../../../src/controller/Component.mjs';
+import ComponentModel      from '../../../src/model/Component.mjs';
+import NeoArray            from '../../../src/util/Array.mjs';
 
 /**
  * @class Neo.examples.model.multiWindow.ViewportController
  * @extends Neo.controller.Component
  */
-class MainContainerController extends Component {
+class MainContainerController extends ComponentController {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.examples.model.multiWindow.ViewportController'
@@ -15,7 +16,11 @@ class MainContainerController extends Component {
         /**
          * @member {String[]} connectedApps=[]
          */
-        connectedApps: []
+        connectedApps: [],
+        /**
+         * @member {Neo.model.Component|null} mainModel=null
+         */
+        mainModel: null
     }}
 
     /**
@@ -39,23 +44,43 @@ class MainContainerController extends Component {
      * @param {String} data.appName
      */
     onAppConnect(data) {
-        let me   = this,
-            name = data.appName;
+        let me    = this,
+            name  = data.appName,
+            model = {},
+            view;
 
         console.log('onAppConnect', data);
 
         NeoArray.add(me.connectedApps, name);
 
-        if (me.connectedApps.length === 1) {
-            import(
-                /* webpackChunkName: 'examples/model/multiWindow/MainContainer' */
-                './MainContainer.mjs'
-                ).then(module => {
-                me.component.add({
-                    module: module.default
-                });
-            });
+        if (!me.mainModel) {
+            model = {
+                data: {
+                    user: {
+                        firstname: 'Tobias',
+                        lastname : 'Uhlig'
+                    }
+                }
+            };
+        } else {
+            model = {
+                parent: me.mainModel
+            };
         }
+
+        import(
+            /* webpackChunkName: 'examples/model/multiWindow/MainContainer' */
+            '../multiWindow/MainContainer.mjs'
+        ).then(module => {
+            view = Neo.apps[name].mainView.add({
+                module: module.default,
+                model : model
+            });
+
+            if (!me.mainModel) {
+                me.mainModel = view.model;
+            }
+        });
     }
 
     /**
