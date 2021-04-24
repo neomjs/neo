@@ -124,6 +124,12 @@ class Base extends CoreBase {
          */
         hasBeenMounted: false,
         /**
+         * Internal flag
+         * @member {Boolean} hasRenderingListener=false
+         * @protected
+         */
+        hasRenderingListener: false,
+        /**
          * Internal flag for vdom changes after a component got unmounted
          * (delta updates can no longer get applied & a new render call is required before re-mounting)
          * @member {Boolean} hasUnmountedVdomChanges_=false
@@ -386,9 +392,11 @@ class Base extends CoreBase {
         }
 
         if (!me.silentVdomUpdate) {
-            if (!me.mounted && app && app.rendering === true) {
-                listenerId = app.on('render', () => {
-                    app.un('render', listenerId);
+            if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app && app.rendering === true) {
+                me.hasRenderingListener = true;
+
+                listenerId = app.on('mounted', () => {
+                    app.un('mounted', listenerId);
 
                     setTimeout(() => {
                         me.updateVdom(me.vdom, me.vnode);
@@ -1217,6 +1225,11 @@ class Base extends CoreBase {
 
             if (autoMount) {
                 me.mounted = true;
+
+                if (!app.mounted) {
+                    app.mounted = true;
+                    app.fire('mounted');
+                }
             }
         }
     }
@@ -1225,6 +1238,7 @@ class Base extends CoreBase {
      * Promise based vdom update
      * @param {Object} [vdom=this.vdom]
      * @param {Neo.vdom.VNode} [vnode= this.vnode]
+     * @returns {Promise<any>}
      */
     promiseVdomUpdate(vdom=this.vdom, vnode=this.vnode) {
         let me = this;
@@ -1249,6 +1263,7 @@ class Base extends CoreBase {
             if (me.mounted) {
                 me.updateVdom(vdom, vnode, resolve, reject);
             } else {
+                me.vdom = vdom;
                 resolve();
             }
         });
@@ -1299,6 +1314,8 @@ class Base extends CoreBase {
         }
 
         if (me.vdom) {
+            me.isVdomUpdating = true;
+
             Neo.vdom.Helper.create({
                 appName    : me.appName,
                 autoMount  : autoMount,
@@ -1309,6 +1326,7 @@ class Base extends CoreBase {
                 ...me.vdom
             }).then(data => {
                 me.onRender(data, autoMount);
+                me.isVdomUpdating = false;
             });
         }
     }
@@ -1540,7 +1558,7 @@ class Base extends CoreBase {
             opts;
 
         // console.log('updateVdom', me.id, Neo.clone(vdom, true), Neo.clone(vnode, true));
-        // console.log('updateVdom', me.isVdomUpdating);
+        // console.log('updateVdom', me.id, me.isVdomUpdating);
 
         if (me.isVdomUpdating) {
             me.needsVdomUpdate = true;
