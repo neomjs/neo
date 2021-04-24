@@ -23,7 +23,6 @@ class MainContainerController extends Component {
      */
     constructor(config) {
         super(config);
-        console.log('ViewportController ctor');
 
         let me = this;
 
@@ -32,7 +31,6 @@ class MainContainerController extends Component {
                 /* webpackChunkName: 'examples/model/multiWindow/MainContainer' */
                 './MainContainer.mjs'
             ).then(module => {
-                console.log(me.component.items);
                 me.component.add({
                     module: module.default
                 });
