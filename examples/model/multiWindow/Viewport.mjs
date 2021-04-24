@@ -13,11 +13,15 @@ class Viewport extends BaseViewport {
          */
         className: 'Neo.examples.model.multiWindow.Viewport',
         /**
-         * @member {Boolean} autoMount=true
+         * @member {Boolean} autoMount=false
          */
-        autoMount: true,
+        autoMount: false,
         /**
-         * @member {Neo.controller.Component} controller=MainContainerController
+         * @member {Boolean} autoRender=false
+         */
+        autoRender: false,
+        /**
+         * @member {Neo.controller.Component} controller=ViewportController
          */
         controller: ViewportController
     }}

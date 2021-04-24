@@ -24,6 +24,20 @@ class MainContainerController extends Component {
     constructor(config) {
         super(config);
         console.log('ViewportController ctor');
+
+        let me = this;
+
+        if (!me.connectedApps) {
+            import(
+                /* webpackChunkName: 'examples/model/multiWindow/MainContainer' */
+                './MainContainer.mjs'
+            ).then(module => {
+                console.log(me.component.items);
+                me.component.add({
+                    module: module.default
+                });
+            });
+        }
     }
 }
 
