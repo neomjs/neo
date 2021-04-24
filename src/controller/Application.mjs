@@ -17,6 +17,11 @@ class Application extends Base {
          */
         mainView_: null,
         /**
+         * @member {Boolean} mounted=false
+         * @protected
+         */
+        mounted: false,
+        /**
          * @member {String} name='MyApp'
          */
         name: 'MyApp',
