@@ -44,10 +44,9 @@ class MainContainerController extends ComponentController {
      * @param {String} data.appName
      */
     onAppConnect(data) {
-        let me    = this,
-            name  = data.appName,
-            model = {},
-            view;
+        let me   = this,
+            name = data.appName,
+            model, view;
 
         console.log('onAppConnect', data);
 
