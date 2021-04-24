@@ -1,4 +1,5 @@
 import Component from '../../../src/controller/Component.mjs';
+import NeoArray  from '../../../src/util/Array.mjs';
 
 /**
  * @class Neo.examples.model.multiWindow.ViewportController
@@ -12,30 +13,63 @@ class MainContainerController extends Component {
          */
         className: 'Neo.examples.model.multiWindow.ViewportController',
         /**
-         * @member {String[]|null} connectedApps=null
+         * @member {String[]} connectedApps=[]
          */
-        connectedApps: null
+        connectedApps: []
     }}
 
     /**
-     *
-     * @param config
+     * The App worker will receive connect & disconnect events inside the SharedWorkers context
      */
     constructor(config) {
         super(config);
 
         let me = this;
 
-        if (!me.connectedApps) {
+        Neo.currentWorker.on({
+            connect   : me.onAppConnect,
+            disconnect: me.onAppDisconnect,
+            scope     : me
+        });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.appName
+     */
+    onAppConnect(data) {
+        let me   = this,
+            name = data.appName;
+
+        console.log('onAppConnect', data);
+
+        NeoArray.add(me.connectedApps, name);
+
+        if (me.connectedApps.length === 1) {
             import(
                 /* webpackChunkName: 'examples/model/multiWindow/MainContainer' */
                 './MainContainer.mjs'
-            ).then(module => {
+                ).then(module => {
                 me.component.add({
                     module: module.default
                 });
             });
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {String} data.appName
+     */
+    onAppDisconnect(data) {
+        let me   = this,
+            name = data.appName;
+
+        NeoArray.remove(me.connectedApps, name);
+
+        console.log('onAppDisconnect', data);
     }
 }
 
