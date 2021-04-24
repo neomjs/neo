@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Apr 24, 2021",
+        "id"          : 28,
+        "image"       : "safari-about-to-release-support-for-js-modules-inside-the-worker-scope.png",
+        "name"        : "Safari (Webkit) about to release support for JS modules inside the worker scope",
+        "provider"    : "Medium",
+        "publisher"   : "Level Up Coding",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://levelup.gitconnected.com/safari-webkit-about-to-release-support-for-js-modules-inside-the-worker-scope-9dd33fc20190?source=friends_link&sk=db61a01446ca5a51ee2f932aad9ca890"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Apr 23, 2021",
         "id"          : 27,
         "image"       : "the-webworkers-driven-ui-framework-neomjs-version-2-release-announcement.png",
