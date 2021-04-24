@@ -1,4 +1,3 @@
-import ComponentModel          from '../../../src/model/Component.mjs';
 import MainContainerController from './MainContainerController.mjs'
 import Panel                   from '../../../src/container/Panel.mjs';
 
@@ -56,20 +55,7 @@ class MainContainer extends Panel {
         items: [{
             ntype: 'label',
             text : 'Click the edit user button to edit the user data inside this container view model.'
-        }],
-        /**
-         * @member {Object|Neo.model.Component} model
-         */
-        model: {
-            module: ComponentModel,
-
-            data: {
-                user: {
-                    firstname: 'Tobias',
-                    lastname : 'Uhlig'
-                }
-            }
-        }
+        }]
     }}
 }
 
