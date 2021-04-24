@@ -1,5 +1,5 @@
-import MainContainerController from './MainContainerController.mjs'
-import BaseViewport            from '../../../src/container/Viewport.mjs';
+import BaseViewport       from '../../../src/container/Viewport.mjs';
+import ViewportController from './ViewportController.mjs'
 
 /**
  * @class Neo.examples.model.multiWindow.Viewport
@@ -19,7 +19,7 @@ class Viewport extends BaseViewport {
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
          */
-        controller: MainContainerController
+        controller: ViewportController
     }}
 }
 
