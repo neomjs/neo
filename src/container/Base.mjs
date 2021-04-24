@@ -329,7 +329,6 @@ class Base extends Component {
                     ...me.itemDefaults || {},
 
                     appName    : me.appName,
-                    autoMount  : me.mounted,
                     parentId   : me.id,
                     parentIndex: index,
 
