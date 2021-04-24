@@ -23,7 +23,13 @@ class Viewport extends BaseViewport {
         /**
          * @member {Neo.controller.Component} controller=ViewportController
          */
-        controller: ViewportController
+        controller: ViewportController,
+        /**
+         * @member {Object} style
+         */
+        style: {
+            padding: '20px'
+        }
     }}
 }
 

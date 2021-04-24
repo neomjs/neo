@@ -1,13 +1,12 @@
 import ComponentModel          from '../../../src/model/Component.mjs';
 import MainContainerController from './MainContainerController.mjs'
 import Panel                   from '../../../src/container/Panel.mjs';
-import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.model.multiWindow.MainContainer
- * @extends Neo.container.Viewport
+ * @extends Neo.container.Panel
  */
-class MainContainer extends Viewport {
+class MainContainer extends Panel {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.examples.model.multiWindow.MainContainer'
@@ -15,13 +14,49 @@ class MainContainer extends Viewport {
          */
         className: 'Neo.examples.model.multiWindow.MainContainer',
         /**
-         * @member {Boolean} autoMount=true
+         * @member {Object} containerConfig
          */
-        autoMount: true,
+        containerConfig: {
+            layout: {
+                ntype: 'vbox',
+                align: 'start'
+            },
+
+            style: {
+                padding: '20px'
+            }
+        },
         /**
          * @member {Neo.controller.Component} controller=MainContainerController
          */
         controller: MainContainerController,
+        /**
+         * @member {Object[]} headers
+         */
+        headers: [{
+            dock : 'top',
+            items: [{
+                ntype: 'label',
+                bind : {
+                    text: data => `Current user: ${data.user.firstname} ${data.user.lastname}`
+                }
+            }, {
+                ntype: 'component',
+                flex : 1
+            }, {
+                handler  : 'onEditUserButtonClick',
+                iconCls  : 'fa fa-user',
+                reference: 'edit-user-button',
+                text     : 'Edit user'
+            }]
+        }],
+        /**
+         * @member {Object[]} items
+         */
+        items: [{
+            ntype: 'label',
+            text : 'Click the edit user button to edit the user data inside this container view model.'
+        }],
         /**
          * @member {Object|Neo.model.Component} model
          */
@@ -34,53 +69,7 @@ class MainContainer extends Viewport {
                     lastname : 'Uhlig'
                 }
             }
-        },
-        /**
-         * @member {Object} style
-         */
-        style: {
-            padding: '20px'
-        },
-        /**
-         * @member {Object[]} items
-         */
-        items: [{
-            module: Panel,
-
-            containerConfig: {
-                layout: {
-                    ntype: 'vbox',
-                    align: 'start'
-                },
-
-                style: {
-                    padding: '20px'
-                }
-            },
-
-            headers: [{
-                dock : 'top',
-                items: [{
-                    ntype: 'label',
-                    bind : {
-                        text: data => `Current user: ${data.user.firstname} ${data.user.lastname}`
-                    }
-                }, {
-                    ntype: 'component',
-                    flex : 1
-                }, {
-                    handler  : 'onEditUserButtonClick',
-                    iconCls  : 'fa fa-user',
-                    reference: 'edit-user-button',
-                    text     : 'Edit user'
-                }]
-            }],
-
-            items: [{
-                ntype: 'label',
-                text : 'Click the edit user button to edit the user data inside this container view model.'
-            }]
-        }]
+        }
     }}
 }
 
