@@ -7,6 +7,12 @@ import NeoArray            from '../../../src/util/Array.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends ComponentController {
+    /**
+     * @member {Neo.model.Component|null} mainModel=null
+     */
+    mainModel = null
+
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.examples.model.multiWindow.ViewportController'
@@ -16,11 +22,7 @@ class MainContainerController extends ComponentController {
         /**
          * @member {String[]} connectedApps=[]
          */
-        connectedApps: [],
-        /**
-         * @member {Neo.model.Component|null} mainModel=null
-         */
-        mainModel: null
+        connectedApps: []
     }}
 
     /**
