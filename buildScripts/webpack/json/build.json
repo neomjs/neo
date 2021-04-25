@@ -207,13 +207,15 @@
                 "input": "./examples/model/multiWindow/app.mjs",
                 "output": "/examples/model/multiWindow/",
                 "themes": "'neo-theme-dark'",
-                "title": "model.multiWindow"
+                "title": "model.multiWindow",
+                "useSharedWorkers": true
             },
             "multiWindow2": {
                 "input": "./examples/model/multiWindow2/app.mjs",
                 "output": "/examples/model/multiWindow2/",
                 "themes": "'neo-theme-dark'",
-                "title": "model.multiWindow2"
+                "title": "model.multiWindow2",
+                "useSharedWorkers": true
             },
             "nestedData": {
                 "input": "./examples/model/nestedData/app.mjs",
