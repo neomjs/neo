@@ -203,6 +203,18 @@
                 "themes": "'neo-theme-dark'",
                 "title": "inline example without using a model.Component"
             },
+            "multiWindow": {
+                "input": "./examples/model/multiWindow/app.mjs",
+                "output": "/examples/model/multiWindow/",
+                "themes": "'neo-theme-dark'",
+                "title": "model.multiWindow"
+            },
+            "multiWindow2": {
+                "input": "./examples/model/multiWindow2/app.mjs",
+                "output": "/examples/model/multiWindow2/",
+                "themes": "'neo-theme-dark'",
+                "title": "model.multiWindow2"
+            },
             "nestedData": {
                 "input": "./examples/model/nestedData/app.mjs",
                 "output": "/examples/model/nestedData/",
