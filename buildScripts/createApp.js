@@ -1,6 +1,7 @@
 const chalk       = require('chalk'),
       { program } = require('commander'),
       cp          = require('child_process'),
+      cwd         = process.cwd(),
       envinfo     = require('envinfo'),
       fs          = require('fs'),
       inquirer    = require('inquirer'),
@@ -15,7 +16,7 @@ program
     .version(packageJson.version)
     .option('-i, --info',                     'print environment debug info')
     .option('-a, --appName <value>')
-    .option('-m, --mainThreadAddons <value>', 'Comma separated list of AmCharts, AnalyticsByGoogle, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet\n Defaults to Stylesheet')
+    .option('-m, --mainThreadAddons <value>', 'Comma separated list of AmCharts, AnalyticsByGoogle, DragDrop, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet\n Defaults to DragDrop, Stylesheet')
     .option('-t, --themes <value>',           '"all", "dark", "light"')
     .option('-u, --useSharedWorkers <value>', '"yes", "no"')
     .allowUnknownOption()
@@ -72,8 +73,8 @@ if (!program.mainThreadAddons) {
         type   : 'checkbox',
         name   : 'mainThreadAddons',
         message: 'Please choose your main thread addons:',
-        choices: ['AmCharts', 'AnalyticsByGoogle', 'HighlightJS', 'LocalStorage', 'MapboxGL', 'Markdown', 'Siesta', 'Stylesheet'],
-        default: ['Stylesheet']
+        choices: ['AmCharts', 'AnalyticsByGoogle', 'DragDrop', 'HighlightJS', 'LocalStorage', 'MapboxGL', 'Markdown', 'Siesta', 'Stylesheet'],
+        default: ['DragDrop', 'Stylesheet']
     });
 }
 
@@ -93,8 +94,8 @@ inquirer.prompt(questions).then(answers => {
           useSharedWorkers = answers.useSharedWorkers || program['useSharedWorkers'],
           lAppName         = appName.toLowerCase(),
           appPath          = 'apps/' + lAppName + '/',
-          dir              = '../apps/' + lAppName,
-          folder           = path.resolve(__dirname, dir),
+          dir              = 'apps/' + lAppName,
+          folder           = path.resolve(cwd, dir),
           startDate        = new Date();
 
     let themes = answers.themes || program['themes'];
@@ -224,13 +225,19 @@ inquirer.prompt(questions).then(answers => {
 
         fs.writeFileSync(folder + '/MainContainer.mjs', mainContainerContent);
 
-        let appJsonPath = path.resolve(__dirname, '../buildScripts/webpack/json/myApps.json'),
+        let appJsonPath = path.resolve(cwd, 'buildScripts/myApps.json'),
             appJson;
 
         if (fs.existsSync(appJsonPath)) {
             appJson = require(appJsonPath);
         } else {
-            appJson = require(path.resolve(__dirname, '../buildScripts/webpack/json/myApps.template.json'));
+            appJsonPath = path.resolve(__dirname, '../buildScripts/webpack/json/myApps.json');
+
+            if (fs.existsSync(appJsonPath)) {
+                appJson = require(appJsonPath);
+            } else {
+                appJson = require(path.resolve(__dirname, '../buildScripts/webpack/json/myApps.template.json'));
+            }
         }
 
         appJson.apps[appName] = {
