@@ -433,7 +433,7 @@ class Helper extends Base {
 
                                 Object.entries(value).forEach(([key, value]) => {
                                     if (!(oldVnode.attributes.hasOwnProperty(key) && oldVnode.attributes[key] === value)) {
-                                        if (Neo.isEmpty(value)) {
+                                        if (!Neo.isString(value) && Neo.isEmpty(value)) {
                                             // ignore empty arrays & objects
                                         } else {
                                             attributes[key] = value;
@@ -445,7 +445,7 @@ class Helper extends Base {
                                     delta.attributes = attributes;
 
                                     Object.entries(attributes).forEach(([key, value]) => {
-                                        if (value === null) {
+                                        if (value === null || value === '') {
                                             delete newVnode.attributes[key];
                                         }
                                     });
