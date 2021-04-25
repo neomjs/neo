@@ -12,7 +12,6 @@ class MainContainerController extends ComponentController {
      */
     mainModel = null
 
-
     static getConfig() {return {
         /**
          * @member {String} className='Neo.examples.model.multiWindow.ViewportController'
