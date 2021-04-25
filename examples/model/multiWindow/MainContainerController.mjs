@@ -5,16 +5,17 @@ import Component from '../../../src/controller/Component.mjs';
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Component {
+    /**
+     * @member {Neo.examples.dialog.EditUserDialog|null} dialog=null
+     */
+    dialog = null
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.examples.model.multiWindow.MainContainerController'
          * @protected
          */
-        className: 'Neo.examples.model.multiWindow.MainContainerController',
-        /**
-         * @member {Neo.examples.dialog.EditUserDialog|null} dialog=null
-         */
-        dialog: null
+        className: 'Neo.examples.model.multiWindow.MainContainerController'
     }}
 
     /**
