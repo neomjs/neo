@@ -21,7 +21,7 @@ class MainContainerController extends ComponentController {
          * @member {String} className='Neo.examples.model.multiWindow.ViewportController'
          * @protected
          */
-        className: 'Neo.examples.model.multiWindow.ViewportController',
+        className: 'Neo.examples.model.multiWindow.ViewportController'
     }}
 
     /**
