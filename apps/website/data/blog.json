@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Apr 26, 2021",
+        "id"          : 29,
+        "image"       : "cross-browser-window-state-management.png",
+        "name"        : "Cross browser window state management",
+        "provider"    : "Medium",
+        "publisher"   : "",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://tobiasuhlig.medium.com/cross-browser-window-state-management-77bf837b6574?source=friends_link&sk=c164f00034976283f28fd8a0ad361ba2"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Apr 24, 2021",
         "id"          : 28,
         "image"       : "safari-about-to-release-support-for-js-modules-inside-the-worker-scope.png",
