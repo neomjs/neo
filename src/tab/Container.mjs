@@ -120,19 +120,19 @@ class Container extends BaseContainer {
      * @param {Number} oldValue
      * @protected
      */
-    afterSetActiveIndex(value, oldValue) {
+     async afterSetActiveIndex(value, oldValue) {
         let me            = this,
             cardContainer = Neo.getComponent(me.cardContainerId);
 
         if (!cardContainer) {
             setTimeout(() => {
                 me.afterSetActiveIndex(value, oldValue);
-            }, 50);
+            }, 10);
         } else {
             if (value > -1) {
                 // we need to ensure the afterSet method triggers when lazy loading the module
                 cardContainer.layout._activeIndex = value;
-                cardContainer.layout.afterSetActiveIndex(value, oldValue);
+                await cardContainer.layout.afterSetActiveIndex(value, oldValue);
             }
 
             if (oldValue !== undefined) {
