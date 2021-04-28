@@ -134,7 +134,7 @@ class TableContainer extends Container {
     constructor(config) {
         super(config);
 
-        const me = this;
+        let me = this;
 
         me.historicalDataTable = Neo.create({
             module   : HistoricalDataTable,

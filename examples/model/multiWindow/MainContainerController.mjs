@@ -20,21 +20,32 @@ class MainContainerController extends Component {
 
     /**
      *
+     * @param {Boolean} enable
+     */
+    enableEditUserButton(enable) {
+        this.getReference('edit-user-button').disabled = !enable;
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onEditUserButtonClick(data) {
         let me = this;
 
+        me.enableEditUserButton(false);
+
         if (!me.dialog) {
-            import(
-                /* webpackChunkName: 'examples/model/dialog/EditUserDialog' */
-                './EditUserDialog.mjs'
-            ).then(module => {
+            import('./EditUserDialog.mjs').then(module => {
                 me.dialog = Neo.create({
                     module         : module.default,
                     animateTargetId: me.getReference('edit-user-button').id,
                     appName        : me.component.appName,
                     closeAction    : 'hide',
+
+                    listeners: {
+                        hide: me.enableEditUserButton.bind(me, true)
+                    },
 
                     model: {
                         parent: me.getModel()

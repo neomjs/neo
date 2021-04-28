@@ -68,10 +68,7 @@ class MainContainerController extends ComponentController {
             };
         }
 
-        import(
-            /* webpackChunkName: 'examples/model/multiWindow/MainContainer' */
-            '../multiWindow/MainContainer.mjs'
-        ).then(module => {
+        import('../multiWindow/MainContainer.mjs').then(module => {
             view = Neo.apps[name].mainView.add({
                 module: module.default,
                 model : model

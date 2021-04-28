@@ -55,47 +55,82 @@ class Card extends Base {
     /**
      * Modifies the CSS classes of the container items this layout is bound to.
      * Automatically gets triggered after changing the value of activeIndex.
+     * Lazy loads items which use a module config containing a function.
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
      */
-    afterSetActiveIndex(value, oldValue) {
-        let me        = this,
-            container = Neo.getComponent(me.containerId),
-            sCfg      = me.getStaticConfig(),
-            isActiveIndex, cls, items, vdom;
+    async afterSetActiveIndex(value, oldValue) {
+        let me          = this,
+            container   = Neo.getComponent(me.containerId),
+            sCfg        = me.getStaticConfig(),
+            needsUpdate = false,
+            isActiveIndex, cls, i, item, items, len, module, proto, vdom;
 
         if (container) {
             items = container.items;
             vdom  = container.vdom;
+            len   = items.length;
 
             if (!items[value]) {
                 Neo.error('Trying to activate a non existing card', value, items);
             }
 
-            items.forEach((item, index) => {
-                cls           = item.cls;
-                isActiveIndex = index === value;
+            // we need to run the loop twice, since lazy loading a module at a higher index does affect lower indexes
+            for (i=0; i < len; i++) {
+                module = items[i].module;
 
-                NeoArray.remove(cls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
-                NeoArray.add(   cls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
-
-                if (me.removeInactiveCards) {
-                    item._cls = cls; // silent update
-                    item.getVdomRoot().cls = cls;
-
-                    if (isActiveIndex) {
-                        item.vdom.removeDom = false;
-                    } else {
-                        item.mounted = false;
-                        item.vdom.removeDom = true;
-                    }
-                } else {
-                    item.cls = cls;
+                if (i === value && module && !module.isClass && Neo.isFunction(module)) {
+                    needsUpdate = true;
+                    break;
                 }
-            });
+            }
 
-            if (me.removeInactiveCards) {
+            for (i=0; i < len; i++) {
+                isActiveIndex = i === value;
+                item          = items[i];
+                module        = item.module;
+
+                if (isActiveIndex && module && !module.isClass && Neo.isFunction(module)) {
+                    module = await module();
+                    module = module.default;
+                    proto  = module.prototype;
+                    cls    = item.cls || proto.constructor.config.cls || [];
+
+                    item.className = proto.className;
+                    item.cls       = [...cls, sCfg.itemCls]
+                    item.module    = module;
+
+                    delete item.vdom;
+
+                    items[i] = item = Neo.create(item);
+
+                    vdom.cn[i] = item.vdom;
+                }
+
+                if (item instanceof Neo.core.Base) {
+                    cls = item.cls;
+
+                    NeoArray.remove(cls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
+                    NeoArray.add(   cls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
+
+                    if (me.removeInactiveCards || needsUpdate) {
+                        item._cls = cls; // silent update
+                        item.getVdomRoot().cls = cls;
+
+                        if (isActiveIndex) {
+                            delete item.vdom.removeDom;
+                        } else {
+                            item.mounted = false;
+                            item.vdom.removeDom = true;
+                        }
+                    } else {
+                        item.cls = cls;
+                    }
+                }
+            }
+
+            if (me.removeInactiveCards || needsUpdate) {
                 container.vdom = vdom;
             }
         }

@@ -31,7 +31,8 @@ class Container extends BaseContainer {
          */
         ntype: 'tab-container',
         /**
-         * @member {Number} activeIndex_=0
+         * You can use null to not render any items initially
+         * @member {Number|null} activeIndex_=0
          */
         activeIndex_: 0,
         /**
@@ -120,20 +121,28 @@ class Container extends BaseContainer {
      * @param {Number} oldValue
      * @protected
      */
-    afterSetActiveIndex(value, oldValue) {
-        if (oldValue !== undefined) {
-            let me            = this,
-                cardContainer = Neo.getComponent(me.cardContainerId);
+     async afterSetActiveIndex(value, oldValue) {
+        let me            = this,
+            cardContainer = Neo.getComponent(me.cardContainerId);
 
-            if (cardContainer && value > -1) {
-                me.updateTabButtons();
+        if (Neo.isNumber(value) && value > -1 && !cardContainer) {
+            setTimeout(() => {
+                me.afterSetActiveIndex(value, oldValue);
+            }, 10);
+        } else {
+            if (Neo.isNumber(value) && value > -1) {
+                // we need to ensure the afterSet method triggers when lazy loading the module
+                cardContainer.layout._activeIndex = value;
+                await cardContainer.layout.afterSetActiveIndex(value, oldValue);
 
-                cardContainer.layout.activeIndex = value;
+                if (oldValue !== undefined) {
+                    me.updateTabButtons();
 
-                me.fire('activeIndexChange', {
-                    oldValue: oldValue,
-                    value   : value
-                });
+                    me.fire('activeIndexChange', {
+                        oldValue: oldValue,
+                        value   : value
+                    });
+                }
             }
         }
     }

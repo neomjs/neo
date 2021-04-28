@@ -1,14 +1,8 @@
-import AttributionComponent    from './AttributionComponent.mjs';
 import FooterContainer         from './FooterContainer.mjs';
-import GalleryContainer        from './GalleryContainer.mjs';
 import HeaderContainer         from './HeaderContainer.mjs';
-import HelixContainer          from './HelixContainer.mjs';
 import MainContainerController from './MainContainerController.mjs';
-import MapboxGlContainer       from './mapboxGl/Container.mjs';
 import TabContainer            from '../../../src/tab/Container.mjs';
-import TableContainer          from './TableContainer.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
-import WorldMapContainer       from './WorldMapContainer.mjs';
 
 /**
  * @class Covid.view.MainContainer
@@ -37,14 +31,15 @@ class MainContainer extends Viewport {
          * @member {Array} items
          */
         items: [HeaderContainer, {
-            module   : TabContainer,
-            flex     : 1,
-            reference: 'tab-container',
-            sortable : true,
-            style    : {margin: '10px', marginTop: 0},
+            module     : TabContainer,
+            activeIndex: null, // render no items initially
+            flex       : 1,
+            reference  : 'tab-container',
+            sortable   : true,
+            style      : {margin: '10px', marginTop: 0},
 
             items: [{
-                module         : TableContainer,
+                module         : () => import('./TableContainer.mjs'),
                 reference      : 'table-container',
                 tabButtonConfig: {
                     iconCls: 'fa fa-table',
@@ -52,35 +47,35 @@ class MainContainer extends Viewport {
                     text   : 'Table'
                 }
             }, {
-                module         : MapboxGlContainer,
+                module         : () => import('./mapboxGl/Container.mjs'),
                 tabButtonConfig: {
                     iconCls: 'fa fa-globe-americas',
                     route  : 'mainview=mapboxglmap',
                     text   : 'Mapbox GL Map'
                 }
             }, {
-                module         : WorldMapContainer,
+                module         : () => import('./WorldMapContainer.mjs'),
                 tabButtonConfig: {
                     iconCls: 'fa fa-globe-americas',
                     route  : 'mainview=worldmap',
                     text   : 'World Map'
                 }
             }, {
-                module         : GalleryContainer,
+                module         : () => import('./GalleryContainer.mjs'),
                 tabButtonConfig: {
                     iconCls: 'fa fa-images',
                     route  : 'mainview=gallery',
                     text   : 'Gallery'
                 }
             }, {
-                module         : HelixContainer,
+                module         : () => import('./HelixContainer.mjs'),
                 tabButtonConfig: {
                     iconCls: 'fa fa-dna',
                     route  : 'mainview=helix',
                     text   : 'Helix'
                 }
             }, {
-                module         : AttributionComponent,
+                module         : () => import('./AttributionComponent.mjs'),
                 reference      : 'attribution',
                 tabButtonConfig: {
                     iconCls: 'fa fa-copyright',
