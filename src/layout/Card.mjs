@@ -64,7 +64,7 @@ class Card extends Base {
             container   = Neo.getComponent(me.containerId),
             sCfg        = me.getStaticConfig(),
             needsUpdate = false,
-            isActiveIndex, cls, items, module, proto, vdom;
+            isActiveIndex, cls, entries, items, module, proto, vdom;
 
         if (container) {
             items = container.items;
@@ -74,16 +74,27 @@ class Card extends Base {
                 Neo.error('Trying to activate a non existing card', value, items);
             }
 
-            for (let [index, item] of items.entries()) {
+            entries = items.entries();
+
+            // we need to run the loop twice, since lazy loading a module at a higher index does affect lower indexes
+            for (let [index, item] of entries) {
+                module = item.module
+
+                if (index === value && module && !module.isClass && Neo.isFunction(module)) {
+                    needsUpdate = true;
+                    break;
+                }
+            }
+
+            for (let [index, item] of entries) {
                 isActiveIndex = index === value;
                 module        = item.module
 
                 if (isActiveIndex && module && !module.isClass && Neo.isFunction(module)) {
-                    needsUpdate = true;
-                    module      = await module();
-                    module      = module.default;
-                    proto       = module.prototype;
-                    cls         = item.cls || proto.constructor.config.cls || [];
+                    module = await module();
+                    module = module.default;
+                    proto  = module.prototype;
+                    cls    = item.cls || proto.constructor.config.cls || [];
 
                     item.className = proto.className;
                     item.cls       = [...cls, sCfg.itemCls]
@@ -102,7 +113,7 @@ class Card extends Base {
                     NeoArray.remove(cls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
                     NeoArray.add(   cls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
 
-                    if (me.removeInactiveCards) { // todo
+                    if (me.removeInactiveCards || needsUpdate) {
                         item._cls = cls; // silent update
                         item.getVdomRoot().cls = cls;
 
