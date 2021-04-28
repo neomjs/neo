@@ -65,29 +65,31 @@ class Card extends Base {
             container   = Neo.getComponent(me.containerId),
             sCfg        = me.getStaticConfig(),
             needsUpdate = false,
-            isActiveIndex, cls, items, module, proto, vdom;
+            isActiveIndex, cls, i, item, items, len, module, proto, vdom;
 
         if (container) {
             items = container.items;
             vdom  = container.vdom;
+            len   = items.length;
 
             if (!items[value]) {
                 Neo.error('Trying to activate a non existing card', value, items);
             }
 
             // we need to run the loop twice, since lazy loading a module at a higher index does affect lower indexes
-            for (let [index, item] of items.entries()) {
-                module = item.module
+            for (i=0; i < len; i++) {
+                module = items[i].module;
 
-                if (index === value && module && !module.isClass && Neo.isFunction(module)) {
+                if (i === value && module && !module.isClass && Neo.isFunction(module)) {
                     needsUpdate = true;
                     break;
                 }
             }
 
-            for (let [index, item] of items.entries()) {
-                isActiveIndex = index === value;
-                module        = item.module
+            for (i=0; i < len; i++) {
+                isActiveIndex = i === value;
+                item          = items[i];
+                module        = item.module;
 
                 if (isActiveIndex && module && !module.isClass && Neo.isFunction(module)) {
                     module = await module();
@@ -101,9 +103,9 @@ class Card extends Base {
 
                     delete item.vdom;
 
-                    items[index] = item = Neo.create(item);
+                    items[i] = item = Neo.create(item);
 
-                    vdom.cn[index] = item.vdom;
+                    vdom.cn[i] = item.vdom;
                 }
 
                 if (item instanceof Neo.core.Base) {
