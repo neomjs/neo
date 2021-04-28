@@ -55,6 +55,7 @@ class Card extends Base {
     /**
      * Modifies the CSS classes of the container items this layout is bound to.
      * Automatically gets triggered after changing the value of activeIndex.
+     * Lazy loads items which use a module config containing a function.
      * @param {Number} value
      * @param {Number} oldValue
      * @protected
