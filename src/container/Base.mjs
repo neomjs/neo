@@ -183,7 +183,8 @@ class Base extends Component {
             defaults = me.itemDefaults,
             layout   = me.layout,
             vdom     = me.vdom,
-            vdomRoot = me.getVdomRoot();
+            vdomRoot = me.getVdomRoot(),
+            lazyLoadItem, module;
 
         vdomRoot.cn = [];
 
@@ -209,8 +210,12 @@ class Base extends Component {
                     Neo.assignDefaults(item, defaults);
                 }
 
-                if (item.module) {
-                    item.className = item.module.prototype.className;
+                module = item.module;
+
+                lazyLoadItem = module && !module.isClass && Neo.isFunction(module);
+
+                if (module && !lazyLoadItem) {
+                    item.className = module.prototype.className;
                 }
 
                 Object.assign(item, {
@@ -219,12 +224,18 @@ class Base extends Component {
                     style   : item.style || {}
                 });
 
-                item = Neo[item.className ? 'create' : 'ntype'](item);
+                if (!lazyLoadItem) {
+                    item = Neo[item.className ? 'create' : 'ntype'](item);
+                } else {
+                    item.vdom = {removeDom: true};
+                }
             }
 
             items[index] = item;
 
-            layout.applyChildAttributes(item, index);
+            if (!lazyLoadItem) {
+                layout.applyChildAttributes(item, index);
+            }
 
             vdomRoot.cn.push(item.vdom);
         });
@@ -305,7 +316,7 @@ class Base extends Component {
      * @param {Boolean} [silent=false]
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
-    insert(index, item, silent=false) {
+    insert(index, item, silent=false) {console.log('insert');
         let me    = this,
             items = me.items,
             vdom  = me.vdom,

@@ -121,14 +121,18 @@ class Container extends BaseContainer {
      * @protected
      */
     afterSetActiveIndex(value, oldValue) {
-        if (oldValue !== undefined) {
-            let me            = this,
-                cardContainer = Neo.getComponent(me.cardContainerId);
+        let me            = this,
+            cardContainer = Neo.getComponent(me.cardContainerId);
 
+        console.log('afterSetActiveIndex', value, me.cardContainerId, cardContainer);
+
+        if (cardContainer && value > -1) {
+            cardContainer.layout.activeIndex = value;
+        }
+
+        if (oldValue !== undefined) {
             if (cardContainer && value > -1) {
                 me.updateTabButtons();
-
-                cardContainer.layout.activeIndex = value;
 
                 me.fire('activeIndexChange', {
                     oldValue: oldValue,

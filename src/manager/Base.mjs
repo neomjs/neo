@@ -25,7 +25,7 @@ class Base extends CollectionBase{
      * @returns {Object}
      */
     getById(id) {
-        return this.get(id);
+        return id && this.get(id) || null;
     }
 
     /**

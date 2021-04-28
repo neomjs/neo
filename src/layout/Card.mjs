@@ -59,11 +59,12 @@ class Card extends Base {
      * @param {Number} oldValue
      * @protected
      */
-    afterSetActiveIndex(value, oldValue) {
-        let me        = this,
-            container = Neo.getComponent(me.containerId),
-            sCfg      = me.getStaticConfig(),
-            isActiveIndex, cls, items, vdom;
+    async afterSetActiveIndex(value, oldValue) {
+        let me          = this,
+            container   = Neo.getComponent(me.containerId),
+            sCfg        = me.getStaticConfig(),
+            needsUpdate = false,
+            isActiveIndex, cls, items, module, proto, vdom;
 
         if (container) {
             items = container.items;
@@ -73,29 +74,61 @@ class Card extends Base {
                 Neo.error('Trying to activate a non existing card', value, items);
             }
 
-            items.forEach((item, index) => {
-                cls           = item.cls;
+            for (let [index, item] of items.entries()) {
                 isActiveIndex = index === value;
+                module        = item.module
 
-                NeoArray.remove(cls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
-                NeoArray.add(   cls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
+                if (isActiveIndex && module && !module.isClass && Neo.isFunction(module)) {
+                    needsUpdate = true;
+                    module      = await module();
+                    module      = module.default;
+                    proto       = module.prototype;
+                    cls         = item.cls || proto.constructor.config.cls || []
 
-                if (me.removeInactiveCards) {
-                    item._cls = cls; // silent update
-                    item.getVdomRoot().cls = cls;
+                    console.log(item.cls);
 
-                    if (isActiveIndex) {
-                        item.vdom.removeDom = false;
-                    } else {
-                        item.mounted = false;
-                        item.vdom.removeDom = true;
-                    }
-                } else {
-                    item.cls = cls;
+                    item.className = proto.className;
+                    item.cls       = [...cls, sCfg.itemCls]
+                    item.module    = module;
+
+                    delete item.vdom;
+
+                    console.log(proto.constructor.config.cls);
+                    console.log(Neo.clone(item, true));
+
+                    items[index] = item = Neo.create(item);
+
+                    vdom.cn[index] = item.vdom;
+
+                    console.log(item);
+                    console.log(Neo.clone(item.vdom, true));
+                    console.log(vdom);
                 }
-            });
 
-            if (me.removeInactiveCards) {
+                if (item instanceof Neo.core.Base) {
+                    cls = item.cls;
+
+                    NeoArray.remove(cls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
+                    NeoArray.add(   cls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
+
+                    if (me.removeInactiveCards) { // todo
+                        item._cls = cls; // silent update
+                        item.getVdomRoot().cls = cls;
+
+                        if (isActiveIndex) {
+                            delete item.vdom.removeDom;
+                        } else {
+                            item.mounted = false;
+                            item.vdom.removeDom = true;
+                        }
+                    } else {
+                        item.cls = cls;
+                    }
+                }
+            }
+
+            if (me.removeInactiveCards || needsUpdate) {
+                console.log('update');
                 container.vdom = vdom;
             }
         }

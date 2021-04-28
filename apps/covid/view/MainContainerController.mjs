@@ -81,7 +81,8 @@ class MainContainerController extends ComponentController {
      */
     addStoreItems(data) {
         const me           = this,
-              countryStore = me.getReference('country-field').store,
+              countryField = me.getReference('country-field'),
+              countryStore = countryField.store,
               reference    = me.mainTabs[me.activeMainTabIndex],
               activeTab    = me.getReference(reference);
 
@@ -104,7 +105,7 @@ class MainContainerController extends ComponentController {
         me.data = data;
 
         if (countryStore.getCount() < 1) {
-            me.getReference('country-field').store.data = data;
+            countryStore.data = data;
         }
 
         if (['gallery', 'helix', 'table'].includes(reference)) {
@@ -253,12 +254,20 @@ class MainContainerController extends ComponentController {
             countryField      = me.getReference('country-field'),
             tabContainer      = me.getReference('tab-container'),
             activeView        = me.getView(activeIndex),
-            selectionModel    = activeView.selectionModel,
+            selectionModel    = activeView && activeView.selectionModel,
             delaySelection    = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
             id;
 
         tabContainer.activeIndex = activeIndex;
         me.activeMainTabIndex    = activeIndex;
+
+        if (!activeView) {
+            setTimeout(() => {
+                me.onHashChange(value, oldValue);
+            }, 50);
+
+            return;
+        }
 
         // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
 
@@ -368,15 +377,16 @@ class MainContainerController extends ComponentController {
             src  : 'https://buttons.github.io/buttons.js'
         });
 
-        me.getReference('gallery')      .on('select', me.updateCountryField, me);
-        me.getReference('helix')        .on('select', me.updateCountryField, me);
-        me.getReference('tab-container').on('moveTo', me.onTabMove,          me);
+        //me.getReference('gallery')      .on('select', me.updateCountryField, me);
+        //me.getReference('helix')        .on('select', me.updateCountryField, me);
+        //me.getReference('tab-container').on('moveTo', me.onTabMove,          me);
 
-        me.getReference('table').on({
+        // todo: this assumes it is the first tab
+        /*me.getReference('table').on({
             deselect: me.clearCountryField,
             select  : me.updateCountryField,
             scope   : me
-        });
+        });*/
     }
 
     /**
