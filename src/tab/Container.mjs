@@ -124,20 +124,26 @@ class Container extends BaseContainer {
         let me            = this,
             cardContainer = Neo.getComponent(me.cardContainerId);
 
-        console.log('afterSetActiveIndex', value, me.cardContainerId, cardContainer);
+        if (!cardContainer) {
+            setTimeout(() => {
+                me.afterSetActiveIndex(value, oldValue);
+            }, 50);
+        } else {
+            if (value > -1) {
+                // we need to ensure the afterSet method triggers when lazy loading the module
+                cardContainer.layout._activeIndex = value;
+                cardContainer.layout.afterSetActiveIndex(value, oldValue);
+            }
 
-        if (cardContainer && value > -1) {
-            cardContainer.layout.activeIndex = value;
-        }
+            if (oldValue !== undefined) {
+                if (value > -1) {
+                    me.updateTabButtons();
 
-        if (oldValue !== undefined) {
-            if (cardContainer && value > -1) {
-                me.updateTabButtons();
-
-                me.fire('activeIndexChange', {
-                    oldValue: oldValue,
-                    value   : value
-                });
+                    me.fire('activeIndexChange', {
+                        oldValue: oldValue,
+                        value   : value
+                    });
+                }
             }
         }
     }
