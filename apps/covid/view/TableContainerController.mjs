@@ -17,9 +17,9 @@ class TableContainerController extends ComponentController {
          */
         apiBaseUrl: 'https://disease.sh/',
         /**
-         * @member {String} apiHistoricalDataEndpoint='historical'
+         * @member {String} apiHistoricalDataEndpoint='v3/covid-19/historical/'
          */
-        apiHistoricalDataEndpoint: 'v2/historical/',
+        apiHistoricalDataEndpoint: 'v3/covid-19/historical/',
         /**
          * Number of days you want the data to go back to. Default is 30. Use all for full data set. Ex: 15, all, 24
          * @member {Number|String} apiHistoricalDataTimeRange='all'
