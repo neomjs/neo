@@ -83,9 +83,7 @@ class Card extends Base {
                     module      = await module();
                     module      = module.default;
                     proto       = module.prototype;
-                    cls         = item.cls || proto.constructor.config.cls || []
-
-                    console.log(item.cls);
+                    cls         = item.cls || proto.constructor.config.cls || [];
 
                     item.className = proto.className;
                     item.cls       = [...cls, sCfg.itemCls]
@@ -93,16 +91,9 @@ class Card extends Base {
 
                     delete item.vdom;
 
-                    console.log(proto.constructor.config.cls);
-                    console.log(Neo.clone(item, true));
-
                     items[index] = item = Neo.create(item);
 
                     vdom.cn[index] = item.vdom;
-
-                    console.log(item);
-                    console.log(Neo.clone(item.vdom, true));
-                    console.log(vdom);
                 }
 
                 if (item instanceof Neo.core.Base) {
@@ -128,7 +119,6 @@ class Card extends Base {
             }
 
             if (me.removeInactiveCards || needsUpdate) {
-                console.log('update');
                 container.vdom = vdom;
             }
         }

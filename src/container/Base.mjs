@@ -316,7 +316,7 @@ class Base extends Component {
      * @param {Boolean} [silent=false]
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
-    insert(index, item, silent=false) {console.log('insert');
+    insert(index, item, silent=false) {
         let me    = this,
             items = me.items,
             vdom  = me.vdom,
