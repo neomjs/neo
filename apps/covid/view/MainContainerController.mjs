@@ -42,7 +42,12 @@ class MainContainerController extends ComponentController {
          * @member {String[]} mainTabs=['table', 'mapboxglmap', 'worldmap', 'gallery', 'helix', 'attribution']
          * @protected
          */
-        mainTabs: ['table','mapboxglmap', 'worldmap', 'gallery', 'helix', 'attribution'],
+        mainTabs: ['table', 'mapboxglmap', 'worldmap', 'gallery', 'helix', 'attribution'],
+        /**
+         * @member {Boolean[]} mainTabsListeners=[false,false,false,false,false,false]
+         * @protected
+         */
+        mainTabsListeners: [false, false, false, false, false, false],
         /**
          * Flag to only load the map once onHashChange, but always on reload button click
          * @member {Boolean} mapboxglMapHasData=false
@@ -249,15 +254,14 @@ class MainContainerController extends ComponentController {
      * @param {Object} oldValue
      */
     onHashChange(value, oldValue) {
-        let me                = this,
-            activeIndex       = me.getTabIndex(value.hash),
-            country           = value.hash && value.hash.country,
-            countryField      = me.getReference('country-field'),
-            tabContainer      = me.getReference('tab-container'),
-            activeView        = me.getView(activeIndex),
-            selectionModel    = activeView && activeView.selectionModel,
-            delaySelection    = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
-            id;
+        let me             = this,
+            activeIndex    = me.getTabIndex(value.hash),
+            country        = value.hash && value.hash.country,
+            countryField   = me.getReference('country-field'),
+            tabContainer   = me.getReference('tab-container'),
+            activeView     = me.getView(activeIndex),
+            delaySelection = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
+            id, selectionModel, table;
 
         tabContainer.activeIndex = activeIndex;
         me.activeMainTabIndex    = activeIndex;
@@ -306,6 +310,8 @@ class MainContainerController extends ComponentController {
             // todo: instead of a timeout this should add a store load listener (single: true)
             setTimeout(() => {
                 if (me.data) {
+                    selectionModel = activeView.selectionModel;
+
                     if (country) {
                         countryField.value = country;
                     } else {
@@ -314,11 +320,21 @@ class MainContainerController extends ComponentController {
 
                     switch(activeView.ntype) {
                         case 'gallery':
+                            if (!me.mainTabsListeners[activeIndex]) {
+                                me.mainTabsListeners[activeIndex] = true;
+                                me.getReference('gallery').on('select', me.updateCountryField, me)
+                            }
+
                             if (country && !selectionModel.isSelected(country)) {
                                 selectionModel.select(country, false);
                             }
                             break;
                         case 'helix':
+                            if (!me.mainTabsListeners[activeIndex]) {
+                                me.mainTabsListeners[activeIndex] = true;
+                                me.getReference('helix').on('select', me.updateCountryField, me)
+                            }
+
                             activeView.getOffsetValues();
 
                             if (country && !selectionModel.isSelected(country)) {
@@ -327,9 +343,21 @@ class MainContainerController extends ComponentController {
                             }
                             break;
                         case 'table-container':
+                            table = me.getReference('table');
+
+                            if (!me.mainTabsListeners[activeIndex]) {
+                                me.mainTabsListeners[activeIndex] = true;
+
+                                table.on({
+                                    deselect: me.clearCountryField,
+                                    select  : me.updateCountryField,
+                                    scope   : me
+                                });
+                            }
+
                             id = selectionModel.getRowId(activeView.store.indexOf(country));
 
-                            me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(country)});
+                            table.fire('countrySelect', {record: activeView.store.get(country)});
 
                             if (country && !selectionModel.isSelected(id)) {
                                 selectionModel.select(id);
@@ -378,16 +406,7 @@ class MainContainerController extends ComponentController {
             src  : 'https://buttons.github.io/buttons.js'
         });
 
-        //me.getReference('gallery')      .on('select', me.updateCountryField, me);
-        //me.getReference('helix')        .on('select', me.updateCountryField, me);
-        //me.getReference('tab-container').on('moveTo', me.onTabMove,          me);
-
-        // todo: this assumes it is the first tab
-        /*me.getReference('table').on({
-            deselect: me.clearCountryField,
-            select  : me.updateCountryField,
-            scope   : me
-        });*/
+        me.getReference('tab-container').on('moveTo', me.onTabMove, me);
     }
 
     /**
@@ -510,7 +529,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      * @param {Object} data.record
      */
-    updateCountryField(data) {console.log(data);
+    updateCountryField(data) {
         Neo.Main.editRoute({
             country: data.record.country
         });
