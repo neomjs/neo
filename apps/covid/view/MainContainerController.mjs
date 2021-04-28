@@ -494,7 +494,8 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onTabMove(data) {
-        NeoArray.move(this.mainTabs, data.fromIndex, data.toIndex);
+        NeoArray.move(this.mainTabs,          data.fromIndex, data.toIndex);
+        NeoArray.move(this.mainTabsListeners, data.fromIndex, data.toIndex);
     }
 
     /**
