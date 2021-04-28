@@ -328,7 +328,7 @@ class MainContainer extends Viewport {
         super(config);
 
         const me  = this,
-              url = 'https://corona.lmao.ninja/v2/countries';
+              url = 'https://corona.lmao.ninja/v3/covid-19/countries';
 
         me.gallery = Neo.create({
             module: CountryGallery,
