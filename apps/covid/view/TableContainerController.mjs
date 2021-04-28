@@ -46,9 +46,7 @@ class TableContainerController extends ComponentController {
      */
     onConstructed() {
         super.onConstructed();
-
-        const me = this;
-
+        let me = this;
         me.component.on('countrySelect', me.onTableSelect, me);
     }
 

@@ -343,12 +343,10 @@ class MainContainerController extends ComponentController {
                             }
                             break;
                         case 'table-container':
-                            table = me.getReference('table');
-
                             if (!me.mainTabsListeners[activeIndex]) {
                                 me.mainTabsListeners[activeIndex] = true;
 
-                                table.on({
+                                me.getReference('table').on({
                                     deselect: me.clearCountryField,
                                     select  : me.updateCountryField,
                                     scope   : me
@@ -357,7 +355,7 @@ class MainContainerController extends ComponentController {
 
                             id = selectionModel.getRowId(activeView.store.indexOf(country));
 
-                            table.fire('countrySelect', {record: activeView.store.get(country)});
+                            me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(country)});
 
                             if (country && !selectionModel.isSelected(id)) {
                                 selectionModel.select(id);
