@@ -182,6 +182,7 @@ class CountryGallery extends Gallery {
             'réunion'                              : 'france',
             's.-korea'                             : 'south-korea',
             'st.-barth'                            : 'st-barts',
+            'saint-helena'                         : 'united-kingdom', // sorry, icon not included
             'saint-lucia'                          : 'st-lucia',
             'saint-martin'                         : 'sint-maarten',
             'saint-pierre-miquelon'                : 'france',
