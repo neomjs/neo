@@ -23,13 +23,13 @@ class MainContainerController extends ComponentController {
          */
         activeMainTabIndex: 0,
         /**
-         * @member {String} apiSummaryUrl='https://disease.sh/v2/all'
+         * @member {String} apiSummaryUrl='https://disease.sh/v3/covid-19/all'
          */
-        apiSummaryUrl: 'https://disease.sh/v2/all',
+        apiSummaryUrl: 'https://disease.sh/v3/covid-19/all',
         /**
-         * @member {String} apiUrl='https://disease.sh/v2/countries'
+         * @member {String} apiUrl='https://disease.sh/v3/covid-19/countries'
          */
-        apiUrl: 'https://disease.sh/v2/countries',
+        apiUrl: 'https://disease.sh/v3/covid-19/countries',
         /**
          * @member {Object|null} countryRecord=null
          */
