@@ -73,6 +73,14 @@ class MainContainerController extends ComponentController {
         me.loadSummaryData();
 
         me.component.on('mounted', me.onMainViewMounted, me);
+
+        if (!Neo.config.hash) {
+            me.onHashChange({
+                country   : 'all',
+                hash      : {mainView: 'table'},
+                hashString: 'mainview=table'
+            }, null);
+        }
     }
 
     /**
@@ -85,13 +93,6 @@ class MainContainerController extends ComponentController {
               countryStore = countryField.store,
               reference    = me.mainTabs[me.activeMainTabIndex],
               activeTab    = me.getReference(reference);
-
-        // worldometer added world as a country
-        // might get removed by the NovelCovid API
-        if (data[0] && data[0].country === 'World') {
-            const worldData = data.shift();
-            console.log(worldData);
-        }
 
         data.forEach(item => {
             if (item.country.includes('"')) {
@@ -264,7 +265,7 @@ class MainContainerController extends ComponentController {
         if (!activeView) {
             setTimeout(() => {
                 me.onHashChange(value, oldValue);
-            }, 50);
+            }, 10);
 
             return;
         }
@@ -509,7 +510,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      * @param {Object} data.record
      */
-    updateCountryField(data) {
+    updateCountryField(data) {console.log(data);
         Neo.Main.editRoute({
             country: data.record.country
         });
