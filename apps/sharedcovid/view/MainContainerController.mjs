@@ -53,6 +53,11 @@ class MainContainerController extends ComponentController {
          */
         mainTabs: ['table','mapboxglmap', 'worldmap', 'gallery', 'helix', 'attribution'],
         /**
+         * @member {Boolean[]} mainTabsListeners=[false,false,false,false,false,false]
+         * @protected
+         */
+        mainTabsListeners: [false, false, false, false, false, false],
+        /**
          * Flag to only load the map once onHashChange, but always on reload button click
          * @member {Boolean} mapboxglMapHasData=false
          * @protected
@@ -80,7 +85,7 @@ class MainContainerController extends ComponentController {
     onConstructed() {
         super.onConstructed();
 
-        const me = this;
+        let me = this;
 
         me.loadData();
         me.loadSummaryData();
@@ -91,19 +96,15 @@ class MainContainerController extends ComponentController {
             scope     : me
         });
 
-        me.component.on({
-            mounted: me.onMainViewMounted,
-            scope  : me
-        });
+        me.component.on('mounted', me.onMainViewMounted, me);
 
-        setTimeout(() => {
-            Object.assign(me, {
-                galleryView: me.getReference('gallery'),
-                helixView  : me.getReference('helix'),
-                mapBoxView : me.getReference('mapboxglmap'),
-                tableView  : me.getReference('table')
-            });
-        }, 1);
+        if (!Neo.config.hash) {
+            me.onHashChange({
+                country   : 'all',
+                hash      : {mainView: 'table'},
+                hashString: 'mainview=table'
+            }, null);
+        }
     }
 
     /**
@@ -111,16 +112,10 @@ class MainContainerController extends ComponentController {
      * @param {Object[]} data
      */
     addStoreItems(data) {
-        const me           = this,
-              countryStore = me.getReference('country-field').store,
-              reference    = me.mainTabs[me.activeMainTabIndex],
-              activeTab    = me.getReference(reference);
-
-        // worldometer added world as a country
-        // might get removed by the NovelCovid API
-        if (data[0] && data[0].country === 'World') {
-            const worldData = data.shift();
-        }
+        let me           = this,
+            countryStore = me.getReference('country-field').store,
+            reference    = me.mainTabs[me.activeMainTabIndex],
+            activeTab    = me.getReference(reference);
 
         data.forEach(item => {
             if (item.country.includes('"')) {
@@ -262,7 +257,7 @@ class MainContainerController extends ComponentController {
      *
      */
     loadData() {
-        const me = this;
+        let me = this;
 
         fetch(me.apiUrl)
             .then(response => response.json())
@@ -274,7 +269,7 @@ class MainContainerController extends ComponentController {
      *
      */
     loadSummaryData() {
-        const me = this;
+        let me = this;
 
         fetch(me.apiSummaryUrl)
             .then(response => response.json())
@@ -446,11 +441,17 @@ class MainContainerController extends ComponentController {
             delaySelection    = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
             id, selectionModel;
 
-        if (me.firstHashChange || value.appNames) {console.log('onHashChange', value);
-            selectionModel = activeView.selectionModel;
-
+        if (me.firstHashChange || value.appNames) {
             tabContainer.activeIndex = activeIndex;
             me.activeMainTabIndex    = activeIndex;
+
+            if (!activeView) {
+                setTimeout(() => {
+                    me.onHashChange(value, oldValue);
+                }, 10);
+
+                return;
+            }
 
             // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
 
@@ -476,6 +477,8 @@ class MainContainerController extends ComponentController {
             // todo: instead of a timeout this should add a store load listener (single: true)
             setTimeout(() => {
                 if (me.data) {
+                    selectionModel = activeView.selectionModel;
+
                     if (country) {
                         countryField.value = country;
                     } else {
@@ -483,12 +486,24 @@ class MainContainerController extends ComponentController {
                     }
 
                     if (activeView.ntype === 'gallery' || me.connectedApps.includes('SharedCovidGallery')) {
+                        if (!me.mainTabsListeners[activeIndex]) {
+                            me.mainTabsListeners[activeIndex] = true;
+                            me.galleryView = me.getReference('gallery');
+                            me.galleryView.on('select', me.updateCountryField, me);
+                        }
+
                         if (country && !me.galleryView.selectionModel.isSelected(country)) {
                             me.galleryView.selectionModel.select(country, false);
                         }
                     }
 
                     if (activeView.ntype === 'helix' || me.connectedApps.includes('SharedCovidHelix')) {
+                        if (!me.mainTabsListeners[activeIndex]) {
+                            me.mainTabsListeners[activeIndex] = true;
+                            me.helixView = me.getReference('helix');
+                            me.helixView.on('select', me.updateCountryField, me);
+                        }
+
                         activeView.getOffsetValues();
 
                         if (country && !me.helixView.selectionModel.isSelected(country)) {
@@ -498,6 +513,10 @@ class MainContainerController extends ComponentController {
                     }
 
                     if ((activeView.ntype === 'mapboxgl' || me.connectedApps.includes('SharedCovidMap')) && me.data) {
+                        if (!me.mapBoxView) {
+                            me.mapBoxView = me.getReference('mapboxglmap');
+                        }
+
                         if (!me.mapboxglMapHasData) {
                             me.mapBoxView.data = me.data;
                             me.mapboxglMapHasData = true;
@@ -511,6 +530,17 @@ class MainContainerController extends ComponentController {
                     }
 
                     if (activeView.ntype === 'table-container') {
+                        if (!me.mainTabsListeners[activeIndex]) {
+                            me.mainTabsListeners[activeIndex] = true;
+                            me.tableView = me.getReference('table')
+
+                            me.tableView.on({
+                                deselect: me.clearCountryField,
+                                select  : me.updateCountryField,
+                                scope   : me
+                            });
+                        }
+
                         id = selectionModel.getRowId(activeView.store.indexOf(country));
 
                         me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(country)});
@@ -555,7 +585,7 @@ class MainContainerController extends ComponentController {
      *
      */
     onMainViewMounted() {
-        const me = this;
+        let me = this;
 
         Neo.main.DomAccess.addScript({
             async: true,
@@ -563,15 +593,7 @@ class MainContainerController extends ComponentController {
             src  : 'https://buttons.github.io/buttons.js'
         });
 
-        me.getReference('gallery')      .on('select', me.updateCountryField, me);
-        me.getReference('helix')        .on('select', me.updateCountryField, me);
-        me.getReference('tab-container').on('moveTo', me.onTabMove,          me);
-
-        me.getReference('table').on({
-            deselect: me.clearCountryField,
-            select  : me.updateCountryField,
-            scope   : me
-        });
+        me.getReference('tab-container').on('moveTo', me.onTabMove, me);
     }
 
     /**
@@ -586,8 +608,8 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onRemoveFooterButtonClick(data) {
-        const me        = this,
-              activeTab = me.getReference('tab-container').getActiveCard();
+        let me        = this,
+            activeTab = me.getReference('tab-container').getActiveCard();
 
         me.component.remove(me.getReference('footer'), true);
 
@@ -674,7 +696,8 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onTabMove(data) {
-        NeoArray.move(this.mainTabs, data.fromIndex, data.toIndex);
+        NeoArray.move(this.mainTabs,          data.fromIndex, data.toIndex);
+        NeoArray.move(this.mainTabsListeners, data.fromIndex, data.toIndex);
     }
 
     /**

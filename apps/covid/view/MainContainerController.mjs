@@ -72,7 +72,7 @@ class MainContainerController extends ComponentController {
     onConstructed() {
         super.onConstructed();
 
-        const me = this;
+        let me = this;
 
         me.loadData();
         me.loadSummaryData();
@@ -93,11 +93,11 @@ class MainContainerController extends ComponentController {
      * @param {Object[]} data
      */
     addStoreItems(data) {
-        const me           = this,
-              countryField = me.getReference('country-field'),
-              countryStore = countryField.store,
-              reference    = me.mainTabs[me.activeMainTabIndex],
-              activeTab    = me.getReference(reference);
+        let me           = this,
+            countryField = me.getReference('country-field'),
+            countryStore = countryField.store,
+            reference    = me.mainTabs[me.activeMainTabIndex],
+            activeTab    = me.getReference(reference);
 
         data.forEach(item => {
             if (item.country.includes('"')) {
@@ -199,7 +199,7 @@ class MainContainerController extends ComponentController {
      *
      */
     loadData() {
-        const me = this;
+        let me = this;
 
         fetch(me.apiUrl)
             .then(response => response.json())
@@ -211,7 +211,7 @@ class MainContainerController extends ComponentController {
      *
      */
     loadSummaryData() {
-        const me = this;
+        let me = this;
 
         fetch(me.apiSummaryUrl)
             .then(response => response.json())
@@ -261,7 +261,7 @@ class MainContainerController extends ComponentController {
             tabContainer   = me.getReference('tab-container'),
             activeView     = me.getView(activeIndex),
             delaySelection = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
-            id, selectionModel, table;
+            id, selectionModel;
 
         tabContainer.activeIndex = activeIndex;
         me.activeMainTabIndex    = activeIndex;
@@ -322,7 +322,7 @@ class MainContainerController extends ComponentController {
                         case 'gallery':
                             if (!me.mainTabsListeners[activeIndex]) {
                                 me.mainTabsListeners[activeIndex] = true;
-                                me.getReference('gallery').on('select', me.updateCountryField, me)
+                                me.getReference('gallery').on('select', me.updateCountryField, me);
                             }
 
                             if (country && !selectionModel.isSelected(country)) {
@@ -332,7 +332,7 @@ class MainContainerController extends ComponentController {
                         case 'helix':
                             if (!me.mainTabsListeners[activeIndex]) {
                                 me.mainTabsListeners[activeIndex] = true;
-                                me.getReference('helix').on('select', me.updateCountryField, me)
+                                me.getReference('helix').on('select', me.updateCountryField, me);
                             }
 
                             activeView.getOffsetValues();
@@ -396,7 +396,7 @@ class MainContainerController extends ComponentController {
      *
      */
     onMainViewMounted() {
-        const me = this;
+        let me = this;
 
         Neo.main.DomAccess.addScript({
             async: true,
@@ -419,8 +419,8 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onRemoveFooterButtonClick(data) {
-        const me        = this,
-              activeTab = me.getReference('tab-container').getActiveCard();
+        let me        = this,
+            activeTab = me.getReference('tab-container').getActiveCard();
 
         me.component.remove(me.getReference('footer'), true);
 
