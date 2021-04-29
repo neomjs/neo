@@ -53,10 +53,10 @@ class MainContainerController extends ComponentController {
          */
         mainTabs: ['table','mapboxglmap', 'worldmap', 'gallery', 'helix', 'attribution'],
         /**
-         * @member {Boolean[]} mainTabsListeners=[false,false,false,false,false,false]
+         * @member {String[]} mainTabsListeners=[]
          * @protected
          */
-        mainTabsListeners: [false, false, false, false, false, false],
+        mainTabsListeners: [],
         /**
          * Flag to only load the map once onHashChange, but always on reload button click
          * @member {Boolean} mapboxglMapHasData=false
@@ -439,7 +439,7 @@ class MainContainerController extends ComponentController {
             tabContainer      = me.getReference('tab-container'),
             activeView        = me.getView(activeIndex),
             delaySelection    = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
-            id, selectionModel;
+            id, ntype, selectionModel;
 
         if (me.firstHashChange || value.appNames) {
             tabContainer.activeIndex = activeIndex;
@@ -460,6 +460,8 @@ class MainContainerController extends ComponentController {
                 delaySelection = 500;
             }
 
+            ntype = activeView.ntype;
+
             // todo: https://github.com/neomjs/neo/issues/483
             // quick hack. selectionModels update the vdom of the table.Container.
             // if table.View is vdom updating, this can result in a 2x rendering of all rows.
@@ -467,7 +469,7 @@ class MainContainerController extends ComponentController {
                 delaySelection = 2000;
             }
 
-            if (activeView.ntype === 'covid-world-map' && me.data) {
+            if (ntype === 'covid-world-map' && me.data) {
                 if (!me.worldMapHasData) {
                     activeView.loadData(me.data);
                     me.worldMapHasData = true;
@@ -485,9 +487,9 @@ class MainContainerController extends ComponentController {
                         value.country = 'all';
                     }
 
-                    if (activeView.ntype === 'gallery' || me.connectedApps.includes('SharedCovidGallery')) {
-                        if (!me.mainTabsListeners[activeIndex]) {
-                            me.mainTabsListeners[activeIndex] = true;
+                    if (ntype === 'gallery' || me.connectedApps.includes('SharedCovidGallery')) {
+                        if (!me.mainTabsListeners.includes('gallery')) {
+                            me.mainTabsListeners.push('gallery');
                             me.galleryView = me.getReference('gallery');
                             me.galleryView.on('select', me.updateCountryField, me);
                         }
@@ -497,14 +499,14 @@ class MainContainerController extends ComponentController {
                         }
                     }
 
-                    if (activeView.ntype === 'helix' || me.connectedApps.includes('SharedCovidHelix')) {
-                        if (!me.mainTabsListeners[activeIndex]) {
-                            me.mainTabsListeners[activeIndex] = true;
+                    if (ntype === 'helix' || me.connectedApps.includes('SharedCovidHelix')) {
+                        if (!me.mainTabsListeners.includes('helix')) {
+                            me.mainTabsListeners.push('helix');
                             me.helixView = me.getReference('helix');
                             me.helixView.on('select', me.updateCountryField, me);
                         }
 
-                        activeView.getOffsetValues();
+                        me.helixView.getOffsetValues();
 
                         if (country && !me.helixView.selectionModel.isSelected(country)) {
                             me.helixView.selectionModel.select(country, false);
@@ -512,7 +514,7 @@ class MainContainerController extends ComponentController {
                         }
                     }
 
-                    if ((activeView.ntype === 'mapboxgl' || me.connectedApps.includes('SharedCovidMap')) && me.data) {
+                    if ((ntype === 'mapboxgl' || me.connectedApps.includes('SharedCovidMap')) && me.data) {
                         if (!me.mapBoxView) {
                             me.mapBoxView = me.getReference('mapboxglmap');
                         }
@@ -529,9 +531,9 @@ class MainContainerController extends ComponentController {
                         me.mapBoxView.autoResize();
                     }
 
-                    if (activeView.ntype === 'table-container') {
-                        if (!me.mainTabsListeners[activeIndex]) {
-                            me.mainTabsListeners[activeIndex] = true;
+                    if (ntype === 'table-container') {
+                        if (!me.mainTabsListeners.includes('table')) {
+                            me.mainTabsListeners.push('table');
                             me.tableView = me.getReference('table')
 
                             me.tableView.on({
@@ -696,8 +698,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onTabMove(data) {
-        NeoArray.move(this.mainTabs,          data.fromIndex, data.toIndex);
-        NeoArray.move(this.mainTabsListeners, data.fromIndex, data.toIndex);
+        NeoArray.move(this.mainTabs, data.fromIndex, data.toIndex);
     }
 
     /**
