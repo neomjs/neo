@@ -44,10 +44,10 @@ class MainContainerController extends ComponentController {
          */
         mainTabs: ['table', 'mapboxglmap', 'worldmap', 'gallery', 'helix', 'attribution'],
         /**
-         * @member {Boolean[]} mainTabsListeners=[false,false,false,false,false,false]
+         * @member {String[]} mainTabsListeners=[]
          * @protected
          */
-        mainTabsListeners: [false, false, false, false, false, false],
+        mainTabsListeners: [],
         /**
          * Flag to only load the map once onHashChange, but always on reload button click
          * @member {Boolean} mapboxglMapHasData=false
@@ -261,7 +261,7 @@ class MainContainerController extends ComponentController {
             tabContainer   = me.getReference('tab-container'),
             activeView     = me.getView(activeIndex),
             delaySelection = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
-            id, selectionModel;
+            id, ntype, selectionModel;
 
         tabContainer.activeIndex = activeIndex;
         me.activeMainTabIndex    = activeIndex;
@@ -274,6 +274,8 @@ class MainContainerController extends ComponentController {
             return;
         }
 
+        ntype = activeView.ntype;
+
         // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
 
         if (me.data && activeView.store && activeView.store.getCount() < 1) {
@@ -284,11 +286,11 @@ class MainContainerController extends ComponentController {
         // todo: https://github.com/neomjs/neo/issues/483
         // quick hack. selectionModels update the vdom of the table.Container.
         // if table.View is vdom updating, this can result in a 2x rendering of all rows.
-        if (delaySelection === 1000 && activeView.ntype === 'table-container') {
+        if (delaySelection === 1000 && ntype === 'table-container') {
             delaySelection = 2000;
         }
 
-        if (activeView.ntype === 'mapboxgl' && me.data) {
+        if (ntype === 'mapboxgl' && me.data) {
             if (!me.mapboxglMapHasData) {
                 activeView.data = me.data;
                 me.mapboxglMapHasData = true;
@@ -301,7 +303,7 @@ class MainContainerController extends ComponentController {
             }
 
             activeView.autoResize();
-        } else if (activeView.ntype === 'covid-world-map' && me.data) {
+        } else if (ntype === 'covid-world-map' && me.data) {
             if (!me.worldMapHasData) {
                 activeView.loadData(me.data);
                 me.worldMapHasData = true;
@@ -318,10 +320,10 @@ class MainContainerController extends ComponentController {
                         value.country = 'all';
                     }
 
-                    switch(activeView.ntype) {
+                    switch(ntype) {
                         case 'gallery':
-                            if (!me.mainTabsListeners[activeIndex]) {
-                                me.mainTabsListeners[activeIndex] = true;
+                            if (!me.mainTabsListeners.includes('gallery')) {
+                                me.mainTabsListeners.push('gallery');
                                 me.getReference('gallery').on('select', me.updateCountryField, me);
                             }
 
@@ -330,8 +332,8 @@ class MainContainerController extends ComponentController {
                             }
                             break;
                         case 'helix':
-                            if (!me.mainTabsListeners[activeIndex]) {
-                                me.mainTabsListeners[activeIndex] = true;
+                            if (!me.mainTabsListeners.includes('helix')) {
+                                me.mainTabsListeners.push('helix');
                                 me.getReference('helix').on('select', me.updateCountryField, me);
                             }
 
@@ -343,8 +345,8 @@ class MainContainerController extends ComponentController {
                             }
                             break;
                         case 'table-container':
-                            if (!me.mainTabsListeners[activeIndex]) {
-                                me.mainTabsListeners[activeIndex] = true;
+                            if (!me.mainTabsListeners.includes('table')) {
+                                me.mainTabsListeners.push('table');
 
                                 me.getReference('table').on({
                                     deselect: me.clearCountryField,
