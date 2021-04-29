@@ -44,10 +44,10 @@ class MainContainerController extends ComponentController {
          */
         mainTabs: ['table', 'mapboxglmap', 'worldmap', 'gallery', 'helix', 'attribution'],
         /**
-         * @member {Boolean[]} mainTabsListeners=[false,false,false,false,false,false]
+         * @member {String[]} mainTabsListeners=[]
          * @protected
          */
-        mainTabsListeners: [false, false, false, false, false, false],
+        mainTabsListeners: [],
         /**
          * Flag to only load the map once onHashChange, but always on reload button click
          * @member {Boolean} mapboxglMapHasData=false
@@ -72,7 +72,7 @@ class MainContainerController extends ComponentController {
     onConstructed() {
         super.onConstructed();
 
-        const me = this;
+        let me = this;
 
         me.loadData();
         me.loadSummaryData();
@@ -93,11 +93,11 @@ class MainContainerController extends ComponentController {
      * @param {Object[]} data
      */
     addStoreItems(data) {
-        const me           = this,
-              countryField = me.getReference('country-field'),
-              countryStore = countryField.store,
-              reference    = me.mainTabs[me.activeMainTabIndex],
-              activeTab    = me.getReference(reference);
+        let me           = this,
+            countryField = me.getReference('country-field'),
+            countryStore = countryField.store,
+            reference    = me.mainTabs[me.activeMainTabIndex],
+            activeTab    = me.getReference(reference);
 
         data.forEach(item => {
             if (item.country.includes('"')) {
@@ -199,7 +199,7 @@ class MainContainerController extends ComponentController {
      *
      */
     loadData() {
-        const me = this;
+        let me = this;
 
         fetch(me.apiUrl)
             .then(response => response.json())
@@ -211,7 +211,7 @@ class MainContainerController extends ComponentController {
      *
      */
     loadSummaryData() {
-        const me = this;
+        let me = this;
 
         fetch(me.apiSummaryUrl)
             .then(response => response.json())
@@ -261,7 +261,7 @@ class MainContainerController extends ComponentController {
             tabContainer   = me.getReference('tab-container'),
             activeView     = me.getView(activeIndex),
             delaySelection = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
-            id, selectionModel, table;
+            id, ntype, selectionModel;
 
         tabContainer.activeIndex = activeIndex;
         me.activeMainTabIndex    = activeIndex;
@@ -274,6 +274,8 @@ class MainContainerController extends ComponentController {
             return;
         }
 
+        ntype = activeView.ntype;
+
         // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
 
         if (me.data && activeView.store && activeView.store.getCount() < 1) {
@@ -284,11 +286,11 @@ class MainContainerController extends ComponentController {
         // todo: https://github.com/neomjs/neo/issues/483
         // quick hack. selectionModels update the vdom of the table.Container.
         // if table.View is vdom updating, this can result in a 2x rendering of all rows.
-        if (delaySelection === 1000 && activeView.ntype === 'table-container') {
+        if (delaySelection === 1000 && ntype === 'table-container') {
             delaySelection = 2000;
         }
 
-        if (activeView.ntype === 'mapboxgl' && me.data) {
+        if (ntype === 'mapboxgl' && me.data) {
             if (!me.mapboxglMapHasData) {
                 activeView.data = me.data;
                 me.mapboxglMapHasData = true;
@@ -301,7 +303,7 @@ class MainContainerController extends ComponentController {
             }
 
             activeView.autoResize();
-        } else if (activeView.ntype === 'covid-world-map' && me.data) {
+        } else if (ntype === 'covid-world-map' && me.data) {
             if (!me.worldMapHasData) {
                 activeView.loadData(me.data);
                 me.worldMapHasData = true;
@@ -318,11 +320,11 @@ class MainContainerController extends ComponentController {
                         value.country = 'all';
                     }
 
-                    switch(activeView.ntype) {
+                    switch(ntype) {
                         case 'gallery':
-                            if (!me.mainTabsListeners[activeIndex]) {
-                                me.mainTabsListeners[activeIndex] = true;
-                                me.getReference('gallery').on('select', me.updateCountryField, me)
+                            if (!me.mainTabsListeners.includes('gallery')) {
+                                me.mainTabsListeners.push('gallery');
+                                me.getReference('gallery').on('select', me.updateCountryField, me);
                             }
 
                             if (country && !selectionModel.isSelected(country)) {
@@ -330,9 +332,9 @@ class MainContainerController extends ComponentController {
                             }
                             break;
                         case 'helix':
-                            if (!me.mainTabsListeners[activeIndex]) {
-                                me.mainTabsListeners[activeIndex] = true;
-                                me.getReference('helix').on('select', me.updateCountryField, me)
+                            if (!me.mainTabsListeners.includes('helix')) {
+                                me.mainTabsListeners.push('helix');
+                                me.getReference('helix').on('select', me.updateCountryField, me);
                             }
 
                             activeView.getOffsetValues();
@@ -343,8 +345,8 @@ class MainContainerController extends ComponentController {
                             }
                             break;
                         case 'table-container':
-                            if (!me.mainTabsListeners[activeIndex]) {
-                                me.mainTabsListeners[activeIndex] = true;
+                            if (!me.mainTabsListeners.includes('table')) {
+                                me.mainTabsListeners.push('table');
 
                                 me.getReference('table').on({
                                     deselect: me.clearCountryField,
@@ -396,7 +398,7 @@ class MainContainerController extends ComponentController {
      *
      */
     onMainViewMounted() {
-        const me = this;
+        let me = this;
 
         Neo.main.DomAccess.addScript({
             async: true,
@@ -419,8 +421,8 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onRemoveFooterButtonClick(data) {
-        const me        = this,
-              activeTab = me.getReference('tab-container').getActiveCard();
+        let me        = this,
+            activeTab = me.getReference('tab-container').getActiveCard();
 
         me.component.remove(me.getReference('footer'), true);
 
