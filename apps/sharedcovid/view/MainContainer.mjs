@@ -1,14 +1,8 @@
-import AttributionComponent    from './AttributionComponent.mjs';
 import FooterContainer         from './FooterContainer.mjs';
-import GalleryContainer        from './GalleryContainer.mjs';
 import HeaderContainer         from './HeaderContainer.mjs';
-import HelixContainer          from './HelixContainer.mjs';
 import MainContainerController from './MainContainerController.mjs';
-import MapboxGlContainer       from './mapboxGl/Container.mjs';
 import TabContainer            from '../../../src/tab/Container.mjs';
-import TableContainer          from './TableContainer.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
-import WorldMapContainer       from './WorldMapContainer.mjs';
 
 /**
  * @class SharedCovid.view.MainContainer
@@ -44,7 +38,7 @@ class MainContainer extends Viewport {
             style    : {margin: '10px', marginTop: 0},
 
             items: [{
-                module         : TableContainer,
+                module         : () => import('./TableContainer.mjs'),
                 reference      : 'table-container',
                 tabButtonConfig: {
                     iconCls: 'fa fa-table',
@@ -52,7 +46,7 @@ class MainContainer extends Viewport {
                     text   : 'Table'
                 }
             }, {
-                module         : MapboxGlContainer,
+                module         : () => import('./mapboxGl/Container.mjs'),
                 reference      : 'mapbox-gl-container',
                 tabButtonConfig: {
                     iconCls: 'fa fa-globe-americas',
@@ -60,14 +54,14 @@ class MainContainer extends Viewport {
                     text   : 'Mapbox GL Map'
                 }
             }, {
-                module         : WorldMapContainer,
+                module         : () => import('./WorldMapContainer.mjs'),
                 tabButtonConfig: {
                     iconCls: 'fa fa-globe-americas',
                     route  : 'mainview=worldmap',
                     text   : 'World Map'
                 }
             }, {
-                module         : GalleryContainer,
+                module         : () => import('./GalleryContainer.mjs'),
                 reference      : 'gallery-container',
                 tabButtonConfig: {
                     iconCls: 'fa fa-images',
@@ -75,7 +69,7 @@ class MainContainer extends Viewport {
                     text   : 'Gallery'
                 }
             }, {
-                module         : HelixContainer,
+                module         : () => import('./HelixContainer.mjs'),
                 reference      : 'helix-container',
                 tabButtonConfig: {
                     iconCls: 'fa fa-dna',
@@ -83,7 +77,7 @@ class MainContainer extends Viewport {
                     text   : 'Helix'
                 }
             }, {
-                module         : AttributionComponent,
+                module         : () => import('./AttributionComponent.mjs'),
                 reference      : 'attribution',
                 tabButtonConfig: {
                     iconCls: 'fa fa-copyright',
