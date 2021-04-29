@@ -126,9 +126,9 @@ class Container extends BaseContainer {
             cardContainer = Neo.getComponent(me.cardContainerId);
 
         if (Neo.isNumber(value) && value > -1 && !cardContainer) {
-            setTimeout(() => {
+            me.on('constructed', () => {
                 me.afterSetActiveIndex(value, oldValue);
-            }, 10);
+            });
         } else {
             if (Neo.isNumber(value) && value > -1) {
                 // we need to ensure the afterSet method triggers when lazy loading the module
