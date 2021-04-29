@@ -161,6 +161,7 @@ class MainContainerController extends ComponentController {
     /**
      * Article details: get an article providing a user slug
      * @param {String} slug
+     * @returns {Promise<any>}
      */
     getArticle(slug) {
         return ArticleApi.get({
