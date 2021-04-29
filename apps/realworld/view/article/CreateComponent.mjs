@@ -131,25 +131,11 @@ class CreateComponent extends Component {
         let me           = this,
             domListeners = me.domListeners;
 
-        domListeners.push({
-            click: {
-                fn      : me.onSubmitButtonClick,
-                delegate: '.btn-primary',
-                scope   : me
-            }
-        }, {
-            click: {
-                fn      : me.onTagClose,
-                delegate: '.ion-close-round',
-                scope   : me
-            }
-        }, {
-            keydown: {
-                fn      : me.onFieldTagsKeyDown,
-                delegate: '.field-tags',
-                scope   : me
-            }
-        });
+        domListeners.push(
+            {click  : {fn: me.onSubmitButtonClick, delegate: '.btn-primary',     scope: me}},
+            {click  : {fn: me.onTagClose,          delegate: '.ion-close-round', scope: me}},
+            {keydown: {fn: me.onFieldTagsKeyDown,  delegate: '.field-tags',      scope: me}}
+        );
 
         me.domListeners = domListeners;
     }
