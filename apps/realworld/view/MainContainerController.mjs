@@ -1,14 +1,8 @@
-import ArticleComponent    from './article/Component.mjs';
 import ArticleApi          from '../api/Article.mjs';
 import ComponentController from '../../../src/controller/Component.mjs';
-import CreateComponent     from './article/CreateComponent.mjs';
 import FavoriteApi         from '../api/Favorite.mjs';
-import HomeComponent       from './HomeComponent.mjs';
 import {LOCAL_STORAGE_KEY} from '../api/config.mjs';
 import ProfileApi          from '../api/Profile.mjs';
-import ProfileComponent    from './user/ProfileComponent.mjs';
-import SettingsComponent   from './user/SettingsComponent.mjs';
-import SignUpComponent     from './user/SignUpComponent.mjs';
 import TagApi              from '../api/Tag.mjs';
 import UserApi             from '../api/User.mjs';
 
@@ -242,27 +236,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
-     * @param {String} key
-     * @param {Neo.component.Base} module
-     * @param {String} reference
-     * @returns {Neo.component.Base} The matching view instance
-     */
-    getView(key, module, reference) {
-        const me = this;
-
-        if (!me[key]) {
-            me[key] = Neo.create({
-                module   : module,
-                parentId : me.component.id,
-                reference: reference
-            });
-        }
-
-        return me[key];
-    }
-
-    /**
      * @param {Object} userData
      */
     login(userData) {
@@ -304,30 +277,38 @@ class MainContainerController extends ComponentController {
      * @param {Object} value
      * @param {Object} oldValue
      */
-    onHashChange(value, oldValue) {
+    async onHashChange(value, oldValue) {
         let me         = this,
             component  = me.component,
             hash       = value.hash,
             hashString = value.hashString,
-            newView, slug;
+            mode, newView, opts, slug;
 
         if (!component.isConstructed) { // the initial hash change gets triggered before the vnode got back from the vdom worker (using autoMount)
             component.on('constructed', () => {
                 me.onHashChange(value, oldValue);
             });
-        } else {console.log('onHashChange', value);
+        } else {
             me.hashString = hashString;
 
             // adjust the active header link
             component.items[0].activeItem = Object.keys(hash)[0];
 
-                 if (hashString === '/')               {newView = me.getView('homeComponent',     HomeComponent,     'home');}
-            else if (hashString.includes('/article/')) {newView = me.getView('articleComponent',  ArticleComponent,  'article');}
-            else if (hashString.includes('/editor'))   {newView = me.getView('createComponent',   CreateComponent,   'editor');}
-            else if (hashString.includes('/profile/')) {newView = me.getView('profileComponent',  ProfileComponent,  'profile');}
-            else if (hash.hasOwnProperty('/login'))    {newView = me.getView('signUpComponent',   SignUpComponent,   'signup'); newView.mode = 'signin';}
-            else if (hash.hasOwnProperty('/register')) {newView = me.getView('signUpComponent',   SignUpComponent,   'signup'); newView.mode = 'signup';}
-            else if (hash.hasOwnProperty('/settings')) {newView = me.getView('settingsComponent', SettingsComponent, 'settings');}
+                 if (hashString === '/')               {opts = ['homeComponent',     () => import('./HomeComponent.mjs'),           'home']}
+            else if (hashString.includes('/article/')) {opts = ['articleComponent',  () => import('./article/Component.mjs'),       'article']}
+            else if (hashString.includes('/editor'))   {opts = ['createComponent',   () => import('./article/CreateComponent.mjs'), 'editor']}
+            else if (hashString.includes('/profile/')) {opts = ['profileComponent',  () => import('./user/ProfileComponent.mjs'),   'profile']}
+            else if (hash.hasOwnProperty('/login'))    {opts = ['signUpComponent',   () => import('./user/SignUpComponent.mjs'),    'signup']; mode = 'signin';}
+            else if (hash.hasOwnProperty('/register')) {opts = ['signUpComponent',   () => import('./user/SignUpComponent.mjs'),    'signup']; mode = 'signup';}
+            else if (hash.hasOwnProperty('/settings')) {opts = ['settingsComponent', () => import('./user/SettingsComponent.mjs'),  'settings']}
+
+            if (opts) {
+                newView = await me.promiseView(...opts);
+
+                if (mode) {
+                    newView.mode = mode;
+                }
+            }
 
             if (!(oldValue && oldValue.hash && (
                 oldValue.hash.hasOwnProperty('/login')    && hash.hasOwnProperty('/register') ||
@@ -337,7 +318,7 @@ class MainContainerController extends ComponentController {
                     component.removeAt(1, false, true);
                 }
 
-                if (newView) {console.log('insert', newView);
+                if (newView) {
                     component.insert(1, newView);
                 }
             }
@@ -411,6 +392,29 @@ class MainContainerController extends ComponentController {
         return ArticleApi.postComment(slug, opts).then(data => {
             me.getComments(slug);
         });
+    }
+
+    /**
+     *
+     * @param {String} key
+     * @param {Function} module
+     * @param {String} reference
+     * @returns {Neo.component.Base} The matching view instance
+     */
+    async promiseView(key, module, reference) {
+        let me = this;
+
+        if (!me[key]) {
+            module = await module();
+
+            me[key] = Neo.create({
+                module   : module.default,
+                parentId : me.component.id,
+                reference: reference
+            });
+        }
+
+        return me[key];
     }
 
     /**
