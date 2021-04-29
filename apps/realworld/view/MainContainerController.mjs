@@ -311,20 +311,20 @@ class MainContainerController extends ComponentController {
             hashString = value.hashString,
             newView, slug;
 
-        if (!component.mounted) { // the initial hash change gets triggered before the vnode got back from the vdom worker (using autoMount)
-            component.on('mounted', () => {
+        if (!component.isConstructed) { // the initial hash change gets triggered before the vnode got back from the vdom worker (using autoMount)
+            component.on('constructed', () => {
                 me.onHashChange(value, oldValue);
             });
-        } else {
+        } else {console.log('onHashChange', value);
             me.hashString = hashString;
 
             // adjust the active header link
             component.items[0].activeItem = Object.keys(hash)[0];
 
-                 if (hashString === '/')                {newView = me.getView('homeComponent',     HomeComponent,     'home');}
-            else if (hashString.includes('/article/'))  {newView = me.getView('articleComponent',  ArticleComponent,  'article');}
-            else if (hashString.includes('/editor'))    {newView = me.getView('createComponent',   CreateComponent,   'editor');}
-            else if (hashString.includes('/profile/'))  {newView = me.getView('profileComponent',  ProfileComponent,  'profile');}
+                 if (hashString === '/')               {newView = me.getView('homeComponent',     HomeComponent,     'home');}
+            else if (hashString.includes('/article/')) {newView = me.getView('articleComponent',  ArticleComponent,  'article');}
+            else if (hashString.includes('/editor'))   {newView = me.getView('createComponent',   CreateComponent,   'editor');}
+            else if (hashString.includes('/profile/')) {newView = me.getView('profileComponent',  ProfileComponent,  'profile');}
             else if (hash.hasOwnProperty('/login'))    {newView = me.getView('signUpComponent',   SignUpComponent,   'signup'); newView.mode = 'signin';}
             else if (hash.hasOwnProperty('/register')) {newView = me.getView('signUpComponent',   SignUpComponent,   'signup'); newView.mode = 'signup';}
             else if (hash.hasOwnProperty('/settings')) {newView = me.getView('settingsComponent', SettingsComponent, 'settings');}
@@ -337,7 +337,7 @@ class MainContainerController extends ComponentController {
                     component.removeAt(1, false, true);
                 }
 
-                if (newView) {
+                if (newView) {console.log('insert', newView);
                     component.insert(1, newView);
                 }
             }
