@@ -88,7 +88,7 @@ class MainContainer extends Viewport {
             }]
         }, FooterContainer],
         /**
-         * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'}
     }}

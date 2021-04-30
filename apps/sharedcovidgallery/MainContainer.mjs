@@ -6,10 +6,19 @@ import Viewport from '../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
+        /**
+         * @member {String} className='SharedCovidGallery.MainContainer'
+         * @protected
+         */
         className: 'SharedCovidGallery.MainContainer',
-
+        /**
+         * @member {Boolean} autoMount=true
+         */
         autoMount: true,
-        layout   : {ntype: 'fit'}
+        /**
+         * @member {Object} layout={ntype:'fit'}
+         */
+        layout: {ntype: 'fit'}
     }}
 }
 
