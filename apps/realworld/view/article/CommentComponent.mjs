@@ -40,44 +40,24 @@ class CommentComponent extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cn: [{
-                cls: ['card-block'],
-                cn : [{
-                    tag: 'p',
-                    cls: ['card-text']
-                }]
-            }, {
-                cls: ['card-footer'],
-                cn : [{
-                    tag : 'a',
-                    cls : ['comment-author'],
-                    href: '',
-                    cn  : [{
-                        tag: 'img',
-                        cls: ['comment-author-img']
-                    }]
-                }, {
-                    vtype: 'text',
-                    html : '&nbsp;'
-                }, {
-                    tag : 'a',
-                    cls : ['comment-author'],
-                    href: ''
-                }, {
-                    tag : 'span',
-                    cls : ['date-posted']
-                }, {
-                    tag : 'span',
-                    cls : ['mod-options'],
-                    flag: 'mod-options',
-                    cn: [
+        _vdom:
+            {cn: [
+                {cls: ['card-block'], cn: [
+                    {tag: 'p', cls: ['card-text']}
+                ]},
+                {cls: ['card-footer'], cn: [
+                    {tag: 'a', cls : ['comment-author'], href: '', cn: [
+                        {tag: 'img', cls: ['comment-author-img']}
+                    ]},
+                    {vtype: 'text', html: '&nbsp;'},
+                    {tag: 'a', cls: ['comment-author'], href: ''},
+                    {tag: 'span', cls : ['date-posted']},
+                    {tag: 'span', cls : ['mod-options'], flag: 'mod-options', cn: [
                         //{tag: 'i', cls: ['ion-edit']}, // not implemented in other apps => not sure what should happen
                         {tag: 'i', cls: ['ion-trash-a']}
-                    ]
-                }]
-            }]
-        }
+                    ]}
+                ]}
+            ]}
     }}
 
     /**
@@ -90,19 +70,10 @@ class CommentComponent extends Component {
         let me           = this,
             domListeners = me.domListeners;
 
-        domListeners.push({
-            click: {
-                fn      : me.onDeleteButtonClick,
-                delegate: '.ion-trash-a',
-                scope   : me
-            }
-        }/*, {
-            click: {
-                fn      : me.onEditButtonClick,
-                delegate: '.ion-edit',
-                scope   : me
-            }
-        }*/);
+        domListeners.push(
+            {click: {fn: me.onDeleteButtonClick, delegate: '.ion-trash-a', scope: me}}
+            /*{click: {fn: me.onEditButtonClick,   delegate: '.ion-edit',    scope: me}*/
+        );
 
         me.domListeners = domListeners;
 
