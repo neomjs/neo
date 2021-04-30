@@ -115,7 +115,7 @@ class MainContainer extends Viewport {
         /**
          * @member {Object} style={padding:'20px'}
          */
-        style: {padding: '20px'},
+        style: {padding: '20px'}
     }}
 }
 
