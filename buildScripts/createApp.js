@@ -146,7 +146,7 @@ inquirer.prompt(questions).then(answers => {
             "            environment     : 'development'",
         ];
 
-        if (!(mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 1)) {
+        if (!(mainThreadAddons.includes('DragDrop') && mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 2)) {
             indexContent[indexContent.length -1] += ',';
             indexContent.push("            mainThreadAddons: [" + mainThreadAddons.map(e => "'" + e +"'").join(', ') + "]");
         }
