@@ -28,7 +28,7 @@ class MainContainer extends Viewport {
          */
         controller: MainContainerController,
         /**
-         * @member {Array} items
+         * @member {Object[]} items
          */
         items: [HeaderContainer, {
             module     : TabContainer,
@@ -88,7 +88,7 @@ class MainContainer extends Viewport {
             }]
         }, FooterContainer],
         /**
-         * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
          */
         layout: {ntype: 'vbox', align: 'stretch'}
     }}

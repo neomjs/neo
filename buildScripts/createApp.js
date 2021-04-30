@@ -7,7 +7,8 @@ const chalk       = require('chalk'),
       inquirer    = require('inquirer'),
       path        = require('path'),
       packageJson = require(path.resolve(process.cwd(), 'package.json')),
-      neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      insideNeo   = packageJson.name === 'neo.mjs',
+      neoPath     = insideNeo ? './' : './node_modules/neo.mjs/',
       programName = `${packageJson.name} create-app`,
       questions   = [];
 
@@ -141,12 +142,12 @@ inquirer.prompt(questions).then(answers => {
             "        Neo = self.Neo || {}; Neo.config = Neo.config || {};",
             "",
             "        Object.assign(Neo.config, {",
-            "            appPath         : '" + appPath + "app.mjs',",
+            "            appPath         : '" + (insideNeo ? '' : '../../') + appPath + "app.mjs',",
             "            basePath        : '../../',",
             "            environment     : 'development'",
         ];
 
-        if (!(mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 1)) {
+        if (!(mainThreadAddons.includes('DragDrop') && mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 2)) {
             indexContent[indexContent.length -1] += ',';
             indexContent.push("            mainThreadAddons: [" + mainThreadAddons.map(e => "'" + e +"'").join(', ') + "]");
         }
@@ -161,11 +162,16 @@ inquirer.prompt(questions).then(answers => {
             indexContent.push("            useSharedWorkers: true");
         }
 
+        if (!insideNeo) {
+            indexContent[indexContent.length -1] += ',';
+            indexContent.push("            workerBasePath  : '../../node_modules/neo.mjs/src/worker/'");
+        }
+
         indexContent.push(
             "        });",
             "    </script>",
             "",
-            '    <script src="../../src/Main.mjs" type="module"></script>',
+            '    <script src="../../' + (insideNeo ? '' : 'node_modules/neo.mjs/') + 'src/Main.mjs" type="module"></script>',
             "</body>",
             "</html>",
         );
@@ -173,9 +179,9 @@ inquirer.prompt(questions).then(answers => {
         fs.writeFileSync(folder + '/index.html', indexContent.join('\n'));
 
         const mainContainerContent = [
-            "import {default as Component}    from '../../src/component/Base.mjs';",
-            "import {default as TabContainer} from '../../src/tab/Container.mjs';",
-            "import Viewport                  from '../../src/container/Viewport.mjs';",
+            "import {default as Component}    from '../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/component/Base.mjs';",
+            "import {default as TabContainer} from '../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/tab/Container.mjs';",
+            "import Viewport                  from '../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/container/Viewport.mjs';",
             "",
             "/**",
             " * @class " + appName + ".MainContainer",
@@ -257,6 +263,14 @@ inquirer.prompt(questions).then(answers => {
         if (useSharedWorkers !== 'no') {
             appJson.apps[appName].useSharedWorkers = true;
         }
+
+        let apps = Object.entries(appJson.apps).sort((a, b) => a[0].localeCompare(b[0]));
+
+        appJson.apps = {};
+
+        apps.forEach(([key, value]) => {
+            appJson.apps[key] = value;
+        });
 
         fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 4));
 

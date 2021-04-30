@@ -10,12 +10,22 @@ import Viewport                from '../../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className : 'SharedDialog.view.MainContainer',
-        autoMount : true,
+        /**
+         * @member {String} className='SharedDialog.view.MainContainer'
+         * @protected
+         */
+        className: 'SharedDialog.view.MainContainer',
+        /**
+         * @member {Boolean} autoMount=true
+         */
+        autoMount: true,
+        /**
+         * @member {Neo.controller.Component} controller=MainContainerController
+         */
         controller: MainContainerController,
-        layout    : {ntype: 'vbox', align: 'stretch'},
-        style     : {padding: '20px'},
-
+        /**
+         * @member {Object[]} items
+         */
         items: [{
             module: Toolbar,
             flex  : 'none',
@@ -97,7 +107,15 @@ class MainContainer extends Viewport {
                 marginBottom  : '88px',
                 userSelect    : 'none'
             }
-        }]
+        }],
+        /**
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         */
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * @member {Object} style={padding:'20px'}
+         */
+        style: {padding: '20px'}
     }}
 }
 
