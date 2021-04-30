@@ -1,0 +1,19 @@
+.neo-timefield {
+    // remove the default browser controls
+    input::-webkit-clear-button,
+    input::-webkit-inner-spin-button,
+    input::-webkit-calendar-picker-indicator,
+    input::-webkit-outer-spin-button {
+        display           : none;
+        margin            : 0;
+        -webkit-appearance: none;
+    }
+
+    &:not(.neo-has-content) {
+        &:not(.neo-focus) {
+            input::-webkit-datetime-edit-fields-wrapper {
+                display: none;
+            }
+        }
+    }
+}

@@ -1,0 +1,87 @@
+.neo-animate-dialog {
+    // default styling to match buttons, since this is the most common use case
+    background-color: v(button-background-color);
+    background-image: v(button-background-image);
+    border          : 1px solid v(button-active-border-color);
+
+    position: fixed;
+    z-index : 1000;
+
+    transition-duration       : 250ms;
+    transition-property       : height, left, top, transform, width;
+    transition-timing-function: ease-out;
+
+    &.neo-hide {
+        transform          : none !important;
+        transition-property: height, left, top, width;
+    }
+}
+
+.neo-dialog-wrapper {
+    display  : flex;
+    left     : 50%;
+    position : absolute;
+    top      : 50%;
+    transform: translate(-50%, -50%);
+
+    transition-duration       : 200ms;
+    transition-property       : height, left, top, transform, width;
+    transition-timing-function: ease-out;
+
+    &.neo-maximized {
+        height   : 98% !important;
+        left     : 1%  !important;
+        top      : 1%  !important;
+        transform: none;
+        width    : 98% !important;
+
+        &.neo-panel {
+            .neo-header-toolbar {
+                &.neo-draggable {
+                    cursor: default;
+                }
+            }
+        }
+    }
+}
+
+.neo-dialog {
+    border  : 1px solid v(dialog-border-color);
+    flex    : 1 0 auto;
+    position: relative;
+
+    &.neo-panel {
+        .neo-header-toolbar {
+            border       : none;
+            border-bottom: 1px solid v(dialog-border-color);
+
+            &.neo-draggable {
+                cursor: move;
+            }
+
+            .neo-button {
+                border      : 0;
+                margin-right: 0.3em;
+                padding     : 0;
+
+                &:last-child {
+                    margin-right: 0;
+                }
+            }
+
+            .neo-button-glyph {
+                color    : v(dialog-icon-color);
+                font-size: 1.8em;
+            }
+
+            .neo-panel-header-text {
+                color         : v(dialog-header-color);
+                pointer-events: none;
+                user-drag     : none; // not supported yet
+                user-select   : none;
+
+                -webkit-user-drag: none;
+            }
+        }
+    }
+}

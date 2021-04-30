@@ -1,0 +1,26 @@
+.neo-docs-classdetails-headercontainer {
+    box-shadow: 0 5px 10px rgba(0,0,0,.4);
+    z-index   : 10;
+}
+
+.neo-docs-classdetails-headerpanel {
+    border-right: v(docs-classdetails-headerpanel-border-right) !important;
+}
+
+.neo-docs-classdetails-headercomponent {
+    background-color: v(docs-classdetails-headercomponent-background-color);
+    padding         : 15px;
+
+    .neo-docs-header-description {
+        margin-top: 10px;
+    }
+
+    .neo-docs-header-text {
+        background-clip: text;
+        color          : rgba(0,0,0,0.6);
+        cursor         : pointer;
+        font-size      : 28px;
+        font-weight    : 800;
+        text-shadow    : 2px 2px 3px rgba(200,200,200,0.1);
+    }
+}

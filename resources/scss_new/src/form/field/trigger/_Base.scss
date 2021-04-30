@@ -1,0 +1,27 @@
+.neo-field-trigger {
+    border-left: 1px solid v(textfield-border-color);
+    color      : v(trigger-color);
+    cursor     : pointer;
+    display    : inline-block;
+    font-size  : 14px;
+    height     : 25px; // has to be 1px smaller to not overlap the bottom border on hover
+    line-height: 26px;
+    text-align : center;
+    width      : 22px;
+
+    &.neo-align-start {
+        border-left : 0;
+        border-right: 1px solid v(textfield-border-color);
+    }
+
+    &:hover {
+        background-color: v(trigger-background-color-hover);
+        color           : v(trigger-color-hover);
+    }
+}
+
+.neo-focus {
+    .neo-field-trigger {
+        outline: none;
+    }
+}

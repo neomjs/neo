@@ -1,0 +1,135 @@
+.website-header-container {
+    background-blend-mode: overlay;
+    background-color     : #444;
+    background-image     : linear-gradient(#ddd, #999), url('https://raw.githubusercontent.com/neomjs/pages/master/resources/website/neo-background.png');
+    position             : relative;
+    transition           : background-position 700ms ease-out, height v(website-transition-duration) ease-out;
+
+    .neo-absolute {
+        position: absolute;
+    }
+
+    .neo-button {
+        background-image          : v(website-header-button-background-image);
+        border                    : v(website-header-button-border);
+        border-radius             : 50%;
+        transition-duration       : v(website-transition-duration);
+        transition-property       : height, margin, width;
+        transition-timing-function: ease-out;
+
+        .neo-button-glyph {
+            color     : v(website-header-button-glyph-color);
+            margin    : 0 !important;
+            transition: font-size v(website-transition-duration) ease-out;
+        }
+    }
+
+    .neo-full-size {
+        height: 100%;
+        width : 100%;
+    }
+
+    .neo-inner-content {
+        transition: font-size v(website-transition-duration) ease-out, margin-top v(website-transition-duration) ease-out;
+        overflow  : hidden;
+    }
+
+    .neo-inner-details {
+        color      : #fff;
+        line-height: 22px;
+        text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
+    }
+
+    .neo-logo {
+        background-repeat: no-repeat;
+        height           : 100%;
+        margin-left      : 10px;
+    }
+
+    .neo-item-bottom-position {
+        bottom    : 0;
+        left      : 0;
+        transition: margin v(website-transition-duration) ease-out;
+    }
+
+    .neo-relative {
+        position: relative;
+    }
+
+    .neo-title {
+        color      : #fff;
+        font-weight: 600;
+        line-height: 1;
+        text-shadow: 1px 1px 1px #000, 1px 1px 1px #fff;
+        transition : font-size v(website-transition-duration) ease-out;
+    }
+
+    .website-header-buttons {
+        position: absolute;
+        right   : 0;
+        top     : 0;
+    }
+
+    @media (max-height: 400px), (max-width: 600px) {
+        background-position: 0 38%;
+        height             : 55px;
+
+        .neo-button {
+            height: 30px;
+            margin: 1px;
+            width : 30px;
+
+            .neo-button-glyph {
+                font-size: 20px;
+            }
+        }
+
+        .neo-inner-content {
+            font-size : 11px;
+            margin-top: 0;
+        }
+
+        .neo-item-bottom-position {
+            margin: 2px 10px;
+        }
+
+        .neo-title {
+            font-size: 24px;
+        }
+
+        .website-header-buttons:last-child {
+            margin-right: 1px;
+        }
+    }
+
+    @media (min-height: 401px) and (min-width: 601px) {
+        background-position: 0 0;
+        height             : 170px;
+
+        .neo-button {
+            height: 50px;
+            width : 50px;
+
+            .neo-button-glyph {
+                font-size: 30px;
+            }
+        }
+
+        .neo-inner-content {
+            font-size : 16px;
+            margin-top: 10px;
+        }
+
+        .neo-item-bottom-position {
+            margin: 24px 32px;
+        }
+
+        .neo-title {
+            font-size: 34px;
+        }
+
+        .website-header-buttons:last-child {
+            margin-right: 5px;
+        }
+    }
+}

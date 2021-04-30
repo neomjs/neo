@@ -1,0 +1,13 @@
+.neo-docs-header-container {
+    background-color: v(docs-header-container-background-color);
+    background-image: v(docs-header-container-background-image);
+
+    .neo-logo-text {
+        background-clip : v(docs-header-container-logo-text-background-clip);
+        color           : v(docs-header-container-logo-text-color);
+        font-size       : v(docs-header-container-logo-text-font-size);
+        font-weight     : v(docs-header-container-logo-text-font-weight);
+        padding         : v(docs-header-container-logo-padding);
+        text-shadow     : v(docs-header-container-logo-text-shadow);
+    }
+}

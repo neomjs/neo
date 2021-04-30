@@ -1,0 +1,24 @@
+.neo-filter-booleancontainer {
+    height: 37px;
+
+    .neo-radiofield {
+        .neo-radio-input {
+            margin-right: 0;
+
+            &::after {
+                width: 18px;
+            }
+
+            &:checked {
+                &::after {
+                    content    : "\f192";
+                    font-weight: 400;
+                }
+            }
+        }
+
+        .neo-radio-value-label {
+            margin-right: .5em;
+        }
+    }
+}
