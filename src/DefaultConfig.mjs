@@ -98,14 +98,14 @@ const DefaultConfig = {
     logDeltaUpdates: false,
     /**
      * Add addons for the main thread
-     * Possible values: AmCharts, AnalyticsByGoogle, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet
+     * Possible values: AmCharts, AnalyticsByGoogle, DragDrop, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet, WindowPosition
      * (src/main/addon)
-     * @default ['Stylesheet']
+     * @default ['DragDrop','Stylesheet']
      * @memberOf! module:Neo
      * @name config.mainThreadAddons
      * @type String[]
      */
-    mainThreadAddons: ['Stylesheet'],
+    mainThreadAddons: ['DragDrop', 'Stylesheet'],
     /**
      * Add themes you want to use here. The first theme will get applied.
      * If config.useCssVars === true, other theme variables will get included as well
