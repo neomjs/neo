@@ -264,6 +264,14 @@ inquirer.prompt(questions).then(answers => {
             appJson.apps[appName].useSharedWorkers = true;
         }
 
+        let apps = Object.entries(appJson.apps).sort((a, b) => a[0].localeCompare(b[0]));
+
+        appJson.apps = {};
+
+        apps.forEach(([key, value]) => {
+            appJson.apps[key] = value;
+        });
+
         fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 4));
 
         if (mainThreadAddons.includes('HighlightJS')) {
