@@ -1,5 +1,4 @@
 import BaseComponent          from '../../../../src/component/Base.mjs';
-import CommentComponent       from './CommentComponent.mjs';
 import CreateCommentComponent from './CreateCommentComponent.mjs';
 import NeoArray               from '../../../../src/util/Array.mjs';
 import VDomUtil               from '../../../../src/util/VDom.mjs';
@@ -24,7 +23,13 @@ class Component extends BaseComponent {
          */
         body_: null,
         /**
-         * @member {RealWorld.view.article.PreviewComponent[]} commentComponents=[]
+         * We store the lazy loaded class here
+         * @member {RealWorld.view.article.CommentComponent} commentComponent=null
+         * @protected
+         */
+        commentComponent: null,
+        /**
+         * @member {RealWorld.view.article.CommentComponent[]} commentComponents=[]
          */
         commentComponents: [],
         /**
@@ -343,12 +348,17 @@ class Component extends BaseComponent {
      * @param {Object[]|null} oldValue
      * @protected
      */
-    afterSetComments(value, oldValue) {
+    async afterSetComments(value, oldValue) {
         if (Array.isArray(value)) {
             let me        = this,
                 vdom      = me.vdom,
                 container = VDomUtil.getByFlag(vdom, 'comments-section'),
-                config;
+                config, module;
+
+            if (!me.commentComponent) {
+                module = await import('./CommentComponent.mjs');
+                me.commentComponent = module.default;
+            }
 
             container.cn = [container.cn.shift()]; // keep the CreateCommentComponent
 
@@ -363,7 +373,7 @@ class Component extends BaseComponent {
 
                 if (!me.commentComponents[index]) {
                     me.commentComponents[index] = Neo.create({
-                        module  : CommentComponent,
+                        module  : me.commentComponent,
                         parentId: me.id,
                         ...config
                     });
