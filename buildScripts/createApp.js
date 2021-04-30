@@ -7,7 +7,8 @@ const chalk       = require('chalk'),
       inquirer    = require('inquirer'),
       path        = require('path'),
       packageJson = require(path.resolve(process.cwd(), 'package.json')),
-      neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      insideNeo   = packageJson.name === 'neo.mjs',
+      neoPath     = insideNeo ? './' : './node_modules/neo.mjs/',
       programName = `${packageJson.name} create-app`,
       questions   = [];
 
@@ -141,7 +142,7 @@ inquirer.prompt(questions).then(answers => {
             "        Neo = self.Neo || {}; Neo.config = Neo.config || {};",
             "",
             "        Object.assign(Neo.config, {",
-            "            appPath         : '" + appPath + "app.mjs',",
+            "            appPath         : '" + (insideNeo ? '' : '../../') + appPath + "app.mjs',",
             "            basePath        : '../../',",
             "            environment     : 'development'",
         ];
@@ -161,11 +162,16 @@ inquirer.prompt(questions).then(answers => {
             indexContent.push("            useSharedWorkers: true");
         }
 
+        if (!insideNeo) {
+            indexContent[indexContent.length -1] += ',';
+            indexContent.push("            workerBasePath  : '../../node_modules/neo.mjs/src/worker/'");
+        }
+
         indexContent.push(
             "        });",
             "    </script>",
             "",
-            '    <script src="../../src/Main.mjs" type="module"></script>',
+            '    <script src="../../' + (insideNeo ? '' : 'node_modules/neo.mjs/') + 'src/Main.mjs" type="module"></script>',
             "</body>",
             "</html>",
         );
