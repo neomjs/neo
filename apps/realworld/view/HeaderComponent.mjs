@@ -35,97 +35,41 @@ class HeaderComponent extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            tag: 'nav',
-            cls: ['navbar navbar-light'],
-            cn : [{
-                cls: ['container'],
-                cn : [{
-                    tag : 'a',
-                    cls : ['navbar-brand'],
-                    href: '#/',
-                    html: 'conduit'
-                }, {
-                    tag: 'ul',
-                    cls: ['nav navbar-nav', 'pull-xs-right'],
-                    cn : [{
-                        tag: 'li',
-                        cls: ['nav-item'],
-                        cn : [{
-                            tag : 'a',
-                            cls : ['nav-link'],
-                            href: '#/',
-                            html: 'Home'
-                        }]
-                    }, {
-                        tag      : 'li',
-                        cls      : ['nav-item'],
-                        removeDom: true,
-                        cn: [{
-                            tag : 'a',
-                            cls : ['nav-link'],
-                            href: '#/editor',
-                            cn: [{
-                                tag: 'i',
-                                cls: 'ion-compose'
-                            }, {
-                                vtype: 'text',
-                                html : '&nbsp;New Article'
-                            }]
-                        }]
-                    }, {
-                        tag      : 'li',
-                        cls      : ['nav-item'],
-                        removeDom: true,
-                        cn : [{
-                            tag : 'a',
-                            cls : ['nav-link'],
-                            href: '#/settings',
-                            cn: [{
-                                tag: 'i',
-                                cls: 'ion-gear-a'
-                            }, {
-                                vtype: 'text',
-                                html : '&nbsp;Settings'
-                            }]
-                        }]
-                    }, {
-                        tag      : 'li',
-                        cls      : ['nav-item'],
-                        removeDom: true,
-                        cn: [{
-                            tag : 'a',
-                            cls : ['nav-link'],
-                            href: '#/profile',
-                            cn  : [{
-                                tag: 'img',
-                                cls: ['user-pic']
-                            }, {
-                                vtype: 'text',
-                                html : '&nbsp;Profile'
-                            }]
-                        }]
-                    }, {
-                        tag: 'li',
-                        cls: ['nav-item'],
-                        cn : [{
-                            tag : 'a',
-                            cls : ['nav-link'],
-                            href: '#/login',
-                            html: 'Sign in'
-                        }]
-                    }, {
-                        tag: 'li',
-                        cls: ['nav-item'],
-                        cn : [{
-                            tag : 'a',
-                            cls : ['nav-link'],
-                            href: '#/register',
-                            html: 'Sign up'
-                        }]
-                    }]
-                }]
-            }]
+        _vdom:
+            {tag: 'nav', cls: ['navbar navbar-light'], cn: [
+                {cls: ['container'], cn: [
+                    {tag: 'a',  cls: ['navbar-brand'], href: '#/', html: 'conduit'},
+                    {tag: 'ul', cls: ['nav navbar-nav', 'pull-xs-right'], cn: [
+                        {tag: 'li', cls: ['nav-item'], cn: [
+                            {tag: 'a', cls: ['nav-link'], href: '#/', html: 'Home'}
+                        ]},
+                        {tag: 'li', cls: ['nav-item'], removeDom: true, cn: [
+                            {tag: 'a', cls: ['nav-link'], href: '#/editor', cn: [
+                                {tag: 'i', cls: 'ion-compose'},
+                                {vtype: 'text', html : '&nbsp;New Article'}
+                            ]}
+                        ]},
+                        {tag: 'li', cls: ['nav-item'], removeDom: true, cn: [
+                            {tag: 'a', cls: ['nav-link'], href: '#/settings', cn: [
+                                {tag: 'i', cls: 'ion-gear-a'},
+                                {vtype: 'text', html : '&nbsp;Settings'}
+                            ]}
+                        ]},
+                        {tag: 'li', cls: ['nav-item'], removeDom: true, cn: [
+                            {tag: 'a', cls : ['nav-link'], href: '#/profile', cn: [
+                                {tag: 'img', cls: ['user-pic']},
+                                {vtype: 'text', html: '&nbsp;Profile'}
+                            ]}
+                        ]},
+                        {tag: 'li', cls: ['nav-item'], cn: [
+                            {tag : 'a', cls : ['nav-link'], href: '#/login', html: 'Sign in'}
+                        ]},
+                        {tag: 'li', cls: ['nav-item'], cn: [
+                            {tag: 'a', cls : ['nav-link'], href: '#/register', html: 'Sign up'}
+                        ]}
+                    ]}
+                ]}
+            ]
         }
     }}
 

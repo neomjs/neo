@@ -57,38 +57,25 @@ class PreviewComponent extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cn: [{
-                cls: ['article-meta'],
-                cn : [{
-                    tag : 'a',
-                    flag: 'userImageLink',
-                    cn  : [{tag: 'img'}]
-                }, {
-                    cls: ['info'],
-                    cn : [
-                        {tag : 'a',    cls : ['author'], flag: 'author'},
-                        {tag : 'span', cls : ['date'],   flag: 'createdAt'}
-                    ]
-                }, {
-                    tag: 'button',
-                    cls: ['btn', 'btn-sm', 'pull-xs-right'],
-                    cn : [
-                        {tag  : 'i',    cls : ['ion-heart']},
+        _vdom:
+            {cn: [
+                {cls: ['article-meta'], cn: [
+                    {tag : 'a', flag: 'userImageLink', cn: [{tag: 'img'}]},
+                    {cls: ['info'], cn: [
+                        {tag: 'a',    cls: ['author'], flag: 'author'},
+                        {tag: 'span', cls: ['date'],   flag: 'createdAt'}
+                    ]},
+                    {tag: 'button', cls: ['btn', 'btn-sm', 'pull-xs-right'], cn: [
+                        {tag: 'i', cls: ['ion-heart']},
                         {vtype: 'text', flag: 'favoritesCount'}
-                    ]
-                }]
-            }, {
-                tag : 'a',
-                cls : ['preview-link'],
-                flag: 'preview-link',
-                cn  : [
-                    {tag : 'h1',   flag: 'title'},
-                    {tag : 'p',    flag: 'description'},
-                    {tag : 'span', html: 'Read more...'}
-                ]
-            }]
-        }
+                    ]}
+                ]},
+                {tag: 'a', cls : ['preview-link'], flag: 'preview-link', cn: [
+                    {tag: 'h1',   flag: 'title'},
+                    {tag: 'p',    flag: 'description'},
+                    {tag: 'span', html: 'Read more...'}
+                ]}
+            ]}
     }}
 
     /**

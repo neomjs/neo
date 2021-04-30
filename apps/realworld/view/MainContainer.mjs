@@ -1,6 +1,5 @@
 import FooterComponent         from './FooterComponent.mjs';
 import HeaderComponent         from './HeaderComponent.mjs';
-import HomeComponent           from './HomeComponent.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
@@ -39,22 +38,6 @@ class MainContainer extends Viewport {
             module: FooterComponent
         }]
     }}
-
-    /**
-     *
-     * @param {Object} config
-     */
-    constructor(config) {
-        super(config);
-
-        if (!Neo.config.hash) {
-            this._items.splice(1, 0, {
-                module   : HomeComponent,
-                flex     : 1,
-                reference: 'home'
-            });
-        }
-    }
 }
 
 Neo.applyClassConfig(MainContainer);
