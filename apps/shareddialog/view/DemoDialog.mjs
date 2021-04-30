@@ -7,19 +7,32 @@ import TextField from '../../../src/form/field/Text.mjs';
  */
 class DemoDialog extends Dialog {
     static getConfig() {return {
-        className: 'SharedDialog.view.DemoWindow',
-        title    : 'Drag me across Windows!',
-
+        /**
+         * @member {String} className='SharedDialog.view.DemoDialog'
+         * @protected
+         */
+        className: 'SharedDialog.view.DemoDialog',
+        /**
+         * @member {String} title='Drag me across Windows!'
+         */
+        title: 'Drag me across Windows!',
+        /**
+         * @member {Object} containerConfig={style:padding:'20px}}
+         */
         containerConfig: {
             style: {
                 padding: '20px'
             }
         },
-
+        /**
+         * @member {Object} itemDefaults={labelWidth:70}
+         */
         itemDefaults: {
             labelWidth: 70
         },
-
+        /**
+         * @member {Object[]} items
+         */
         items: [{
             module   : TextField,
             flex     : 'none',
@@ -29,7 +42,9 @@ class DemoDialog extends Dialog {
             flex     : 'none',
             labelText: 'Field 2'
         }],
-
+        /**
+         * @member {Object} wrapperStyle={height:'40%',width:'40%'}
+         */
         wrapperStyle: {
             height: '40%',
             width : '40%'
