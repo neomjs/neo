@@ -179,9 +179,9 @@ inquirer.prompt(questions).then(answers => {
         fs.writeFileSync(folder + '/index.html', indexContent.join('\n'));
 
         const mainContainerContent = [
-            "import {default as Component}    from '../../src/component/Base.mjs';",
-            "import {default as TabContainer} from '../../src/tab/Container.mjs';",
-            "import Viewport                  from '../../src/container/Viewport.mjs';",
+            "import {default as Component}    from '../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/component/Base.mjs';",
+            "import {default as TabContainer} from '../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/tab/Container.mjs';",
+            "import Viewport                  from '../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/container/Viewport.mjs';",
             "",
             "/**",
             " * @class " + appName + ".MainContainer",
