@@ -28,7 +28,7 @@ class MainContainer extends Viewport {
          */
         controller: MainContainerController,
         /**
-         * @member {Array} items
+         * @member {Object[]} items
          */
         items: [HeaderContainer, {
             module     : TabContainer,
