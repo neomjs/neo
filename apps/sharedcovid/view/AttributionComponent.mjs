@@ -19,16 +19,10 @@ class AttributionComponent extends Component {
         /**
          * @member {Object} vdom
          */
-        vdom: {
-            tag  : 'div',
-            style: {margin: '20px'},
-            cn   : [{
-                tag : 'h2',
-                html: 'Attribution'
-            },
-            {
-                tag: 'ul',
-                cn: [
+        vdom:
+            {tag: 'div', style: {margin: '20px'}, cn: [
+                {tag: 'h2', html: 'Attribution'},
+                {tag: 'ul', cn: [
                     {tag: 'li', html: 'The logos were created by <a target="_blank" href="https://www.driefmeier.com/">Sebastian Driefmeier</a>. Thank you!'},
                     {tag: 'li', html: ['The logos are based on the image from <a target="_blank" href="https://phil.cdc.gov/Details.aspx?pid=23312">CDC Public Health Image Library (PHIL)</a>,</br>',
                         'so credits to the content providers CDC/ Alissa Eckert, MS; Dan Higgins, MAMS.'].join('')},
@@ -38,9 +32,8 @@ class AttributionComponent extends Component {
                     {tag: 'li', html: 'The App is created with the webworkers driven UI framework <a target="_blank" href="https://github.com/neomjs/neo">neo.mjs</a>.'},
                     {tag: 'li', html: 'The Mapbox GL Map is based on <a target="_blank" href="https://docs.mapbox.com/mapbox-gl-js/api/">Mapbox GL JS</a>.'},
                     {tag: 'li', html: 'The Map & Heatmap styles are strongly inspired by <a target="_blank" href="https://blog.mapbox.com/visualizing-the-progression-of-the-2019-ncov-outbreak-66763eb59e79">Visualizing the progression of the 2019-nCoV outbreak</a>.'}
-                ]
-            }]
-        }
+                ]}
+            ]}
     }}
 }
 
