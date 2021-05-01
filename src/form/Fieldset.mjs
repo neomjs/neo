@@ -24,10 +24,8 @@ class Fieldset extends Container {
         /**
          * @member {Object} _vdom={tag: 'fieldset',cn: []}
          */
-        _vdom: {
-            tag: 'fieldset',
-            cn : []
-        }
+        _vdom:
+        {tag: 'fieldset', cn: []}
     }}
 }
 

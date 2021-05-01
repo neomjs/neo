@@ -23,12 +23,10 @@ class View extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cn: [{
-                cls: ['neo-grid-row'],
-                cn : []
-            }]
-        }
+        _vdom:
+        {cn: [
+            {cls: ['neo-grid-row'], cn: []}
+        ]}
     }}
 
     /**

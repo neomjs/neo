@@ -60,16 +60,10 @@ class Container extends BaseContainer {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cn: [{
-                cls: ['neo-grid-container'],
-                cn : []
-            }],
-            style: {
-                height: '300px',
-                width : '100%'
-            }
-        }
+        _vdom:
+        {style: {height: '300px', width: '100%'}, cn: [
+            {cls: ['neo-grid-container'], cn: []}
+        ]}
     }}
 
     get columns() {

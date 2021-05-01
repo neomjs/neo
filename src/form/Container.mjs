@@ -26,10 +26,8 @@ class Container extends BaseContainer {
         /**
          * @member {Object} vdom={tag: 'form',cn: []}
          */
-        vdom: {
-            tag: 'form',
-            cn : []
-        }
+        vdom:
+        {tag: 'form', cn: []}
     }}
 
     /**

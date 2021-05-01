@@ -56,18 +56,12 @@ class CheckBox extends Base {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cn: [{
-                tag: 'label',
-                cls: ['neo-checkbox-label']
-            }, {
-                tag: 'input',
-                cls: ['neo-checkbox-input']
-            }, {
-                tag: 'label',
-                cls: ['neo-checkbox-value-label']
-            }]
-        }
+        _vdom:
+        {cn: [
+            {tag: 'label', cls: ['neo-checkbox-label']},
+            {tag: 'input', cls: ['neo-checkbox-input']},
+            {tag: 'label', cls: ['neo-checkbox-value-label']}
+        ]}
     }}
 
     /**

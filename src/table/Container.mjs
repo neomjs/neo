@@ -104,13 +104,10 @@ class Container extends BaseContainer {
         /**
          * @member {Object} _vdom={cls: ['neo-table-wrapper'],cn : [{tag: 'table',cn : []}]}
          */
-        _vdom: {
-            cls: ['neo-table-wrapper'],
-            cn : [{
-                tag: 'table',
-                cn : []
-            }]
-        }
+        _vdom:
+        {cls: ['neo-table-wrapper'], cn: [
+            {tag: 'table', cn: []}
+        ]}
     }}
 
     /**

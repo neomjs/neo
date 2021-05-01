@@ -31,11 +31,10 @@ class Strip extends Component {
         /**
          * @member {Object} _vdom={cn: [{cls: 'neo-active-tab-indicator'}]}
          */
-        _vdom: {
-            cn: [{
-                cls: ['neo-active-tab-indicator']
-            }]
-        }
+        _vdom:
+        {cn: [
+            {cls: ['neo-active-tab-indicator']}
+        ]}
     }}
 
     /**

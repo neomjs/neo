@@ -90,19 +90,13 @@ class Button extends BaseButton {
         /**
          * @member {String} _vdom
          */
-        _vdom: {
-            tag: 'th',
-            cn : [{
-                tag: 'button',
-                cn : [{
-                    tag: 'span',
-                    cls: ['neo-button-glyph']
-                },{
-                    tag: 'span',
-                    cls: ['neo-button-text']
-                }]
-            }]
-        }
+        _vdom:
+        {tag: 'th', cn: [
+            {tag: 'button', cn: [
+                {tag: 'span', cls: ['neo-button-glyph']},
+                {tag: 'span', cls: ['neo-button-text']}
+            ]}
+        ]}
     }}
 
     /**

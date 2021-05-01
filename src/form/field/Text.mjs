@@ -104,21 +104,11 @@ class Text extends Base {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cn: [{
-                tag  : 'label',
-                cls  : ['neo-textfield-label'],
-                style: {}
-            }, {
-                tag         : 'input',
-                autocomplete: 'off',
-                autocorrect : 'off',
-                cls         : ['neo-textfield-input'],
-                flag        : 'neo-real-input',
-                spellcheck  : 'false',
-                style       : {}
-            }]
-        }
+        _vdom:
+        {cn: [
+            {tag: 'label', cls: ['neo-textfield-label'], style: {}},
+            {tag: 'input', autocomplete: 'off', autocorrect : 'off', cls: ['neo-textfield-input'], flag: 'neo-real-input', spellcheck: 'false', style: {}}
+        ]}
     }}
 
     /**

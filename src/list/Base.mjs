@@ -84,10 +84,8 @@ class Base extends Component {
         /**
          * @member {Object} _vdom={tag:'ul',cn:[]}
          */
-        _vdom: {
-            tag: 'ul',
-            cn : []
-        }
+        _vdom:
+        {tag: 'ul', cn: []}
     }}
 
     /**
