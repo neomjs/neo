@@ -55,18 +55,12 @@ class Gallery extends Component {
         /**
          * @member {Object} itemTpl_
          */
-        itemTpl_: {
-            cls     : ['neo-gallery-item', 'image-wrap', 'view', 'neo-transition-1000'],
-            tabIndex: '-1',
-            cn: [{
-                cls: ['neo-item-wrapper'],
-                cn : [{
-                    tag  : 'img',
-                    cls  : [],
-                    style: {}
-                }]
-            }]
-        },
+        itemTpl_:
+        {cls: ['neo-gallery-item', 'image-wrap', 'view', 'neo-transition-1000'], tabIndex: '-1', cn: [
+            {cls: ['neo-item-wrapper'], cn: [
+                {tag: 'img', cls: [], style: {}}
+            ]}
+        ]},
         /**
          * The unique record field containing the id.
          * @member {String} keyProperty='id'
@@ -160,28 +154,16 @@ class Gallery extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cls     : ['page', 'view'],
-            style   : {},
-            tabIndex: '-1',
-            cn: [{
-                cls  : ['origin', 'view'],
-                style: {},
-                cn   : [{
-                    cls  : ['camera', 'view'],
-                    style: {},
-                    cn   : [{
-                        cls  : ['dolly', 'view'],
-                        style: {},
-                        cn   : [{
-                            cls  : ['view'],
-                            style: {},
-                            cn   : []
-                        }]
-                    }]
-                }]
-            }]
-        }
+        _vdom:
+        {cls: ['page', 'view'], style: {}, tabIndex: '-1', cn: [
+            {cls: ['origin', 'view'], style: {}, cn: [
+                {cls: ['camera', 'view'], style: {}, cn: [
+                    {cls: ['dolly', 'view'], style: {}, cn: [
+                        {cls: ['view'], style: {}, cn: []}
+                    ]}
+                ]}
+            ]}
+        ]}
     }}
 
     /**
@@ -684,19 +666,17 @@ class Gallery extends Component {
             }
         }).then(() => {
             Neo.currentWorker.promiseMessage('main', {
-                action    : 'readDom',
-                appName   : me.appName,
-                vnodeId   : me.id,
-                functions : [
-                    {
-                        fn            : 'getComputedStyle',
-                        params        : [me.id + '__' + 'dolly', null],
-                        paramIsDomNode: [true, false],
-                        scope         : 'defaultView',
-                        returnFnName  : 'transform',
-                        returnValue   : 'transform'
-                    }
-                ]
+                action   : 'readDom',
+                appName  : me.appName,
+                vnodeId  : me.id,
+                functions: [{
+                    fn            : 'getComputedStyle',
+                    params        : [me.id + '__' + 'dolly', null],
+                    paramIsDomNode: [true, false],
+                    scope         : 'defaultView',
+                    returnFnName  : 'transform',
+                    returnValue   : 'transform'
+                }]
             }).then(data => {
                 let transform = data.functions.transform,
                     translateX, angle;

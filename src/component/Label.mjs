@@ -28,10 +28,8 @@ class Label extends Component {
         /**
          * @member {Object} _vdom={tag: 'label'}
          */
-        _vdom: {
-            tag      : 'label',
-            draggable: false
-        }
+        _vdom:
+        {tag: 'label', draggable: false}
     }}
 
     /**
