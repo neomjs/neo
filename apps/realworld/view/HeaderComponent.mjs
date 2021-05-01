@@ -69,8 +69,7 @@ class HeaderComponent extends Component {
                         ]}
                     ]}
                 ]}
-            ]
-        }
+            ]}
     }}
 
     /**
