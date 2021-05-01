@@ -115,16 +115,13 @@ class YearComponent extends Component {
         /**
          * @member {Object} vdom
          */
-        vdom: {
-            cn: [{
-                cls: ['neo-content-wrapper'],
-                cn : [{
-                    cls: ['neo-year-header']
-                }, {
-                    cls: ['neo-months-container']
-                }]
-            }]
-        },
+        vdom:
+        {cn: [
+            {cls: ['neo-content-wrapper'], cn: [
+                {cls: ['neo-year-header']},
+                {cls: ['neo-months-container']}
+            ]}
+        ]},
         /**
          * 0-6 => Sun-Sat
          * @member {Number} weekStartDay_=0

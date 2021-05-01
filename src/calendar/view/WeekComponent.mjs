@@ -116,30 +116,17 @@ class WeekComponent extends Component {
         /**
          * @member {Object} vdom
          */
-        vdom: {
-            cn: [{
-                cls: ['neo-header']
-            }, {
-                cls: ['neo-scroll-overlay']
-            }, {
-                cls : ['neo-c-w-scrollcontainer'],
-                flag: 'neo-c-w-scrollcontainer',
-                cn  : [{
-                    cls : ['neo-header-row'],
-                    flag: 'neo-header-row',
-                    cn  : []
-                }, {
-                    cls : ['neo-c-w-column-timeaxis-container'],
-                    flag: 'neo-c-w-column-timeaxis-container',
-                    cn  : [{
-                        cls  : ['neo-c-w-column-container'],
-                        flag : 'neo-c-w-column-container',
-                        style: {},
-                        cn   : []
-                    }]
-                }]
-            }]
-        },
+        vdom:
+        {cn: [
+            {cls: ['neo-header']},
+            {cls: ['neo-scroll-overlay']},
+            {cls: ['neo-c-w-scrollcontainer'], flag: 'neo-c-w-scrollcontainer', cn: [
+                {cls: ['neo-header-row'], flag: 'neo-header-row', cn: []},
+                {cls: ['neo-c-w-column-timeaxis-container'], flag: 'neo-c-w-column-timeaxis-container', cn: [
+                    {cls: ['neo-c-w-column-container'], flag: 'neo-c-w-column-container', style: {}, cn: []}
+                ]}
+            ]}
+        ]},
         /**
          * 0-6 => Sun-Sat
          * @member {Number} weekStartDay_=0
