@@ -53,92 +53,45 @@ class ProfileComponent extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cn: [{
-                cls: ['user-info'],
-                cn : [{
-                    cls: ['container'],
-                    cn : [{
-                        cls: ['row'],
-                        cn : [{
-                            cls: ['col-xs-12', 'col-md-10', 'offset-md-1'],
-                            cn : [{
-                                tag : 'img',
-                                cls : ['user-img'],
-                                flag: 'image'
-                            }, {
-                                tag : 'h4',
-                                flag: 'username'
-                            }, {
-                                tag : 'p',
-                                flag: 'bio'
-                            }, {
-                                tag : 'button',
-                                cls : ['btn', 'btn-sm', 'btn-outline-secondary', 'action-btn', 'follow-button'],
-                                flag: 'following',
-                                cn  : [{
-                                    tag: 'i',
-                                    cls: ['ion-plus-round']
-                                }, {
-                                    vtype: 'text'
-                                }, {
-                                    vtype: 'text'
-                                }]
-                            }, {
-                                tag      : 'a',
-                                cls      : ['btn', 'btn-sm', 'btn-outline-secondary', 'action-btn'],
-                                flag     : 'edit-profile',
-                                href     : '#/settings',
-                                removeDom: true,
-                                cn: [{
-                                    tag: 'i',
-                                    cls: ['ion-gear-a']
-                                }, {
-                                    vtype: 'text',
-                                    html : ' Edit Profile Settings'
-                                }]
-                            }]
-                        }]
-                    }]
-                }]
-            }, {
-                cls: ['container'],
-                cn : [{
-                    cls: ['row'],
-                    cn : [{
-                        cls  : ['col-xs-12', 'col-md-10', 'offset-md-1'],
-                        flag: 'feed-container',
-                        cn  : [{
-                            cls: ['articles-toggle'],
-                            cn : [{
-                                tag : 'ul',
-                                cls : ['nav', 'nav-pills', 'outline-active'],
-                                flag: 'feed-header',
-                                cn  : [{
-                                    tag: 'li',
-                                    cls: ['nav-item'],
-                                    cn : [{
-                                        tag: 'a',
-                                        cls: ['nav-link', 'prevent-click', 'active'],
-                                        href: '',
-                                        html: 'My Articles'
-                                    }]
-                                }, {
-                                    tag: 'li',
-                                    cls: ['nav-item'],
-                                    cn : [{
-                                        tag: 'a',
-                                        cls: ['nav-link', 'prevent-click'],
-                                        href: '',
-                                        html: 'Favorited Articles'
-                                    }]
-                                }]
-                            }]
-                        }]
-                    }]
-                }]
-            }]
-        }
+        _vdom:
+        {cn: [
+            {cls: ['user-info'], cn: [
+                {cls: ['container'], cn: [
+                    {cls: ['row'], cn: [
+                        {cls: ['col-xs-12', 'col-md-10', 'offset-md-1'], cn: [
+                            {tag: 'img', cls: ['user-img'], flag: 'image'},
+                            {tag: 'h4', flag: 'username'},
+                            {tag: 'p', flag: 'bio'},
+                            {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'action-btn', 'follow-button'], flag: 'following', cn: [
+                                {tag: 'i', cls: ['ion-plus-round']},
+                                {vtype: 'text'},
+                                {vtype: 'text'}
+                            ]},
+                            {tag: 'a', cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'action-btn'], flag: 'edit-profile', href: '#/settings', removeDom: true, cn: [
+                                {tag: 'i', cls: ['ion-gear-a']},
+                                {vtype: 'text', html: ' Edit Profile Settings'}
+                            ]}
+                        ]}
+                    ]}
+                ]}
+            ]},
+            {cls: ['container'], cn: [
+                {cls: ['row'], cn: [
+                    {cls: ['col-xs-12', 'col-md-10', 'offset-md-1'], flag: 'feed-container', cn: [
+                        {cls: ['articles-toggle'], cn: [
+                            {tag: 'ul', cls: ['nav', 'nav-pills', 'outline-active'], flag: 'feed-header', cn: [
+                                {tag: 'li', cls: ['nav-item'], cn: [
+                                    {tag: 'a', cls: ['nav-link', 'prevent-click', 'active'], href: '', html: 'My Articles'}
+                                ]},
+                                {tag: 'li', cls: ['nav-item'], cn: [
+                                    {tag: 'a', cls: ['nav-link', 'prevent-click'], href: '', html: 'Favorited Articles'}
+                                ]}
+                            ]}
+                        ]}
+                    ]}
+                ]}
+            ]}
+        ]}
     }}
 
     /**
