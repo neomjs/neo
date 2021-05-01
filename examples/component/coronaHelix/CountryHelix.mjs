@@ -34,61 +34,40 @@ class CountryHelix extends Helix {
         /**
          * @member {Object} itemTpl_
          */
-        itemTpl: {
-            cls     : ['surface', 'neo-helix-item'],
-            style   : {},
-            tabIndex: '-1',
-            cn: [{
-                cls  : ['neo-item-wrapper'],
-                style: {},
-                cn: [{
-                    tag  : 'div',
-                    cls  : ['neo-country-helix-item'],
-                    style: {},
-
-                    cn: [{
-                        cls: ['neo-item-header'],
-                        cn: [{
-                            tag: 'img',
-                            cls: ['neo-flag']
-                        }, {
-
-                        }]
-                    }, {
-                        tag: 'table',
-                        cls: ['neo-content-table'],
-                        cn : [{
-                            tag: 'tr',
-                            cn : [
-                                {tag: 'td', html: 'Cases'},
-                                {tag: 'td', cls: ['neo-align-right']},
-                                {tag: 'td', style: {width: '100%'}},
-                                {tag: 'td', html: 'Cases today'},
-                                {tag: 'td', cls: ['neo-align-right']}
-                            ]
-                        }, {
-                            tag: 'tr',
-                            cn : [
-                                {tag: 'td', html: 'Deaths'},
-                                {tag: 'td', cls: ['neo-align-right', 'neo-content-deaths']},
-                                {tag: 'td', style: {width: '100%'}},
-                                {tag: 'td', html: 'Deaths today'},
-                                {tag: 'td', cls: ['neo-align-right', 'neo-content-deaths']}
-                            ]
-                        }, {
-                            tag: 'tr',
-                            cn : [
-                                {tag: 'td', html: 'Recovered'},
-                                {tag: 'td', cls: ['neo-align-right', 'neo-content-recovered']},
-                                {tag: 'td', style: {width: '100%'}},
-                                {tag: 'td', html: 'Critical'},
-                                {tag: 'td', cls: ['neo-align-right', 'neo-content-critical']}
-                            ]
-                        }]
-                    }]
-                }]
-            }]
-        },
+        itemTpl:
+        {cls: ['surface', 'neo-helix-item'], style: {}, tabIndex: '-1', cn: [
+            {cls: ['neo-item-wrapper'], style: {}, cn: [
+                {tag: 'div', cls  : ['neo-country-helix-item'], style: {}, cn: [
+                    {cls: ['neo-item-header'], cn: [
+                        {tag: 'img', cls: ['neo-flag']},
+                        {}
+                    ]},
+                    {tag: 'table', cls: ['neo-content-table'], cn: [
+                        {tag: 'tr', cn: [
+                            {tag: 'td', html: 'Cases'},
+                            {tag: 'td', cls: ['neo-align-right']},
+                            {tag: 'td', style: {width: '100%'}},
+                            {tag: 'td', html: 'Cases today'},
+                            {tag: 'td', cls: ['neo-align-right']}
+                        ]},
+                        {tag: 'tr', cn: [
+                            {tag: 'td', html: 'Deaths'},
+                            {tag: 'td', cls: ['neo-align-right', 'neo-content-deaths']},
+                            {tag: 'td', style: {width: '100%'}},
+                            {tag: 'td', html: 'Deaths today'},
+                            {tag: 'td', cls: ['neo-align-right', 'neo-content-deaths']}
+                        ]},
+                        {tag: 'tr', cn: [
+                            {tag: 'td', html: 'Recovered'},
+                            {tag: 'td', cls: ['neo-align-right', 'neo-content-recovered']},
+                            {tag: 'td', style: {width: '100%'}},
+                            {tag: 'td', html: 'Critical'},
+                            {tag: 'td', cls: ['neo-align-right', 'neo-content-critical']}
+                        ]}
+                    ]}
+                ]}
+            ]}
+        ]},
         /**
          * The unique record field containing the id.
          * @member {String} keyProperty='id'
