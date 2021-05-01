@@ -46,13 +46,13 @@ class HeaderComponent extends Component {
                         {tag: 'li', cls: ['nav-item'], removeDom: true, cn: [
                             {tag: 'a', cls: ['nav-link'], href: '#/editor', cn: [
                                 {tag: 'i', cls: 'ion-compose'},
-                                {vtype: 'text', html : '&nbsp;New Article'}
+                                {vtype: 'text', html: '&nbsp;New Article'}
                             ]}
                         ]},
                         {tag: 'li', cls: ['nav-item'], removeDom: true, cn: [
                             {tag: 'a', cls: ['nav-link'], href: '#/settings', cn: [
                                 {tag: 'i', cls: 'ion-gear-a'},
-                                {vtype: 'text', html : '&nbsp;Settings'}
+                                {vtype: 'text', html: '&nbsp;Settings'}
                             ]}
                         ]},
                         {tag: 'li', cls: ['nav-item'], removeDom: true, cn: [
