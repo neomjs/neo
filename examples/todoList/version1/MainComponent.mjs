@@ -30,24 +30,14 @@ class MainComponent extends Component {
          */
         inputValue: null,
 
-        vdom: {
-            cn: [{
-                tag: 'ol',
-                cn : []
-            }, {
-                cn: [{
-                    tag     : 'input',
-                    cls     : ['todo-input'],
-                    required: true,
-                    style   : {marginLeft: '20px'}
-                }, {
-                    tag  : 'button',
-                    cls  : ['todo-add-button'],
-                    html : 'Add Item',
-                    style: {marginLeft: '10px'}
-                }]
-            }]
-        }
+        vdom:
+        {cn: [
+            {tag: 'ol', cn: []},
+            {cn: [
+                {tag: 'input', cls: ['todo-input'], required: true, style   : {marginLeft: '20px'}},
+                {tag: 'button', cls: ['todo-add-button'], html : 'Add Item', style: {marginLeft: '10px'}}
+            ]}
+        ]}
     }}
 
     constructor(config) {
