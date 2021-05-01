@@ -27,17 +27,17 @@ class HeaderContainer extends Container {
             reference: 'logo',
 
             vdom:
-                {cn: [
-                    {cls: ['neo-full-size', 'neo-logo']},
-                    {cls: ['neo-relative'], cn: [
-                        {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
-                            {cls: ['neo-title'], html: 'neo.mjs'},
-                            {cls: ['neo-inner-content'], cn: [
-                                {cls : ['neo-inner-details'], html: 'Create multithreaded Web Apps'}
-                            ]}
+            {cn: [
+                {cls: ['neo-full-size', 'neo-logo']},
+                {cls: ['neo-relative'], cn: [
+                    {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
+                        {cls: ['neo-title'], html: 'neo.mjs'},
+                        {cls: ['neo-inner-content'], cn: [
+                            {cls : ['neo-inner-details'], html: 'Create multithreaded Web Apps'}
                         ]}
                     ]}
                 ]}
+            ]}
         }, {
             ntype : 'container',
             cls   : ['website-header-buttons'],

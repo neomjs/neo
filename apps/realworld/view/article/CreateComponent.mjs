@@ -45,7 +45,8 @@ class CreateComponent extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {cn: [
+        _vdom:
+        {cn: [
             {cls: ['container', 'page'], cn: [
                 {cls: ['row'], cn: [
                     {cls: ['col-md-10', 'offset-md-1', 'col-xs-12'], cn: [
