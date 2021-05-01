@@ -115,12 +115,10 @@ class Base extends Panel {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cls: ['neo-dialog-wrapper'],
-            cn : [{
-                cn: []
-            }]
-        }
+        _vdom:
+        {cls: ['neo-dialog-wrapper'], cn: [
+            {cn: []}
+        ]}
     }}
 
     /**

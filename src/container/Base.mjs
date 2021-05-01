@@ -70,9 +70,8 @@ class Base extends Component {
         /**
          * @member {Object} _vdom={cn: []}
          */
-        _vdom: {
-            cn: []
-        }
+        _vdom:
+        {cn: []}
     }}
 
     /**
