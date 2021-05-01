@@ -1,0 +1,106 @@
+.neo-calendar-monthcomponent {
+    background-color: v(c-m-background-color);
+    display         : flex;
+    flex-direction  : column;
+    position        : relative;
+
+    .neo-c-m-scrollcontainer {
+        display       : flex;
+        flex          : 1 1 100%;
+        flex-direction: column;
+        overflow-y    : auto;
+        padding-top   : 3.75em;
+        position      : relative;
+
+        &.neo-is-scrolling {
+            .neo-month-header-content {
+                opacity: 1;
+            }
+        }
+
+        &.neo-scroll-shadows {
+            .neo-month-header-content {
+                box-shadow: v(c-m-scroll-box-shadow);
+            }
+        }
+
+        .neo-day {
+            border-right   : 1px solid v(c-m-border-color);
+            color          : v(c-m-day-number-color);
+            display        : flex;
+            flex           : 1 1 100%;
+            justify-content: flex-end;
+            padding        : .3em;
+
+            &:last-child {
+                border-right: 1px solid transparent;
+            }
+        }
+
+        .neo-month-header {
+            font-size: 1.6em;
+            height   : 0;
+            position : sticky;
+            top      : -2.3em;
+            width    : 5.8em;
+            z-index  : 3;
+        }
+
+        .neo-month-header-content {
+            background-color: v(c-m-background-color);
+            color           : v(c-m-year-color);
+            min-width       : fit-content;
+            opacity         : 0;
+            padding         : 0 calc(.3em / 1.6);
+            transition      : opacity 200ms ease-in-out;
+            white-space     : nowrap;
+        }
+
+        .neo-week {
+            align-content: flex-start;
+            border-bottom: 1px solid v(c-m-border-color);
+            display      : flex;
+            flex         : 1 0 (100% / 6);
+        }
+
+        .neo-weekend {
+            background-color: v(c-m-weekend-background-color);
+        }
+    }
+
+    .neo-days-header {
+        align-items     : stretch;
+        background-color: v(c-m-background-color);
+        border-bottom   : 1px solid v(c-m-border-color);
+        display         : flex;
+        height          : 3.75em;
+        position        : absolute;
+        width           : 100%;
+        z-index         : 2;
+
+        .neo-day-name {
+            align-items    : flex-end;
+            border-right   : 1px solid transparent;
+            color          : v(c-m-day-name-color);
+            display        : flex;
+            flex           : 1 1 100%;
+            justify-content: flex-end;
+            padding        : .3em;
+        }
+
+        .neo-static-header {
+            position: absolute;
+        }
+    }
+
+    .neo-month-name {
+        color      : v(c-m-month-name-color);
+        font-weight: bold;
+    }
+
+    .neo-static-header {
+        color       : v(c-m-year-color);
+        font-size   : 1.6em;
+        padding-left: calc(.3em / 1.6);
+    }
+}

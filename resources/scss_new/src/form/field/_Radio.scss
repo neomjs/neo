@@ -1,0 +1,36 @@
+.neo-radiofield {
+    .neo-radio-input {
+        appearance: none;
+
+        &:checked {
+            &::after {
+                color      : v(radiofield-checked-color);
+                content    : "\f00c";
+                font-weight: 900;
+            }
+        }
+
+        &::after {
+            color      : v(radiofield-color);
+            content    : "\f111";
+            cursor     : pointer;
+            display    : inline-block;
+            font-family: "Font Awesome 5 Free";
+            font-size  : 14px;
+            width      : 20px;
+        }
+
+        &:focus {
+            outline : 0;
+        }
+    }
+
+    .neo-radio-label {
+        color  : v(textfield-label-color);
+        display: inline-block;
+    }
+
+    .neo-radio-value-label {
+        color: v(textfield-label-color);
+    }
+}

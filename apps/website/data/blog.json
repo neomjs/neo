@@ -2,15 +2,28 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "May 1, 2021",
+        "id"          : 31,
+        "image"       : "new-formatting-concept-for-json-based-virtual-dom.png",
+        "name"        : "New formatting concept for JSON based virtual DOM",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/new-formatting-concept-for-json-based-virtual-dom-ee52acc5e04a?source=friends_link&sk=94f69dc71f662e0027118052ceb2db38"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Apr 29, 2021",
         "id"          : 30,
         "image"       : "lazy-loading-for-card-layout-items-and-tabs.png",
         "name"        : "Lazy loading for card layout items and tabs → neo.mjs v2.0.10",
         "provider"    : "Medium",
-        "publisher"   : "",
+        "publisher"   : "ITNEXT",
         "selectedInto": [],
         "type"        : "Blog Post",
-        "url"         : "https://tobiasuhlig.medium.com/lazy-loading-for-card-layout-items-and-tabs-neo-mjs-v2-0-10-2bd1c16cd458?source=friends_link&sk=c4651bfff3026ea7fe29f9589bde15b6"
+        "url"         : "https://itnext.io/lazy-loading-for-card-layout-items-and-tabs-neo-mjs-v2-0-10-2bd1c16cd458?source=friends_link&sk=c4651bfff3026ea7fe29f9589bde15b6"
     },
     {
         "author"      : "Tobias Uhlig",

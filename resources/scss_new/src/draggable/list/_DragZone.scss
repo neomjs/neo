@@ -1,0 +1,11 @@
+.neo-list {
+    &.neo-dragproxy {
+        .neo-draggable {
+            background-color: v(list-item-background-color-hover);
+        }
+    }
+
+    .neo-draggable {
+        cursor: pointer;
+    }
+}

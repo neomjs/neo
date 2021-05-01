@@ -1,0 +1,13 @@
+.neo-dragproxy.neo-tree-list {
+    .neo-list {
+        .neo-list-item {
+            margin-right: 0;
+        }
+    }
+
+    .neo-list-folder.neo-folder-open {
+        .neo-list-item-content:before {
+            content: "\f07b" !important;
+        }
+    }
+}

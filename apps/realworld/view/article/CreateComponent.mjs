@@ -45,80 +45,33 @@ class CreateComponent extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cn: [{
-                cls: ['container', 'page'],
-                cn : [{
-                    cls: ['row'],
-                    cn : [{
-                        cls: ['col-md-10', 'offset-md-1', 'col-xs-12'],
-                        cn : [{
-                            tag : 'ul',
-                            flag: 'errors',
-                            cls : ['error-messages']
-                        }, {
-                            tag: 'form',
-                            cn : [{
-                                tag: 'fieldset',
-                                cn : [{
-                                    tag: 'fieldset',
-                                    cls: ['form-group'],
-                                    cn : [{
-                                        tag        : 'input',
-                                        cls        : ['form-control', 'form-control-lg'],
-                                        name       : 'title',
-                                        flag       : 'title',
-                                        placeholder: 'Article Title',
-                                        type       : 'text'
-                                    }]
-                                }, {
-                                    tag: 'fieldset',
-                                    cls: ['form-group'],
-                                    cn : [{
-                                        tag        : 'input',
-                                        cls        : ['form-control'],
-                                        name       : 'description',
-                                        flag       : 'description',
-                                        placeholder: 'What\'s this article about?',
-                                        type       : 'text'
-                                    }]
-                                }, {
-                                    tag: 'fieldset',
-                                    cls: ['form-group'],
-                                    cn : [{
-                                        tag        : 'textarea',
-                                        cls        : ['form-control'],
-                                        name       : 'body',
-                                        flag       : 'body',
-                                        placeholder: 'Write your article (in markdown)',
-                                        rows       : 8
-                                    }]
-                                }, {
-                                    tag: 'fieldset',
-                                    cls: ['form-group'],
-                                    cn : [{
-                                        tag        : 'input',
-                                        cls        : ['form-control', 'field-tags'],
-                                        name       : 'tags',
-                                        flag       : 'tags',
-                                        placeholder: 'Enter tags',
-                                        type       : 'text'
-                                    }, {
-                                        cls : ['tag-list'],
-                                        flag: 'tag-list'
-                                    }]
-                                }, {
-                                    tag : 'button',
-                                    cls : ['btn', 'btn-lg', 'btn-primary', 'pull-xs-right'],
-                                    html: 'Publish Article',
-                                    type: 'button' // override the default submit type
-                                }]
-                            }]
-                        }]
-                    }]
-                }]
-            }]
-        }
+        _vdom: {cn: [
+            {cls: ['container', 'page'], cn: [
+                {cls: ['row'], cn: [
+                    {cls: ['col-md-10', 'offset-md-1', 'col-xs-12'], cn: [
+                        {tag: 'ul', cls : ['error-messages'], flag: 'errors'},
+                        {tag: 'form', cn: [
+                            {tag: 'fieldset', cn: [
+                                {tag: 'fieldset', cls: ['form-group'], cn: [
+                                    {tag: 'input', cls: ['form-control', 'form-control-lg'], flag: 'title', name: 'title', placeholder: 'Article Title', type: 'text'}
+                                ]},
+                                {tag: 'fieldset', cls: ['form-group'], cn: [
+                                    {tag: 'input', cls: ['form-control'], name: 'description', flag: 'description', placeholder: 'What\'s this article about?', type: 'text'}
+                                ]},
+                                {tag: 'fieldset', cls: ['form-group'], cn: [
+                                    {tag: 'textarea', cls: ['form-control'], flag: 'body', name: 'body', placeholder: 'Write your article (in markdown)', rows: 8}
+                                ]},
+                                {tag: 'fieldset', cls: ['form-group'], cn: [
+                                    {tag: 'input', cls: ['form-control', 'field-tags'], flag: 'tags', name: 'tags', placeholder: 'Enter tags', type: 'text'},
+                                    {cls: ['tag-list'], flag: 'tag-list'}
+                                ]},
+                                {tag: 'button', cls: ['btn', 'btn-lg', 'btn-primary', 'pull-xs-right'], html: 'Publish Article', type: 'button'}
+                            ]}
+                        ]}
+                    ]}
+                ]}
+            ]}
+        ]}
     }}
 
     /**

@@ -1,0 +1,34 @@
+.neo-classdetails-tutorialcomponent {
+    font-size: 20px;
+    padding: 10px;
+
+    .neo-header-text-container {
+        background-color: v(docs-classdetails-tutorialcomponent-background-color);
+        box-shadow      : 0 5px 10px rgba(0,0,0,.4);
+        color           : v(docs-classdetails-tutorialcomponent-color);
+        padding-left    : 10px;
+        position        : sticky;
+        top             : -10px;
+        z-index         : 2;
+    }
+
+    .neo-header-text {
+        background-clip: text;
+        color          : rgba(0,0,0,0.6);
+        font-size      : 28px;
+        font-weight    : 800;
+        text-shadow    : 2px 2px 3px rgba(200,200,200,0.1);
+    }
+
+    a {
+        color: #bbb;
+    }
+
+    a:visited {
+        color: #bbb;
+    }
+
+    hr {
+        border-style: groove;
+    }
+}

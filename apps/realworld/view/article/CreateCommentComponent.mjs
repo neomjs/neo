@@ -26,36 +26,18 @@ class CreateCommentComponent extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            tag: 'form',
-            cn : [{
-                cls: ['card-block'],
-                cn : [{
-                    tag        : 'textarea',
-                    cls        : ['form-control'],
-                    placeholder: 'Write a comment...',
-                    rows       : 3
-                }]
-            }, {
-                cls: ['card-footer'],
-                cn : [{
-                    tag: 'img',
-                    cls: ['comment-author-img'],
-                    src: 'https://static.productionready.io/images/smiley-cyrus.jpg' // https://github.com/gothinkster/realworld/issues/442
-                }, {
-                    vtype: 'text',
-                    html : '&nbsp;'
-                }, {
-                    tag : 'span',
-                    cls : ['comment-author']
-                }, {
-                    tag : 'button',
-                    cls : ['btn', 'btn-sm', 'btn-primary'],
-                    html: 'Post Comment',
-                    type: 'button' // override the default submit type
-                }]
-            }]
-        }
+        _vdom:
+            {tag: 'form', cn: [
+                {cls: ['card-block'], cn: [
+                    {tag: 'textarea', cls: ['form-control'], placeholder: 'Write a comment...', rows: 3}
+                ]},
+                {cls: ['card-footer'], cn: [
+                    {tag: 'img', cls: ['comment-author-img'], src: 'https://static.productionready.io/images/smiley-cyrus.jpg'},  // https://github.com/gothinkster/realworld/issues/442
+                    {vtype: 'text', html: '&nbsp;'},
+                    {tag: 'span', cls: ['comment-author']},
+                    {tag: 'button', cls: ['btn', 'btn-sm', 'btn-primary'], html: 'Post Comment', type: 'button'}
+                ]}
+            ]}
     }}
 
     /**
