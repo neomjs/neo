@@ -12,6 +12,7 @@ const chalk       = require('chalk'),
       path        = require('path'),
       packageJson = require(path.resolve(cwd, 'package.json')),
       neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      sass        = require('sass'),
       scssPath    = path.resolve(neoPath, 'resources/scss_new/src'),
       programName = `${packageJson.name} buildThemes`,
       questions   = [];
@@ -26,7 +27,7 @@ const getAllScssFiles = function(dirPath, arrayOfFiles) {
             arrayOfFiles = getAllScssFiles(dirPath + "/" + file, arrayOfFiles);
         } else {
             if (!path.basename(file).startsWith('_')) {
-                arrayOfFiles.push(path.join(__dirname, dirPath, "/", file));
+                arrayOfFiles.push(path.join(dirPath, "/", file));
             }
         }
     });
@@ -34,9 +35,23 @@ const getAllScssFiles = function(dirPath, arrayOfFiles) {
     return arrayOfFiles;
 }
 
-console.log('buildScss');
-console.log(scssPath);
+const files      = getAllScssFiles(scssPath),
+      useCssVars = true;
 
-const files = getAllScssFiles(scssPath);
-console.log(files);
+files.forEach(file => {
+    fs.readFile(file).then(content => {
+        sass.render({
+            data: `
+            $useCssVars: ${useCssVars};
+            @import "${path.resolve(neoPath, 'resources/scss_new/mixins/_all.scss')}";
+            ${content}`
+        }, (err, result) => {
+            if (err) {
+                console.log(err);
+            } else {
+                console.log(result.css.toString());
+            }
+        });
+    });
+});
 
