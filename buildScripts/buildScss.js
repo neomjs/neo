@@ -20,17 +20,22 @@ const autoprefixer = require('autoprefixer'),
       programName  = `${packageJson.name} buildThemes`,
       questions    = [];
 
-const getAllScssFiles = function(dirPath, arrayOfFiles) {
-    const files = fs.readdirSync(dirPath);
-
-    arrayOfFiles = arrayOfFiles || [];
+const getAllScssFiles = function(dirPath, arrayOfFiles=[], relativePath='') {
+    let files = fs.readdirSync(dirPath),
+        fileInfo;
 
     files.forEach(file => {
-        if (fs.statSync(dirPath + "/" + file).isDirectory()) {
-            arrayOfFiles = getAllScssFiles(dirPath + "/" + file, arrayOfFiles);
+        if (fs.statSync(dirPath + '/' + file).isDirectory()) {
+            arrayOfFiles = getAllScssFiles(dirPath + '/' + file, arrayOfFiles, '/' + file);
         } else {
-            if (!path.basename(file).startsWith('_')) {
-                arrayOfFiles.push(path.join(dirPath, "/", file));
+            fileInfo = path.parse(file);
+
+            if (!fileInfo.name.startsWith('_')) {
+                arrayOfFiles.push({
+                    name        : fileInfo.name,
+                    path        : path.join(dirPath, '/', file),
+                    relativePath: relativePath
+                });
             }
         }
     });
@@ -41,16 +46,8 @@ const getAllScssFiles = function(dirPath, arrayOfFiles) {
 const files      = getAllScssFiles(scssPath),
       useCssVars = true;
 
-let filePath;
-
-fs.mkdirpSync(path.resolve(neoPath, 'dist/production/css'));
-
 files.forEach(file => {
-    let fileName = path.parse(file).name;
-    console.log(fileName);
-    console.log(file);
-
-    fs.readFile(file).then(content => {
+    fs.readFile(file.path).then(content => {
         sass.render({
             data: `
             $useCssVars: ${useCssVars};
@@ -61,10 +58,11 @@ files.forEach(file => {
                 console.log(err);
             } else {
                 postcss([autoprefixer, cssnano]).process(result.css, {}).then(result => {
-                    filePath = path.resolve(neoPath, `dist/production/css/${fileName}.css`);
-                    console.log(result);
-                    console.log(filePath);
-                    console.log(fileName);
+                    let folderPath = path.resolve(neoPath, `dist/production/css/${file.relativePath}`),
+                        filePath   = path.resolve(folderPath, `${file.name}.css`);
+
+                    fs.mkdirpSync(folderPath);
+
                     fs.writeFile(filePath, result.css, () => true)
                     if ( result.map ) {
                         fs.writeFile(filePath, result.map.toString(), () => true)
