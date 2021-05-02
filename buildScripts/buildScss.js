@@ -3,14 +3,11 @@
 const autoprefixer = require('autoprefixer'),
       chalk        = require('chalk'),
       { program }  = require('commander'),
-      cp           = require('child_process'),
       cssnano      = require('cssnano'),
       cwd          = process.cwd(),
-      cpOpts       = {env: process.env, cwd: cwd, stdio: 'inherit', shell: true},
       envinfo      = require('envinfo'),
       fs           = require('fs-extra'),
       inquirer     = require('inquirer'),
-      os           = require('os'),
       path         = require('path'),
       packageJson  = require(path.resolve(cwd, 'package.json')),
       neoPath      = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
@@ -179,12 +176,4 @@ inquirer.prompt(questions).then(answers => {
         console.log(chalk.blue(`${programName} starting dist/production`));
         buildEnv(path.resolve(neoPath, scssPath), 'production');
     }
-
-    //const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-    //console.log(`\nTotal time for ${programName}: ${processTime}s`);
-
-    //process.exit();
 });
-
-
-
