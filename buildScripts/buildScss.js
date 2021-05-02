@@ -26,7 +26,7 @@ function getAllScssFiles(dirPath, arrayOfFiles=[], relativePath='') {
 
     files.forEach(file => {
         if (fs.statSync(dirPath + '/' + file).isDirectory()) {
-            arrayOfFiles = getAllScssFiles(dirPath + '/' + file, arrayOfFiles, '/' + file);
+            arrayOfFiles = getAllScssFiles(dirPath + '/' + file, arrayOfFiles, relativePath + '/' + file);
         } else {
             fileInfo = path.parse(file);
 
