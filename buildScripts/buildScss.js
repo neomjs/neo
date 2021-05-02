@@ -20,7 +20,7 @@ const autoprefixer = require('autoprefixer'),
       programName  = `${packageJson.name} buildThemes`,
       questions    = [];
 
-const getAllScssFiles = function(dirPath, arrayOfFiles=[], relativePath='') {
+function getAllScssFiles(dirPath, arrayOfFiles=[], relativePath='') {
     let files = fs.readdirSync(dirPath),
         fileInfo;
 
@@ -43,8 +43,8 @@ const getAllScssFiles = function(dirPath, arrayOfFiles=[], relativePath='') {
     return arrayOfFiles;
 }
 
-const files      = getAllScssFiles(scssPath),
-      useCssVars = true;
+let files      = getAllScssFiles(scssPath),
+    useCssVars = true;
 
 files.forEach(file => {
     fs.readFile(file.path).then(content => {
@@ -64,6 +64,7 @@ files.forEach(file => {
                     fs.mkdirpSync(folderPath);
 
                     fs.writeFile(filePath, result.css, () => true)
+
                     if ( result.map ) {
                         fs.writeFile(filePath, result.map.toString(), () => true)
                     }
