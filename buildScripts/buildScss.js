@@ -130,17 +130,23 @@ inquirer.prompt(questions).then(answers => {
     }
 
     const parseScssFiles = (files, mode, useCssVars) => {
+        const devMode = mode === 'development';
+
         files.forEach(file => {
             let folderPath = path.resolve(neoPath, `dist/${mode}/css/${file.relativePath}`),
-                filePath   = path.resolve(folderPath, `${file.name}.css`);
+                destPath   = path.resolve(folderPath, `${file.name}.css`);
 
             fs.readFile(file.path).then(content => {
                 sass.render({
                     data: `
+                        @use "sass:map";
+                        $neoMap: ();
                         $useCssVars: ${useCssVars};
                         @import "${path.resolve(neoPath, 'resources/scss_new/mixins/_all.scss')}";
                         ${content}`,
-                    outFile: filePath
+                    outFile       : destPath,
+                    sourceMap     : devMode,
+                    sourceMapEmbed: true
                 }, (err, result) => {
                     if (err) {
                         console.log(err);
@@ -151,13 +157,14 @@ inquirer.prompt(questions).then(answers => {
                             plugins.push(cssnano);
                         }
 
-                        postcss(plugins).process(result.css, {}).then(result => {
+                        postcss(plugins).process(result.css, {from: file.path, to: destPath}).then(result => {
                             fs.mkdirpSync(folderPath);
 
-                            fs.writeFile(filePath, result.css, () => true);
+                            fs.writeFile(destPath, result.css, () => true);
 
-                            if ( result.map ) {
-                                fs.writeFile(filePath, JSON.stringify(result.map), () => true);
+                            if (result.map) {
+                                console.log(result.map);
+                                fs.writeFile(destPath, JSON.stringify(result.map), () => true);
                             }
                         });
                     }
