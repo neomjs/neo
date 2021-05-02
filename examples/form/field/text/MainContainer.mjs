@@ -21,9 +21,21 @@ class MainContainer extends ConfigurationViewport {
 
         return [{
             module   : CheckBox,
+            checked  : me.exampleComponent.autoComplete,
+            labelText: 'autoComplete',
+            listeners: {change: me.onConfigChange.bind(me, 'autoComplete')}
+        }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.autoCorrect,
+            labelText: 'autoCorrect',
+            listeners: {change: me.onConfigChange.bind(me, 'autoCorrect')},
+            style    : {marginTop: '10px'}
+        }, {
+            module   : CheckBox,
             checked  : me.exampleComponent.clearable,
             labelText: 'clearable',
-            listeners: {change: me.onConfigChange.bind(me, 'clearable')}
+            listeners: {change: me.onConfigChange.bind(me, 'clearable')},
+            style    : {marginTop: '10px'}
         }, {
             module   : CheckBox,
             checked  : me.exampleComponent.clearToOriginalValue,

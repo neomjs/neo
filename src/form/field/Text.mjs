@@ -48,11 +48,11 @@ class Text extends Base {
         /**
          * @member {Boolean} autoComplete_=false
          */
-        autoComplete_: true,
+        autoComplete_: false,
         /**
          * @member {Boolean} autoCorrect_=false
          */
-        autoCorrect_: true,
+        autoCorrect_: false,
         /**
          * Internal variable to store the actual width for the label centerBorderEl
          * (only needed for labelPosition: 'inline')
@@ -172,7 +172,7 @@ class Text extends Base {
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetAutoCorrect(value, oldValue) {
+    afterSetAutoCorrect(value, oldValue) {console.log('afterSetAutoCorrect', value, oldValue);
         this.changeInputElKey('autocorrect', value ? null : 'off');
     }
 
