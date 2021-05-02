@@ -131,12 +131,16 @@ inquirer.prompt(questions).then(answers => {
 
     const parseScssFiles = (files, mode, useCssVars) => {
         files.forEach(file => {
+            let folderPath = path.resolve(neoPath, `dist/${mode}/css/${file.relativePath}`),
+                filePath   = path.resolve(folderPath, `${file.name}.css`);
+
             fs.readFile(file.path).then(content => {
                 sass.render({
                     data: `
                         $useCssVars: ${useCssVars};
                         @import "${path.resolve(neoPath, 'resources/scss_new/mixins/_all.scss')}";
-                        ${content}`
+                        ${content}`,
+                    outFile: filePath
                 }, (err, result) => {
                     if (err) {
                         console.log(err);
@@ -148,15 +152,12 @@ inquirer.prompt(questions).then(answers => {
                         }
 
                         postcss(plugins).process(result.css, {}).then(result => {
-                            let folderPath = path.resolve(neoPath, `dist/${mode}/css/${file.relativePath}`),
-                                filePath   = path.resolve(folderPath, `${file.name}.css`);
-
                             fs.mkdirpSync(folderPath);
 
-                            fs.writeFile(filePath, result.css, () => true)
+                            fs.writeFile(filePath, result.css, () => true);
 
                             if ( result.map ) {
-                                fs.writeFile(filePath, result.map.toString(), () => true)
+                                fs.writeFile(filePath, JSON.stringify(result.map), () => true);
                             }
                         });
                     }
