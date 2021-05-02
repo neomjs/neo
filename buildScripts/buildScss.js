@@ -144,8 +144,14 @@ inquirer.prompt(questions).then(answers => {
                     if (err) {
                         console.log(err);
                     } else {
-                        postcss([autoprefixer, cssnano]).process(result.css, {}).then(result => {
-                            let folderPath = path.resolve(neoPath, `dist/production/css/${file.relativePath}`),
+                        const plugins = [autoprefixer];
+
+                        if (mode === 'production') {
+                            plugins.push(cssnano);
+                        }
+
+                        postcss(plugins).process(result.css, {}).then(result => {
+                            let folderPath = path.resolve(neoPath, `dist/${mode}/css/${file.relativePath}`),
                                 filePath   = path.resolve(folderPath, `${file.name}.css`);
 
                             fs.mkdirpSync(folderPath);
