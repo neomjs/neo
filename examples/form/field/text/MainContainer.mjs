@@ -26,12 +26,6 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'autoComplete')}
         }, {
             module   : CheckBox,
-            checked  : me.exampleComponent.autoCorrect,
-            labelText: 'autoCorrect',
-            listeners: {change: me.onConfigChange.bind(me, 'autoCorrect')},
-            style    : {marginTop: '10px'}
-        }, {
-            module   : CheckBox,
             checked  : me.exampleComponent.clearable,
             labelText: 'clearable',
             listeners: {change: me.onConfigChange.bind(me, 'clearable')},
@@ -114,6 +108,12 @@ class MainContainer extends ConfigurationViewport {
             checked  : me.exampleComponent.required,
             labelText: 'required',
             listeners: {change: me.onConfigChange.bind(me, 'required')},
+            style    : {marginTop: '10px'}
+        }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.spellCheck,
+            labelText: 'spellCheck',
+            listeners: {change: me.onConfigChange.bind(me, 'spellCheck')},
             style    : {marginTop: '10px'}
         }, {
             module   : NumberField,
