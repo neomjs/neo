@@ -146,7 +146,7 @@ inquirer.prompt(questions).then(answers => {
                         ${content}`,
                     outFile       : destPath,
                     sourceMap     : devMode,
-                    sourceMapEmbed: true
+                    sourceMapEmbed: false
                 }, (err, result) => {
                     if (err) {
                         console.log(err);
@@ -157,14 +157,19 @@ inquirer.prompt(questions).then(answers => {
                             plugins.push(cssnano);
                         }
 
-                        postcss(plugins).process(result.css, {from: file.path, to: destPath}).then(result => {
+                        postcss(plugins).process(result.css, {
+                            from: file.path,
+                            to  : destPath,
+                            map : {
+                                prev: result.map.toString()
+                            }
+                        }).then(result => {
                             fs.mkdirpSync(folderPath);
 
                             fs.writeFile(destPath, result.css, () => true);
 
                             if (result.map) {
-                                console.log(result.map);
-                                fs.writeFile(destPath, JSON.stringify(result.map), () => true);
+                                fs.writeFileSync(result.opts.to + '.map', result.map.toString())
                             }
                         });
                     }
