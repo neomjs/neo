@@ -46,6 +46,14 @@ class Text extends Base {
          */
         autoCapitalize_: 'off',
         /**
+         * @member {Boolean} autoComplete_=false
+         */
+        autoComplete_: true,
+        /**
+         * @member {Boolean} autoCorrect_=false
+         */
+        autoCorrect_: true,
+        /**
          * Internal variable to store the actual width for the label centerBorderEl
          * (only needed for labelPosition: 'inline')
          * @member {Number|null} centerBorderElWidth=null
@@ -107,7 +115,7 @@ class Text extends Base {
         _vdom:
         {cn: [
             {tag: 'label', cls: ['neo-textfield-label'], style: {}},
-            {tag: 'input', autocomplete: 'off', autocorrect : 'off', cls: ['neo-textfield-input'], flag: 'neo-real-input', spellcheck: 'false', style: {}}
+            {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', spellcheck: 'false', style: {}}
         ]}
     }}
 
@@ -146,6 +154,26 @@ class Text extends Base {
      */
     afterSetAutoCapitalize(value, oldValue) {
         this.changeInputElKey('autocapitalize', value === 'off' || value === 'none' ? null : value);
+    }
+
+    /**
+     * Triggered after the autoComplete config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetAutoComplete(value, oldValue) {
+        this.changeInputElKey('autocomplete', value ? null : 'off');
+    }
+
+    /**
+     * Triggered after the autoCorrect config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetAutoCorrect(value, oldValue) {
+        this.changeInputElKey('autocorrect', value ? null : 'off');
     }
 
     /**
