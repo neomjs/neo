@@ -92,6 +92,9 @@ inquirer.prompt(questions).then(answers => {
           insideNeo = program.framework || false,
           startDate = new Date();
 
+
+    let fileCount = 0;
+
     const buildEnv = (p, mode) => {
         parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, true);
 
@@ -166,6 +169,8 @@ inquirer.prompt(questions).then(answers => {
                         }).then(result => {
                             fs.mkdirpSync(folderPath);
 
+                            const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
+                            console.log('Write file:', ++fileCount, `${processTime}s`, destPath);
                             fs.writeFile(destPath, result.css, () => true);
 
                             if (result.map) {
