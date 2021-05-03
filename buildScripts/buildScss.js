@@ -98,11 +98,18 @@ inquirer.prompt(questions).then(answers => {
         sassThemes = [];
 
     const buildEnv = (p, mode) => {
-        parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'src', true);
+        if (cssVars !== 'no') {
+            parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'src', true);
+        }
 
         if (cssVars !== 'no') {
             if (themes === 'all' || themes === 'dark')  {parseScssFiles(getAllScssFiles(path.join(p, 'theme-dark')),  mode, 'theme-dark',  true);}
             if (themes === 'all' || themes === 'light') {parseScssFiles(getAllScssFiles(path.join(p, 'theme-light')), mode, 'theme-light', true);}
+        }
+
+        if (cssVars !== 'yes') {
+            if (themes === 'all' || themes === 'dark')  {parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'theme-dark',  false);}
+            if (themes === 'all' || themes === 'light') {parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'theme-light', false);}
         }
     };
 
@@ -133,6 +140,7 @@ inquirer.prompt(questions).then(answers => {
         let data      = '',
             devMode   = mode === 'development',
             mixinPath = path.resolve(neoPath, 'resources/scss_new/mixins/_all.scss'),
+            suffix    = useCssVars ? '' : '-no-vars',
             themePath;
 
         if (target.includes('theme')) {
@@ -161,7 +169,7 @@ inquirer.prompt(questions).then(answers => {
         }
 
         files.forEach(file => {
-            let folderPath = path.resolve(neoPath, `dist/${mode}/css/${target}/${file.relativePath}`),
+            let folderPath = path.resolve(neoPath, `dist/${mode}/css${suffix}/${target}/${file.relativePath}`),
                 destPath   = path.resolve(folderPath, `${file.name}.css`);
 
             fs.readFile(file.path).then(content => {
