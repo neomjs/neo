@@ -170,7 +170,7 @@ inquirer.prompt(questions).then(answers => {
                             fs.mkdirpSync(folderPath);
 
                             const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-                            console.log('Write file:', ++fileCount, `${processTime}s`, destPath);
+                            console.log('Write file:', ++fileCount, chalk.blue(`${processTime}s`), destPath);
                             fs.writeFile(destPath, result.css, () => true);
 
                             if (result.map) {
