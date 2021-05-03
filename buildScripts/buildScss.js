@@ -161,7 +161,7 @@ inquirer.prompt(questions).then(answers => {
                             from: file.path,
                             to  : destPath,
                             map : {
-                                prev: result.map.toString()
+                                prev: result.map && result.map.toString()
                             }
                         }).then(result => {
                             fs.mkdirpSync(folderPath);
