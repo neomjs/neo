@@ -1,21 +1,22 @@
 'use strict';
 
-const autoprefixer = require('autoprefixer'),
-      chalk        = require('chalk'),
-      { program }  = require('commander'),
-      cssnano      = require('cssnano'),
-      cwd          = process.cwd(),
-      envinfo      = require('envinfo'),
-      fs           = require('fs-extra'),
-      inquirer     = require('inquirer'),
-      path         = require('path'),
-      packageJson  = require(path.resolve(cwd, 'package.json')),
-      neoPath      = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      postcss      = require('postcss'),
-      sass         = require('sass'),
-      scssPath     = 'resources/scss_new/',
-      programName  = `${packageJson.name} buildThemes`,
-      questions    = [];
+const autoprefixer    = require('autoprefixer'),
+      chalk           = require('chalk'),
+      { program }     = require('commander'),
+      cssnano         = require('cssnano'),
+      cwd             = process.cwd(),
+      envinfo         = require('envinfo'),
+      fs              = require('fs-extra'),
+      inquirer        = require('inquirer'),
+      path            = require('path'),
+      packageJson     = require(path.resolve(cwd, 'package.json')),
+      neoPath         = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      postcss         = require('postcss'),
+      sass            = require('sass'),
+      sassImportRegex = /@import[^'"]+?['"](.+?)['"];?/g,
+      scssPath        = 'resources/scss_new/',
+      programName     = `${packageJson.name} buildThemes`,
+      questions       = [];
 
 program
     .name(programName)
@@ -93,7 +94,9 @@ inquirer.prompt(questions).then(answers => {
           startDate = new Date();
 
 
-    let fileCount = 0;
+    let fileCount = 0,
+        sassThemes = [],
+        sassMixins;
 
     const buildEnv = (p, mode) => {
         parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'src', true);
@@ -136,12 +139,20 @@ inquirer.prompt(questions).then(answers => {
         if (target.includes('theme')) {
             themePath = path.resolve(neoPath, `resources/scss_new/${target}/_all.scss`);
 
+            if (!sassMixins) {
+                sassMixins = scssCombine(fs.readFileSync(mixinPath).toString(), path.dirname(mixinPath));
+            }
+
+            if (!sassThemes[target]) {
+                sassThemes[target] = scssCombine(fs.readFileSync(themePath).toString(), path.dirname(themePath));
+            }
+
             data = `
                 @use "sass:map";
                 $neoMap: ();
                 $useCssVars: false;
-                @import "${mixinPath}";
-                @import "${themePath}";
+                ${sassMixins}
+                ${sassThemes[target]}
             `;
         }
 
@@ -189,6 +200,27 @@ inquirer.prompt(questions).then(answers => {
                 });
             });
         });
+    };
+
+    const scssCombine = (content, baseDir) => {
+        if (sassImportRegex.test(content)) {
+            content = content.replace(sassImportRegex, (m, capture) => {
+                let parse = path.parse(path.resolve(baseDir, capture)),
+                    file  = `${parse.dir}/${parse.name}.scss`;
+
+                if (!fs.existsSync(file)) {
+                    file = `${parse.dir}/_${parse.name}.scss`;
+
+                    if (!fs.existsSync(file)) {
+                        return '';
+                    }
+                }
+
+                return scssCombine(fs.readFileSync(file).toString(), path.dirname(file));
+            });
+        }
+
+        return content;
     };
 
     // dist/development
