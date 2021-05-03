@@ -133,7 +133,8 @@ inquirer.prompt(questions).then(answers => {
     }
 
     const parseScssFiles = (files, mode, target, useCssVars) => {
-        const devMode = mode === 'development';
+        const devMode   = mode === 'development',
+              mixinPath = path.resolve(neoPath, 'resources/scss_new/mixins/_all.scss');
 
         files.forEach(file => {
             let folderPath = path.resolve(neoPath, `dist/${mode}/css/${target}/${file.relativePath}`),
@@ -145,7 +146,7 @@ inquirer.prompt(questions).then(answers => {
                         @use "sass:map";
                         $neoMap: ();
                         $useCssVars: ${useCssVars};
-                        @import "${path.resolve(neoPath, 'resources/scss_new/mixins/_all.scss')}";
+                        @import "${mixinPath}";
                         ${content}`,
                     outFile       : destPath,
                     sourceMap     : devMode,
