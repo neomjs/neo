@@ -102,11 +102,6 @@ inquirer.prompt(questions).then(answers => {
             if (themes === 'all' || themes === 'dark')  {parseScssFiles(getAllScssFiles(path.join(p, 'theme-dark')),  mode, 'theme-dark',  true);}
             if (themes === 'all' || themes === 'light') {parseScssFiles(getAllScssFiles(path.join(p, 'theme-light')), mode, 'theme-light', true);}
         }
-
-        if (cssVars === 'all' || cssVars === 'no') {
-            if (themes === 'all' || themes === 'dark')  {parseScssFiles(getAllScssFiles(path.join(p, 'theme-dark')),  mode, 'theme-dark',  false);}
-            if (themes === 'all' || themes === 'light') {parseScssFiles(getAllScssFiles(path.join(p, 'theme-light')), mode, 'theme-light', false);}
-        }
     };
 
     const getAllScssFiles = (dirPath, arrayOfFiles=[], relativePath='') => {
@@ -133,8 +128,22 @@ inquirer.prompt(questions).then(answers => {
     }
 
     const parseScssFiles = (files, mode, target, useCssVars) => {
-        const devMode   = mode === 'development',
-              mixinPath = path.resolve(neoPath, 'resources/scss_new/mixins/_all.scss');
+        let data      = '',
+            devMode   = mode === 'development',
+            mixinPath = path.resolve(neoPath, 'resources/scss_new/mixins/_all.scss'),
+            themePath;
+
+        if (target.includes('theme')) {
+            themePath = path.resolve(neoPath, `resources/scss_new/${target}/_all.scss`);
+
+            data = `
+                @use "sass:map";
+                $neoMap: ();
+                $useCssVars: false;
+                @import "${mixinPath}";
+                @import "${themePath}";
+            `;
+        }
 
         files.forEach(file => {
             let folderPath = path.resolve(neoPath, `dist/${mode}/css/${target}/${file.relativePath}`),
@@ -143,10 +152,8 @@ inquirer.prompt(questions).then(answers => {
             fs.readFile(file.path).then(content => {
                 sass.render({
                     data: `
-                        @use "sass:map";
-                        $neoMap: ();
+                        ${data}
                         $useCssVars: ${useCssVars};
-                        @import "${mixinPath}";
                         ${content}`,
                     outFile       : destPath,
                     sourceMap     : devMode,
