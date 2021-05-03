@@ -100,7 +100,7 @@ inquirer.prompt(questions).then(answers => {
     const buildEnv = (p, mode) => {
         parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'src', true);
 
-        if (cssVars === 'all' || cssVars === 'yes') {
+        if (cssVars !== 'no') {
             if (themes === 'all' || themes === 'dark')  {parseScssFiles(getAllScssFiles(path.join(p, 'theme-dark')),  mode, 'theme-dark',  true);}
             if (themes === 'all' || themes === 'light') {parseScssFiles(getAllScssFiles(path.join(p, 'theme-light')), mode, 'theme-light', true);}
         }
@@ -194,7 +194,7 @@ inquirer.prompt(questions).then(answers => {
                             fs.writeFile(destPath, result.css, () => true);
 
                             if (result.map) {
-                                fs.writeFileSync(result.opts.to + '.map', result.map.toString())
+                                fs.writeFile(result.opts.to + '.map', result.map.toString())
                             }
                         });
                     }
