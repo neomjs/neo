@@ -96,7 +96,7 @@ inquirer.prompt(questions).then(answers => {
     let fileCount = 0;
 
     const buildEnv = (p, mode) => {
-        parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, true);
+        parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'src', true);
 
         if (cssVars === 'all' || cssVars === 'yes') {
             if (themes === 'all' || themes === 'dark')  {console.log('todo');}
@@ -132,11 +132,11 @@ inquirer.prompt(questions).then(answers => {
         return arrayOfFiles;
     }
 
-    const parseScssFiles = (files, mode, useCssVars) => {
+    const parseScssFiles = (files, mode, target, useCssVars) => {
         const devMode = mode === 'development';
 
         files.forEach(file => {
-            let folderPath = path.resolve(neoPath, `dist/${mode}/css/${file.relativePath}`),
+            let folderPath = path.resolve(neoPath, `dist/${mode}/css/${target}/${file.relativePath}`),
                 destPath   = path.resolve(folderPath, `${file.name}.css`);
 
             fs.readFile(file.path).then(content => {
