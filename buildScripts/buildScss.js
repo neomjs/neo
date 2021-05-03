@@ -99,13 +99,13 @@ inquirer.prompt(questions).then(answers => {
         parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'src', true);
 
         if (cssVars === 'all' || cssVars === 'yes') {
-            if (themes === 'all' || themes === 'dark')  {console.log('todo');}
-            if (themes === 'all' || themes === 'light') {console.log('todo');}
+            if (themes === 'all' || themes === 'dark')  {parseScssFiles(getAllScssFiles(path.join(p, 'theme-dark')),  mode, 'theme-dark',  true);}
+            if (themes === 'all' || themes === 'light') {parseScssFiles(getAllScssFiles(path.join(p, 'theme-light')), mode, 'theme-light', true);}
         }
 
         if (cssVars === 'all' || cssVars === 'no') {
-            if (themes === 'all' || themes === 'dark')  {console.log('todo');}
-            if (themes === 'all' || themes === 'light') {console.log('todo');}
+            if (themes === 'all' || themes === 'dark')  {parseScssFiles(getAllScssFiles(path.join(p, 'theme-dark')),  mode, 'theme-dark',  false);}
+            if (themes === 'all' || themes === 'light') {parseScssFiles(getAllScssFiles(path.join(p, 'theme-light')), mode, 'theme-light', false);}
         }
     };
 
