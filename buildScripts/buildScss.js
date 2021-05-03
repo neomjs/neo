@@ -94,9 +94,8 @@ inquirer.prompt(questions).then(answers => {
           startDate = new Date();
 
 
-    let fileCount = 0,
-        sassThemes = [],
-        sassMixins;
+    let fileCount  = 0,
+        sassThemes = [];
 
     const buildEnv = (p, mode) => {
         parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'src', true);
@@ -139,10 +138,6 @@ inquirer.prompt(questions).then(answers => {
         if (target.includes('theme')) {
             themePath = path.resolve(neoPath, `resources/scss_new/${target}/_all.scss`);
 
-            if (!sassMixins) {
-                sassMixins = scssCombine(fs.readFileSync(mixinPath).toString(), path.dirname(mixinPath));
-            }
-
             if (!sassThemes[target]) {
                 sassThemes[target] = scssCombine(fs.readFileSync(themePath).toString(), path.dirname(themePath));
             }
@@ -150,9 +145,18 @@ inquirer.prompt(questions).then(answers => {
             data = `
                 @use "sass:map";
                 $neoMap: ();
+                $useCssVars: ${useCssVars};
+                @import "${mixinPath}";
                 $useCssVars: false;
-                ${sassMixins}
                 ${sassThemes[target]}
+                $useCssVars: ${useCssVars};
+            `;
+        } else {
+            data = `
+                @use "sass:map";
+                $neoMap: ();
+                $useCssVars: ${useCssVars};
+                @import "${mixinPath}";
             `;
         }
 
@@ -162,10 +166,7 @@ inquirer.prompt(questions).then(answers => {
 
             fs.readFile(file.path).then(content => {
                 sass.render({
-                    data: `
-                        ${data}
-                        $useCssVars: ${useCssVars};
-                        ${content}`,
+                    data          : data + content,
                     outFile       : destPath,
                     sourceMap     : devMode,
                     sourceMapEmbed: false
