@@ -1,9 +1,5 @@
-import BlogContainer           from './blog/Container.mjs';
 import Container               from '../../../src/container/Base.mjs';
-import ExamplesList            from './examples/List.mjs';
-import ExamplesTabContainer    from './examples/TabContainer.mjs';
 import HeaderContainer         from './HeaderContainer.mjs';
-import HomeTabContainer        from './home/TabContainer.mjs';
 import MainContainerController from './MainContainerController.mjs';
 import TabContainer            from '../../../src/tab/Container.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
@@ -54,8 +50,8 @@ class MainContainer extends Viewport {
                 sortable : true,
 
                 items: [{
-                    module         : HomeTabContainer,
-                    reference      : 'home-tab-container',
+                    module         : () => import('./home/TabContainer.mjs'),
+                    reference      : 'home',
                     tabButtonConfig: {
                         editRoute: false,
                         iconCls  : 'fa fa-home',
@@ -63,7 +59,7 @@ class MainContainer extends Viewport {
                         text     : 'Home'
                     }
                 }, {
-                    module         : BlogContainer,
+                    module         : () => import('./blog/Container.mjs'),
                     tabButtonConfig: {
                         editRoute: false,
                         iconCls  : 'fa fa-rss',
@@ -71,8 +67,8 @@ class MainContainer extends Viewport {
                         text     : 'Blog'
                     }
                 }, {
-                    module         : ExamplesTabContainer,
-                    reference      : 'examples-tab-container',
+                    module         : () => import('./examples/TabContainer.mjs'),
+                    reference      : 'examples',
                     tabButtonConfig: {
                         editRoute: false,
                         iconCls  : 'fa fa-images',
@@ -80,8 +76,8 @@ class MainContainer extends Viewport {
                         text     : 'Examples'
                     }
                 }, {
-                    module         : ExamplesList,
-                    reference      : 'docs-list',
+                    module         : () => import('./examples/List.mjs'),
+                    reference      : 'docs',
                     storeUrl       : '../../apps/website/data/docs.json',
                     tabButtonConfig: {
                         editRoute: false,

@@ -256,11 +256,12 @@ class MainContainerController extends ComponentController {
     onHashChange(value, oldValue) {
         let me             = this,
             activeIndex    = me.getTabIndex(value.hash),
+            activeView     = me.getView(activeIndex),
             country        = value.hash && value.hash.country,
             countryField   = me.getReference('country-field'),
             tabContainer   = me.getReference('tab-container'),
-            activeView     = me.getView(activeIndex),
             delaySelection = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
+            listeners      = me.mainTabsListeners,
             id, ntype, selectionModel;
 
         tabContainer.activeIndex = activeIndex;
@@ -296,8 +297,6 @@ class MainContainerController extends ComponentController {
                 me.mapboxglMapHasData = true;
             }
 
-            // console.log(countryField.getRecord());
-
             if (me.countryRecord) {
                 MainContainerController.selectMapboxGlCountry(activeView, me.countryRecord);
             }
@@ -321,9 +320,9 @@ class MainContainerController extends ComponentController {
                     }
 
                     switch(ntype) {
-                        case 'gallery':
-                            if (!me.mainTabsListeners.includes('gallery')) {
-                                me.mainTabsListeners.push('gallery');
+                        case 'gallery': {
+                            if (!listeners.includes('gallery')) {
+                                listeners.push('gallery');
                                 me.getReference('gallery').on('select', me.updateCountryField, me);
                             }
 
@@ -331,9 +330,10 @@ class MainContainerController extends ComponentController {
                                 selectionModel.select(country, false);
                             }
                             break;
-                        case 'helix':
-                            if (!me.mainTabsListeners.includes('helix')) {
-                                me.mainTabsListeners.push('helix');
+                        }
+                        case 'helix': {
+                            if (!listeners.includes('helix')) {
+                                listeners.push('helix');
                                 me.getReference('helix').on('select', me.updateCountryField, me);
                             }
 
@@ -344,9 +344,10 @@ class MainContainerController extends ComponentController {
                                 activeView.onKeyDownSpace(null);
                             }
                             break;
-                        case 'table-container':
-                            if (!me.mainTabsListeners.includes('table')) {
-                                me.mainTabsListeners.push('table');
+                        }
+                        case 'table-container': {
+                            if (!listeners.includes('table')) {
+                                listeners.push('table');
 
                                 me.getReference('table').on({
                                     deselect: me.clearCountryField,
@@ -364,6 +365,7 @@ class MainContainerController extends ComponentController {
                                 Neo.main.DomAccess.scrollToTableRow({id: id});
                             }
                             break;
+                        }
                     }
                 }
             }, delaySelection);
