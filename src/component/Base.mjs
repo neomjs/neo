@@ -443,24 +443,25 @@ class Base extends CoreBase {
      */
     afterSetAppName(value, oldValue) {
         if (value) {
-            let me = this,
+            let me     = this,
+                cssMap = Neo.cssMap,
                 classPath, fileName, ns, themeFiles;
 
             if (!Neo.cssMap) {
                 throw new Error('theme-map.json did not get loaded', me);
             }
 
-            themeFiles = Neo.ns(me.className, false, Neo.cssMap.fileInfo);
+            themeFiles = Neo.ns(me.className, false, cssMap.fileInfo);
 
             if (themeFiles) {
-                if (!Neo.ns(`${value}.${me.className}`, false, Neo.cssMap)) {
+                if (!Neo.ns(`${value}.${me.className}`, false, cssMap)) {
                     classPath = me.className.split('.');
                     fileName  = classPath.pop();
                     classPath = classPath.join('.');
-                    ns        = Neo.ns(`${value}.${classPath}`, true, Neo.cssMap);
+                    ns        = Neo.ns(`${value}.${classPath}`, true, cssMap);
 
                     ns[fileName] = true;
-                    console.log(Neo.cssMap);
+                    console.log(cssMap);
                 }
             }
         }
