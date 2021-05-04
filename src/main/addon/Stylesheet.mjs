@@ -102,6 +102,7 @@ class Stylesheet extends Base {
     /**
      *
      * @param {Object} data
+     * @param {Array} data.rules
      * @protected
      */
     insertCssRules(data) {
