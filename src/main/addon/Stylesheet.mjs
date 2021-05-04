@@ -64,7 +64,10 @@ class Stylesheet extends Base {
         className = className.split('.').join('/');
 
         data.folders.forEach(folder => {
-            if (folder === 'src' || folder.includes('theme-') && Neo.config.themes.includes(`neo-${folder}`)) {
+            if (
+                folder === 'src' && Neo.config.useCssVars
+                || folder.includes('theme-') && Neo.config.themes.includes(`neo-${folder}`)
+            ) {
                 this.createStyleSheet(null, null, `${Neo.config.cssPath}css/${folder}/${className}.css`);
             }
         });
