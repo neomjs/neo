@@ -98,6 +98,39 @@ class App extends Base {
     }
 
     /**
+     *
+     * @param {String} appName
+     * @param {String} className
+     */
+    insertThemeFiles(appName, className) {
+        let me        = this,
+            cssMap    = Neo.cssMap,
+            classPath, fileName, ns, themeFiles;
+
+        if (!cssMap) {
+            throw new Error('theme-map.json did not get loaded', me);
+        }
+
+        themeFiles = Neo.ns(className, false, cssMap.fileInfo);
+
+        if (themeFiles) {
+            if (!Neo.ns(`${appName}.${className}`, false, cssMap)) {
+                classPath = className.split('.');
+                fileName  = classPath.pop();
+                classPath = classPath.join('.');
+                ns        = Neo.ns(`${appName}.${classPath}`, true, cssMap);
+
+                ns[fileName] = true;
+                console.log(cssMap);
+
+                Neo.main.addon.Stylesheet.addThemeFiles({
+                    files: themeFiles
+                });
+            }
+        }
+    }
+
+    /**
      * Every dom event will get forwarded as a worker message from main and ends up here first
      * @param {Object} data useful event properties, differs for different event types. See Neo.main.DomEvents.
      */
