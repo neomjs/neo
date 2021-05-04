@@ -37,9 +37,8 @@ class Chip extends Base {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cn: []
-        }
+        _vdom:
+        {cn: []}
     }}
 
     /**

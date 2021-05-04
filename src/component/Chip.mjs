@@ -49,19 +49,12 @@ class Chip extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            tabIndex: -1,
-            cn: [{
-                tag: 'span',
-                cls: ['neo-chip-glyph']
-            }, {
-                tag: 'span',
-                cls: ['neo-chip-text']
-            }, {
-                tag: 'span',
-                cls: ['neo-chip-close-button', 'far fa-times-circle']
-            }]
-        }
+        _vdom:
+        {tabIndex: -1, cn: [
+            {tag: 'span', cls: ['neo-chip-glyph']},
+            {tag: 'span', cls: ['neo-chip-text']},
+            {tag: 'span', cls: ['neo-chip-close-button', 'far fa-times-circle']}
+        ]}
     }}
 
     /**

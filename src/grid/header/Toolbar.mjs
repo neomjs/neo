@@ -36,12 +36,10 @@ class Toolbar extends BaseToolbar {
          * @member {Object} _vdom
          * @protected
          */
-        _vdom: {
-            cn: [{
-                cls: ['neo-grid-row'],
-                cn : []
-            }]
-        }
+        _vdom:
+        {cn: [
+            {cls: ['neo-grid-row'], cn: []}
+        ]}
     }}
 
     /**

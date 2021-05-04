@@ -40,10 +40,8 @@ class View extends Component {
         /**
          * @member {Object} _vdom={tag: 'tbody', cn : []}
          */
-        _vdom: {
-            tag: 'tbody',
-            cn : []
-        }
+        _vdom:
+        {tag: 'tbody', cn: []}
     }}
 
     /**

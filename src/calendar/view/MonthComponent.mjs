@@ -96,24 +96,16 @@ class MonthComponent extends Component {
         /**
          * @member {Object} vdom
          */
-        vdom: {
-            cn: [{
-                cls: ['neo-days-header'],
-                cn : [{
-                    cls  : ['neo-static-header'],
-                    style: {},
-                    cn   : [{
-                        tag : 'span',
-                        cls : ['neo-month-name'],
-                        flag: 'month-name'
-                    }, {
-                        vtype: 'text'
-                    }]
-                }]
-            }, {
-                cls: ['neo-c-m-scrollcontainer']
-            }]
-        },
+        vdom:
+        {cn: [
+            {cls: ['neo-days-header'], cn: [
+                {cls: ['neo-static-header'], style: {}, cn: [
+                    {tag: 'span', cls: ['neo-month-name'], flag: 'month-name'},
+                    {vtype: 'text'}
+                ]}
+            ]},
+            {cls: ['neo-c-m-scrollcontainer']}
+        ]},
         /**
          * 0-6 => Sun-Sat
          * @member {Number} weekStartDay_=0

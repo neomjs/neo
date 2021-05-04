@@ -55,9 +55,8 @@ class TimeAxisComponent extends Component {
         /**
          * @member {Object} vdom
          */
-        vdom: {
-            style: {}
-        }
+        vdom:
+        {style: {}}
     }}
 
     /**

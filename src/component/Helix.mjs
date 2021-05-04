@@ -96,15 +96,10 @@ class Helix extends Component {
         /**
          * @member {Object} itemTpl_
          */
-        itemTpl_: {
-            cls     : ['surface', 'neo-helix-item'],
-            style   : {},
-            tabIndex: '-1',
-            cn: [{
-                tag: 'img',
-                cls: ['contact-item']
-            }]
-        },
+        itemTpl_:
+        {cls: ['surface', 'neo-helix-item'], style: {}, tabIndex: '-1', cn: [
+            {tag: 'img', cls: ['contact-item']}
+        ]},
         /**
          * The unique record field containing the id.
          * @member {String} keyProperty='id'
@@ -238,22 +233,14 @@ class Helix extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            style   : {},
-            tabIndex: '-1',
-            cn: [{
-                cls  : ['container'],
-                style: {},
-                cn: [{
-                    cls  : ['group'],
-                    cn   : [],
-                    style: {
-                        opacity  : 1,
-                        transform: 'matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 461, 452.5, -100700, 1)'
-                    }
-                }]
-            }]
-        }
+        _vdom:
+        {style: {}, tabIndex: '-1', cn: [
+            {cls: ['container'], style: {}, cn: [
+                {cls: ['group'], cn: [], style: {
+                    opacity: 1, transform: 'matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 461, 452.5, -100700, 1)'}
+                }
+            ]}
+        ]}
     }}
 
     /**

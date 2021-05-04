@@ -49,73 +49,44 @@ class List extends BaseList {
             basePath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/website';
         }
 
-        const vdomCn = [{
-            cls: ['content'],
-            cn : [{
-                cls  : ['neo-full-size', 'preview-image'],
-                style: {
-                    backgroundImage: `url('${basePath}/blog/${record.image}'), linear-gradient(#777, #333)`
-                }
-            }, {
-                cls: ['neo-relative'],
-                cn : [{
-                    cls: ['neo-absolute', 'neo-item-bottom-position'],
-                    cn : [{
-                        cls   : ['neo-title'],
-                        href  : record.url,
-                        tag   : 'a',
-                        target: '_blank',
-                        cn    : [{
-                            flag: 'name',
-                            html: record.name.replace(List.nameRegEx, "$1")
-                        }]
-                    }, {
-                        cls: ['neo-top-20'],
-                        cn : [{
-                            tag: 'img',
-                            cls: ['neo-user-image'],
-                            src: `${basePath}/blogAuthor/${record.authorImage}`
-                        }, {
-                            cls: ['neo-inner-content'],
-                            cn : [{
-                                cls : ['neo-inner-details'],
-                                flag: 'author',
-                                cn  : [{
-                                    cls : ['neo-bold'],
-                                    tag : 'span',
-                                    html: record.author
-                                }]
-                            }, {
-                                cls : ['neo-inner-details'],
-                                html: record.date
-                            }]
-                        }]
-                    }]
-                }]
-            }]
-        }];
+        const vdomCn = [
+            {cls: ['content'], cn: [
+                {cls: ['neo-full-size', 'preview-image'], style: {
+                    backgroundImage: `url('${basePath}/blog/${record.image}'), linear-gradient(#777, #333)`}
+                },
+                {cls: ['neo-relative'], cn: [
+                    {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
+                        {tag: 'a', cls: ['neo-title'], href: record.url, target: '_blank', cn: [
+                            {flag: 'name', html: record.name.replace(List.nameRegEx, "$1")}
+                        ]},
+                        {cls: ['neo-top-20'], cn: [
+                            {tag: 'img', cls: ['neo-user-image'], src: `${basePath}/blogAuthor/${record.authorImage}`},
+                            {cls: ['neo-inner-content'], cn: [
+                                {cls: ['neo-inner-details'], flag: 'author', cn: [
+                                    {tag: 'span', cls: ['neo-bold'], html: record.author}
+                                ]},
+                                {cls: ['neo-inner-details'], html: record.date}
+                            ]}
+                        ]}
+                    ]}
+                ]}
+            ]}
+        ];
 
         if (record.publisher.length > 0) {
-            VDomUtil.getByFlag(vdomCn[0], 'author').cn.push({
-                vtype: 'text',
-                html : ' in '
-            }, {
-                cls : ['neo-bold'],
-                tag : 'span',
-                html: record.publisher
-            });
+            VDomUtil.getByFlag(vdomCn[0], 'author').cn.push(
+                {vtype: 'text', html : ' in '},
+                {tag: 'span', cls: ['neo-bold'], html: record.publisher}
+            );
         }
 
         if (record.selectedInto.length > 0) {
-            vdomCn[0].cn[1].cn.unshift({
-                cls: ['neo-absolute', 'neo-item-top-position'],
-                cn : [{
-                    html: `Officially selected by ${record.provider} into`
-                }, {
-                    cls : ['neo-bold'],
-                    html: record.selectedInto.join('</br>')
-                }]
-            });
+            vdomCn[0].cn[1].cn.unshift(
+                {cls: ['neo-absolute', 'neo-item-top-position'], cn: [
+                    {html: `Officially selected by ${record.provider} into`},
+                    {cls: ['neo-bold'], html: record.selectedInto.join('</br>')}
+                ]}
+            );
         }
 
         return vdomCn;

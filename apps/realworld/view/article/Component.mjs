@@ -68,74 +68,74 @@ class Component extends BaseComponent {
          * @member {Object} _vdom
          */
         _vdom:
-            {cn: [
-                {cls: ['banner'], cn: [
-                    {cls: ['container'], cn: [
-                        {tag: 'h1', flag: 'title'},
-                        {cls: ['article-meta'], cn: [
-                            {tag: 'a', flag: 'userimage', cn: [
-                                {tag: 'img'}
-                            ]},
-                            {cls: ['info'], cn: [
-                                {tag: 'a', cls: ['author'], flag: 'username'},
-                                {tag: 'span', cls: ['date'], flag: 'createdAt'}
-                            ]},
-                            {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'follow-button'], cn: [
-                                {tag: 'i', flag: 'followIcon'},
-                                {vtype: 'text', flag: 'followAuthor'},
-                                {vtype: 'text', flag: 'username'}
-                            ]},
-                            {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'edit-button'], flag: 'edit-button', removeDom: true, cn: [
-                                {tag: 'i', cls: ['ion-edit']},
-                                {vtype: 'text', html: ' Edit Article'}
-                            ]},
-                            {vtype: 'text', html: '&nbsp;&nbsp;'},
-                            {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-primary', 'favorite-button'], flag: 'favorited', cn: [
-                                {tag: 'i', cls: ['ion-heart']},
-                                {vtype: 'text', html: '&nbsp;'},
-                                {vtype: 'text'},
-                                {vtype: 'text', html: ' Post '},
-                                {tag: 'span', cls: ['counter'], flag: 'favoritesCount'}
-                            ]},
-                            {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-danger', 'delete-button'], flag: 'delete-button', removeDom: true, cn: [
-                                {tag: 'i', cls: ['ion-trash-a']},
-                                {vtype: 'text', html: ' Delete Article'}
-                            ]}
+        {cn: [
+            {cls: ['banner'], cn: [
+                {cls: ['container'], cn: [
+                    {tag: 'h1', flag: 'title'},
+                    {cls: ['article-meta'], cn: [
+                        {tag: 'a', flag: 'userimage', cn: [
+                            {tag: 'img'}
+                        ]},
+                        {cls: ['info'], cn: [
+                            {tag: 'a', cls: ['author'], flag: 'username'},
+                            {tag: 'span', cls: ['date'], flag: 'createdAt'}
+                        ]},
+                        {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'follow-button'], cn: [
+                            {tag: 'i', flag: 'followIcon'},
+                            {vtype: 'text', flag: 'followAuthor'},
+                            {vtype: 'text', flag: 'username'}
+                        ]},
+                        {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'edit-button'], flag: 'edit-button', removeDom: true, cn: [
+                            {tag: 'i', cls: ['ion-edit']},
+                            {vtype: 'text', html: ' Edit Article'}
+                        ]},
+                        {vtype: 'text', html: '&nbsp;&nbsp;'},
+                        {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-primary', 'favorite-button'], flag: 'favorited', cn: [
+                            {tag: 'i', cls: ['ion-heart']},
+                            {vtype: 'text', html: '&nbsp;'},
+                            {vtype: 'text'},
+                            {vtype: 'text', html: ' Post '},
+                            {tag: 'span', cls: ['counter'], flag: 'favoritesCount'}
+                        ]},
+                        {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-danger', 'delete-button'], flag: 'delete-button', removeDom: true, cn: [
+                            {tag: 'i', cls: ['ion-trash-a']},
+                            {vtype: 'text', html: ' Delete Article'}
+                        ]}
+                    ]}
+                ]}
+            ]},
+            {cls: ['container', 'page'], cn: [
+                {cls: ['row', 'article-content'], cn: [
+                    {cls: ['col-md-12'], flag: 'body', cn: []}
+                ]},
+                {tag: 'hr'},
+                {cls: ['article-actions'], flag: 'article-actions', cn: [
+                    {cls: ['article-meta'], cn: [
+                        {tag: 'a', flag: 'userimage', cn: [{tag: 'img'}]},
+                        {cls: ['info'], cn: [
+                            {tag: 'a', cls: ['author'], flag: 'username'},
+                            {tag: 'span', cls: ['date'], html: 'January 20th'}
+                        ]},
+                        {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'follow-button'], cn: [
+                            {tag: 'i', flag: 'followIcon'},
+                            {vtype: 'text', flag: 'followAuthor'},
+                            {vtype: 'text', flag: 'username'}
+                        ]},
+                        {vtype: 'text', html: '&nbsp;&nbsp;'},
+                        {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-primary', 'favorite-button'], flag: 'favorited', cn: [
+                            {tag: 'i', cls: ['ion-heart']},
+                            {vtype: 'text', html: '&nbsp;'},
+                            {vtype: 'text'},
+                            {vtype: 'text', html: ' Post '},
+                            {tag: 'span', cls: ['counter'], flag: 'favoritesCount'}
                         ]}
                     ]}
                 ]},
-                {cls: ['container', 'page'], cn: [
-                    {cls: ['row', 'article-content'], cn: [
-                        {cls: ['col-md-12'], flag: 'body', cn: []}
-                    ]},
-                    {tag: 'hr'},
-                    {cls: ['article-actions'], flag: 'article-actions', cn: [
-                        {cls: ['article-meta'], cn: [
-                            {tag: 'a', flag: 'userimage', cn: [{tag: 'img'}]},
-                            {cls: ['info'], cn: [
-                                {tag: 'a', cls: ['author'], flag: 'username'},
-                                {tag: 'span', cls: ['date'], html: 'January 20th'}
-                            ]},
-                            {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-secondary', 'follow-button'], cn: [
-                                {tag: 'i', flag: 'followIcon'},
-                                {vtype: 'text', flag: 'followAuthor'},
-                                {vtype: 'text', flag: 'username'}
-                            ]},
-                            {vtype: 'text', html: '&nbsp;&nbsp;'},
-                            {tag: 'button', cls: ['btn', 'btn-sm', 'btn-outline-primary', 'favorite-button'], flag: 'favorited', cn: [
-                                {tag: 'i', cls: ['ion-heart']},
-                                {vtype: 'text', html: '&nbsp;'},
-                                {vtype: 'text'},
-                                {vtype: 'text', html: ' Post '},
-                                {tag: 'span', cls: ['counter'], flag: 'favoritesCount'}
-                            ]}
-                        ]}
-                    ]},
-                    {cls: 'row', cn: [
-                        {cls: ['col-xs-12', 'col-md-8', 'offset-md-2'], flag: 'comments-section', cn: []}
-                    ]}
+                {cls: 'row', cn: [
+                    {cls: ['col-xs-12', 'col-md-8', 'offset-md-2'], flag: 'comments-section', cn: []}
                 ]}
             ]}
+        ]}
     }}
 
     /**

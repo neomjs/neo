@@ -45,6 +45,7 @@ class TextArea extends Text {
         inputTag_: 'textarea',
         /**
          * Disabling to set a type for the textarea tag
+         * See: inputTag_
          * @member {String|null} inputType=null
          * @protected
          */

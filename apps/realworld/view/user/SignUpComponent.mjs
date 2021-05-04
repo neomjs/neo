@@ -42,38 +42,23 @@ class SignUpComponent extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cn: [{
-                cls: ['container', 'page'],
-                cn : [{
-                    cls: ['row'],
-                    cn : [{
-                        cls: ['col-md-6', 'offset-md-3', 'col-xs-12'],
-                        cn : [{
-                            tag : 'h1',
-                            cls : ['text-xs-center']
-                        }, {
-                            tag: 'p',
-                            cls: ['text-xs-center'],
-                            cn : [{tag: 'a'}]
-                        }, {
-                            tag: 'ul',
-                            cls: ['error-messages']
-                        }, {
-                            tag: 'form',
-                            cn : [{
-                                tag: 'fieldset',
-                                cn : [{
-                                    tag : 'button',
-                                    cls : ['btn', 'btn-lg', 'btn-primary', 'pull-xs-right'],
-                                    type: 'button' // override the default submit type
-                                }]
-                            }]
-                        }]
-                    }]
-                }]
-            }]
-        }
+        _vdom:
+        {cn: [
+            {cls: ['container', 'page'], cn: [
+                {cls: ['row'], cn: [
+                    {cls: ['col-md-6', 'offset-md-3', 'col-xs-12'], cn: [
+                        {tag: 'h1', cls: ['text-xs-center']},
+                        {tag: 'p', cls: ['text-xs-center'], cn : [{tag: 'a'}]},
+                        {tag: 'ul', cls: ['error-messages']},
+                        {tag: 'form', cn: [
+                            {tag: 'fieldset', cn: [
+                                {tag: 'button', cls: ['btn', 'btn-lg', 'btn-primary', 'pull-xs-right'], type: 'button'}
+                            ]}
+                        ]}
+                    ]}
+                ]}
+            ]}
+        ]}
     }}
 
     /**

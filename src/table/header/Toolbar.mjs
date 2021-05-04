@@ -37,13 +37,10 @@ class Toolbar extends BaseToolbar {
         /**
          * @member {Object} _vdom={tag: 'thead',cn : [{tag: 'tr',cn : []}]}
          */
-        _vdom: {
-            tag: 'thead',
-            cn : [{
-                tag: 'tr',
-                cn : []
-            }]
-        }
+        _vdom:
+        {tag: 'thead', cn: [
+            {tag: 'tr', cn: []}
+        ]}
     }}
 
     /**

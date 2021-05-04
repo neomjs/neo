@@ -102,30 +102,19 @@ class Circle extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            tabIndex: -1,
-            cn: [{
-                cls  : ['neo-circle-center'],
-                style: {},
-                cn: [{
-                    cls: ['neo-circle-front'],
-                    cn : [{
-                        cls  : ['neo-circle'],
-                        style: {},
-                        cn: [
-                            {cls: ['neo-count-items']},
-                            {cls: ['neo-circle-name']}
-                        ]
-                    }, {
-                        cls  : ['neo-outer-circle'],
-                        style: {}
-                    }]
-                }, {
-                    cls: ['neo-circle-back'],
-                    cn : []
-                }]
-            }]
-        }
+        _vdom:
+        {tabIndex: -1, cn: [
+            {cls: ['neo-circle-center'], style: {}, cn: [
+                {cls: ['neo-circle-front'], cn: [
+                    {cls: ['neo-circle'], style: {}, cn: [
+                        {cls: ['neo-count-items']},
+                        {cls: ['neo-circle-name']}
+                    ]},
+                    {cls: ['neo-outer-circle'], style: {}}
+                ]},
+                {cls: ['neo-circle-back'], cn: []}
+            ]}
+        ]}
     }}
 
     /**

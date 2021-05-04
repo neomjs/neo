@@ -35,7 +35,8 @@ class TagListComponent extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {cn: [
+        _vdom:
+        {cn: [
             {cls: ['sidebar'], cn: [
                 {tag: 'p', html: 'Popular Tags'},
                 {cls: ['tag-list']}

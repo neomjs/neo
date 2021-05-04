@@ -39,19 +39,13 @@ class Split extends Button {
         /**
          * @member {String} _vdom
          */
-        _vdom: {
-            cls: ['neo-split-button'],
-            cn : [{
-                tag: 'button',
-                cn : [{
-                    tag: 'span',
-                    cls: ['neo-button-glyph']
-                },{
-                    tag: 'span',
-                    cls: ['neo-button-text']
-                }]
-            }]
-        }
+        _vdom:
+        {cls: ['neo-split-button'], cn: [
+            {tag: 'button', cn: [
+                {tag: 'span', cls: ['neo-button-glyph']},
+                {tag: 'span', cls: ['neo-button-text']}
+            ]}
+        ]}
     }}
 
     /**

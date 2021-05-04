@@ -123,26 +123,18 @@ class DateSelector extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            tabIndex: -1,
-            cn: [{
-                cls: ['neo-dateselector-header'],
-                cn : [{
-                    cls: ['neo-nav-button', 'neo-prev-button']
-                }, {
-                    cls: ['neo-center-region'],
-                    cn : [
-                        {cls: ['neo-month-text']},
-                        {cls: ['neo-year-text']}
-                    ]
-                }, {
-                    cls: ['neo-nav-button', 'neo-next-button']
-                }]
-            }, {
-                cls: ['neo-dateselector-content'],
-                cn : []
-            }]
-        }
+        _vdom:
+        {tabIndex: -1, cn: [
+            {cls: ['neo-dateselector-header'], cn: [
+                {cls: ['neo-nav-button', 'neo-prev-button']},
+                {cls: ['neo-center-region'], cn: [
+                    {cls: ['neo-month-text']},
+                    {cls: ['neo-year-text']}
+                ]},
+                {cls: ['neo-nav-button', 'neo-next-button']}
+            ]},
+            {cls: ['neo-dateselector-content'], cn: []}
+        ]}
     }}
 
     /**
@@ -424,21 +416,13 @@ class DateSelector extends Component {
                     vdom = me.vdom;
                     x    = slideDirection === 'right' ? 0 : -data[0].width;
 
-                    vdom.cn.push({
-                        cls: ['neo-relative'],
-                        cn : [{
-                            cls: ['neo-animation-wrapper'],
-                            cn : [{
-                                cls: ['neo-dateselector-content'],
-                                cn : []
-                            }],
-                            style: {
-                                height   : `${data[0].height}px`,
-                                transform: `translateX(${x}px)`,
-                                width    : `${2 * data[0].width}px`
-                            }
-                        }]
-                    });
+                    vdom.cn.push(
+                        {cls: ['neo-relative'], cn: [
+                            {cls: ['neo-animation-wrapper'], style: {height: `${data[0].height}px`, transform: `translateX(${x}px)`, width: `${2 * data[0].width}px`}, cn: [
+                                {cls: ['neo-dateselector-content'], cn: []}
+                            ]}
+                        ]}
+                    );
 
                     headerMonthOpts = me.updateHeaderMonth(increment, yearIncrement, true, data[1]);
 
@@ -505,7 +489,7 @@ class DateSelector extends Component {
      */
     changeYear(increment) {
         let me = this,
-            scrollFromTop, vdom, y;
+            scrollFromTop, style, vdom, y;
 
         if (!me.useAnimations) {
             me.recreateContent(0, increment);
@@ -520,22 +504,20 @@ class DateSelector extends Component {
                     vdom          = me.vdom;
                     y             = scrollFromTop ? 0 : -data.height;
 
-                    vdom.cn.push({
-                        cls: ['neo-relative'],
-                        cn : [{
-                            cls: ['neo-animation-wrapper'],
-                            cn : [{
-                                cls: ['neo-dateselector-content'],
-                                cn : []
-                            }],
-                            style: {
-                                flexDirection: 'column',
-                                height       : `${2 * data.height}px`,
-                                transform    : `translateY(${y}px)`,
-                                width        : `${data.width}px`
-                            }
-                        }]
-                    });
+                    style = {
+                        flexDirection: 'column',
+                        height       : `${2 * data.height}px`,
+                        transform    : `translateY(${y}px)`,
+                        width        : `${data.width}px`
+                    };
+
+                    vdom.cn.push(
+                        {cls: ['neo-relative'], cn: [
+                            {cls: ['neo-animation-wrapper'], style: style, cn: [
+                                {cls: ['neo-dateselector-content'], cn: []}
+                            ]}
+                        ]}
+                    );
 
                     me.updateHeaderYear(increment, true);
 
@@ -574,13 +556,10 @@ class DateSelector extends Component {
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 
         for (; i < len; i++) {
-            config = {
-                cls: ['neo-cell'],
-                cn : [{
-                    cls : ['neo-cell-content'],
-                    html: me.intlFormat_day.format(date)
-                }]
-            };
+            config =
+            {cls: ['neo-cell'], cn: [
+                {cls : ['neo-cell-content'], html: me.intlFormat_day.format(date)}
+            ]};
 
             day = date.getDay();
 
@@ -637,7 +616,7 @@ class DateSelector extends Component {
 
                 dateDay = date.getDay();
 
-                config = {
+                config ={
                     id      : cellId,
                     cls     : hasContent ? ['neo-cell'] : ['neo-cell', 'neo-disabled'],
                     tabIndex: hasContent ? -1 : null,
@@ -645,7 +624,7 @@ class DateSelector extends Component {
                         cls : ['neo-cell-content'],
                         html: hasContent ? day : me.showDisabledDays ? date.getDate() : ''
                     }]
-                }
+                };
 
                 if (dateDay === 0 || dateDay === 6) {
                     if (!me.showWeekends) {

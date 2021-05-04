@@ -50,13 +50,10 @@ class Tree extends Base {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cn: [{
-                tag: 'ul',
-                cls: ['neo-list-container', 'neo-list'],
-                cn : []
-            }]
-        }
+        _vdom:
+        {cn: [
+            {tag: 'ul', cls: ['neo-list-container', 'neo-list'], cn: []}
+        ]}
     }}
 
     /**

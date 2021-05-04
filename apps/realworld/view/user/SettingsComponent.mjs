@@ -39,93 +39,39 @@ class SettingsComponent extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cn: [{
-                cls: ['container', 'page'],
-                cn : [{
-                    cls: ['row'],
-                    cn : [{
-                        cls: ['col-md-6', 'offset-md-3', 'col-xs-12'],
-                        cn : [{
-                            tag : 'h1',
-                            cls : ['text-xs-center'],
-                            html: 'Your Settings'
-                        }, {
-                            tag      : 'ul',
-                            cls      : ['error-messages'],
-                            flag     : 'errors',
-                            removeDom: true
-                        }, {
-                            tag: 'form',
-                            cn : [{
-                                tag: 'fieldset',
-                                cn : [{
-                                    tag: 'fieldset',
-                                    cls: ['form-group'],
-                                    cn : [{
-                                        tag        : 'input',
-                                        cls        : ['form-control'],
-                                        flag       : 'image',
-                                        placeholder: 'URL of profile picture',
-                                        type       : 'text'
-                                    }]
-                                }, {
-                                    tag: 'fieldset',
-                                    cls: ['form-group'],
-                                    cn : [{
-                                        tag        : 'input',
-                                        cls        : ['form-control', 'form-control-lg'],
-                                        flag       : 'userName',
-                                        placeholder: 'Your Name',
-                                        type       : 'text'
-                                    }]
-                                }, {
-                                    tag: 'fieldset',
-                                    cls: ['form-group'],
-                                    cn : [{
-                                        tag        : 'textarea',
-                                        cls        : ['form-control', 'form-control-lg'],
-                                        flag       : 'bio',
-                                        placeholder: 'Short bio about you',
-                                        rows       : 8
-                                    }]
-                                }, {
-                                    tag: 'fieldset',
-                                    cls: ['form-group'],
-                                    cn : [{
-                                        tag        : 'input',
-                                        cls        : ['form-control', 'form-control-lg'],
-                                        flag       : 'email',
-                                        placeholder: 'Email',
-                                        type       : 'text'
-                                    }]
-                                }, {
-                                    tag: 'fieldset',
-                                    cls: ['form-group'],
-                                    cn : [{
-                                        tag        : 'input',
-                                        cls        : ['form-control', 'form-control-lg'],
-                                        flag       : 'password',
-                                        placeholder: 'Password',
-                                        type       : 'password'
-                                    }]
-                                }, {
-                                    tag : 'button',
-                                    cls : ['btn', 'btn-lg', 'btn-primary', 'pull-xs-right'],
-                                    html: 'Update Settings'
-                                }]
-                            }]
-                        }, {
-                            tag: 'hr'
-                        }, {
-                            tag : 'button',
-                            cls : ['btn', 'btn-outline-danger'],
-                            html: 'Or click here to logout.'
-                        }]
-                    }]
-                }]
-            }]
-        }
+        _vdom:
+        {cn: [
+            {cls: ['container', 'page'], cn: [
+                {cls: ['row'], cn: [
+                    {cls: ['col-md-6', 'offset-md-3', 'col-xs-12'], cn: [
+                        {tag: 'h1', cls: ['text-xs-center'], html: 'Your Settings'},
+                        {tag: 'ul', cls: ['error-messages'], flag: 'errors', removeDom: true},
+                        {tag: 'form', cn: [
+                            {tag: 'fieldset', cn: [
+                                {tag: 'fieldset', cls: ['form-group'], cn: [
+                                    {tag: 'input', cls: ['form-control'], flag: 'image', placeholder: 'URL of profile picture', type: 'text'}
+                                ]},
+                                {tag: 'fieldset', cls: ['form-group'], cn: [
+                                    {tag: 'input', cls: ['form-control', 'form-control-lg'], flag: 'userName', placeholder: 'Your Name', type: 'text'}
+                                ]},
+                                {tag: 'fieldset', cls: ['form-group'], cn: [
+                                    {tag: 'textarea', cls: ['form-control', 'form-control-lg'], flag: 'bio', placeholder: 'Short bio about you', rows: 8}
+                                ]},
+                                {tag: 'fieldset', cls: ['form-group'], cn: [
+                                    {tag: 'input', cls: ['form-control', 'form-control-lg'], flag: 'email', placeholder: 'Email', type: 'text'}
+                                ]},
+                                {tag: 'fieldset', cls: ['form-group'], cn: [
+                                    {tag: 'input', cls: ['form-control', 'form-control-lg'], flag: 'password', placeholder: 'Password', type: 'password'}
+                                ]},
+                                {tag: 'button', cls: ['btn', 'btn-lg', 'btn-primary', 'pull-xs-right'], html: 'Update Settings'}
+                            ]}
+                        ]},
+                        {tag: 'hr'},
+                        {tag: 'button', cls: ['btn', 'btn-outline-danger'], html: 'Or click here to logout.'}
+                    ]}
+                ]}
+            ]}
+        ]}
     }}
 
     /**

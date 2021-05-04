@@ -41,23 +41,23 @@ class CommentComponent extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-            {cn: [
-                {cls: ['card-block'], cn: [
-                    {tag: 'p', cls: ['card-text']}
+        {cn: [
+            {cls: ['card-block'], cn: [
+                {tag: 'p', cls: ['card-text']}
+            ]},
+            {cls: ['card-footer'], cn: [
+                {tag: 'a', cls : ['comment-author'], href: '', cn: [
+                    {tag: 'img', cls: ['comment-author-img']}
                 ]},
-                {cls: ['card-footer'], cn: [
-                    {tag: 'a', cls : ['comment-author'], href: '', cn: [
-                        {tag: 'img', cls: ['comment-author-img']}
-                    ]},
-                    {vtype: 'text', html: '&nbsp;'},
-                    {tag: 'a', cls: ['comment-author'], href: ''},
-                    {tag: 'span', cls : ['date-posted']},
-                    {tag: 'span', cls : ['mod-options'], flag: 'mod-options', cn: [
-                        //{tag: 'i', cls: ['ion-edit']}, // not implemented in other apps => not sure what should happen
-                        {tag: 'i', cls: ['ion-trash-a']}
-                    ]}
+                {vtype: 'text', html: '&nbsp;'},
+                {tag: 'a', cls: ['comment-author'], href: ''},
+                {tag: 'span', cls : ['date-posted']},
+                {tag: 'span', cls : ['mod-options'], flag: 'mod-options', cn: [
+                    //{tag: 'i', cls: ['ion-edit']}, // not implemented in other apps => not sure what should happen
+                    {tag: 'i', cls: ['ion-trash-a']}
                 ]}
             ]}
+        ]}
     }}
 
     /**

@@ -46,6 +46,10 @@ class Text extends Base {
          */
         autoCapitalize_: 'off',
         /**
+         * @member {Boolean} autoComplete_=false
+         */
+        autoComplete_: false,
+        /**
          * Internal variable to store the actual width for the label centerBorderEl
          * (only needed for labelPosition: 'inline')
          * @member {Number|null} centerBorderElWidth=null
@@ -98,27 +102,22 @@ class Text extends Base {
          */
         required_: false,
         /**
+         * null => Follow the element's default behavior for spell checking
+         * @member {Boolean|null} spellCheck_=false
+         */
+        spellCheck_: false,
+        /**
          * @member {Object|Object[]|null} triggers_=null
          */
         triggers_: null,
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cn: [{
-                tag  : 'label',
-                cls  : ['neo-textfield-label'],
-                style: {}
-            }, {
-                tag         : 'input',
-                autocomplete: 'off',
-                autocorrect : 'off',
-                cls         : ['neo-textfield-input'],
-                flag        : 'neo-real-input',
-                spellcheck  : 'false',
-                style       : {}
-            }]
-        }
+        _vdom:
+        {cn: [
+            {tag: 'label', cls: ['neo-textfield-label'], style: {}},
+            {tag: 'input', cls: ['neo-textfield-input'], flag: 'neo-real-input', style: {}}
+        ]}
     }}
 
     /**
@@ -156,6 +155,16 @@ class Text extends Base {
      */
     afterSetAutoCapitalize(value, oldValue) {
         this.changeInputElKey('autocapitalize', value === 'off' || value === 'none' ? null : value);
+    }
+
+    /**
+     * Triggered after the autoComplete config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetAutoComplete(value, oldValue) {
+        this.changeInputElKey('autocomplete', value ? null : 'off');
     }
 
     /**
@@ -357,7 +366,17 @@ class Text extends Base {
      * @protected
      */
     afterSetRequired(value, oldValue) {
-        this.changeInputElKey('required', value);
+        this.changeInputElKey('required', value ? value : null);
+    }
+
+    /**
+     * Triggered after the spellCheck config got changed
+     * @param {Boolean|null} value
+     * @param {Boolean|null} oldValue
+     * @protected
+     */
+    afterSetSpellCheck(value, oldValue) {
+        this.changeInputElKey('spellcheck', Neo.isBoolean(value) ? value : null);
     }
 
     /**
@@ -543,7 +562,7 @@ class Text extends Base {
         let me   = this,
             vdom = me.vdom;
 
-        if (value || value === 0) {
+        if (value || Neo.isBoolean(value) || value === 0) {
             me.getInputEl()[key] = value;
         } else {
             delete me.getInputEl()[key];

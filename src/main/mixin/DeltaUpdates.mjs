@@ -159,6 +159,9 @@ class DeltaUpdates extends Base {
                                 } else {
                                     node.removeAttribute(key);
                                 }
+                            } else if (key === 'spellcheck' && val === 'false') {
+                                // see https://github.com/neomjs/neo/issues/1922
+                                node[key] = false;
                             } else {
                                 node[key] = val;
                             }

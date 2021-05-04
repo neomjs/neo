@@ -74,46 +74,27 @@ class List extends BaseList {
             basePath = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/website/examples';
         }
 
-        return [{
-            cls: ['content'],
-            cn : [{
-                cls  : ['neo-full-size', 'preview-image'],
-                style: {
-                    backgroundImage: `url('${basePath}/${record.image}'), linear-gradient(#777, #333)`
-                }
-            }, {
-                cls: ['neo-relative'],
-                cn : [{
-                    cls: ['neo-absolute', 'neo-item-bottom-position'],
-                    cn : [{
-                        tag   : 'a',
-                        cls   : ['neo-title'],
-                        href  : record.url,
-                        target: '_blank',
-                        cn    : [{
-                            html: record.name.replace(List.nameRegEx, "$1")
-                        }]
-                    }, {
-                        cls: ['neo-top-20'],
-                        cn : [{
-                            tag   : 'a',
-                            cls   : ['fab fa-github', 'neo-github-image'],
-                            href  : record.sourceUrl,
-                            target: '_blank'
-                        }, {
-                            cls: ['neo-inner-content'],
-                            cn : [{
-                                cls : ['neo-inner-details'],
-                                html: record.browsers.join(', ')
-                            }, {
-                                cls : ['neo-inner-details'],
-                                html: record.environments.join(', ')
-                            }]
-                        }]
-                    }]
-                }]
-            }]
-        }];
+        return [
+            {cls: ['content'], cn: [
+                {cls: ['neo-full-size', 'preview-image'], style: {
+                    backgroundImage: `url('${basePath}/${record.image}'), linear-gradient(#777, #333)`}
+                },
+                {cls: ['neo-relative'], cn: [
+                    {cls: ['neo-absolute', 'neo-item-bottom-position'], cn: [
+                        {tag: 'a', cls: ['neo-title'], href: record.url, target: '_blank', cn: [
+                            {html: record.name.replace(List.nameRegEx, "$1")}
+                        ]},
+                        {cls: ['neo-top-20'], cn: [
+                            {tag: 'a', cls: ['fab fa-github', 'neo-github-image'], href: record.sourceUrl, target: '_blank'},
+                            {cls: ['neo-inner-content'], cn: [
+                                {cls: ['neo-inner-details'], html: record.browsers.join(', ')},
+                                {cls: ['neo-inner-details'], html: record.environments.join(', ')}
+                            ]}
+                        ]}
+                    ]}
+                ]}
+            ]}
+        ];
     }
 }
 
