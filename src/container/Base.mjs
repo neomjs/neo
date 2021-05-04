@@ -416,7 +416,7 @@ class Base extends Component {
             item = me.items[fromIndex];
 
         if (fromIndex !== toIndex) {
-            me.switchItems(me.items[toIndex].id, item.id);
+            me.switchItems(toIndex, fromIndex);
         }
 
         return item;
@@ -542,13 +542,14 @@ class Base extends Component {
 
     /**
      * Switches the position of 2 direct child items
-     * @param {String} item1id
-     * @param {String} item2id
+     * You can either pass an index (Number) or id (String)
+     * @param {Number|String} item1id
+     * @param {Number|String} item2id
      */
     switchItems(item1id, item2id) {
         let me         = this,
-            item1Index = me.indexOf(item1id),
-            item2Index = me.indexOf(item2id),
+            item1Index = Neo.isNumber(item1id) ? item1id : me.indexOf(item1id),
+            item2Index = Neo.isNumber(item2id) ? item2id : me.indexOf(item2id),
             vdom       = me.vdom;
 
         NeoArray.move(me.items,              item2Index, item1Index);
