@@ -103,8 +103,8 @@ class App extends Base {
      * @param {String} className
      */
     insertThemeFiles(appName, className) {
-        let me        = this,
-            cssMap    = Neo.cssMap,
+        let me     = this,
+            cssMap = Neo.cssMap,
             classPath, fileName, ns, themeFiles;
 
         if (!cssMap) {
