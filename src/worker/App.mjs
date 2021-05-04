@@ -124,7 +124,8 @@ class App extends Base {
                 console.log(cssMap);
 
                 Neo.main.addon.Stylesheet.addThemeFiles({
-                    files: themeFiles
+                    className: className,
+                    files    : themeFiles
                 });
             }
         }

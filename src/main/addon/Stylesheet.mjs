@@ -51,9 +51,11 @@ class Stylesheet extends Base {
 
     /**
      * @param {Object} data
+     * @param {String} data.className
      * @param {String[]} data.files
      */
     addThemeFiles(data) {
+        console.log(data.className);
         console.log(data.files);
         console.log(Neo.config.cssPath);
     }
