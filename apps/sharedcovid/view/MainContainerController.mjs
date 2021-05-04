@@ -434,11 +434,12 @@ class MainContainerController extends ComponentController {
     onHashChange(value, oldValue) {
         let me                = this,
             activeIndex       = me.getTabIndex(value.hash),
+            activeView        = me.getView(activeIndex),
             country           = value.hash && value.hash.country,
             countryField      = me.getReference('country-field'),
             tabContainer      = me.getReference('tab-container'),
-            activeView        = me.getView(activeIndex),
             delaySelection    = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
+            listeners         = me.mainTabsListeners,
             id, ntype, selectionModel;
 
         if (me.firstHashChange || value.appNames) {
@@ -488,8 +489,8 @@ class MainContainerController extends ComponentController {
                     }
 
                     if (ntype === 'gallery' || me.connectedApps.includes('SharedCovidGallery')) {
-                        if (!me.mainTabsListeners.includes('gallery')) {
-                            me.mainTabsListeners.push('gallery');
+                        if (!listeners.includes('gallery')) {
+                            listeners.push('gallery');
                             me.galleryView = me.getReference('gallery');
                             me.galleryView.on('select', me.updateCountryField, me);
                         }
@@ -500,8 +501,8 @@ class MainContainerController extends ComponentController {
                     }
 
                     if (ntype === 'helix' || me.connectedApps.includes('SharedCovidHelix')) {
-                        if (!me.mainTabsListeners.includes('helix')) {
-                            me.mainTabsListeners.push('helix');
+                        if (!listeners.includes('helix')) {
+                            listeners.push('helix');
                             me.helixView = me.getReference('helix');
                             me.helixView.on('select', me.updateCountryField, me);
                         }
@@ -532,8 +533,8 @@ class MainContainerController extends ComponentController {
                     }
 
                     if (ntype === 'table-container') {
-                        if (!me.mainTabsListeners.includes('table')) {
-                            me.mainTabsListeners.push('table');
+                        if (!listeners.includes('table')) {
+                            listeners.push('table');
                             me.tableView = me.getReference('table')
 
                             me.tableView.on({
