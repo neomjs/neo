@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "May 4, 2021",
+        "id"          : 32,
+        "image"       : "how-to-create-a-file-by-file-custom-scss-build.png",
+        "name"        : "How to create a file by file custom SCSS build including dependencies, using postcss and optional css vars",
+        "provider"    : "Medium",
+        "publisher"   : "",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://tobiasuhlig.medium.com/how-to-create-a-file-by-file-custom-scss-build-including-dependencies-using-postcss-and-optional-c83f8e5677d8?source=friends_link&sk=1ff756725825df82936b0edb9022c536"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "May 1, 2021",
         "id"          : 31,
         "image"       : "new-formatting-concept-for-json-based-virtual-dom.png",
