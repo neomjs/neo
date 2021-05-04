@@ -52,12 +52,20 @@ class Stylesheet extends Base {
     /**
      * @param {Object} data
      * @param {String} data.className
-     * @param {String[]} data.files
+     * @param {String[]} data.folders
      */
     addThemeFiles(data) {
-        console.log(data.className);
-        console.log(data.files);
-        console.log(Neo.config.cssPath);
+        let className = data.className;
+
+        if (className.startsWith('Neo.')) {
+            className = className.substring(4);
+        }
+
+        className = className.split('.').join('/');
+
+        data.folders.forEach(folder => {
+            this.createStyleSheet(null, null, `${Neo.config.cssPath}css/${folder}/${className}.css`)
+        });
     }
 
     /**

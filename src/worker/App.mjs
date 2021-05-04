@@ -105,15 +105,15 @@ class App extends Base {
     insertThemeFiles(appName, className) {
         let me     = this,
             cssMap = Neo.cssMap,
-            classPath, fileName, ns, themeFiles;
+            classPath, fileName, ns, themeFolders;
 
         if (!cssMap) {
             throw new Error('theme-map.json did not get loaded', me);
         }
 
-        themeFiles = Neo.ns(className, false, cssMap.fileInfo);
+        themeFolders = Neo.ns(className, false, cssMap.fileInfo);
 
-        if (themeFiles) {
+        if (themeFolders) {
             if (!Neo.ns(`${appName}.${className}`, false, cssMap)) {
                 classPath = className.split('.');
                 fileName  = classPath.pop();
@@ -125,7 +125,7 @@ class App extends Base {
 
                 Neo.main.addon.Stylesheet.addThemeFiles({
                     className: className,
-                    files    : themeFiles
+                    folders  : themeFolders
                 });
             }
         }
