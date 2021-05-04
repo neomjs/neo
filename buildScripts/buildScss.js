@@ -150,22 +150,22 @@ inquirer.prompt(questions).then(answers => {
                 sassThemes[target] = scssCombine(fs.readFileSync(themePath).toString(), path.dirname(themePath));
             }
 
-            data = `
-                @use "sass:map";
-                $neoMap: ();
-                $useCssVars: ${useCssVars};
-                @import "${mixinPath}";
-                $useCssVars: false;
-                ${sassThemes[target]}
-                $useCssVars: ${useCssVars};
-            `;
+            data = [
+                `@use "sass:map";`,
+                `$neoMap: ();`,
+                `$useCssVars: ${useCssVars};`,
+                `@import "${mixinPath}";`
+                `$useCssVars: false;`,
+                `${sassThemes[target]}`,
+                `$useCssVars: ${useCssVars};`
+            ].join('');
         } else {
-            data = `
-                @use "sass:map";
-                $neoMap: ();
-                $useCssVars: ${useCssVars};
-                @import "${mixinPath}";
-            `;
+            data = [
+                `@use "sass:map";`,
+                `$neoMap: ();`,
+                `$useCssVars: ${useCssVars};`,
+                `@import "${mixinPath}";`
+            ].join('');
         }
 
         files.forEach(file => {
