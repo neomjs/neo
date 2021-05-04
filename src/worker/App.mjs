@@ -48,6 +48,27 @@ class App extends Base {
     }}
 
     /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        fetch('../../resources/theme-map.json')
+            .then(response => response.json())
+            .then(data => {this.createThemeMap(data)});
+    }
+
+    /**
+     *
+     * @param {JSON} data
+     */
+    createThemeMap(data) {
+        Neo.ns('Neo.cssMap.fileInfo', true);
+        Neo.cssMap.fileInfo = data;
+    }
+
+    /**
      * Only needed for the SharedWorkers context
      * @param {String} eventName
      * @param {Object} data

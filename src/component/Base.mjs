@@ -436,6 +436,37 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered after the appName config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        if (value) {
+            let me = this,
+                classPath, fileName, ns, themeFiles;
+
+            if (!Neo.cssMap) {
+                throw new Error('theme-map.json did not get loaded', me);
+            }
+
+            themeFiles = Neo.ns(me.className, false, Neo.cssMap.fileInfo);
+
+            if (themeFiles) {
+                if (!Neo.ns(`${value}.${me.className}`, false, Neo.cssMap)) {
+                    classPath = me.className.split('.');
+                    fileName  = classPath.pop();
+                    classPath = classPath.join('.');
+                    ns        = Neo.ns(`${value}.${classPath}`, true, Neo.cssMap);
+
+                    ns[fileName] = true;
+                    console.log(Neo.cssMap);
+                }
+            }
+        }
+    }
+
+    /**
      * Triggered after the disabled config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
