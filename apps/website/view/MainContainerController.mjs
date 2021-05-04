@@ -26,8 +26,22 @@ class MainContainerController extends ComponentController {
          * @member {String[]} mainTabs=['home','blog','examples','docs']
          * @protected
          */
-        mainTabs: ['home', 'blog', 'examples', 'docs']
+        mainTabs: ['home', 'blog', 'examples', 'docs'],
+        /**
+         * @member {String[]} mainTabsListeners=[]
+         * @protected
+         */
+        mainTabsListeners: []
     }}
+
+    /**
+     *
+     * @param {Number} tabIndex
+     * @returns {Neo.component.Base}
+     */
+    getView(tabIndex) {
+        return this.getReference(this.mainTabs[tabIndex]);
+    }
 
     /**
      *
@@ -35,9 +49,7 @@ class MainContainerController extends ComponentController {
     onComponentConstructed() {
         let me = this;
 
-        me.getReference('examples-tab-container').on('moveTo', me.onTabMove.bind(me, 'examplesTabs'));
-        me.getReference('home-tab-container').    on('moveTo', me.onTabMove.bind(me, 'homeTabs'));
-        me.getReference('main-tab-container').    on('moveTo', me.onTabMove.bind(me, 'mainTabs'));
+        me.getReference('main-tab-container').on('moveTo', me.onTabMove.bind(me, 'mainTabs'));
     }
 
     /**
@@ -50,18 +62,40 @@ class MainContainerController extends ComponentController {
             hash         = value && value.hash,
             tabContainer = me.getReference('main-tab-container'),
             activeIndex  = me.mainTabs.indexOf(hash.mainview),
-            store;
+            activeView   = me.getView(activeIndex),
+            listeners    = me.mainTabsListeners,
+            store, view;
+
+        if (!activeView || !activeView.isConstructed) {
+            setTimeout(() => {
+                me.onHashChange(value, oldValue);
+            }, 10);
+
+            return;
+        }
 
         switch (hash.mainview) {
-            case 'home':
+            case 'home': {
+                if (!listeners['home']) {
+                    listeners.push('home');
+                    activeView.on('moveTo', me.onTabMove.bind(me, 'homeTabs'));
+                }
+
                 if (hash.childview) {
-                    me.getReference('home-tab-container').activeIndex = me.homeTabs.indexOf(hash.childview);
+                    activeView.activeIndex = me.homeTabs.indexOf(hash.childview);
                 }
                 break;
-            case 'blog':
-                store = me.getReference('blog-list').store;
+            }
+            case 'blog': {
+                store = me.getReference('blog').store;
                 break;
-            case 'examples':
+            }
+            case 'examples': {
+                if (!listeners['examples']) {
+                    listeners.push('examples');
+                    activeView.on('moveTo', me.onTabMove.bind(me, 'examplesTabs'));
+                }
+
                 switch (hash.childview) {
                     case 'devmode':
                         store = me.getReference('examples-devmode-list').store;
@@ -75,12 +109,14 @@ class MainContainerController extends ComponentController {
                 }
 
                 if (hash.childview) {
-                    me.getReference('examples-tab-container').activeIndex = me.examplesTabs.indexOf(hash.childview);
+                    activeView.activeIndex = me.examplesTabs.indexOf(hash.childview);
                 }
                 break;
-            case 'docs':
-                store = me.getReference('docs-list').store;
+            }
+            case 'docs': {
+                store = me.getReference('docs').store;
                 break;
+            }
         }
 
         if (activeIndex > -1) {
