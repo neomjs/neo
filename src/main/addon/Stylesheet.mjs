@@ -21,6 +21,7 @@ class Stylesheet extends Base {
          */
         remote: {
             app: [
+                'addThemeFiles',
                 'createStyleSheet',
                 'insertCssRules',
                 'swapStyleSheet'
@@ -46,6 +47,15 @@ class Stylesheet extends Base {
         if (Neo.config.themes.length > 0 && Neo.config.themes[0] !== '') {
             this.insertTheme();
         }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String[]} data.files
+     */
+    addThemeFiles(data) {
+        console.log(data.files);
+        console.log(Neo.config.cssPath);
     }
 
     /**

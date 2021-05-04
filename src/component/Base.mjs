@@ -463,6 +463,10 @@ class Base extends CoreBase {
 
                     ns[fileName] = true;
                     console.log(cssMap);
+
+                    Neo.main.addon.Stylesheet.addThemeFiles({
+                        files: themeFiles
+                    });
                 }
             }
         }
