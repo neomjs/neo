@@ -147,6 +147,25 @@ inquirer.prompt(questions).then(answers => {
         return arrayOfFiles;
     }
 
+    const getThemeMap = () => {
+        let themeMapJson = path.resolve(cwd, 'resources/theme-map.json'),
+            themeMap;
+
+        if (fs.existsSync(themeMapJson)) {
+            themeMap = require(themeMapJson);
+        } else {
+            themeMapJson = path.resolve(neoPath, 'resources/theme-map.json');
+
+            if (fs.existsSync(themeMapJson)) {
+                themeMap = require(themeMapJson);
+            } else {
+                themeMap = {};
+            }
+        }
+
+        return themeMap;
+    }
+
     const parseScssFiles = (files, mode, target, useCssVars) => {
         let data      = '',
             devMode   = mode === 'development',
@@ -244,6 +263,8 @@ inquirer.prompt(questions).then(answers => {
 
         return content;
     };
+
+    const themeMap = getThemeMap();
 
     // dist/development
     if (env === 'all' || env === 'dev') {
