@@ -45,8 +45,22 @@ class Stylesheet extends Base {
         }
 
         if (Neo.config.themes.length > 0 && Neo.config.themes[0] !== '') {
-            this.insertTheme();
+            this.addGlobalCss();
+            // this.insertTheme();
         }
+    }
+
+    /**
+     *
+     */
+    addGlobalCss() {
+        ['src', ...Neo.config.themes].forEach(folder => {
+            if (folder.startsWith('neo-')) {
+                folder = folder.substring(4);
+            }
+
+            this.createStyleSheet(null, null, `${Neo.config.cssPath}css/${folder}/Global.css`);
+        });
     }
 
     /**
