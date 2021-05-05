@@ -22,6 +22,14 @@ html, .neo-body-viewport {
     pointer-events: none;
 }
 
+.neo-link-color {
+    color: v(neo-color);
+
+    a {
+        color: v(neo-color);
+    }
+}
+
 .neo-transition-600 {
     transition: all 0.6s ease-in-out !important;
 }
