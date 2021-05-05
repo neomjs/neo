@@ -164,7 +164,20 @@ inquirer.prompt(questions).then(answers => {
         }
 
         return themeMap;
-    }
+    };
+
+    const ns = (names, create, scope) => {
+        names = Array.isArray(names) ? names : names.split('.');
+
+        return names.reduce((prev, current) => {
+            if (create && !prev[current]) {
+                prev[current] = {};
+            }
+            if (prev) {
+                return prev[current];
+            }
+        }, scope);
+    };
 
     const parseScssFiles = (files, mode, target, useCssVars) => {
         let data      = '',
