@@ -54,7 +54,11 @@ class Stylesheet extends Base {
      *
      */
     addGlobalCss() {
-        ['src', ...Neo.config.themes].forEach(folder => {
+        let themes = Neo.config.themes;
+
+        document.body.classList.add(themes[0]);
+
+        ['src', ...themes].forEach(folder => {
             if (folder.startsWith('neo-')) {
                 folder = folder.substring(4);
             }
