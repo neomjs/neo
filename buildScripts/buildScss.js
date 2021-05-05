@@ -95,7 +95,8 @@ inquirer.prompt(questions).then(answers => {
 
 
     let fileCount  = 0,
-        sassThemes = [];
+        sassThemes = [],
+        totalFiles = 0;
 
     const buildEnv = (p, mode) => {
         if (cssVars !== 'no') {
@@ -153,6 +154,8 @@ inquirer.prompt(questions).then(answers => {
             suffix    = useCssVars ? '' : '-no-vars',
             themePath;
 
+        totalFiles += files.length;
+
         if (target.includes('theme')) {
             themePath = path.resolve(neoPath, `resources/scss_new/${target}/_all.scss`);
 
@@ -177,8 +180,6 @@ inquirer.prompt(questions).then(answers => {
                 `@import "${mixinPath}";`
             ].join('');
         }
-
-        console.log(files.length);
 
         files.forEach(file => {
             let folderPath = path.resolve(neoPath, `dist/${mode}/css${suffix}/${target}/${file.relativePath}`),
@@ -213,6 +214,10 @@ inquirer.prompt(questions).then(answers => {
 
                     if (result.map) {
                         fs.writeFile(result.opts.to + '.map', result.map.toString())
+                    }
+
+                    if (fileCount === totalFiles) {
+                        console.log(totalFiles);
                     }
                 });
             });
