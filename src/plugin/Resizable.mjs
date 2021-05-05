@@ -203,8 +203,14 @@ class Resizable extends Base {
      * @protected
      */
     afterSetAppName(value, oldValue) {
-        if (this.dragZone) {
-            this.dragZone.appName = value;
+        let me = this;
+
+        if (value) {
+            Neo.currentWorker.insertThemeFiles(value, me.className);
+        }
+
+        if (me.dragZone) {
+            me.dragZone.appName = value;
         }
     }
 
