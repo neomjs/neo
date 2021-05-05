@@ -1,0 +1,62 @@
+@keyframes delaybgcolor {
+      0% {background-color: transparent;}
+     99% {background-color: transparent;}
+    100% {background-color: v(tab-indicator-background-color-active);}
+}
+
+.neo-tab-header-button {
+    background-image: v(tab-button-background-image);
+    border-radius   : v(tab-button-border-radius);
+    border-width    : 0;
+    height          : 25px;
+    margin          : 0;
+    padding         : 7px 12px 6px 12px;
+    text-transform  : v(tab-button-text-transform);
+
+    &:active {
+        .neo-button-glyph {
+            color: v(tab-button-glyph-color-active);
+        }
+    }
+
+    &:hover {
+        background-image: none;
+
+        .neo-button-glyph {
+            color: v(tab-button-glyph-color-over);
+        }
+    }
+
+    &.pressed {
+        background-image: v(tab-button-background-image-pressed) !important;
+        cursor          : default;
+
+        .neo-button-glyph {
+            color: v(tab-button-glyph-color-pressed);
+        }
+
+        .neo-tab-button-indicator {
+            animation-duration: 260ms;
+            animation-name    : delaybgcolor;
+            background-color  : v(tab-indicator-background-color-active);
+        }
+    }
+
+    .neo-button-glyph {
+        color: v(tab-button-glyph-color);
+    }
+
+    .neo-button-text {
+        color: v(tab-button-text-color);
+    }
+
+    .neo-tab-button-indicator {
+        background-color: transparent;
+        bottom          : calcVar(tab-strip-height, '*', -1);
+        height          : v(tab-strip-height);
+        pointer-events  : none;
+        position        : absolute;
+        width           : 100%;
+        z-index         : 2;
+    }
+}
