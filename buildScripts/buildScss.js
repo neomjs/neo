@@ -146,7 +146,6 @@ inquirer.prompt(questions).then(answers => {
                     className = className.split('/').join('.');
 
                     if (className.startsWith('apps.')) {
-                        className = className.substring(5);
                         className = className.split('.');
                         className[0].toLowerCase();
                         className = className.join('.');
