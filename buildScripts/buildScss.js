@@ -115,7 +115,7 @@ inquirer.prompt(questions).then(answers => {
 
     const getAllScssFiles = (dirPath, arrayOfFiles=[], relativePath='') => {
         let files = fs.readdirSync(dirPath),
-            fileInfo;
+            className, fileInfo;
 
         files.forEach(file => {
             if (fs.statSync(dirPath + '/' + file).isDirectory()) {
@@ -124,7 +124,17 @@ inquirer.prompt(questions).then(answers => {
                 fileInfo = path.parse(file);
 
                 if (!fileInfo.name.startsWith('_')) {
+                    className = relativePath === '' ? fileInfo.name : `${relativePath.substring(1)}/${fileInfo.name}`;
+                    className = className.split('/').join('.');
+
+                    if (className.startsWith('apps.')) {
+                        className = className.substring(5);
+                    } else {
+                        className = 'Neo.' + className;
+                    }
+
                     arrayOfFiles.push({
+                        className   : className,
                         name        : fileInfo.name,
                         path        : path.join(dirPath, '/', file),
                         relativePath: relativePath
@@ -154,7 +164,7 @@ inquirer.prompt(questions).then(answers => {
                 `@use "sass:map";`,
                 `$neoMap: ();`,
                 `$useCssVars: ${useCssVars};`,
-                `@import "${mixinPath}";`
+                `@import "${mixinPath}";`,
                 `$useCssVars: false;`,
                 `${sassThemes[target]}`,
                 `$useCssVars: ${useCssVars};`
