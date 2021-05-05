@@ -91,14 +91,20 @@ class Base extends Component {
      * @protected
      */
     afterSetAppName(value, oldValue) {
+        let me = this;
+
         super.afterSetAppName(value, oldValue);
 
-        if (value && this.items) {
-            this.items.forEach(item => {
+        if (value && me.items) {
+            me.items.forEach(item => {
                 if (Neo.isObject(item)) {
                     item.appName = value;
                 }
             });
+        }
+
+        if (value && me.layout) {
+            me.layout.appName = value;
         }
     }
 
