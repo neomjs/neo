@@ -100,10 +100,10 @@ inquirer.prompt(questions).then(answers => {
 
     const addItemToThemeMap = (file, target) => {
         let classPath = file.className.split('.'),
-            fileName  = classPath.pop().toLowerCase(),
+            fileName  = classPath.pop(),
             namespace;
 
-        classPath = classPath.join('.').toLowerCase();
+        classPath = classPath.join('.');
         namespace = ns(classPath, true, themeMap);
 
         if (!namespace[fileName]) {
@@ -147,6 +147,9 @@ inquirer.prompt(questions).then(answers => {
 
                     if (className.startsWith('apps.')) {
                         className = className.substring(5);
+                        className = className.split('.');
+                        className[0].toLowerCase();
+                        className = className.join('.');
                     } else {
                         className = 'Neo.' + className;
                     }
