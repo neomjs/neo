@@ -130,7 +130,7 @@ class App extends Base {
 
         if (parent !== Neo.core.Base.prototype) {
             if (!Neo.ns(`${lAppName}.${parent.className}`, false, cssMap)) {
-                me.insertThemeFiles(lAppName, parent);
+                me.insertThemeFiles(appName, parent);
             }
         }
 
@@ -146,6 +146,7 @@ class App extends Base {
                 ns[fileName] = true;
 
                 Neo.main.addon.Stylesheet.addThemeFiles({
+                    appName  : appName,
                     className: className,
                     folders  : themeFolders
                 });
