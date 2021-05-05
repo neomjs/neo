@@ -148,6 +148,24 @@ class Text extends Base {
     }
 
     /**
+     * Triggered after the appName config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        let me = this;
+
+        super.afterSetAppName(value, oldValue);
+
+        if (value && me.triggers) {
+            me.triggers.forEach(item => {
+                item.appName = value;
+            });
+        }
+    }
+
+    /**
      * Triggered after the autoCapitalize config got changed
      * @param {String} value
      * @param {String} oldValue
