@@ -255,9 +255,11 @@ class Base extends Component {
 
         if (value) {
             if (value instanceof LayoutBase && value.isLayout) {
+                value.appName     = me.appName;
                 value.containerId = me.id;
             } else {
                 value = me.parseLayoutClass(value);
+                value.appName     = me.appName;
                 value.containerId = me.id;
                 value = Neo.ntype(value);
             }
