@@ -14,7 +14,7 @@ const autoprefixer    = require('autoprefixer'),
       postcss         = require('postcss'),
       sass            = require('sass'),
       sassImportRegex = /@import[^'"]+?['"](.+?)['"];?/g,
-      scssPath        = 'resources/scss_new/',
+      scssPath        = 'resources/scss/',
       programName     = `${packageJson.name} buildThemes`,
       questions       = [];
 
@@ -201,14 +201,14 @@ inquirer.prompt(questions).then(answers => {
     const parseScssFiles = (files, mode, target, useCssVars) => {
         let data      = '',
             devMode   = mode === 'development',
-            mixinPath = path.resolve(neoPath, 'resources/scss_new/mixins/_all.scss'),
+            mixinPath = path.resolve(neoPath, 'resources/scss/mixins/_all.scss'),
             suffix    = useCssVars ? '' : '-no-vars',
             themePath;
 
         totalFiles += files.length;
 
         if (target.includes('theme')) {
-            themePath = path.resolve(neoPath, `resources/scss_new/${target}/_all.scss`);
+            themePath = path.resolve(neoPath, `resources/scss/${target}/_all.scss`);
 
             if (!sassThemes[target]) {
                 sassThemes[target] = scssCombine(fs.readFileSync(themePath).toString(), path.dirname(themePath));
