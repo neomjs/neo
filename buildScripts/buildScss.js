@@ -100,10 +100,10 @@ inquirer.prompt(questions).then(answers => {
 
     const addItemToThemeMap = (file, target) => {
         let classPath = file.className.split('.'),
-            fileName  = classPath.pop(),
+            fileName  = classPath.pop().toLowerCase(),
             namespace;
 
-        classPath = classPath.join('.');
+        classPath = classPath.join('.').toLowerCase();
         namespace = ns(classPath, true, themeMap);
 
         if (!namespace[fileName]) {
@@ -260,7 +260,7 @@ inquirer.prompt(questions).then(answers => {
                     fs.mkdirpSync(folderPath);
 
                     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-                    console.log('Write file:', ++fileCount, chalk.blue(`${processTime}s`), destPath);
+                    console.log('Writing file:', ++fileCount, chalk.blue(`${processTime}s`), destPath);
                     fs.writeFile(destPath, result.css, () => true);
 
                     if (result.map) {
