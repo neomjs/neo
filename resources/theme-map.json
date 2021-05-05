@@ -1,7 +1,0 @@
-{
-    "Neo": {
-        "button": {
-            "Base": ["src", "theme-light", "theme-dark"]
-        }
-    }
-}

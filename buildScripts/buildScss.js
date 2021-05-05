@@ -214,6 +214,21 @@ inquirer.prompt(questions).then(answers => {
         }
 
         files.forEach(file => {
+            let classPath = file.className.split('.'),
+                fileName  = classPath.pop(),
+                namespace;
+
+            classPath = classPath.join('.');
+            namespace = ns(classPath, true, themeMap);
+
+            if (!namespace[fileName]) {
+                namespace[fileName] = [target];
+            } else {
+                if (!namespace[fileName].includes(target)) {
+                    namespace[fileName].push(target);
+                }
+            }
+
             let folderPath = path.resolve(neoPath, `dist/${mode}/css${suffix}/${target}/${file.relativePath}`),
                 destPath   = path.resolve(folderPath, `${file.name}.css`);
 
@@ -245,11 +260,11 @@ inquirer.prompt(questions).then(answers => {
                     fs.writeFile(destPath, result.css, () => true);
 
                     if (result.map) {
-                        fs.writeFile(result.opts.to + '.map', result.map.toString())
+                        fs.writeFile(result.opts.to + '.map', result.map.toString());
                     }
 
                     if (fileCount === totalFiles) {
-                        console.log(totalFiles);
+                        fs.writeFile(path.resolve(cwd, 'resources/theme-map.json'), JSON.stringify(themeMap, null, 4));
                     }
                 });
             });
