@@ -108,7 +108,7 @@ class App extends Base {
             className = proto.className,
             cssMap    = Neo.cssMap,
             parent    = proto.__proto__,
-            classPath, fileName, ns, themeFolders;
+            classPath, fileName, mapClassName, ns, themeFolders;
 
         if (!cssMap) {
             throw new Error('theme-map.json did not get loaded', me);
@@ -123,9 +123,8 @@ class App extends Base {
                 className.shift();
             }
 
-            lAppName = Neo.apps[appName].appThemeFolder || lAppName;
-
-            className = `apps.${lAppName}.${className.join('.')}`;
+            mapClassName = `apps.${Neo.apps[appName].appThemeFolder || lAppName}.${className.join('.')}`;
+            className    = `apps.${lAppName}.${className.join('.')}`;
         }
 
         if (parent !== Neo.core.Base.prototype) {
@@ -134,7 +133,7 @@ class App extends Base {
             }
         }
 
-        themeFolders = Neo.ns(className, false, cssMap.fileInfo);
+        themeFolders = Neo.ns(mapClassName || className, false, cssMap.fileInfo);
 
         if (themeFolders) {
             if (!Neo.ns(`${lAppName}.${className}`, false, cssMap)) {
@@ -147,7 +146,7 @@ class App extends Base {
 
                 Neo.main.addon.Stylesheet.addThemeFiles({
                     appName  : appName,
-                    className: className,
+                    className: mapClassName || className,
                     folders  : themeFolders
                 });
             }
