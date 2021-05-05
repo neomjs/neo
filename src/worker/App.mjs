@@ -103,19 +103,22 @@ class App extends Base {
      * @param {Neo.core.Base} proto
      */
     insertThemeFiles(appName, proto) {
-        if (proto.__proto__ !== Neo.core.Base.prototype) {
-            this.insertThemeFiles(appName, proto.__proto__);
-        }
-
         appName = appName.toLowerCase();
 
         let me        = this,
             className = proto.className,
             cssMap    = Neo.cssMap,
+            parent    = proto.__proto__,
             classPath, fileName, ns, themeFolders;
 
         if (!cssMap) {
             throw new Error('theme-map.json did not get loaded', me);
+        }
+
+        if (parent !== Neo.core.Base.prototype) {
+            if (!Neo.ns(`${appName}.${parent.className}`, false, cssMap)) {
+                me.insertThemeFiles(appName, parent);
+            }
         }
 
         themeFolders = Neo.ns(className, false, cssMap.fileInfo);
@@ -128,7 +131,6 @@ class App extends Base {
                 ns        = Neo.ns(`${appName}.${classPath}`, true, cssMap);
 
                 ns[fileName] = true;
-                console.log(cssMap);
 
                 Neo.main.addon.Stylesheet.addThemeFiles({
                     className: className,
