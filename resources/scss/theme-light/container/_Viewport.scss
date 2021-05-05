@@ -1,9 +1,0 @@
-$neoMap: map-merge($neoMap, (
-    'viewport-background-color': #fff
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-light { // .neo-viewport
-        --viewport-background-color: #{neo(viewport-background-color)};
-    }
-}

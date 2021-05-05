@@ -1,9 +1,0 @@
-$neoMap: map-merge($neoMap, (
-    'calendar-border-color': #ddd
-));
-
-@if $useCssVars == true {
-    :root .neo-theme-light { // .neo-calendar-maincontainer
-        --calendar-border-color: #{neo(calendar-border-color)};
-    }
-}
