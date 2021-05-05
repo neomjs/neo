@@ -121,6 +121,18 @@ class App extends Base {
             }
         }
 
+        // we need to modify app related class names
+        if (!className.startsWith('Neo.')) {
+            className = className.split('.');
+            className.shift();
+
+            if (className[0] === 'view') {
+                className.shift();
+            }
+
+            className = `apps.${appName}.${className.join('.')}`;
+        }
+
         themeFolders = Neo.ns(className, false, cssMap.fileInfo);
 
         if (themeFolders) {
