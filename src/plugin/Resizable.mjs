@@ -206,7 +206,7 @@ class Resizable extends Base {
         let me = this;
 
         if (value) {
-            Neo.currentWorker.insertThemeFiles(value, me.className);
+            Neo.currentWorker.insertThemeFiles(value, me.__proto__);
         }
 
         if (me.dragZone) {

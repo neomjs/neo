@@ -443,7 +443,7 @@ class Base extends CoreBase {
      */
     afterSetAppName(value, oldValue) {
         if (value) {
-            Neo.currentWorker.insertThemeFiles(value, this.className);
+            Neo.currentWorker.insertThemeFiles(value, this.__proto__);
         }
     }
 

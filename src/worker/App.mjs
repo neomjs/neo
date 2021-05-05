@@ -100,13 +100,18 @@ class App extends Base {
     /**
      *
      * @param {String} appName
-     * @param {String} className
+     * @param {Neo.core.Base} proto
      */
-    insertThemeFiles(appName, className) {
-        appName = appName  .toLowerCase();
+    insertThemeFiles(appName, proto) {
+        if (proto.__proto__ !== Neo.core.Base.prototype) {
+            this.insertThemeFiles(appName, proto.__proto__);
+        }
 
-        let me     = this,
-            cssMap = Neo.cssMap,
+        appName = appName.toLowerCase();
+
+        let me        = this,
+            className = proto.className,
+            cssMap    = Neo.cssMap,
             classPath, fileName, ns, themeFolders;
 
         if (!cssMap) {
