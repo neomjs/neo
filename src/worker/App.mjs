@@ -103,9 +103,8 @@ class App extends Base {
      * @param {Neo.core.Base} proto
      */
     insertThemeFiles(appName, proto) {
-        appName = appName.toLowerCase();
-
         let me        = this,
+            lAppName  = appName.toLowerCase(),
             className = proto.className,
             cssMap    = Neo.cssMap,
             parent    = proto.__proto__,
@@ -113,12 +112,6 @@ class App extends Base {
 
         if (!cssMap) {
             throw new Error('theme-map.json did not get loaded', me);
-        }
-
-        if (parent !== Neo.core.Base.prototype) {
-            if (!Neo.ns(`${appName}.${parent.className}`, false, cssMap)) {
-                me.insertThemeFiles(appName, parent);
-            }
         }
 
         // we need to modify app related class names
@@ -130,17 +123,25 @@ class App extends Base {
                 className.shift();
             }
 
-            className = `apps.${appName}.${className.join('.')}`;
+            lAppName = Neo.apps[appName].appThemeFolder || lAppName;
+
+            className = `apps.${lAppName}.${className.join('.')}`;
+        }
+
+        if (parent !== Neo.core.Base.prototype) {
+            if (!Neo.ns(`${lAppName}.${parent.className}`, false, cssMap)) {
+                me.insertThemeFiles(lAppName, parent);
+            }
         }
 
         themeFolders = Neo.ns(className, false, cssMap.fileInfo);
 
         if (themeFolders) {
-            if (!Neo.ns(`${appName}.${className}`, false, cssMap)) {
+            if (!Neo.ns(`${lAppName}.${className}`, false, cssMap)) {
                 classPath = className.split('.');
                 fileName  = classPath.pop();
                 classPath = classPath.join('.');
-                ns        = Neo.ns(`${appName}.${classPath}`, true, cssMap);
+                ns        = Neo.ns(`${lAppName}.${classPath}`, true, cssMap);
 
                 ns[fileName] = true;
 
