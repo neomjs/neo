@@ -178,43 +178,41 @@ inquirer.prompt(questions).then(answers => {
             ].join('');
         }
 
+        console.log(files.length);
+
         files.forEach(file => {
             let folderPath = path.resolve(neoPath, `dist/${mode}/css${suffix}/${target}/${file.relativePath}`),
                 destPath   = path.resolve(folderPath, `${file.name}.css`);
 
             fs.readFile(file.path).then(content => {
-                sass.render({
+                let result = sass.renderSync({
                     data          : data + content,
                     outFile       : destPath,
                     sourceMap     : devMode,
                     sourceMapEmbed: false
-                }, (err, result) => {
-                    if (err) {
-                        console.log(err);
-                    } else {
-                        const plugins = [autoprefixer];
+                });
 
-                        if (mode === 'production') {
-                            plugins.push(cssnano);
-                        }
+                const plugins = [autoprefixer];
 
-                        postcss(plugins).process(result.css, {
-                            from: file.path,
-                            to  : destPath,
-                            map : {
-                                prev: result.map && result.map.toString()
-                            }
-                        }).then(result => {
-                            fs.mkdirpSync(folderPath);
+                if (mode === 'production') {
+                    plugins.push(cssnano);
+                }
 
-                            const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-                            console.log('Write file:', ++fileCount, chalk.blue(`${processTime}s`), destPath);
-                            fs.writeFile(destPath, result.css, () => true);
+                postcss(plugins).process(result.css, {
+                    from: file.path,
+                    to  : destPath,
+                    map : {
+                        prev: result.map && result.map.toString()
+                    }
+                }).then(result => {
+                    fs.mkdirpSync(folderPath);
 
-                            if (result.map) {
-                                fs.writeFile(result.opts.to + '.map', result.map.toString())
-                            }
-                        });
+                    const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
+                    console.log('Write file:', ++fileCount, chalk.blue(`${processTime}s`), destPath);
+                    fs.writeFile(destPath, result.css, () => true);
+
+                    if (result.map) {
+                        fs.writeFile(result.opts.to + '.map', result.map.toString())
                     }
                 });
             });
