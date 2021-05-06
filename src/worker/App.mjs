@@ -54,7 +54,6 @@ class App extends Base {
     createThemeMap(data) {
         Neo.ns('Neo.cssMap.fileInfo', true);
         Neo.cssMap.fileInfo = data;
-        console.log(Neo.config.useCssVars, Neo.cssMap);
     }
 
     /**
@@ -179,8 +178,6 @@ class App extends Base {
 
         me.importApp(path).then(module => {
             module.onStart();
-
-            console.log(Neo.config.useCssVars);
 
             if (Neo.config.hash) {
                 // short delay to ensure Component Controllers are ready
