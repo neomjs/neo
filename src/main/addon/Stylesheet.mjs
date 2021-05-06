@@ -185,52 +185,6 @@ class Stylesheet extends Base {
 
     /**
      *
-     * @protected
-     */
-    insertTheme() {
-        let me     = this,
-            themes = Neo.config.themes;
-
-        if (!Array.isArray(themes)) {
-            themes = [themes];
-        }
-
-        if (themes[0]) {
-            document.body.classList.add(themes[0]);
-        }
-
-        if (Neo.config.useCssVars) {
-            me.removeStyleSheets({
-                included: ['neo-theme-', '-no-css-vars.css']
-            });
-
-            if (themes.length > 0 && !me.hasStyleSheet('neo-structure.css')) {
-                me.createStyleSheet('neo-structure.css');
-            }
-
-            themes.forEach(theme => {
-                if (!me.hasStyleSheet(theme + '.css')) {
-                    me.createStyleSheet(theme + '.css');
-                }
-            });
-        } else {
-            me.removeStyleSheets({
-                included: ['neo-structure.css']
-            });
-
-            me.removeStyleSheets({
-                included: ['neo-theme-'],
-                excluded: ['-no-css-vars.css']
-            });
-
-            if (themes.length > 0 && !me.hasStyleSheet(themes[0] + '-no-css-vars.css')) {
-                me.createStyleSheet(themes[0] + '-no-css-vars.css', 'neo-theme');
-            }
-        }
-    }
-
-    /**
-     *
      * @param {Object} opts
      * @param {String[]} opts.included
      * @param {String[]} opts.excluded
@@ -262,7 +216,6 @@ class Stylesheet extends Base {
                     });
 
                     if (removeSheet) {
-                        console.log('removeSheet', sheet.href);
                         sheet.ownerNode.parentNode.removeChild(sheet.ownerNode);
                     }
                 }
