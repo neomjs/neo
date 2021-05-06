@@ -1,22 +1,24 @@
 'use strict';
 
-const autoprefixer    = require('autoprefixer'),
-      chalk           = require('chalk'),
-      { program }     = require('commander'),
-      cssnano         = require('cssnano'),
-      cwd             = process.cwd(),
-      envinfo         = require('envinfo'),
-      fs              = require('fs-extra'),
-      inquirer        = require('inquirer'),
-      path            = require('path'),
-      packageJson     = require(path.resolve(cwd, 'package.json')),
-      neoPath         = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      postcss         = require('postcss'),
-      sass            = require('sass'),
-      sassImportRegex = /@import[^'"]+?['"](.+?)['"];?/g,
-      scssPath        = 'resources/scss/',
-      programName     = `${packageJson.name} buildThemes`,
-      questions       = [];
+const autoprefixer       = require('autoprefixer'),
+      chalk              = require('chalk'),
+      {program}          = require('commander'),
+      cssnano            = require('cssnano'),
+      cwd                = process.cwd(),
+      envinfo            = require('envinfo'),
+      fs                 = require('fs-extra'),
+      inquirer           = require('inquirer'),
+      path               = require('path'),
+      packageJson        = require(path.resolve(cwd, 'package.json')),
+      neoPath            = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      programName        = `${packageJson.name} buildThemes`,
+      postcss            = require('postcss'),
+      sass               = require('sass'),
+      sassImportRegex    = /@import[^'"]+?['"](.+?)['"];?/g,
+      scssPath           = 'resources/scss/',
+      themeMapFile       = 'resources/theme-map.json',
+      themeMapFileNoVars = 'resources/theme-map-no-vars.json',
+      questions          = [];
 
 program
     .name(programName)
