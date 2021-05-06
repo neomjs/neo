@@ -49,24 +49,12 @@ class App extends Base {
 
     /**
      *
-     * @param {Object} config
-     */
-    constructor(config) {
-        super(config);
-
-        fetch(`../../resources/theme-map${Neo.config.useCssVars ? '' : '-no-vars'}.json`)
-            .then(response => response.json())
-            .then(data => {this.createThemeMap(data)});
-    }
-
-    /**
-     *
      * @param {JSON} data
      */
     createThemeMap(data) {
-        console.log(Neo.config.useCssVars);
         Neo.ns('Neo.cssMap.fileInfo', true);
         Neo.cssMap.fileInfo = data;
+        console.log(Neo.config.useCssVars, Neo.cssMap);
     }
 
     /**
@@ -199,6 +187,18 @@ class App extends Base {
                 setTimeout(() => HashHistory.push(Neo.config.hash), 5);
             }
         });
+    }
+
+    /**
+     *
+     * @param {Object} msg
+     */
+    onRegisterNeoConfig(msg) {
+        super.onRegisterNeoConfig(msg);
+
+        fetch(`../../resources/theme-map${Neo.config.useCssVars ? '' : '-no-vars'}.json`)
+            .then(response => response.json())
+            .then(data => {this.createThemeMap(data)});
     }
 
     /**
