@@ -101,13 +101,13 @@ inquirer.prompt(questions).then(answers => {
         totalFiles = 0,
         themeMap, themeMapNoVars;
 
-    const addItemToThemeMap = (file, target) => {
+    const addItemToThemeMap = (file, target, useCssVars) => {
         let classPath = file.className.split('.'),
             fileName  = classPath.pop(),
             namespace;
 
         classPath = classPath.join('.');
-        namespace = ns(classPath, true, themeMap);
+        namespace = ns(classPath, true, useCssVars ? themeMap : themeMapNoVars);
 
         if (!namespace[fileName]) {
             namespace[fileName] = [target];
@@ -236,7 +236,7 @@ inquirer.prompt(questions).then(answers => {
         }
 
         files.forEach(file => {
-            addItemToThemeMap(file, target);
+            addItemToThemeMap(file, target, useCssVars);
 
             let folderPath = path.resolve(neoPath, `dist/${mode}/css${suffix}/${target}/${file.relativePath}`),
                 destPath   = path.resolve(folderPath, `${file.name}.css`);
