@@ -54,7 +54,7 @@ class App extends Base {
     constructor(config) {
         super(config);
 
-        fetch('../../resources/theme-map.json')
+        fetch(`../../resources/theme-map${Neo.config.useCssVars ? '' : '-no-vars'}.json`)
             .then(response => response.json())
             .then(data => {this.createThemeMap(data)});
     }
@@ -64,6 +64,7 @@ class App extends Base {
      * @param {JSON} data
      */
     createThemeMap(data) {
+        console.log(Neo.config.useCssVars);
         Neo.ns('Neo.cssMap.fileInfo', true);
         Neo.cssMap.fileInfo = data;
     }
@@ -190,6 +191,8 @@ class App extends Base {
 
         me.importApp(path).then(module => {
             module.onStart();
+
+            console.log(Neo.config.useCssVars);
 
             if (Neo.config.hash) {
                 // short delay to ensure Component Controllers are ready
