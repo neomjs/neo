@@ -128,7 +128,7 @@ inquirer.prompt(questions).then(answers => {
     }
 
     if (themes === 'yes') {
-        cp.spawnSync('node', [`${webpackPath}/buildThemes.js`].concat(cpArgs), cpOpts);
+        cp.spawnSync('node', ['./buildScripts/buildThemes.js'].concat(cpArgs), cpOpts);
     }
 
     if (threads === 'yes') {
