@@ -56,7 +56,9 @@ class Stylesheet extends Base {
     addGlobalCss() {
         let config  = Neo.config,
             themes  = config.themes,
-            folders = config.useCssVars ? ['src', ...themes] : [themes[0]];
+            folders = config.useCssVars ? ['src', ...themes] : [themes[0]],
+            env     = config.environment,
+            path    = env.startsWith('dist/') ? env : ('dist/' + env);
 
         document.body.classList.add(themes[0]);
 
@@ -68,7 +70,7 @@ class Stylesheet extends Base {
             this.createStyleSheet(
                 null,
                 null,
-                `${config.cssPath}css${config.useCssVars ? '' : '-no-vars'}/${folder}/Global.css`
+                `${config.basePath}${path}/css${config.useCssVars ? '' : '-no-vars'}/${folder}/Global.css`
             );
         });
     }
@@ -80,7 +82,9 @@ class Stylesheet extends Base {
      */
     addThemeFiles(data) {
         let className = data.className,
-            config    = Neo.config;
+            config    = Neo.config,
+            env       = config.environment,
+            path      = env.startsWith('dist/') ? env : ('dist/' + env);
 
         if (className.startsWith('Neo.')) {
             className = className.substring(4);
@@ -98,7 +102,7 @@ class Stylesheet extends Base {
                 this.createStyleSheet(
                     null,
                     null,
-                    `${config.cssPath}css${config.useCssVars ? '' : '-no-vars'}/${folder}/${className}.css`
+                    `${config.basePath}${path}/css${config.useCssVars ? '' : '-no-vars'}/${folder}/${className}.css`
                 );
             }
         });
@@ -118,9 +122,7 @@ class Stylesheet extends Base {
         const link = document.createElement('link'),
               env  = Neo.config.environment,
               path = env.startsWith('dist/') ? env : ('dist/' + env),
-              url  = href ? href : Neo.config.cssPath
-                  ? Neo.config.cssPath + name
-                  : Neo.config.basePath + path + '/' + name;
+              url  = href ? href : Neo.config.basePath + path + '/' + name;
 
         Object.assign(link, {
             href: url,
