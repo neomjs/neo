@@ -276,7 +276,7 @@ inquirer.prompt(questions).then(answers => {
                     if (fileCount[varsFlag] === totalFiles[varsFlag]) {
                         fs.writeFile(
                             path.resolve(cwd, useCssVars ? themeMapFile : themeMapFileNoVars),
-                            JSON.stringify(useCssVars ? themeMap : themeMapNoVars, null, 4)
+                            JSON.stringify(useCssVars ? themeMap : themeMapNoVars, null, 0)
                         );
                     }
                 });
