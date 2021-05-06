@@ -206,7 +206,7 @@ inquirer.prompt(questions).then(answers => {
             mixinPath = path.resolve(neoPath, 'resources/scss/mixins/_all.scss'),
             suffix    = useCssVars ? '' : '-no-vars',
             varsFlag  = useCssVars ? 'vars' : 'noVars',
-            themePath;
+            map, themePath;
 
         totalFiles[varsFlag] += files.length;
 
@@ -255,11 +255,27 @@ inquirer.prompt(questions).then(answers => {
                     plugins.push(cssnano);
                 }
 
+                map = result.map && result.map.toString()
+
+                if (map) {
+                    // https://github.com/neomjs/neo/issues/1970
+                    map = JSON.parse(map);
+                    let len = file.relativePath.split('/').length,
+                        src = `src${file.relativePath}/${file.name}.scss`,
+                        i   = 0;
+
+                    for (; i < len; i++) {
+                        src = '../' + src;
+                    }
+
+                    map.sources = [src];
+                }
+
                 postcss(plugins).process(result.css, {
                     from: file.path,
                     to  : destPath,
                     map : {
-                        prev: result.map && result.map.toString()
+                        prev: map && JSON.stringify(map)
                     }
                 }).then(result => {
                     fs.mkdirpSync(folderPath);
