@@ -278,7 +278,7 @@ inquirer.prompt(questions).then(answers => {
                 postcss(plugins).process(result.css, {
                     from: file.path,
                     to  : destPath,
-                    map : {
+                    map : !devMode ? null : {
                         prev: map && JSON.stringify(map)
                     }
                 }).then(result => {
