@@ -14,7 +14,9 @@ const autoprefixer       = require('autoprefixer'),
       programName        = `${packageJson.name} buildThemes`,
       postcss            = require('postcss'),
       sass               = require('sass'),
-      sassImportRegex    = /@import[^'"]+?['"](.+?)['"];?/g,
+      regexComments      = /\/\*[\s\S]*?\*\/|([^\\:]|^)\/\/.*$/gm,
+      regexLineBreak     = /(\r\n|\n|\r)/gm,
+      regexSassImport    = /@import[^'"]+?['"](.+?)['"];?/g,
       scssPath           = 'resources/scss/',
       themeMapFile       = 'resources/theme-map.json',
       themeMapFileNoVars = 'resources/theme-map-no-vars.json',
@@ -215,6 +217,8 @@ inquirer.prompt(questions).then(answers => {
 
             if (!sassThemes[target]) {
                 sassThemes[target] = scssCombine(fs.readFileSync(themePath).toString(), path.dirname(themePath));
+                sassThemes[target] = sassThemes[target].replace(regexComments,  '');
+                sassThemes[target] = sassThemes[target].replace(regexLineBreak, '');
             }
 
             data = [
@@ -301,8 +305,8 @@ inquirer.prompt(questions).then(answers => {
     };
 
     const scssCombine = (content, baseDir) => {
-        if (sassImportRegex.test(content)) {
-            content = content.replace(sassImportRegex, (m, capture) => {
+        if (regexSassImport.test(content)) {
+            content = content.replace(regexSassImport, (m, capture) => {
                 let parse = path.parse(path.resolve(baseDir, capture)),
                     file  = `${parse.dir}/${parse.name}.scss`;
 
