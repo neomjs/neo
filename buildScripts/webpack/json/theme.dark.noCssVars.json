@@ -1,4 +1,0 @@
-{
-    "entry" : "./buildScripts/webpack/entrypoints/scss/theme_dark.noCssVars.scss.mjs",
-    "output": "neo-theme-dark-no-css-vars.css"
-}
