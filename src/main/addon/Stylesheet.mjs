@@ -54,12 +54,13 @@ class Stylesheet extends Base {
      *
      */
     addGlobalCss() {
-        let config = Neo.config,
-            themes = config.themes;
+        let config  = Neo.config,
+            themes  = config.themes,
+            folders = config.useCssVars ? ['src', ...themes] : [themes[0]];
 
         document.body.classList.add(themes[0]);
 
-        ['src', ...themes].forEach(folder => {
+        folders.forEach(folder => {
             if (folder.startsWith('neo-')) {
                 folder = folder.substring(4);
             }
@@ -89,8 +90,10 @@ class Stylesheet extends Base {
 
         data.folders.forEach(folder => {
             if (
-                folder === 'src' && config.useCssVars
-                || folder.includes('theme-') && config.themes.includes(`neo-${folder}`)
+                folder === 'src' && config.useCssVars || folder.includes('theme-') && (
+                     config.useCssVars && config.themes.includes(`neo-${folder}`) ||
+                    !config.useCssVars && config.themes[0] === `neo-${folder}`
+                )
             ) {
                 this.createStyleSheet(
                     null,
