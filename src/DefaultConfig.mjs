@@ -158,16 +158,6 @@ const DefaultConfig = {
 
 Object.assign(DefaultConfig, {
     /**
-     * Path to the neo.mjs theme css files
-     * See main.addon.Stylesheet => createStyleSheet()
-     * @default Neo.config.basePath + 'dist/' + Neo.config.environment + '/'
-     * @memberOf! module:Neo
-     * @name [config.cssPath]
-     * @optional
-     * @type String|null
-     */
-    cssPath: `${Neo.config.basePath || DefaultConfig.basePath}dist/${Neo.config.environment || DefaultConfig.environment}/`,
-    /**
      * Path to the top level neo.mjs resources folder
      * @default Neo.config.basePath + 'resources/'
      * @memberOf! module:Neo
