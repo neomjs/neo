@@ -265,7 +265,7 @@ inquirer.prompt(questions).then(answers => {
                     // https://github.com/neomjs/neo/issues/1970
                     map = JSON.parse(map);
                     let len = file.relativePath.split('/').length,
-                        src = `src${file.relativePath}/${file.name}.scss`,
+                        src = `${target}${file.relativePath}/${file.name}.scss`,
                         i   = 0;
 
                     for (; i < len; i++) {
