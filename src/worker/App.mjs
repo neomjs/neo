@@ -41,6 +41,13 @@ class App extends Base {
          */
         singleton: true,
         /**
+         * We are storing the params of insertThemeFiles() calls here, in case the method does get triggered
+         * before the json theme structure got loaded.
+         * @member {Array[]} themeFilesCache=[]
+         * @protected
+         */
+        themeFilesCache: [],
+        /**
          * @member {String} workerId='app'
          * @protected
          */
@@ -54,6 +61,7 @@ class App extends Base {
     createThemeMap(data) {
         Neo.ns('Neo.cssMap.fileInfo', true);
         Neo.cssMap.fileInfo = data;
+        this.resolveThemeFilesCache();
     }
 
     /**
@@ -99,44 +107,44 @@ class App extends Base {
             classPath, fileName, mapClassName, ns, themeFolders;
 
         if (!cssMap) {
-            throw new Error('theme-map.json did not get loaded', me);
-        }
-
-        // we need to modify app related class names
-        if (!className.startsWith('Neo.')) {
-            className = className.split('.');
-            className.shift();
-
-            if (className[0] === 'view') {
+            me.themeFilesCache.push([appName, proto]);
+        } else {
+            // we need to modify app related class names
+            if (!className.startsWith('Neo.')) {
+                className = className.split('.');
                 className.shift();
+
+                if (className[0] === 'view') {
+                    className.shift();
+                }
+
+                mapClassName = `apps.${Neo.apps[appName].appThemeFolder || lAppName}.${className.join('.')}`;
+                className    = `apps.${lAppName}.${className.join('.')}`;
             }
 
-            mapClassName = `apps.${Neo.apps[appName].appThemeFolder || lAppName}.${className.join('.')}`;
-            className    = `apps.${lAppName}.${className.join('.')}`;
-        }
-
-        if (parent !== Neo.core.Base.prototype) {
-            if (!Neo.ns(`${lAppName}.${parent.className}`, false, cssMap)) {
-                me.insertThemeFiles(appName, parent);
+            if (parent !== Neo.core.Base.prototype) {
+                if (!Neo.ns(`${lAppName}.${parent.className}`, false, cssMap)) {
+                    me.insertThemeFiles(appName, parent);
+                }
             }
-        }
 
-        themeFolders = Neo.ns(mapClassName || className, false, cssMap.fileInfo);
+            themeFolders = Neo.ns(mapClassName || className, false, cssMap.fileInfo);
 
-        if (themeFolders) {
-            if (!Neo.ns(`${lAppName}.${className}`, false, cssMap)) {
-                classPath = className.split('.');
-                fileName  = classPath.pop();
-                classPath = classPath.join('.');
-                ns        = Neo.ns(`${lAppName}.${classPath}`, true, cssMap);
+            if (themeFolders) {
+                if (!Neo.ns(`${lAppName}.${className}`, false, cssMap)) {
+                    classPath = className.split('.');
+                    fileName  = classPath.pop();
+                    classPath = classPath.join('.');
+                    ns        = Neo.ns(`${lAppName}.${classPath}`, true, cssMap);
 
-                ns[fileName] = true;
+                    ns[fileName] = true;
 
-                Neo.main.addon.Stylesheet.addThemeFiles({
-                    appName  : appName,
-                    className: mapClassName || className,
-                    folders  : themeFolders
-                });
+                    Neo.main.addon.Stylesheet.addThemeFiles({
+                        appName  : appName,
+                        className: mapClassName || className,
+                        folders  : themeFolders
+                    });
+                }
             }
         }
     }
@@ -227,6 +235,19 @@ class App extends Base {
                 });
             }
         });
+    }
+
+    /**
+     * @private
+     */
+    resolveThemeFilesCache() {
+        let me = this;
+
+        me.themeFilesCache.forEach(item => {
+            me.insertThemeFiles(...item);
+        });
+
+        me.themeFilesCache = [];
     }
 }
 
