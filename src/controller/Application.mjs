@@ -13,6 +13,10 @@ class Application extends Base {
          */
         className: 'Neo.controller.Application',
         /**
+         * @member {String|null} appThemeFolder=null
+         */
+        appThemeFolder: null,
+        /**
          * @member {Neo.component.Base} mainView_=null
          */
         mainView_: null,

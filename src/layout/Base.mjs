@@ -19,6 +19,11 @@ class Base extends CoreBase {
          */
         ntype: 'layout-base',
         /**
+         * The name of the App this layout belongs to
+         * @member {String|null} appName_=null
+         */
+        appName_: null,
+        /**
          * The Id of the Container instance this layout is bound to
          * @member {?String} containerId=null
          * @protected
@@ -31,6 +36,18 @@ class Base extends CoreBase {
          */
         isLayout: true
     }}
+
+    /**
+     * Triggered after the appName config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        if (value) {
+            Neo.currentWorker.insertThemeFiles(value, this.__proto__);
+        }
+    }
 
     /**
      * Placeholder Method

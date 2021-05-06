@@ -35,16 +35,6 @@ const DefaultConfig = {
      */
     basePath: './',
     /**
-     * Path to the neo.mjs theme css files
-     * See main.addon.Stylesheet => createStyleSheet()
-     * @default Neo.config.basePath + 'build/' + Neo.config.environment
-     * @memberOf! module:Neo
-     * @name [config.cssPath]
-     * @optional
-     * @type String|null
-     */
-    cssPath: null,
-    /**
      * The current environment. Valid values: 'development', 'dist/development', 'dist/production'
      * This config will get auto-generated
      * @default 'dist/production'
@@ -168,13 +158,23 @@ const DefaultConfig = {
 
 Object.assign(DefaultConfig, {
     /**
+     * Path to the neo.mjs theme css files
+     * See main.addon.Stylesheet => createStyleSheet()
+     * @default Neo.config.basePath + 'dist/' + Neo.config.environment + '/'
+     * @memberOf! module:Neo
+     * @name [config.cssPath]
+     * @optional
+     * @type String|null
+     */
+    cssPath: `${Neo.config.basePath || DefaultConfig.basePath}dist/${Neo.config.environment || DefaultConfig.environment}/`,
+    /**
      * Path to the top level neo.mjs resources folder
      * @default Neo.config.basePath + 'resources/'
      * @memberOf! module:Neo
      * @name config.resourcesPath
      * @type String
      */
-    resourcesPath: (Neo.config.basePath || DefaultConfig.basePath) + 'resources/',
+    resourcesPath: `${Neo.config.basePath || DefaultConfig.basePath}resources/`,
     /**
      * The default base URL for web worker entry points (App, Data, Vdom)
      * @default Neo.config.basePath + 'src/worker/'
@@ -182,7 +182,7 @@ Object.assign(DefaultConfig, {
      * @name config.workerBasePath
      * @type String
      */
-    workerBasePath: (Neo.config.basePath || DefaultConfig.basePath) + 'src/worker/'
+    workerBasePath: `${Neo.config.basePath || DefaultConfig.basePath}src/worker/`,
 });
 
 export {DefaultConfig as default};

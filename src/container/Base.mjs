@@ -91,12 +91,20 @@ class Base extends Component {
      * @protected
      */
     afterSetAppName(value, oldValue) {
-        if (value && this.items) {
-            this.items.forEach(item => {
+        let me = this;
+
+        super.afterSetAppName(value, oldValue);
+
+        if (value && me.items) {
+            me.items.forEach(item => {
                 if (Neo.isObject(item)) {
                     item.appName = value;
                 }
             });
+        }
+
+        if (value && me.layout) {
+            me.layout.appName = value;
         }
     }
 
@@ -253,9 +261,11 @@ class Base extends Component {
 
         if (value) {
             if (value instanceof LayoutBase && value.isLayout) {
+                value.appName     = me.appName;
                 value.containerId = me.id;
             } else {
                 value = me.parseLayoutClass(value);
+                value.appName     = me.appName;
                 value.containerId = me.id;
                 value = Neo.ntype(value);
             }

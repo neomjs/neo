@@ -148,6 +148,24 @@ class Text extends Base {
     }
 
     /**
+     * Triggered after the appName config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        let me = this;
+
+        super.afterSetAppName(value, oldValue);
+
+        if (value && me.triggers) {
+            me.triggers.forEach(item => {
+                item.appName = value;
+            });
+        }
+    }
+
+    /**
      * Triggered after the autoCapitalize config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -533,8 +551,9 @@ class Text extends Base {
         value.forEach((item, index) => {
             if (item.isClass) {
                 value[index] = Neo.create(item, {
-                    id   : me.getTriggerId(item.prototype.type),
-                    field: me
+                    appName: me.appName,
+                    id     : me.getTriggerId(item.prototype.type),
+                    field  : me
                 });
             } else if (!(item instanceof BaseTrigger)) {
                 if (!item.module && !item.ntype) {
@@ -546,7 +565,11 @@ class Text extends Base {
                     item.id        = me.getTriggerId(item.module.prototype.type);
                 }
 
-                value[index] = Neo[item.className ? 'create' : 'ntype']({...item, field: me});
+                value[index] = Neo[item.className ? 'create' : 'ntype']({
+                    ...item,
+                    appName: me.appName,
+                    field  : me
+                });
             }
         });
 

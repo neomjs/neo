@@ -48,6 +48,15 @@ class App extends Base {
     }}
 
     /**
+     *
+     * @param {JSON} data
+     */
+    createThemeMap(data) {
+        Neo.ns('Neo.cssMap.fileInfo', true);
+        Neo.cssMap.fileInfo = data;
+    }
+
+    /**
      * Only needed for the SharedWorkers context
      * @param {String} eventName
      * @param {Object} data
@@ -74,6 +83,62 @@ class App extends Base {
             /* webpackMode: "lazy" */
             `../../${path}.mjs`
         );
+    }
+
+    /**
+     *
+     * @param {String} appName
+     * @param {Neo.core.Base} proto
+     */
+    insertThemeFiles(appName, proto) {
+        let me        = this,
+            lAppName  = appName.toLowerCase(),
+            className = proto.className,
+            cssMap    = Neo.cssMap,
+            parent    = proto.__proto__,
+            classPath, fileName, mapClassName, ns, themeFolders;
+
+        if (!cssMap) {
+            throw new Error('theme-map.json did not get loaded', me);
+        }
+
+        // we need to modify app related class names
+        if (!className.startsWith('Neo.')) {
+            className = className.split('.');
+            className.shift();
+
+            if (className[0] === 'view') {
+                className.shift();
+            }
+
+            mapClassName = `apps.${Neo.apps[appName].appThemeFolder || lAppName}.${className.join('.')}`;
+            className    = `apps.${lAppName}.${className.join('.')}`;
+        }
+
+        if (parent !== Neo.core.Base.prototype) {
+            if (!Neo.ns(`${lAppName}.${parent.className}`, false, cssMap)) {
+                me.insertThemeFiles(appName, parent);
+            }
+        }
+
+        themeFolders = Neo.ns(mapClassName || className, false, cssMap.fileInfo);
+
+        if (themeFolders) {
+            if (!Neo.ns(`${lAppName}.${className}`, false, cssMap)) {
+                classPath = className.split('.');
+                fileName  = classPath.pop();
+                classPath = classPath.join('.');
+                ns        = Neo.ns(`${lAppName}.${classPath}`, true, cssMap);
+
+                ns[fileName] = true;
+
+                Neo.main.addon.Stylesheet.addThemeFiles({
+                    appName  : appName,
+                    className: mapClassName || className,
+                    folders  : themeFolders
+                });
+            }
+        }
     }
 
     /**
@@ -119,6 +184,18 @@ class App extends Base {
                 setTimeout(() => HashHistory.push(Neo.config.hash), 5);
             }
         });
+    }
+
+    /**
+     *
+     * @param {Object} msg
+     */
+    onRegisterNeoConfig(msg) {
+        super.onRegisterNeoConfig(msg);
+
+        fetch(`../../resources/theme-map${Neo.config.useCssVars ? '' : '-no-vars'}.json`)
+            .then(response => response.json())
+            .then(data => {this.createThemeMap(data)});
     }
 
     /**

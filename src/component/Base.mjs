@@ -436,6 +436,18 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered after the appName config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        if (value) {
+            Neo.currentWorker.insertThemeFiles(value, this.__proto__);
+        }
+    }
+
+    /**
      * Triggered after the disabled config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue

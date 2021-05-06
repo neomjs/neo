@@ -1,4 +1,0 @@
-{
-    "entry" : "./buildScripts/webpack/entrypoints/scss/theme_dark.scss.mjs",
-    "output": "neo-theme-dark.css"
-}

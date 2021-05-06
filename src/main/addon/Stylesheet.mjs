@@ -21,6 +21,7 @@ class Stylesheet extends Base {
          */
         remote: {
             app: [
+                'addThemeFiles',
                 'createStyleSheet',
                 'insertCssRules',
                 'swapStyleSheet'
@@ -44,8 +45,63 @@ class Stylesheet extends Base {
         }
 
         if (Neo.config.themes.length > 0 && Neo.config.themes[0] !== '') {
-            this.insertTheme();
+            this.addGlobalCss();
+            // this.insertTheme();
         }
+    }
+
+    /**
+     *
+     */
+    addGlobalCss() {
+        let config  = Neo.config,
+            themes  = config.themes,
+            folders = config.useCssVars ? ['src', ...themes] : [themes[0]];
+
+        document.body.classList.add(themes[0]);
+
+        folders.forEach(folder => {
+            if (folder.startsWith('neo-')) {
+                folder = folder.substring(4);
+            }
+
+            this.createStyleSheet(
+                null,
+                null,
+                `${config.cssPath}css${config.useCssVars ? '' : '-no-vars'}/${folder}/Global.css`
+            );
+        });
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.className
+     * @param {String[]} data.folders
+     */
+    addThemeFiles(data) {
+        let className = data.className,
+            config    = Neo.config;
+
+        if (className.startsWith('Neo.')) {
+            className = className.substring(4);
+        }
+
+        className = className.split('.').join('/');
+
+        data.folders.forEach(folder => {
+            if (
+                folder === 'src' && config.useCssVars || folder.includes('theme-') && (
+                     config.useCssVars && config.themes.includes(`neo-${folder}`) ||
+                    !config.useCssVars && config.themes[0] === `neo-${folder}`
+                )
+            ) {
+                this.createStyleSheet(
+                    null,
+                    null,
+                    `${config.cssPath}css${config.useCssVars ? '' : '-no-vars'}/${folder}/${className}.css`
+                );
+            }
+        });
     }
 
     /**
@@ -102,6 +158,7 @@ class Stylesheet extends Base {
     /**
      *
      * @param {Object} data
+     * @param {Array} data.rules
      * @protected
      */
     insertCssRules(data) {
