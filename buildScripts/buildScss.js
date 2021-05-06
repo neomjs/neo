@@ -263,7 +263,7 @@ inquirer.prompt(questions).then(answers => {
                     }
                 }).then(result => {
                     fs.mkdirpSync(folderPath);
-                    fileCount[useCssVars ? 'vars' : 'noVars']++;
+                    fileCount[varsFlag]++;
 
                     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
                     console.log('Writing file:', (fileCount.vars + fileCount.noVars), chalk.blue(`${processTime}s`), destPath);
@@ -274,7 +274,10 @@ inquirer.prompt(questions).then(answers => {
                     }
 
                     if (fileCount[varsFlag] === totalFiles[varsFlag]) {
-                        fs.writeFile(path.resolve(cwd, 'resources/theme-map.json'), JSON.stringify(themeMap, null, 4));
+                        fs.writeFile(
+                            path.resolve(cwd, useCssVars ? themeMapFile : themeMapFileNoVars),
+                            JSON.stringify(useCssVars ? themeMap : themeMapNoVars, null, 4)
+                        );
                     }
                 });
             });
