@@ -89,16 +89,15 @@ if (!program.noquestions) {
 }
 
 inquirer.prompt(questions).then(answers => {
-    const cssVars   = answers.cssVars || program.cssVars || 'all',
-          env       = answers.env     || program.env     || 'all',
-          themes    = answers.themes  || program.themes  || 'all',
-          insideNeo = program.framework || false,
-          startDate = new Date();
+    const cssVars    = answers.cssVars || program.cssVars || 'all',
+          env        = answers.env || program.env || 'all',
+          themes     = answers.themes || program.themes || 'all',
+          insideNeo  = program.framework || false,
+          startDate  = new Date(),
+          fileCount  = {vars: 0, noVars: 0},
+          totalFiles = {vars: 0, noVars: 0};
 
-
-    let fileCount  = 0,
-        sassThemes = [],
-        totalFiles = 0,
+    let sassThemes = [],
         themeMap, themeMapNoVars;
 
     const addItemToThemeMap = (file, target, useCssVars) => {
@@ -208,7 +207,7 @@ inquirer.prompt(questions).then(answers => {
             suffix    = useCssVars ? '' : '-no-vars',
             themePath;
 
-        totalFiles += files.length;
+        totalFiles[useCssVars ? 'vars' : 'noVars'] += files.length;
 
         if (target.includes('theme')) {
             themePath = path.resolve(neoPath, `resources/scss/${target}/_all.scss`);
@@ -263,16 +262,17 @@ inquirer.prompt(questions).then(answers => {
                     }
                 }).then(result => {
                     fs.mkdirpSync(folderPath);
+                    fileCount[useCssVars ? 'vars' : 'noVars']++;
 
                     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-                    console.log('Writing file:', ++fileCount, chalk.blue(`${processTime}s`), destPath);
+                    console.log('Writing file:', (fileCount.vars + fileCount.noVars), chalk.blue(`${processTime}s`), destPath);
                     fs.writeFile(destPath, result.css, () => true);
 
                     if (result.map) {
                         fs.writeFile(result.opts.to + '.map', result.map.toString());
                     }
 
-                    if (fileCount === totalFiles) {
+                    if (fileCount[useCssVars ? 'vars' : 'noVars'] === totalFiles[useCssVars ? 'vars' : 'noVars']) {
                         fs.writeFile(path.resolve(cwd, 'resources/theme-map.json'), JSON.stringify(themeMap, null, 4));
                     }
                 });
