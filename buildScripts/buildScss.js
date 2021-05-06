@@ -205,9 +205,10 @@ inquirer.prompt(questions).then(answers => {
             devMode   = mode === 'development',
             mixinPath = path.resolve(neoPath, 'resources/scss/mixins/_all.scss'),
             suffix    = useCssVars ? '' : '-no-vars',
+            varsFlag  = useCssVars ? 'vars' : 'noVars',
             themePath;
 
-        totalFiles[useCssVars ? 'vars' : 'noVars'] += files.length;
+        totalFiles[varsFlag] += files.length;
 
         if (target.includes('theme')) {
             themePath = path.resolve(neoPath, `resources/scss/${target}/_all.scss`);
@@ -272,7 +273,7 @@ inquirer.prompt(questions).then(answers => {
                         fs.writeFile(result.opts.to + '.map', result.map.toString());
                     }
 
-                    if (fileCount[useCssVars ? 'vars' : 'noVars'] === totalFiles[useCssVars ? 'vars' : 'noVars']) {
+                    if (fileCount[varsFlag] === totalFiles[varsFlag]) {
                         fs.writeFile(path.resolve(cwd, 'resources/theme-map.json'), JSON.stringify(themeMap, null, 4));
                     }
                 });
