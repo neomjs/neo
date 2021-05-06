@@ -98,7 +98,8 @@ inquirer.prompt(questions).then(answers => {
 
     let fileCount  = 0,
         sassThemes = [],
-        totalFiles = 0;
+        totalFiles = 0,
+        themeMap, themeMapNoVars;
 
     const addItemToThemeMap = (file, target) => {
         let classPath = file.className.split('.'),
@@ -168,14 +169,14 @@ inquirer.prompt(questions).then(answers => {
         return arrayOfFiles;
     }
 
-    const getThemeMap = () => {
-        let themeMapJson = path.resolve(cwd, 'resources/theme-map.json'),
+    const getThemeMap = filePath => {
+        let themeMapJson = path.resolve(cwd, filePath),
             themeMap;
 
         if (fs.existsSync(themeMapJson)) {
             themeMap = require(themeMapJson);
         } else {
-            themeMapJson = path.resolve(neoPath, 'resources/theme-map.json');
+            themeMapJson = path.resolve(neoPath, filePath);
 
             if (fs.existsSync(themeMapJson)) {
                 themeMap = require(themeMapJson);
@@ -300,7 +301,8 @@ inquirer.prompt(questions).then(answers => {
         return content;
     };
 
-    const themeMap = getThemeMap();
+    if (cssVars !== 'no')  {themeMap       = getThemeMap(themeMapFile);}
+    if (cssVars !== 'yes') {themeMapNoVars = getThemeMap(themeMapFileNoVars);}
 
     // dist/development
     if (env === 'all' || env === 'dev') {
