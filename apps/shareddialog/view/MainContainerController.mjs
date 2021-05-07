@@ -452,6 +452,10 @@ class MainContainerController extends ComponentController {
                         renderTo  : 'document.body',
                         vdom      : vdom
                     });
+
+                    // The other window has most likely not loaded The dialog JS module yet,
+                    // but the drag proxy is using some CSS rules of it.
+                    Neo.currentWorker.insertThemeFiles(dockedWindowAppName, Neo.dialog.Base.prototype);
                 } else {
                     me.updateDockedWindowProxyStyle({
                         ...proxyPosition,
@@ -472,7 +476,8 @@ class MainContainerController extends ComponentController {
         if (this.hasDockedWindow()) {
             let me               = this,
                 appName          = me.component.appName,
-                dockedHorizontal = me.dockedWindowSide === 'left' || me.dockedWindowSide === 'right';
+                dockedHorizontal = me.dockedWindowSide === 'left' || me.dockedWindowSide === 'right',
+                otherAppName;
 
             me.dialogRect = data.dragElementRect;
 
@@ -484,6 +489,8 @@ class MainContainerController extends ComponentController {
             }
 
             if (me.hasDockedWindow()) {
+                otherAppName =
+
                 Neo.Main.getWindowData({
                     appName: me.dialog.appName === appName ? me.dockedWindowAppName : appName
                 }).then(data => {
