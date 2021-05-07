@@ -43,9 +43,9 @@ class DragZone extends Base {
         alwaysFireDragMove: false,
         /**
          * The name of the App this instance belongs to
-         * @member {String|null} appName=null
+         * @member {String|null} appName_=null
          */
-        appName: null,
+        appName_: null,
         /**
          * Optionally set a fixed cursor style to the document.body during drag operations
          * @member {String|null} bodyCursorStyle=null
@@ -158,6 +158,18 @@ class DragZone extends Base {
 
         if (!Neo.main.addon.DragDrop) {
             console.error('You can not use Neo.draggable.DragZone without adding Neo.main.addon.DragDrop to the main thread addons', this.id);
+        }
+    }
+
+    /**
+     * Triggered after the appName config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        if (value) {
+            Neo.currentWorker.insertThemeFiles(value, this.__proto__);
         }
     }
 
