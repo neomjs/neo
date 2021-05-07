@@ -92,8 +92,8 @@ if (!program.noquestions) {
 
 inquirer.prompt(questions).then(answers => {
     const cssVars    = answers.cssVars || program.cssVars || 'all',
-          env        = answers.env || program.env || 'all',
-          themes     = answers.themes || program.themes || 'all',
+          env        = answers.env     || program.env     || 'all',
+          themes     = answers.themes  || program.themes  || 'all',
           insideNeo  = program.framework || false,
           startDate  = new Date(),
           fileCount  = {vars: 0, noVars: 0},
@@ -206,7 +206,7 @@ inquirer.prompt(questions).then(answers => {
         let data      = '',
             devMode   = mode === 'development',
             mixinPath = path.resolve(neoPath, 'resources/scss/mixins/_all.scss'),
-            suffix    = useCssVars ? '' : '-no-vars',
+            suffix    = useCssVars ? ''     : '-no-vars',
             varsFlag  = useCssVars ? 'vars' : 'noVars',
             map, themePath;
 
