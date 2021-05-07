@@ -66,6 +66,20 @@ class Toolbar extends Container {
     }}
 
     /**
+     * Triggered after the appName config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        super.afterSetAppName(value, oldValue);
+
+        if (this.sortZone) {
+            this.sortZone.appName = value;
+        }
+    }
+
+    /**
      * Triggered after the dock config got changed
      * @param {String} value
      * @param {String} oldValue
