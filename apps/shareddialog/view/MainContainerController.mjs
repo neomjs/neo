@@ -476,8 +476,7 @@ class MainContainerController extends ComponentController {
         if (this.hasDockedWindow()) {
             let me               = this,
                 appName          = me.component.appName,
-                dockedHorizontal = me.dockedWindowSide === 'left' || me.dockedWindowSide === 'right',
-                otherAppName;
+                dockedHorizontal = me.dockedWindowSide === 'left' || me.dockedWindowSide === 'right';
 
             me.dialogRect = data.dragElementRect;
 
@@ -489,8 +488,6 @@ class MainContainerController extends ComponentController {
             }
 
             if (me.hasDockedWindow()) {
-                otherAppName =
-
                 Neo.Main.getWindowData({
                     appName: me.dialog.appName === appName ? me.dockedWindowAppName : appName
                 }).then(data => {
