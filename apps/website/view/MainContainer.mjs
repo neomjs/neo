@@ -20,7 +20,7 @@ class MainContainer extends Viewport {
          */
         autoMount: true,
         /**
-         * @member {String[]} cls=['website-header-container']
+         * @member {String[]} cls=['website-main-container','neo-viewport']
          */
         cls: ['website-main-container', 'neo-viewport'],
         /**
@@ -28,7 +28,7 @@ class MainContainer extends Viewport {
          */
         controller: MainContainerController,
         /**
-         * @member {Object} layout={ntype: 'hbox', align: 'stretch'}
+         * @member {Object} layout={ntype: 'hbox',align: 'stretch'}
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
