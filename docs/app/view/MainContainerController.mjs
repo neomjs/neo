@@ -177,16 +177,14 @@ class MainContainerController extends Component {
     onSwitchThemeButtonClick() {
         let me     = this,
             button = me.getReference('theme-button'),
-            view   = me.view,
-            buttonText, cls, href, theme;
+            view   = me.component,
+            buttonText, cls, theme;
 
         if (button.text === 'Theme Light') {
             buttonText = 'Theme Dark';
-            href       = '../dist/development/neo-theme-light-no-css-vars.css';
             theme      = 'neo-theme-light';
         } else {
             buttonText = 'Theme Light';
-            href       = '../dist/development/neo-theme-dark-no-css-vars.css';
             theme      = 'neo-theme-dark';
         }
 
@@ -203,13 +201,6 @@ class MainContainerController extends Component {
             view.cls = cls;
 
             button.text = buttonText;
-        } else {
-            Neo.main.addon.Stylesheet.swapStyleSheet({
-                href: href,
-                id  : 'neo-theme'
-            }).then(data => {
-                button.text = buttonText;
-            });
         }
     }
 
