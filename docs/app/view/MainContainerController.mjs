@@ -178,7 +178,7 @@ class MainContainerController extends Component {
         let me     = this,
             button = me.getReference('theme-button'),
             view   = me.component,
-            buttonText, cls, href, theme;
+            buttonText, cls, theme;
 
         if (button.text === 'Theme Light') {
             buttonText = 'Theme Dark';
