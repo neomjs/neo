@@ -25,8 +25,8 @@ class MainContainerController extends Component {
      */
     onHeaderClick(data) {
         let me                  = this,
-            record              = me.view.structureData,
-            mainContainer       = me.view.up('main-container'),
+            record              = me.component.structureData,
+            mainContainer       = me.component.up('main-container'),
             contentTabContainer = mainContainer.down('docs-content-tabcontainer'),
             className           = (record.path ? record.path + '.' : '') + record.name;
 
