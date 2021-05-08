@@ -2,16 +2,16 @@ import Component from '../../../src/controller/Component.mjs';
 import NeoArray  from '../../../src/util/Array.mjs';
 
 /**
- * @class Docs.app.view.MainContainerController
+ * @class Docs.view.MainContainerController
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='Docs.app.view.MainContainerController'
+         * @member {String} className='Docs.view.MainContainerController'
          * @protected
          */
-        className: 'Docs.app.view.MainContainerController',
+        className: 'Docs.view.MainContainerController',
         /**
          * @member {String} ntype='docs-maincontainer-controller'
          * @protected

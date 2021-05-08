@@ -1,8 +1,8 @@
 const fs          = require('fs-extra'),
-      jsdocx      = require('jsdoc-x'),
+      jsdocx      = require('neo-jsdoc-x'),
       path        = require('path'),
       processRoot = process.cwd(),
-      helper      = require(path.join(processRoot, 'node_modules/jsdoc-x/src/lib/helper.js')),
+      helper      = require(path.join(processRoot, 'node_modules/neo-jsdoc-x/src/lib/helper.js')),
       packageJson = require(path.resolve(process.cwd(), 'package.json')),
       insideNeo   = packageJson.name === 'neo.mjs',
       neoPath     = insideNeo ? './' : './node_modules/neo.mjs/',
@@ -329,7 +329,11 @@ jsdocx.parse(options)
                 }
             }
 
-            namespace = ns(item.neoClassName, true);
+            if (item.neoClassName === 'Neo') {
+                namespace = ns('Neo.Neo', true);
+            } else {
+                namespace = ns(item.neoClassName, true);
+            }
 
             namespace.classData = namespace.classData || [];
             namespace.classData.push(item);

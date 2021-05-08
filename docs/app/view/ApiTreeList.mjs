@@ -2,16 +2,16 @@ import TreeList from '../../../src/tree/List.mjs';
 import ApiStore from '../store/Api.mjs';
 
 /**
- * @class Docs.app.view.ApiTreeList
+ * @class Docs.view.ApiTreeList
  * @extends Neo.tree.List
  */
 class ApiTreeList extends TreeList {
     static getConfig() {return {
         /**
-         * @member {String} className='Docs.app.view.ApiTreeList'
+         * @member {String} className='Docs.view.ApiTreeList'
          * @protected
          */
-        className: 'Docs.app.view.ApiTreeList',
+        className: 'Docs.view.ApiTreeList',
         /**
          * @member {String} ntype='api-treelist'
          * @protected

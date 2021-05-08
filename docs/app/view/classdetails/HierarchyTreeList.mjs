@@ -2,16 +2,16 @@ import TreeList from '../../../../src/tree/List.mjs';
 import NeoArray from '../../../../src/util/Array.mjs';
 
 /**
- * @class Docs.app.view.classdetails.HierarchyTreeList
+ * @class Docs.view.classdetails.HierarchyTreeList
  * @extends Neo.tree.List
  */
 class HierarchyTreeList extends TreeList {
     static getConfig() {return {
         /**
-         * @member {String} className='Docs.app.view.classdetails.HierarchyTreeList'
+         * @member {String} className='Docs.view.classdetails.HierarchyTreeList'
          * @protected
          */
-        className: 'Docs.app.view.classdetails.HierarchyTreeList',
+        className: 'Docs.view.classdetails.HierarchyTreeList',
         /**
          * @member {String} ntype='classdetails-treelist'
          * @protected

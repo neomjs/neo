@@ -2,16 +2,16 @@ import ExamplesStore from '../store/Examples.mjs';
 import TreeList      from '../../../src/tree/List.mjs';
 
 /**
- * @class Docs.app.view.ExamplesTreeList
+ * @class Docs.view.ExamplesTreeList
  * @extends Neo.tree.List
  */
 class ExamplesTreeList extends TreeList {
     static getConfig() {return {
         /**
-         * @member {String} className='Docs.app.view.ExamplesTreeList'
+         * @member {String} className='Docs.view.ExamplesTreeList'
          * @protected
          */
-        className: 'Docs.app.view.ExamplesTreeList',
+        className: 'Docs.view.ExamplesTreeList',
         /**
          * @member {String} ntype='examples-treelist'
          * @protected

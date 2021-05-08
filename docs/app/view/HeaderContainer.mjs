@@ -3,16 +3,16 @@ import Button      from '../../../src/button/Base.mjs';
 import SearchField from '../../../src/form/field/Search.mjs';
 
 /**
- * @class Docs.app.view.HeaderContainer
+ * @class Docs.view.HeaderContainer
  * @extends Neo.container.Base
  */
 class HeaderContainer extends Container {
     static getConfig() {return {
         /**
-         * @member {String} className='Docs.app.view.HeaderContainer'
+         * @member {String} className='Docs.view.HeaderContainer'
          * @protected
          */
-        className: 'Docs.app.view.HeaderContainer',
+        className: 'Docs.view.HeaderContainer',
         /**
          * @member {String} ntype='header-container'
          * @protected
