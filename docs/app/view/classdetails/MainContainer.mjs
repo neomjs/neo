@@ -7,16 +7,16 @@ import Panel                   from '../../../../src/container/Panel.mjs';
 import SearchField             from '../../../../src/form/field/Search.mjs';
 
 /**
- * @class Docs.app.view.classdetails.MainContainer
+ * @class Docs.view.classdetails.MainContainer
  * @extends Neo.container.Base
  */
 class MainContainer extends Container {
     static getConfig() {return {
         /**
-         * @member {String} className='Docs.app.view.classdetails.MainContainer'
+         * @member {String} className='Docs.view.classdetails.MainContainer'
          * @protected
          */
-        className: 'Docs.app.view.classdetails.MainContainer',
+        className: 'Docs.view.classdetails.MainContainer',
         /**
          * @member {String} ntype='classdetails-maincontainer'
          * @protected

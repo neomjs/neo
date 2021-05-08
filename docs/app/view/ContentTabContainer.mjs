@@ -2,16 +2,16 @@ import Container    from '../../../src/tab/Container.mjs';
 import HeaderButton from '../../../src/tab/header/Button.mjs';
 
 /**
- * @class Docs.app.view.ContentTabContainer
+ * @class Docs.view.ContentTabContainer
  * @extends Neo.tab.Container
  */
 class ContentTabContainer extends Container {
     static getConfig() {return {
         /**
-         * @member {String} className='Docs.app.view.ContentTabContainer'
+         * @member {String} className='Docs.view.ContentTabContainer'
          * @protected
          */
-        className: 'Docs.app.view.ContentTabContainer',
+        className: 'Docs.view.ContentTabContainer',
         /**
          * @member {String} ntype='docs-content-tabcontainer'
          * @protected

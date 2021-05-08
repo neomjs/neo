@@ -2,16 +2,16 @@ import Component           from '../../../../src/controller/Component.mjs';
 import SourceViewComponent from "./SourceViewComponent.mjs";
 
 /**
- * @class Docs.app.view.MainContainerController
+ * @class Docs.view.MainContainerController
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='Docs.app.view.classdetails.MainContainerController'
+         * @member {String} className='Docs.view.classdetails.MainContainerController'
          * @protected
          */
-        className: 'Docs.app.view.classdetails.MainContainerController',
+        className: 'Docs.view.classdetails.MainContainerController',
         /**
          * @member {String} ntype='docs-classdetails-maincontainer-controller'
          * @protected

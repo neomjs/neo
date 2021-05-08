@@ -1,16 +1,16 @@
 import Component from '../../../../src/component/Base.mjs';
 
 /**
- * @class Docs.app.view.classdetails.TutorialComponent
+ * @class Docs.view.classdetails.TutorialComponent
  * @extends Neo.component.Base
  */
 class TutorialComponent extends Component {
     static getConfig() {return {
         /**
-         * @member {String} className='Docs.app.view.classdetails.TutorialComponent'
+         * @member {String} className='Docs.view.classdetails.TutorialComponent'
          * @protected
          */
-        className: 'Docs.app.view.classdetails.TutorialComponent',
+        className: 'Docs.view.classdetails.TutorialComponent',
         /**
          * @member {String} ntype='classdetails-tutorialcomponent'
          * @protected

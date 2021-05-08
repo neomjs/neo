@@ -11,16 +11,16 @@ import TutorialsTreeList       from './TutorialsTreeList.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
- * @class Docs.app.view.MainContainer
+ * @class Docs.view.MainContainer
  * @extends Neo.container.Viewport
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
         /**
-         * @member {String} className='Docs.app.view.MainContainer'
+         * @member {String} className='Docs.view.MainContainer'
          * @protected
          */
-        className: 'Docs.app.view.MainContainer',
+        className: 'Docs.view.MainContainer',
         /**
          * @member {String} ntype='main-container'
          * @protected

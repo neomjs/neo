@@ -2,16 +2,16 @@ import Base       from '../../../../src/list/Base.mjs';
 import Collection from '../../../../src/collection/Base.mjs';
 
 /**
- * @class Docs.app.view.classdetails.MembersList
+ * @class Docs.view.classdetails.MembersList
  * @extends Neo.list.Base
  */
 class MembersList extends Base {
     static getConfig() {return {
         /**
-         * @member {String} className='Docs.app.view.classdetails.MembersList'
+         * @member {String} className='Docs.view.classdetails.MembersList'
          * @protected
          */
-        className: 'Docs.app.view.classdetails.MembersList',
+        className: 'Docs.view.classdetails.MembersList',
         /**
          * @member {String} ntype='classdetails-memberslist'
          * @protected
