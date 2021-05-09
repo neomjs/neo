@@ -82,7 +82,7 @@ class MainContainerController extends ComponentController {
         if (!Neo.config.hash) {
             me.onHashChange({
                 country   : 'all',
-                hash      : {mainView: 'table'},
+                hash      : {mainview: 'table'},
                 hashString: 'mainview=table'
             }, null);
         }
@@ -518,7 +518,7 @@ class MainContainerController extends ComponentController {
             layerId: 'ne-10m-admin-0-countries-4s7rvf',
             value  : map[record.countryInfo.iso3] || map['default']
         });
-        
+
         view.flyTo({
             lat: record.countryInfo.lat,
             lng: record.countryInfo.long
