@@ -36,7 +36,7 @@ class Container extends BaseContainer {
         }, {
             module   : List,
             flex     : 1,
-            reference: 'blog'
+            reference: 'blog-list'
         }],
         /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}

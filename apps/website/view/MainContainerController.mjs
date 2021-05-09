@@ -54,6 +54,20 @@ class MainContainerController extends ComponentController {
 
     /**
      *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        if (!Neo.config.hash) {
+            this.onHashChange({
+                hash      : {mainview: 'home'},
+                hashString: 'mainview=home'
+            }, null);
+        }
+    }
+
+    /**
+     *
      * @param {Object} value
      * @param {Object} oldValue
      */
@@ -64,7 +78,11 @@ class MainContainerController extends ComponentController {
             activeIndex  = me.mainTabs.indexOf(hash.mainview),
             activeView   = me.getView(activeIndex),
             listeners    = me.mainTabsListeners,
-            store, view;
+            store;
+
+        if (activeIndex > -1) {
+            tabContainer.activeIndex = activeIndex;
+        }
 
         if (!activeView || !activeView.isConstructed) {
             setTimeout(() => {
@@ -87,7 +105,7 @@ class MainContainerController extends ComponentController {
                 break;
             }
             case 'blog': {
-                store = me.getReference('blog').store;
+                store = me.getReference('blog-list').store;
                 break;
             }
             case 'examples': {
@@ -117,10 +135,6 @@ class MainContainerController extends ComponentController {
                 store = me.getReference('docs').store;
                 break;
             }
-        }
-
-        if (activeIndex > -1) {
-            tabContainer.activeIndex = activeIndex;
         }
 
         if (store && store.getCount() < 1) {

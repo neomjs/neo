@@ -43,11 +43,12 @@ class MainContainer extends Viewport {
                 flex     : 'none',
                 reference: 'header-container'
             }, {
-                module   : TabContainer,
-                cls      : ['website-main-tabcontainer', 'neo-tab-container'],
-                flex     : 1,
-                reference: 'main-tab-container',
-                sortable : true,
+                module     : TabContainer,
+                activeIndex: null, // render no items initially
+                cls        : ['website-main-tabcontainer', 'neo-tab-container'],
+                flex       : 1,
+                reference  : 'main-tab-container',
+                sortable   : true,
 
                 items: [{
                     module         : () => import('./home/TabContainer.mjs'),
@@ -60,6 +61,7 @@ class MainContainer extends Viewport {
                     }
                 }, {
                     module         : () => import('./blog/Container.mjs'),
+                    reference      : 'blog',
                     tabButtonConfig: {
                         editRoute: false,
                         iconCls  : 'fa fa-rss',
