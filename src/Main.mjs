@@ -50,6 +50,7 @@ class Main extends core.Base {
             app: [
                 'editRoute',
                 'getWindowData',
+                'setNeoConfig',
                 'setRoute',
                 'windowClose',
                 'windowMoveTo',
@@ -377,6 +378,16 @@ class Main extends core.Base {
      */
     setRoute(data) {
         window.location.hash = data.value;
+    }
+
+    /**
+     * Change the location.hash value
+     * @param {Object} data
+     * @param {String} data.key
+     * @param {*} data.value
+     */
+    setNeoConfig(data) {
+        Neo.config[data.key] = data.value;
     }
 
     /**

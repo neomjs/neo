@@ -23,9 +23,9 @@ class CountryHelix extends Helix {
          */
         className: 'Neo.examples.component.coronaHelix.CountryHelix',
         /**
-         * @member {String[]} cls=['covid-country-helix', 'neo-helix']
+         * @member {String[]} cls=['neo-country-helix', 'neo-helix']
          */
-        cls: ['covid-country-helix', 'neo-helix'],
+        cls: ['neo-country-helix', 'neo-helix'],
         /**
          * The vertical delta between each helix item (increasing this value will create a spiral)
          * @member {Number} deltaY=1.2

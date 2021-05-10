@@ -1,4 +1,5 @@
 import CountryHelix from './CountryHelix.mjs';
+import CheckBox     from '../../../src/form/field/CheckBox.mjs';
 import Panel        from '../../../src/container/Panel.mjs';
 import RangeField   from '../../../src/form/field/Range.mjs';
 import Viewport     from '../../../src/container/Viewport.mjs';
@@ -48,6 +49,16 @@ class MainContainer extends Viewport {
             style : {position: 'relative'},
 
             items: [{
+                ntype: 'component',
+                html : 'DeltaUpdates / s: <span id="neo-delta-updates"></span>',
+                style: {
+                    position: 'absolute',
+                    right   : '150px',
+                    top     : '25px',
+                    width   : '200px',
+                    zIndex  : 1
+                }
+            }, {
                 ntype: 'component',
                 html : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
                 style: {
@@ -340,6 +351,22 @@ class MainContainer extends Viewport {
                     marginBottom: '10px'
                 }
             }, {
+                module        : CheckBox,
+                checked       : Neo.config.logDeltaUpdates,
+                hideLabel     : true,
+                hideValueLabel: false,
+                style         : {marginLeft: '10px', marginTop: '10px'},
+                valueLabelText: 'logDeltaUpdates',
+
+                listeners: {
+                    change: function (data) {
+                        Neo.Main.setNeoConfig({
+                            key: 'logDeltaUpdates',
+                            value: data.value
+                        });
+                    }
+                }
+            }, {
                 ntype: 'label',
                 text : [
                     '<b>Navigation Concept</b>',
@@ -394,12 +421,12 @@ class MainContainer extends Viewport {
             ...me.helixConfig || {}
         });
 
-        me.items[0].items.push(me.helix);
+        me.items[0].items.unshift(me.helix);
 
         fetch(url)
             .then(response => response.json())
-            .then(data => me.addStoreItems(data))
-            .catch(err => console.log('Can’t access ' + url, err));
+            .catch(err => console.log('Can’t access ' + url, err))
+            .then(data => me.addStoreItems(data));
 
         if (me.showGitHubStarButton) {
             me.on('mounted', () => {
@@ -421,7 +448,7 @@ class MainContainer extends Viewport {
      * @returns {Neo.data.Store}
      */
     getStore() {
-        return this.items[0].items[1].store;
+        return this.items[0].items[0].store;
     }
 }
 

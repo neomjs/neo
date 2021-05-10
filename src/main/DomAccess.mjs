@@ -15,6 +15,21 @@ class DomAccess extends Base {
          */
         className: 'Neo.main.DomAccess',
         /**
+         * @member {Number} countDeltas=0
+         * @protected
+         */
+        countDeltas: 0,
+        /**
+         * @member {Number} countDeltasPer250ms=0
+         * @protected
+         */
+        countDeltasPer250ms: 0,
+        /**
+         * @member {Number} countUpdates=0
+         * @protected
+         */
+        countUpdates: 0,
+        /**
          * @member {Array} mixins=[DeltaUpdates, Observable]
          */
         mixins: [
@@ -67,11 +82,19 @@ class DomAccess extends Base {
     constructor(config) {
         super(config);
 
-        let me = this;
+        let me = this,
+            node;
 
-        if (Neo.config.logDeltaUpdates) {
-            me.countDeltas  = 0;
-            me.countUpdates = 0;
+        if (Neo.config.renderCountDeltas) {
+            setInterval(() => {
+                node = document.getElementById('neo-delta-updates');
+
+                if (node) {
+                   node.innerHTML = String(me.countDeltasPer250ms * 4);
+                }
+
+                me.countDeltasPer250ms = 0;
+            }, 250);
         }
     }
 

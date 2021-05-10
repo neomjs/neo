@@ -169,8 +169,8 @@ class TableContainerController extends ComponentController {
 
         fetch(apiPath)
             .then(response => response.json())
-            .then(data => me.addStoreItems(data))
-            .catch(err => console.log('Can’t access ' + apiPath, err));
+            .catch(err => console.log('Can’t access ' + apiPath, err))
+            .then(data => me.addStoreItems(data));
     }
 
     /**
