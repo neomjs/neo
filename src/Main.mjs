@@ -266,7 +266,7 @@ class Main extends core.Base {
      *
      * @param queue
      * @param start
-     * @returns {number}
+     * @returns {Number}
      * @protected
      */
     processQueue(queue, start) {
