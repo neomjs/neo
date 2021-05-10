@@ -261,8 +261,8 @@ class MainContainerController extends ComponentController {
 
         fetch(me.apiUrl)
             .then(response => response.json())
-            .then(data => me.addStoreItems(data))
-            .catch(err => console.log('Can’t access ' + me.apiUrl, err));
+            .catch(err => console.log('Can’t access ' + me.apiUrl, err))
+            .then(data => me.addStoreItems(data));
     }
 
     /**
@@ -273,8 +273,8 @@ class MainContainerController extends ComponentController {
 
         fetch(me.apiSummaryUrl)
             .then(response => response.json())
-            .then(data => me.applySummaryData(data))
-            .catch(err => console.log('Can’t access ' + me.apiSummaryUrl, err));
+            .catch(err => console.log('Can’t access ' + me.apiSummaryUrl, err))
+            .then(data => me.applySummaryData(data));
 
         setTimeout(() => {
             if (!me.summaryData) {
@@ -748,7 +748,7 @@ class MainContainerController extends ComponentController {
             layerId: 'ne-10m-admin-0-countries-4s7rvf',
             value  : map[record.countryInfo.iso3] || map['default']
         });
-        
+
         view.flyTo({
             lat: record.countryInfo.lat,
             lng: record.countryInfo.long

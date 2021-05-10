@@ -340,8 +340,8 @@ class MainContainer extends Viewport {
 
         fetch(url)
             .then(response => response.json())
-            .then(data => me.addStoreItems(data))
-            .catch(err => console.log('Can’t access ' + url, err));
+            .catch(err => console.log('Can’t access ' + url, err))
+            .then(data => me.addStoreItems(data));
 
         if (me.showGitHubStarButton) {
             me.on('mounted', () => {
