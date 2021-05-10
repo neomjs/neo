@@ -1,3 +1,4 @@
+import CheckBox     from '../../../src/form/field/CheckBox.mjs';
 import Helix       from '../../../src/component/Helix.mjs';
 import NumberField from '../../../src/form/field/Number.mjs';
 import Panel       from '../../../src/container/Panel.mjs';
@@ -262,6 +263,22 @@ class MainContainer extends Viewport {
                 style: {
                     margin      : '20px',
                     marginBottom: '10px'
+                }
+            }, {
+                module        : CheckBox,
+                checked       : Neo.config.logDeltaUpdates,
+                hideLabel     : true,
+                hideValueLabel: false,
+                style         : {marginLeft: '10px', marginTop: '10px'},
+                valueLabelText: 'logDeltaUpdates',
+
+                listeners: {
+                    change: function (data) {
+                        Neo.Main.setNeoConfig({
+                            key: 'logDeltaUpdates',
+                            value: data.value
+                        });
+                    }
                 }
             }, {
                 ntype: 'label',
