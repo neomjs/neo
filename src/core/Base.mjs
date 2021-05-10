@@ -54,7 +54,13 @@ class Base {
          * Add mixins as an array of classNames, imported modules or a mixed version
          * @member {String[]|Neo.core.Base[]|null} mixins=null
          */
-        mixins: null
+        mixins: null,
+        /**
+         * You can create a new instance by passing an imported class (JS module default export)
+         * @member {Class} module=null
+         * @protected
+         */
+        module: null
     }}
 
     /**
