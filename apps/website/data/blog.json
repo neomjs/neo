@@ -7,10 +7,10 @@
         "image"       : "rendering-performance-demo.png",
         "name"        : "Rendering performance demo: 20.000 delta updates per second",
         "provider"    : "Medium",
-        "publisher"   : "",
+        "publisher"   : "ITNEXT",
         "selectedInto": [],
         "type"        : "Blog Post",
-        "url"         : "https://tobiasuhlig.medium.com/rendering-performance-demo-20-000-delta-updates-per-second-6f527d8eb8f5?source=friends_link&sk=1261189e91e812659ba6e38819fffe2d"
+        "url"         : "https://itnext.io/rendering-performance-demo-20-000-delta-updates-per-second-6f527d8eb8f5?source=friends_link&sk=1261189e91e812659ba6e38819fffe2d"
     },
     {
         "author"      : "Tobias Uhlig",
