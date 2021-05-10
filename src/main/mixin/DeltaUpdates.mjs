@@ -243,6 +243,12 @@ class DeltaUpdates extends Base {
             console.log('update ' + me.countUpdates, 'total deltas ', me.countDeltas, Neo.clone(data, true));
         }
 
+        if (Neo.config.renderCountDeltas && len > 0) {
+            me.countDeltas += len;
+            me.countUpdates++;
+            console.log('update ' + me.countUpdates, 'total deltas ', me.countDeltas, Neo.clone(data, true));
+        }
+
         const map = {
             focusNode   : me.du_focusNode,
             insertNode  : me.du_insertNode,

@@ -97,14 +97,14 @@ const DefaultConfig = {
      */
     mainThreadAddons: ['DragDrop', 'Stylesheet'],
     /**
-     * You can visually show the amount of delta updates using this config.
+     * You can visually show the amount of delta updates per second using this config.
      * It expects a dom node with the id "neo-delta-updates" as the rendering target.
      * @default false
      * @memberOf! module:Neo
-     * @name config.renderCountDeltaUpdates
+     * @name config.renderCountDeltas
      * @type Boolean
      */
-    renderCountDeltaUpdates: false,
+    renderCountDeltas: false,
     /**
      * Add themes you want to use here. The first theme will get applied.
      * If config.useCssVars === true, other theme variables will get included as well
