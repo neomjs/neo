@@ -115,7 +115,9 @@ class MainContainerController extends ComponentController {
         }
 
         if (['gallery', 'helix', 'table'].includes(reference)) {
-            activeTab.store.data = data;
+            if (activeTab) {
+                activeTab.store.data = data;
+            }
         }
 
         else if (reference === 'mapboxglmap') {
