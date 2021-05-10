@@ -201,7 +201,14 @@ class App extends Base {
     onRegisterNeoConfig(msg) {
         super.onRegisterNeoConfig(msg);
 
-        fetch(`../../resources/theme-map${Neo.config.useCssVars ? '' : '-no-vars'}.json`)
+        let config = Neo.config,
+            url    = `../../resources/theme-map${Neo.config.useCssVars ? '' : '-no-vars'}.json`;
+
+        if (config.workerBasePath && config.workerBasePath.includes('node_modules')) {
+            url = '../../' + url;
+        }
+
+        fetch(url)
             .then(response => response.json())
             .then(data => {this.createThemeMap(data)});
     }
