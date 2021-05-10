@@ -32,7 +32,7 @@ class MainContainer extends Viewport {
          */
         helixConfig: null,
         /**
-         * @member {Object|null} layout={ntype: 'hbox', align: 'stretch'}
+         * @member {Object|null} layout={ntype: 'hbox',align:'stretch'}
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**

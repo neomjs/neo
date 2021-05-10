@@ -11,6 +11,9 @@ import Viewport    from '../../../src/container/Viewport.mjs';
 class MainContainer extends Viewport {
     static getConfig() {return {
         className: 'Neo.examples.component.helix.MainContainer',
+        /**
+         * @member {Boolean} autoMount=true
+         */
         autoMount: true,
         /**
          * @member {Neo.component.Helix|null} helix=null
@@ -20,13 +23,43 @@ class MainContainer extends Viewport {
          * @member {Object|null} helixConfig=null
          */
         helixConfig: null,
+        /**
+         * @member {Object|null} layout={ntype: 'hbox',align:'stretch'}
+         */
         layout: {ntype: 'hbox', align: 'stretch'},
-
+        /**
+         * @member {Boolean} showGitHubStarButton=true
+         */
+        showGitHubStarButton: true,
+        /**
+         * @member {Object[]} items
+         */
         items: [{
             ntype : 'container',
             flex  : 1,
             layout: 'fit',
-            items : []
+            style : {position: 'relative'},
+
+            items: [{
+                ntype: 'component',
+                html : 'DeltaUpdates / s: <span id="neo-delta-updates"></span>',
+                style: {
+                    position: 'absolute',
+                    right   : '150px',
+                    top     : '25px',
+                    width   : '200px',
+                    zIndex  : 1
+                }
+            }, {
+                ntype: 'component',
+                html : '<a class="github-button" href="https://github.com/neomjs/neo" data-size="large" data-show-count="true" aria-label="Star neomjs/neo on GitHub">Star</a>',
+                style: {
+                    position: 'absolute',
+                    right   : '20px',
+                    top     : '20px',
+                    zIndex  : 1
+                }
+            }]
         }, {
             ntype : 'panel',
             layout: {ntype: 'vbox',align: 'stretch'},
@@ -266,7 +299,17 @@ class MainContainer extends Viewport {
             ...me.helixConfig || {}
         });
 
-        me.items[0].items.push(me.helix);
+        me.items[0].items.unshift(me.helix);
+
+        if (me.showGitHubStarButton) {
+            me.on('mounted', () => {
+                Neo.main.DomAccess.addScript({
+                    async: true,
+                    defer: true,
+                    src  : 'https://buttons.github.io/buttons.js'
+                });
+            });
+        }
     }
 
     /**
