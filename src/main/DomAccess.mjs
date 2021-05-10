@@ -73,6 +73,15 @@ class DomAccess extends Base {
             me.countDeltas  = 0;
             me.countUpdates = 0;
         }
+
+        if (Neo.config.renderCountDeltas) {
+            me.countDeltasPer100ms = 0;
+
+            setInterval(() => {
+                console.log(me.countDeltasPer100ms);
+                me.countDeltasPer100ms = 0;
+            }, 100)
+        }
     }
 
     /**
