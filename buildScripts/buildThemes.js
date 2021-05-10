@@ -242,7 +242,7 @@ inquirer.prompt(questions).then(answers => {
         files.forEach(file => {
             addItemToThemeMap(file, target, useCssVars);
 
-            let folderPath = path.resolve(neoPath, `dist/${mode}/css${suffix}/${target}/${file.relativePath}`),
+            let folderPath = path.resolve(cwd, `dist/${mode}/css${suffix}/${target}/${file.relativePath}`),
                 destPath   = path.resolve(folderPath, `${file.name}.css`);
 
             fs.readFile(file.path).then(content => {
