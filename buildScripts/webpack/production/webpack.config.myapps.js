@@ -59,15 +59,16 @@ module.exports = env => {
                     filename: indexPath,
                     template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
                     templateParameters: {
-                        appPath         : value.output + 'app.mjs',
+                        appPath          : value.output + 'app.mjs',
                         basePath,
-                        bodyTag         : value.bodyTag || config.bodyTag,
-                        environment     : 'dist/production',
-                        mainPath        : workerBasePath + 'main.js',
-                        mainThreadAddons: value.mainThreadAddons || "'Stylesheet'",
-                        themes          : value.themes           || "'neo-theme-light', 'neo-theme-dark'",
-                        title           : value.title,
-                        useSharedWorkers: value.useSharedWorkers || false,
+                        bodyTag          : value.bodyTag || config.bodyTag,
+                        environment      : 'dist/production',
+                        mainPath         : workerBasePath + 'main.js',
+                        mainThreadAddons : value.mainThreadAddons  || "'Stylesheet'",
+                        renderCountDeltas: value.renderCountDeltas || false,
+                        themes           : value.themes            || "'neo-theme-light', 'neo-theme-dark'",
+                        title            : value.title,
+                        useSharedWorkers : value.useSharedWorkers  || false,
                         workerBasePath
                     }
                 }));
