@@ -65,6 +65,10 @@ class Helix extends Component {
          * @member {Number} dimmedMinOpacity_=0.2
          */
         dimmedMinOpacity_: 0.2,
+        /**
+         * False will prevent items from getting selected.
+         * @member {Boolean} disableSelection=false
+         */
         disableSelection : false,
         /**
          * Flip images by 180° for a not mirrored inner view

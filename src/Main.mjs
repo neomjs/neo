@@ -264,9 +264,9 @@ class Main extends core.Base {
 
     /**
      *
-     * @param queue
-     * @param start
-     * @returns {number}
+     * @param {Object[]} queue
+     * @param {Date} start
+     * @returns {Number}
      * @protected
      */
     processQueue(queue, start) {
@@ -287,7 +287,7 @@ class Main extends core.Base {
 
     /**
      *
-     * @param data
+     * @param {Object} data
      * @protected
      */
     queueRead(data) {
@@ -302,7 +302,7 @@ class Main extends core.Base {
 
     /**
      *
-     * @param data
+     * @param {Object} data
      * @protected
      */
     queueUpdate(data) {

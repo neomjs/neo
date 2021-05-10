@@ -75,6 +75,8 @@
             "helix": {
                 "input": "./examples/component/helix/app.mjs",
                 "output": "/examples/component/helix/",
+                "renderCountDeltas": true,
+                "themes": "'neo-theme-dark'",
                 "title": "Neo Helix"
             }
         },

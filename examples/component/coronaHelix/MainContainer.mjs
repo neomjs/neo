@@ -1,5 +1,5 @@
-import CountryHelix from './CountryHelix.mjs';
 import CheckBox     from '../../../src/form/field/CheckBox.mjs';
+import CountryHelix from './CountryHelix.mjs';
 import Panel        from '../../../src/container/Panel.mjs';
 import RangeField   from '../../../src/form/field/Range.mjs';
 import Viewport     from '../../../src/container/Viewport.mjs';
@@ -32,7 +32,7 @@ class MainContainer extends Viewport {
          */
         helixConfig: null,
         /**
-         * @member {Object|null} layout={ntype: 'hbox', align: 'stretch'}
+         * @member {Object|null} layout={ntype: 'hbox',align:'stretch'}
          */
         layout: {ntype: 'hbox', align: 'stretch'},
         /**
