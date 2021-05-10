@@ -51,12 +51,14 @@
             "coronaGallery": {
                 "input": "./examples/component/coronaGallery/app.mjs",
                 "output": "/examples/component/coronaGallery/",
+                "renderCountDeltas": true,
                 "themes": "'neo-theme-dark'",
                 "title": "COVID19 Gallery"
             },
             "coronaHelix": {
                 "input": "./examples/component/coronaHelix/app.mjs",
                 "output": "/examples/component/coronaHelix/",
+                "renderCountDeltas": true,
                 "themes": "'neo-theme-dark'",
                 "title": "COVID19 Helix"
             },
