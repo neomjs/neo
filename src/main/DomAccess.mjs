@@ -67,7 +67,8 @@ class DomAccess extends Base {
     constructor(config) {
         super(config);
 
-        let me = this;
+        let me = this,
+            node;
 
         if (Neo.config.logDeltaUpdates) {
             me.countDeltas  = 0;
@@ -75,12 +76,17 @@ class DomAccess extends Base {
         }
 
         if (Neo.config.renderCountDeltas) {
-            me.countDeltasPer100ms = 0;
+            me.countDeltasPer250ms = 0;
 
             setInterval(() => {
-                console.log(me.countDeltasPer100ms);
-                me.countDeltasPer100ms = 0;
-            }, 100)
+                node = document.getElementById('neo-delta-updates');
+
+                if (node) {
+                   node.innerHTML = String(me.countDeltasPer250ms * 4);
+                }
+
+                me.countDeltasPer250ms = 0;
+            }, 250)
         }
     }
 

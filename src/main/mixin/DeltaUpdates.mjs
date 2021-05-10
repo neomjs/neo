@@ -244,7 +244,7 @@ class DeltaUpdates extends Base {
         }
 
         if (Neo.config.renderCountDeltas && len > 0) {
-            me.countDeltasPer100ms += len;
+            me.countDeltasPer250ms += len;
         }
 
         const map = {
