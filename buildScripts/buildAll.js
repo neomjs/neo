@@ -11,7 +11,7 @@ const chalk       = require('chalk'),
       npmCmd      = os.platform().startsWith('win') ? 'npm.cmd' : 'npm', // npm binary based on OS
       path        = require('path'),
       packageJson = require(path.resolve(cwd, 'package.json')),
-      neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      neoPath     = path.resolve(packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/'),
       webpackPath = path.resolve(neoPath, 'buildScripts/webpack'),
       programName = `${packageJson.name} buildAll`,
       questions   = [];
@@ -128,7 +128,7 @@ inquirer.prompt(questions).then(answers => {
     }
 
     if (themes === 'yes') {
-        cp.spawnSync('node', ['./buildScripts/buildThemes.js'].concat(cpArgs), cpOpts);
+        cp.spawnSync('node', [`${neoPath}/buildScripts/buildThemes.js`].concat(cpArgs), cpOpts);
     }
 
     if (threads === 'yes') {
