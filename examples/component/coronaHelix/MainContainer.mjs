@@ -1,4 +1,5 @@
 import CountryHelix from './CountryHelix.mjs';
+import CheckBox     from '../../../src/form/field/CheckBox.mjs';
 import Panel        from '../../../src/container/Panel.mjs';
 import RangeField   from '../../../src/form/field/Range.mjs';
 import Viewport     from '../../../src/container/Viewport.mjs';
@@ -350,6 +351,22 @@ class MainContainer extends Viewport {
                     marginBottom: '10px'
                 }
             }, {
+                module        : CheckBox,
+                checked       : Neo.config.logDeltaUpdates,
+                hideLabel     : true,
+                hideValueLabel: false,
+                style         : {marginLeft: '10px', marginTop: '10px'},
+                valueLabelText: 'logDeltaUpdates',
+
+                listeners: {
+                    change: function (data) {
+                        Neo.Main.setNeoConfig({
+                            key: 'logDeltaUpdates',
+                            value: data.value
+                        });
+                    }
+                }
+            }, {
                 ntype: 'label',
                 text : [
                     '<b>Navigation Concept</b>',
@@ -423,7 +440,6 @@ class MainContainer extends Viewport {
     }
 
     addStoreItems(data) {
-        console.log(this.isConstructed);
         this.getStore().data = data;
     }
 
