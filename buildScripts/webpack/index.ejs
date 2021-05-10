@@ -10,13 +10,14 @@
         Neo = self.Neo || {}; Neo.config = Neo.config || {};
 
         Object.assign(Neo.config, {
-            appPath         : '<%= appPath %>',
-            basePath        : '<%= basePath %>',
-            environment     : '<%= environment %>',
-            mainThreadAddons: [<%= mainThreadAddons %>],
-            themes          : [<%= themes %>],
-            useSharedWorkers: <%= useSharedWorkers %>,
-            workerBasePath  : '<%= workerBasePath %>'
+            appPath          : '<%= appPath %>',
+            basePath         : '<%= basePath %>',
+            environment      : '<%= environment %>',
+            mainThreadAddons : [<%= mainThreadAddons %>],
+            renderCountDeltas: <%= renderCountDeltas %>,
+            themes           : [<%= themes %>],
+            useSharedWorkers : <%= useSharedWorkers %>,
+            workerBasePath   : '<%= workerBasePath %>'
         });
     </script>
     <script src="<%= mainPath %>"></script>
