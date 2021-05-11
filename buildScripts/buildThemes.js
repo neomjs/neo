@@ -91,9 +91,9 @@ if (!program.noquestions) {
 }
 
 inquirer.prompt(questions).then(answers => {
-    const cssVars    = answers.cssVars || program.cssVars || 'all',
-          env        = answers.env     || program.env     || 'all',
-          themes     = answers.themes  || program.themes  || 'all',
+    const cssVars    = answers.cssVars   || program.cssVars || 'all',
+          env        = answers.env       || program.env     || 'all',
+          themes     = answers.themes    || program.themes  || 'all',
           insideNeo  = program.framework || false,
           startDate  = new Date(),
           fileCount  = {vars: 0, noVars: 0},
@@ -135,13 +135,23 @@ inquirer.prompt(questions).then(answers => {
         }
     };
 
-    const getAllScssFiles = (dirPath, arrayOfFiles=[], relativePath='') => {
+    const getAllScssFiles = (dirPath) => {
+        const files = getScssFiles(path.resolve(neoPath, dirPath));
+
+        if (!insideNeo) {
+            files.push(getScssFiles(path.resolve(cwd, dirPath)));
+        }
+
+        return files;
+    };
+
+    const getScssFiles = (dirPath, arrayOfFiles=[], relativePath='') => {
         let files = fs.readdirSync(dirPath),
             className, fileInfo;
 
         files.forEach(file => {
             if (fs.statSync(dirPath + '/' + file).isDirectory()) {
-                arrayOfFiles = getAllScssFiles(dirPath + '/' + file, arrayOfFiles, relativePath + '/' + file);
+                arrayOfFiles = getScssFiles(dirPath + '/' + file, arrayOfFiles, relativePath + '/' + file);
             } else {
                 fileInfo = path.parse(file);
 
@@ -168,7 +178,7 @@ inquirer.prompt(questions).then(answers => {
         });
 
         return arrayOfFiles;
-    }
+    };
 
     const getThemeMap = filePath => {
         let themeMapJson = path.resolve(cwd, filePath),
@@ -208,17 +218,26 @@ inquirer.prompt(questions).then(answers => {
             mixinPath = path.resolve(neoPath, 'resources/scss/mixins/_all.scss'),
             suffix    = useCssVars ? ''     : '-no-vars',
             varsFlag  = useCssVars ? 'vars' : 'noVars',
-            map, themePath;
+            map, neoThemePath, themeBuffer, themePath, workspaceThemePath;
 
         totalFiles[varsFlag] += files.length;
 
         if (target.includes('theme')) {
-            themePath = path.resolve(neoPath, `resources/scss/${target}/_all.scss`);
+            themePath    = `resources/scss/${target}/_all.scss`;
+            neoThemePath = path.resolve(neoPath, themePath);
 
             if (!sassThemes[target]) {
-                sassThemes[target] = scssCombine(fs.readFileSync(themePath).toString(), path.dirname(themePath));
-                sassThemes[target] = sassThemes[target].replace(regexComments,  '');
-                sassThemes[target] = sassThemes[target].replace(regexLineBreak, '');
+                themeBuffer = scssCombine(fs.readFileSync(themePath).toString(), path.dirname(neoThemePath));
+
+                if (!insideNeo) {
+                    workspaceThemePath = path.resolve(cwd, themePath);
+                    themeBuffer.push(scssCombine(fs.readFileSync(themePath).toString(), path.dirname(workspaceThemePath)));
+                }
+
+                themeBuffer = themeBuffer.replace(regexComments,  '');
+                themeBuffer = themeBuffer.replace(regexLineBreak, '');
+
+                sassThemes[target] = themeBuffer;
             }
 
             data = [
@@ -331,12 +350,12 @@ inquirer.prompt(questions).then(answers => {
     // dist/development
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
-        buildEnv(path.resolve(neoPath, scssPath), 'development');
+        buildEnv(path.join(scssPath), 'development');
     }
 
     // dist/production
     if (env === 'all' || env === 'prod') {
         console.log(chalk.blue(`${programName} starting dist/production`));
-        buildEnv(path.resolve(neoPath, scssPath), 'production');
+        buildEnv(path.join(scssPath), 'production');
     }
 });
