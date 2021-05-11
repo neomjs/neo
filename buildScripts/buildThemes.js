@@ -102,6 +102,12 @@ inquirer.prompt(questions).then(answers => {
     let sassThemes = [],
         themeMap, themeMapNoVars;
 
+    /**
+     *
+     * @param {Object} file
+     * @param {String} target
+     * @param {Boolean} useCssVars
+     */
     function addItemToThemeMap(file, target, useCssVars) {
         let classPath = file.className.split('.'),
             fileName  = classPath.pop(),
@@ -119,6 +125,11 @@ inquirer.prompt(questions).then(answers => {
         }
     }
 
+    /**
+     *
+     * @param {String} p
+     * @param {String} mode development or production
+     */
     function buildEnv(p, mode) {
         if (cssVars !== 'no') {
             parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'src', true);
@@ -135,16 +146,28 @@ inquirer.prompt(questions).then(answers => {
         }
     }
 
+    /**
+     *
+     * @param {String} dirPath
+     * @returns {Object[]}
+     */
     function getAllScssFiles(dirPath) {
         const files = getScssFiles(path.resolve(neoPath, dirPath));
 
         if (!insideNeo) {
-            files.push(getScssFiles(path.resolve(cwd, dirPath)));
+            files.push(...getScssFiles(path.resolve(cwd, dirPath)));
         }
 
         return files;
     }
 
+    /**
+     *
+     * @param {String} dirPath
+     * @param [arrayOfFiles=[]]
+     * @param [relativePath='']
+     * @returns {Object[]}
+     */
     function getScssFiles(dirPath, arrayOfFiles=[], relativePath='') {
         let files = fs.readdirSync(dirPath),
             className, fileInfo;
@@ -180,6 +203,11 @@ inquirer.prompt(questions).then(answers => {
         return arrayOfFiles;
     }
 
+    /**
+     *
+     * @param {String} filePath
+     * @returns {Object}
+     */
     function getThemeMap(filePath) {
         let themeMapJson = path.resolve(cwd, filePath),
             themeMap;
@@ -199,6 +227,13 @@ inquirer.prompt(questions).then(answers => {
         return themeMap;
     }
 
+    /**
+     *
+     * @param {Array|String} names The class name string containing dots or an Array of the string parts
+     * @param {Boolean} [create] Set create to true to create empty objects for non existing parts
+     * @param {Object} [scope] Set a different starting point as self
+     * @returns {Object} reference to the toplevel namespace
+     */
     function ns(names, create, scope) {
         names = Array.isArray(names) ? names : names.split('.');
 
@@ -212,6 +247,13 @@ inquirer.prompt(questions).then(answers => {
         }, scope);
     }
 
+    /**
+     *
+     * @param {Object[]} files
+     * @param {String} mode development or production
+     * @param {String} target src or a theme
+     * @param {Boolean} useCssVars
+     */
     function parseScssFiles(files, mode, target, useCssVars) {
         let data      = '',
             devMode   = mode === 'development',
@@ -231,7 +273,7 @@ inquirer.prompt(questions).then(answers => {
 
                 if (!insideNeo) {
                     workspaceThemePath = path.resolve(cwd, themePath);
-                    themeBuffer.push(scssCombine(fs.readFileSync(themePath).toString(), path.dirname(workspaceThemePath)));
+                    themeBuffer += scssCombine(fs.readFileSync(themePath).toString(), path.dirname(workspaceThemePath));
                 }
 
                 themeBuffer = themeBuffer.replace(regexComments,  '');
@@ -323,6 +365,12 @@ inquirer.prompt(questions).then(answers => {
         });
     }
 
+    /**
+     *
+     * @param {String} content
+     * @param {String} baseDir
+     * @returns {String}
+     */
     function scssCombine (content, baseDir) {
         if (regexSassImport.test(content)) {
             content = content.replace(regexSassImport, (m, capture) => {
