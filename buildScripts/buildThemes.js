@@ -139,7 +139,7 @@ inquirer.prompt(questions).then(answers => {
         const files = getScssFiles(path.resolve(neoPath, dirPath));
 
         if (!insideNeo) {
-            files.push(getScssFiles(path.resolve(cwd, dirPath)));
+            files.push(...getScssFiles(path.resolve(cwd, dirPath)));
         }
 
         return files;
@@ -231,7 +231,7 @@ inquirer.prompt(questions).then(answers => {
 
                 if (!insideNeo) {
                     workspaceThemePath = path.resolve(cwd, themePath);
-                    themeBuffer.push(scssCombine(fs.readFileSync(themePath).toString(), path.dirname(workspaceThemePath)));
+                    themeBuffer += scssCombine(fs.readFileSync(themePath).toString(), path.dirname(workspaceThemePath));
                 }
 
                 themeBuffer = themeBuffer.replace(regexComments,  '');
