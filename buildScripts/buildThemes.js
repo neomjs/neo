@@ -102,7 +102,7 @@ inquirer.prompt(questions).then(answers => {
     let sassThemes = [],
         themeMap, themeMapNoVars;
 
-    const addItemToThemeMap = (file, target, useCssVars) => {
+    function addItemToThemeMap(file, target, useCssVars) {
         let classPath = file.className.split('.'),
             fileName  = classPath.pop(),
             namespace;
@@ -117,9 +117,9 @@ inquirer.prompt(questions).then(answers => {
                 namespace[fileName].push(target);
             }
         }
-    };
+    }
 
-    const buildEnv = (p, mode) => {
+    function buildEnv(p, mode) {
         if (cssVars !== 'no') {
             parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'src', true);
         }
@@ -133,9 +133,9 @@ inquirer.prompt(questions).then(answers => {
             if (themes === 'all' || themes === 'dark')  {parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'theme-dark',  false);}
             if (themes === 'all' || themes === 'light') {parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'theme-light', false);}
         }
-    };
+    }
 
-    const getAllScssFiles = (dirPath) => {
+    function getAllScssFiles(dirPath) {
         const files = getScssFiles(path.resolve(neoPath, dirPath));
 
         if (!insideNeo) {
@@ -143,9 +143,9 @@ inquirer.prompt(questions).then(answers => {
         }
 
         return files;
-    };
+    }
 
-    const getScssFiles = (dirPath, arrayOfFiles=[], relativePath='') => {
+    function getScssFiles(dirPath, arrayOfFiles=[], relativePath='') {
         let files = fs.readdirSync(dirPath),
             className, fileInfo;
 
@@ -178,9 +178,9 @@ inquirer.prompt(questions).then(answers => {
         });
 
         return arrayOfFiles;
-    };
+    }
 
-    const getThemeMap = filePath => {
+    function getThemeMap(filePath) {
         let themeMapJson = path.resolve(cwd, filePath),
             themeMap;
 
@@ -197,9 +197,9 @@ inquirer.prompt(questions).then(answers => {
         }
 
         return themeMap;
-    };
+    }
 
-    const ns = (names, create, scope) => {
+    function ns(names, create, scope) {
         names = Array.isArray(names) ? names : names.split('.');
 
         return names.reduce((prev, current) => {
@@ -210,9 +210,9 @@ inquirer.prompt(questions).then(answers => {
                 return prev[current];
             }
         }, scope);
-    };
+    }
 
-    const parseScssFiles = (files, mode, target, useCssVars) => {
+    function parseScssFiles(files, mode, target, useCssVars) {
         let data      = '',
             devMode   = mode === 'development',
             mixinPath = path.resolve(neoPath, 'resources/scss/mixins/_all.scss'),
@@ -321,9 +321,9 @@ inquirer.prompt(questions).then(answers => {
                 });
             });
         });
-    };
+    }
 
-    const scssCombine = (content, baseDir) => {
+    function scssCombine (content, baseDir) {
         if (regexSassImport.test(content)) {
             content = content.replace(regexSassImport, (m, capture) => {
                 let parse = path.parse(path.resolve(baseDir, capture)),
@@ -342,7 +342,7 @@ inquirer.prompt(questions).then(answers => {
         }
 
         return content;
-    };
+    }
 
     if (cssVars !== 'no')  {themeMap       = getThemeMap(themeMapFile);}
     if (cssVars !== 'yes') {themeMapNoVars = getThemeMap(themeMapFileNoVars);}
