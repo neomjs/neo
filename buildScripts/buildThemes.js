@@ -269,11 +269,11 @@ inquirer.prompt(questions).then(answers => {
             neoThemePath = path.resolve(neoPath, themePath);
 
             if (!sassThemes[target]) {
-                themeBuffer = scssCombine(fs.readFileSync(themePath).toString(), path.dirname(neoThemePath));
+                themeBuffer = scssCombine(fs.readFileSync(neoThemePath).toString(), path.dirname(neoThemePath));
 
                 if (!insideNeo) {
                     workspaceThemePath = path.resolve(cwd, themePath);
-                    themeBuffer += scssCombine(fs.readFileSync(themePath).toString(), path.dirname(workspaceThemePath));
+                    themeBuffer += scssCombine(fs.readFileSync(workspaceThemePath).toString(), path.dirname(workspaceThemePath));
                 }
 
                 themeBuffer = themeBuffer.replace(regexComments,  '');
@@ -320,7 +320,7 @@ inquirer.prompt(questions).then(answers => {
                     plugins.push(cssnano);
                 }
 
-                map = result.map && result.map.toString()
+                map = result.map && result.map.toString();
 
                 if (map) {
                     // https://github.com/neomjs/neo/issues/1970
