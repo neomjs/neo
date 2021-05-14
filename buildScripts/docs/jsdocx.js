@@ -35,11 +35,11 @@ if (appJson) {
     Object.entries(appJson.apps).forEach(([key, value]) => {
         if (key !== 'Docs') { // the docs app is automatically included
             appNames.push(key);
-            options.files.push(path.resolve('./', value.output + '**/*.mjs'));
+            options.files.push(path.resolve('./', `${value.output.substr(1)}**/*.mjs`));
         }
     });
 }
-console.log(options.files);
+
 function ns(names, create) {
     names = Array.isArray(names) ? names : names.split('.');
 
