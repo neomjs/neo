@@ -39,7 +39,7 @@ if (appJson) {
         }
     });
 }
-console.log(options.files);
+
 function ns(names, create) {
     names = Array.isArray(names) ? names : names.split('.');
 
