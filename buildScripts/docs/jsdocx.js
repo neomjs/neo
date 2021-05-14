@@ -39,7 +39,10 @@ if (appJson) {
             appNames.push(key);
 
             input = path.resolve(cwd, value.output + '**/*.mjs');
-            input = path.join('./', input);
+
+            if (path.sep === '/') {
+                input = path.join('./', input);
+            }
 
             options.files.push(input);
         }
