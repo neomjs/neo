@@ -242,7 +242,7 @@ Here you go: <a href="./BACKERS.md">Sponsors & Backers</a>
 
 There are some Javascript legends hiding in the shadows and waiting to be discovered.</br>
 Join our community:
-<a href="https://join.slack.com/t/neotericjs/shared_invite/enQtNDk2NjEwMTIxODQ2LWRjNGQ3ZTMzODRmZGM2NDM2NzZmZTMzZmE2YjEwNDM4NDhjZDllNWY2ZDkwOWQ5N2JmZWViYjYzZTg5YjdiMDc">Slack Channel Invite Link</a>
+<a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA">Slack Channel Invite Link</a>
 
 Build with :heart: in Germany.
 

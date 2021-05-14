@@ -266,6 +266,10 @@ inquirer.prompt(questions).then(answers => {
 
         totalFiles[varsFlag] += files.length;
 
+        if (path.sep === '\\') {
+            mixinPath = mixinPath.replace(/\\/g, '/');
+        }
+
         if (target.includes('theme')) {
             themePath    = `resources/scss/${target}/_all.scss`;
             neoThemePath = path.resolve(neoPath, themePath);
