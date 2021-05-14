@@ -9,7 +9,7 @@ const fs          = require('fs-extra'),
       appNames    = [],
       options = {
           access        : 'all',
-          files         : [path.resolve(neoPath, 'src/**/*.mjs'), path.resolve(neoPath, 'docs/app/**/*.mjs')],
+          files         : [path.join(neoPath, 'src/**/*.mjs'), path.join(neoPath, 'docs/app/**/*.mjs')],
           includePattern: ".+\\.(m)js(doc)?$",
           excludePattern: "(^|\\/|\\\\)_",
           recurse       : true,
@@ -39,7 +39,7 @@ if (appJson) {
         }
     });
 }
-
+console.log(options.files);
 function ns(names, create) {
     names = Array.isArray(names) ? names : names.split('.');
 
@@ -358,7 +358,7 @@ jsdocx.parse(options)
 
         helper.writeJSON({
             path  : './docs/output/all.json',
-            indent: 4,
+            indent: 0,
             force : true
         }, docs);
 
@@ -383,7 +383,7 @@ jsdocx.parse(options)
 
             helper.writeJSON({
                 path  : './docs/output/' + path,
-                indent: 4,
+                indent: 0,
                 force : true
             }, fileNs);
         });
@@ -412,7 +412,7 @@ jsdocx.parse(options)
 
         helper.writeJSON({
             path  : './docs/output/structure.json',
-            indent: 4,
+            indent: 0,
             force : true
         }, neoStructure);
 
