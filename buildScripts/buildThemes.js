@@ -174,7 +174,7 @@ inquirer.prompt(questions).then(answers => {
 
         files.forEach(file => {
             if (fs.statSync(dirPath + '/' + file).isDirectory()) {
-                arrayOfFiles = getScssFiles(dirPath + '/' + file, arrayOfFiles, relativePath + '/' + file);
+                arrayOfFiles = getScssFiles(path.join(dirPath + '/' + file), arrayOfFiles, relativePath + '/' + file);
             } else {
                 fileInfo = path.parse(file);
 
