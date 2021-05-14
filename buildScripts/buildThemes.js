@@ -170,11 +170,13 @@ inquirer.prompt(questions).then(answers => {
      */
     function getScssFiles(dirPath, arrayOfFiles=[], relativePath='') {
         let files = fs.readdirSync(dirPath),
-            className, fileInfo;
+            className, fileInfo, filePath;
 
         files.forEach(file => {
-            if (fs.statSync(dirPath + '/' + file).isDirectory()) {
-                arrayOfFiles = getScssFiles(dirPath + '/' + file, arrayOfFiles, relativePath + '/' + file);
+            filePath = path.join(dirPath + '/' + file);
+
+            if (fs.statSync(filePath).isDirectory()) {
+                arrayOfFiles = getScssFiles(filePath, arrayOfFiles, relativePath + '/' + file);
             } else {
                 fileInfo = path.parse(file);
 
@@ -193,7 +195,7 @@ inquirer.prompt(questions).then(answers => {
                     arrayOfFiles.push({
                         className   : className,
                         name        : fileInfo.name,
-                        path        : path.join(dirPath, '/', file),
+                        path        : filePath,
                         relativePath: relativePath
                     });
                 }
@@ -375,10 +377,10 @@ inquirer.prompt(questions).then(answers => {
         if (regexSassImport.test(content)) {
             content = content.replace(regexSassImport, (m, capture) => {
                 let parse = path.parse(path.resolve(baseDir, capture)),
-                    file  = `${parse.dir}/${parse.name}.scss`;
+                    file  = path.resolve(`${parse.dir}/${parse.name}.scss`);
 
                 if (!fs.existsSync(file)) {
-                    file = `${parse.dir}/_${parse.name}.scss`;
+                    file = path.resolve(`${parse.dir}/_${parse.name}.scss`);
 
                     if (!fs.existsSync(file)) {
                         return '';
