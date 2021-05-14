@@ -38,7 +38,7 @@ if (appJson) {
         if (key !== 'Docs') { // the docs app is automatically included
             appNames.push(key);
 
-            input = path.resolve(cwd, value.output + '**/*.mjs');
+            input = path.resolve(__dirname, value.output + '**/*.mjs');
 
             if (path.sep === '/') {
                 input = path.join('./', input);
