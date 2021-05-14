@@ -375,10 +375,10 @@ inquirer.prompt(questions).then(answers => {
         if (regexSassImport.test(content)) {
             content = content.replace(regexSassImport, (m, capture) => {
                 let parse = path.parse(path.resolve(baseDir, capture)),
-                    file  = `${parse.dir}/${parse.name}.scss`;
+                    file  = path.resolve(`${parse.dir}/${parse.name}.scss`);
 
                 if (!fs.existsSync(file)) {
-                    file = `${parse.dir}/_${parse.name}.scss`;
+                    file = path.resolve(`${parse.dir}/_${parse.name}.scss`);
 
                     if (!fs.existsSync(file)) {
                         return '';
