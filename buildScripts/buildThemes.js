@@ -170,11 +170,13 @@ inquirer.prompt(questions).then(answers => {
      */
     function getScssFiles(dirPath, arrayOfFiles=[], relativePath='') {
         let files = fs.readdirSync(dirPath),
-            className, fileInfo;
+            className, fileInfo, filePath;
 
         files.forEach(file => {
-            if (fs.statSync(dirPath + '/' + file).isDirectory()) {
-                arrayOfFiles = getScssFiles(path.join(dirPath + '/' + file), arrayOfFiles, relativePath + '/' + file);
+            filePath = path.join(dirPath + '/' + file);
+
+            if (fs.statSync(filePath).isDirectory()) {
+                arrayOfFiles = getScssFiles(filePath, arrayOfFiles, relativePath + '/' + file);
             } else {
                 fileInfo = path.parse(file);
 
@@ -193,7 +195,7 @@ inquirer.prompt(questions).then(answers => {
                     arrayOfFiles.push({
                         className   : className,
                         name        : fileInfo.name,
-                        path        : path.join(dirPath, '/', file),
+                        path        : filePath,
                         relativePath: relativePath
                     });
                 }
