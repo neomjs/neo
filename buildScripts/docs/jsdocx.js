@@ -5,7 +5,7 @@ const fs          = require('fs-extra'),
       helper      = require(path.join(cwd, 'node_modules/neo-jsdoc-x/src/lib/helper.js')),
       packageJson = require(path.resolve(process.cwd(), 'package.json')),
       insideNeo   = packageJson.name === 'neo.mjs',
-      neoPath     = insideNeo ? './' : './node_modules/neo.mjs/',
+      neoPath     = insideNeo ? '' : 'node_modules/neo.mjs/',
       appNames    = [],
       options = {
           access        : 'all',
@@ -35,7 +35,7 @@ if (appJson) {
     Object.entries(appJson.apps).forEach(([key, value]) => {
         if (key !== 'Docs') { // the docs app is automatically included
             appNames.push(key);
-            options.files.push(`.${value.output}**/*.mjs`);
+            options.files.push(`${value.output.substr(1)}**/*.mjs`);
         }
     });
 }
