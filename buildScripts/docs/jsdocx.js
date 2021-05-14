@@ -9,7 +9,7 @@ const fs          = require('fs-extra'),
       appNames    = [],
       options = {
           access        : 'all',
-          files         : [path.join(neoPath, 'src/**/*.mjs'), path.join(neoPath, 'docs/app/**/*.mjs')],
+          files         : [path.resolve(neoPath, 'src/**/*.mjs'), path.resolve(neoPath, 'docs/app/**/*.mjs')],
           includePattern: ".+\\.(m)js(doc)?$",
           excludePattern: "(^|\\/|\\\\)_",
           recurse       : true,
@@ -32,10 +32,16 @@ if (fs.existsSync(appJsonPath)) {
 }
 
 if (appJson) {
+    let input;
+
     Object.entries(appJson.apps).forEach(([key, value]) => {
         if (key !== 'Docs') { // the docs app is automatically included
             appNames.push(key);
-            options.files.push(path.join('./', value.output + '**/*.mjs'));
+
+            input = path.resolve(cwd, value.output + '**/*.mjs');
+            input = path.join('./', input);
+
+            options.files.push(input);
         }
     });
 }
