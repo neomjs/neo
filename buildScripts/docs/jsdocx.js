@@ -1,22 +1,22 @@
 const fs          = require('fs-extra'),
       jsdocx      = require('neo-jsdoc-x'),
       path        = require('path'),
-      processRoot = process.cwd(),
-      helper      = require(path.join(processRoot, 'node_modules/neo-jsdoc-x/src/lib/helper.js')),
+      cwd         = process.cwd(),
+      helper      = require(path.join(cwd, 'node_modules/neo-jsdoc-x/src/lib/helper.js')),
       packageJson = require(path.resolve(process.cwd(), 'package.json')),
       insideNeo   = packageJson.name === 'neo.mjs',
-      neoPath     = insideNeo ? './' : './node_modules/neo.mjs/',
+      neoPath     = insideNeo ? '' : 'node_modules/neo.mjs/',
       appNames    = [],
       options = {
           access        : 'all',
-          files         : [path.join(neoPath, 'src/**/*.mjs'), './docs/app/**/*.mjs'],
+          files         : [`${neoPath}src/**/*.mjs`, `${neoPath}docs/app/**/*.mjs`],
           includePattern: ".+\\.(m)js(doc)?$",
           excludePattern: "(^|\\/|\\\\)_",
           recurse       : true,
           undocumented  : false
       };
 
-let appJsonPath = path.resolve(processRoot, 'buildScripts/myApps.json'),
+let appJsonPath = path.resolve(cwd, 'buildScripts/myApps.json'),
     appJson;
 
 if (fs.existsSync(appJsonPath)) {
@@ -35,7 +35,7 @@ if (appJson) {
     Object.entries(appJson.apps).forEach(([key, value]) => {
         if (key !== 'Docs') { // the docs app is automatically included
             appNames.push(key);
-            options.files.push('.' + value.output + '**/*.mjs');
+            options.files.push(`${value.output.substr(1)}**/*.mjs`);
         }
     });
 }
@@ -358,7 +358,7 @@ jsdocx.parse(options)
 
         helper.writeJSON({
             path  : './docs/output/all.json',
-            indent: 4,
+            indent: 0,
             force : true
         }, docs);
 
@@ -383,7 +383,7 @@ jsdocx.parse(options)
 
             helper.writeJSON({
                 path  : './docs/output/' + path,
-                indent: 4,
+                indent: 0,
                 force : true
             }, fileNs);
         });
@@ -412,7 +412,7 @@ jsdocx.parse(options)
 
         helper.writeJSON({
             path  : './docs/output/structure.json',
-            indent: 4,
+            indent: 0,
             force : true
         }, neoStructure);
 
