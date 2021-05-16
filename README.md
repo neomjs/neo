@@ -10,6 +10,10 @@
 neo.mjs enables you to create scalable & high performant Apps using more than just one CPU,
 without the need to take care of a workers setup or the cross channel communication on your own.
 
+<p align="center">
+<a href="https://youtu.be/pYfM28Pz6_0"><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/neo33s.png"></a>
+</p>
+
 <a href="https://itnext.io/the-webworkers-driven-ui-framework-neo-mjs-version-2-release-announcement-b91b476d6f16?source=friends_link&sk=e6eb21f75475f431ad9215d63a44fb53">Version 2 release announcement</a>
 
 ## Content
