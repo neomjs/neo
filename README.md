@@ -47,7 +47,9 @@ So far the development was made possible with burning all of my (tobiu's) person
 This is obviously not sustainable. To enable me keep pushing like this, please support it.</br>
 The benefit of doing so is to get results delivered faster.
 
-Here you go: <a href="./BACKERS.md">Sponsors & Backers</a>
+<a href="https://github.com/sponsors/tobiu">Sponsor tobiu</a>
+
+More infos: <a href="./BACKERS.md">Sponsors & Backers</a>
 
 <h3 align="center">Bronze Sponsors</h3>
 <!--bronze start-->
