@@ -255,7 +255,7 @@ Take a look at the <a href=".github/STORY.md">Project Story</a> and <a href=".gi
 Another way to fasten up the neo.mjs development speed is to actively jump in.</br>
 As the shiny "PRs welcome" badge suggests: open source is intended to be improved by anyone who is up for the challenge.
 
-You can also write a guide in case you learned something new using neo.mjs or just help to get more eyes on this project.
+You can also write a guide in case you learned something new while using neo.mjs or just help to get more eyes on this project.
 
 Either way, here are more infos: <a href="./CONTRIBUTING.md">Contributing</a>
 
