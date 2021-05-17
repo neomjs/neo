@@ -68,7 +68,11 @@ The business logic happens inside main as well, which can slow down DOM updates 
 The worst case would be a complete UI freeze.
 
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/workers_setup.png">
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/workers-setup.png">
+
+
+
+<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/shared-workers-setup.png">
 
 <!-- SW COVID19 IN NUMBERS Demo App -->
 <h2 id="sw-covid19-app">Multi Browser Window COVID19 IN NUMBERS Demo App</h2>
