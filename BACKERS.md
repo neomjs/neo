@@ -56,13 +56,13 @@ With active sponsors I could invest more time into neo.mjs,
 which means that you will get new features, guides and bug-fixes a lot faster.
 
 # For developers:
-You could select a Backer tier ($10 / month), which would equal a cup of coffee for me every month (after taxes).
+You can select a Backer tier ($10 / month), which would equal a cup of coffee for me every month (after taxes).
 This will not cover my living costs (unless neo.mjs goes viral), but it does have an impact on
 my motivation for sure.
 
 # For companies:
-Starting at the bronze tier, you will be able to place your company logo on the main repository landing page (Readme.md).
-Especially in the early days, this will have a high impact on the neo.mjs community and make it easier for you
+Starting at the bronze tier (special offer), you will be able to place your company logo on the main repository landing page (Readme.md).
+This will have a high impact on the neo.mjs community and make it easier for you
 to find neo.mjs developers in the future.
 
 Obviously, sponsoring open source projects in general will increase your companies reputation.
