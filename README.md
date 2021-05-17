@@ -44,7 +44,7 @@ without the need to take care of a workers setup, and the cross channel communic
 neo.mjs is an MIT-licensed open source project with an ongoing development.</br>
 So far the development was made possible with burning all of my (tobiu's) personal savings.</br>
 
-This is obviously not sustainable, so to enable me to keep pushing like this, please support it.</br>
+This is obviously not sustainable. To enable me keep pushing like this, please support it.</br>
 The benefit of doing so is to get results delivered faster.
 
 Here you go: <a href="./BACKERS.md">Sponsors & Backers</a>
