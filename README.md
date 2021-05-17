@@ -22,7 +22,7 @@ without the need to take care of a workers setup, and the cross channel communic
 <a href="https://itnext.io/the-webworkers-driven-ui-framework-neo-mjs-version-2-release-announcement-b91b476d6f16?source=friends_link&sk=e6eb21f75475f431ad9215d63a44fb53">Version 2 release announcement</a>
 
 ## Content
-1. <a href="#sponsors">Sponsors</a>
+1. <a href="#sponsors">neo.mjs is in need of more sponsors!</a>
 2. <a href="#architectures">Scalable frontend architectures</a>
 3. <a href="#sw-covid19-app">Multi Window COVID19 IN NUMBERS Demo App</a>
 4. <a href="#covid19-app">COVID19 IN NUMBERS Demo App</a>
@@ -36,11 +36,19 @@ without the need to take care of a workers setup, and the cross channel communic
 12. <a href="#project-history">Project History</a>
 13. <a href="#story--vision">Story & Vision</a>
 14. <a href="#contributors">neo.mjs is in need of more contributors!</a>
-15. <a href="#sponsors1">neo.mjs is in need of more sponsors!</a>
-16. <a href="#slack-channel">Slack Channel for questions & feedback</a>
+15. <a href="#slack-channel">Slack Channel for questions & feedback</a>
 
-<!-- Sponsors -->
-<h2 id="sponsors">Sponsors</h2>
+<!-- neo.mjs is in need of more sponsors! -->
+<h2 id="sponsors">neo.mjs is in need for more sponsors!</h2>
+
+neo.mjs is an MIT-licensed open source project with an ongoing development.</br>
+So far the development was made possible with burning all of my (tobiu's) personal savings.</br>
+
+This is obviously not sustainable, so to enable me to keep pushing like this, please support it.</br>
+The benefit of doing so is to get results delivered faster.
+
+Here you go: <a href="./BACKERS.md">Sponsors & Backers</a>
+
 <h3 align="center">Bronze Sponsors</h3>
 <!--bronze start-->
 <table>
@@ -248,18 +256,6 @@ As the shiny "PRs welcome" badge suggests: open source is intended to be improve
 You can also write a guide in case you learned something new using neo.mjs or just help to get more eyes on this project.
 
 Either way, here are more infos: <a href="./CONTRIBUTING.md">Contributing</a>
-
-<!-- neo.mjs is in need of more sponsors! -->
-<h2 id="sponsors1">neo.mjs is in need for more sponsors!</h2>
-
-Is the current code base useful for you or could it be in the future?</br>
-Do you like the neo.mjs concepts?</br>
-So far the development was made possible with burning all of my (tobiu's) personal savings.</br>
-
-This is obviously not sustainable, so to enable me to keep pushing like this, please support it.</br>
-The benefit of doing so is to get results delivered faster.
-
-Here you go: <a href="./BACKERS.md">Sponsors & Backers</a>
 
 <!-- Slack Channel for questions & feedback -->
 <h2 id="slack-channel">Slack Channel for questions & feedback</h2>
