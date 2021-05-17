@@ -88,9 +88,19 @@ You can switch between <a href="https://developer.mozilla.org/en-US/docs/Web/API
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/workers-setup.png">
 
-
+The dedicated workers setup uses 4 threads (CPUs).
+Most parts of the frameworks as well as your apps and components live within the app worker.
+Main threads are as small and idle as possible (42KB) plus optional main thread addons.
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/shared-workers-setup.png">
+
+In case you want to e.g. create a web based IDE or a multi window banking / trading app,
+this setup is the perfect solution.
+
+The shared workers setup uses 5+ threads (CPUs).
+All main threads share the same data, resulting in less API calls.
+You can move entire component trees across windows, while even keeping the same JS instances.
+Cross window state management, cross window drag&drop and cross window delta CSS updates are available.
 
 </br></br>
 <h2 id="sw-covid19-app">3. Multi Browser Window COVID19 IN NUMBERS Demo App</h2>
