@@ -114,9 +114,9 @@ Desktop only.</br>
 Demo Video on YouTube:</br>
 <a href="https://youtu.be/n7m7ZT1kXQk"><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/expanding_spa_vid.png"></a></br>
 
-You can find the code of the multi window covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/sharedcovid">here</a>.
-
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/sw_covid.png">
+
+You can find the code of the multi window covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/sharedcovid">here</a>.
 
 </br></br>
 <h2 id="covid19-app">4. COVID19 IN NUMBERS Demo App</h2>
@@ -126,9 +126,9 @@ Desktop only => support for mobile devices is on the roadmap.
 Demo Video on YouTube:</br>
 <a href="https://www.youtube.com/watch?v=8lqNVaoGNdU"><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covid_app_vid.png"></a></br>
 
-You can find the code of the covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/covid">here</a>.
-
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/table.png">
+
+You can find the code of the covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/covid">here</a>.
 
 </br></br>
 <h2 id="what-if-">5. Short overview of the concept & design goals</h2>
