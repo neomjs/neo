@@ -130,12 +130,6 @@ You can find the code of the covid app <a href="https://github.com/neomjs/neo/tr
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/table.png">
 
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/gallery.png">
-
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/helix.png">
-
-<img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/world.png">
-
 </br></br>
 <h2 id="what-if-">5. Short overview of the concept & design goals</h2>
 
