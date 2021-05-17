@@ -32,7 +32,9 @@ program
     })
     .parse(process.argv);
 
-if (program.info) {
+const programOpts = program.opts();
+
+if (programOpts.info) {
     console.log(chalk.bold('\nEnvironment Info:'));
     console.log(`\n  current version of ${packageJson.name}: ${packageJson.version}`);
     console.log(`  running from ${__dirname}`);
@@ -51,8 +53,8 @@ if (program.info) {
 
 console.log(chalk.green(programName));
 
-if (!program.noquestions) {
-    if (!program.threads) {
+if (!programOpts.noquestions) {
+    if (!programOpts.threads) {
         questions.push({
             type   : 'list',
             name   : 'threads',
@@ -62,7 +64,7 @@ if (!program.noquestions) {
         });
     }
 
-    if (!program.env) {
+    if (!programOpts.env) {
         questions.push({
             type   : 'list',
             name   : 'env',
@@ -74,15 +76,15 @@ if (!program.noquestions) {
 }
 
 inquirer.prompt(questions).then(answers => {
-    const env       = answers.env     || program.env     || 'all',
-          threads   = answers.threads || program.threads || 'all',
-          insideNeo = program.framework || false,
+    const env       = answers.env     || programOpts.env     || 'all',
+          threads   = answers.threads || programOpts.threads || 'all',
+          insideNeo = programOpts.framework || false,
           startDate = new Date();
 
     if (os.platform().startsWith('win')) {
         webpack = path.resolve(webpack).replace(/\\/g,'/');
     }
-    
+
     // dist/development
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
