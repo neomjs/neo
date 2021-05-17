@@ -70,6 +70,7 @@ More infos: <a href="./BACKERS.md">Sponsors & Backers</a>
   </tbody>
 </table>
 <!--bronze end-->
+Logo contributed by <a href="https://www.linkedin.com/in/dinkheller/">Torsten Dinkheller</a>.
 
 </br></br>
 <h2 id="architectures">2. Scalable frontend architectures</h2>
