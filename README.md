@@ -256,8 +256,6 @@ Either way, here are more infos: <a href="./CONTRIBUTING.md">Contributing</a>
 
 </br></br>
 <h2 id="slack-channel">14. Slack Channel for questions & feedback</h2>
-
-There are some Javascript legends hiding in the shadows and waiting to be discovered.</br>
 Join our community:
 <a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA">Slack Channel Invite Link</a>
 
