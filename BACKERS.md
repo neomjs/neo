@@ -7,8 +7,8 @@ you can use neo.mjs for free (as long as you stick to the license & copyright no
 
 Prior to the public release, the project was already at <a href=".github/NEOMJS_HISTORY.md">3720 commits</a>.
 
-To get neo.mjs to this point, I spent 1.5 years of my full and unpaid working time.
-This does not only include a big amount of 100h+ weeks and several sleepless nights,
+To get neo.mjs to this point, I spent 3 years of my full and unpaid working time.
+This does not only include many 100h+ weeks and several sleepless nights,
 but I also burned most of my personal savings to get here.
 
 I did this, since I truly and deeply believe that neo.mjs has the potential to start a new era of UI development.
