@@ -45,7 +45,7 @@ neo.mjs is an MIT-licensed open source project with an ongoing development.</br>
 So far the development was made possible with burning all of my (tobiu's) personal savings.</br>
 
 This is obviously not sustainable. To enable me keep pushing like this, please support it.</br>
-The benefit of doing so is to get results delivered faster.
+The benefit of doing so is getting results delivered faster.
 
 <a href="https://github.com/sponsors/tobiu">Sponsor tobiu</a>
 
