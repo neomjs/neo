@@ -61,7 +61,7 @@ without the need to take care of a workers setup or the cross channel communicat
 <h2 id="architectures">Scalable frontend architectures</h2>
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps-today.png">
 
-Most frontends today still look like this. Everything happens inside the main thread (browser windows), leading to a poor rendering performance.
+Most frontends today still look like this. Everything happens inside the main thread (browser window), leading to a poor rendering performance.
 The business logic happens inside main as well, which can slow down DOM updates and animations.
 The worst case would be a complete UI freeze.
 
