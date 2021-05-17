@@ -110,8 +110,7 @@ Blog post: <a href="https://medium.com/swlh/expanding-single-page-apps-into-mult
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/apps/sharedcovid/index.html#mainview=table">Live Demo: COIN App (Multi Window)</a></br>
 Chrome (v83+), Edge, Firefox (Safari does not support SharedWorkers yet).</br>
 Desktop only.</br>
-</br>
-Demo Video on YouTube:</br>
+
 <a href="https://youtu.be/n7m7ZT1kXQk"><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/expanding_spa_vid.png"></a></br>
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/sw_covid.png">
@@ -123,7 +122,6 @@ You can find the code of the multi window covid app <a href="https://github.com/
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/covid/index.html#mainview=table">Live Demo: COIN App dist/production</a></br>
 Desktop only => support for mobile devices is on the roadmap.
 
-Demo Video on YouTube:</br>
 <a href="https://www.youtube.com/watch?v=8lqNVaoGNdU"><img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covid_app_vid.png"></a></br>
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/covidDashboard/v3/table.png">
