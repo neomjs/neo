@@ -27,6 +27,7 @@ class Main extends core.Base {
          */
         className: 'Neo.Main',
         /**
+         * read or write
          * @member {String} mode='read'
          * @protected
          */
@@ -82,11 +83,6 @@ class Main extends core.Base {
          * @protected
          */
         totalFrameCount: 0,
-        /**
-         * @member {Array} updateQueue=[]
-         * @protected
-         */
-        updateQueue: [],
         /**
          * @member {Array} writeQueue=[]
          * @protected
@@ -250,7 +246,7 @@ class Main extends core.Base {
      * @param data
      */
     onUpdateDom(data) {
-        this.queueUpdate(data);
+        this.queueWrite(data);
     }
 
     /**
@@ -259,7 +255,7 @@ class Main extends core.Base {
      */
     onUpdateVdom(data) {
         data.data.replyId = data.replyId;
-        this.queueUpdate(data.data);
+        this.queueWrite(data.data);
     }
 
     /**
@@ -302,21 +298,6 @@ class Main extends core.Base {
 
     /**
      *
-     * @param {Object} data
-     * @protected
-     */
-    queueUpdate(data) {
-        let me = this;
-        me.updateQueue.push(data);
-
-        if (!me.running) {
-            me.running = true;
-            requestAnimationFrame(me.renderFrame.bind(me));
-        }
-    }
-
-    /**
-     *
      * @param data
      * @protected
      */
@@ -337,7 +318,6 @@ class Main extends core.Base {
     renderFrame() {
         let me      = this,
             read    = me.readQueue,
-            update  = me.updateQueue,
             write   = me.writeQueue,
             reading = me.mode === 'read',
             start   = new Date();
@@ -350,13 +330,6 @@ class Main extends core.Base {
         if (reading || !write.length) {
             me.mode = 'read';
             if (me.processQueue(read, start)) {
-                return;
-            }
-        }
-
-        if (update.length) {
-            me.mode = 'update';
-            if (me.processQueue(update, start)) {
                 return;
             }
         }
