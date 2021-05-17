@@ -28,15 +28,14 @@ No need to take care of a workers setup, and the cross channel communication on 
 4. <a href="#covid19-app">COVID19 IN NUMBERS Demo App</a>
 5. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
 6. <a href="#learn-more">Want to learn more?</a>
-7. <a href="#impossible">Impossible? Pick with caution!</a>
-8. <a href="#online-examples">Online Examples</a>
-9. <a href="#online-docs">Online Docs</a>
-10. <a href="#command-line-interface">Command-Line Interface</a>
-11. <a href="#get-started">Ready to get started?</a>
-12. <a href="#project-history">Project History</a>
-13. <a href="#story--vision">Story & Vision</a>
-14. <a href="#contributors">neo.mjs is in need of more contributors!</a>
-15. <a href="#slack-channel">Slack Channel for questions & feedback</a>
+7. <a href="#online-examples">Online Examples</a>
+8. <a href="#online-docs">Online Docs</a>
+9. <a href="#command-line-interface">Command-Line Interface</a>
+10. <a href="#get-started">Ready to get started?</a>
+11. <a href="#project-history">Project History</a>
+12. <a href="#story--vision">Story & Vision</a>
+13. <a href="#contributors">neo.mjs is in need of more contributors!</a>
+14. <a href="#slack-channel">Slack Channel for questions & feedback</a>
 
 </br></br>
 <h2 id="sponsors">1. neo.mjs is in need for more sponsors!</h2>
@@ -198,14 +197,7 @@ You can find the code of the covid app <a href="https://github.com/neomjs/neo/tr
 <a href=".github/CONCEPT.md">neo.mjs Concepts</a>
 
 </br></br>
-<h2 id="impossible">7. Impossible? Pick with caution!</h2>
-
-<a href="https://en.wikipedia.org/wiki/Red_pill_and_blue_pill"><img alt="blue or red pill" src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/redorbluepill.png"></a>
-
-Still here? Welcome to neo.mjs - The webworkers driven UI framework
-
-</br></br>
-<h2 id="online-examples">8. Online Examples</h2>
+<h2 id="online-examples">7. Online Examples</h2>
 
 You can find a full list of (desktop based) online examples here:</br>
 <a href="https://neomjs.github.io/pages/">Online Examples</a>
@@ -213,7 +205,7 @@ You can find a full list of (desktop based) online examples here:</br>
 You can pick between the 3 modes (development, dist/development, dist/production) for each one.
 
 </br></br>
-<h2 id="online-docs">9. Online Docs</h2>
+<h2 id="online-docs">8. Online Docs</h2>
 
 The Online Docs are also included inside the Online Examples.
 
@@ -227,25 +219,25 @@ The development mode only works in Chrome and Safari Technology Preview, but doe
 since this will include documentation views for your own apps.
 
 </br></br>
-<h2 id="command-line-interface">10. Command-Line Interface</h2>
+<h2 id="command-line-interface">9. Command-Line Interface</h2>
 You can run several build programs inside your terminal.</br>
 Please take a look at the <a href="./buildScripts/README.md">Command-Line Interface Guide</a>.
 
 </br></br>
-<h2 id="get-started">11. Ready to get started?</h2>
+<h2 id="get-started">10. Ready to get started?</h2>
 
 There are 3 different ways on how you can get the basics running locally.</br>
 Please take a look at the <a href=".github/GETTING_STARTED.md">Getting Started Guide</a>.
 
 </br></br>
-<h2 id="project-history">12. Project History</h2>
+<h2 id="project-history">11. Project History</h2>
 
 neo.mjs got released to the public on November 23, 2019.</br>
 Before this point, the project was already at 3720 commits.<br>
 Find out more about the start of it inside the <a href=".github/NEOMJS_HISTORY.md">Project History</a> file.
 
 </br></br>
-<h2 id="story--vision">13. Story & Vision</h2>
+<h2 id="story--vision">12. Story & Vision</h2>
 
 Although neo.mjs is ready to craft beautiful & blazing fast UIs,</br>
 the current state is just a fraction of a bigger picture.
@@ -253,7 +245,7 @@ the current state is just a fraction of a bigger picture.
 Take a look at the <a href=".github/STORY.md">Project Story</a> and <a href=".github/VISION.md">Vision</a>.
 
 </br></br>
-<h2 id="contributors">14. neo.mjs is in need for more contributors!</h2>
+<h2 id="contributors">13. neo.mjs is in need for more contributors!</h2>
 
 Another way to fasten up the neo.mjs development speed is to actively jump in.</br>
 As the shiny "PRs welcome" badge suggests: open source is intended to be improved by anyone who is up for the challenge.
@@ -263,7 +255,7 @@ You can also write a guide in case you learned something new while using neo.mjs
 Either way, here are more infos: <a href="./CONTRIBUTING.md">Contributing</a>
 
 </br></br>
-<h2 id="slack-channel">15. Slack Channel for questions & feedback</h2>
+<h2 id="slack-channel">14. Slack Channel for questions & feedback</h2>
 
 There are some Javascript legends hiding in the shadows and waiting to be discovered.</br>
 Join our community:
