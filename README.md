@@ -7,6 +7,10 @@
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-green.svg" alt="PRs Welcome"></a>
 </p>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/neomjs-logo-250.png">
+</p>
+
 # Welcome to neo.mjs!
 neo.mjs enables you to create scalable & high performant Apps using more than just one CPU,
 without the need to take care of a workers setup or the cross channel communication on your own.
