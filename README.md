@@ -12,8 +12,8 @@
 </p>
 
 # Welcome to neo.mjs!
-neo.mjs enables you to create scalable & high performant Apps using more than just one CPU,
-without the need to take care of a workers setup, and the cross channel communication on your own.
+neo.mjs enables you to create scalable & high performant Apps using more than just one CPU.
+No need to take care of a workers setup, and the cross channel communication on your own.
 
 <p align="center">
 <a href="https://youtu.be/pYfM28Pz6_0"><img width="500px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/neo33s.png"></a>
