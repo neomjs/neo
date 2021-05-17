@@ -110,18 +110,6 @@ class Base {
     }
 
     /**
-     * Triggered after the droppable config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetIsConstructed(value, oldValue) {
-        if (value === true) {
-            console.log('afterSetIsConstructed');
-        }
-    }
-
-    /**
      * Convenience method for beforeSet functions which test if a given value is inside a static array
      * @param {String|Number} value
      * @param {String|Number} oldValue
