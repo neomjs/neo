@@ -259,6 +259,7 @@ Either way, here are more infos: <a href="./CONTRIBUTING.md">Contributing</a>
 Join our community:
 <a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA">Slack Channel Invite Link</a>
 
+</br></br>
 Build with :heart: in Germany.
 
 </br></br>
