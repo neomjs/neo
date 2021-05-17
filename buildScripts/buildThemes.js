@@ -38,7 +38,9 @@ program
     })
     .parse(process.argv);
 
-if (program.info) {
+const programOpts = program.opts();
+
+if (programOpts.info) {
     console.log(chalk.bold('\nEnvironment Info:'));
     console.log(`\n  current version of ${packageJson.name}: ${packageJson.version}`);
     console.log(`  running from ${__dirname}`);
@@ -58,8 +60,8 @@ if (program.info) {
 
 console.log(chalk.green(programName));
 
-if (!program.noquestions) {
-    if (!program.themes) {
+if (!programOpts.noquestions) {
+    if (!programOpts.themes) {
         questions.push({
             type   : 'list',
             name   : 'themes',
@@ -69,7 +71,7 @@ if (!program.noquestions) {
         });
     }
 
-    if (!program.env) {
+    if (!programOpts.env) {
         questions.push({
             type   : 'list',
             name   : 'env',
@@ -79,7 +81,7 @@ if (!program.noquestions) {
         });
     }
 
-    if (!program.cssVars) {
+    if (!programOpts.cssVars) {
         questions.push({
             type   : 'list',
             name   : 'cssVars',
@@ -91,10 +93,10 @@ if (!program.noquestions) {
 }
 
 inquirer.prompt(questions).then(answers => {
-    const cssVars    = answers.cssVars   || program.cssVars || 'all',
-          env        = answers.env       || program.env     || 'all',
-          themes     = answers.themes    || program.themes  || 'all',
-          insideNeo  = program.framework || false,
+    const cssVars    = answers.cssVars   || programOpts.cssVars || 'all',
+          env        = answers.env       || programOpts.env     || 'all',
+          themes     = answers.themes    || programOpts.themes  || 'all',
+          insideNeo  = programOpts.framework || false,
           startDate  = new Date(),
           fileCount  = {vars: 0, noVars: 0},
           totalFiles = {vars: 0, noVars: 0};

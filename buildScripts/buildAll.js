@@ -34,7 +34,9 @@ program
     })
     .parse(process.argv);
 
-if (program.info) {
+const programOpts = program.opts();
+
+if (programOpts.info) {
     console.log(chalk.bold('\nEnvironment Info:'));
     console.log(`\n  current version of ${packageJson.name}: ${packageJson.version}`);
     console.log(`  running from ${__dirname}`);
@@ -53,8 +55,8 @@ if (program.info) {
 
 console.log(chalk.green(programName));
 
-if (!program.noquestions) {
-    if (!program.npminstall) {
+if (!programOpts.noquestions) {
+    if (!programOpts.npminstall) {
         questions.push({
             type   : 'list',
             name   : 'npminstall',
@@ -64,7 +66,7 @@ if (!program.noquestions) {
         });
     }
 
-    if (!program.env) {
+    if (!programOpts.env) {
         questions.push({
             type   : 'list',
             name   : 'env',
@@ -74,7 +76,7 @@ if (!program.noquestions) {
         });
     }
 
-    if (!program.npminstall) {
+    if (!programOpts.npminstall) {
         questions.push({
             type   : 'list',
             name   : 'themes',
@@ -84,7 +86,7 @@ if (!program.noquestions) {
         });
     }
 
-    if (!program.threads) {
+    if (!programOpts.threads) {
         questions.push({
             type   : 'list',
             name   : 'threads',
@@ -94,7 +96,7 @@ if (!program.noquestions) {
         });
     }
 
-    if (!program.parsedocs) {
+    if (!programOpts.parsedocs) {
         questions.push({
             type   : 'list',
             name   : 'parsedocs',
@@ -106,16 +108,16 @@ if (!program.noquestions) {
 }
 
 inquirer.prompt(questions).then(answers => {
-    const env        = answers.env        || program.env        || 'all',
-          npminstall = answers.npminstall || program.npminstall || 'yes',
-          parsedocs  = answers.parsedocs  || program.parsedocs  || 'yes',
-          themes     = answers.themes     || program.themes     || 'yes',
-          threads    = answers.threads    || program.threads    || 'yes',
-          insideNeo  = !!program.framework || false,
+    const env        = answers.env        || programOpts.env        || 'all',
+          npminstall = answers.npminstall || programOpts.npminstall || 'yes',
+          parsedocs  = answers.parsedocs  || programOpts.parsedocs  || 'yes',
+          themes     = answers.themes     || programOpts.themes     || 'yes',
+          threads    = answers.threads    || programOpts.threads    || 'yes',
+          insideNeo  = !!programOpts.framework || false,
           cpArgs     = ['-e', env],
           startDate  = new Date();
 
-    if (program.noquestions) {
+    if (programOpts.noquestions) {
         cpArgs.push('-n');
     }
 

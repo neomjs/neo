@@ -27,7 +27,9 @@ program
     })
     .parse(process.argv);
 
-if (program.info) {
+const programOpts = program.opts();
+
+if (programOpts.info) {
     console.log(chalk.bold('\nEnvironment Info:'));
     console.log(`\n  current version of ${packageJson.name}: ${packageJson.version}`);
     console.log(`  running from ${__dirname}`);
@@ -46,11 +48,11 @@ if (program.info) {
 
 console.log(chalk.green(programName));
 
-if (program.mainThreadAddons) {
-    program.mainThreadAddons = program.mainThreadAddons.split(',');
+if (programOpts.mainThreadAddons) {
+    programOpts.mainThreadAddons = programOpts.mainThreadAddons.split(',');
 }
 
-if (!program.appName) {
+if (!programOpts.appName) {
     questions.push({
         type   : 'input',
         name   : 'appName',
@@ -59,7 +61,7 @@ if (!program.appName) {
     });
 }
 
-if (!program.themes) {
+if (!programOpts.themes) {
     questions.push({
         type   : 'list',
         name   : 'themes',
@@ -69,7 +71,7 @@ if (!program.themes) {
     });
 }
 
-if (!program.mainThreadAddons) {
+if (!programOpts.mainThreadAddons) {
     questions.push({
         type   : 'checkbox',
         name   : 'mainThreadAddons',
@@ -79,7 +81,7 @@ if (!program.mainThreadAddons) {
     });
 }
 
-if (!program.useSharedWorkers) {
+if (!programOpts.useSharedWorkers) {
     questions.push({
         type   : 'list',
         name   : 'useSharedWorkers',
@@ -90,16 +92,16 @@ if (!program.useSharedWorkers) {
 }
 
 inquirer.prompt(questions).then(answers => {
-    const appName          = answers.appName          || program['appName'],
-          mainThreadAddons = answers.mainThreadAddons || program['mainThreadAddons'],
-          useSharedWorkers = answers.useSharedWorkers || program['useSharedWorkers'],
+    const appName          = answers.appName          || programOpts['appName'],
+          mainThreadAddons = answers.mainThreadAddons || programOpts['mainThreadAddons'],
+          useSharedWorkers = answers.useSharedWorkers || programOpts['useSharedWorkers'],
           lAppName         = appName.toLowerCase(),
           appPath          = 'apps/' + lAppName + '/',
           dir              = 'apps/' + lAppName,
           folder           = path.resolve(cwd, dir),
           startDate        = new Date();
 
-    let themes = answers.themes || program['themes'];
+    let themes = answers.themes || programOpts['themes'];
 
     if (!Array.isArray(themes)) {
         themes = [themes];

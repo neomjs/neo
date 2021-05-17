@@ -10,13 +10,15 @@ const program = new commander.Command('copyFolder')
     .allowUnknownOption()
     .parse(process.argv);
 
-if (!program.source) {
+const programOpts = program.opts();
+
+if (!programOpts.source) {
     throw new Error('Missing -s param');
 }
 
-if (!program.target) {
+if (!programOpts.target) {
     throw new Error('Missing -t param');
 }
 
-fs.mkdirpSync(program.target);
-fs.copySync(program.source, program.target);
+fs.mkdirpSync(programOpts.target);
+fs.copySync(programOpts.source, programOpts.target);
