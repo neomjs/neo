@@ -55,7 +55,9 @@ program
     })
     .parse(process.argv);
 
-if (program.info) {
+const programOpts = program.opts();
+
+if (programOpts.info) {
     console.log(chalk.bold('\nEnvironment Info:'));
     console.log(`\n  current version of ${packageJson.name}: ${packageJson.version}`);
     console.log(`  running from ${__dirname}`);
@@ -74,8 +76,8 @@ if (program.info) {
 
 console.log(chalk.green(programName));
 
-if (!program.noquestions) {
-    if (!program.env) {
+if (!programOpts.noquestions) {
+    if (!programOpts.env) {
         questions.push({
             type   : 'list',
             name   : 'env',
@@ -85,7 +87,7 @@ if (!program.noquestions) {
         });
     }
 
-    if (!program.apps && appChoices.length > 1) {
+    if (!programOpts.apps && appChoices.length > 1) {
         questions.push({
             type   : 'checkbox',
             name   : 'apps',
@@ -96,15 +98,15 @@ if (!program.noquestions) {
 }
 
 inquirer.prompt(questions).then(answers => {
-    const apps      = answers.apps || program.apps || ['all'],
-          env       = answers.env  || program.env  || ['all'],
-          insideNeo = !!program.framework || false,
+    const apps      = answers.apps || programOpts.apps || ['all'],
+          env       = answers.env  || programOpts.env  || ['all'],
+          insideNeo = !!programOpts.framework || false,
           startDate = new Date();
 
     if (os.platform().startsWith('win')) {
         webpack = path.resolve(webpack).replace(/\\/g,'/');
     }
-    
+
     // dist/development
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
