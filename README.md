@@ -65,6 +65,10 @@ Most frontends today still look like this. Everything happens inside the main th
 The business logic happens inside main as well, which can slow down DOM updates and animations.
 The worst case would be a complete UI freeze.
 
+To solve this performance problem, it is not enough to just move expensive tasks into a worker.
+Instead, an application worker needs to be the main actor.
+neo.mjs offers two different setups which follow the exact same API.
+You can switch between them at any point.
 
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/workers-setup.png">
 
