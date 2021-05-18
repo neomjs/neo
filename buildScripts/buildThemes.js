@@ -76,7 +76,7 @@ if (!programOpts.noquestions) {
             type   : 'list',
             name   : 'themes',
             message: 'Please choose the themes to build:',
-            choices: ["all", ...themeFolders],
+            choices: ['all', ...themeFolders],
             default: 'all'
         });
     }
