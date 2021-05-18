@@ -40,7 +40,7 @@ class DeltaUpdates extends Base {
      */
     du_insertNode(delta) {
         let index         = delta.index,
-            parentNode    = this.getElement(delta.parentId),
+            parentNode    = this.getElementOrBody(delta.parentId),
             countChildren = parentNode.childNodes.length,
             i             = 0,
             realIndex     = index,
