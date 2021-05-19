@@ -109,10 +109,10 @@ inquirer.prompt(questions).then(answers => {
           insideNeo  = programOpts.framework || false,
           startDate  = new Date(),
           fileCount  = {vars: 0, noVars: 0},
-          totalFiles = {vars: 0, noVars: 0};
+          totalFiles = {vars: 0, noVars: 0},
+          sassThemes = [];
 
-    let sassThemes = [],
-        themeMap, themeMapNoVars;
+    let themeMap, themeMapNoVars;
 
     /**
      *
