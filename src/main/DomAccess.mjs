@@ -550,20 +550,11 @@ class DomAccess extends Base {
      * @protected
      */
     write(data) {
-        let container   = this.getElementOrBody(data.parentId),
-            countChilds = container.children.length,
-            index       = data.parentIndex,
-            html        = data.html || data.outerHTML;
-
-        if (!data.parentIndex || countChilds < 1) {
-            container.insertAdjacentHTML('beforeend', html);
-        } else {
-            if (countChilds > index) {
-                container.children[index].insertAdjacentHTML('beforebegin', html);
-            } else {
-                container.children[countChilds - 1].insertAdjacentHTML('afterend', html);
-            }
-        }
+        this.du_insertNode({
+            index    : data.parentIndex,
+            outerHTML: data.html || data.outerHTML,
+            parentId : data.parentId
+        });
     }
 }
 

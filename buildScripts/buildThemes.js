@@ -20,7 +20,17 @@ const autoprefixer       = require('autoprefixer'),
       scssPath           = 'resources/scss/',
       themeMapFile       = 'resources/theme-map.json',
       themeMapFileNoVars = 'resources/theme-map-no-vars.json',
+      themeFolders       = [],
       questions          = [];
+
+
+const scssFolders = fs.readdirSync(path.join(neoPath, '/resources/scss'));
+
+scssFolders.forEach(folder => {
+    if (folder.includes('theme')) {
+        themeFolders.push(folder);
+    }
+});
 
 program
     .name(programName)
@@ -30,7 +40,7 @@ program
     .option('-e, --env <value>',     '"all", "dev", "prod"')
     .option('-f, --framework')
     .option('-n, --noquestions')
-    .option('-t, --themes <value>',  '"all", "dark", "light"')
+    .option('-t, --themes <value>',  ["all", ...themeFolders].join(", "))
     .allowUnknownOption()
     .on('--help', () => {
         console.log('\nIn case you have any issues, please create a ticket here:');
@@ -66,7 +76,7 @@ if (!programOpts.noquestions) {
             type   : 'list',
             name   : 'themes',
             message: 'Please choose the themes to build:',
-            choices: ['all', 'dark', 'light'],
+            choices: ['all', ...themeFolders],
             default: 'all'
         });
     }
@@ -99,10 +109,10 @@ inquirer.prompt(questions).then(answers => {
           insideNeo  = programOpts.framework || false,
           startDate  = new Date(),
           fileCount  = {vars: 0, noVars: 0},
-          totalFiles = {vars: 0, noVars: 0};
+          totalFiles = {vars: 0, noVars: 0},
+          sassThemes = [];
 
-    let sassThemes = [],
-        themeMap, themeMapNoVars;
+    let themeMap, themeMapNoVars;
 
     /**
      *
@@ -138,13 +148,19 @@ inquirer.prompt(questions).then(answers => {
         }
 
         if (cssVars !== 'no') {
-            if (themes === 'all' || themes === 'dark')  {parseScssFiles(getAllScssFiles(path.join(p, 'theme-dark')),  mode, 'theme-dark',  true);}
-            if (themes === 'all' || themes === 'light') {parseScssFiles(getAllScssFiles(path.join(p, 'theme-light')), mode, 'theme-light', true);}
+            themeFolders.forEach(themeFolder => {
+                if (themes === 'all' || themes === themeFolder) {
+                    parseScssFiles(getAllScssFiles(path.join(p, themeFolder)), mode, themeFolder, true);
+                }
+            });
         }
 
         if (cssVars !== 'yes') {
-            if (themes === 'all' || themes === 'dark')  {parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'theme-dark',  false);}
-            if (themes === 'all' || themes === 'light') {parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'theme-light', false);}
+            themeFolders.forEach(themeFolder => {
+                if (themes === 'all' || themes === themeFolder) {
+                    parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, themeFolder, false);
+                }
+            });
         }
     }
 

@@ -113,13 +113,13 @@ inquirer.prompt(questions).then(answers => {
         process.exit(1);
     }
 
-    fs.mkdir(folder, { recursive: true }, (err) => {
+    fs.mkdir(path.join(folder, '/view'), { recursive: true }, (err) => {
         if (err) {
             throw err;
         }
 
         const appContent = [
-            "import MainContainer from './MainContainer.mjs';",
+            "import MainContainer from './view/MainContainer.mjs';",
             "",
             "const onStart = () => Neo.app({",
             "    mainView: MainContainer,",
@@ -181,19 +181,17 @@ inquirer.prompt(questions).then(answers => {
         fs.writeFileSync(folder + '/index.html', indexContent.join('\n'));
 
         const mainContainerContent = [
-            "import {default as Component}    from '../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/component/Base.mjs';",
-            "import {default as TabContainer} from '../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/tab/Container.mjs';",
-            "import Viewport                  from '../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/container/Viewport.mjs';",
+            "import Component    from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/component/Base.mjs';",
+            "import TabContainer from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/tab/Container.mjs';",
+            "import Viewport     from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/container/Viewport.mjs';",
             "",
             "/**",
-            " * @class " + appName + ".MainContainer",
+            " * @class " + appName + ".view.MainContainer",
             " * @extends Neo.container.Viewport",
             " */",
             "class MainContainer extends Viewport {",
             "    static getConfig() {return {",
-            "        className: '" + appName + ".MainContainer',",
-            "        ntype    : 'main-container',",
-            "",
+            "        className: '" + appName + ".view.MainContainer',",
             "        autoMount: true,",
             "        layout   : {ntype: 'fit'},",
             "",
@@ -231,7 +229,7 @@ inquirer.prompt(questions).then(answers => {
             "export {MainContainer as default};"
         ].join('\n');
 
-        fs.writeFileSync(folder + '/MainContainer.mjs', mainContainerContent);
+        fs.writeFileSync(path.join(folder + '/view/MainContainer.mjs'), mainContainerContent);
 
         let appJsonPath = path.resolve(cwd, 'buildScripts/myApps.json'),
             appJson;
