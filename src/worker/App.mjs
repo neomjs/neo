@@ -99,51 +99,53 @@ class App extends Base {
      * @param {Neo.core.Base} proto
      */
     insertThemeFiles(appName, proto) {
-        let me        = this,
-            lAppName  = appName.toLowerCase(),
-            className = proto.className,
-            cssMap    = Neo.cssMap,
-            parent    = proto.__proto__,
-            classPath, fileName, mapClassName, ns, themeFolders;
+        if (Neo.config.themes.length > 0) {
+            let me        = this,
+                lAppName  = appName.toLowerCase(),
+                className = proto.className,
+                cssMap    = Neo.cssMap,
+                parent    = proto.__proto__,
+                classPath, fileName, mapClassName, ns, themeFolders;
 
-        if (!cssMap) {
-            me.themeFilesCache.push([appName, proto]);
-        } else {
-            // we need to modify app related class names
-            if (!className.startsWith('Neo.')) {
-                className = className.split('.');
-                className.shift();
-
-                if (className[0] === 'view') {
+            if (!cssMap) {
+                me.themeFilesCache.push([appName, proto]);
+            } else {
+                // we need to modify app related class names
+                if (!className.startsWith('Neo.')) {
+                    className = className.split('.');
                     className.shift();
+
+                    if (className[0] === 'view') {
+                        className.shift();
+                    }
+
+                    mapClassName = `apps.${Neo.apps[appName].appThemeFolder || lAppName}.${className.join('.')}`;
+                    className    = `apps.${lAppName}.${className.join('.')}`;
                 }
 
-                mapClassName = `apps.${Neo.apps[appName].appThemeFolder || lAppName}.${className.join('.')}`;
-                className    = `apps.${lAppName}.${className.join('.')}`;
-            }
-
-            if (parent !== Neo.core.Base.prototype) {
-                if (!Neo.ns(`${lAppName}.${parent.className}`, false, cssMap)) {
-                    me.insertThemeFiles(appName, parent);
+                if (parent !== Neo.core.Base.prototype) {
+                    if (!Neo.ns(`${lAppName}.${parent.className}`, false, cssMap)) {
+                        me.insertThemeFiles(appName, parent);
+                    }
                 }
-            }
 
-            themeFolders = Neo.ns(mapClassName || className, false, cssMap.fileInfo);
+                themeFolders = Neo.ns(mapClassName || className, false, cssMap.fileInfo);
 
-            if (themeFolders) {
-                if (!Neo.ns(`${lAppName}.${className}`, false, cssMap)) {
-                    classPath = className.split('.');
-                    fileName  = classPath.pop();
-                    classPath = classPath.join('.');
-                    ns        = Neo.ns(`${lAppName}.${classPath}`, true, cssMap);
+                if (themeFolders) {
+                    if (!Neo.ns(`${lAppName}.${className}`, false, cssMap)) {
+                        classPath = className.split('.');
+                        fileName  = classPath.pop();
+                        classPath = classPath.join('.');
+                        ns        = Neo.ns(`${lAppName}.${classPath}`, true, cssMap);
 
-                    ns[fileName] = true;
+                        ns[fileName] = true;
 
-                    Neo.main.addon.Stylesheet.addThemeFiles({
-                        appName  : appName,
-                        className: mapClassName || className,
-                        folders  : themeFolders
-                    });
+                        Neo.main.addon.Stylesheet.addThemeFiles({
+                            appName  : appName,
+                            className: mapClassName || className,
+                            folders  : themeFolders
+                        });
+                    }
                 }
             }
         }
