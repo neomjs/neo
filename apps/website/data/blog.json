@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "May 20, 2021",
+        "id"          : 35,
+        "image"       : "application-based-themed-styling-for-your-components.png",
+        "name"        : "Application based themed styling for your components",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/application-based-themed-styling-for-your-components-d8becd1217a9?source=friends_link&sk=3f8304f0ca7f67e6cdc0e3e9a8db6e03"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "May 10, 2021",
         "id"          : 34,
         "image"       : "rendering-performance-demo.png",
