@@ -84,7 +84,7 @@ class Component extends Base {
         len        = childItems.length;
 
         for (; i < len; i++) {
-            returnValue = me.down(childItems[i], config);
+            returnValue = me.down(childItems[i], config, returnFirstMatch);
 
             if (returnValue !== null) {
                 if (returnFirstMatch) {
