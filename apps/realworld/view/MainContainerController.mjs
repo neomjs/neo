@@ -63,23 +63,6 @@ class MainContainerController extends ComponentController {
         signUpComponent: null
     }}
 
-    onConstructed() {
-        super.onConstructed();
-
-        const me = this;
-
-        UserApi.on('ready', me.getCurrentUser, me);
-
-        // default route => home
-        if (!Neo.config.hash) {
-            me.onHashChange({
-                appNames  : ['RealWorld'],
-                hash      : {'/': ''},
-                hashString: '/'
-            }, null);
-        }
-    }
-
     /**
      * Triggered after the articlesOffset config got changed
      * @param {Object} value
@@ -271,6 +254,31 @@ class MainContainerController extends ComponentController {
                 });
             }, 50);
         });
+    }
+
+    /**
+     *
+     */
+    onComponentConstructed() {
+        super.onComponentConstructed();
+
+        // default route => home
+        if (!Neo.config.hash) {
+            me.onHashChange({
+                appNames  : ['RealWorld'],
+                hash      : {'/': ''},
+                hashString: '/'
+            }, null);
+        }
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        UserApi.on('ready', this.getCurrentUser, this);
     }
 
     /**
