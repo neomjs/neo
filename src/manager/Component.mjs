@@ -91,7 +91,7 @@ class Component extends Base {
             }
         }
 
-        return returnFirstMatch ? returnArray : null;
+        return returnFirstMatch ? null: returnArray;
     }
 
     /**
