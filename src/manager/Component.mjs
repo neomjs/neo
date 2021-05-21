@@ -52,9 +52,8 @@ class Component extends Base {
             matchArray  = [],
             returnValue = null,
             i           = 0,
-            len         = component.items && component.items.length || 0,
             returnArray = [],
-            configArray, configLength;
+            childItems, configArray, configLength, len;
 
         if (Neo.isString(config)) {
             config = {
@@ -81,8 +80,11 @@ class Component extends Base {
             returnArray.push(component);
         }
 
+        childItems = me.find({parentId: component.id});
+        len        = childItems.length;
+
         for (; i < len; i++) {
-            returnValue = me.down(component.items[i], config);
+            returnValue = me.down(childItems[i], config);
 
             if (returnValue !== null) {
                 if (returnFirstMatch) {
