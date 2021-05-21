@@ -35,12 +35,15 @@ class Component extends Base {
     }
 
     /**
-     * Returns the first component which matches the config-selector moving down the component items tree
+     * Returns the first component which matches the config-selector moving down the component items tree.
+     * Use returnFirstMatch=false to get an array of all matching items instead.
+     * If no match is found, returns null in case returnFirstMatch === true, otherwise an empty Array.
      * @param {Neo.component.Base|String} component
      * @param {Object|String|null} config
-     * @returns {Neo.component.Base|null}
+     * @param {Boolean} returnFirstMatch=true
+     * @returns {Neo.component.Base|Neo.component.Base[]|null}
      */
-    down(component, config) {
+    down(component, config, returnFirstMatch=true) {
         if (Neo.isString(component)) {
             component = this.getById(component);
         }
@@ -50,6 +53,7 @@ class Component extends Base {
             returnValue = null,
             i           = 0,
             len         = component.items && component.items.length || 0,
+            returnArray = [],
             configArray, configLength;
 
         if (Neo.isString(config)) {
@@ -70,17 +74,26 @@ class Component extends Base {
         });
 
         if (matchArray.length === configLength) {
-            return component;
+            if (returnFirstMatch) {
+                return component;
+            }
+
+            returnArray.push(component);
         }
 
         for (; i < len; i++) {
             returnValue = me.down(component.items[i], config);
+
             if (returnValue !== null) {
-                return returnValue;
+                if (returnFirstMatch) {
+                    return returnValue;
+                }
+
+                returnArray.push(returnValue);
             }
         }
 
-        return null;
+        return returnFirstMatch ? null: returnArray;
     }
 
     /**
@@ -196,13 +209,17 @@ class Component extends Base {
     }
 
     /**
-     * Returns the first component which matches the config-selector
+     * Returns the first component which matches the config-selector.
+     * Use returnFirstMatch=false to get an array of all matching items instead.
+     * If no match is found, returns null in case returnFirstMatch === true, otherwise an empty Array.
      * @param {String} componentId
      * @param {Object|String|null} config
-     * @returns {Neo.component.Base|null}
+     * @param {Boolean} returnFirstMatch=true
+     * @returns {Neo.component.Base|Neo.component.Base[]|null}
      */
-    up(componentId, config) {
-        let component = this.getById(componentId),
+    up(componentId, config, returnFirstMatch=true) {
+        let component   = this.getById(componentId),
+            returnArray = [],
             configArray, configLength, matchArray;
 
         if (Neo.isString(config)) {
@@ -220,7 +237,7 @@ class Component extends Base {
             component = this.getById(component.parentId);
 
             if (!component) {
-                return null;
+                return returnFirstMatch ? null : returnArray;
             }
 
             matchArray = [];
@@ -232,7 +249,11 @@ class Component extends Base {
             });
 
             if (matchArray.length === configLength) {
-                return component;
+                if (returnFirstMatch) {
+                    return component;
+                }
+
+                returnArray.push(component);
             }
         }
     }
