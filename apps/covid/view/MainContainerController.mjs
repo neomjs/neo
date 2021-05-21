@@ -68,28 +68,6 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        me.loadData();
-        me.loadSummaryData();
-
-        me.component.on('mounted', me.onMainViewMounted, me);
-
-        if (!Neo.config.hash) {
-            me.onHashChange({
-                country   : 'all',
-                hash      : {mainview: 'table'},
-                hashString: 'mainview=table'
-            }, null);
-        }
-    }
-
-    /**
-     *
      * @param {Object[]} data
      */
     addStoreItems(data) {
@@ -225,6 +203,35 @@ class MainContainerController extends ComponentController {
                 me.onLoadSummaryDataFail();
             }
         }, 2000);
+    }
+
+    /**
+     *
+     */
+    onComponentConstructed() {
+        super.onComponentConstructed();
+
+        if (!Neo.config.hash) {
+            this.onHashChange({
+                country   : 'all',
+                hash      : {mainview: 'table'},
+                hashString: 'mainview=table'
+            }, null);
+        }
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        me.loadData();
+        me.loadSummaryData();
+
+        me.component.on('mounted', me.onMainViewMounted, me);
     }
 
     /**
