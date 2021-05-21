@@ -81,34 +81,6 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        let me = this;
-
-        me.loadData();
-        me.loadSummaryData();
-
-        Neo.currentWorker.on({
-            connect   : me.onAppConnect,
-            disconnect: me.onAppDisconnect,
-            scope     : me
-        });
-
-        me.component.on('mounted', me.onMainViewMounted, me);
-
-        if (!Neo.config.hash) {
-            me.onHashChange({
-                country   : 'all',
-                hash      : {mainView: 'table'},
-                hashString: 'mainview=table'
-            }, null);
-        }
-    }
-
-    /**
-     *
      * @param {Object[]} data
      */
     addStoreItems(data) {
@@ -403,6 +375,41 @@ class MainContainerController extends ComponentController {
                     break;
             }
         }
+    }
+
+    /**
+     *
+     */
+    onComponentConstructed() {
+        super.onComponentConstructed();
+
+        if (!Neo.config.hash) {
+            this.onHashChange({
+                country   : 'all',
+                hash      : {mainview: 'table'},
+                hashString: 'mainview=table'
+            }, null);
+        }
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me = this;
+
+        me.loadData();
+        me.loadSummaryData();
+
+        Neo.currentWorker.on({
+            connect   : me.onAppConnect,
+            disconnect: me.onAppDisconnect,
+            scope     : me
+        });
+
+        me.component.on('mounted', me.onMainViewMounted, me);
     }
 
     /**
