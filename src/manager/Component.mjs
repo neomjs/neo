@@ -130,7 +130,7 @@ class Component extends Base {
     }
 
     /**
-     * Returns all child components found inside the vdom tree
+     * Returns all child components found inside the vnode tree
      * @param {Neo.component.Base} component
      * @returns {Neo.component.Base[]} childComponents
      */
