@@ -19,6 +19,10 @@ class Label extends Component {
          */
         ntype: 'legend',
         /**
+         * @member {String} iconCls_='far fa-check-square'
+         */
+        iconCls_: 'far fa-check-square',
+        /**
          * @member {String} text_=''
          */
         text_: '',
@@ -27,9 +31,22 @@ class Label extends Component {
          */
         _vdom:
         {tag: 'legend', cn:[
+            {vtype: 'text', removeDom: true},
             {vtype: 'text'}
         ]}
     }}
+
+    /**
+     * Triggered after the iconCls config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetIconCls(value, oldValue) {
+        let vdom = this.vdom;
+        vdom.cn[0].html = value;
+        this.vdom = vdom;
+    }
 
     /**
      * Triggered after the text config got changed
@@ -39,7 +56,7 @@ class Label extends Component {
      */
     afterSetText(value, oldValue) {
         let vdom = this.vdom;
-        vdom.cn[0].html = value;
+        vdom.cn[1].html = value;
         this.vdom = vdom;
     }
 }
