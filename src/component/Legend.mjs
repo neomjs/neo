@@ -52,7 +52,7 @@ class Legend extends Component {
      */
     afterSetIconCls(value, oldValue) {
         let vdom = this.vdom;
-        vdom.cn[0].html = `<i class="${value}"></i>`;
+        vdom.cn[0].html = `<i class="neo-legend-icon ${value}"></i>`;
         this.vdom = vdom;
     }
 

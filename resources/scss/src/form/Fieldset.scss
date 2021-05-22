@@ -1,3 +1,22 @@
 .neo-fieldset {
+    border: 1px solid #ddd;
 
+    &.neo-collapsed {
+        border-bottom: none;
+        border-left  : none;
+        border-right : none;
+        padding      : 0;
+    }
+
+    .neo-legend {
+        color        : #1c60a0;
+        cursor       : pointer;
+        font-weight  : 500;
+        padding-right: 0.1em;
+
+        .neo-legend-icon {
+            margin-left : 0.1em;
+            margin-right: 0.3em;
+        }
+    }
 }
