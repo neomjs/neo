@@ -1,5 +1,6 @@
 .neo-fieldset {
-    border: v(fieldset-border);
+    background-color: v(fieldset-background-color);
+    border          : v(fieldset-border);
 
     &.neo-collapsed {
         border-bottom: none;
