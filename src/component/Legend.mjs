@@ -27,11 +27,15 @@ class Label extends Component {
          */
         text_: '',
         /**
+         * @member {Boolean} useIcon_=true
+         */
+        useIcon_: true,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
         {tag: 'legend', cn:[
-            {vtype: 'text', removeDom: true},
+            {vtype: 'text'},
             {vtype: 'text'}
         ]}
     }}
@@ -44,7 +48,7 @@ class Label extends Component {
      */
     afterSetIconCls(value, oldValue) {
         let vdom = this.vdom;
-        vdom.cn[0].html = value;
+        vdom.cn[0].html = `<i class="${value}"></i>`;
         this.vdom = vdom;
     }
 
@@ -57,6 +61,18 @@ class Label extends Component {
     afterSetText(value, oldValue) {
         let vdom = this.vdom;
         vdom.cn[1].html = value;
+        this.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the useIcon config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseIcon_(value, oldValue) {
+        let vdom = this.vdom;
+        vdom.cn[0].removeDom = !value;
         this.vdom = vdom;
     }
 }
