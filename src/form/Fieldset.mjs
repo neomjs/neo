@@ -1,4 +1,5 @@
 import Container from '../container/Base.mjs';
+import Legend    from '../component/Legend.mjs';
 
 /**
  * @class Neo.form.Fieldset
@@ -22,9 +23,9 @@ class Fieldset extends Container {
          */
         cls: ['neo-fieldset'],
         /**
-         * @member {String|null} title_=null
+         * @member {String} title_=''
          */
-        title_: null,
+        title_: '',
         /**
          * @member {Object} _vdom={tag: 'fieldset',cn: []}
          */
@@ -39,16 +40,24 @@ class Fieldset extends Container {
      * @protected
      */
     afterSetTitle(value, oldValue) {
-        let me   = this,
-            vdom = me.vdom;
+        let me        = this,
+            items     = me.items,
+            hasLegend = items[0].module === Legend;
 
         if (value === '') {
-            // todo
+            if (hasLegend) {
+                me.items.shift();
+            }
+        } else if (hasLegend) {
+            items[0].text = value;
         } else {
-            console.log('title:', value);
+            items.unshift({
+                module: Legend,
+                text  : value
+            });
         }
 
-        me.vdom = vdom;
+        me.items = items;
     }
 }
 
