@@ -74,7 +74,7 @@ class Legend extends Component {
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetUseIcon_(value, oldValue) {
+    afterSetUseIcon(value, oldValue) {
         let vdom = this.vdom;
         vdom.cn[0].removeDom = !value;
         this.vdom = vdom;

@@ -98,6 +98,10 @@ class Fieldset extends Container {
         let me           = this,
             domListeners = me.domListeners || [];
 
+        if (me.legend) {
+            me.legend.useIcon = value;
+        }
+
         if (value && !me.hasLabelClickListener) {
             me.hasLabelClickListener = true;
 
