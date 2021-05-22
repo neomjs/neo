@@ -151,7 +151,11 @@ class Fieldset extends Container {
      * @param {Object} data
      */
     onLegendClick(data) {
-        this.collapsed = !this.collapsed;
+        let me = this;
+
+        if (me.collapsible) {
+            me.collapsed = !me.collapsed;
+        }
     }
 
     /**
