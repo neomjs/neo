@@ -208,9 +208,10 @@ class Base extends Component {
                 });
             } else if (typeof item === 'string') {
                 item = Neo.ntype({
-                    ntype  : 'component',
-                    appName: me.appName,
-                    vdom   : {innerHTML: item}
+                    ntype   : 'component',
+                    appName : me.appName,
+                    parentId: me.id,
+                    vdom    : {innerHTML: item}
                 });
             } else {
                 if (defaults) {
