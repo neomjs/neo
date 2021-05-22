@@ -96,7 +96,11 @@ class Fieldset extends Container {
      */
     afterSetCollapsible(value, oldValue) {
         let me           = this,
+            cls          = me.cls,
             domListeners = me.domListeners || [];
+
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-collapsible');
+        me.cls = cls;
 
         if (me.legend) {
             me.legend.useIcon = value;
