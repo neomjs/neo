@@ -1,7 +1,7 @@
 import CheckBox              from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
+import Fieldset              from '../../../src/form/Fieldset.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
-import TextField             from '../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.form.fieldset.MainContainer
@@ -39,12 +39,29 @@ class MainContainer extends ConfigurationViewport {
     }
 
     createExampleComponent() {
-        return Neo.create(TextField, {
-            clearable : true,
-            labelText : 'Label',
-            labelWidth: 70,
-            value     : 'Hello World',
-            width     : 200
+        return Neo.create({
+            module: Fieldset,
+            items : [{
+                module   : NumberField,
+                labelText: 'Field 1',
+                maxValue : 300,
+                minValue : 0,
+                value    : 10
+            }, {
+                module   : NumberField,
+                labelText: 'Field 2',
+                maxValue : 300,
+                minValue : 0,
+                style    : {marginTop: '10px'},
+                value    : 10
+            }, {
+                module   : NumberField,
+                labelText: 'Field 3',
+                maxValue : 300,
+                minValue : 0,
+                style    : {marginTop: '10px'},
+                value    : 10
+            }]
         });
     }
 }
