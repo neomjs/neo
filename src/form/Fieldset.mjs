@@ -26,7 +26,7 @@ class Fieldset extends Container {
         /**
          * @member {Boolean} collapsed_=false,
          */
-        collapsed_: true,
+        collapsed_: false,
         /**
          * @member {Boolean} collapsible_=true,
          */

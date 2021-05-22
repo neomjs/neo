@@ -1,5 +1,5 @@
 .neo-fieldset {
-    border: 1px solid #ddd;
+    border: v(fieldset-border);
 
     &.neo-collapsed {
         border-bottom: none;
@@ -15,7 +15,7 @@
     }
 
     .neo-legend {
-        color        : #1c60a0;
+        color        : v(fieldset-legend-color);
         cursor       : default;
         font-weight  : 500;
         padding-right: 0.1em;
