@@ -46,18 +46,20 @@ class Fieldset extends Container {
 
         if (value === '') {
             if (hasLegend) {
-                me.items.shift();
+                me.removeAt(0);
             }
-        } else if (hasLegend) {
-            items[0].text = value;
         } else {
-            items.unshift({
-                module: Legend,
-                text  : value
-            });
-        }
+            if (hasLegend) {
+                items[0].text = value;
+            } else {
+                me.insert(0, {
+                    module: Legend,
+                    text  : value
+                });
+            }
 
-        me.items = items;
+            me.items = items;
+        }
     }
 }
 

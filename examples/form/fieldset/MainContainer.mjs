@@ -2,6 +2,7 @@ import CheckBox              from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import Fieldset              from '../../../src/form/Fieldset.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
+import TextField             from '../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.form.fieldset.MainContainer
@@ -26,6 +27,11 @@ class MainContainer extends ConfigurationViewport {
             minValue : 50,
             stepSize : 5,
             value    : me.exampleComponent.height
+        }, {
+            module   : TextField,
+            labelText: 'title',
+            listeners: {change: me.onConfigChange.bind(me, 'title')},
+            value    : me.exampleComponent.title
         }, {
             module   : NumberField,
             labelText: 'width',
