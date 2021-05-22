@@ -27,6 +27,11 @@ class Fieldset extends Container {
          */
         collapsible_: true,
         /**
+         * @member {Boolean} hasLabelClickListener=false,
+         * @protected
+         */
+        hasLabelClickListener: false,
+        /**
          * @member {String} iconCls_='far fa-check-square'
          */
         iconCls_: 'far fa-check-square',
@@ -52,9 +57,11 @@ class Fieldset extends Container {
      * @protected
      */
     afterSetCollapsible(value, oldValue) {
-        if (value) {
             let me           = this,
                 domListeners = me.domListeners || [];
+
+        if (value && !me.hasLabelClickListener) {
+            me.hasLabelClickListener = true;
 
             domListeners.push({
                 click   : me.onLegendClick,
