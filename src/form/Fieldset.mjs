@@ -37,17 +37,13 @@ class Fieldset extends Container {
          */
         hasLabelClickListener: false,
         /**
-         * @member {String} iconCls_='fas fa-check'
+         * @member {String} iconClsChecked_='far fa-check-square'
          */
-        iconCls_: 'fas fa-check',
+        iconClsChecked_: 'far fa-check',
         /**
-         * @member {String} iconClsChecked='far fa-check-square'
+         * @member {String} iconClsUnchecked_='far fa-check-square'
          */
-        iconClsChecked: 'far fa-check',
-        /**
-         * @member {String} iconClsUnchecked='far fa-check-square'
-         */
-        iconClsUnchecked: 'far fa-square',
+        iconClsUnchecked_: 'far fa-square',
         /**
          * @member {Neo.component.Legend|null} legend=null
          */
@@ -120,13 +116,27 @@ class Fieldset extends Container {
     }
 
     /**
-     * Triggered after the iconCls config got changed
+     * Triggered after the iconClsChecked config got changed
      * @param {String} value
      * @param {String} oldValue
      * @protected
      */
-    afterSetIconCls(value, oldValue) {
-        this.updateLegend();
+    afterSetIconClsChecked(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.updateLegend();
+        }
+    }
+
+    /**
+     * Triggered after the iconClsUnchecked config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetIconClsUnchecked(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.updateLegend();
+        }
     }
 
     /**

@@ -12,7 +12,7 @@ class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
         className           : 'Neo.examples.form.fieldset.MainContainer',
         autoMount           : true,
-        configItemLabelWidth: 120,
+        configItemLabelWidth: 150,
         layout              : {ntype: 'hbox', align: 'stretch'}
     }}
 
@@ -34,9 +34,14 @@ class MainContainer extends ConfigurationViewport {
             value    : me.exampleComponent.height
         }, {
             module   : TextField,
-            labelText: 'iconCls',
-            listeners: {change: me.onConfigChange.bind(me, 'iconCls')},
-            value    : me.exampleComponent.iconCls
+            labelText: 'iconClsChecked',
+            listeners: {change: me.onConfigChange.bind(me, 'iconClsChecked')},
+            value    : me.exampleComponent.iconClsChecked
+        }, {
+            module   : TextField,
+            labelText: 'iconClsUnchecked',
+            listeners: {change: me.onConfigChange.bind(me, 'iconClsUnchecked')},
+            value    : me.exampleComponent.iconClsUnchecked
         }, {
             module   : TextField,
             labelText: 'title',
@@ -58,13 +63,14 @@ class MainContainer extends ConfigurationViewport {
         return Neo.create({
             module: Fieldset,
             title : 'My Fieldset',
-            width : 350,
+            width : 300,
 
             itemDefaults: {
-                module  : NumberField,
-                maxValue: 300,
-                minValue: 0,
-                value   : 10
+                labelWidth: 120,
+                module    : NumberField,
+                maxValue  : 300,
+                minValue  : 0,
+                value     : 10
             },
 
             items : [{
