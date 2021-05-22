@@ -22,11 +22,34 @@ class Fieldset extends Container {
          */
         cls: ['neo-fieldset'],
         /**
+         * @member {String|null} title_=null
+         */
+        title_: null,
+        /**
          * @member {Object} _vdom={tag: 'fieldset',cn: []}
          */
         _vdom:
         {tag: 'fieldset', cn: []}
     }}
+
+    /**
+     * Triggered after the title config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetTitle(value, oldValue) {
+        let me   = this,
+            vdom = me.vdom;
+
+        if (value === '') {
+            // todo
+        } else {
+            console.log('title:', value);
+        }
+
+        me.vdom = vdom;
+    }
 }
 
 Neo.applyClassConfig(Fieldset);

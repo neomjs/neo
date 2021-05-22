@@ -41,6 +41,7 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create({
             module: Fieldset,
+            title : 'My Fieldset',
             width : 350,
 
             itemDefaults: {
