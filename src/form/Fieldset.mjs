@@ -37,13 +37,13 @@ class Fieldset extends Container {
          */
         hasLabelClickListener: false,
         /**
-         * @member {String} iconCls_='far fa-check-square'
+         * @member {String} iconCls_='fas fa-check'
          */
-        iconCls_: 'far fa-check-square',
+        iconCls_: 'fas fa-check',
         /**
          * @member {String} iconClsChecked='far fa-check-square'
          */
-        iconClsChecked: 'far fa-check-square',
+        iconClsChecked: 'far fa-check',
         /**
          * @member {String} iconClsUnchecked='far fa-check-square'
          */

@@ -6,6 +6,12 @@
         border-left  : none;
         border-right : none;
         padding      : 0 0 0 0.75em;
+
+        .neo-legend {
+            .neo-legend-icon {
+                font-weight: 300;
+            }
+        }
     }
 
     &.neo-collapsible {
@@ -21,6 +27,8 @@
         padding-right: 0.1em;
 
         .neo-legend-icon {
+            color       : v(fieldset-legend-icon-color);
+            font-weight : 600;
             margin-left : 0.1em;
             margin-right: 0.3em;
         }
