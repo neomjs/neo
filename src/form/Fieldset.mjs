@@ -18,10 +18,14 @@ class Fieldset extends Container {
          */
         ntype: 'fieldset',
         /**
-         * @member {Array} cls=['neo-fieldset'],
+         * @member {String[]} cls=['neo-fieldset'],
          * @protected
          */
         cls: ['neo-fieldset'],
+        /**
+         * @member {Boolean} collapsible_=true,
+         */
+        collapsible_: true,
         /**
          * @member {String} iconCls_='far fa-check-square'
          */
@@ -42,6 +46,27 @@ class Fieldset extends Container {
     }}
 
     /**
+     * Triggered after the collapsible config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetCollapsible(value, oldValue) {
+        if (value) {
+            let me           = this,
+                domListeners = me.domListeners || [];
+
+            domListeners.push({
+                click   : me.onLegendClick,
+                delegate: 'neo-legend',
+                scope   : me.handlerScope || me
+            });
+
+            me.domListeners = domListeners;
+        }
+    }
+
+    /**
      * Triggered after the iconCls config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -59,6 +84,14 @@ class Fieldset extends Container {
      */
     afterSetTitle(value, oldValue) {
         this.updateLegend();
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onLegendClick(data) {
+        console.log('onLegendIconClick', data);
     }
 
     /**
