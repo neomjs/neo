@@ -107,8 +107,7 @@ class Fieldset extends Container {
 
             domListeners.push({
                 click   : me.onLegendClick,
-                delegate: 'neo-legend',
-                scope   : me.handlerScope || me
+                delegate: 'neo-legend'
             });
 
             me.domListeners = domListeners;
