@@ -26,7 +26,7 @@ class Fieldset extends Container {
         /**
          * @member {Boolean} collapsed_=false,
          */
-        collapsed_: false,
+        collapsed_: true,
         /**
          * @member {Boolean} collapsible_=true,
          */
@@ -133,6 +133,17 @@ class Fieldset extends Container {
 
     /**
      *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        if (this.collapsed) {
+            this.afterSetCollapsed(true, false);
+        }
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onLegendClick(data) {
@@ -144,7 +155,7 @@ class Fieldset extends Container {
      */
     updateLegend() {
         let me      = this,
-            iconCls = me.iconCls,
+            iconCls = me.collapsed ? me.iconClsUnchecked : me.iconClsChecked,
             title   = me.title,
             vdom    = me.vdom;
 
