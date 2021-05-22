@@ -3,10 +3,11 @@
     border          : v(fieldset-border);
 
     &.neo-collapsed {
-        border-bottom: none;
-        border-left  : none;
-        border-right : none;
-        padding      : 0 0 0 0.75em;
+        background-color: inherit;
+        border-bottom   : none;
+        border-left     : none;
+        border-right    : none;
+        padding         : 0 0 0 0.75em;
 
         .neo-legend {
             .neo-legend-icon {
