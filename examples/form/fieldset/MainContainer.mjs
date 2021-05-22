@@ -22,7 +22,7 @@ class MainContainer extends ConfigurationViewport {
             module   : NumberField,
             labelText: 'height',
             listeners: {change: me.onConfigChange.bind(me, 'height')},
-            maxValue : 300,
+            maxValue : 800,
             minValue : 50,
             stepSize : 5,
             value    : me.exampleComponent.height
@@ -30,7 +30,7 @@ class MainContainer extends ConfigurationViewport {
             module   : NumberField,
             labelText: 'width',
             listeners: {change: me.onConfigChange.bind(me, 'width')},
-            maxValue : 300,
+            maxValue : 800,
             minValue : 50,
             stepSize : 5,
             style    : {marginTop: '10px'},
@@ -41,26 +41,21 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create({
             module: Fieldset,
+            width : 350,
+
+            itemDefaults: {
+                module  : NumberField,
+                maxValue: 300,
+                minValue: 0,
+                value   : 10
+            },
+
             items : [{
-                module   : NumberField,
-                labelText: 'Field 1',
-                maxValue : 300,
-                minValue : 0,
-                value    : 10
+                labelText: 'Field 1'
             }, {
-                module   : NumberField,
-                labelText: 'Field 2',
-                maxValue : 300,
-                minValue : 0,
-                style    : {marginTop: '10px'},
-                value    : 10
+                labelText: 'Field 2'
             }, {
-                module   : NumberField,
-                labelText: 'Field 3',
-                maxValue : 300,
-                minValue : 0,
-                style    : {marginTop: '10px'},
-                value    : 10
+                labelText: 'Field 3'
             }]
         });
     }
