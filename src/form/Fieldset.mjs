@@ -1,5 +1,6 @@
 import Container from '../container/Base.mjs';
 import Legend    from '../component/Legend.mjs';
+import NeoArray  from '../util/Array.mjs';
 
 /**
  * @class Neo.form.Fieldset
@@ -22,6 +23,10 @@ class Fieldset extends Container {
          * @protected
          */
         cls: ['neo-fieldset'],
+        /**
+         * @member {Boolean} collapsed_=false,
+         */
+        collapsed_: false,
         /**
          * @member {Boolean} collapsible_=true,
          */
@@ -51,14 +56,37 @@ class Fieldset extends Container {
     }}
 
     /**
+     * Triggered after the collapsed config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetCollapsed(value, oldValue) {
+        let me   = this,
+            vdom = me.vdom;
+
+        NeoArray[value ? 'add' : 'remove'](me._cls, 'neo-collapsed');
+
+        if (oldValue !== undefined) {
+            me.items.forEach((item, index) => {
+                if (index > 0) {
+                    item.vdom.removeDom = value;
+                }
+            });
+        }
+
+        me.vdom = vdom;
+    }
+
+    /**
      * Triggered after the collapsible config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetCollapsible(value, oldValue) {
-            let me           = this,
-                domListeners = me.domListeners || [];
+        let me           = this,
+            domListeners = me.domListeners || [];
 
         if (value && !me.hasLabelClickListener) {
             me.hasLabelClickListener = true;
@@ -98,7 +126,7 @@ class Fieldset extends Container {
      * @param {Object} data
      */
     onLegendClick(data) {
-        console.log('onLegendIconClick', data);
+        this.collapsed = !this.collapsed;
     }
 
     /**
@@ -106,26 +134,32 @@ class Fieldset extends Container {
      */
     updateLegend() {
         let me      = this,
-            items   = me.items,
             iconCls = me.iconCls,
-            title   = me.title;
+            title   = me.title,
+            vdom    = me.vdom;
 
         if (iconCls === '' && title === '') {
             if (me.legend) {
-                me.removeAt(0);
+                me.legend.vdom.reomveDom = true;
             }
         } else {
             if (me.legend) {
-                items[0].iconCls = iconCls;
-                items[0].text    = title;
+                me.legend.setSilent({
+                    iconCls: iconCls,
+                    text   : title
+                });
+
+                delete me.legend.vdom.reomveDom;
             } else {
                 me.legend = me.insert(0, {
                     module : Legend,
-                    iconCls: me.iconCls,
-                    text   : me.title
+                    iconCls: iconCls,
+                    text   : title
                 });
             }
         }
+
+        me.vdom = vdom;
     }
 }
 
