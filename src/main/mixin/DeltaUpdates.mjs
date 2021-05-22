@@ -106,12 +106,23 @@ class DeltaUpdates extends Base {
      *
      * @param {Object} delta
      * @param {String} delta.id
+     * @param {String} delta.parentId
      */
     du_removeNode(delta) {
-        let node = this.getElement(delta.id);
+        let node = this.getElement(delta.id),
+            reg, startTag;
 
-        if (!node) {
-            // console.warn('du_removeNode: dom node not found for id', delta.id);
+        if (!node) { // could be a vtype: text
+            node = this.getElementOrBody(delta.parentId);
+
+            if (node) {
+                startTag  = `<!-- ${delta.id} -->`;
+                reg       = new RegExp(startTag + '[\\s\\S]*?<!-- \/neo-vtext -->');
+
+                node.innerHTML = node.innerHTML.replace(reg, '');
+            } else {
+                // console.warn('du_removeNode: dom node not found for id', delta.id);
+            }
         } else {
             node.parentNode.removeChild(node);
         }
@@ -218,7 +229,7 @@ class DeltaUpdates extends Base {
     htmlStringToElement(html) {
         const template = document.createElement('template');
         template.innerHTML = html;
-        return template.content.firstChild;
+        return template.content;
     }
 
     /**

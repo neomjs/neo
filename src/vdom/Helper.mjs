@@ -302,8 +302,9 @@ class Helper extends Base {
                             }
 
                             deltas.push({
-                                action: 'removeNode',
-                                id    : oldVnode.id
+                                action  : 'removeNode',
+                                id      : oldVnode.id,
+                                parentId: parentId
                             });
                         }
 
