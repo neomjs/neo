@@ -6,7 +6,7 @@ import Component from './Base.mjs';
  * @class Neo.component.Legend
  * @extends Neo.component.Base
  */
-class Label extends Component {
+class Legend extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.component.Legend'
@@ -77,6 +77,6 @@ class Label extends Component {
     }
 }
 
-Neo.applyClassConfig(Label);
+Neo.applyClassConfig(Legend);
 
-export {Label as default};
+export {Legend as default};

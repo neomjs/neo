@@ -23,15 +23,33 @@ class Fieldset extends Container {
          */
         cls: ['neo-fieldset'],
         /**
+         * @member {String} iconCls_='far fa-check-square'
+         */
+        iconCls_: 'far fa-check-square',
+        /**
+         * @member {Neo.component.Legend|null} legend=null
+         */
+        legend: null,
+        /**
          * @member {String} title_=''
          */
         title_: '',
         /**
-         * @member {Object} _vdom={tag: 'fieldset',cn: []}
+         * @member {Object} _vdom={tag:'fieldset',cn:[]}
          */
         _vdom:
         {tag: 'fieldset', cn: []}
     }}
+
+    /**
+     * Triggered after the iconCls config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetIconCls(value, oldValue) {
+        this.updateLegend();
+    }
 
     /**
      * Triggered after the title config got changed
@@ -40,25 +58,33 @@ class Fieldset extends Container {
      * @protected
      */
     afterSetTitle(value, oldValue) {
-        let me        = this,
-            items     = me.items,
-            hasLegend = items[0].module === Legend;
+        this.updateLegend();
+    }
 
-        if (value === '') {
-            if (hasLegend) {
+    /**
+     *
+     */
+    updateLegend() {
+        let me      = this,
+            items   = me.items,
+            iconCls = me.iconCls,
+            title   = me.title;
+
+        if (iconCls === '' && title === '') {
+            if (me.legend) {
                 me.removeAt(0);
             }
         } else {
-            if (hasLegend) {
-                items[0].text = value;
+            if (me.legend) {
+                items[0].iconCls = iconCls;
+                items[0].text    = title;
             } else {
-                me.insert(0, {
-                    module: Legend,
-                    text  : value
+                me.legend = me.insert(0, {
+                    module : Legend,
+                    iconCls: me.iconCls,
+                    text   : me.title
                 });
             }
-
-            me.items = items;
         }
     }
 }

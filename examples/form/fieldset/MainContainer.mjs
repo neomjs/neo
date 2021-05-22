@@ -12,7 +12,7 @@ class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
         className           : 'Neo.examples.form.fieldset.MainContainer',
         autoMount           : true,
-        configItemLabelWidth: 160,
+        configItemLabelWidth: 120,
         layout              : {ntype: 'hbox', align: 'stretch'}
     }}
 
@@ -27,6 +27,11 @@ class MainContainer extends ConfigurationViewport {
             minValue : 50,
             stepSize : 5,
             value    : me.exampleComponent.height
+        }, {
+            module   : TextField,
+            labelText: 'iconCls',
+            listeners: {change: me.onConfigChange.bind(me, 'iconCls')},
+            value    : me.exampleComponent.iconCls
         }, {
             module   : TextField,
             labelText: 'title',
