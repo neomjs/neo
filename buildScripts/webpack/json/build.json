@@ -159,6 +159,11 @@
                     "output": "/examples/form/field/url/",
                     "title": "Neo UrlField"
                 }
+            },
+            "fieldset": {
+                "input": "./examples/form/fieldset/app.mjs",
+                "output": "/examples/form/fieldset/",
+                "title": "Neo Fieldset"
             }
         },
         "list": {
