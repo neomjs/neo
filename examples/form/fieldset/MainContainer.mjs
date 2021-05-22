@@ -20,6 +20,11 @@ class MainContainer extends ConfigurationViewport {
         let me = this;
 
         return [{
+            module   : CheckBox,
+            checked  : me.exampleComponent.collapsible,
+            labelText: 'collapsible',
+            listeners: {change: me.onConfigChange.bind(me, 'collapsible')}
+        }, {
             module   : NumberField,
             labelText: 'height',
             listeners: {change: me.onConfigChange.bind(me, 'height')},
