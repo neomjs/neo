@@ -27,6 +27,7 @@
         cursor       : default;
         font-weight  : 500;
         padding-right: 0.1em;
+        user-select  : none;
 
         .neo-legend-icon {
             color       : v(fieldset-legend-icon-color);
