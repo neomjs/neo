@@ -106,6 +106,20 @@ class Compare extends Base {
 
                 break;
             }
+
+            case 'Set': {
+                if (item1.size !== item2.size) {
+                    return false;
+                }
+
+                for (key of item1) {
+                    if (!item2.has(key)) {
+                        return false;
+                    }
+                }
+
+                break;
+            }
         }
 
         return true;
