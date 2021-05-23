@@ -32,6 +32,10 @@ class Fieldset extends Container {
          */
         collapsible_: true,
         /**
+         * @member {Boolean} disableItemsOnCollapse_=false,
+         */
+        disableItemsOnCollapse_: true,
+        /**
          * @member {Boolean} hasLabelClickListener=false,
          * @protected
          */
@@ -76,6 +80,10 @@ class Fieldset extends Container {
                 if (index === 0) {
                     item.iconCls = value ? me.iconClsUnchecked : me.iconClsChecked
                 } else {
+                    if (me.disableItemsOnCollapse) {
+                        item.disabled = value;
+                    }
+
                     item.vdom.removeDom = value;
                 }
             });
