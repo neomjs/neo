@@ -1282,6 +1282,18 @@ class Base extends CoreBase {
     }
 
     /**
+     *
+     * @param {Array|Object} value
+     */
+    removeDomListeners(value) {
+        if (!Array.isArray(value)) {
+            value = [value];
+        }
+
+        console.log('removeDomListeners', value);
+    }
+
+    /**
      * Either a string like 'color' or an array containing style attributes to remove
      * @param {String|Array} value camelCase only
      * @returns {Object} all styles of this.el
