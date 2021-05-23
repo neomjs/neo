@@ -98,6 +98,14 @@ class Compare extends Base {
 
                 break;
             }
+
+            case 'RegExp': {
+                if (item1.toString() !== item2.toString()) {
+                    return false;
+                }
+
+                break;
+            }
         }
 
         return true;
