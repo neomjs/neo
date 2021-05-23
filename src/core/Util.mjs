@@ -249,6 +249,10 @@ class Util extends Base {
                     return 'Map';
                 }
 
+                if (item instanceof RegExp) {
+                    return 'RegExp';
+                }
+
                 if (item instanceof Set) {
                     return 'Set';
                 }
