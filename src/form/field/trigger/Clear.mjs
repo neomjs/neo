@@ -67,6 +67,15 @@ class Clear extends Base {
 
     /**
      *
+     * @param {Boolean} updateParentVdom
+     * @param {Boolean} silent
+     */
+    destroy(updateParentVdom, silent) {
+        super.destroy(updateParentVdom, silent);
+    }
+
+    /**
+     *
      * @returns {Boolean} true in case the trigger should be hidden
      */
     getHiddenState() {
