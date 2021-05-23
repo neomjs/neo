@@ -237,6 +237,22 @@ class Util extends Base {
             }
 
             case 'object': {
+                if (Array.isArray(item)) {
+                    return 'Array';
+                }
+
+                if (item instanceof Date) {
+                    return 'Date';
+                }
+
+                if (item instanceof Map) {
+                    return 'Map';
+                }
+
+                if (item instanceof Set) {
+                    return 'Set';
+                }
+
                 return 'Object';
             }
         }
