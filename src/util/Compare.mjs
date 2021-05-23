@@ -24,22 +24,49 @@ class Compare extends Base {
             return true;
         }
 
-        let type1 = typeof item1,
-            type2 = typeof item2;
+        let type1 = Neo.typeOf(item1),
+            type2 = Neo.typeOf(item2),
+            key;
 
         if (type1 !== type2) {
             return false;
         }
 
-        if (Array.isArray(item1)) {
-            if (item1.length !== item2.length) {
-                return false;
-            }
-
-            for (const [i, v] of item1.entries()) {
-                if (!Compare.isEqual(v, item2[i])) {
+        switch (type1) {
+            case 'Array': {
+                if (item1.length !== item2.length) {
                     return false;
                 }
+
+                for (const [i, v] of item1.entries()) {
+                    if (!Compare.isEqual(v, item2[i])) {
+                        return false;
+                    }
+                }
+
+                break;
+            }
+
+            case 'Function': {
+                if (item1.name !== item2.name) {
+                    return false;
+                }
+
+                return item1.toString() === item2.toString();
+            }
+
+            case 'Object': {
+                if (Object.keys(item1).length !== Object.keys(item2).length) {
+                    return false;
+                }
+
+                for (key in item1) {
+                    if (!Compare.isEqual(item1[key], item2[key])) {
+                        return false;
+                    }
+                }
+
+                break;
             }
         }
 
