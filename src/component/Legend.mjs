@@ -23,9 +23,9 @@ class Legend extends Component {
          */
         cls: ['neo-legend'],
         /**
-         * @member {String} iconCls_='far fa-check-square'
+         * @member {String} iconCls_='far fa-check'
          */
-        iconCls_: 'far fa-check-square',
+        iconCls_: 'far fa-check',
         /**
          * @member {String} text_=''
          */

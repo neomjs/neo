@@ -1,11 +1,13 @@
 .neo-fieldset {
-    border: v(fieldset-border);
+    background-color: v(fieldset-background-color);
+    border          : v(fieldset-border);
 
     &.neo-collapsed {
-        border-bottom: none;
-        border-left  : none;
-        border-right : none;
-        padding      : 0 0 0 0.75em;
+        background-color: inherit;
+        border-bottom   : none;
+        border-left     : none;
+        border-right    : none;
+        padding         : 0 0 0 0.75em;
 
         .neo-legend {
             .neo-legend-icon {
@@ -25,6 +27,7 @@
         cursor       : default;
         font-weight  : 500;
         padding-right: 0.1em;
+        user-select  : none;
 
         .neo-legend-icon {
             color       : v(fieldset-legend-icon-color);

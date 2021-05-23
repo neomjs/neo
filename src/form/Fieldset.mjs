@@ -32,18 +32,29 @@ class Fieldset extends Container {
          */
         collapsible_: true,
         /**
+         * @member {Boolean} disableItemsOnCollapse_=true,
+         */
+        disableItemsOnCollapse_: true,
+        /**
          * @member {Boolean} hasLabelClickListener=false,
          * @protected
          */
         hasLabelClickListener: false,
         /**
-         * @member {String} iconClsChecked_='far fa-check-square'
+         * @member {String} iconClsChecked_='far fa-check'
          */
         iconClsChecked_: 'far fa-check',
         /**
-         * @member {String} iconClsUnchecked_='far fa-check-square'
+         * @member {String} iconClsUnchecked_='far fa-square'
          */
         iconClsUnchecked_: 'far fa-square',
+        /**
+         * Internally stores the ids of disabled items when collapsing the fieldset
+         * and re-applies keeps the disabled state when expanding.
+         * @member {String[]|null} itemsDisabledMap=null
+         * @protected
+         */
+        itemsDisabledMap: null,
         /**
          * @member {Neo.component.Legend|null} legend=null
          */
@@ -76,9 +87,30 @@ class Fieldset extends Container {
                 if (index === 0) {
                     item.iconCls = value ? me.iconClsUnchecked : me.iconClsChecked
                 } else {
+                    if (me.disableItemsOnCollapse) {
+                        me.itemsDisabledMap = me.itemsDisabledMap || [];
+
+                        if (value) {
+                            if (item.disabled) {
+                                me.itemsDisabledMap.push(item.id);
+                            } else {
+                                item._disabled = true; // silent update
+                            }
+                        } else {
+                            if (!me.itemsDisabledMap.includes(item.id)) {
+                                item._disabled = false; // silent update
+                            }
+                        }
+                    }
+
                     item.vdom.removeDom = value;
                 }
             });
+
+            if (!value) {
+                // reset the disabled items map when expanding
+                me.itemsDisabledMap = [];
+            }
         }
 
         me.vdom = vdom;
@@ -107,8 +139,7 @@ class Fieldset extends Container {
 
             domListeners.push({
                 click   : me.onLegendClick,
-                delegate: 'neo-legend',
-                scope   : me.handlerScope || me
+                delegate: 'neo-legend'
             });
 
             me.domListeners = domListeners;
