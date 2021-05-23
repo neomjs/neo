@@ -59,6 +59,24 @@ class Compare extends Base {
                 return item1.toString() === item2.toString();
             }
 
+            case 'Map': {
+                if (item1.size !== item2.size) {
+                    return false;
+                }
+
+                let val2;
+
+                for (const [key, val] of item1) {
+                    val2 = item2.get(key);
+
+                    if (val2 !== val || val2 === undefined && !item2.has(key)) {
+                        return false;
+                    }
+                }
+
+                break;
+            }
+
             case 'Object': {
                 if (Object.keys(item1).length !== Object.keys(item2).length) {
                     return false;
