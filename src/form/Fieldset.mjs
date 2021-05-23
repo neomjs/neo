@@ -32,7 +32,7 @@ class Fieldset extends Container {
          */
         collapsible_: true,
         /**
-         * @member {Boolean} disableItemsOnCollapse_=false,
+         * @member {Boolean} disableItemsOnCollapse_=true,
          */
         disableItemsOnCollapse_: true,
         /**
@@ -88,7 +88,7 @@ class Fieldset extends Container {
                     item.iconCls = value ? me.iconClsUnchecked : me.iconClsChecked
                 } else {
                     if (me.disableItemsOnCollapse) {
-                        me.itemsDisabledMap = me.itemsDisabledMap || {};
+                        me.itemsDisabledMap = me.itemsDisabledMap || [];
 
                         if (value) {
                             if (item.disabled) {

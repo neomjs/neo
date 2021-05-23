@@ -76,6 +76,7 @@ class MainContainer extends ConfigurationViewport {
             items : [{
                 labelText: 'Field 1'
             }, {
+                disabled : true,
                 labelText: 'Field 2'
             }, {
                 labelText: 'Field 3'
