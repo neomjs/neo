@@ -218,6 +218,31 @@ class Util extends Base {
 
         return Array.prototype.slice.call(iterable, start || 0, end || len);
     }
+
+    /**
+     *
+     * @param {*} item
+     * @returns {String}
+     */
+    static typeOf(item) {
+        switch (typeof item) {
+            case 'bigint' : return 'BigInt';
+            case 'boolean': return 'Boolean';
+            case 'number' : return 'Number';
+            case 'string' : return 'String';
+            case 'symbol' : return 'Symbol';
+
+            case 'function': {
+                return 'Function';
+            }
+
+            case 'object': {
+                return 'Object';
+            }
+        }
+
+        return 'Undefined';
+    }
 }
 
 Neo.applyClassConfig(Util);
@@ -237,7 +262,8 @@ Neo.applyFromNs(Neo, Util, {
     isNumber         : 'isNumber',
     isObject         : 'isObject',
     isString         : 'isString',
-    toArray          : 'toArray'
+    toArray          : 'toArray',
+    typeOf           : 'typeOf'
 }, true);
 
 export default Util;
