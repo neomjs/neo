@@ -47,6 +47,10 @@ class Compare extends Base {
                 break;
             }
 
+            case 'Date': {
+                return item1.valueOf() === item2.valueOf();
+            }
+
             case 'Function': {
                 if (item1.name !== item2.name) {
                     return false;
