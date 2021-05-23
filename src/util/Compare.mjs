@@ -77,6 +77,14 @@ class Compare extends Base {
                 break;
             }
 
+            case 'NeoInstance': {
+                if (item1.id !== item2.id) {
+                    return false;
+                }
+
+                break;
+            }
+
             case 'Object': {
                 if (Object.keys(item1).length !== Object.keys(item2).length) {
                     return false;
