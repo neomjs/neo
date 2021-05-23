@@ -71,6 +71,14 @@ class Clear extends Base {
      * @param {Boolean} silent
      */
     destroy(updateParentVdom, silent) {
+        let me = this;
+
+        me.field.un({
+            change                    : me.onFieldChange,
+            changeClearToOriginalValue: me.onFieldChange,
+            scope                     : me
+        });
+
         super.destroy(updateParentVdom, silent);
     }
 
