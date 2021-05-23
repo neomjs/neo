@@ -233,6 +233,10 @@ class Util extends Base {
             case 'symbol' : return 'Symbol';
 
             case 'function': {
+                if (item.constructor.prototype.isClass) {
+                    return 'NeoClass';
+                }
+
                 return 'Function';
             }
 
@@ -255,6 +259,12 @@ class Util extends Base {
 
                 if (item instanceof Set) {
                     return 'Set';
+                }
+
+                if (item.constructor.isClass) {
+                    if (item instanceof Neo.core.Base) {
+                        return 'NeoInstance';
+                    }
                 }
 
                 return 'Object';
