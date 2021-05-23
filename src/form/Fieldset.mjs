@@ -49,6 +49,13 @@ class Fieldset extends Container {
          */
         iconClsUnchecked_: 'far fa-square',
         /**
+         * Internally stores the ids of disabled items when collapsing the fieldset
+         * and re-applies keeps the disabled state when expanding.
+         * @member {String[]|null} itemsDisabledMap=null
+         * @protected
+         */
+        itemsDisabledMap: null,
+        /**
          * @member {Neo.component.Legend|null} legend=null
          */
         legend: null,
@@ -81,12 +88,29 @@ class Fieldset extends Container {
                     item.iconCls = value ? me.iconClsUnchecked : me.iconClsChecked
                 } else {
                     if (me.disableItemsOnCollapse) {
-                        item.disabled = value;
+                        me.itemsDisabledMap = me.itemsDisabledMap || {};
+
+                        if (value) {
+                            if (item.disabled) {
+                                me.itemsDisabledMap.push(item.id);
+                            } else {
+                                item._disabled = true; // silent update
+                            }
+                        } else {
+                            if (!me.itemsDisabledMap.includes(item.id)) {
+                                item._disabled = false; // silent update
+                            }
+                        }
                     }
 
                     item.vdom.removeDom = value;
                 }
             });
+
+            if (!value) {
+                // reset the disabled items map when expanding
+                me.itemsDisabledMap = [];
+            }
         }
 
         me.vdom = vdom;
