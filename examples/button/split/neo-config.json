@@ -1,5 +1,5 @@
 {
-    "appPath"    : "examples/button/base/app.mjs",
+    "appPath"    : "examples/button/split/app.mjs",
     "basePath"   : "../../../",
     "environment": "development",
     "mainPath"   : "../../../src/Main.mjs"
