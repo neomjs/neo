@@ -10,19 +10,12 @@
     <title>Conduit</title>
 </head>
 <body>
-    <script>
-        Neo = self.Neo || {}; Neo.config = Neo.config || {};
-
-        Object.assign(Neo.config, {
-            appPath         : 'apps/realworld/app.mjs',
-            basePath        : '../../',
-            environment     : 'development',
-            mainThreadAddons: ['LocalStorage', 'Markdown'],
-            themes          : [],
-            useFontAwesome  : false
+    <script type="module">
+        fetch('./neo-config.json').then(response => response.json()).then(data => {
+            self.Neo = {config: {}};
+            Object.assign(Neo.config, data);
+            import(data.mainPath);
         });
     </script>
-
-    <script src="../../src/Main.mjs" type="module"></script>
 </body>
 </html>
