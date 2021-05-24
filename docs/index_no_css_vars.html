@@ -3,21 +3,15 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta charset="UTF-8">
-
     <title>Neo Docs NoCssVars</title>
 </head>
-<body class="neo-body neo-body-viewport">
-    <script>
-        Neo = self.Neo || {}; Neo.config = Neo.config || {};
-
-        Object.assign(Neo.config, {
-            appPath         : 'docs/app.mjs',
-            basePath        : '../',
-            environment     : 'development',
-            mainThreadAddons: ['DragDrop', 'HighlightJS', 'Stylesheet'],
-            useCssVars      : false
+<body>
+    <script type="module">
+        fetch('./neo-config-no-css-vars.json').then(response => response.json()).then(data => {
+            self.Neo = {config: {}};
+            Object.assign(Neo.config, data);
+            import(data.mainPath);
         });
     </script>
-    <script src="../src/Main.mjs" type="module"></script>
 </body>
 </html>
