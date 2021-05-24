@@ -1,0 +1,8 @@
+{
+    "appPath"         : "apps/realworld2/app.mjs",
+    "basePath"        : "../../",
+    "environment"     : "development",
+    "mainPath"        : "../../src/Main.mjs",
+    "mainThreadAddons": ["LocalStorage", "Markdown", "Stylesheet"],
+    "themes"          : ["neo-theme-dark", "neo-theme-light"]
+}
