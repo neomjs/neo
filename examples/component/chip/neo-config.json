@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/component/chip/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "../../../src/Main.mjs"
+}

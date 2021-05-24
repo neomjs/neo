@@ -6,16 +6,12 @@
     <title>Neo Chip</title>
 </head>
 <body>
-    <script>
-        Neo = self.Neo || {}; Neo.config = Neo.config || {};
-
-        Object.assign(Neo.config, {
-            appPath    : 'examples/component/chip/app.mjs',
-            basePath   : '../../../',
-            environment: 'development'
+    <script type="module">
+        fetch('./neo-config.json').then(response => response.json()).then(data => {
+            self.Neo = {config: {}};
+            Object.assign(Neo.config, data);
+            import(data.mainPath);
         });
     </script>
-
-    <script src="../../../src/Main.mjs" type="module"></script>
 </body>
 </html>
