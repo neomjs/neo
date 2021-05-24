@@ -1,0 +1,6 @@
+{
+    "appPath"         : "examples/button/base/app.mjs",
+    "basePath"        : "../../../",
+    "environment"     : "development",
+    "mainPath"        : "../../../src/Main.mjs"
+}
