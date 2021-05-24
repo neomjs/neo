@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "May 24, 2021",
+        "id"          : 36,
+        "image"       : "neo.mjs-nomination.png",
+        "name"        : "neo.mjs nominated for “The most exciting Use of Technology”",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/neo-mjs-nominated-for-the-most-exciting-use-of-technology-cd5983debc7b?source=friends_link&sk=6e296e991d09fb7ec98285e90fd50b35"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "May 20, 2021",
         "id"          : 35,
         "image"       : "application-based-themed-styling-for-your-components.png",

@@ -67,6 +67,23 @@ class Clear extends Base {
 
     /**
      *
+     * @param {Boolean} updateParentVdom
+     * @param {Boolean} silent
+     */
+    destroy(updateParentVdom, silent) {
+        let me = this;
+
+        me.field.un({
+            change                    : me.onFieldChange,
+            changeClearToOriginalValue: me.onFieldChange,
+            scope                     : me
+        });
+
+        super.destroy(updateParentVdom, silent);
+    }
+
+    /**
+     *
      * @returns {Boolean} true in case the trigger should be hidden
      */
     getHiddenState() {

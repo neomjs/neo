@@ -167,13 +167,39 @@ class Observable extends Base {
 
     /**
      *
-     * @param name
-     * @param eventId
+     * @param {Object|String} name
+     * @param {String} [eventId]
      */
     removeListener(name, eventId) {
-        if (Neo.isString(eventId)) {
-            let listeners   = this.listeners[name],
-                match       = false;
+        let me = this,
+            i, len, listener, listeners, match, scope;
+
+        if (Neo.isObject(name)) {
+            if (name.scope) {
+                scope = name.scope;
+                delete name.scope;
+            }
+
+            Object.entries(name).forEach(([key, value]) => {
+                listeners = me.listeners[key] || [];
+                i         = 0;
+                len       = listeners.length;
+
+                for (; i < len; i++) {
+                    listener = listeners[i];
+
+                    if (
+                        listener.fn.name === (Neo.isString(value) ? value : value.name) &&
+                        listener.scope   === scope
+                    ) {
+                        listeners.splice(i, 1);
+                        break;
+                    }
+                }
+            });
+        } else if (Neo.isString(eventId)) {
+            listeners = me.listeners[name];
+            match     = false;
 
             listeners.forEach((eventConfig, idx) => {
                 if (eventConfig.id === eventId) {
@@ -201,8 +227,8 @@ class Observable extends Base {
 
     /**
      * Alias for removeListener
-     * @param name
-     * @param eventId
+     * @param {Object|String} name
+     * @param {String} [eventId]
      */
     un(...args) {
         this.removeListener(...args);

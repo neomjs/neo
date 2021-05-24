@@ -1,4 +1,5 @@
 import ClassSystemUtil  from '../util/ClassSystem.mjs';
+import Compare          from '../util/Compare.mjs';
 import ComponentManager from '../manager/Component.mjs';
 import CoreBase         from '../core/Base.mjs';
 import DomEventManager  from '../manager/DomEvent.mjs';
@@ -1279,6 +1280,34 @@ class Base extends CoreBase {
                 resolve();
             }
         });
+    }
+
+    /**
+     *
+     * @param {Array|Object} value
+     */
+    removeDomListeners(value) {
+        if (!Array.isArray(value)) {
+            value = [value];
+        }
+
+        let me           = this,
+            domListeners = me.domListeners,
+            i, len, listener, scope;
+
+        value.forEach(item => {
+            i = 0;
+            len = domListeners.length;
+
+            for (; i < len; i++) {
+                if (Compare.isEqual(item, domListeners[i])) {
+                    domListeners.splice(i, 1);
+                    break;
+                }
+            }
+        });
+
+        me.domListeners = domListeners;
     }
 
     /**

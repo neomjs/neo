@@ -149,7 +149,7 @@ class Text extends Base {
 
     /**
      * Triggered after the appName config got changed
-     * @param {String|null} value
+     * @param {String} value
      * @param {String|null} oldValue
      * @protected
      */

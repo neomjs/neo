@@ -168,10 +168,17 @@ class Base extends Component {
 
     /**
      *
+     * @param {Boolean} updateParentVdom
+     * @param {Boolean} silent
      */
-    destroy() {
-        delete this.field;
-        super.destroy();
+    destroy(updateParentVdom, silent) {
+        let me = this;
+
+        me.removeDomListeners({click: {fn: me.onTriggerClick, scope: me}});
+
+        delete me.field;
+
+        super.destroy(updateParentVdom, silent);
     }
 
     /**
