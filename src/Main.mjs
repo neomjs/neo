@@ -111,8 +111,6 @@ class Main extends core.Base {
 
         let me = this;
 
-        DomEvents.on('domContentLoaded', me.onDomContentLoaded, me);
-
         WorkerManager.on({
             'automount'        : me.onRender,
             'message:mountDom' : me.onMountDom,
@@ -120,6 +118,12 @@ class Main extends core.Base {
             'updateVdom'       : me.onUpdateVdom,
             scope              : me
         });
+
+        if (document.readyState === 'complete') {
+            me.onDomContentLoaded();
+        } else {
+            DomEvents.on('domContentLoaded', me.onDomContentLoaded, me);
+        }
     }
 
     /**

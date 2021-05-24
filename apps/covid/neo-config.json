@@ -1,0 +1,8 @@
+{
+    "appPath"         : "apps/covid/app.mjs",
+    "basePath"        : "../../",
+    "environment"     : "development",
+    "mainPath"        : "../../src/Main.mjs",
+    "mainThreadAddons": ["AmCharts", "DragDrop", "MapboxGL", "Stylesheet"],
+    "themes"          : ["neo-theme-dark", "neo-theme-light"]
+}
