@@ -1301,7 +1301,6 @@ class Base extends CoreBase {
 
             for (; i < len; i++) {
                 if (Compare.isEqual(item, domListeners[i])) {
-                    console.log('match found');
                     domListeners.splice(i, 1);
                     break;
                 }
