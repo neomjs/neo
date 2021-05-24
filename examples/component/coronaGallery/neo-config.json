@@ -1,0 +1,8 @@
+{
+    "appPath"          : "examples/component/coronaGallery/app.mjs",
+    "basePath"         : "../../../",
+    "environment"      : "development",
+    "mainPath"         : "../../../src/Main.mjs",
+    "renderCountDeltas": true,
+    "themes"           : ["neo-theme-dark"]
+}
