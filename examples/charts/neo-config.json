@@ -2,6 +2,6 @@
     "appPath"         : "examples/charts/app.mjs",
     "basePath"        : "../../",
     "environment"     : "development",
-    "mainPath"        : "../../src/Main.mjs",
+    "mainPath"        : "./Main.mjs",
     "mainThreadAddons": ["AmCharts", "Stylesheet"]
 }
