@@ -22,7 +22,7 @@ class Chip extends Base {
          */
         chipConfig: null,
         /**
-         * @member {String[]} cls=['neo-chip-list', 'neo-list']
+         * @member {String[]} cls=['neo-chip-list','neo-list']
          */
         cls: ['neo-chip-list', 'neo-list'],
         /**
@@ -72,6 +72,7 @@ class Chip extends Base {
         me.store.items.forEach(item => {
             listItem = Neo.create({
                 module  : ChipComponent,
+                appName : me.appName,
                 display : me.stacked ? 'flex' : 'inline-flex',
                 iconCls : 'fa fa-home',
                 id      : me.getItemId(item[me.getKeyProperty()]),
