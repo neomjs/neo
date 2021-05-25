@@ -75,6 +75,7 @@ module.exports = env => {
 
                 Object.assign(content, {
                     basePath      : basePath,
+                    mainPath      : '../main.js',
                     workerBasePath: workerBasePath
                 });
 
