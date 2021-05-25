@@ -1,12 +1,15 @@
-const cwd         = process.cwd(),
-      fs          = require('fs-extra'),
-      path        = require('path'),
-      buildTarget = require('./buildTarget.json'),
-      configPath  = path.resolve(cwd, 'buildScripts/myApps.json'),
-      packageJson = require(path.resolve(cwd, 'package.json')),
-      neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      plugins     = [],
-      webpack     = require('webpack');
+const cwd            = process.cwd(),
+      fs             = require('fs-extra'),
+      path           = require('path'),
+      buildTarget    = require('./buildTarget.json'),
+      configPath     = path.resolve(cwd, 'buildScripts/myApps.json'),
+      packageJson    = require(path.resolve(cwd, 'package.json')),
+      neoPath        = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      plugins        = [],
+      regexLineBreak = /(\r\n|\n|\r)/gm,
+      regexTrimEnd   = /\s+$/gm,
+      regexTrimStart = /^\s+/gm,
+      webpack        = require('webpack');
 
 let config;
 
@@ -31,7 +34,7 @@ module.exports = env => {
         insideNeo = env.insideNeo == 'true',
         buildAll  = apps.includes('all'),
         choices   = [],
-        basePath, i, indexInputPath, indexOutputPath, lAppName, treeLevel, workerBasePath;
+        basePath, content, i, indexInputPath, indexOutputPath, lAppName, treeLevel, workerBasePath;
 
     if (config.apps) {
         config.apps.forEach(key => {
@@ -57,14 +60,11 @@ module.exports = env => {
                 indexInputPath  = path.resolve(cwd, 'apps', lAppName, 'index.html');
                 indexOutputPath = path.resolve(cwd, buildTarget.folder, 'apps', lAppName, 'index.html');
 
-                fs.copySync(indexInputPath, indexOutputPath);
+                content = fs.readFileSync(indexInputPath).toString();
+                content = content.replace(regexTrimStart, '').replace(regexTrimEnd, '').replace(regexLineBreak, '');
+                //fs.copySync(indexInputPath, indexOutputPath);
 
-
-
-                console.log(basePath);
-                console.log(workerBasePath);
-                console.log(indexInputPath);
-                console.log(indexOutputPath);
+                console.log(content);
 
                 /*plugins.push(new HtmlWebpackPlugin({
                     chunks  : [],
