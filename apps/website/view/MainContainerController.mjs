@@ -80,7 +80,7 @@ class MainContainerController extends ComponentController {
             listeners    = me.mainTabsListeners,
             store;
 
-        if (activeIndex > -1) {
+        if (tabContainer && activeIndex > -1) {
             tabContainer.activeIndex = activeIndex;
         }
 
