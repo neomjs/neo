@@ -36,6 +36,16 @@ module.exports = env => {
         choices   = [],
         basePath, content, i, inputPath, outputPath, lAppName, treeLevel, workerBasePath;
 
+    // MicroLoader.mjs
+    inputPath  = path.resolve(cwd, 'src/MicroLoader.mjs');
+    outputPath = path.resolve(cwd, buildTarget.folder, 'src/MicroLoader.mjs');
+
+    content = fs.readFileSync(inputPath).toString().replace(/\s/gm, '');
+    fs.mkdirpSync(path.resolve(cwd, buildTarget.folder, 'src/'));
+    fs.writeFileSync(outputPath, content);
+
+
+
     if (config.apps) {
         config.apps.forEach(key => {
             choices.push(key);
