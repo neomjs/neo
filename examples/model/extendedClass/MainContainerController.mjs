@@ -62,7 +62,7 @@ class MainContainerController extends Component {
      * @param {String} value
      */
     updateButton1Text(value) {
-        this.getModel().data['button1Text'] = value;
+        this.getModel().data['button1Text'] = value || '';
     }
 
     /**
@@ -71,7 +71,7 @@ class MainContainerController extends Component {
      */
     updateButton2Text(value) {
         this.getModel().setData({
-            button2Text: value
+            button2Text: value || ''
         });
     }
 }
