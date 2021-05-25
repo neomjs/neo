@@ -2,7 +2,7 @@
     "appPath"         : "apps/realworld/app.mjs",
     "basePath"        : "../../",
     "environment"     : "development",
-    "mainPath"        : "../../src/Main.mjs",
+    "mainPath"        : "./Main.mjs",
     "mainThreadAddons": ["LocalStorage", "Markdown"],
     "themes"          : [],
     "useFontAwesome"  : false
