@@ -1,15 +1,14 @@
-const fs                 = require('fs'),
-      path               = require('path'),
-      buildTarget        = require('./buildTarget.json'),
-      HtmlWebpackPlugin  = require('html-webpack-plugin'),
-      WebpackHookPlugin  = require('webpack-hook-plugin'),
-      processRoot        = process.cwd(),
-      configPath         = path.resolve(processRoot, 'buildScripts/myApps.json'),
-      packageJson        = require(path.resolve(processRoot, 'package.json')),
-      neoPath            = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      examplesConfig     = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
-      plugins            = [],
-      webpack            = require('webpack');
+const cwd               = process.cwd(),
+      fs                = require('fs-extra'),
+      path              = require('path'),
+      buildTarget       = require('./buildTarget.json'),
+      WebpackHookPlugin = require('webpack-hook-plugin'),
+      configPath        = path.resolve(cwd, 'buildScripts/myApps.json'),
+      packageJson       = require(path.resolve(cwd, 'package.json')),
+      neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      examplesConfig    = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
+      plugins           = [],
+      webpack           = require('webpack');
 
 let excludeExamples = false,
     config, i;
@@ -45,26 +44,7 @@ function createHtmlWebpackPlugin(value) {
         }
     }
 
-    indexPath = path.resolve(processRoot, buildTarget.folder) + value.output + 'index.html';
-
-    plugins.push(new HtmlWebpackPlugin({
-        chunks  : [],
-        filename: indexPath,
-        template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
-        templateParameters: {
-            appPath          : value.output + 'app.mjs',
-            basePath,
-            bodyTag          : value.bodyTag || config.bodyTag,
-            environment      : 'dist/production',
-            mainPath         : workerBasePath + 'main.js',
-            mainThreadAddons : value.mainThreadAddons  || "'Stylesheet'",
-            renderCountDeltas: value.renderCountDeltas || false,
-            themes           : value.themes || "'neo-theme-light', 'neo-theme-dark'",
-            title            : value.title,
-            useSharedWorkers : value.useSharedWorkers || false,
-            workerBasePath
-        }
-    }));
+    indexPath = path.resolve(cwd, buildTarget.folder) + value.output + 'index.html';
 }
 
 function createHtmlWebpackPlugins(config) {
@@ -82,16 +62,40 @@ function createHtmlWebpackPlugins(config) {
 }
 
 module.exports = env => {
-    const insideNeo = env.insideNeo == 'true';
+    const examples  = [],
+          insideNeo = env.insideNeo == 'true';
 
     if (config.apps) {
-        Object.entries(config.apps).forEach(([key, value]) => {
-            createHtmlWebpackPlugin(value);
+        config.apps.forEach(key => {
+            //console.log(key);
         });
     }
 
+    const isFile = fileName => {
+        return fs.lstatSync(fileName).isFile()
+    };
+
+    const parseFolder = (folderPath, index, relativePath) => {
+        let itemPath;
+
+        fs.readdirSync(folderPath).forEach(itemName => {
+            itemPath = path.join(folderPath, itemName);
+
+            if (isFile(itemPath)) {
+                if (itemName === 'app.mjs') {
+                    examples.push(relativePath);
+                }
+            } else {
+                parseFolder(itemPath, index + 1, relativePath + `/${itemName}`);
+            }
+        });
+    };
+
+    parseFolder(path.join(cwd, 'examples'), 0, '');
+    console.log(examples);
+
     if (!excludeExamples && examplesConfig.examples) {
-        createHtmlWebpackPlugins(examplesConfig.examples);
+        //createHtmlWebpackPlugins(examplesConfig.examples);
     }
 
     return {
@@ -106,7 +110,7 @@ module.exports = env => {
                 }
             }),
             new WebpackHookPlugin({
-                onBuildEnd: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.js')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(processRoot, buildTarget.folder, 'docs/resources')]
+                onBuildEnd: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.js')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(cwd, buildTarget.folder, 'docs/resources')]
             }),
             ...plugins
         ],
@@ -114,7 +118,7 @@ module.exports = env => {
         output: {
             chunkFilename: 'chunks/app/[id].js',
             filename     : 'appworker.js',
-            path         : path.resolve(processRoot, buildTarget.folder)
+            path         : path.resolve(cwd, buildTarget.folder)
         }
     }
 };
