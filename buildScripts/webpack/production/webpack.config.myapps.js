@@ -1,5 +1,5 @@
 const cwd         = process.cwd(),
-      fs          = require('fs'),
+      fs          = require('fs-extra'),
       path        = require('path'),
       buildTarget = require('./buildTarget.json'),
       configPath  = path.resolve(cwd, 'buildScripts/myApps.json'),
@@ -56,6 +56,8 @@ module.exports = env => {
 
                 indexInputPath  = path.resolve(cwd, 'apps', lAppName, 'index.html');
                 indexOutputPath = path.resolve(cwd, buildTarget.folder, 'apps', lAppName, 'index.html');
+
+                fs.copySync(indexInputPath, indexOutputPath);
 
 
 
