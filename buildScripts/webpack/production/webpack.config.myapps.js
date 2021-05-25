@@ -1,15 +1,14 @@
-const fs                = require('fs'),
-      path              = require('path'),
-      buildTarget       = require('./buildTarget.json'),
-      HtmlWebpackPlugin = require('html-webpack-plugin'),
-      processRoot       = process.cwd(),
-      configPath        = path.resolve(processRoot, 'buildScripts/myApps.json'),
-      packageJson       = require(path.resolve(processRoot, 'package.json')),
-      neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      plugins           = [],
-      webpack           = require('webpack');
+const cwd         = process.cwd(),
+      fs          = require('fs'),
+      path        = require('path'),
+      buildTarget = require('./buildTarget.json'),
+      configPath  = path.resolve(cwd, 'buildScripts/myApps.json'),
+      packageJson = require(path.resolve(cwd, 'package.json')),
+      neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      plugins     = [],
+      webpack     = require('webpack');
 
-let basePath, config, i, indexPath, treeLevel, workerBasePath;
+let config;
 
 if (fs.existsSync(configPath)) {
     config = require(configPath);
@@ -28,21 +27,22 @@ if (!buildTarget.folder) {
 }
 
 module.exports = env => {
-    const apps      = env.apps.split(','),
-          insideNeo = env.insideNeo == 'true',
-          buildAll  = apps.includes('all'),
-          choices   = [];
+    let apps      = env.apps.split(','),
+        insideNeo = env.insideNeo == 'true',
+        buildAll  = apps.includes('all'),
+        choices   = [],
+        basePath, i, indexInputPath, indexOutputPath, lAppName, treeLevel, workerBasePath;
 
     if (config.apps) {
-        Object.keys(config.apps).forEach(key => {
+        config.apps.forEach(key => {
             choices.push(key);
         });
 
-        Object.entries(config.apps).forEach(([key, value]) => {
+        config.apps.forEach(key => {
             if (buildAll || choices.length < 2 || apps.includes(key)) {
                 basePath       = '';
                 workerBasePath = '';
-                treeLevel      = value.output.split('/').length;
+                treeLevel      = key.split('.').length + 3;
 
                 for (i=0; i < treeLevel; i++)  {
                     basePath += '../';
@@ -52,12 +52,22 @@ module.exports = env => {
                     }
                 }
 
-                indexPath = path.resolve(processRoot, buildTarget.folder) + value.output + 'index.html';
+                lAppName = key.toLowerCase();
 
-                plugins.push(new HtmlWebpackPlugin({
+                indexInputPath  = path.resolve(cwd, 'apps', lAppName, 'index.html');
+                indexOutputPath = path.resolve(cwd, buildTarget.folder, 'apps', lAppName, 'index.html');
+
+
+
+                console.log(basePath);
+                console.log(workerBasePath);
+                console.log(indexInputPath);
+                console.log(indexOutputPath);
+
+                /*plugins.push(new HtmlWebpackPlugin({
                     chunks  : [],
                     filename: indexPath,
-                    template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
+                    template: value.indexPath ? path.resolve(cwd, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
                     templateParameters: {
                         appPath          : value.output + 'app.mjs',
                         basePath,
@@ -71,7 +81,7 @@ module.exports = env => {
                         useSharedWorkers : value.useSharedWorkers  || false,
                         workerBasePath
                     }
-                }));
+                }));*/
             }
         });
     }
@@ -93,7 +103,7 @@ module.exports = env => {
         output: {
             chunkFilename: 'chunks/app/[id].js',
             filename     : 'appworker.js',
-            path         : path.resolve(processRoot, buildTarget.folder)
+            path         : path.resolve(cwd, buildTarget.folder)
         }
     }
 };
