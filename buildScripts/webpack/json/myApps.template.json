@@ -1,6 +1,17 @@
 {
-    "bodyTag": "<body>",
-    "buildFolder": "dist/development",
+    "apps": [
+        "Covid",
+        "RealWorld",
+        "RealWorld2",
+        "SharedCovid",
+        "SharedCovidChart",
+        "SharedCovidGallery",
+        "SharedCovidHelix",
+        "SharedCovidMap",
+        "SharedDialog",
+        "SharedDialog2",
+        "Website"
+    ],
     "workers": {
         "app": {
             "input": "./src/worker/App.mjs",
@@ -14,18 +25,5 @@
             "input": "./src/worker/VDom.mjs",
             "output": "vdomworker.js"
         }
-    },
-    "apps": [
-        "Covid",
-        "RealWorld",
-        "RealWorld2",
-        "SharedCovid",
-        "SharedCovidChart",
-        "SharedCovidGallery",
-        "SharedCovidHelix",
-        "SharedCovidMap",
-        "SharedDialog",
-        "SharedDialog2",
-        "Website"
-    ]
+    }
 }
