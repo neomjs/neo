@@ -2,7 +2,7 @@
     "appPath"         : "apps/sharedcovidchart/app.mjs",
     "basePath"        : "../../",
     "environment"     : "development",
-    "mainPath"        : "../../src/Main.mjs",
+    "mainPath"        : "./Main.mjs",
     "mainThreadAddons": ["AmCharts", "Stylesheet"],
     "themes"          : ["neo-theme-dark", "neo-theme-light"],
     "useSharedWorkers": true
