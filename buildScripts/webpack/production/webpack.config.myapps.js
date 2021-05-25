@@ -72,6 +72,7 @@ module.exports = env => {
                 outputPath = path.resolve(cwd, buildTarget.folder, 'apps', lAppName, 'neo-config.json');
 
                 content = require(inputPath);
+                delete content.environment;
 
                 Object.assign(content, {
                     basePath      : basePath,
@@ -92,8 +93,6 @@ module.exports = env => {
                     .replace(regexLineBreak, '');
 
                 fs.writeFileSync(outputPath, content);
-
-                //fs.copySync(indexInputPath, indexOutputPath);
             }
         });
     }

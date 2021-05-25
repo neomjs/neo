@@ -198,7 +198,7 @@ class Main extends core.Base {
 
         // we need different publicPath values for the main thread inside the webpack based dist envs,
         // depending on the hierarchy level of the app entry point
-        if (window.webpackJsonp) {
+        if (window.webpackChunkneo_mjs) {
             __webpack_require__.p = Neo.config.basePath.substring(6);
         }
 
