@@ -1,0 +1,8 @@
+{
+    "appPath"         : "examples/todoList/version1/app.mjs",
+    "basePath"        : "../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["Stylesheet"],
+    "themes"          : ["neo-theme-light"]
+}
