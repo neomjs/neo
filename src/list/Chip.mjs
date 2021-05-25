@@ -42,6 +42,29 @@ class Chip extends Base {
     }}
 
     /**
+     * Triggered after the appName config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        if (value) {
+            super.afterSetAppName(value, oldValue);
+
+            let me    = this,
+                items = me.store && me.store.items,
+                itemId;
+
+            if (items) {
+                items.forEach(record => {
+                    itemId = me.getItemId(record[me.getKeyProperty()]);
+                    Neo.getComponent(itemId).appName = value;
+                });
+            }
+        }
+    }
+
+    /**
      * Triggered after the stacked config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue

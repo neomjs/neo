@@ -201,6 +201,7 @@ class Button extends BaseButton {
             if (!me.filterField) {
                 me.filterField = Neo.create({
                     module   : TextField,
+                    appName  : me.appName,
                     flag     : 'filter-field',
                     hideLabel: true,
                     parentId : me.id,
