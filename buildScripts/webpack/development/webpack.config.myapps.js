@@ -108,20 +108,8 @@ module.exports = env => {
 
         output: {
             chunkFilename: 'chunks/app/[id].js',
-
-            filename: chunkData => {
-                let name = chunkData.chunk.name;
-
-                if (config.apps.hasOwnProperty(name)) {
-                    return config.apps[name].output + 'app.js';
-                } else if (examplesConfig.examples.hasOwnProperty(name)) {
-                    return examplesConfig.examples[name].output + 'app.js';
-                }
-
-                return 'appworker.js';
-            },
-
-            path: path.resolve(cwd, buildTarget.folder)
+            filename     : 'appworker.js',
+            path         : path.resolve(cwd, buildTarget.folder)
         }
     }
 };

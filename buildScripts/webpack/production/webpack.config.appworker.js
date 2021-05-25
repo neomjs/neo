@@ -13,7 +13,7 @@ const cwd               = process.cwd(),
       webpack           = require('webpack');
 
 let excludeExamples = false,
-    config, i;
+    config;
 
 if (fs.existsSync(configPath)) {
     config          = require(configPath);
