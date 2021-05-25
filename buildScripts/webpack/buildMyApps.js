@@ -103,7 +103,7 @@ inquirer.prompt(questions).then(answers => {
     // dist/development
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
-        cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.myapps.js`, `--env apps=${apps}`], cpOpts);
+        cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.myapps.js`, `--env apps=${apps}`, `--env insideNeo=${insideNeo}`], cpOpts);
     }
 
     // dist/production
