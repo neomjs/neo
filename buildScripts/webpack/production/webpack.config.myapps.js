@@ -34,7 +34,7 @@ module.exports = env => {
         insideNeo = env.insideNeo == 'true',
         buildAll  = apps.includes('all'),
         choices   = [],
-        basePath, content, i, indexInputPath, indexOutputPath, lAppName, treeLevel, workerBasePath;
+        basePath, content, i, inputPath, outputPath, lAppName, treeLevel, workerBasePath;
 
     if (config.apps) {
         config.apps.forEach(key => {
@@ -57,33 +57,32 @@ module.exports = env => {
 
                 lAppName = key.toLowerCase();
 
-                indexInputPath  = path.resolve(cwd, 'apps', lAppName, 'index.html');
-                indexOutputPath = path.resolve(cwd, buildTarget.folder, 'apps', lAppName, 'index.html');
+                // neo-config.json
+                inputPath  = path.resolve(cwd, 'apps', lAppName, 'neo-config.json');
+                outputPath = path.resolve(cwd, buildTarget.folder, 'apps', lAppName, 'neo-config.json');
 
-                content = fs.readFileSync(indexInputPath).toString();
-                content = content.replace(regexTrimStart, '').replace(regexTrimEnd, '').replace(regexLineBreak, '');
+                content = require(inputPath);
+
+                Object.assign(content, {
+                    basePath      : basePath,
+                    workerBasePath: workerBasePath
+                });
+
+                fs.writeFileSync(outputPath, JSON.stringify(content));
+
+                // index.html
+                inputPath  = path.resolve(cwd, 'apps', lAppName, 'index.html');
+                outputPath = path.resolve(cwd, buildTarget.folder, 'apps', lAppName, 'index.html');
+
+                content = fs.readFileSync(inputPath).toString()
+                    .replace(regexTrimStart, '')
+                    .replace(regexTrimEnd, '')
+                    .replace(', ', ',')
+                    .replace(regexLineBreak, '');
+
+                fs.writeFileSync(outputPath, content);
+
                 //fs.copySync(indexInputPath, indexOutputPath);
-
-                console.log(content);
-
-                /*plugins.push(new HtmlWebpackPlugin({
-                    chunks  : [],
-                    filename: indexPath,
-                    template: value.indexPath ? path.resolve(cwd, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
-                    templateParameters: {
-                        appPath          : value.output + 'app.mjs',
-                        basePath,
-                        bodyTag          : value.bodyTag || config.bodyTag,
-                        environment      : 'dist/production',
-                        mainPath         : workerBasePath + 'main.js',
-                        mainThreadAddons : value.mainThreadAddons  || "'Stylesheet'",
-                        renderCountDeltas: value.renderCountDeltas || false,
-                        themes           : value.themes            || "'neo-theme-light', 'neo-theme-dark'",
-                        title            : value.title,
-                        useSharedWorkers : value.useSharedWorkers  || false,
-                        workerBasePath
-                    }
-                }));*/
             }
         });
     }
