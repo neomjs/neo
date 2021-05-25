@@ -107,7 +107,7 @@ module.exports = env => {
         });
     }
 
-    if (!excludeExamples) {
+    if (insideNeo && !excludeExamples) {
         parseFolder(path.join(cwd, 'examples'), 0, '');
 
         examples.forEach(key => {
