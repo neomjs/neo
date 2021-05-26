@@ -33,6 +33,12 @@ if (fs.existsSync(configPath)) {
     }
 }
 
+let index = config.apps.indexOf('Docs');
+
+if (index > -1) {
+    config.apps.splice(index, 1);
+}
+
 program
     .name(programName)
     .version(packageJson.version)
