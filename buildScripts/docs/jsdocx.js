@@ -32,10 +32,10 @@ if (fs.existsSync(appJsonPath)) {
 }
 
 if (appJson) {
-    Object.entries(appJson.apps).forEach(([key, value]) => {
+    appJson.apps.forEach(key => {
         if (key !== 'Docs') { // the docs app is automatically included
             appNames.push(key);
-            options.files.push(`${value.output.substr(1)}**/*.mjs`);
+            options.files.push(`apps/${key.toLowerCase()}/**/*.mjs`);
         }
     });
 }
