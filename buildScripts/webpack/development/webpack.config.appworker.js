@@ -1,18 +1,17 @@
-const fs                 = require('fs'),
-      path               = require('path'),
-      buildTarget        = require('./buildTarget.json'),
-      HtmlWebpackPlugin  = require('html-webpack-plugin'),
-      WebpackHookPlugin  = require('webpack-hook-plugin'),
-      processRoot        = process.cwd(),
-      configPath         = path.resolve(processRoot, 'buildScripts/myApps.json'),
-      packageJson        = require(path.resolve(processRoot, 'package.json')),
-      neoPath            = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      examplesConfig     = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
-      plugins            = [],
-      webpack            = require('webpack');
+const cwd               = process.cwd(),
+      fs                = require('fs-extra'),
+      path              = require('path'),
+      buildTarget       = require('./buildTarget.json'),
+      WebpackHookPlugin = require('webpack-hook-plugin'),
+      configPath        = path.resolve(cwd, 'buildScripts/myApps.json'),
+      packageJson       = require(path.resolve(cwd, 'package.json')),
+      neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      filenameConfig    = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
+      plugins           = [],
+      webpack           = require('webpack');
 
 let excludeExamples = false,
-    config, i;
+    config;
 
 if (fs.existsSync(configPath)) {
     config          = require(configPath);
@@ -31,67 +30,89 @@ if (!buildTarget.folder) {
     buildTarget.folder = 'dist/development';
 }
 
-function createHtmlWebpackPlugin(value) {
-    let basePath       = '',
-        workerBasePath = '',
-        treeLevel      = value.output.split('/').length,
-        indexPath;
-
-    for (i=0; i < treeLevel; i++)  {
-        basePath += '../';
-
-        if (i > 1) {
-            workerBasePath += '../';
-        }
-    }
-
-    indexPath = path.resolve(processRoot, buildTarget.folder) + value.output + 'index.html';
-
-    plugins.push(new HtmlWebpackPlugin({
-        chunks  : [],
-        filename: indexPath,
-        template: value.indexPath ? path.resolve(processRoot, value.indexPath) : path.resolve(neoPath, 'buildScripts/webpack/index.ejs'),
-        templateParameters: {
-            appPath          : value.output + 'app.mjs',
-            basePath,
-            bodyTag          : value.bodyTag || config.bodyTag,
-            environment      : 'dist/development',
-            mainPath         : workerBasePath + 'main.js',
-            mainThreadAddons : value.mainThreadAddons  || "'Stylesheet'",
-            renderCountDeltas: value.renderCountDeltas || false,
-            themes           : value.themes            || "'neo-theme-light', 'neo-theme-dark'",
-            title            : value.title,
-            useSharedWorkers : value.useSharedWorkers  || false,
-            workerBasePath
-        }
-    }));
-}
-
-function createHtmlWebpackPlugins(config) {
-    let firstProperty;
-
-    Object.entries(config).forEach(([key, value]) => {
-        firstProperty = value[Object.keys(value)[0]];
-
-        if (typeof firstProperty === 'object') {
-            createHtmlWebpackPlugins(value);
-        } else {
-            createHtmlWebpackPlugin(value);
-        }
-    });
-}
-
 module.exports = env => {
-    const insideNeo = env.insideNeo == 'true';
+    let examples  = [],
+        insideNeo = env.insideNeo == 'true',
+        content, inputPath, outputPath;
+
+    // MicroLoader.mjs
+    inputPath  = path.resolve(cwd, 'src/MicroLoader.mjs');
+    outputPath = path.resolve(cwd, buildTarget.folder, 'src/MicroLoader.mjs');
+
+    fs.mkdirpSync(path.resolve(cwd, buildTarget.folder, 'src/'));
+    fs.copySync(inputPath, outputPath);
+
+    const createStartingPoint = (key, folder) => {
+        let basePath       = '',
+            workerBasePath = '',
+            treeLevel      = key.split('.').length + 3,
+            i, lAppName;
+
+        for (i=0; i < treeLevel; i++)  {
+            basePath += '../';
+
+            if (i > 1) {
+                workerBasePath += '../';
+            }
+        }
+
+        lAppName = folder === 'examples' ? key : key.toLowerCase();
+        fs.mkdirpSync(path.resolve(cwd, buildTarget.folder, folder, lAppName));
+
+        // neo-config.json
+        inputPath  = path.resolve(cwd, folder, lAppName, 'neo-config.json');
+        outputPath = path.resolve(cwd, buildTarget.folder, folder, lAppName, 'neo-config.json');
+
+        content = require(inputPath);
+
+        Object.assign(content, {
+            basePath      : basePath,
+            environment   : 'dist/development',
+            mainPath      : '../main.js',
+            workerBasePath: workerBasePath
+        });
+
+        fs.writeFileSync(outputPath, JSON.stringify(content));
+
+        // index.html
+        inputPath  = path.resolve(cwd, folder, lAppName, 'index.html');
+        outputPath = path.resolve(cwd, buildTarget.folder, folder, lAppName, 'index.html');
+
+        fs.copySync(inputPath, outputPath);
+    };
+
+    const isFile = fileName => {
+        return fs.lstatSync(fileName).isFile()
+    };
+
+    const parseFolder = (folderPath, index, relativePath) => {
+        let itemPath;
+
+        fs.readdirSync(folderPath).forEach(itemName => {
+            itemPath = path.join(folderPath, itemName);
+
+            if (isFile(itemPath)) {
+                if (itemName === 'app.mjs') {
+                    examples.push(relativePath);
+                }
+            } else {
+                parseFolder(itemPath, index + 1, relativePath + `/${itemName}`);
+            }
+        });
+    };
 
     if (config.apps) {
-        Object.entries(config.apps).forEach(([key, value]) => {
-            createHtmlWebpackPlugin(value);
+        config.apps.forEach(key => {
+            createStartingPoint(key, 'apps');
         });
     }
 
-    if (!excludeExamples && examplesConfig.examples) {
-        createHtmlWebpackPlugins(examplesConfig.examples);
+    if (insideNeo && !excludeExamples) {
+        parseFolder(path.join(cwd, 'examples'), 0, '');
+
+        examples.forEach(key => {
+            createStartingPoint(key.substr(1), 'examples');
+        });
     }
 
     return {
@@ -111,27 +132,15 @@ module.exports = env => {
                 }
             }),
             new WebpackHookPlugin({
-                onBuildEnd: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.js')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(processRoot, buildTarget.folder, 'docs/resources')]
+                onBuildEnd: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.js')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(cwd, buildTarget.folder, 'docs/resources')]
             }),
             ...plugins
         ],
 
         output: {
             chunkFilename: 'chunks/app/[id].js',
-
-            filename: chunkData => {
-                let name = chunkData.chunk.name;
-
-                if (config.apps.hasOwnProperty(name)) {
-                    return config.apps[name].output + 'app.js';
-                } else if (examplesConfig.examples.hasOwnProperty(name)) {
-                    return examplesConfig.examples[name].output + 'app.js';
-                }
-
-                return 'appworker.js';
-            },
-
-            path: path.resolve(processRoot, buildTarget.folder)
+            filename     : filenameConfig.workers.app.output,
+            path         : path.resolve(cwd, buildTarget.folder)
         }
     }
 };

@@ -843,6 +843,8 @@ class Base extends CoreBase {
             parentModel = parent && parent.getModel(),
             parentController, parentVdom;
 
+        me.domListeners = [];
+
         if (me.controller) {
             me.controller.destroy();
         } else if (me.reference) {
@@ -1293,7 +1295,7 @@ class Base extends CoreBase {
 
         let me           = this,
             domListeners = me.domListeners,
-            i, len, listener, scope;
+            i, len;
 
         value.forEach(item => {
             i = 0;

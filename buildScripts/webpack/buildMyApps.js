@@ -16,7 +16,6 @@ const chalk       = require('chalk'),
       neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
       webpackPath = path.resolve(neoPath, 'buildScripts/webpack'),
       programName = `${packageJson.name} buildMyApps`,
-      appChoices  = [],
       questions   = [];
 
 let webpack = './node_modules/.bin/webpack',
@@ -34,17 +33,11 @@ if (fs.existsSync(configPath)) {
     }
 }
 
-if (config.apps) {
-    Object.keys(config.apps).forEach(key => {
-        appChoices.push(key);
-    });
-}
-
 program
     .name(programName)
     .version(packageJson.version)
     .option('-i, --info',         'print environment debug info')
-    .option('-a, --apps <value>', ['all'].concat(appChoices).map(e => `"${e}"`).join(', '))
+    .option('-a, --apps <value>', ['all'].concat(config.apps).map(e => `"${e}"`).join(', '))
     .option('-e, --env <value>',  '"all", "dev", "prod"')
     .option('-f, --framework')
     .option('-n, --noquestions')
@@ -87,19 +80,19 @@ if (!programOpts.noquestions) {
         });
     }
 
-    if (!programOpts.apps && appChoices.length > 1) {
+    if (!programOpts.apps && config.apps.length > 1) {
         questions.push({
             type   : 'checkbox',
             name   : 'apps',
             message: 'Please choose which apps you want to build:',
-            choices: appChoices
+            choices: config.apps
         });
     }
 }
 
 inquirer.prompt(questions).then(answers => {
-    const apps      = answers.apps || programOpts.apps || ['all'],
-          env       = answers.env  || programOpts.env  || ['all'],
+    const apps      = (answers.apps.length > 0 ? answers.apps : null) || programOpts.apps || ['all'],
+          env       = answers.env || programOpts.env || ['all'],
           insideNeo = !!programOpts.framework || false,
           startDate = new Date();
 
@@ -110,13 +103,13 @@ inquirer.prompt(questions).then(answers => {
     // dist/development
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
-        cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.myapps.js`, `--env.apps=${apps}`], cpOpts);
+        cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.myapps.js`, `--env apps=${apps}`, `--env insideNeo=${insideNeo}`], cpOpts);
     }
 
     // dist/production
     if (env === 'all' || env === 'prod') {
         console.log(chalk.blue(`${programName} starting dist/production`));
-        cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.myapps.js`, `--env.apps=${apps}`, `--env.insideNeo=${insideNeo}`], cpOpts);
+        cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.myapps.js`, `--env apps=${apps}`, `--env insideNeo=${insideNeo}`], cpOpts);
     }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);

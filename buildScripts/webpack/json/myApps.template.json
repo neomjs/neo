@@ -1,6 +1,17 @@
 {
-    "bodyTag": "<body>",
-    "buildFolder": "dist/development",
+    "apps": [
+        "Covid",
+        "RealWorld",
+        "RealWorld2",
+        "SharedCovid",
+        "SharedCovidChart",
+        "SharedCovidGallery",
+        "SharedCovidHelix",
+        "SharedCovidMap",
+        "SharedDialog",
+        "SharedDialog2",
+        "Website"
+    ],
     "workers": {
         "app": {
             "input": "./src/worker/App.mjs",
@@ -13,89 +24,6 @@
         "vdom": {
             "input": "./src/worker/VDom.mjs",
             "output": "vdomworker.js"
-        }
-    },
-    "apps": {
-        "Covid": {
-            "input": "./apps/covid/app.mjs",
-            "mainThreadAddons": "'AmCharts', 'DragDrop', 'MapboxGL', 'Stylesheet'",
-            "output": "/apps/covid/",
-            "themes": "'neo-theme-dark', 'neo-theme-light'",
-            "title": "COVID-19 IN NUMBERS"
-        },
-        "RealWorld": {
-            "indexPath": "apps/realworld/index.ejs",
-            "input": "./apps/realworld/app.mjs",
-            "mainThreadAddons": "'LocalStorage', 'Markdown'",
-            "output": "/apps/realworld/",
-            "themes": "",
-            "title": "Conduit"
-        },
-        "RealWorld2": {
-            "input": "./apps/realworld2/app.mjs",
-            "mainThreadAddons": "'LocalStorage', 'Markdown', 'Stylesheet'",
-            "output": "/apps/realworld2/",
-            "title": "RealWorld2"
-        },
-        "SharedCovid": {
-            "input": "./apps/sharedcovid/app.mjs",
-            "output": "/apps/sharedcovid/",
-            "themes": "'neo-theme-dark', 'neo-theme-light'",
-            "title": "SharedCovid MainWindow",
-            "mainThreadAddons": "'AmCharts', 'DragDrop', 'MapboxGL', 'Stylesheet'",
-            "useSharedWorkers": true
-        },
-        "SharedCovidChart": {
-            "input": "./apps/sharedcovidchart/app.mjs",
-            "output": "/apps/sharedcovidchart/",
-            "themes": "'neo-theme-dark', 'neo-theme-light'",
-            "title": "SharedCovid Country Chart / Table",
-            "mainThreadAddons": "'AmCharts', 'Stylesheet'",
-            "useSharedWorkers": true
-        },
-        "SharedCovidGallery": {
-            "input": "./apps/sharedcovidgallery/app.mjs",
-            "output": "/apps/sharedcovidgallery/",
-            "themes": "'neo-theme-dark', 'neo-theme-light'",
-            "title": "SharedCovid CountryGallery",
-            "mainThreadAddons": "'Stylesheet'",
-            "useSharedWorkers": true
-        },
-        "SharedCovidHelix": {
-            "input": "./apps/sharedcovidhelix/app.mjs",
-            "output": "/apps/sharedcovidhelix/",
-            "themes": "'neo-theme-dark', 'neo-theme-light'",
-            "title": "SharedCovid CountryHelix",
-            "mainThreadAddons": "'Stylesheet'",
-            "useSharedWorkers": true
-        },
-        "SharedCovidMap": {
-            "input": "./apps/sharedcovidmap/app.mjs",
-            "output": "/apps/sharedcovidmap/",
-            "themes": "'neo-theme-dark', 'neo-theme-light'",
-            "title": "SharedCovid MapboxGL Map",
-            "mainThreadAddons": "'MapboxGL', 'Stylesheet'",
-            "useSharedWorkers": true
-        },
-        "SharedDialog": {
-            "input": "./apps/shareddialog/app.mjs",
-            "mainThreadAddons": "'DragDrop', 'Stylesheet', 'WindowPosition'",
-            "output": "/apps/shareddialog/",
-            "title": "SharedDialog",
-            "useSharedWorkers": true
-        },
-        "SharedDialog2": {
-            "input": "./apps/shareddialog2/app.mjs",
-            "mainThreadAddons": "'DragDrop', 'Stylesheet'",
-            "output": "/apps/shareddialog2/",
-            "title": "SharedDialog2",
-            "useSharedWorkers": true
-        },
-        "Website": {
-            "input": "./apps/website/app.mjs",
-            "mainThreadAddons": "'DragDrop', 'Stylesheet'",
-            "output": "/apps/website/",
-            "title": "neo.mjs - Website"
         }
     }
 }

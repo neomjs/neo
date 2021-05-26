@@ -2,28 +2,41 @@
 
 /apps/**/*.html
 /apps/**/*.mjs
+/apps/**/neo-config.json
+
 !/apps/covid/index.html
 !/apps/covid/**/*.mjs
+!/apps/covid/neo-config.json
 !/apps/realworld/index.html
 !/apps/realworld/**/*.mjs
+!/apps/realworld/neo-config.json
 !/apps/realworld2/index.html
 !/apps/realworld2/**/*.mjs
+!/apps/realworld2/neo-config.json
 !/apps/sharedcovid/index.html
 !/apps/sharedcovid/**/*.mjs
+!/apps/sharedcovid/neo-config.json
 !/apps/sharedcovidchart/index.html
 !/apps/sharedcovidchart/**/*.mjs
+!/apps/sharedcovidchart/neo-config.json
 !/apps/sharedcovidhelix/index.html
 !/apps/sharedcovidhelix/**/*.mjs
+!/apps/sharedcovidhelix/neo-config.json
 !/apps/sharedcovidgallery/index.html
 !/apps/sharedcovidgallery/**/*.mjs
+!/apps/sharedcovidgallery/neo-config.json
 !/apps/sharedcovidmap/index.html
 !/apps/sharedcovidmap/**/*.mjs
+!/apps/sharedcovidmap/neo-config.json
 !/apps/shareddialog/index.html
 !/apps/shareddialog/**/*.mjs
+!/apps/shareddialog/neo-config.json
 !/apps/shareddialog2/index.html
 !/apps/shareddialog2/**/*.mjs
+!/apps/shareddialog2/neo-config.json
 !/apps/website/index.html
 !/apps/website/**/*.mjs
+!/apps/website/neo-config.json
 
 /buildScripts/webpack/json/myApps.json
 

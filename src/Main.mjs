@@ -111,8 +111,6 @@ class Main extends core.Base {
 
         let me = this;
 
-        DomEvents.on('domContentLoaded', me.onDomContentLoaded, me);
-
         WorkerManager.on({
             'automount'        : me.onRender,
             'message:mountDom' : me.onMountDom,
@@ -120,6 +118,12 @@ class Main extends core.Base {
             'updateVdom'       : me.onUpdateVdom,
             scope              : me
         });
+
+        DomEvents.on('domContentLoaded', me.onDomContentLoaded, me);
+
+        if (document.readyState !== 'loading') {
+            DomEvents.onDomContentLoaded();
+        }
     }
 
     /**
@@ -194,19 +198,19 @@ class Main extends core.Base {
 
         // we need different publicPath values for the main thread inside the webpack based dist envs,
         // depending on the hierarchy level of the app entry point
-        if (window.webpackJsonp) {
+        if (window.webpackChunkneo_mjs) {
             __webpack_require__.p = Neo.config.basePath.substring(6);
         }
 
         Neo.config.mainThreadAddons.forEach(addon => {
             if (addon !== 'AnalyticsByGoogle') {
-                imports.push(import(/* webpackChunkName: 'src/main/addon/[request]' */ `./main/addon/${addon}.mjs`));
+                imports.push(import(`./main/addon/${addon}.mjs`));
             }
         });
 
         // intended for the online examples where we need an easy way to add GA to every generated app
         if (Neo.config.useGoogleAnalytics || Neo.config.mainThreadAddons.includes('AnalyticsByGoogle')) {
-            imports.push(import(/* webpackChunkName: 'src/main/addon/AnalyticsByGoogle-mjs.js' */ './main/addon/AnalyticsByGoogle.mjs'));
+            imports.push(import('./main/addon/AnalyticsByGoogle.mjs'));
         }
 
         const modules = await Promise.all(imports);

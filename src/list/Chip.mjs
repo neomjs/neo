@@ -22,7 +22,7 @@ class Chip extends Base {
          */
         chipConfig: null,
         /**
-         * @member {String[]} cls=['neo-chip-list', 'neo-list']
+         * @member {String[]} cls=['neo-chip-list','neo-list']
          */
         cls: ['neo-chip-list', 'neo-list'],
         /**
@@ -40,6 +40,29 @@ class Chip extends Base {
         _vdom:
         {cn: []}
     }}
+
+    /**
+     * Triggered after the appName config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        if (value) {
+            super.afterSetAppName(value, oldValue);
+
+            let me    = this,
+                items = me.store && me.store.items,
+                itemId;
+
+            if (items) {
+                items.forEach(record => {
+                    itemId = me.getItemId(record[me.getKeyProperty()]);
+                    Neo.getComponent(itemId).appName = value;
+                });
+            }
+        }
+    }
 
     /**
      * Triggered after the stacked config got changed
@@ -72,6 +95,7 @@ class Chip extends Base {
         me.store.items.forEach(item => {
             listItem = Neo.create({
                 module  : ChipComponent,
+                appName : me.appName,
                 display : me.stacked ? 'flex' : 'inline-flex',
                 iconCls : 'fa fa-home',
                 id      : me.getItemId(item[me.getKeyProperty()]),

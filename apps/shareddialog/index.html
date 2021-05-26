@@ -6,18 +6,6 @@
     <title>SharedDialog</title>
 </head>
 <body>
-    <script>
-        Neo = self.Neo || {}; Neo.config = Neo.config || {};
-
-        Object.assign(Neo.config, {
-            appPath         : 'apps/shareddialog/app.mjs',
-            basePath        : '../../',
-            environment     : 'development',
-            mainThreadAddons: ['DragDrop', 'Stylesheet', 'WindowPosition'],
-            useSharedWorkers: true
-        });
-    </script>
-
-    <script src="../../src/Main.mjs" type="module"></script>
+    <script src="../../src/MicroLoader.mjs" type="module"></script>
 </body>
 </html>

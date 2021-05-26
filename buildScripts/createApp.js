@@ -140,45 +140,44 @@ inquirer.prompt(questions).then(answers => {
             "    <title>" + appName + "</title>",
             "</head>",
             "<body>",
-            "    <script>",
-            "        Neo = self.Neo || {}; Neo.config = Neo.config || {};",
-            "",
-            "        Object.assign(Neo.config, {",
-            "            appPath         : '" + (insideNeo ? '' : '../../') + appPath + "app.mjs',",
-            "            basePath        : '../../',",
-            "            environment     : 'development'",
+            '    <script src="../../src/MicroLoader.mjs" type="module"></script>',
+            "</body>",
+            "</html>",
         ];
 
+        fs.writeFileSync(path.join(folder, 'index.html'), indexContent.join('\n'));
+
+        let neoConfig = {
+            appPath    : `${insideNeo ? '' : '../../'}${appPath}app.mjs`,
+            basePath   : '../../',
+            environment: 'development',
+            mainPath   : './Main.mjs'
+        };
+
         if (!(mainThreadAddons.includes('DragDrop') && mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 2)) {
-            indexContent[indexContent.length -1] += ',';
-            indexContent.push("            mainThreadAddons: [" + mainThreadAddons.map(e => "'" + e +"'").join(', ') + "]");
+            neoConfig.mainThreadAddons = mainThreadAddons;
         }
 
         if (!themes.includes('both')) {
-            indexContent[indexContent.length -1] += ',';
-            indexContent.push("            themes          : [" + themes.map(e => "'" + e +"'").join(', ') + "]");
+            neoConfig.themes = themes;
         }
 
         if (useSharedWorkers !== 'no') {
-            indexContent[indexContent.length -1] += ',';
-            indexContent.push("            useSharedWorkers: true");
+            neoConfig.useSharedWorkers = true;
         }
 
         if (!insideNeo) {
-            indexContent[indexContent.length -1] += ',';
-            indexContent.push("            workerBasePath  : '../../node_modules/neo.mjs/src/worker/'");
+            neoConfig.workerBasePath = '../../node_modules/neo.mjs/src/worker/';
         }
 
-        indexContent.push(
-            "        });",
-            "    </script>",
-            "",
-            '    <script src="../../' + (insideNeo ? '' : 'node_modules/neo.mjs/') + 'src/Main.mjs" type="module"></script>',
-            "</body>",
-            "</html>",
-        );
+        let configs = Object.entries(neoConfig).sort((a, b) => a[0].localeCompare(b[0]));
+        neoConfig = {};
 
-        fs.writeFileSync(folder + '/index.html', indexContent.join('\n'));
+        configs.forEach(([key, value]) => {
+            neoConfig[key] = value;
+        });
+
+        fs.writeFileSync(path.join(folder, 'neo-config.json'), JSON.stringify(neoConfig, null, 4));
 
         const mainContainerContent = [
             "import Component    from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/component/Base.mjs';",
@@ -246,31 +245,10 @@ inquirer.prompt(questions).then(answers => {
             }
         }
 
-        appJson.apps[appName] = {
-            input : `./${appPath}app.mjs`,
-            output: `/${appPath}`,
-            title : appName
-        };
-
-        if (!(mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 1)) {
-            appJson.apps[appName].mainThreadAddons = mainThreadAddons.map(e => "'" + e + "'").join(', ');
+        if (!appJson.apps.includes(appName)) {
+            appJson.apps.push(appName);
+            appJson.apps.sort();
         }
-
-        if (!themes.includes('both')) {
-            appJson.apps[appName].themes = themes.map(e => "'" + e + "'").join(', ');
-        }
-
-        if (useSharedWorkers !== 'no') {
-            appJson.apps[appName].useSharedWorkers = true;
-        }
-
-        let apps = Object.entries(appJson.apps).sort((a, b) => a[0].localeCompare(b[0]));
-
-        appJson.apps = {};
-
-        apps.forEach(([key, value]) => {
-            appJson.apps[key] = value;
-        });
 
         fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 4));
 

@@ -6,19 +6,6 @@
     <title>model.multiWindow</title>
 </head>
 <body>
-    <script>
-        Neo = self.Neo || {}; Neo.config = Neo.config || {};
-
-        Object.assign(Neo.config, {
-            appPath         : 'examples/model/multiWindow/app.mjs',
-            basePath        : '../../../',
-            environment     : 'development',
-            mainThreadAddons: ['DragDrop', 'Stylesheet'],
-            themes          : ['neo-theme-dark'],
-            useSharedWorkers: true
-        });
-    </script>
-
-    <script src="../../../src/Main.mjs" type="module"></script>
+    <script src="../../../src/MicroLoader.mjs" type="module"></script>
 </body>
 </html>

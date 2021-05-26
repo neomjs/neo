@@ -150,9 +150,9 @@ class DragDrop extends Base {
         me.addGlobalEventListeners();
 
         if (Neo.config.hasTouchEvents) {
-            imports.push(import(/* webpackChunkName: 'src/main/draggable/sensor/Touch.mjs' */ '../draggable/sensor/Touch.mjs'));
+            imports.push(import('../draggable/sensor/Touch.mjs'));
         } else {
-            imports.push(import(/* webpackChunkName: 'src/main/draggable/sensor/Mouse.mjs' */ '../draggable/sensor/Mouse.mjs'));
+            imports.push(import('../draggable/sensor/Mouse.mjs'));
         }
 
         Promise.all(imports).then(modules => {

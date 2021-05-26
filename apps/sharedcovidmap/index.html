@@ -6,19 +6,6 @@
     <title>SharedCovid MapboxGL Map</title>
 </head>
 <body>
-    <script>
-        Neo = self.Neo || {}; Neo.config = Neo.config || {};
-
-        Object.assign(Neo.config, {
-            appPath         : 'apps/sharedcovidmap/app.mjs',
-            basePath        : '../../',
-            environment     : 'development',
-            mainThreadAddons: ['MapboxGL', 'Stylesheet'],
-            themes          : ['neo-theme-dark', 'neo-theme-light'],
-            useSharedWorkers: true
-        });
-    </script>
-
-    <script src="../../src/Main.mjs" type="module"></script>
+    <script src="../../src/MicroLoader.mjs" type="module"></script>
 </body>
 </html>
