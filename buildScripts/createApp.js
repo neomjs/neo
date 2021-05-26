@@ -18,7 +18,7 @@ program
     .option('-i, --info',                     'print environment debug info')
     .option('-a, --appName <value>')
     .option('-m, --mainThreadAddons <value>', 'Comma separated list of AmCharts, AnalyticsByGoogle, DragDrop, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet\n Defaults to DragDrop, Stylesheet')
-    .option('-t, --themes <value>',           '"all", "dark", "light"')
+    .option('-t, --themes <value>',           '"neo-theme-dark", "neo-theme-light", "all", "none"')
     .option('-u, --useSharedWorkers <value>', '"yes", "no"')
     .allowUnknownOption()
     .on('--help', () => {
@@ -66,8 +66,8 @@ if (!programOpts.themes) {
         type   : 'list',
         name   : 'themes',
         message: 'Please choose a theme for your neo app:',
-        choices: ['neo-theme-dark', 'neo-theme-light', 'both'],
-        default: 'both'
+        choices: ['neo-theme-dark', 'neo-theme-light', 'all', 'none'],
+        default: 'all'
     });
 }
 
@@ -92,16 +92,15 @@ if (!programOpts.useSharedWorkers) {
 }
 
 inquirer.prompt(questions).then(answers => {
-    const appName          = answers.appName          || programOpts['appName'],
-          mainThreadAddons = answers.mainThreadAddons || programOpts['mainThreadAddons'],
-          useSharedWorkers = answers.useSharedWorkers || programOpts['useSharedWorkers'],
-          lAppName         = appName.toLowerCase(),
-          appPath          = 'apps/' + lAppName + '/',
-          dir              = 'apps/' + lAppName,
-          folder           = path.resolve(cwd, dir),
-          startDate        = new Date();
-
-    let themes = answers.themes || programOpts['themes'];
+    let appName          = programOpts.appName          || answers.appName,
+        mainThreadAddons = programOpts.mainThreadAddons || answers.mainThreadAddons,
+        themes           = programOpts.themes           || answers.themes,
+        useSharedWorkers = programOpts.useSharedWorkers || answers.useSharedWorkers,
+        lAppName         = appName.toLowerCase(),
+        appPath          = 'apps/' + lAppName + '/',
+        dir              = 'apps/' + lAppName,
+        folder           = path.resolve(cwd, dir),
+        startDate        = new Date();
 
     if (!Array.isArray(themes)) {
         themes = [themes];
@@ -158,8 +157,12 @@ inquirer.prompt(questions).then(answers => {
             neoConfig.mainThreadAddons = mainThreadAddons;
         }
 
-        if (!themes.includes('both')) {
-            neoConfig.themes = themes;
+        if (!themes.includes('all')) { // default value
+            if (themes.includes('none')) {
+                neoConfig.themes = [];
+            } else {
+                neoConfig.themes = themes;
+            }
         }
 
         if (useSharedWorkers !== 'no') {
