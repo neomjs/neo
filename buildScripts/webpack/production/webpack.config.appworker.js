@@ -36,7 +36,7 @@ if (!buildTarget.folder) {
 function createStartingPoint(key, folder) {
     let basePath       = '',
         workerBasePath = '',
-        treeLevel      = key.split('.').length + 3,
+        treeLevel      = key.replace('.', '/').split('/').length + 3,
         content, i, inputPath, outputPath, lAppName;
 
         for (i=0; i < treeLevel; i++)  {

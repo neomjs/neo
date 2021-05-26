@@ -45,7 +45,7 @@ module.exports = env => {
     const createStartingPoint = (key, folder) => {
         let basePath       = '',
             workerBasePath = '',
-            treeLevel      = key.split('.').length + 3,
+            treeLevel      = key.replace('.', '/').split('/').length + 3,
             i, lAppName;
 
         for (i=0; i < treeLevel; i++)  {

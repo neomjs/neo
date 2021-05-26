@@ -51,7 +51,7 @@ module.exports = env => {
             if (buildAll || choices.length < 2 || apps.includes(key)) {
                 basePath       = '';
                 workerBasePath = '';
-                treeLevel      = key.split('.').length + 3;
+                treeLevel      = key.replace('.', '/').split('/').length + 3;
 
                 for (i=0; i < treeLevel; i++)  {
                     basePath += '../';
