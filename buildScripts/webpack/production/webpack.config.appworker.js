@@ -9,6 +9,7 @@ const cwd               = process.cwd(),
       filenameConfig    = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
       plugins           = [],
       regexLineBreak    = /(\r\n|\n|\r)/gm,
+      regexTopLevel     = /\.\.\//g,
       regexTrimEnd      = /\s+$/gm,
       regexTrimStart    = /^\s+/gm,
       webpack           = require('webpack');
@@ -69,6 +70,8 @@ module.exports = env => {
 
         content = require(inputPath);
         delete content.environment;
+
+        content.appPath = content.appPath.replace(regexTopLevel, '');
 
         Object.assign(content, {
             basePath      : basePath,
