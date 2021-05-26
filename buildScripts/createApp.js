@@ -145,7 +145,39 @@ inquirer.prompt(questions).then(answers => {
             "</html>",
         ];
 
-        fs.writeFileSync(folder + '/index.html', indexContent.join('\n'));
+        fs.writeFileSync(path.join(folder, 'index.html'), indexContent.join('\n'));
+
+        let neoConfig = {
+            appPath    : `${insideNeo ? '' : '../../'}${appPath}app.mjs`,
+            basePath   : '../../',
+            environment: 'development',
+            mainPath   : './Main.mjs'
+        };
+
+        if (!(mainThreadAddons.includes('DragDrop') && mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 2)) {
+            neoConfig.mainThreadAddons = mainThreadAddons;
+        }
+
+        if (!themes.includes('both')) {
+            neoConfig.themes = themes;
+        }
+
+        if (useSharedWorkers !== 'no') {
+            neoConfig.useSharedWorkers = true;
+        }
+
+        if (!insideNeo) {
+            neoConfig.workerBasePath = '../../node_modules/neo.mjs/src/worker/';
+        }
+
+        let configs = Object.entries(neoConfig).sort((a, b) => a[0].localeCompare(b[0]));
+        neoConfig = {};
+
+        configs.forEach(([key, value]) => {
+            neoConfig[key] = value;
+        });
+
+        fs.writeFileSync(path.join(folder, 'neo-config.json'), JSON.stringify(neoConfig, null, 4));
 
         const mainContainerContent = [
             "import Component    from '../../../" + (insideNeo ? '' : 'node_modules/neo.mjs/') + "src/component/Base.mjs';",
