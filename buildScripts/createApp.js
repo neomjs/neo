@@ -213,31 +213,10 @@ inquirer.prompt(questions).then(answers => {
             }
         }
 
-        appJson.apps[appName] = {
-            input : `./${appPath}app.mjs`,
-            output: `/${appPath}`,
-            title : appName
-        };
-
-        if (!(mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 1)) {
-            appJson.apps[appName].mainThreadAddons = mainThreadAddons.map(e => "'" + e + "'").join(', ');
+        if (!appJson.apps.includes(appName)) {
+            appJson.apps.push(appName);
+            appJson.apps.sort();
         }
-
-        if (!themes.includes('both')) {
-            appJson.apps[appName].themes = themes.map(e => "'" + e + "'").join(', ');
-        }
-
-        if (useSharedWorkers !== 'no') {
-            appJson.apps[appName].useSharedWorkers = true;
-        }
-
-        let apps = Object.entries(appJson.apps).sort((a, b) => a[0].localeCompare(b[0]));
-
-        appJson.apps = {};
-
-        apps.forEach(([key, value]) => {
-            appJson.apps[key] = value;
-        });
 
         fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 4));
 
