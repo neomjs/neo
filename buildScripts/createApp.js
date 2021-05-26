@@ -9,6 +9,7 @@ const chalk        = require('chalk'),
       packageJson  = require(path.resolve(process.cwd(), 'package.json')),
       insideNeo    = packageJson.name === 'neo.mjs',
       neoPath      = insideNeo ? './' : './node_modules/neo.mjs/',
+      os           = require('os'),
       programName  = `${packageJson.name} create-app`,
       questions    = [],
       scssFolders  = fs.readdirSync(path.join(neoPath, '/resources/scss')),
@@ -134,7 +135,7 @@ inquirer.prompt(questions).then(answers => {
             "});",
             "",
             "export {onStart as onStart};"
-        ].join('\n');
+        ].join(os.EOL);
 
         fs.writeFileSync(folder + '/app.mjs', appContent);
 
@@ -152,7 +153,7 @@ inquirer.prompt(questions).then(answers => {
             "</html>",
         ];
 
-        fs.writeFileSync(path.join(folder, 'index.html'), indexContent.join('\n'));
+        fs.writeFileSync(path.join(folder, 'index.html'), indexContent.join(os.EOL));
 
         let neoConfig = {
             appPath    : `${insideNeo ? '' : '../../'}${appPath}app.mjs`,
@@ -237,7 +238,7 @@ inquirer.prompt(questions).then(answers => {
             "Neo.applyClassConfig(MainContainer);",
             "",
             "export {MainContainer as default};"
-        ].join('\n');
+        ].join(os.EOL);
 
         fs.writeFileSync(path.join(folder + '/view/MainContainer.mjs'), mainContainerContent);
 
