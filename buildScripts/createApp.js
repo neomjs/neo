@@ -140,43 +140,10 @@ inquirer.prompt(questions).then(answers => {
             "    <title>" + appName + "</title>",
             "</head>",
             "<body>",
-            "    <script>",
-            "        Neo = self.Neo || {}; Neo.config = Neo.config || {};",
-            "",
-            "        Object.assign(Neo.config, {",
-            "            appPath         : '" + (insideNeo ? '' : '../../') + appPath + "app.mjs',",
-            "            basePath        : '../../',",
-            "            environment     : 'development'",
-        ];
-
-        if (!(mainThreadAddons.includes('DragDrop') && mainThreadAddons.includes('Stylesheet') && mainThreadAddons.length === 2)) {
-            indexContent[indexContent.length -1] += ',';
-            indexContent.push("            mainThreadAddons: [" + mainThreadAddons.map(e => "'" + e +"'").join(', ') + "]");
-        }
-
-        if (!themes.includes('both')) {
-            indexContent[indexContent.length -1] += ',';
-            indexContent.push("            themes          : [" + themes.map(e => "'" + e +"'").join(', ') + "]");
-        }
-
-        if (useSharedWorkers !== 'no') {
-            indexContent[indexContent.length -1] += ',';
-            indexContent.push("            useSharedWorkers: true");
-        }
-
-        if (!insideNeo) {
-            indexContent[indexContent.length -1] += ',';
-            indexContent.push("            workerBasePath  : '../../node_modules/neo.mjs/src/worker/'");
-        }
-
-        indexContent.push(
-            "        });",
-            "    </script>",
-            "",
-            '    <script src="../../' + (insideNeo ? '' : 'node_modules/neo.mjs/') + 'src/Main.mjs" type="module"></script>',
+            '    <script src="../../src/MicroLoader.mjs" type="module"></script>',
             "</body>",
             "</html>",
-        );
+        ];
 
         fs.writeFileSync(folder + '/index.html', indexContent.join('\n'));
 
