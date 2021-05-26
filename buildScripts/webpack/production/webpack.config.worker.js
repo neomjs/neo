@@ -16,7 +16,7 @@ module.exports = env => {
     }
 
     return {
-        mode: 'production',
+        mode  : 'production',
         entry,
         target: 'webworker',
 

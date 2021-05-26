@@ -16,14 +16,10 @@ module.exports = env => {
     }
 
     return {
-        mode: 'development',
-
-        // see: https://webpack.js.org/configuration/devtool/
-        devtool: 'inline-source-map',
-        //devtool: 'cheap-module-eval-source-map',
-
+        mode   : 'development',
+        devtool: 'inline-source-map', // see: https://webpack.js.org/configuration/devtool/
         entry,
-        target: 'webworker',
+        target : 'webworker',
 
         output: {
             chunkFilename: `chunks/${env.worker}/[id].js`,
