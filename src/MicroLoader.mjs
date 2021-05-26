@@ -1,5 +1,4 @@
-fetch('./neo-config.json').then(response => response.json()).then(data => {
-    self.Neo = {config: {}};
-    Object.assign(Neo.config, data);
-    import(data.mainPath);
+fetch('./neo-config.json').then(r => r.json()).then(d => {
+    self.Neo = {config: {...d}};
+    import(d.mainPath);
 });
