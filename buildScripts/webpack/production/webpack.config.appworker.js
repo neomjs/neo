@@ -33,11 +33,24 @@ if (!buildTarget.folder) {
     buildTarget.folder = 'dist/production';
 }
 
-function createStartingPoint(key, folder) {
-    let basePath       = '',
-        workerBasePath = '',
-        treeLevel      = key.replace('.', '/').split('/').length + 3,
-        content, i, inputPath, outputPath, lAppName;
+module.exports = env => {
+    let examples  = [],
+        insideNeo = env.insideNeo == 'true',
+        content, inputPath, outputPath;
+
+    // MicroLoader.mjs
+    inputPath  = path.resolve(cwd, 'src/MicroLoader.mjs');
+    outputPath = path.resolve(cwd, buildTarget.folder, 'src/MicroLoader.mjs');
+
+    content = fs.readFileSync(inputPath).toString().replace(/\s/gm, '');
+    fs.mkdirpSync(path.resolve(cwd, buildTarget.folder, 'src/'));
+    fs.writeFileSync(outputPath, content);
+
+    const createStartingPoint = (key, folder) => {
+        let basePath       = '',
+            workerBasePath = '',
+            treeLevel      = key.replace('.', '/').split('/').length + 3,
+            i, lAppName;
 
         for (i=0; i < treeLevel; i++)  {
             basePath += '../';
@@ -76,11 +89,7 @@ function createStartingPoint(key, folder) {
             .replace(regexLineBreak, '');
 
         fs.writeFileSync(outputPath, content);
-}
-
-module.exports = env => {
-    const examples  = [],
-          insideNeo = env.insideNeo == 'true';
+    };
 
     const isFile = fileName => {
         return fs.lstatSync(fileName).isFile()
