@@ -5,7 +5,7 @@ const cwd            = process.cwd(),
       configPath     = path.resolve(cwd, 'buildScripts/myApps.json'),
       packageJson    = require(path.resolve(cwd, 'package.json')),
       neoPath        = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      examplesConfig = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
+      filenameConfig = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
       plugins        = [],
       webpack        = require('webpack');
 
@@ -108,7 +108,7 @@ module.exports = env => {
 
         output: {
             chunkFilename: 'chunks/app/[id].js',
-            filename     : 'appworker.js',
+            filename     : filenameConfig.workers.app.output,
             path         : path.resolve(cwd, buildTarget.folder)
         }
     }
