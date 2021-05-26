@@ -1,10 +1,10 @@
-const path        = require('path'),
-      buildTarget = require('./buildTarget.json'),
-      processRoot = process.cwd(),
-      packageJson = require(path.resolve(processRoot, 'package.json')),
-      neoPath     = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      config      = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
-      entry       = {main: path.resolve(neoPath, config.mainInput)};
+const path           = require('path'),
+      buildTarget    = require('./buildTarget.json'),
+      processRoot    = process.cwd(),
+      packageJson    = require(path.resolve(processRoot, 'package.json')),
+      neoPath        = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      filenameConfig = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
+      entry          = {main: path.resolve(neoPath, filenameConfig.mainInput)};
 
 module.exports = {
     mode   : 'development',
@@ -14,7 +14,7 @@ module.exports = {
 
     output: {
         chunkFilename: 'chunks/main/[id].js',
-        filename     : config.mainOutput,
+        filename     : filenameConfig.mainOutput,
         path         : path.resolve(processRoot, buildTarget.folder)
     }
 };
