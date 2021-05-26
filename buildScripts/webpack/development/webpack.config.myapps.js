@@ -7,6 +7,7 @@ const cwd            = process.cwd(),
       neoPath        = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
       filenameConfig = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
       plugins        = [],
+      regexTopLevel  = /\.\.\//g,
       webpack        = require('webpack');
 
 let config;
@@ -74,6 +75,8 @@ module.exports = env => {
                 outputPath = path.resolve(cwd, buildTarget.folder, 'apps', lAppName, 'neo-config.json');
 
                 content = require(inputPath);
+
+                content.appPath = content.appPath.replace(regexTopLevel, '');
 
                 Object.assign(content, {
                     basePath      : basePath,
