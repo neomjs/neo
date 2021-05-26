@@ -72,7 +72,7 @@ module.exports = env => {
             workerBasePath: workerBasePath
         });
 
-        fs.writeFileSync(outputPath, JSON.stringify(content));
+        fs.writeFileSync(outputPath, JSON.stringify(content, null, 4));
 
         // index.html
         inputPath  = path.resolve(cwd, folder, lAppName, 'index.html');
