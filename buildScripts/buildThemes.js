@@ -17,14 +17,12 @@ const autoprefixer       = require('autoprefixer'),
       regexComments      = /\/\*[\s\S]*?\*\/|([^\\:]|^)\/\/.*$/gm,
       regexLineBreak     = /(\r\n|\n|\r)/gm,
       regexSassImport    = /@import[^'"]+?['"](.+?)['"];?/g,
+      scssFolders        = fs.readdirSync(path.join(neoPath, '/resources/scss')),
       scssPath           = 'resources/scss/',
       themeMapFile       = 'resources/theme-map.json',
       themeMapFileNoVars = 'resources/theme-map-no-vars.json',
       themeFolders       = [],
       questions          = [];
-
-
-const scssFolders = fs.readdirSync(path.join(neoPath, '/resources/scss'));
 
 scssFolders.forEach(folder => {
     if (folder.includes('theme')) {

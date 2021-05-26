@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "2.1.11",
+    "version": "2.1.12",
     "description": "The webworkers driven UI framework",
     "repository": {
         "type": "git",
@@ -42,7 +42,6 @@
         "envinfo": "^7.8.1",
         "fs-extra": "^10.0.0",
         "highlightjs-line-numbers.js": "^2.8.0",
-        "html-webpack-plugin": "^5.3.1",
         "inquirer": "^8.0.0",
         "neo-jsdoc": "^1.0.1",
         "neo-jsdoc-x": "^1.0.4",
