@@ -1,6 +1,7 @@
 {
     "apps": [
         "Covid",
+        "Docs",
         "RealWorld",
         "RealWorld2",
         "SharedCovid",

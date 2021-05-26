@@ -49,7 +49,7 @@ module.exports = env => {
     const createStartingPoint = (key, folder) => {
         let basePath       = '',
             workerBasePath = '',
-            treeLevel      = key.replace('.', '/').split('/').length + 3,
+            treeLevel      = key.replace('.', '/').split('/').length + (key === 'Docs' ? 2 : 3),
             i, lAppName;
 
         for (i=0; i < treeLevel; i++)  {
@@ -113,7 +113,7 @@ module.exports = env => {
 
     if (config.apps) {
         config.apps.forEach(key => {
-            createStartingPoint(key, 'apps');
+            createStartingPoint(key, key === 'Docs' ? '' : 'apps');
         });
     }
 
