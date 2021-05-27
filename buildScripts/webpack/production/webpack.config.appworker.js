@@ -14,12 +14,10 @@ const cwd               = process.cwd(),
       regexTrimStart    = /^\s+/gm,
       webpack           = require('webpack');
 
-let excludeExamples = false,
-    config;
+let config, examplesPath;
 
 if (fs.existsSync(configPath)) {
-    config          = require(configPath);
-    excludeExamples = true;
+    config = require(configPath);
 } else {
     const myAppsPath = path.resolve(neoPath, 'buildScripts/webpack/json/myApps.json');
 
@@ -120,8 +118,10 @@ module.exports = env => {
         });
     }
 
-    if (insideNeo && !excludeExamples) {
-        parseFolder(path.join(cwd, 'examples'), 0, '');
+    examplesPath = path.join(cwd, 'examples');
+
+    if (fs.existsSync(examplesPath)) {
+        parseFolder(examplesPath, 0, '');
 
         examples.forEach(key => {
             createStartingPoint(key.substr(1), 'examples');
