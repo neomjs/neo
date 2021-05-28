@@ -465,10 +465,7 @@ class Base extends CoreBase {
         let me = this;
 
         if (value && !me.dropZone) {
-            import(
-                /* webpackChunkName: 'src/draggable/DropZone-mjs.js' */
-                '../draggable/DropZone.mjs'
-                ).then(module => {
+            import('../draggable/DropZone.mjs').then(module => {
                 me.dropZone = Neo.create({
                     module : module.default,
                     appName: me.appName,
@@ -610,8 +607,7 @@ class Base extends CoreBase {
             if (Neo.ns('Neo.tooltip.Base')) {
                 me.createTooltips(value);
             } else {
-                import(/* webpackChunkName: 'src/tooltip/Base' */
-                    '../tooltip/Base.mjs').then((module) => {
+                import('../tooltip/Base.mjs').then((module) => {
                         me.createTooltips(value);
                     }
                 );
