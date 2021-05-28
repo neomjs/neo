@@ -1,4 +1,5 @@
 import Component from './Base.mjs';
+import DragZone  from '../draggable/DragZone.mjs';
 import NeoArray  from '../util/Array.mjs';
 
 /**
@@ -38,12 +39,38 @@ class Splitter extends Component {
          */
         direction_: 'vertical',
         /**
+         * @member {Neo.draggable.DragZone|null} dragZone=null
+         * @protected
+         */
+        dragZone: null,
+        /**
+         * @member {Object|null} dragZoneConfig=null
+         */
+        dragZoneConfig: null,
+        /**
          * Either height or with, depending on the direction.
          * Defaults to px
          * @member {Number|String} size_=10
          */
         size_: 10
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me = this;
+
+        me.dragZone = Neo.create({
+            module        : DragZone,
+            moveHorizontal: me.direction === 'horizontal',
+            moveVertical  : me.direction === 'vertical',
+            ...me.dragZoneConfig || {}
+        });
+    }
 
     /**
      * Triggered after the direction config got changed
