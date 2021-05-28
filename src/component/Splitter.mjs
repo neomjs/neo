@@ -154,7 +154,7 @@ class Splitter extends Component {
             me.dragZone = Neo.create({
                 module             : DragZone,
                 appName            : me.appName,
-                bodyCursorStyle    : 'move !important',
+                bodyCursorStyle    : me.direction === 'vertical' ? 'ew-resize !important' : 'ns-resize !important',
                 boundaryContainerId: me.parentId,
                 dragElement        : me.vdom,
                 moveHorizontal     : me.direction === 'vertical',
