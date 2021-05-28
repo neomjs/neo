@@ -85,7 +85,7 @@ const DefaultConfig = {
      * @name config.logDeltaUpdates
      * @type Boolean
      */
-    logDeltaUpdates: false,
+    logDeltaUpdates: true,
     /**
      * Add addons for the main thread
      * Possible values: AmCharts, AnalyticsByGoogle, DragDrop, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet, WindowPosition

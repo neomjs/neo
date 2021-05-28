@@ -80,15 +80,20 @@ class Splitter extends Component {
      * @protected
      */
     afterSetDirection(value, oldValue) {
-        let cls = this.cls;
+        let me  = this,
+            cls = me.cls;
 
         NeoArray.add(cls, `neo-${value}`);
 
         if (oldValue) {
             NeoArray.remove(cls, `neo-${oldValue}`);
         }
-
-        this.cls = cls;
+console.log(value, value === 'vertical' ? null : me.size, value !== 'vertical' ? null : me.size);
+        me.set({
+            cls   : cls,
+            height: value === 'vertical' ? null : me.size,
+            width : value !== 'vertical' ? null : me.size
+        });
     }
 
     /**
@@ -158,21 +163,28 @@ class Splitter extends Component {
      * @param data
      */
     onDragStart(data) {
-        let me    = this,
-            style = me.style || {};
+        let me       = this,
+            style    = me.style || {},
+            vertical = me.direction === 'vertical';
 
         if (!me.dragZone) {
             me.dragZone = Neo.create({
                 module             : DragZone,
                 appName            : me.appName,
-                bodyCursorStyle    : me.direction === 'vertical' ? 'ew-resize !important' : 'ns-resize !important',
+                bodyCursorStyle    : vertical ? 'ew-resize !important' : 'ns-resize !important',
                 boundaryContainerId: me.parentId,
                 dragElement        : me.vdom,
-                moveHorizontal     : me.direction === 'vertical',
-                moveVertical       : me.direction === 'horizontal',
+                moveHorizontal     : vertical,
+                moveVertical       : !vertical,
                 owner              : me,
                 useProxyWrapper    : false,
                 ...me.dragZoneConfig || {}
+            });
+        } else {
+            me.dragZone.set({
+                bodyCursorStyle: vertical ? 'ew-resize !important' : 'ns-resize !important',
+                moveHorizontal : vertical,
+                moveVertical   : !vertical
             });
         }
 

@@ -2,7 +2,6 @@ import CheckBox              from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
 import Splitter              from '../../../src/component/Splitter.mjs';
-import TextField             from '../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.component.splitter.MainContainer
@@ -21,24 +20,30 @@ class MainContainer extends ConfigurationViewport {
         let me = this;
 
         return [{
-            module    : NumberField,
-            clearable : true,
-            labelText : 'height',
-            listeners : {change: me.onConfigChange.bind(me, 'height')},
-            maxValue  : 1000,
-            minValue  : 200,
-            stepSize  : 5,
-            style     : {marginTop: '10px'},
-            value     : me.exampleComponent.height
+            module   : NumberField,
+            clearable: true,
+            labelText: 'height',
+            listeners: {change: me.onConfigChange.bind(me, 'height')},
+            maxValue : 1000,
+            minValue : 200,
+            stepSize : 5,
+            value    : me.exampleComponent.height
         }, {
-            module    : NumberField,
-            clearable : true,
-            labelText : 'width',
-            listeners : {change: me.onConfigChange.bind(me, 'width')},
-            maxValue  : 1000,
-            minValue  : 200,
-            stepSize  : 5,
-            value     : me.exampleComponent.width
+            module   : CheckBox,
+            checked  : me.exampleComponent.direction === 'horizontal',
+            labelText: 'horizontal',
+            listeners: {change: me.switchDirection.bind(me)},
+            style    : {marginTop: '10px'}
+        }, {
+            module   : NumberField,
+            clearable: true,
+            labelText: 'width',
+            listeners: {change: me.onConfigChange.bind(me, 'width')},
+            maxValue : 1000,
+            minValue : 200,
+            stepSize : 5,
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.width
         }];
     }
 
@@ -57,6 +62,19 @@ class MainContainer extends ConfigurationViewport {
                 ntype: 'component'
             }]
         });
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    switchDirection(data) {
+        this.exampleComponent.down({module: Splitter}).direction = data.value ? 'horizontal' : 'vertical';
+
+        this.exampleComponent.layout = {
+            ntype: data.value ? 'vbox' : 'hbox',
+            align: 'stretch'
+        };
     }
 }
 
