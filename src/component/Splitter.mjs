@@ -30,9 +30,9 @@ class Splitter extends Component {
          */
         ntype: 'splitter',
         /**
-         * @member {String[]} cls=['neo-splitter']
+         * @member {String[]} cls=['neo-splitter','neo-draggable']
          */
-        cls: ['neo-splitter'],
+        cls: ['neo-splitter', 'neo-draggable'],
         /**
          * Either 'horizontal' or 'vertical'
          * @member {String} direction_='vertical'
@@ -62,16 +62,15 @@ class Splitter extends Component {
     constructor(config) {
         super(config);
 
-        let me = this;
+        let me           = this,
+            domListeners = me.domListeners;
 
-        me.dragZone = Neo.create({
-            module        : DragZone,
-            appName       : me.appName,
-            moveHorizontal: me.direction === 'horizontal',
-            moveVertical  : me.direction === 'vertical',
-            owner         : me,
-            ...me.dragZoneConfig || {}
-        });
+        domListeners.push(
+            {'drag:end'  : me.onDragEnd,   scope: me},
+            {'drag:start': me.onDragStart, scope: me}
+        );
+
+        me.domListeners = domListeners;
     }
 
     /**
@@ -111,6 +110,51 @@ class Splitter extends Component {
      */
     beforeSetDirection(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'direction');
+    }
+
+    /**
+     *
+     * @param data
+     */
+    onDragEnd(data) {
+        let me    = this,
+            style = me.style || {};
+
+        me.dragZone.dragEnd(data);
+
+        style.opacity = 1;
+
+        me.style = style;
+    }
+
+    /**
+     *
+     * @param data
+     */
+    onDragStart(data) {
+        let me    = this,
+            style = me.style || {};
+
+        if (!me.dragZone) {
+            me.dragZone = Neo.create({
+                module             : DragZone,
+                appName            : me.appName,
+                bodyCursorStyle    : 'move !important',
+                boundaryContainerId: me.parentId,
+                dragElement        : me.vdom,
+                moveHorizontal     : me.direction === 'vertical',
+                moveVertical       : me.direction === 'horizontal',
+                owner              : me,
+                useProxyWrapper    : false,
+                ...me.dragZoneConfig || {}
+            });
+        }
+
+        me.dragZone.dragStart(data);
+
+        style.opacity = 0.5;
+
+        me.style = style;
     }
 }
 
