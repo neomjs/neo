@@ -351,29 +351,12 @@ class Base extends CoreBase {
         let me       = this,
             app      = Neo.apps[me.appName],
             vdom     = value,
-            cls      = me.cls,
-            height   = me.height,
-            style    = me.style,
             vdomRoot = me.getVdomRoot(),
-            width    = me.width,
             listenerId;
 
         if (vdomRoot) {
-            if (cls) {
-                vdomRoot.cls = cls;
-            }
-
-            if (height) {
-                vdomRoot.height = height;
-            }
-
-            if (width) {
-                vdomRoot.width = width;
-            }
-
-            if (style) {
-                // todo: string based styles
-                vdomRoot.style = Object.assign(vdomRoot.style || {}, style);
+            if (me.cls) {
+                vdomRoot.cls = me.cls;
             }
         }
 
@@ -1105,9 +1088,11 @@ class Base extends CoreBase {
 
         // avoid any interference on prototype level
         // does not clone existing Neo instances
-        me._vdom        = Neo.clone(vdom, true, true);
-        me.cls          = config.cls;
-        me._style       = config.style;
+        me._vdom = Neo.clone(vdom, true, true);
+        me.cls   = config.cls;
+
+        me[Neo.isEmpty(config.style) ? '_style' : 'style'] = config.style;
+
         me.wrapperStyle = Neo.clone(config.wrapperStyle, false);
 
         delete config.cls;
@@ -1363,10 +1348,8 @@ class Base extends CoreBase {
             Neo.vdom.Helper.create({
                 appName    : me.appName,
                 autoMount  : autoMount,
-                cls        : me.cls,
                 parentId   : autoMount ? me.parentId    : undefined,
                 parentIndex: autoMount ? me.parentIndex : undefined,
-                style      : me.style,
                 ...me.vdom
             }).then(data => {
                 me.onRender(data, autoMount);
@@ -1548,27 +1531,38 @@ class Base extends CoreBase {
 
     /**
      * Creates the style deltas for newValue & oldValue and applies them directly to the DOM.
-     * @param {Object|String} newValue
+     * @param {Object|String} value
      * @param {Object|String} oldValue
      * @param {String} [id=this.id]
      * @protected
      */
-    updateStyle(newValue, oldValue, id=this.id) {
+    updateStyle(value, oldValue, id=this.id) {
         let me    = this,
-            delta = Style.compareStyles(newValue, oldValue),
+            delta = Style.compareStyles(value, oldValue),
             vdom  = VDomUtil.findVdomChild(me.vdom, id),
             vnode = me.vnode && VNodeUtil.findChildVnode(me.vnode, id),
-            opts;
+            opts, vnodeStyle;
 
         if (delta) {
             if (!me.hasUnmountedVdomChanges) {
                 me.hasUnmountedVdomChanges = !me.mounted && me.hasBeenMounted;
             }
 
-            vdom.vdom.style = newValue; // keep the vdom in sync
+            vdom.vdom.style = value; // keep the vdom in sync
 
             if (me.mounted && !me.silentVdomUpdate) {
-                vnode.vnode.style = newValue; // keep the vnode in sync
+                vnodeStyle = vnode.vnode.style;
+
+                // keep the vnode in sync
+                // we need the iteration since vdom shortcuts (height, width,...) live within the vnode style
+                // using vnode.vnode.style = style would lose them.
+                Object.entries(delta).forEach(([key, value]) => {
+                    if (value === null) {
+                        delete vnode.vnode.style[key];
+                    } else {
+                        vnodeStyle[key] = value;
+                    }
+                });
 
                 opts = {
                     action: 'updateDom',
