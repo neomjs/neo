@@ -50,7 +50,7 @@ class Splitter extends Component {
         /**
          * Either height or with, depending on the direction.
          * Defaults to px
-         * @member {Number|String} size_=10
+         * @member {Number} size_=10
          */
         size_: 10
     }}
@@ -117,14 +117,29 @@ class Splitter extends Component {
      * @param data
      */
     onDragEnd(data) {
-        let me    = this,
-            style = me.style || {};
+        let me      = this,
+            style   = me.style || {},
+            parent  = Neo.getComponent(me.parentId),
+            index   = parent.indexOf(me),
+            sibling = parent.items[index - 1];
 
         me.dragZone.dragEnd(data);
 
         style.opacity = 1;
 
         me.style = style;
+
+        style = sibling.style;
+
+        style.flex = 'none';
+
+        if (me.direction === 'vertical') {
+            style.width  = `${data.clientX - data.offsetX - 2 * parseInt(me.size)}px`;
+        } else {
+            style.height = `${data.clientY - data.offsetY - 2 * parseInt(me.size)}px`;
+        }
+
+        sibling.style = style;
     }
 
     /**
