@@ -1566,11 +1566,9 @@ class Base extends CoreBase {
 
             vdom.vdom.style = newValue; // keep the vdom in sync
 
-            if (vnode) {
+            if (me.mounted && !me.silentVdomUpdate) {
                 vnode.vnode.style = newValue; // keep the vnode in sync
-            }
 
-            if (me.mounted) {
                 opts = {
                     action: 'updateDom',
                     deltas: [{
