@@ -160,6 +160,7 @@ class WeekComponent extends Component {
         me.domListeners = domListeners;
 
         me.timeAxis = Neo.create(TimeAxisComponent, {
+            appName  : me.appName,
             parentId : me.id,
             listeners: {
                 change: me.onTimeAxisChange,
