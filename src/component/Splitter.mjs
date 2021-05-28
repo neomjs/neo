@@ -1,4 +1,5 @@
 import Component from './Base.mjs';
+import NeoArray  from '../util/Array.mjs';
 
 /**
  * Splitters can get placed between containers to make them resizable via drag & drop
@@ -43,6 +44,24 @@ class Splitter extends Component {
          */
         size_: 10
     }}
+
+    /**
+     * Triggered after the direction config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetDirection(value, oldValue) {
+        let cls = this.cls;
+
+        NeoArray.add(cls, `neo-${value}`);
+
+        if (oldValue) {
+            NeoArray.remove(cls, `neo-${oldValue}`);
+        }
+
+        this.cls = cls;
+    }
 
     /**
      * Triggered after the size config got changed
