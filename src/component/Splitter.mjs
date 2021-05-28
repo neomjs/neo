@@ -69,6 +69,7 @@ class Splitter extends Component {
             appName       : me.appName,
             moveHorizontal: me.direction === 'horizontal',
             moveVertical  : me.direction === 'vertical',
+            owner         : me,
             ...me.dragZoneConfig || {}
         });
     }
