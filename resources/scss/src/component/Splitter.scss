@@ -1,3 +1,16 @@
 .neo-splitter {
     background-color: #f2f2f2;
+    border          : 1px solid #ddd;
+
+    &.neo-horizontal {
+        border-left : none;
+        border-right: none;
+        cursor      : ns-resize;
+    }
+
+    &.neo-vertical {
+        border-bottom: none;
+        border-top   : none;
+        cursor       : ew-resize;
+    }
 }
