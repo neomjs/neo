@@ -438,11 +438,10 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetDisabled(value, oldValue) {
-        let me  = this,
-            cls = me.cls;
+        let cls = this.cls;
 
         NeoArray[value ? 'add' : 'remove'](cls, 'neo-disabled');
-        me.cls = cls;
+        this.cls = cls;
     }
 
     /**
