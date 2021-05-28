@@ -88,7 +88,7 @@ class Splitter extends Component {
         if (oldValue) {
             NeoArray.remove(cls, `neo-${oldValue}`);
         }
-console.log(value, value === 'vertical' ? null : me.size, value !== 'vertical' ? null : me.size);
+
         me.set({
             cls   : cls,
             height: value === 'vertical' ? null : me.size,
