@@ -791,12 +791,13 @@ class Base extends CoreBase {
      */
     changeVdomRootKey(key, value) {
         let me   = this,
+            root = me.getVdomRoot(),
             vdom = me.vdom;
 
         if (value) {
-            me.getVdomRoot()[key] = value;
+            root[key] = value;
         } else {
-            delete me.getVdomRoot()[key];
+            delete root[key];
         }
 
         me.vdom = vdom;
