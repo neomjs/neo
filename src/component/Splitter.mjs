@@ -66,6 +66,7 @@ class Splitter extends Component {
 
         me.dragZone = Neo.create({
             module        : DragZone,
+            appName       : me.appName,
             moveHorizontal: me.direction === 'horizontal',
             moveVertical  : me.direction === 'vertical',
             ...me.dragZoneConfig || {}
