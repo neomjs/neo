@@ -35,8 +35,24 @@ class Splitter extends Component {
          * Either 'horizontal' or 'vertical'
          * @member {String} direction_='vertical'
          */
-        direction_: 'vertical'
+        direction_: 'vertical',
+        /**
+         * Either height or with, depending on the direction.
+         * Defaults to px
+         * @member {Number|String} size_=10
+         */
+        size_: 10
     }}
+
+    /**
+     * Triggered after the size config got changed
+     * @param {Boolean|null} value
+     * @param {Boolean|null} oldValue
+     * @protected
+     */
+    afterSetSize(value, oldValue) {
+        this[this.direction === 'vertical' ? 'width' : 'height'] = value;
+    }
 
     /**
      * Triggered before the direction config gets changed
