@@ -138,7 +138,7 @@ console.log(value, value === 'vertical' ? null : me.size, value !== 'vertical' ?
             parent  = Neo.getComponent(me.parentId);
             index   = parent.indexOf(me);
             sibling = parent.items[index - 1];
-            style   = sibling.style;
+            style   = sibling.style || {};
 
             style.flex = 'none';
 

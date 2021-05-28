@@ -57,7 +57,7 @@ class AmChart extends Component {
         _vdom:
         {style: {position: 'relative', height: '100%', width: '100%'}, cn: [
             {style: {position: 'absolute', height: '100%', width: '100%'}, cn: [
-                {style: {height: '100%'}}
+                {style: {color:'red',height: '100%'}}
             ]}
         ]}
     }}
