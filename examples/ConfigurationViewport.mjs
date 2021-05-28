@@ -101,7 +101,7 @@ class ConfigurationViewport extends Viewport {
                     width  : 100
                 }, {
                     module : Button,
-                    handler: (() => {console.log(me.exampleComponent);}),
+                    handler: me.logInstance.bind(me),
                     text   : 'Log Instance',
                     width  : 100
                 }]
@@ -125,6 +125,14 @@ class ConfigurationViewport extends Viewport {
      */
     createExampleComponent() {
         return null;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    logInstance(data) {
+        console.log(this.exampleComponent);
     }
 
     /**
