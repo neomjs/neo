@@ -68,6 +68,14 @@ class MainContainer extends ConfigurationViewport {
      *
      * @param {Object} data
      */
+    logInstance(data) {
+        console.log(this.exampleComponent.down({module: Splitter}));
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     switchDirection(data) {
         this.exampleComponent.down({module: Splitter}).direction = data.value ? 'horizontal' : 'vertical';
 
