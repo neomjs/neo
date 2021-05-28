@@ -289,7 +289,7 @@ class Base extends CoreBase {
 
         me._vdom = vdom; // silent update
 
-        if (me.mounted) {
+        if (me.mounted && !me.silentVdomUpdate) {
             me.updateCls(value, oldCls);
         }
     }
