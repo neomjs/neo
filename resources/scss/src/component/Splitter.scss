@@ -1,6 +1,6 @@
 .neo-splitter {
     background-color: v(splitter-background-color);
-    border          : 1px solid #ddd;
+    border          : v(splitter-border);
 
     &.neo-horizontal {
         border-left : none;
