@@ -330,7 +330,7 @@ class Base extends CoreBase {
     get style() {
         // we need to "clone" the object, otherwise changes will get applied directly and there are no deltas
         // this only affects non vdom related style to DOM deltas
-        return Neo.clone(this._style);
+        return Neo.clone(this._style || {});
     }
     set style(value) {
         let me       = this,
