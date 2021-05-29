@@ -126,6 +126,8 @@ class Splitter extends Component {
             style   = me.style || {},
             index, sibling, parent, size;
 
+        Neo.getComponent(me.parentId).disabled = false;
+
         me.dragZone.dragEnd(data);
 
         style.opacity = 1;
@@ -166,6 +168,8 @@ class Splitter extends Component {
         let me       = this,
             style    = me.style || {},
             vertical = me.direction === 'vertical';
+
+        Neo.getComponent(me.parentId).disabled = true;
 
         if (!me.dragZone) {
             me.dragZone = Neo.create({
