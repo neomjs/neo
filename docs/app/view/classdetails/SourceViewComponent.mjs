@@ -45,15 +45,12 @@ class SourceViewComponent extends Component {
         /**
          * @member {Object} _vdom={cn: [//...]}
          */
-        _vdom: {
-            cn: [{
-                tag: 'pre',
-                cn : [{
-                    tag  : 'code',
-                    class: 'javascript'
-                }]
-            }]
-        }
+        _vdom:
+        {cn: [
+            {tag: 'pre', cn: [
+                {tag: 'code', class: 'javascript'}
+            ]}
+        ]}
     }}
 
     /**
@@ -69,10 +66,24 @@ class SourceViewComponent extends Component {
         Neo.Xhr.promiseRequest({
             url: url
         }).then(data => {
-            setTimeout(() => { // ensure we are not mounting
-                me.applySourceCode(data.response);
-            }, 100);
+            me.applySourceCode(data.response);
         });
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        if (value) {
+            setTimeout(() => {
+                this.syntaxHighlight();
+            }, 50);
+        }
     }
 
     /**
@@ -125,33 +136,26 @@ class SourceViewComponent extends Component {
         node.cn[0].innerHTML = data; // code tag
         me.vdom = vdom;
 
-        setTimeout(() => {
-            me.syntaxHighlight(node.id);
-        }, 50);
+        if (me.mounted) {
+            me.syntaxHighlight();
+        }
     }
 
     /**
      *
-     * @param {String} vnodeId
      */
-    syntaxHighlight(vnodeId) {
-        let me = this,
-            id;
+    syntaxHighlight() {
+        let me = this;
 
-        if (me.vnode) {
-            Neo.main.addon.HighlightJS.syntaxHighlight({
-                vnodeId: me.vdom.cn[0].id
-            }).then(() => {
+        Neo.main.addon.HighlightJS.syntaxHighlight({
+            vnodeId: me.vdom.cn[0].id
+        }).then(() => {
+            if (!me.isHighlighted) {
                 me.isHighlighted = true;
-            });
-        } else {
-            id = me.on('mounted', () => {
-                setTimeout(() => {
-                    me.un('mounted', id);
-                    me.syntaxHighlight(vnodeId);
-                }, 50);
-            });
-        }
+            } else {
+                me.afterSetIsHighlighted(true, false);
+            }
+        });
     }
 }
 
