@@ -1,7 +1,8 @@
 import IdGenerator from './IdGenerator.mjs'
 
-const configSymbol = Symbol.for('configSymbol'),
-      isInstance   = Symbol('isInstance');
+const configSymbol      = Symbol.for('configSymbol'),
+      isInstance        = Symbol('isInstance'),
+      processConfigMode = Symbol('processConfigMode');
 
 /**
  * The base class for (almost) all classes inside the Neo namespace
@@ -285,6 +286,8 @@ class Base {
         let me   = this,
             keys = Object.keys(me[configSymbol]);
 
+        me[processConfigMode] = forceAssign;
+
         // We do not want to iterate over the keys, since 1 config can remove more than 1 key (beforeSetX, afterSetX)
         if (keys.length > 0) {
             // The hasOwnProperty check is intended for configs without a trailing underscore
@@ -329,13 +332,12 @@ class Base {
     set(values={}) {
         let me = this;
 
-        // instead of using:
-        // me[configSymbol] = values;
-        // we keep the Object instance (defined via Object.defineProperties() => non enumerable)
-
-        Object.keys(me[configSymbol]).forEach(key => {
-            delete me[configSymbol][key];
-        });
+        // if the initial config processing or another set() call is still running,
+        // finish this one first before dropping new values into the configSymbol
+        // see: https://github.com/neomjs/neo/issues/2201
+        if (Object.keys(me[configSymbol]).length > 0) {
+            me.processConfigs(me[processConfigMode]);
+        }
 
         Object.assign(me[configSymbol], values);
 
