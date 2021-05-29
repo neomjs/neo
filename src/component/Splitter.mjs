@@ -18,7 +18,7 @@ class Splitter extends Component {
         directions: ['horizontal', 'vertical'],
         /**
          * Valid values for resizeTarget
-         * @member {String[]} resizeTargets=['horizontal','vertical']
+         * @member {String[]} resizeTargets=['next','previous']
          * @protected
          * @static
          */
@@ -137,7 +137,7 @@ class Splitter extends Component {
      * @protected
      * @returns {String}
      */
-    beforeSetResizeTarget(value, oldValue) {
+    beforeSetResizeTarget(value, oldValue) {console.log('beforeSetResizeTarget', value, oldValue);
         return this.beforeSetEnumValue(value, oldValue, 'resizeTarget');
     }
 
@@ -146,9 +146,11 @@ class Splitter extends Component {
      * @param data
      */
     onDragEnd(data) {
-        let me      = this,
-            style   = me.style || {},
-            index, sibling, parent, size;
+        let me         = this,
+            style      = me.style || {},
+            resizeNext = me.resizeTarget === 'next',
+            size       = me.size,
+            index, newSize, sibling, parent;
 
         Neo.getComponent(me.parentId).disabled = false;
 
@@ -160,24 +162,38 @@ class Splitter extends Component {
 
         Neo.main.DomAccess.getBoundingClientRect({
             id: me.parentId
-        }).then(rect => {
+        }).then(parentRect => {
             parent  = Neo.getComponent(me.parentId);
             index   = parent.indexOf(me);
-            sibling = parent.items[index - 1];
+            sibling = parent.items[resizeNext ? index + 1 :index - 1];
             style   = sibling.style || {};
 
             style.flex = 'none';
 
             if (me.direction === 'vertical') {
-                size = data.clientX - data.offsetX - 2 * me.size;
-                size = Math.min(Math.max(size, 0), rect.width - me.size);
+                newSize = data.clientX - data.offsetX - size;
 
-                style.width = `${size}px`;
+                if (resizeNext) {
+                    newSize = parentRect.width - newSize;
+                } else {
+                    newSize -= size;
+                }
+
+                newSize = Math.min(Math.max(newSize, 0), parentRect.width - size);
+
+                style.width = `${newSize}px`;
             } else {
-                size = data.clientY - data.offsetY - 2 * me.size;
-                size = Math.min(Math.max(size, 0), rect.height - me.size);
+                newSize = data.clientY - data.offsetY - size;
 
-                style.height = `${size}px`;
+                if (resizeNext) {
+                    newSize = parentRect.height - newSize;
+                } else {
+                    newSize -= size;
+                }
+
+                newSize = Math.min(Math.max(newSize, 0), parentRect.height - size);
+
+                style.height = `${newSize}px`;
             }
 
             sibling.style = style;
