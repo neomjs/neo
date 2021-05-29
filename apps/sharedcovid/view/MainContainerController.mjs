@@ -652,13 +652,13 @@ class MainContainerController extends ComponentController {
             buttonText   = 'Theme Dark';
             href         = '../dist/development/neo-theme-light-no-css-vars.css';
             iconCls      = 'fa fa-moon';
-            mapViewStyle = mapView.mapboxStyleLight;
+            mapViewStyle = mapView && mapView.mapboxStyleLight;
             theme        = 'neo-theme-light';
         } else {
             buttonText   = 'Theme Light';
             href         = '../dist/development/neo-theme-dark-no-css-vars.css';
             iconCls      = 'fa fa-sun';
-            mapViewStyle = mapView.mapboxStyleDark;
+            mapViewStyle = mapView && mapView.mapboxStyleDark;
             theme        = 'neo-theme-dark';
         }
 
@@ -701,7 +701,9 @@ class MainContainerController extends ComponentController {
             text   : buttonText
         });
 
-        mapView.mapboxStyle = mapViewStyle;
+        if (mapView) {
+            mapView.mapboxStyle = mapViewStyle;
+        }
     }
 
     /**
