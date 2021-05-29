@@ -1,8 +1,8 @@
 import IdGenerator from './IdGenerator.mjs'
 
-const configSymbol        = Symbol.for('configSymbol'),
+const configSymbol       = Symbol.for('configSymbol'),
       forceAssignConfigs = Symbol('processConfigMode'),
-      isInstance          = Symbol('isInstance');
+      isInstance         = Symbol('isInstance');
 
 /**
  * The base class for (almost) all classes inside the Neo namespace
