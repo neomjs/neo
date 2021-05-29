@@ -3,6 +3,7 @@ import Container                from '../../../src/container/Base.mjs';
 import HistoricalDataTable      from './country/HistoricalDataTable.mjs';
 import LineChartComponent       from './country/LineChartComponent.mjs'
 import Panel                    from '../../../src/container/Panel.mjs';
+import Splitter                 from '../../../src/component/Splitter.mjs';
 import TabContainer             from '../../../src/tab/Container.mjs';
 import Table                    from './country/Table.mjs';
 import TableContainerController from './TableContainerController.mjs';
@@ -51,6 +52,8 @@ class TableContainer extends Container {
             flex  : 1,
             layout: 'fit',
             items : []
+        }, {
+            module: Splitter
         }, {
             module   : Panel,
             cls      : ['neo-configuration-panel', 'neo-panel', 'neo-container'],
@@ -148,7 +151,7 @@ class TableContainer extends Container {
             ...me.historicalDataTableConfig || {}
         });
 
-        me.items[1].items[0].items.push(me.historicalDataTable);
+        me.items[2].items[0].items.push(me.historicalDataTable);
 
         me.table = Neo.create({
             module   : Table,

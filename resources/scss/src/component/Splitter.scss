@@ -1,0 +1,27 @@
+.neo-splitter {
+    background-color: v(splitter-background-color);
+    border          : v(splitter-border);
+    transition      : background-color 0.3s ease-in-out;
+
+    &:hover {
+        background-color: v(splitter-hover-color);
+    }
+
+    &.neo-horizontal {
+        border-left : none;
+        border-right: none;
+        cursor      : ns-resize;
+    }
+
+    &.neo-vertical {
+        border-bottom: none;
+        border-top   : none;
+        cursor       : ew-resize;
+    }
+}
+
+.neo-dragproxy {
+    &.neo-splitter {
+        background-color: v(splitter-hover-color);
+    }
+}

@@ -97,6 +97,8 @@ class Picker extends Text {
 
         me.pickerWidth = width;
 
+        vdom.style = vdom.style || {};
+
         Object.assign(vdom.style, {
             left : `${triggerRect.left + triggerRect.width - width}px`,
             top  : `${triggerRect.top + triggerRect.height + 1}px`,

@@ -564,6 +564,7 @@ class MainContainer extends Container {
             cmp;
 
         const defaultConfig = {
+            appName     : me.appName,
             currentDate : me.currentDate,
             eventStore  : me.eventStore,
             locale      : me.locale,

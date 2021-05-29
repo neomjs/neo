@@ -529,6 +529,11 @@ class MainContainerController extends ComponentController {
                             me.mapBoxView = me.getReference('mapboxglmap');
                         }
 
+                        if (me.mapboxStyle) {
+                            me.mapBoxView.mapboxStyle = me.mapBoxView[me.mapboxStyle];
+                            delete me.mapboxStyle;
+                        }
+
                         if (!me.mapboxglMapHasData) {
                             me.mapBoxView.data = me.data;
                             me.mapboxglMapHasData = true;
@@ -634,12 +639,13 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onSwitchThemeButtonClick(data) {
-        let me        = this,
-            button    = data.component,
-            component = me.component,
-            logo      = me.getReference('logo'),
-            logoPath  = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
-            vdom      = logo.vdom,
+        let me         = this,
+            button     = data.component,
+            component  = me.component,
+            logo       = me.getReference('logo'),
+            logoPath   = 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps/covid/',
+            themeLight = button.text === 'Theme Light',
+            vdom       = logo.vdom,
             buttonText, cls, href, iconCls, mapView, mapViewStyle, theme;
 
         if (me.connectedApps.includes('SharedCovidMap')) {
@@ -648,17 +654,17 @@ class MainContainerController extends ComponentController {
             mapView = me.getReference('mapboxglmap');
         }
 
-        if (button.text === 'Theme Light') {
+        if (themeLight) {
             buttonText   = 'Theme Dark';
             href         = '../dist/development/neo-theme-light-no-css-vars.css';
             iconCls      = 'fa fa-moon';
-            mapViewStyle = mapView.mapboxStyleLight;
+            mapViewStyle = mapView && mapView.mapboxStyleLight;
             theme        = 'neo-theme-light';
         } else {
             buttonText   = 'Theme Light';
             href         = '../dist/development/neo-theme-dark-no-css-vars.css';
             iconCls      = 'fa fa-sun';
-            mapViewStyle = mapView.mapboxStyleDark;
+            mapViewStyle = mapView && mapView.mapboxStyleDark;
             theme        = 'neo-theme-dark';
         }
 
@@ -701,7 +707,11 @@ class MainContainerController extends ComponentController {
             text   : buttonText
         });
 
-        mapView.mapboxStyle = mapViewStyle;
+        if (mapView) {
+            mapView.mapboxStyle = mapViewStyle;
+        } else {
+            me.mapboxStyle = themeLight ? 'mapboxStyleLight' : 'mapboxStyleDark';
+        }
     }
 
     /**
