@@ -3,7 +3,7 @@ import DragZone  from '../draggable/DragZone.mjs';
 import NeoArray  from '../util/Array.mjs';
 
 /**
- * Splitters can get placed between containers to make them resizable via drag & drop
+ * Splitters can get put into containers to make siblings resizable via drag & drop
  * @class Neo.component.Splitter
  * @extends Neo.component.Base
  */
@@ -15,7 +15,14 @@ class Splitter extends Component {
          * @protected
          * @static
          */
-        directions: ['horizontal', 'vertical']
+        directions: ['horizontal', 'vertical'],
+        /**
+         * Valid values for resizeTarget
+         * @member {String[]} resizeTargets=['horizontal','vertical']
+         * @protected
+         * @static
+         */
+        resizeTargets: ['next', 'previous']
     }}
 
     static getConfig() {return {
@@ -47,6 +54,12 @@ class Splitter extends Component {
          * @member {Object|null} dragZoneConfig=null
          */
         dragZoneConfig: null,
+        /**
+         * Choose which sibling to resize
+         * Valid values: 'next' or 'previous'
+         * @member {String} resizeTarget_='next'
+         */
+        resizeTarget_: 'next',
         /**
          * Either height or with, depending on the direction.
          * Defaults to px
@@ -115,6 +128,17 @@ class Splitter extends Component {
      */
     beforeSetDirection(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'direction');
+    }
+
+    /**
+     * Triggered before the resizeTarget config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     * @returns {String}
+     */
+    beforeSetResizeTarget(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'resizeTarget');
     }
 
     /**
