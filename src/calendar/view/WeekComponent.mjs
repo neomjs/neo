@@ -623,7 +623,10 @@ class WeekComponent extends Component {
                 }
 
                 firstColumnDate.setDate(firstColumnDate.getDate() + 7);
-                me.updateEvents(13, 20, true);
+
+                setTimeout(() => {
+                    me.updateEvents(13, 20);
+                }, 50);
 
                 scrollValue = -width;
             }
@@ -644,7 +647,10 @@ class WeekComponent extends Component {
                 }
 
                 firstColumnDate.setDate(firstColumnDate.getDate() - 7);
-                me.updateEvents(0, 6, true);
+
+                setTimeout(() => {
+                    me.updateEvents(0, 6);
+                }, 50);
 
                 scrollValue = width;
             }
