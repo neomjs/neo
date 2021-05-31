@@ -616,7 +616,7 @@ class WeekComponent extends Component {
                 for (; i < 7; i++) {
                     date.setDate(date.getDate() + 1);
 
-                    config= me.createColumnAndHeader(date);
+                    config = me.createColumnAndHeader(date);
 
                     columns.cn.push(config.column);
                     header.cn.push(config.header);
@@ -642,7 +642,7 @@ class WeekComponent extends Component {
                 for (; i < 7; i++) {
                     date.setDate(date.getDate() - 1);
 
-                    config= me.createColumnAndHeader(date);
+                    config = me.createColumnAndHeader(date);
 
                     columns.cn.unshift(config.column);
                     header.cn.unshift(config.header);
