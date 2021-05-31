@@ -103,8 +103,7 @@ class WeekEventDragZone extends DragZone {
         let me        = this,
             component = Neo.getComponent(me.getDragElementRoot().id) || me.owner,
             vdom      = me.dragProxyConfig && me.dragProxyConfig.vdom,
-            clone     = VDomUtil.clone(vdom ? vdom : me.dragElement),
-            style;
+            clone     = VDomUtil.clone(vdom ? vdom : me.dragElement);
 
         const config = {
             module          : DragProxyComponent,
@@ -131,20 +130,11 @@ class WeekEventDragZone extends DragZone {
             NeoArray.add(config.cls, me.dragProxyCls);
         }
 
-        style = config.style || {};
-
-        style.height = `${data.height}px`;
-        style.width  = `${data.width}px`;
-
-        if (me.moveHorizontal) {
-            style.left = `${data.x}px`;
-        }
-
-        if (me.moveVertical) {
-            style.top = `${data.y}px`;
-        }
-
-        config.style = style;
+        Object.assign(config.style, {
+            height: `${data.height}px`,
+            top   : `${data.y - me.columnTop}px`,
+            width : `${data.width}px`
+        });
 
         me.dragProxy = Neo.create(config);
     }
