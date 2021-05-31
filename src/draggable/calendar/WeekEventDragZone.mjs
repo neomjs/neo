@@ -1,5 +1,7 @@
-import DragZone from '../../draggable/DragZone.mjs';
-import VDomUtil from '../../util/VDom.mjs';
+import DragProxyComponent from '../DragProxyComponent.mjs';
+import DragZone           from '../../draggable/DragZone.mjs';
+import NeoArray           from '../../util/Array.mjs';
+import VDomUtil           from '../../util/VDom.mjs';
 
 /**
  * @class Neo.draggable.calendar.WeekEventDragZone
@@ -91,6 +93,60 @@ class WeekEventDragZone extends DragZone {
                 });
             }
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    createDragProxy(data) {
+        let me        = this,
+            component = Neo.getComponent(me.getDragElementRoot().id) || me.owner,
+            vdom      = me.dragProxyConfig && me.dragProxyConfig.vdom,
+            clone     = VDomUtil.clone(vdom ? vdom : me.dragElement),
+            style;
+
+        const config = {
+            module          : DragProxyComponent,
+            appName         : me.appName,
+            moveInMainThread: me.moveInMainThread,
+            parentId        : me.proxyParentId,
+
+            ...me.dragProxyConfig || {},
+
+            vdom: me.useProxyWrapper ? {cn: [clone]} : clone // we want to override dragProxyConfig.vdom if needed
+        };
+
+        config.cls = config.cls || [];
+
+        if (component) {
+            config.cls.push(component.getTheme());
+        }
+
+        if (clone.cls && !me.useProxyWrapper) {
+            config.cls.push(...clone.cls);
+        }
+
+        if (me.addDragProxyCls && config.cls) {
+            NeoArray.add(config.cls, me.dragProxyCls);
+        }
+
+        style = config.style || {};
+
+        style.height = `${data.height}px`;
+        style.width  = `${data.width}px`;
+
+        if (me.moveHorizontal) {
+            style.left = `${data.x}px`;
+        }
+
+        if (me.moveVertical) {
+            style.top = `${data.y}px`;
+        }
+
+        config.style = style;
+
+        me.dragProxy = Neo.create(config);
     }
 
     /**
