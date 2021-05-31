@@ -596,12 +596,13 @@ class WeekComponent extends Component {
      */
     onWheel(data) {
         if (!this.isUpdating && Math.abs(data.deltaX) > Math.abs(data.deltaY)) {
-            let me            = this,
-                columns       = me.getColumnContainer(),
-                header        = me.getHeaderContainer(),
-                i             = 0,
-                timeAxisWidth = 50,
-                width         = data.clientWidth - timeAxisWidth,
+            let me              = this,
+                columns         = me.getColumnContainer(),
+                firstColumnDate = me.firstColumnDate,
+                header          = me.getHeaderContainer(),
+                i               = 0,
+                timeAxisWidth   = 50,
+                width           = data.clientWidth - timeAxisWidth,
                 config, date, scrollValue;
 
             // console.log(data.scrollLeft, Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 7));
@@ -621,6 +622,9 @@ class WeekComponent extends Component {
                     header.cn.push(config.header);
                 }
 
+                firstColumnDate.setDate(firstColumnDate.getDate() + 7);
+                me.updateEvents(13, 20, true);
+
                 scrollValue = -width;
             }
 
@@ -638,6 +642,9 @@ class WeekComponent extends Component {
                     columns.cn.unshift(config.column);
                     header.cn.unshift(config.header);
                 }
+
+                firstColumnDate.setDate(firstColumnDate.getDate() - 7);
+                me.updateEvents(0, 6, true);
 
                 scrollValue = width;
             }
@@ -660,8 +667,11 @@ class WeekComponent extends Component {
 
     /**
      * The algorithm relies on the eventStore being sorted by startDate ASC
+     * @param {Number} [startIndex=0]
+     * @param {Number} [endIndex=21]
+     * @param {Boolean} [silent=false]
      */
-    updateEvents() {
+    updateEvents(startIndex=0, endIndex=21, silent=false) {
         let me         = this,
             timeAxis   = me.timeAxis,
             endTime    = timeAxis.getTime(timeAxis.endTime),
@@ -671,15 +681,16 @@ class WeekComponent extends Component {
             eventStore = me.eventStore,
             vdom       = me.vdom,
             content    = me.getColumnContainer(),
-            j          = 0,
+            j          = startIndex,
             len        = eventStore.getCount(),
             column, duration, height, i, record, recordKey, startHours, top;
 
-        // remove previous events from the vdom
-        content.cn.forEach(item => item.cn = []);
+        date.setDate(date.getDate() + startIndex);
 
-        for (; j < 21; j++) {
+        for (; j < endIndex; j++) {
             column = content.cn[j];
+
+            column.cn = []; // remove previous events from the vdom
 
             for (i = 0; i < len; i++) {
                 record = eventStore.items[i];
@@ -725,7 +736,7 @@ class WeekComponent extends Component {
             date.setDate(date.getDate() + 1);
         }
 
-        me.vdom = vdom;
+        me[silent ? '_vdom' : 'vdom'] = vdom;
     }
 
     /**

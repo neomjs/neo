@@ -37,12 +37,10 @@ class HeaderComponent extends Component {
         /**
          * @member {Object} _vdom
          */
-        _vdom: {
-            cn: [{
-                tag: 'span',
-                cls: ['neo-docs-header-text']
-            }]
-        }
+        _vdom:
+        {cn: [
+            {tag: 'span', cls: ['neo-docs-header-text']}
+        ]}
     }}
 
     /**

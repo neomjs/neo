@@ -201,13 +201,6 @@ class DragZone extends Base {
             moveInMainThread: me.moveInMainThread,
             parentId        : me.proxyParentId,
 
-            style: {
-                height: `${data.height}px`,
-                left  : `${me.moveHorizontal ? data.x : rect.x}px`,
-                top   : `${me.moveVertical   ? data.y : rect.y}px`,
-                width : `${data.width}px`
-            },
-
             ...me.dragProxyConfig || {},
 
             vdom: me.useProxyWrapper ? {cn: [clone]} : clone // we want to override dragProxyConfig.vdom if needed
@@ -226,6 +219,15 @@ class DragZone extends Base {
         if (me.addDragProxyCls && config.cls) {
             NeoArray.add(config.cls, me.dragProxyCls);
         }
+
+        config.style = config.style || {};
+
+        Object.assign(config.style, {
+            height: `${data.height}px`,
+            left  : `${me.moveHorizontal ? data.x : rect.x}px`,
+            top   : `${me.moveVertical   ? data.y : rect.y}px`,
+            width : `${data.width}px`
+        });
 
         me.dragProxy = Neo.create(config);
     }

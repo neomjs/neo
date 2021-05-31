@@ -1,8 +1,8 @@
 import IdGenerator from './IdGenerator.mjs'
 
-const configSymbol        = Symbol.for('configSymbol'),
+const configSymbol       = Symbol.for('configSymbol'),
       forceAssignConfigs = Symbol('processConfigMode'),
-      isInstance          = Symbol('isInstance');
+      isInstance         = Symbol('isInstance');
 
 /**
  * The base class for (almost) all classes inside the Neo namespace
@@ -332,7 +332,7 @@ class Base {
     set(values={}) {
         let me = this;
 
-        // If the initial config processing or another set() call is still running,
+        // If the initial config processing is still running,
         // finish this one first before dropping new values into the configSymbol.
         // see: https://github.com/neomjs/neo/issues/2201
         if (me[forceAssignConfigs] !== true && Object.keys(me[configSymbol]).length > 0) {
