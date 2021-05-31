@@ -660,8 +660,11 @@ class WeekComponent extends Component {
 
     /**
      * The algorithm relies on the eventStore being sorted by startDate ASC
+     * @param {Number} [startIndex=0]
+     * @param {Number} [endIndex=21]
+     * @param {Boolean} [silent=false]
      */
-    updateEvents() {
+    updateEvents(startIndex=0, endIndex=21, silent=false) {
         let me         = this,
             timeAxis   = me.timeAxis,
             endTime    = timeAxis.getTime(timeAxis.endTime),
@@ -671,14 +674,14 @@ class WeekComponent extends Component {
             eventStore = me.eventStore,
             vdom       = me.vdom,
             content    = me.getColumnContainer(),
-            j          = 0,
+            j          = startIndex,
             len        = eventStore.getCount(),
             column, duration, height, i, record, recordKey, startHours, top;
 
         // remove previous events from the vdom
         content.cn.forEach(item => item.cn = []);
 
-        for (; j < 21; j++) {
+        for (; j < endIndex; j++) {
             column = content.cn[j];
 
             for (i = 0; i < len; i++) {
@@ -725,7 +728,7 @@ class WeekComponent extends Component {
             date.setDate(date.getDate() + 1);
         }
 
-        me.vdom = vdom;
+        me[silent ? '_vdom' : 'vdom'] = vdom;
     }
 
     /**
