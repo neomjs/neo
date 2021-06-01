@@ -75,6 +75,7 @@ class RemoteMethodAccess extends Base {
                 }
             });
 
+            // todo: inspect if this can get removed
             if (!exists && Neo.workerId !== 'main') {
                 me.fire('remoteregistered', remote);
             }

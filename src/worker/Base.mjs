@@ -22,6 +22,11 @@ class Base extends CoreBase {
          */
         ntype: 'worker',
         /**
+         * @member {Object|null} channelPorts=null
+         * @protected
+         */
+        channelPorts: null,
+        /**
          * Only needed for SharedWorkers
          * @member {Boolean} isConnected=false
          * @protected
@@ -45,12 +50,7 @@ class Base extends CoreBase {
          * @member {String|null} workerId=null
          * @protected
          */
-        workerId: null,
-        /**
-         * @member {Object|null} workerPorts=null
-         * @protected
-         */
-        workerPorts: null
+        workerId: null
     }}
 
     /**
@@ -63,10 +63,10 @@ class Base extends CoreBase {
         let me = this;
 
         Object.assign(me, {
+            channelPorts  : {},
             isSharedWorker: self.toString() === '[object SharedWorkerGlobalScope]',
             ports         : [],
-            promises      : {},
-            workerPorts   : {}
+            promises      : {}
         });
 
         if (me.isSharedWorker) {
@@ -258,7 +258,9 @@ class Base extends CoreBase {
         let me = this,
             message, port, portObject;
 
-        if (!me.isSharedWorker) {
+        if (me.channelPorts[dest]) {
+            port = me.channelPorts[dest];
+        } else if (!me.isSharedWorker) {
             port = self;
         } else {
             if (opts.port) {

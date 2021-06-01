@@ -45,9 +45,9 @@ class Data extends Base {
 
         channel.port1.onmessage = me.onMessage.bind(me);
 
-        me.workerPorts.app = channel.port1;
-
         me.sendMessage('app', {action: 'registerPort', transfer: port}, [port]);
+
+        me.channelPorts.app = channel.port1;
     }
 
     /**

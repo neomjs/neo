@@ -220,7 +220,12 @@ class App extends Base {
      * @param {Object} msg
      */
     onRegisterPort(msg) {
-        this.workerPorts.app = msg.transfer;
+        let me   = this,
+            port = msg.transfer;
+
+        port.onmessage = me.onMessage.bind(me);
+
+        me.channelPorts.data = port;
     }
 
     /**
