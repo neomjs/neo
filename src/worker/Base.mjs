@@ -45,7 +45,12 @@ class Base extends CoreBase {
          * @member {String|null} workerId=null
          * @protected
          */
-        workerId: null
+        workerId: null,
+        /**
+         * @member {Object|null} workerPorts=null
+         * @protected
+         */
+        workerPorts: null
     }}
 
     /**
@@ -60,7 +65,8 @@ class Base extends CoreBase {
         Object.assign(me, {
             isSharedWorker: self.toString() === '[object SharedWorkerGlobalScope]',
             ports         : [],
-            promises      : {}
+            promises      : {},
+            workerPorts   : {}
         });
 
         if (me.isSharedWorker) {
