@@ -74,6 +74,11 @@ class Base extends CoreBase {
     }
 
     /**
+     * Entry point for dedicated and shared workers
+     */
+    afterConnect() {}
+
+    /**
      *
      * @param {Object} opts
      * @returns {Object|null}
@@ -134,6 +139,8 @@ class Base extends CoreBase {
         me.fire('connected');
 
         me.sendMessage('main', {action: 'workerConstructed', port: id});
+
+        me.afterConnect();
     }
 
     /**
@@ -142,8 +149,11 @@ class Base extends CoreBase {
     onConstructed() {
         super.onConstructed();
 
-        if (!this.isSharedWorker) {
-            this.sendMessage('main', {action: 'workerConstructed'});
+        let me = this;
+
+        if (!me.isSharedWorker) {
+            me.sendMessage('main', {action: 'workerConstructed'});
+            me.afterConnect();
         }
     }
 

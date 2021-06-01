@@ -38,8 +38,30 @@ class Data extends Base {
     /**
      *
      */
+    afterConnect() {
+        let me      = this,
+            channel = new MessageChannel(),
+            port    = channel.port2;
+
+        channel.port1.onmessage = me.onMessage.bind(me);
+
+        me.sendMessage('app', {action: 'registerPort', transfer: port}, [port]);
+    }
+
+    /**
+     *
+     */
     onLoad() {
         console.log('worker.Data onLoad');
+    }
+
+    /**
+     *
+     * @param {Object} msg
+     */
+    onPing(msg) {
+        console.log('data worker onPing');
+        super.onPing(msg);
     }
 }
 

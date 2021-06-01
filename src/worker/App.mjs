@@ -217,6 +217,18 @@ class App extends Base {
 
     /**
      *
+     * @param {Object} msg
+     */
+    onRegisterPort(msg) {
+        console.log('onRegisterPort', msg);
+
+        msg.transfer.postMessage({
+            action: 'ping'
+        });
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onWindowPositionChange(data) {
