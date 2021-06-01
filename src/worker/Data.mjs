@@ -45,6 +45,8 @@ class Data extends Base {
 
         channel.port1.onmessage = me.onMessage.bind(me);
 
+        me.workerPorts.app = channel.port1;
+
         me.sendMessage('app', {action: 'registerPort', transfer: port}, [port]);
     }
 
@@ -53,15 +55,6 @@ class Data extends Base {
      */
     onLoad() {
         console.log('worker.Data onLoad');
-    }
-
-    /**
-     *
-     * @param {Object} msg
-     */
-    onPing(msg) {
-        console.log('data worker onPing');
-        super.onPing(msg);
     }
 }
 
