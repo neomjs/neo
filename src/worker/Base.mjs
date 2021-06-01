@@ -22,6 +22,11 @@ class Base extends CoreBase {
          */
         ntype: 'worker',
         /**
+         * @member {Object|null} channelPorts=null
+         * @protected
+         */
+        channelPorts: null,
+        /**
          * Only needed for SharedWorkers
          * @member {Boolean} isConnected=false
          * @protected
@@ -58,6 +63,7 @@ class Base extends CoreBase {
         let me = this;
 
         Object.assign(me, {
+            channelPorts  : {},
             isSharedWorker: self.toString() === '[object SharedWorkerGlobalScope]',
             ports         : [],
             promises      : {}
@@ -72,6 +78,11 @@ class Base extends CoreBase {
         Neo.workerId      = me.workerId;
         Neo.currentWorker = me;
     }
+
+    /**
+     * Entry point for dedicated and shared workers
+     */
+    afterConnect() {}
 
     /**
      *
@@ -134,6 +145,8 @@ class Base extends CoreBase {
         me.fire('connected');
 
         me.sendMessage('main', {action: 'workerConstructed', port: id});
+
+        me.afterConnect();
     }
 
     /**
@@ -142,8 +155,11 @@ class Base extends CoreBase {
     onConstructed() {
         super.onConstructed();
 
-        if (!this.isSharedWorker) {
-            this.sendMessage('main', {action: 'workerConstructed'});
+        let me = this;
+
+        if (!me.isSharedWorker) {
+            me.sendMessage('main', {action: 'workerConstructed'});
+            me.afterConnect();
         }
     }
 
@@ -242,7 +258,9 @@ class Base extends CoreBase {
         let me = this,
             message, port, portObject;
 
-        if (!me.isSharedWorker) {
+        if (me.channelPorts[dest]) {
+            port = me.channelPorts[dest];
+        } else if (!me.isSharedWorker) {
             port = self;
         } else {
             if (opts.port) {

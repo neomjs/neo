@@ -616,7 +616,7 @@ class WeekComponent extends Component {
                 for (; i < 7; i++) {
                     date.setDate(date.getDate() + 1);
 
-                    config= me.createColumnAndHeader(date);
+                    config = me.createColumnAndHeader(date);
 
                     columns.cn.push(config.column);
                     header.cn.push(config.header);
@@ -624,6 +624,8 @@ class WeekComponent extends Component {
 
                 firstColumnDate.setDate(firstColumnDate.getDate() + 7);
 
+                // we need a short delay to move the event rendering into the next animation frame.
+                // Details: https://github.com/neomjs/neo/issues/2216
                 setTimeout(() => {
                     me.updateEvents(13, 20);
                 }, 50);
@@ -640,7 +642,7 @@ class WeekComponent extends Component {
                 for (; i < 7; i++) {
                     date.setDate(date.getDate() - 1);
 
-                    config= me.createColumnAndHeader(date);
+                    config = me.createColumnAndHeader(date);
 
                     columns.cn.unshift(config.column);
                     header.cn.unshift(config.header);
@@ -648,6 +650,8 @@ class WeekComponent extends Component {
 
                 firstColumnDate.setDate(firstColumnDate.getDate() - 7);
 
+                // we need a short delay to move the event rendering into the next animation frame.
+                // Details: https://github.com/neomjs/neo/issues/2216
                 setTimeout(() => {
                     me.updateEvents(0, 6);
                 }, 50);

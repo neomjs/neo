@@ -252,6 +252,7 @@ class Manager extends Base {
         let me           = this,
             data         = e.data,
             delayPromise = false,
+            transfer     = null,
             promise;
 
         const {
@@ -296,7 +297,11 @@ class Manager extends Base {
         }
 
         if (dest !== 'main' && action !== 'reply') {
-            me.promiseMessage(dest, data).then(response => {
+            if (data.transfer) {
+                transfer = [data.transfer];
+            }
+
+            me.promiseMessage(dest, data, transfer).then(response => {
                 me.sendMessage(response.destination, response);
             }).catch(err => {
                 me.sendMessage(data.origin, {

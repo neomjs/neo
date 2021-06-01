@@ -217,6 +217,19 @@ class App extends Base {
 
     /**
      *
+     * @param {Object} msg
+     */
+    onRegisterPort(msg) {
+        let me   = this,
+            port = msg.transfer;
+
+        port.onmessage = me.onMessage.bind(me);
+
+        me.channelPorts.data = port;
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onWindowPositionChange(data) {
