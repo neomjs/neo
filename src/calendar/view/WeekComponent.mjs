@@ -87,6 +87,11 @@ class WeekComponent extends Component {
          */
         intlFormat_time: null,
         /**
+         * @member {Boolean} isDragging=false
+         * @protected
+         */
+        isDragging: false,
+        /**
          * @member {Boolean} isUpdating=false
          * @protected
          */
@@ -541,6 +546,7 @@ class WeekComponent extends Component {
      */
     onEventDragEnd(data) {
         this.eventDragZone.dragEnd();
+        this.isDragging = false;
     }
 
     /**
@@ -559,6 +565,8 @@ class WeekComponent extends Component {
         let me          = this,
             dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom,
             timeAxis    = me.timeAxis;
+
+        me.isDragging = true;
 
         const config = {
             dragElement  : dragElement,

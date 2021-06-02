@@ -86,6 +86,7 @@ class Base extends Panel {
         headerToolbar: null,
         /**
          * @member {Boolean} isDragging=false
+         * @protected
          */
         isDragging: false,
         /**
