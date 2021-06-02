@@ -175,6 +175,7 @@ class Component extends BaseComponent {
             appName      : me.appName,
             delegationCls: 'neo-event',
             directions   : ['b', 't'],
+            flag         : 'resizable',
             ...me.resizablePluginConfig || {}
         });
 
@@ -195,6 +196,19 @@ class Component extends BaseComponent {
         me.updateHeader(true);
 
         me.headerCreated = true;
+    }
+
+    /**
+     * Adjusts drag events which start on an event resize handle
+     * @param {Object} data
+     * @returns {Object}
+     */
+    adjustResizeEvent(data) {
+        data.path.shift();
+        data.targetPath.shift();
+        data.target = data.path[0];
+
+        return data;
     }
 
     /**
@@ -565,10 +579,13 @@ class Component extends BaseComponent {
     onEventDragEnd(data) {
         let me = this;
 
-        if (me.isTopLevelEvent(data)) {
-            me.eventDragZone.dragEnd();
-            me.isDragging = false;
+        if (!me.isTopLevelEvent(data)) {
+            data = me.adjustResizeEvent(data);
+            me.getPlugin({flag:'resizable'}).onDragEnd(data);
         }
+
+        me.eventDragZone.dragEnd();
+        me.isDragging = false;
     }
 
     /**
@@ -576,9 +593,13 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDragMove(data) {
-        if (this.isTopLevelEvent(data)) {
-            this.eventDragZone.dragMove(data);
+        let me = this;
+
+        if (!me.isTopLevelEvent(data)) {
+            data = me.adjustResizeEvent(data);
         }
+
+        me.eventDragZone.dragMove(data);
     }
 
     /**
@@ -586,42 +607,47 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDragStart(data) {
-        if (this.isTopLevelEvent(data)) {
-            let me          = this,
-                dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom,
-                timeAxis    = me.timeAxis;
+        let me = this,
+            dragElement, timeAxis;
 
-            me.isDragging = true;
-
-            const config = {
-                dragElement  : dragElement,
-                endTime      : timeAxis.getTime(timeAxis.endTime),
-                eventRecord  : me.eventStore.get(dragElement.flag),
-                proxyParentId: data.path[1].id,
-                startTime    : timeAxis.getTime(timeAxis.startTime)
-            };
-
-            if (!me.eventDragZone) {
-                me.eventDragZone = Neo.create({
-                    module           : WeekEventDragZone,
-                    appName          : me.appName,
-                    owner            : me,
-                    scrollContainerId: me.getScrollContainer().id,
-                    ...config,
-
-                    dragProxyConfig: {
-                        style: {
-                            transition: 'none',
-                            willChange: 'height'
-                        }
-                    }
-                });
-            } else {
-                me.eventDragZone.set(config);
-            }
-
-            me.eventDragZone.dragStart(data);
+        if (!me.isTopLevelEvent(data)) {
+            data = me.adjustResizeEvent(data);
+            me.getPlugin({flag:'resizable'}).onDragStart(data);
         }
+
+        dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom;
+        timeAxis    = me.timeAxis;
+
+        me.isDragging = true;
+
+        const config = {
+            dragElement  : dragElement,
+            endTime      : timeAxis.getTime(timeAxis.endTime),
+            eventRecord  : me.eventStore.get(dragElement.flag),
+            proxyParentId: data.path[1].id,
+            startTime    : timeAxis.getTime(timeAxis.startTime)
+        };
+
+        if (!me.eventDragZone) {
+            me.eventDragZone = Neo.create({
+                module           : WeekEventDragZone,
+                appName          : me.appName,
+                owner            : me,
+                scrollContainerId: me.getScrollContainer().id,
+                ...config,
+
+                dragProxyConfig: {
+                    style: {
+                        transition: 'none',
+                        willChange: 'height'
+                    }
+                }
+            });
+        } else {
+            me.eventDragZone.set(config);
+        }
+
+        me.eventDragZone.dragStart(data);
     }
 
     /**
