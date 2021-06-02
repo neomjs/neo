@@ -189,10 +189,7 @@ class Base extends Panel {
         }
 
         if (value) {
-            import(
-                /* webpackChunkName: 'src/draggable/DragZone-mjs.js' */
-                '../draggable/DragZone.mjs'
-            ).then(module => {
+            import('../draggable/DragZone.mjs').then(module => {
                 DragZone = module.default;
 
                 if (!me.dragListenersAdded) {
@@ -262,10 +259,7 @@ class Base extends Panel {
      */
     afterSetResizable(value, oldValue) {
         if (value) {
-            import(
-                /* webpackChunkName: 'src/plugin/Resizable-mjs.js' */
-                '../plugin/Resizable.mjs'
-            ).then(module => {
+            import('../plugin/Resizable.mjs').then(module => {
                 let me      = this,
                     plugins = me.plugins || [];
 
