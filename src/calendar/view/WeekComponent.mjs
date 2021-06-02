@@ -1,6 +1,7 @@
 import Component         from '../../component/Base.mjs';
 import DateUtil          from '../../util/Date.mjs';
 import NeoArray          from '../../util/Array.mjs';
+import Resizable         from '../../plugin/Resizable.mjs';
 import TimeAxisComponent from './TimeAxisComponent.mjs';
 import VDomUtil          from '../../util/VDom.mjs';
 import WeekEventDragZone from '../../draggable/calendar/WeekEventDragZone.mjs';
@@ -95,6 +96,10 @@ class WeekComponent extends Component {
          */
         locale_: Neo.config.locale,
         /**
+         * @member {Object} resizablePluginConfig=null
+         */
+        resizablePluginConfig: null,
+        /**
          * @member {Object} timeAxis=null
          */
         timeAxis: null,
@@ -144,7 +149,8 @@ class WeekComponent extends Component {
         let me           = this,
             domListeners = me.domListeners,
             columnOpts   = {scope: me, delegate: '.neo-c-w-column'},
-            eventOpts    = {scope: me, delegate: '.neo-event'};
+            eventOpts    = {scope: me, delegate: '.neo-event'},
+            plugins      = me.plugins || [];
 
         domListeners.push(
             {dblclick    : me.onEventDoubleClick, ...eventOpts},
@@ -158,6 +164,16 @@ class WeekComponent extends Component {
         );
 
         me.domListeners = domListeners;
+
+        plugins.push({
+            module       : Resizable,
+            appName      : me.appName,
+            delegationCls: 'neo-event',
+            flag         : 'resizable',
+            ...me.resizablePluginConfig || {}
+        });
+
+        me.plugins = plugins;
 
         me.timeAxis = Neo.create(TimeAxisComponent, {
             appName  : me.appName,
