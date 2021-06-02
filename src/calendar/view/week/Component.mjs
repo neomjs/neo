@@ -1,7 +1,7 @@
 import BaseComponent     from '../../../component/Base.mjs';
 import DateUtil          from '../../../util/Date.mjs';
+import EventResizable    from './EventResizable.mjs';
 import NeoArray          from '../../../util/Array.mjs';
-import Resizable         from '../../../plugin/Resizable.mjs';
 import TimeAxisComponent from './TimeAxisComponent.mjs';
 import VDomUtil          from '../../../util/VDom.mjs';
 import WeekEventDragZone from '../../../draggable/calendar/WeekEventDragZone.mjs';
@@ -171,7 +171,7 @@ class Component extends BaseComponent {
         me.domListeners = domListeners;
 
         plugins.push({
-            module       : Resizable,
+            module       : EventResizable,
             appName      : me.appName,
             delegationCls: 'neo-event',
             directions   : ['b', 't'],
