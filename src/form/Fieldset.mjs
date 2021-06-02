@@ -59,6 +59,10 @@ class Fieldset extends Container {
          */
         legend: null,
         /**
+         * @member {Object|null} legendConfig=null
+         */
+        legendConfig: null,
+        /**
          * @member {String} title_=''
          */
         title_: '',
@@ -227,7 +231,8 @@ class Fieldset extends Container {
                 me.legend = me.insert(0, {
                     module : Legend,
                     iconCls: iconCls,
-                    text   : title
+                    text   : title,
+                    ...me.legendConfig || {}
                 });
             }
         }
