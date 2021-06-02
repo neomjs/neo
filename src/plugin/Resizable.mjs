@@ -156,7 +156,13 @@ class Resizable extends Base {
          * @member {Object} nodeTopRight=null
          * @protected
          */
-        nodeTopRight: null
+        nodeTopRight: null,
+        /**
+         * vdom node which matches the delegationCls to add resize handles
+         * @member {Object} targetNode=null
+         * @protected
+         */
+        targetNode: null
     }}
 
     /**
@@ -174,7 +180,7 @@ class Resizable extends Base {
             {'drag:move' : me.onDragMove,   scope: me, delegate: '.neo-resizable'},
             {'drag:start': me.onDragStart,  scope: me, delegate: '.neo-resizable'},
             {mousemove   : me.onMouseMove,  scope: me, local   : true},
-            {mouseleave  : me.onMouseLeave, scope: me}
+            {mouseleave  : me.onMouseLeave, scope: me, delegate: `.${me.delegationCls}`}
         );
 
         me.owner.domListeners = domListeners;
@@ -186,12 +192,15 @@ class Resizable extends Base {
      * @returns {Boolean} true
      */
     addNode(name) {
-        let me       = this,
-            nodeName = 'node' + Neo.capitalize(name.replace(Resizable.nameRegEx, (str, letter) => letter.toUpperCase()));
+        let me         = this,
+            nodeName   = 'node' + Neo.capitalize(name.replace(Resizable.nameRegEx, (str, letter) => letter.toUpperCase())),
+            targetNode = me.targetNode;
 
         me.currentNodeName = name;
         me[nodeName] = {cls: ['neo-resizable', `neo-resizable-${name}`]};
-        me.owner.getVdomRoot().cn.push(me[nodeName]);
+
+        targetNode.cn = targetNode.cn || [];
+        targetNode.cn.push(me[nodeName]);
 
         return true;
     }
@@ -422,16 +431,17 @@ class Resizable extends Base {
      * @param {Object} data
      */
     onMouseMove(data) {
-        let me   = this,
-            dir  = me.directions,
-            i    = 0,
-            gap  = me.gap,
-            h    = false,
-            len  = data.path.length,
-            vdom = me.owner.vdom,
+        let me    = this,
+            dir   = me.directions,
+            i     = 0,
+            gap   = me.gap,
+            h     = false,
+            len   = data.path.length,
+            owner = me.owner,
+            vdom  = owner.vdom,
             bottom, left, right, target, top;
 
-        if (!me.isDragging && !me.owner.isDragging) {
+        if (!me.isDragging && !owner.isDragging) {
             for (; i < len; i++) {
                 if (data.path[i].cls.includes(me.delegationCls)) {
                     target = data.path[i];
@@ -440,6 +450,8 @@ class Resizable extends Base {
             }
 
             if (target) {
+                me.targetNode = owner.getVdomChild(target.id);
+
                 bottom = data.clientY >= target.rect.y - gap + target.rect.height;
                 left   = data.clientX <= target.rect.x + gap;
                 right  = data.clientX >= target.rect.x - gap + target.rect.width;
@@ -465,7 +477,7 @@ class Resizable extends Base {
                 else if (dir.includes('t')  && top)             {if (!me.nodeTop)         {h = me.addNode('top');}}
 
                 if (h) {
-                    me.owner.vdom = vdom;
+                    owner.vdom = vdom;
                 }
             }
         }
@@ -511,7 +523,7 @@ class Resizable extends Base {
 
         if (me[nodeName]) {
             me.currentNodeName = null;
-            NeoArray.remove(me.owner.getVdomRoot().cn, me[nodeName]);
+            NeoArray.remove(me.targetNode.cn, me[nodeName]);
             me[nodeName] = null;
 
             return true;
