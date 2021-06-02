@@ -502,7 +502,7 @@ class Resizable extends Base {
     onMouseLeave(data) {
         let me = this;
 
-        if (!me.isDragging) {
+        if (!me.isDragging && !me.owner.isDragging) {
             // limit the event to delegation targets
             if (data.path[0].cls.includes(me.delegationCls)) {
                 me.removeAllNodes();
