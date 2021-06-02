@@ -123,7 +123,7 @@ class WeekContainer extends Container {
 
     /**
      *
-     * @returns {Neo.calendar.view.WeekComponent}
+     * @returns {Neo.calendar.view.Component}
      */
     getWeekComponent() {
         return this.up('calendar-maincontainer').weekComponent;

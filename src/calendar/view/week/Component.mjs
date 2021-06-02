@@ -1,10 +1,10 @@
-import Component         from '../../component/Base.mjs';
-import DateUtil          from '../../util/Date.mjs';
-import NeoArray          from '../../util/Array.mjs';
-import Resizable         from '../../plugin/Resizable.mjs';
+import BaseComponent     from '../../../component/Base.mjs';
+import DateUtil          from '../../../util/Date.mjs';
+import NeoArray          from '../../../util/Array.mjs';
+import Resizable         from '../../../plugin/Resizable.mjs';
 import TimeAxisComponent from './TimeAxisComponent.mjs';
-import VDomUtil          from '../../util/VDom.mjs';
-import WeekEventDragZone from '../../draggable/calendar/WeekEventDragZone.mjs';
+import VDomUtil          from '../../../util/VDom.mjs';
+import WeekEventDragZone from '../../../draggable/calendar/WeekEventDragZone.mjs';
 
 const todayDate = new Date();
 
@@ -15,10 +15,10 @@ const today = {
 };
 
 /**
- * @class Neo.calendar.view.WeekComponent
+ * @class Neo.calendar.view.week.Component
  * @extends Neo.component.Base
  */
-class WeekComponent extends Component {
+class Component extends BaseComponent {
     static getStaticConfig() {return {
         /**
          * Valid values for timeAxisPosition
@@ -31,10 +31,10 @@ class WeekComponent extends Component {
 
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.calendar.view.WeekComponent'
+         * @member {String} className='Neo.calendar.view.week.Component'
          * @protected
          */
-        className: 'Neo.calendar.view.WeekComponent',
+        className: 'Neo.calendar.view.week.Component',
         /**
          * @member {String} ntype='calendar-view-weekcomponent'
          * @protected
@@ -889,6 +889,6 @@ class WeekComponent extends Component {
     }
 }
 
-Neo.applyClassConfig(WeekComponent);
+Neo.applyClassConfig(Component);
 
-export {WeekComponent as default};
+export {Component as default};

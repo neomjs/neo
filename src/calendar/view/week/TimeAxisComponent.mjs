@@ -1,4 +1,4 @@
-import Component from '../../component/Base.mjs';
+import Component from '../../../component/Base.mjs';
 
 /**
  * @class Neo.calendar.view.TimeAxisComponent
