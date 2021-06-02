@@ -49,8 +49,10 @@ class EventResizable extends Resizable {
 
         me.isDragging = true;
 
-        style.opacity = 0.3;
-        targetNode.style = style;
+        owner.updateStyle({
+            ...style,
+            opacity: 0.3
+        }, style, targetNode.id);
 
         for (; i < len; i++) {
             target = data.path[i];
