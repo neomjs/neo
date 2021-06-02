@@ -20,7 +20,6 @@ class Fieldset extends Container {
         ntype: 'fieldset',
         /**
          * @member {String[]} cls=['neo-fieldset'],
-         * @protected
          */
         cls: ['neo-fieldset'],
         /**
