@@ -169,7 +169,7 @@ class WeekComponent extends Component {
             module       : Resizable,
             appName      : me.appName,
             delegationCls: 'neo-event',
-            flag         : 'resizable',
+            directions   : ['b', 't'],
             ...me.resizablePluginConfig || {}
         });
 
@@ -290,6 +290,8 @@ class WeekComponent extends Component {
      * @protected
      */
     afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
         if (value) {
             setTimeout(() => {
                 let me = this;
