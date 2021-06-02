@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Jun 2, 2021",
+        "id"          : 38,
+        "image"       : "component-development-how-to-create-a-collapsible-fieldset.png",
+        "name"        : "Component development: How to create a collapsible Fieldset in neo.mjs",
+        "provider"    : "Medium",
+        "publisher"   : "",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://tobiasuhlig.medium.com/component-development-how-to-create-a-collapsible-fieldset-in-neo-mjs-311bf465d829?source=friends_link&sk=48566d3445432f96941132b47737dac0"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "May 28, 2021",
         "id"          : 37,
         "image"       : "neo.mjs-v2.2.png",

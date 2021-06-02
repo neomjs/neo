@@ -20,7 +20,6 @@ class Fieldset extends Container {
         ntype: 'fieldset',
         /**
          * @member {String[]} cls=['neo-fieldset'],
-         * @protected
          */
         cls: ['neo-fieldset'],
         /**
@@ -60,6 +59,10 @@ class Fieldset extends Container {
          */
         legend: null,
         /**
+         * @member {Object|null} legendConfig=null
+         */
+        legendConfig: null,
+        /**
          * @member {String} title_=''
          */
         title_: '',
@@ -84,7 +87,7 @@ class Fieldset extends Container {
 
         if (oldValue !== undefined) {
             me.items.forEach((item, index) => {
-                if (index === 0) {
+                if (index === 0 && item instanceof Legend) {
                     item.iconCls = value ? me.iconClsUnchecked : me.iconClsChecked
                 } else {
                     if (me.disableItemsOnCollapse) {
@@ -228,7 +231,8 @@ class Fieldset extends Container {
                 me.legend = me.insert(0, {
                     module : Legend,
                     iconCls: iconCls,
-                    text   : title
+                    text   : title,
+                    ...me.legendConfig || {}
                 });
             }
         }

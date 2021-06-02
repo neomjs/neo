@@ -1,2 +1,2 @@
 # Development in progress
-Currently scheduled for the v1.4 release
+Currently scheduled for the v2.3 release
