@@ -83,6 +83,10 @@ class Resizable extends Base {
          */
         dragZone: null,
         /**
+         * @member {Object} dragZoneConfig=null
+         */
+        dragZoneConfig: null,
+        /**
          * @member {Number} gap=10
          * @protected
          */
@@ -417,7 +421,8 @@ class Resizable extends Base {
                 boundaryContainerId: owner.boundaryContainerId,
                 dragElement        : owner.vdom,
                 moveInMainThread   : false,
-                owner              : owner
+                owner              : owner,
+                ...me.dragZoneConfig || {}
             });
         } else {
             me.dragZone.boundaryContainerId = owner.boundaryContainerId;
