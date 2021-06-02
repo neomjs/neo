@@ -438,8 +438,9 @@ class Resizable extends Base {
             h     = false,
             len   = data.path.length,
             owner = me.owner,
+            targetNode = me.targetNode,
             vdom  = owner.vdom,
-            bottom, left, right, target, targetNode, top;
+            bottom, left, right, target, top;
 
         if (!me.isDragging && !owner.isDragging) {
             for (; i < len; i++) {
@@ -450,13 +451,13 @@ class Resizable extends Base {
             }
 
             if (target) {
-                targetNode = owner.getVdomChild(target.id);
+                if (target.id !== (targetNode && targetNode.id)) {
+                    if (targetNode) {
+                        me.removeAllNodes();
+                    }
 
-                if (me.targetNode && me.targetNode !== targetNode) {
-                    me.removeAllNodes();
+                    me.targetNode = owner.getVdomChild(target.id);
                 }
-
-                me.targetNode = targetNode;
 
                 bottom = data.clientY >= target.rect.y - gap + target.rect.height;
                 left   = data.clientX <= target.rect.x + gap;
