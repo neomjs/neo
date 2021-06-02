@@ -507,7 +507,7 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onColumnDragEnd(data) {
-        if (!data.path[0].cls.includes('neo-event')) {
+        if (data.path[0].cls.includes('neo-c-w-column')) {
             console.log('onColumnDragEnd', data);
         }
     }
@@ -517,7 +517,7 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onColumnDragMove(data) {
-        if (!data.path[0].cls.includes('neo-event')) {
+        if (data.path[0].cls.includes('neo-c-w-column')) {
             console.log('onColumnDragMove', data);
         }
     }
@@ -527,7 +527,7 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onColumnDragStart(data) {
-        if (!data.path[0].cls.includes('neo-event')) {
+        if (data.path[0].cls.includes('neo-c-w-column')) {
             console.log('onColumnDragStart', data);
         }
     }
