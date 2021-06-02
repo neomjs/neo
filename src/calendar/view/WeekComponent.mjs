@@ -504,10 +504,19 @@ class WeekComponent extends Component {
 
     /**
      *
+     * @param {Object} eventData
+     * @returns {Boolean}
+     */
+    isTopLevelColumn(eventData) {
+        return eventData.path[0].cls.includes('neo-c-w-column');
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onColumnDragEnd(data) {
-        if (data.path[0].cls.includes('neo-c-w-column')) {
+        if (this.isTopLevelColumn(data)) {
             console.log('onColumnDragEnd', data);
         }
     }
@@ -517,7 +526,7 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onColumnDragMove(data) {
-        if (data.path[0].cls.includes('neo-c-w-column')) {
+        if (this.isTopLevelColumn(data)) {
             console.log('onColumnDragMove', data);
         }
     }
@@ -527,7 +536,7 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onColumnDragStart(data) {
-        if (data.path[0].cls.includes('neo-c-w-column')) {
+        if (this.isTopLevelColumn(data)) {
             console.log('onColumnDragStart', data);
         }
     }
