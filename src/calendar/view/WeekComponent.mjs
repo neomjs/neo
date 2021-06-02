@@ -513,6 +513,15 @@ class WeekComponent extends Component {
 
     /**
      *
+     * @param {Object} eventData
+     * @returns {Boolean}
+     */
+    isTopLevelEvent(eventData) {
+        return eventData.path[0].cls.includes('neo-event');
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onColumnDragEnd(data) {
@@ -554,8 +563,12 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onEventDragEnd(data) {
-        this.eventDragZone.dragEnd();
-        this.isDragging = false;
+        let me = this;
+
+        if (me.isTopLevelEvent(data)) {
+            me.eventDragZone.dragEnd();
+            me.isDragging = false;
+        }
     }
 
     /**
@@ -563,7 +576,9 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onEventDragMove(data) {
-        this.eventDragZone.dragMove(data);
+        if (this.isTopLevelEvent(data)) {
+            this.eventDragZone.dragMove(data);
+        }
     }
 
     /**
@@ -571,40 +586,42 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onEventDragStart(data) {
-        let me          = this,
-            dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom,
-            timeAxis    = me.timeAxis;
+        if (this.isTopLevelEvent(data)) {
+            let me          = this,
+                dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom,
+                timeAxis    = me.timeAxis;
 
-        me.isDragging = true;
+            me.isDragging = true;
 
-        const config = {
-            dragElement  : dragElement,
-            endTime      : timeAxis.getTime(timeAxis.endTime),
-            eventRecord  : me.eventStore.get(dragElement.flag),
-            proxyParentId: data.path[1].id,
-            startTime    : timeAxis.getTime(timeAxis.startTime)
-        };
+            const config = {
+                dragElement  : dragElement,
+                endTime      : timeAxis.getTime(timeAxis.endTime),
+                eventRecord  : me.eventStore.get(dragElement.flag),
+                proxyParentId: data.path[1].id,
+                startTime    : timeAxis.getTime(timeAxis.startTime)
+            };
 
-        if (!me.eventDragZone) {
-            me.eventDragZone = Neo.create({
-                module           : WeekEventDragZone,
-                appName          : me.appName,
-                owner            : me,
-                scrollContainerId: me.getScrollContainer().id,
-                ...config,
+            if (!me.eventDragZone) {
+                me.eventDragZone = Neo.create({
+                    module           : WeekEventDragZone,
+                    appName          : me.appName,
+                    owner            : me,
+                    scrollContainerId: me.getScrollContainer().id,
+                    ...config,
 
-                dragProxyConfig: {
-                    style: {
-                        transition: 'none',
-                        willChange: 'height'
+                    dragProxyConfig: {
+                        style: {
+                            transition: 'none',
+                            willChange: 'height'
+                        }
                     }
-                }
-            });
-        } else {
-            me.eventDragZone.set(config);
-        }
+                });
+            } else {
+                me.eventDragZone.set(config);
+            }
 
-        me.eventDragZone.dragStart(data);
+            me.eventDragZone.dragStart(data);
+        }
     }
 
     /**
