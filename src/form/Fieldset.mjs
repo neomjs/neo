@@ -87,7 +87,7 @@ class Fieldset extends Container {
 
         if (oldValue !== undefined) {
             me.items.forEach((item, index) => {
-                if (index === 0) {
+                if (index === 0 && item instanceof Legend) {
                     item.iconCls = value ? me.iconClsUnchecked : me.iconClsChecked
                 } else {
                     if (me.disableItemsOnCollapse) {
