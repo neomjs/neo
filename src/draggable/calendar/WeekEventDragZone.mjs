@@ -65,6 +65,10 @@ class WeekEventDragZone extends DragZone {
          */
         moveInMainThread: false,
         /**
+         * @member {Date} newEndDate=null
+         */
+        newEndDate: null,
+        /**
          * @member {Number} scrollFactorLeft=3
          */
         scrollFactorLeft: 3,
@@ -172,27 +176,40 @@ class WeekEventDragZone extends DragZone {
     dragEnd(data) {
         super.dragEnd(data);
 
-        let me        = this,
-            endDate   = me.eventRecord.endDate,
+        let me     = this,
+            record = me.eventRecord,
+            endDate, startDate;
+
+        if (me.keepStartDate) {
+            endDate   = me.newEndDate;
+            startDate = record.startDate;
+        } else {
             startDate = new Date(VDomUtil.findVdomChild(me.owner.vdom, me.proxyParentId).vdom.flag);
+            startDate.setHours(me.startTime);
+            startDate.setMinutes(me.currentInterval * 15);
 
-        startDate.setHours(me.startTime);
-        startDate.setMinutes(me.currentInterval * 15);
+            if (me.keepEndDate) {
+                endDate = record.endDate;
+            } else {
+                endDate = new Date(startDate.valueOf());
+                endDate.setMinutes(endDate.getMinutes() + me.eventDuration);
 
-        if (!me.keepEndDate) {
-            endDate = new Date(startDate.valueOf());
-            endDate.setMinutes(endDate.getMinutes() + me.eventDuration);
-
-            // if an event ends at 24:00, change it to 23:59 => otherwise the day increases by 1
-            if (endDate.getHours() === 0 && endDate.getMinutes() === 0) {
-                endDate.setMinutes(endDate.getMinutes() - 1);
+                // if an event ends at 24:00, change it to 23:59 => otherwise the day increases by 1
+                if (endDate.getHours() === 0 && endDate.getMinutes() === 0) {
+                    endDate.setMinutes(endDate.getMinutes() - 1);
+                }
             }
         }
 
-        me.eventRecord.endDate   = endDate;
-        me.eventRecord.startDate = startDate;
+        record.endDate   = endDate;
+        record.startDate = startDate;
 
-        me.proxyParentId = null;
+        Object.assign(me, {
+            keepEndDate  : false,
+            keepStartDate: false,
+            newEndDate   : null,
+            proxyParentId: null
+        });
 
         me.owner.updateEvents();
     }
@@ -208,7 +225,7 @@ class WeekEventDragZone extends DragZone {
             len         = path.length,
             oldInterval = me.currentInterval,
             record      = me.eventRecord,
-            deltas, duration, height, intervalHeight, intervals, position, startTime;
+            deltas, duration, endTime, height, intervalHeight, intervals, position, startTime;
 
         if (me.dragProxy) {
             if (!me.keepEndDate && !me.keepStartDate) {
@@ -232,27 +249,45 @@ class WeekEventDragZone extends DragZone {
             me.currentInterval = Math.min(me.currentInterval, intervals - (me.eventDuration / 15));
 
             if (oldInterval !== me.currentInterval) {
-                startTime = new Date(record.startDate.valueOf());
-                startTime.setHours(me.startTime);
-                startTime.setMinutes(me.currentInterval * 15);
-
-                position = me.currentInterval * intervalHeight; // snap to valid intervals
-                position = position / me.columnHeight * 100;
-
                 deltas = [{
-                    id       : me.dragProxy.vdom.cn[0].id,
-                    innerHTML: me.owner.intlFormat_time.format(startTime)
-                }, {
                     id   : me.dragProxy.id,
-                    style: {top: `calc(${position}% + 1px)`}
+                    style: {}
                 }];
+
+                startTime = new Date(record.startDate.valueOf());
+
+                if (me.keepStartDate) {
+                    endTime = new Date(record.startDate.valueOf());
+                    endTime.setHours(me.startTime);
+                    endTime.setMinutes(me.eventDuration + me.currentInterval * 15);
+
+                    me.newEndDate = endTime;
+
+                    duration = (endTime - record.startDate) / 60 / 60 / 1000; // duration in hours
+                    height   = Math.round(duration / (me.endTime - me.startTime) * 100 * 1000) / 1000;
+
+                    deltas[0].style.height = `calc(${height}% - 2px)`;
+                } else {
+                    startTime.setHours(me.startTime);
+                    startTime.setMinutes(me.currentInterval * 15);
+
+                    position = me.currentInterval * intervalHeight; // snap to valid intervals
+                    position = position / me.columnHeight * 100;
+
+                    deltas[0].style.top = `calc(${position}% + 1px)`;
+                }
 
                 if (me.keepEndDate) {
                     duration = (record.endDate - startTime) / 60 / 60 / 1000; // duration in hours
                     height   = Math.round(duration / (me.endTime - me.startTime) * 100 * 1000) / 1000;
 
-                    deltas[1].style.height = `calc(${height}% - 2px)`;
+                    deltas[0].style.height = `calc(${height}% - 2px)`;
                 }
+
+                deltas.push({
+                    id       : me.dragProxy.vdom.cn[0].id,
+                    innerHTML: me.owner.intlFormat_time.format(startTime)
+                });
 
                 // check if the node did not get removed yet
                 if (me.dragProxy.vdom.cn[0].id) {
