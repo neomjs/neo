@@ -610,6 +610,7 @@ class Component extends BaseComponent {
      */
     onEventDragStart(data) {
         let me              = this,
+            eventDragZone   = me.eventDragZone,
             isTopLevelEvent = me.isTopLevelEvent(data),
             dragElement, timeAxis;
 
@@ -631,8 +632,8 @@ class Component extends BaseComponent {
             startTime    : timeAxis.getTime(timeAxis.startTime)
         };
 
-        if (!me.eventDragZone) {
-            me.eventDragZone = Neo.create({
+        if (!eventDragZone) {
+            me.eventDragZone = eventDragZone = Neo.create({
                 module           : WeekEventDragZone,
                 appName          : me.appName,
                 owner            : me,
@@ -647,14 +648,14 @@ class Component extends BaseComponent {
                 }
             });
         } else {
-            me.eventDragZone.set(config);
+            eventDragZone.set(config);
         }
 
         if (isTopLevelEvent) {
-            me.eventDragZone.addBodyCursorCls();
+            eventDragZone.addBodyCursorCls();
         }
 
-        me.eventDragZone.dragStart(data);
+        eventDragZone.dragStart(data);
     }
 
     /**
