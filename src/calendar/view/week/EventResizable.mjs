@@ -19,11 +19,6 @@ class EventResizable extends Resizable {
      */
     onDragEnd(data) {
         this.removeBodyCursorCls();
-
-        Object.assign(this.owner.eventDragZone, {
-            keepEndDate  : false,
-            keepStartDate: false
-        });
     }
 
     /**
