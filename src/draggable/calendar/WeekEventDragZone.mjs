@@ -192,7 +192,7 @@ class WeekEventDragZone extends DragZone {
         me.eventRecord.endDate   = endDate;
         me.eventRecord.startDate = startDate;
 
-        me.newEndDate = null;
+        me.proxyParentId = null;
 
         me.owner.updateEvents();
     }
@@ -211,10 +211,12 @@ class WeekEventDragZone extends DragZone {
             deltas, duration, height, intervalHeight, intervals, position, startTime;
 
         if (me.dragProxy) {
-            for (; i < len; i++) {
-                if (path[i].cls.includes('neo-c-w-column')) {
-                    me.proxyParentId = path[i].id;
-                    break;
+            if (!me.keepEndDate && !me.keepStartDate) {
+                for (; i < len; i++) {
+                    if (path[i].cls.includes('neo-c-w-column')) {
+                        me.proxyParentId = path[i].id;
+                        break;
+                    }
                 }
             }
 
