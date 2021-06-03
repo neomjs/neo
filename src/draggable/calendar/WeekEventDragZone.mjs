@@ -142,9 +142,10 @@ class WeekEventDragZone extends DragZone {
     /**
      * DragEnd equals drop, since we can only drag to valid positions
      * todo: ESC key
+     * @param {Object} data
      */
-    dragEnd() {
-        super.dragEnd();
+    dragEnd(data) {
+        super.dragEnd(data);
 
         let me        = this,
             startDate = new Date(VDomUtil.findVdomChild(me.owner.vdom, me.proxyParentId).vdom.flag),
