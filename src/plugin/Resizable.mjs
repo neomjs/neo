@@ -271,10 +271,16 @@ class Resizable extends Base {
 
         me.owner.wrapperStyle = style;
 
-        Neo.main.DomAccess.setStyle({
+        Neo.currentWorker.promiseMessage('main', {
+            action : 'updateDom',
             appName: me.appName,
-            id     : 'document.body',
-            style  : {cursor: null}
+            deltas : {
+                id : 'document.body',
+                cls: {
+                    add   : [],
+                    remove: [`neo-cursor-${Resizable.cursorPositions[Resizable.positions.indexOf(me.currentNodeName)]}-resize`]
+                }
+            }
         });
 
         me.dragZone.dragEnd();
@@ -408,10 +414,16 @@ class Resizable extends Base {
             });
         }
 
-        Neo.main.DomAccess.setStyle({
+        Neo.currentWorker.promiseMessage('main', {
+            action : 'updateDom',
             appName: appName,
-            id     : 'document.body',
-            style  : {cursor: `${Resizable.cursorPositions[Resizable.positions.indexOf(me.currentNodeName)]}-resize !important`}
+            deltas : {
+                id : 'document.body',
+                cls: {
+                    add   : [`neo-cursor-${Resizable.cursorPositions[Resizable.positions.indexOf(me.currentNodeName)]}-resize`],
+                    remove: []
+                }
+            }
         });
 
         if (!me.dragZone) {
