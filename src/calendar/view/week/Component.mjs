@@ -1,9 +1,10 @@
-import Component         from '../../component/Base.mjs';
-import DateUtil          from '../../util/Date.mjs';
-import NeoArray          from '../../util/Array.mjs';
+import BaseComponent     from '../../../component/Base.mjs';
+import DateUtil          from '../../../util/Date.mjs';
+import EventResizable    from './EventResizable.mjs';
+import NeoArray          from '../../../util/Array.mjs';
 import TimeAxisComponent from './TimeAxisComponent.mjs';
-import VDomUtil          from '../../util/VDom.mjs';
-import WeekEventDragZone from '../../draggable/calendar/WeekEventDragZone.mjs';
+import VDomUtil          from '../../../util/VDom.mjs';
+import WeekEventDragZone from '../../../draggable/calendar/WeekEventDragZone.mjs';
 
 const todayDate = new Date();
 
@@ -14,10 +15,10 @@ const today = {
 };
 
 /**
- * @class Neo.calendar.view.WeekComponent
+ * @class Neo.calendar.view.week.Component
  * @extends Neo.component.Base
  */
-class WeekComponent extends Component {
+class Component extends BaseComponent {
     static getStaticConfig() {return {
         /**
          * Valid values for timeAxisPosition
@@ -30,10 +31,10 @@ class WeekComponent extends Component {
 
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.calendar.view.WeekComponent'
+         * @member {String} className='Neo.calendar.view.week.Component'
          * @protected
          */
-        className: 'Neo.calendar.view.WeekComponent',
+        className: 'Neo.calendar.view.week.Component',
         /**
          * @member {String} ntype='calendar-view-weekcomponent'
          * @protected
@@ -86,6 +87,11 @@ class WeekComponent extends Component {
          */
         intlFormat_time: null,
         /**
+         * @member {Boolean} isDragging=false
+         * @protected
+         */
+        isDragging: false,
+        /**
          * @member {Boolean} isUpdating=false
          * @protected
          */
@@ -94,6 +100,10 @@ class WeekComponent extends Component {
          * @member {String} locale_=Neo.config.locale
          */
         locale_: Neo.config.locale,
+        /**
+         * @member {Object} resizablePluginConfig=null
+         */
+        resizablePluginConfig: null,
         /**
          * @member {Object} timeAxis=null
          */
@@ -144,7 +154,8 @@ class WeekComponent extends Component {
         let me           = this,
             domListeners = me.domListeners,
             columnOpts   = {scope: me, delegate: '.neo-c-w-column'},
-            eventOpts    = {scope: me, delegate: '.neo-event'};
+            eventOpts    = {scope: me, delegate: '.neo-event'},
+            plugins      = me.plugins || [];
 
         domListeners.push(
             {dblclick    : me.onEventDoubleClick, ...eventOpts},
@@ -158,6 +169,17 @@ class WeekComponent extends Component {
         );
 
         me.domListeners = domListeners;
+
+        plugins.push({
+            module       : EventResizable,
+            appName      : me.appName,
+            delegationCls: 'neo-event',
+            directions   : ['b', 't'],
+            flag         : 'resizable',
+            ...me.resizablePluginConfig || {}
+        });
+
+        me.plugins = plugins;
 
         me.timeAxis = Neo.create(TimeAxisComponent, {
             appName  : me.appName,
@@ -174,6 +196,19 @@ class WeekComponent extends Component {
         me.updateHeader(true);
 
         me.headerCreated = true;
+    }
+
+    /**
+     * Adjusts drag events which start on an event resize handle
+     * @param {Object} data
+     * @returns {Object}
+     */
+    adjustResizeEvent(data) {
+        data.path.shift();
+        data.targetPath.shift();
+        data.target = data.path[0];
+
+        return data;
     }
 
     /**
@@ -274,6 +309,8 @@ class WeekComponent extends Component {
      * @protected
      */
     afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
         if (value) {
             setTimeout(() => {
                 let me = this;
@@ -481,10 +518,28 @@ class WeekComponent extends Component {
 
     /**
      *
+     * @param {Object} eventData
+     * @returns {Boolean}
+     */
+    isTopLevelColumn(eventData) {
+        return eventData.path[0].cls.includes('neo-c-w-column');
+    }
+
+    /**
+     *
+     * @param {Object} eventData
+     * @returns {Boolean}
+     */
+    isTopLevelEvent(eventData) {
+        return eventData.path[0].cls.includes('neo-event');
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onColumnDragEnd(data) {
-        if (!data.path[0].cls.includes('neo-event')) {
+        if (this.isTopLevelColumn(data)) {
             console.log('onColumnDragEnd', data);
         }
     }
@@ -494,7 +549,7 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onColumnDragMove(data) {
-        if (!data.path[0].cls.includes('neo-event')) {
+        if (this.isTopLevelColumn(data)) {
             console.log('onColumnDragMove', data);
         }
     }
@@ -504,7 +559,7 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onColumnDragStart(data) {
-        if (!data.path[0].cls.includes('neo-event')) {
+        if (this.isTopLevelColumn(data)) {
             console.log('onColumnDragStart', data);
         }
     }
@@ -522,7 +577,18 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onEventDragEnd(data) {
-        this.eventDragZone.dragEnd();
+        let me = this;
+
+        me.eventDragZone.dragEnd();
+
+        if (!me.isTopLevelEvent(data)) {
+            data = me.adjustResizeEvent(data);
+            me.getPlugin({flag:'resizable'}).onDragEnd(data);
+        } else {
+            me.eventDragZone.removeBodyCursorCls();
+        }
+
+        me.isDragging = false;
     }
 
     /**
@@ -530,7 +596,13 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onEventDragMove(data) {
-        this.eventDragZone.dragMove(data);
+        let me = this;
+
+        if (!me.isTopLevelEvent(data)) {
+            data = me.adjustResizeEvent(data);
+        }
+
+        me.eventDragZone.dragMove(data);
     }
 
     /**
@@ -538,9 +610,19 @@ class WeekComponent extends Component {
      * @param {Object} data
      */
     onEventDragStart(data) {
-        let me          = this,
-            dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom,
-            timeAxis    = me.timeAxis;
+        let me              = this,
+            eventDragZone   = me.eventDragZone,
+            isTopLevelEvent = me.isTopLevelEvent(data),
+            dragElement, timeAxis;
+
+        if (!isTopLevelEvent) {
+            data = me.adjustResizeEvent(data);
+        }
+
+        dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom;
+        timeAxis    = me.timeAxis;
+
+        me.isDragging = true;
 
         const config = {
             dragElement  : dragElement,
@@ -550,8 +632,8 @@ class WeekComponent extends Component {
             startTime    : timeAxis.getTime(timeAxis.startTime)
         };
 
-        if (!me.eventDragZone) {
-            me.eventDragZone = Neo.create({
+        if (!eventDragZone) {
+            me.eventDragZone = eventDragZone = Neo.create({
                 module           : WeekEventDragZone,
                 appName          : me.appName,
                 owner            : me,
@@ -566,10 +648,16 @@ class WeekComponent extends Component {
                 }
             });
         } else {
-            me.eventDragZone.set(config);
+            eventDragZone.set(config);
         }
 
-        me.eventDragZone.dragStart(data);
+        if (isTopLevelEvent) {
+            eventDragZone.addBodyCursorCls();
+        } else {
+            me.getPlugin({flag:'resizable'}).onDragStart(data);
+        }
+
+        eventDragZone.dragStart(data);
     }
 
     /**
@@ -837,6 +925,6 @@ class WeekComponent extends Component {
     }
 }
 
-Neo.applyClassConfig(WeekComponent);
+Neo.applyClassConfig(Component);
 
-export {WeekComponent as default};
+export {Component as default};

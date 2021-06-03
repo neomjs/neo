@@ -1,7 +1,7 @@
-import Component from '../../component/Base.mjs';
+import Component from '../../../component/Base.mjs';
 
 /**
- * @class Neo.calendar.view.TimeAxisComponent
+ * @class Neo.calendar.view.week.TimeAxisComponent
  * @extends Neo.container.Base
  */
 class TimeAxisComponent extends Component {
@@ -17,10 +17,10 @@ class TimeAxisComponent extends Component {
 
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.calendar.view.TimeAxisComponent'
+         * @member {String} className='Neo.calendar.view.week.TimeAxisComponent'
          * @protected
          */
-        className: 'Neo.calendar.view.TimeAxisComponent',
+        className: 'Neo.calendar.view.week.TimeAxisComponent',
         /**
          * @member {String} ntype='calendar-timeaxis'
          * @protected

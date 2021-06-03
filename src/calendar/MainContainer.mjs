@@ -9,7 +9,7 @@ import EventStore         from './store/Events.mjs';
 import MonthComponent     from './view/MonthComponent.mjs';
 import SettingsContainer  from './view/SettingsContainer.mjs';
 import Toolbar            from '../container/Toolbar.mjs';
-import WeekComponent      from './view/WeekComponent.mjs';
+import WeekComponent      from './view/week/Component.mjs';
 import YearComponent      from './view/YearComponent.mjs';
 
 const todayDate = new Date();
@@ -155,7 +155,7 @@ class MainContainer extends Container {
          */
         views_: ['day', 'week', 'month', 'year'],
         /**
-         * @member {Neo.calendar.view.WeekComponent|null} weekComponent=null
+         * @member {Neo.calendar.view.Component|null} weekComponent=null
          */
         weekComponent: null,
         /**

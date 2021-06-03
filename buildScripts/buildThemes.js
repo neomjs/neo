@@ -330,7 +330,7 @@ inquirer.prompt(questions).then(answers => {
 
             fs.readFile(file.path).then(content => {
                 let result = sass.renderSync({
-                    data          : data + content,
+                    data          : data + scssCombine(content.toString(), path.resolve(neoPath, scssPath, target, file.relativePath)),
                     outFile       : destPath,
                     sourceMap     : devMode,
                     sourceMapEmbed: false
