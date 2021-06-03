@@ -582,6 +582,8 @@ class Component extends BaseComponent {
         if (!me.isTopLevelEvent(data)) {
             data = me.adjustResizeEvent(data);
             me.getPlugin({flag:'resizable'}).onDragEnd(data);
+        } else {
+            me.eventDragZone.removeBodyCursorCls();
         }
 
         me.eventDragZone.dragEnd();
@@ -607,10 +609,11 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDragStart(data) {
-        let me = this,
+        let me              = this,
+            isTopLevelEvent = me.isTopLevelEvent(data),
             dragElement, timeAxis;
 
-        if (!me.isTopLevelEvent(data)) {
+        if (!isTopLevelEvent) {
             data = me.adjustResizeEvent(data);
             me.getPlugin({flag:'resizable'}).onDragStart(data);
         }
@@ -645,6 +648,10 @@ class Component extends BaseComponent {
             });
         } else {
             me.eventDragZone.set(config);
+        }
+
+        if (isTopLevelEvent) {
+            me.eventDragZone.addBodyCursorCls();
         }
 
         me.eventDragZone.dragStart(data);

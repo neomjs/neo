@@ -2,6 +2,10 @@
     cursor: e-resize !important;
 }
 
+.neo-cursor-move, .neo-cursor-move * {
+    cursor: move !important;
+}
+
 .neo-cursor-n-resize, .neo-cursor-n-resize * {
     cursor: n-resize !important;
 }

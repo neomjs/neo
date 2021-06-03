@@ -71,6 +71,23 @@ class WeekEventDragZone extends DragZone {
     }}
 
     /**
+     *
+     */
+    addBodyCursorCls() {
+        Neo.currentWorker.promiseMessage('main', {
+            action : 'updateDom',
+            appName: this.appName,
+            deltas : {
+                id : 'document.body',
+                cls: {
+                    add   : ['neo-cursor-move'],
+                    remove: []
+                }
+            }
+        });
+    }
+
+    /**
      * Triggered after the proxyParentId config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -258,6 +275,23 @@ class WeekEventDragZone extends DragZone {
             });
 
             me.dragMove(data);
+        });
+    }
+
+    /**
+     *
+     */
+    removeBodyCursorCls() {
+        Neo.currentWorker.promiseMessage('main', {
+            action : 'updateDom',
+            appName: this.appName,
+            deltas : {
+                id : 'document.body',
+                cls: {
+                    add   : [],
+                    remove: ['neo-cursor-move']
+                }
+            }
         });
     }
 }
