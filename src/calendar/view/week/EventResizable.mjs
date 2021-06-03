@@ -18,10 +18,16 @@ class EventResizable extends Resizable {
      * @param {Object} data
      */
     onDragEnd(data) {
-        Neo.main.DomAccess.setStyle({
+        Neo.currentWorker.promiseMessage('main', {
+            action : 'updateDom',
             appName: this.appName,
-            id     : 'document.body',
-            style  : {cursor: null}
+            deltas : {
+                id : 'document.body',
+                cls: {
+                    add   : [],
+                    remove: [`neo-cursor-${Resizable.cursorPositions[Resizable.positions.indexOf(this.currentNodeName)]}-resize`]
+                }
+            }
         });
     }
 
@@ -38,10 +44,16 @@ class EventResizable extends Resizable {
      * @param {Object} data
      */
     onDragStart(data) {
-        Neo.main.DomAccess.setStyle({
+        Neo.currentWorker.promiseMessage('main', {
+            action : 'updateDom',
             appName: this.appName,
-            id     : 'document.body',
-            style  : {cursor: `${Resizable.cursorPositions[Resizable.positions.indexOf(this.currentNodeName)]}-resize !important`}
+            deltas : {
+                id : 'document.body',
+                cls: {
+                    add   : [`neo-cursor-${Resizable.cursorPositions[Resizable.positions.indexOf(this.currentNodeName)]}-resize`],
+                    remove: []
+                }
+            }
         });
     }
 }

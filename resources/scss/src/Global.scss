@@ -17,6 +17,22 @@ html, .neo-body-viewport {
     box-sizing: border-box;
  }
 
+.neo-cursor-n-resize {
+    cursor: n-resize !important;
+
+    * {
+        cursor: n-resize !important;
+    }
+}
+
+.neo-cursor-s-resize {
+    cursor: s-resize !important;
+
+    * {
+        cursor: s-resize !important;
+    }
+}
+
 .neo-disabled {
     opacity       : v(neo-disabled-opacity);
     pointer-events: none;
