@@ -49,6 +49,14 @@ class WeekEventDragZone extends DragZone {
          */
         eventRecord: null,
         /**
+         * @member {Boolean} keepEndDate=false
+         */
+        keepEndDate: false,
+        /**
+         * @member {Boolean} keepStartDate=false
+         */
+        keepStartDate: false,
+        /**
          * @member {Boolean} moveHorizontal=false
          */
         moveHorizontal: false,
@@ -216,10 +224,16 @@ class WeekEventDragZone extends DragZone {
             // events must not end after the last visible interval
             me.currentInterval = Math.min(me.currentInterval, intervals - (me.eventDuration / 15));
 
+            console.log(me.keepEndDate);
+
             if (oldInterval !== me.currentInterval) {
                 startTime = new Date(me.eventRecord.startDate.valueOf());
                 startTime.setHours(me.startTime);
                 startTime.setMinutes(me.currentInterval * 15);
+
+                console.log('startTime', startTime);
+                console.log('endTime', me.eventRecord.endDate);
+
                 startTime = me.owner.intlFormat_time.format(startTime);
 
                 position = me.currentInterval * intervalHeight; // snap to valid intervals

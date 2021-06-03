@@ -19,6 +19,11 @@ class EventResizable extends Resizable {
      */
     onDragEnd(data) {
         this.removeBodyCursorCls();
+
+        Object.assign(this.owner.eventDragZone, {
+            keepEndDate  : false,
+            keepStartDate: false
+        });
     }
 
     /**
@@ -34,7 +39,10 @@ class EventResizable extends Resizable {
      * @param {Object} data
      */
     onDragStart(data) {
+        let me = this;
+
         this.addBodyCursorCls();
+        this.owner.eventDragZone[me.currentNodeName === 'top' ? 'keepStartDate' : 'keepEndDate'] = true;
     }
 }
 

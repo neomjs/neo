@@ -616,7 +616,6 @@ class Component extends BaseComponent {
 
         if (!isTopLevelEvent) {
             data = me.adjustResizeEvent(data);
-            me.getPlugin({flag:'resizable'}).onDragStart(data);
         }
 
         dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom;
@@ -653,6 +652,8 @@ class Component extends BaseComponent {
 
         if (isTopLevelEvent) {
             eventDragZone.addBodyCursorCls();
+        } else {
+            me.getPlugin({flag:'resizable'}).onDragStart(data);
         }
 
         eventDragZone.dragStart(data);
