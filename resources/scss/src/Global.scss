@@ -1,3 +1,5 @@
+@import "global/all";
+
 html, .neo-body-viewport {
     height  : 100%;
     overflow: hidden; // chrome can overscroll the full page (bug)
@@ -16,22 +18,6 @@ html, .neo-body-viewport {
 .neo-body, .neo-body * {
     box-sizing: border-box;
  }
-
-.neo-cursor-n-resize {
-    cursor: n-resize !important;
-
-    * {
-        cursor: n-resize !important;
-    }
-}
-
-.neo-cursor-s-resize {
-    cursor: s-resize !important;
-
-    * {
-        cursor: s-resize !important;
-    }
-}
 
 .neo-disabled {
     opacity       : v(neo-disabled-opacity);
