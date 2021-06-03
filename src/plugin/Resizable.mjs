@@ -192,6 +192,23 @@ class Resizable extends Base {
 
     /**
      *
+     */
+    addBodyCursorCls() {
+        Neo.currentWorker.promiseMessage('main', {
+            action : 'updateDom',
+            appName: this.appName,
+            deltas : {
+                id : 'document.body',
+                cls: {
+                    add   : [`neo-cursor-${Resizable.cursorPositions[Resizable.positions.indexOf(this.currentNodeName)]}-resize`],
+                    remove: []
+                }
+            }
+        });
+    }
+
+    /**
+     *
      * @param {String} name
      * @returns {Boolean} true
      */
@@ -271,17 +288,7 @@ class Resizable extends Base {
 
         me.owner.wrapperStyle = style;
 
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'updateDom',
-            appName: me.appName,
-            deltas : {
-                id : 'document.body',
-                cls: {
-                    add   : [],
-                    remove: [`neo-cursor-${Resizable.cursorPositions[Resizable.positions.indexOf(me.currentNodeName)]}-resize`]
-                }
-            }
-        });
+        me.removeBodyCursorCls();
 
         me.dragZone.dragEnd();
         me.removeAllNodes();
@@ -414,17 +421,7 @@ class Resizable extends Base {
             });
         }
 
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'updateDom',
-            appName: appName,
-            deltas : {
-                id : 'document.body',
-                cls: {
-                    add   : [`neo-cursor-${Resizable.cursorPositions[Resizable.positions.indexOf(me.currentNodeName)]}-resize`],
-                    remove: []
-                }
-            }
-        });
+        me.addBodyCursorCls();
 
         if (!me.dragZone) {
             me.dragZone = Neo.create({
@@ -534,6 +531,23 @@ class Resizable extends Base {
             me.removeNode(me.currentNodeName);
             me.owner.vdom = vdom;
         }
+    }
+
+    /**
+     *
+     */
+    removeBodyCursorCls() {
+        Neo.currentWorker.promiseMessage('main', {
+            action : 'updateDom',
+            appName: this.appName,
+            deltas : {
+                id : 'document.body',
+                cls: {
+                    add   : [],
+                    remove: [`neo-cursor-${Resizable.cursorPositions[Resizable.positions.indexOf(this.currentNodeName)]}-resize`]
+                }
+            }
+        });
     }
 
     /**

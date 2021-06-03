@@ -18,17 +18,7 @@ class EventResizable extends Resizable {
      * @param {Object} data
      */
     onDragEnd(data) {
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'updateDom',
-            appName: this.appName,
-            deltas : {
-                id : 'document.body',
-                cls: {
-                    add   : [],
-                    remove: [`neo-cursor-${Resizable.cursorPositions[Resizable.positions.indexOf(this.currentNodeName)]}-resize`]
-                }
-            }
-        });
+        this.removeBodyCursorCls();
     }
 
     /**
@@ -44,17 +34,7 @@ class EventResizable extends Resizable {
      * @param {Object} data
      */
     onDragStart(data) {
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'updateDom',
-            appName: this.appName,
-            deltas : {
-                id : 'document.body',
-                cls: {
-                    add   : [`neo-cursor-${Resizable.cursorPositions[Resizable.positions.indexOf(this.currentNodeName)]}-resize`],
-                    remove: []
-                }
-            }
-        });
+        this.addBodyCursorCls();
     }
 }
 
