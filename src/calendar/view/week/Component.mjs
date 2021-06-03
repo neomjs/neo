@@ -579,6 +579,8 @@ class Component extends BaseComponent {
     onEventDragEnd(data) {
         let me = this;
 
+        me.eventDragZone.dragEnd();
+
         if (!me.isTopLevelEvent(data)) {
             data = me.adjustResizeEvent(data);
             me.getPlugin({flag:'resizable'}).onDragEnd(data);
@@ -586,7 +588,6 @@ class Component extends BaseComponent {
             me.eventDragZone.removeBodyCursorCls();
         }
 
-        me.eventDragZone.dragEnd();
         me.isDragging = false;
     }
 

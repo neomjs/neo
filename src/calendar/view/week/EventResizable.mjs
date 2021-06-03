@@ -42,7 +42,7 @@ class EventResizable extends Resizable {
         let me = this;
 
         this.addBodyCursorCls();
-        this.owner.eventDragZone[me.currentNodeName === 'top' ? 'keepStartDate' : 'keepEndDate'] = true;
+        this.owner.eventDragZone[me.currentNodeName === 'top' ? 'keepEndDate' : 'keepStartDate'] = true;
     }
 }
 

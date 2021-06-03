@@ -173,22 +173,26 @@ class WeekEventDragZone extends DragZone {
         super.dragEnd(data);
 
         let me        = this,
-            startDate = new Date(VDomUtil.findVdomChild(me.owner.vdom, me.proxyParentId).vdom.flag),
-            endDate;
+            endDate   = me.eventRecord.endDate,
+            startDate = new Date(VDomUtil.findVdomChild(me.owner.vdom, me.proxyParentId).vdom.flag);
 
         startDate.setHours(me.startTime);
         startDate.setMinutes(me.currentInterval * 15);
 
-        endDate = new Date(startDate.valueOf());
-        endDate.setMinutes(endDate.getMinutes() + me.eventDuration);
+        if (!me.keepEndDate) {
+            endDate = new Date(startDate.valueOf());
+            endDate.setMinutes(endDate.getMinutes() + me.eventDuration);
 
-        // if an event ends at 24:00, change it to 23:59 => otherwise the day increases by 1
-        if (endDate.getHours() === 0 && endDate.getMinutes() === 0) {
-            endDate.setMinutes(endDate.getMinutes() - 1);
+            // if an event ends at 24:00, change it to 23:59 => otherwise the day increases by 1
+            if (endDate.getHours() === 0 && endDate.getMinutes() === 0) {
+                endDate.setMinutes(endDate.getMinutes() - 1);
+            }
         }
 
         me.eventRecord.endDate   = endDate;
         me.eventRecord.startDate = startDate;
+
+        me.newEndDate = null;
 
         me.owner.updateEvents();
     }
@@ -203,7 +207,8 @@ class WeekEventDragZone extends DragZone {
             i           = 0,
             len         = path.length,
             oldInterval = me.currentInterval,
-            intervalHeight, intervals, position, startTime;
+            record      = me.eventRecord,
+            deltas, duration, height, intervalHeight, intervals, position, startTime;
 
         if (me.dragProxy) {
             for (; i < len; i++) {
@@ -224,32 +229,34 @@ class WeekEventDragZone extends DragZone {
             // events must not end after the last visible interval
             me.currentInterval = Math.min(me.currentInterval, intervals - (me.eventDuration / 15));
 
-            console.log(me.keepEndDate);
-
             if (oldInterval !== me.currentInterval) {
-                startTime = new Date(me.eventRecord.startDate.valueOf());
+                startTime = new Date(record.startDate.valueOf());
                 startTime.setHours(me.startTime);
                 startTime.setMinutes(me.currentInterval * 15);
 
-                console.log('startTime', startTime);
-                console.log('endTime', me.eventRecord.endDate);
-
-                startTime = me.owner.intlFormat_time.format(startTime);
-
                 position = me.currentInterval * intervalHeight; // snap to valid intervals
                 position = position / me.columnHeight * 100;
+
+                deltas = [{
+                    id       : me.dragProxy.vdom.cn[0].id,
+                    innerHTML: me.owner.intlFormat_time.format(startTime)
+                }, {
+                    id   : me.dragProxy.id,
+                    style: {top: `calc(${position}% + 1px)`}
+                }];
+
+                if (me.keepEndDate) {
+                    duration = (record.endDate - startTime) / 60 / 60 / 1000; // duration in hours
+                    height   = Math.round(duration / (me.endTime - me.startTime) * 100 * 1000) / 1000;
+
+                    deltas[1].style.height = `calc(${height}% - 2px)`;
+                }
 
                 // check if the node did not get removed yet
                 if (me.dragProxy.vdom.cn[0].id) {
                     Neo.currentWorker.promiseMessage('main', {
                         action: 'updateDom',
-                        deltas: [{
-                            id       : me.dragProxy.vdom.cn[0].id,
-                            innerHTML: startTime
-                        }, {
-                            id   : me.dragProxy.id,
-                            style: {top: `calc(${position}% + 1px)`}
-                        }]
+                        deltas: deltas
                     });
                 }
             }
