@@ -122,7 +122,7 @@ class Compare extends Base {
             }
         }
 
-        return true;
+        return item1 === item2;
     }
 }
 

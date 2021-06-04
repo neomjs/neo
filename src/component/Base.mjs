@@ -260,10 +260,10 @@ class Base extends CoreBase {
 
     /**
      * CSS selectors to apply to the top level node of this component
-     * @member {String[]} cls=['neo-component']
+     * @member {String[]} cls=[]
      */
     get cls() {
-        return this._cls ? Neo.clone(this._cls) : ['neo-component'];
+        return this._cls ? Neo.clone(this._cls) : [];
     }
     set cls(value) {
         value = value ? value : [];
