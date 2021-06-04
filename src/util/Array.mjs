@@ -62,46 +62,6 @@ class NeoArray extends Base {
     }
 
     /**
-     * Returns true if all items of array1 are present in array 2
-     * Supports Arrays containing Objects, not Arrays containing Arrays
-     * @param {Array} array1=[]
-     * @param {Array} array2=[]
-     * @returns {Boolean}
-     */
-    static isEqual(array1=[], array2=[]) {
-        let i    = 0,
-            len  = array1.length,
-            len2 = array2.length,
-            hasObject, j, value;
-
-        for (; i < len; i++) {
-            value = array1[i];
-
-            if (Neo.isObject(value)) {
-                hasObject = false;
-                j         = 0;
-
-                for (; j < len2; j++) {
-                    if (Neo.isObject(array2[j]) && Neo.util.Object.isEqual(value, array2[j])) {
-                        hasObject = true;
-                        break;
-                    }
-                }
-
-                if (!hasObject) {
-                    return false;
-                }
-            }
-
-            else if (!array2.includes(value)) {
-                return false;
-            }
-        }
-
-        return array1.length === array2.length;
-    }
-
-    /**
      * Moves an item inside arr from fromIndex to toIndex
      * @param {Array} arr
      * @param {Number} fromIndex

@@ -1,6 +1,6 @@
 import Base      from '../core/Base.mjs';
+import Compare   from '../util/Compare.mjs';
 import NeoArray  from '../util/Array.mjs';
-import NeoObject from '../util/Object.mjs';
 
 /**
  * @class Neo.util.KeyNavigation
@@ -182,7 +182,7 @@ class KeyNavigation extends Base {
         for (; i < len; i++) {
             key = keys[i];
 
-            if (NeoObject.isEqual(key, config)) {
+            if (Compare.isEqual(key, config)) {
                 NeoArray.remove(keys, key);
                 break;
             }

@@ -1495,7 +1495,7 @@ class Base extends CoreBase {
             vnode = me.vnode,
             opts;
 
-        if (!NeoArray.isEqual(cls, oldCls)) {
+        if (!Compare.isEqual(cls, oldCls)) {
             if (vnode) {
                 vnode.className = cls; // keep the vnode in sync
                 me.vnode = vnode;
