@@ -1,7 +1,7 @@
 import Base from './Base.mjs';
 
 /**
- * todo: except createRandomData a legacy class, since stores live directly inside the app worker
+ * todo: except for createRandomData a legacy class, since stores live directly inside the app worker
  * @class Neo.manager.Store
  * @extends Neo.manager.Base
  * @singleton

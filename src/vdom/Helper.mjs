@@ -1,4 +1,6 @@
 import Base      from '../core/Base.mjs';
+import NeoArray  from '../util/Array.mjs';
+import Style     from '../util/Style.mjs';
 import VNode     from './VNode.mjs';
 import VNodeUtil from '../util/VNode.mjs';
 
@@ -492,15 +494,15 @@ class Helper extends Base {
                                 }
                                 break;
                             case 'style':
-                                styles = Neo.util.Style.compareStyles(value, oldVnode.style);
+                                styles = Style.compareStyles(value, oldVnode.style);
                                 if (styles) {
                                     delta.style = styles;
                                 }
                                 break;
                             case 'className':
                                 if (oldVnode.className) {
-                                    add    = Neo.util.Array.difference(value, oldVnode.className);
-                                    remove = Neo.util.Array.difference(oldVnode.className, value);
+                                    add    = NeoArray.difference(value, oldVnode.className);
+                                    remove = NeoArray.difference(oldVnode.className, value);
                                 } else {
                                     add    =  value;
                                     remove = [];
@@ -546,7 +548,7 @@ class Helper extends Base {
         }
 
         if (cls) {
-            if (Neo.isArray(cls)) {
+            if (Array.isArray(cls)) {
                 cls = cls.join(' ');
             }
 
@@ -717,7 +719,7 @@ class Helper extends Base {
                     case 'children':
                     case 'childNodes':
                     case 'cn':
-                        if (!Neo.isArray(value)) {
+                        if (!Array.isArray(value)) {
                             value = [value];
                         }
 
@@ -739,7 +741,7 @@ class Helper extends Base {
                     case 'cls':
                         if (value && !Array.isArray(value)) {
                             node.className = [value];
-                        } else if (!(Neo.isArray(value) && value.length < 1)) {
+                        } else if (!(Array.isArray(value) && value.length < 1)) {
                             node.className = value;
                         }
                         break;
