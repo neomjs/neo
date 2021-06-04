@@ -819,6 +819,9 @@ class Component extends BaseComponent {
                                 cls : ['neo-event-title'],
                                 html: record.title,
                                 id  : me.id + '__title__' + recordKey
+                            }, {
+                                cls : ['neo-event-time', 'neo-event-end-time'],
+                                html: me.intlFormat_time.format(record.endDate)
                             }],
 
                             style: {
