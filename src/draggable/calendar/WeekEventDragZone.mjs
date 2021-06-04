@@ -134,6 +134,10 @@ class WeekEventDragZone extends DragZone {
             vdom      = me.dragProxyConfig && me.dragProxyConfig.vdom,
             clone     = VDomUtil.clone(vdom ? vdom : me.dragElement);
 
+        if (!me.keepEndDate) {
+            clone.cn[2].removeDom = false;
+        }
+
         const config = {
             module          : DragProxyComponent,
             appName         : me.appName,
@@ -224,6 +228,7 @@ class WeekEventDragZone extends DragZone {
             i           = 0,
             len         = path.length,
             oldInterval = me.currentInterval,
+            owner       = me.owner,
             record      = me.eventRecord,
             deltas, duration, endTime, height, intervalHeight, intervals, position, startTime;
 
@@ -287,13 +292,13 @@ class WeekEventDragZone extends DragZone {
                 } else {
                     deltas.push({
                         id       : me.dragProxy.vdom.cn[2].id,
-                        innerHTML: me.owner.intlFormat_time.format(endTime)
+                        innerHTML: owner.intlFormat_time.format(endTime)
                     });
                 }
 
                 deltas.push({
                     id       : me.dragProxy.vdom.cn[0].id,
-                    innerHTML: me.owner.intlFormat_time.format(startTime)
+                    innerHTML: owner.intlFormat_time.format(startTime)
                 });
 
                 // check if the node did not get removed yet
