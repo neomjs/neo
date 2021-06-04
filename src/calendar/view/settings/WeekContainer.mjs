@@ -1,7 +1,8 @@
-import Container   from '../../../container/Base.mjs';
-import NumberField from '../../../form/field/Number.mjs';
-import RadioField  from '../../../form/field/Radio.mjs';
-import TimeField   from '../../../form/field/Time.mjs';
+import CheckBoxField from '../../../form/field/CheckBox.mjs';
+import Container     from '../../../container/Base.mjs';
+import NumberField   from '../../../form/field/Number.mjs';
+import RadioField    from '../../../form/field/Radio.mjs';
+import TimeField     from '../../../form/field/Time.mjs';
 
 /**
  * @class Neo.calendar.view.settings.WeekContainer
@@ -91,6 +92,15 @@ class WeekContainer extends Container {
             stepSize            : 2,
             value               : timeAxis.rowHeight
         }, {
+            module        : CheckBoxField,
+            checked       : weekComponent.showEventEndDates,
+            hideLabel     : true,
+            hideValueLabel: false,
+            listeners     : {change: me.onConfigChange, scope: me},
+            name          : 'showEventEndDates',
+            style         : {marginTop: '10px'},
+            valueLabelText: 'showEventEndDates'
+        }, {
             module        : RadioField,
             checked       : weekComponent.timeAxisPosition === 'start',
             fieldValue    : 'start',
@@ -98,6 +108,7 @@ class WeekContainer extends Container {
             labelText     : 'timeAxisPosition',
             listeners     : {change: me.onTimeAxisPositionChange, scope: me},
             name          : 'timeAxisPosition',
+            style         : {marginTop: '10px'},
             valueLabelText: 'start'
         }, {
             module        : RadioField,
@@ -127,6 +138,14 @@ class WeekContainer extends Container {
      */
     getWeekComponent() {
         return this.up('calendar-maincontainer').weekComponent;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onConfigChange(data) {
+        this.getWeekComponent()[data.component.name] = data.value;
     }
 
     /**

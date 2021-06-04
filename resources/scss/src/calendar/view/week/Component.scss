@@ -72,6 +72,8 @@
         border-left     : 2px solid red;
         border-right    : 1px solid transparent;
         cursor          : pointer;
+        display         : flex;
+        flex-direction  : column;
         font-size       : .8em;
         padding         : .2em .4em;;
         position        : absolute;
@@ -92,6 +94,10 @@
                 color: #fff;
             }
         }
+
+        .neo-resizable {
+            color: v(c-w-event-resizable-color);
+        }
     }
 
     .neo-event-time,
@@ -99,6 +105,11 @@
         color         : red;
         pointer-events: none;
         user-select   : none;
+    }
+
+    .neo-event-end-time {
+        margin-top: auto;
+        text-align: end;
     }
 
     .neo-event-title {

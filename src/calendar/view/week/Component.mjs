@@ -105,6 +105,10 @@ class Component extends BaseComponent {
          */
         resizablePluginConfig: null,
         /**
+         * @member {Boolean} showEventEndDates_=false
+         */
+        showEventEndDates_: false,
+        /**
          * @member {Object} timeAxis=null
          */
         timeAxis: null,
@@ -325,6 +329,19 @@ class Component extends BaseComponent {
                     });
                 });
             }, 20);
+        }
+    }
+
+    /**
+     * Triggered after the showEventEndDates config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowEventEndDates(value, oldValue) {
+        if (oldValue !== undefined) {
+            // todo: we could just do an inline parsing (faster)
+            this.updateEvents();
         }
     }
 
@@ -819,6 +836,11 @@ class Component extends BaseComponent {
                                 cls : ['neo-event-title'],
                                 html: record.title,
                                 id  : me.id + '__title__' + recordKey
+                            }, {
+                                cls      : ['neo-event-time', 'neo-event-end-time'],
+                                html     : me.intlFormat_time.format(record.endDate),
+                                id       : me.id + '__enddate__' + recordKey,
+                                removeDom: !me.showEventEndDates
                             }],
 
                             style: {

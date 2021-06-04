@@ -134,6 +134,10 @@ class WeekEventDragZone extends DragZone {
             vdom      = me.dragProxyConfig && me.dragProxyConfig.vdom,
             clone     = VDomUtil.clone(vdom ? vdom : me.dragElement);
 
+        if (!me.keepEndDate) {
+            clone.cn[2].removeDom = false;
+        }
+
         const config = {
             module          : DragProxyComponent,
             appName         : me.appName,
@@ -224,6 +228,7 @@ class WeekEventDragZone extends DragZone {
             i           = 0,
             len         = path.length,
             oldInterval = me.currentInterval,
+            owner       = me.owner,
             record      = me.eventRecord,
             deltas, duration, endTime, height, intervalHeight, intervals, position, startTime;
 
@@ -254,13 +259,15 @@ class WeekEventDragZone extends DragZone {
                     style: {}
                 }];
 
+                endTime   = new Date(record.endDate.valueOf());
                 startTime = new Date(record.startDate.valueOf());
 
-                if (me.keepStartDate) {
-                    endTime = new Date(record.startDate.valueOf());
+                if (!me.keepEndDate) {
                     endTime.setHours(me.startTime);
                     endTime.setMinutes(me.eventDuration + me.currentInterval * 15);
+                }
 
+                if (me.keepStartDate) {
                     me.newEndDate = endTime;
 
                     duration = (endTime - record.startDate) / 60 / 60 / 1000; // duration in hours
@@ -282,11 +289,16 @@ class WeekEventDragZone extends DragZone {
                     height   = Math.round(duration / (me.endTime - me.startTime) * 100 * 1000) / 1000;
 
                     deltas[0].style.height = `calc(${height}% - 2px)`;
+                } else {
+                    deltas.push({
+                        id       : me.dragProxy.vdom.cn[2].id,
+                        innerHTML: owner.intlFormat_time.format(endTime)
+                    });
                 }
 
                 deltas.push({
                     id       : me.dragProxy.vdom.cn[0].id,
-                    innerHTML: me.owner.intlFormat_time.format(startTime)
+                    innerHTML: owner.intlFormat_time.format(startTime)
                 });
 
                 // check if the node did not get removed yet
