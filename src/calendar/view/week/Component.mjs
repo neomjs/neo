@@ -340,7 +340,7 @@ class Component extends BaseComponent {
      */
     afterSetShowEventEndDates(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('afterSetShowEventEndDates', value);
+            this.updateEvents();
         }
     }
 
@@ -838,6 +838,7 @@ class Component extends BaseComponent {
                             }, {
                                 cls      : ['neo-event-time', 'neo-event-end-time'],
                                 html     : me.intlFormat_time.format(record.endDate),
+                                id       : me.id + '__enddate__' + recordKey,
                                 removeDom: !me.showEventEndDates
                             }],
 
