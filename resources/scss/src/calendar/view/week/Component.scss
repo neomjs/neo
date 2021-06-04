@@ -94,6 +94,10 @@
                 color: #fff;
             }
         }
+
+        .neo-resizable {
+            color: v(c-w-event-resizable-color);
+        }
     }
 
     .neo-event-time,
