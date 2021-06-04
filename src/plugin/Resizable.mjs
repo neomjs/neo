@@ -530,6 +530,9 @@ class Resizable extends Base {
         if (me.currentNodeName) {
             me.removeNode(me.currentNodeName);
             me.owner.vdom = vdom;
+
+            me.currentNodeName = null;
+            me.targetNode      = null;
         }
     }
 
