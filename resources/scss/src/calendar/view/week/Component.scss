@@ -72,6 +72,8 @@
         border-left     : 2px solid red;
         border-right    : 1px solid transparent;
         cursor          : pointer;
+        display         : flex;
+        flex-direction  : column;
         font-size       : .8em;
         padding         : .2em .4em;;
         position        : absolute;
