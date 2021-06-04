@@ -340,6 +340,7 @@ class Component extends BaseComponent {
      */
     afterSetShowEventEndDates(value, oldValue) {
         if (oldValue !== undefined) {
+            // todo: we could just do an inline parsing (faster)
             this.updateEvents();
         }
     }
