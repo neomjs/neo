@@ -104,6 +104,11 @@ class MainContainer extends Container {
          */
         locale_: Neo.config.locale,
         /**
+         * Time in minutes
+         * @member {Number} minimumEventDuration_=30
+         */
+        minimumEventDuration_: 30,
+        /**
          * @member {Neo.calendar.view.MonthComponent|null} monthComponent=null
          */
         monthComponent: null,
@@ -251,6 +256,18 @@ class MainContainer extends Container {
     afterSetLocale(value, oldValue) {
         if (oldValue !== undefined) {
             this.setViewConfig('locale', value);
+        }
+    }
+
+    /**
+     * Triggered after the minimumEventDuration config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetMinimumEventDuration(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.weekComponent.minimumEventDuration = value;
         }
     }
 
@@ -586,6 +603,7 @@ class MainContainer extends Container {
             },
             week: {
                 module: WeekComponent,
+                minimumEventDuration: me.minimumEventDuration,
                 ...defaultConfig,
                 ...me.weekComponentConfig || {}
             },
