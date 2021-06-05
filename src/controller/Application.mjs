@@ -106,7 +106,7 @@ class Application extends Base {
 
 Neo.applyClassConfig(Application);
 
-// shortcut
+// convenience shortcut
 Neo.app = config => Neo.create({
     module: Application,
     ...config || {}

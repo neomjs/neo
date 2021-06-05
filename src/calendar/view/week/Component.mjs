@@ -686,6 +686,29 @@ class Component extends BaseComponent {
     /**
      *
      * @param {Object} data
+     * @param {Object[]} data.oldPath
+     * @param {Object[]} data.path
+     */
+    onFocusChange(data) {
+        let oldPath = data.oldPath,
+            path    = data.path;
+
+        if (oldPath) {
+            if (oldPath[0].cls && oldPath[0].cls.includes('neo-event')) {
+                Neo.currentWorker.applyDeltas(this.appName, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
+            }
+        }
+
+        if (path) {
+            if (path[0].cls && path[0].cls.includes('neo-event')) {
+                Neo.applyDeltas(this.appName, {id: path[0].id, cls: {add: ['neo-focus']}});
+            }
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
      * @param {Neo.component.Base} data.component
      * @param {Number} data.rowHeight
      * @param {Number} data.rowsPerItem

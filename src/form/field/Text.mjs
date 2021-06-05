@@ -768,10 +768,11 @@ class Text extends Base {
 
     /**
      *
-     * @param {Array} path
+     * @param {Object} data
+     * @param {Object[]} data.path
      * @protected
      */
-    onFocusEnter(path) {
+    onFocusEnter(data) {
         let me  = this,
             cls = me.cls,
             vdom;
@@ -792,10 +793,11 @@ class Text extends Base {
 
     /**
      *
-     * @param {Array} path
+     * @param {Object} data
+     * @param {Object[]} data.oldPath
      * @protected
      */
-    onFocusLeave(path) {
+    onFocusLeave(data) {
         let me             = this,
             centerBorderEl = me.getCenterBorderEl(), // labelPosition: 'inline'
             cls            = me.cls,

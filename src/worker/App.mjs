@@ -54,6 +54,25 @@ class App extends Base {
         workerId: 'app'
     }}
 
+    constructor(config) {
+        super(config);
+        Neo.applyDeltas = this.applyDeltas.bind(this); // convenience shortcut
+    }
+
+    /**
+     *
+     * @param {String} appName
+     * @param {Array|Object} deltas
+     * @returns {Promise<*>}
+     */
+    applyDeltas(appName, deltas) {
+         return this.promiseMessage('main', {
+            action : 'updateDom',
+            appName: appName,
+            deltas : deltas
+        });
+    }
+
     /**
      *
      * @param {JSON} data

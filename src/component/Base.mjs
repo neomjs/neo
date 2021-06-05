@@ -1631,23 +1631,33 @@ class Base extends CoreBase {
 }
 
 /**
+ * manager.Focus fires the event after focusEnter, focusLeave or focusMove
+ * @event focusChange
+ * @param {Object} data
+ * @param {Object[]} [data.path] dom element ids upwards
+ * @param {Object[]} [data.oldPath] dom element ids upwards
+ */
+
+/**
  * manager.Focus fires the event when the component id is included inside the dom id path
  * @event focusEnter
- * @param {Array} path dom element ids upwards
+ * @param {Object} data
+ * @param {Object[]} data.path dom element ids upwards
  */
 
 /**
  * manager.Focus fires the event when the component id is not included inside the dom id path
  * @event focusLeave
- * @param {Array} path dom element ids upwards
+ * @param {Object} data
+ * @param {Object[]} data.oldPath dom element ids upwards
  */
 
 /**
  * manager.Focus fires the event when the component id is included inside the dom id path, but the path itself changed
  * @event focusMove
- * @param {Object} opts
- * @param {Array}  opts.newPath dom element ids upwards
- * @param {Array}  opts.oldPath dom element ids upwards
+ * @param {Object} data
+ * @param {Object[]} data.path dom element ids upwards
+ * @param {Object[]} data.oldPath dom element ids upwards
  */
 
 Neo.applyClassConfig(Base);
