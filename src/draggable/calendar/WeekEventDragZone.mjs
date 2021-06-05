@@ -228,6 +228,7 @@ class WeekEventDragZone extends DragZone {
         let me            = this,
             axisEndTime   = me.axisEndTime,
             axisStartTime = me.axisStartTime,
+            columnHeight  = me.columnHeight,
             eventDuration = me.eventDuration,
             i             = 0,
             keepEndDate   = me.keepEndDate,
@@ -239,7 +240,7 @@ class WeekEventDragZone extends DragZone {
             axisStartDate, currentInterval, deltas, duration, endTime, height, intervalHeight, intervals, position, startInterval, startTime;
 
         if (me.dragProxy) {
-            if (!me.keepEndDate && !me.keepStartDate) {
+            if (!keepEndDate && !keepStartDate) {
                 for (; i < len; i++) {
                     if (path[i].cls.includes('neo-c-w-column')) {
                         me.proxyParentId = path[i].id;
@@ -249,9 +250,9 @@ class WeekEventDragZone extends DragZone {
             }
 
             intervals      = (axisEndTime - axisStartTime) * 4; // 15 minutes each
-            intervalHeight = me.columnHeight / intervals;
+            intervalHeight = columnHeight / intervals;
 
-            position = Math.min(me.columnHeight, data.clientY - me.offsetY - me.columnTop);
+            position = Math.min(columnHeight, data.clientY - me.offsetY - me.columnTop);
             position = Math.max(0, position);
 
             currentInterval = Math.floor(position / intervalHeight);
@@ -298,7 +299,7 @@ class WeekEventDragZone extends DragZone {
                     startTime.setMinutes(currentInterval * 15);
 
                     position = currentInterval * intervalHeight; // snap to valid intervals
-                    position = position / me.columnHeight * 100;
+                    position = position / columnHeight * 100;
 
                     deltas[0].style.top = `calc(${position}% + 1px)`;
                 }
