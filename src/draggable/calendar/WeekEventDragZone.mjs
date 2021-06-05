@@ -24,6 +24,14 @@ class WeekEventDragZone extends DragZone {
          */
         addDragProxyCls: false,
         /**
+         * @member {Number} axisEndTime=0
+         */
+        axisEndTime: 0,
+        /**
+         * @member {Number} axisStartTime=0
+         */
+        axisStartTime: 0,
+        /**
          * @member {Number} columnHeight=0
          */
         columnHeight: 0,
@@ -35,10 +43,6 @@ class WeekEventDragZone extends DragZone {
          * @member {Number} currentInterval=0
          */
         currentInterval: 0,
-        /**
-         * @member {Number} endTime=0
-         */
-        endTime: 0,
         /**
          * time in minutes
          * @member {Number} eventDuration=0
@@ -72,10 +76,6 @@ class WeekEventDragZone extends DragZone {
          * @member {Number} scrollFactorLeft=3
          */
         scrollFactorLeft: 3,
-        /**
-         * @member {Number} startTime=0
-         */
-        startTime: 0,
         /**
          * @member {Boolean} useProxyWrapper=false
          */
@@ -189,7 +189,7 @@ class WeekEventDragZone extends DragZone {
             startDate = record.startDate;
         } else {
             startDate = new Date(VDomUtil.findVdomChild(me.owner.vdom, me.proxyParentId).vdom.flag);
-            startDate.setHours(me.startTime);
+            startDate.setHours(me.axisStartTime);
             startDate.setMinutes(me.currentInterval * 15);
 
             if (me.keepEndDate) {
@@ -226,14 +226,16 @@ class WeekEventDragZone extends DragZone {
      */
     dragMove(data) {
         let me            = this,
+            axisEndTime   = me.axisEndTime,
+            axisStartTime = me.axisStartTime,
             eventDuration = me.eventDuration,
             i             = 0,
             keepEndDate   = me.keepEndDate,
             keepStartDate = me.keepStartDate,
+            path          = data.targetPath,
             len           = path.length,
             oldInterval   = me.currentInterval,
             owner         = me.owner,
-            path          = data.targetPath,
             record        = me.eventRecord,
             axisStartDate, deltas, duration, endTime, height, intervalHeight, intervals, position, startInterval, startTime;
 
@@ -247,7 +249,7 @@ class WeekEventDragZone extends DragZone {
                 }
             }
 
-            intervals      = (me.endTime - me.startTime) * 4; // 15 minutes each
+            intervals      = (axisEndTime - axisStartTime) * 4; // 15 minutes each
             intervalHeight = me.columnHeight / intervals;
 
             position = Math.min(me.columnHeight, data.clientY - me.offsetY - me.columnTop);
@@ -260,7 +262,7 @@ class WeekEventDragZone extends DragZone {
 
             if (keepEndDate || keepStartDate) {
                 axisStartDate = new Date(record.startDate.valueOf());
-                axisStartDate.setHours(me.startTime);
+                axisStartDate.setHours(axisStartTime);
 
                 startInterval = (record.startDate - axisStartDate) * 4 / 60 / 60 / 1000;
             }
@@ -282,7 +284,7 @@ class WeekEventDragZone extends DragZone {
 
 
                 if (!keepEndDate) {
-                    endTime.setHours(me.startTime);
+                    endTime.setHours(axisStartTime);
                     endTime.setMinutes(eventDuration + me.currentInterval * 15);
                 }
 
@@ -290,11 +292,11 @@ class WeekEventDragZone extends DragZone {
                     me.newEndDate = endTime;
 
                     duration = (endTime - record.startDate) / 60 / 60 / 1000; // duration in hours
-                    height   = Math.round(duration / (me.endTime - me.startTime) * 100 * 1000) / 1000;
+                    height   = Math.round(duration / (axisEndTime - axisStartTime) * 100 * 1000) / 1000;
 
                     deltas[0].style.height = `calc(${height}% - 2px)`;
                 } else {
-                    startTime.setHours(me.startTime);
+                    startTime.setHours(axisStartTime);
                     startTime.setMinutes(me.currentInterval * 15);
 
                     position = me.currentInterval * intervalHeight; // snap to valid intervals
@@ -305,7 +307,7 @@ class WeekEventDragZone extends DragZone {
 
                 if (keepEndDate) {
                     duration = (record.endDate - startTime) / 60 / 60 / 1000; // duration in hours
-                    height   = Math.round(duration / (me.endTime - me.startTime) * 100 * 1000) / 1000;
+                    height   = Math.round(duration / (axisEndTime - axisStartTime) * 100 * 1000) / 1000;
 
                     deltas[0].style.height = `calc(${height}% - 2px)`;
                 } else {

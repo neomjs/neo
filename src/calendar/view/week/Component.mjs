@@ -642,11 +642,11 @@ class Component extends BaseComponent {
         me.isDragging = true;
 
         const config = {
+            axisEndTime  : timeAxis.getTime(timeAxis.endTime),
+            axisStartTime: timeAxis.getTime(timeAxis.startTime),
             dragElement  : dragElement,
-            endTime      : timeAxis.getTime(timeAxis.endTime),
             eventRecord  : me.eventStore.get(dragElement.flag),
-            proxyParentId: data.path[1].id,
-            startTime    : timeAxis.getTime(timeAxis.startTime)
+            proxyParentId: data.path[1].id
         };
 
         if (!eventDragZone) {
