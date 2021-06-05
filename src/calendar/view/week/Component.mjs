@@ -686,40 +686,31 @@ class Component extends BaseComponent {
     /**
      *
      * @param {Object} data
-     * @param {Object[]} data.newPath
-     */
-    onFocusEnter(data) {
-        this.manageFocus(data);
-    }
-
-    /**
-     *
-     * @param {Object} data
      * @param {Object[]} data.oldPath
+     * @param {Object[]} data.path
      */
-    onFocusLeave(data) {
-        this.manageFocus(data);
-    }
+    onFocusChange(data) {
+        let oldPath = data.oldPath,
+            path    = data.path;
 
-    /**
-     *
-     * @param {Object} data
-     * @param {Object[]} data.newPath
-     * @param {Object[]} data.oldPath
-     */
-    onFocusMove(data) {
-        this.manageFocus(data);
-    }
+        if (oldPath) {
+            if (oldPath[0].cls && oldPath[0].cls.includes('neo-event')) {
+                Neo.currentWorker.promiseMessage('main', {
+                    action : 'updateDom',
+                    appName: this.appName,
+                    deltas : {id: oldPath[0].id, cls: {remove: ['neo-focus']}}
+                });
+            }
+        }
 
-    /**
-     *
-     * @param {Object} data
-     * @param {Object[]} [data.newPath]
-     * @param {Object[]} [data.oldPath]
-     */
-    manageFocus(data) {console.log(data);
-        if (data.oldPath) {
-            // todo: remove event focus
+        if (path) {
+            if (path[0].cls && path[0].cls.includes('neo-event')) {
+                Neo.currentWorker.promiseMessage('main', {
+                    action : 'updateDom',
+                    appName: this.appName,
+                    deltas : {id: path[0].id, cls: {add: ['neo-focus']}}
+                });
+            }
         }
     }
 
