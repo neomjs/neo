@@ -265,12 +265,12 @@ class WeekEventDragZone extends DragZone {
                 axisStartDate.setHours(axisStartTime);
 
                 startInterval = (record.startDate - axisStartDate) * 4 / 60 / 60 / 1000;
-            }
 
-            if (keepEndDate) {
-                currentInterval = Math.min(currentInterval, startInterval + (eventDuration / 15) - owner.minimumEventDuration / 15);
-            } else if (keepStartDate) {
-                currentInterval = Math.max(currentInterval, startInterval - (eventDuration / 15) + owner.minimumEventDuration / 15);
+                if (keepEndDate) {
+                    currentInterval = Math.min(currentInterval, startInterval + (eventDuration / 15) - owner.minimumEventDuration / 15);
+                } else if (keepStartDate) {
+                    currentInterval = Math.max(currentInterval, startInterval - (eventDuration / 15) + owner.minimumEventDuration / 15);
+                }
             }
 
             if (me.currentInterval !== currentInterval) {
@@ -289,11 +289,7 @@ class WeekEventDragZone extends DragZone {
 
                 if (keepStartDate) {
                     me.newEndDate = endTime;
-
                     duration = (endTime - record.startDate) / 60 / 60 / 1000; // duration in hours
-                    height   = Math.round(duration / (axisEndTime - axisStartTime) * 100 * 1000) / 1000;
-
-                    deltas[0].style.height = `calc(${height}% - 2px)`;
                 } else {
                     startTime.setHours(axisStartTime);
                     startTime.setMinutes(currentInterval * 15);
@@ -306,14 +302,16 @@ class WeekEventDragZone extends DragZone {
 
                 if (keepEndDate) {
                     duration = (record.endDate - startTime) / 60 / 60 / 1000; // duration in hours
-                    height   = Math.round(duration / (axisEndTime - axisStartTime) * 100 * 1000) / 1000;
-
-                    deltas[0].style.height = `calc(${height}% - 2px)`;
                 } else {
                     deltas.push({
                         id       : me.dragProxy.vdom.cn[2].id,
                         innerHTML: owner.intlFormat_time.format(endTime)
                     });
+                }
+
+                if (keepEndDate || keepStartDate) {
+                    height = Math.round(duration / (axisEndTime - axisStartTime) * 100 * 1000) / 1000;
+                    deltas[0].style.height = `calc(${height}% - 2px)`;
                 }
 
                 deltas.push({
