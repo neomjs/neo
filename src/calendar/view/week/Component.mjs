@@ -686,6 +686,46 @@ class Component extends BaseComponent {
     /**
      *
      * @param {Object} data
+     * @param {Object[]} data.newPath
+     */
+    onFocusEnter(data) {
+        this.manageFocus(data);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Object[]} data.oldPath
+     */
+    onFocusLeave(data) {
+        this.manageFocus(data);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Object[]} data.newPath
+     * @param {Object[]} data.oldPath
+     */
+    onFocusMove(data) {
+        this.manageFocus(data);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Object[]} [data.newPath]
+     * @param {Object[]} [data.oldPath]
+     */
+    manageFocus(data) {console.log(data);
+        if (data.oldPath) {
+            // todo: remove event focus
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
      * @param {Neo.component.Base} data.component
      * @param {Number} data.rowHeight
      * @param {Number} data.rowsPerItem
