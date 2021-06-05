@@ -268,9 +268,9 @@ class WeekEventDragZone extends DragZone {
             }
 
             if (keepEndDate) {
-                me.currentInterval = Math.min(me.currentInterval, startInterval + (eventDuration / 15) - 30 / 15);
+                me.currentInterval = Math.min(me.currentInterval, startInterval + (eventDuration / 15) - owner.minimumEventDuration / 15);
             } else if (keepStartDate) {
-                me.currentInterval = Math.max(me.currentInterval, startInterval - (eventDuration / 15) + 30 / 15);
+                me.currentInterval = Math.max(me.currentInterval, startInterval - (eventDuration / 15) + owner.minimumEventDuration / 15);
             }
 
             if (oldInterval !== me.currentInterval) {
