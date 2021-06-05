@@ -46,7 +46,7 @@ class MainContainer extends Viewport {
             }]
         }, {
             module     : Calendar,
-            currentDate: new Date('2020-07-20'),
+            currentDate: new Date('2021-07-20'),
             flex       : 1,
             reference  : 'calendar',
 
