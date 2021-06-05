@@ -268,6 +268,7 @@ class WeekEventDragZone extends DragZone {
             if (keepEndDate || keepStartDate) {
                 axisStartDate = new Date(record.startDate.valueOf());
                 axisStartDate.setHours(axisStartTime);
+                axisStartDate.setMinutes(0);
 
                 startInterval = (record.startDate - axisStartDate) / intervalSize / 60 / 1000;
 
