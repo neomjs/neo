@@ -259,7 +259,6 @@ class WeekEventDragZone extends DragZone {
             intervalHeight = columnHeight / intervals;
 
             position = Math.min(columnHeight, data.clientY - me.offsetY - me.columnTop);
-            position = Math.max(0, position);
 
             currentInterval = Math.floor(position / intervalHeight);
 
@@ -269,6 +268,7 @@ class WeekEventDragZone extends DragZone {
             if (keepEndDate || keepStartDate) {
                 axisStartDate = new Date(record.startDate.valueOf());
                 axisStartDate.setHours(axisStartTime);
+                axisStartDate.setMinutes(0);
 
                 startInterval = (record.startDate - axisStartDate) / intervalSize / 60 / 1000;
 
@@ -277,6 +277,8 @@ class WeekEventDragZone extends DragZone {
                 } else if (keepStartDate) {
                     currentInterval = Math.max(currentInterval, startInterval - (eventDuration / intervalSize) + owner.minimumEventDuration / intervalSize);
                 }
+            } else {
+                currentInterval = Math.max(0, currentInterval);
             }
 
             if (me.currentInterval !== currentInterval) {
