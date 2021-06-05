@@ -695,21 +695,13 @@ class Component extends BaseComponent {
 
         if (oldPath) {
             if (oldPath[0].cls && oldPath[0].cls.includes('neo-event')) {
-                Neo.currentWorker.promiseMessage('main', {
-                    action : 'updateDom',
-                    appName: this.appName,
-                    deltas : {id: oldPath[0].id, cls: {remove: ['neo-focus']}}
-                });
+                Neo.currentWorker.applyDeltas(this.appName, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
             }
         }
 
         if (path) {
             if (path[0].cls && path[0].cls.includes('neo-event')) {
-                Neo.currentWorker.promiseMessage('main', {
-                    action : 'updateDom',
-                    appName: this.appName,
-                    deltas : {id: path[0].id, cls: {add: ['neo-focus']}}
-                });
+                Neo.applyDeltas(this.appName, {id: path[0].id, cls: {add: ['neo-focus']}});
             }
         }
     }

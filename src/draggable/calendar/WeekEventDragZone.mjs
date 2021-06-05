@@ -91,17 +91,7 @@ class WeekEventDragZone extends DragZone {
      *
      */
     addBodyCursorCls() {
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'updateDom',
-            appName: this.appName,
-            deltas : {
-                id : 'document.body',
-                cls: {
-                    add   : ['neo-cursor-move'],
-                    remove: []
-                }
-            }
-        });
+        Neo.applyDeltas(this.appName, {id: 'document.body', cls: {add: ['neo-cursor-move']}});
     }
 
     /**
@@ -116,14 +106,11 @@ class WeekEventDragZone extends DragZone {
 
             // check if the node did not get removed yet
             if (me.dragProxy && me.dragProxy.vdom.cn[0].id) {
-                Neo.currentWorker.promiseMessage('main', {
-                    action: 'updateDom',
-                    deltas: [{
-                        action  : 'moveNode',
-                        id      : me.dragProxy.id,
-                        index   : 0,
-                        parentId: value
-                    }]
+                Neo.applyDeltas(me.appName, {
+                    action  : 'moveNode',
+                    id      : me.dragProxy.id,
+                    index   : 0,
+                    parentId: value
                 });
             }
         }
@@ -380,17 +367,7 @@ class WeekEventDragZone extends DragZone {
      *
      */
     removeBodyCursorCls() {
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'updateDom',
-            appName: this.appName,
-            deltas : {
-                id : 'document.body',
-                cls: {
-                    add   : [],
-                    remove: ['neo-cursor-move']
-                }
-            }
-        });
+        Neo.applyDeltas(this.appName, {id: 'document.body', cls: {remove: ['neo-cursor-move']}});
     }
 }
 
