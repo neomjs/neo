@@ -120,15 +120,21 @@ class Focus extends CoreBase {
 
             if (component) {
                 data = {
-                    newPath: opts.data.path,
+                    path   : opts.data.path,
                     oldPath: history[0].data.path
                 };
 
-                if (typeof component.onFocusMove === 'function') {
+                if (Neo.isFunction(component.onFocusMove)) {
                     component.onFocusMove(data);
                 }
 
                 component.fire('focusMove', data);
+
+                if (Neo.isFunction(component.onFocusChange)) {
+                    component.onFocusChange(data);
+                }
+
+                component.fire('focusChange', data);
             }
         });
 
@@ -182,7 +188,8 @@ class Focus extends CoreBase {
      * @protected
      */
     setComponentFocus(opts, containsFocus) {
-        let component, handler;
+        let data = {},
+            component, handler;
 
         opts.componentPath.forEach(id => {
             component = Neo.getComponent(id);
@@ -190,13 +197,21 @@ class Focus extends CoreBase {
             if (component) {
                 component.containsFocus = containsFocus;
 
+                data[containsFocus ? 'path' : 'oldPath'] = opts.data.path
+
                 handler = containsFocus ? 'onFocusEnter' : 'onFocusLeave';
 
-                if (typeof component[handler] === 'function') {
-                    component[handler](opts.data.path);
+                if (Neo.isFunction(component[handler])) {
+                    component[handler](data);
                 }
 
-                component.fire(containsFocus ? 'focusEnter' : 'focusLeave', opts.data.path);
+                component.fire(containsFocus ? 'focusEnter' : 'focusLeave', data);
+
+                if (Neo.isFunction(component.onFocusChange)) {
+                    component.onFocusChange(data);
+                }
+
+                component.fire('focusChange', data);
             }
         });
     }
