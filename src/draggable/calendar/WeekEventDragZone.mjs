@@ -143,6 +143,8 @@ class WeekEventDragZone extends DragZone {
 
         config.cls = config.cls || [];
 
+        config.cls.push('neo-focus');
+
         if (component) {
             config.cls.push(component.getTheme());
         }
@@ -151,7 +153,7 @@ class WeekEventDragZone extends DragZone {
             config.cls.push(...clone.cls);
         }
 
-        if (me.addDragProxyCls && config.cls) {
+        if (me.addDragProxyCls) {
             NeoArray.add(config.cls, me.dragProxyCls);
         }
 
