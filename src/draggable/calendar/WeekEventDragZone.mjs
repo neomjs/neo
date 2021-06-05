@@ -53,6 +53,11 @@ class WeekEventDragZone extends DragZone {
          */
         eventRecord: null,
         /**
+         * time in minutes
+         * @member {Number} intervalSize=15
+         */
+        intervalSize: 15,
+        /**
          * @member {Boolean} keepEndDate=false
          */
         keepEndDate: false,
@@ -190,7 +195,7 @@ class WeekEventDragZone extends DragZone {
         } else {
             startDate = new Date(VDomUtil.findVdomChild(me.owner.vdom, me.proxyParentId).vdom.flag);
             startDate.setHours(me.axisStartTime);
-            startDate.setMinutes(me.currentInterval * 15);
+            startDate.setMinutes(me.currentInterval * me.intervalSize);
 
             if (me.keepEndDate) {
                 endDate = record.endDate;
@@ -231,6 +236,7 @@ class WeekEventDragZone extends DragZone {
             columnHeight  = me.columnHeight,
             eventDuration = me.eventDuration,
             i             = 0,
+            intervalSize  = me.intervalSize,
             keepEndDate   = me.keepEndDate,
             keepStartDate = me.keepStartDate,
             path          = data.targetPath,
@@ -249,7 +255,7 @@ class WeekEventDragZone extends DragZone {
                 }
             }
 
-            intervals      = (axisEndTime - axisStartTime) * 4; // 15 minutes each
+            intervals      = (axisEndTime - axisStartTime) * 60 / intervalSize; // 15 minutes each
             intervalHeight = columnHeight / intervals;
 
             position = Math.min(columnHeight, data.clientY - me.offsetY - me.columnTop);
@@ -258,18 +264,18 @@ class WeekEventDragZone extends DragZone {
             currentInterval = Math.floor(position / intervalHeight);
 
             // events must not end after the last visible interval
-            currentInterval = Math.min(currentInterval, intervals - (eventDuration / 15));
+            currentInterval = Math.min(currentInterval, intervals - (eventDuration / intervalSize));
 
             if (keepEndDate || keepStartDate) {
                 axisStartDate = new Date(record.startDate.valueOf());
                 axisStartDate.setHours(axisStartTime);
 
-                startInterval = (record.startDate - axisStartDate) * 4 / 60 / 60 / 1000;
+                startInterval = (record.startDate - axisStartDate) / intervalSize / 60 / 1000;
 
                 if (keepEndDate) {
-                    currentInterval = Math.min(currentInterval, startInterval + (eventDuration / 15) - owner.minimumEventDuration / 15);
+                    currentInterval = Math.min(currentInterval, startInterval + (eventDuration / intervalSize) - owner.minimumEventDuration / intervalSize);
                 } else if (keepStartDate) {
-                    currentInterval = Math.max(currentInterval, startInterval - (eventDuration / 15) + owner.minimumEventDuration / 15);
+                    currentInterval = Math.max(currentInterval, startInterval - (eventDuration / intervalSize) + owner.minimumEventDuration / intervalSize);
                 }
             }
 
@@ -284,7 +290,7 @@ class WeekEventDragZone extends DragZone {
 
                 if (!keepEndDate) {
                     endTime.setHours(axisStartTime);
-                    endTime.setMinutes(eventDuration + currentInterval * 15);
+                    endTime.setMinutes(eventDuration + currentInterval * intervalSize);
                 }
 
                 if (keepStartDate) {
@@ -292,7 +298,7 @@ class WeekEventDragZone extends DragZone {
                     duration = (endTime - record.startDate) / 60 / 60 / 1000; // duration in hours
                 } else {
                     startTime.setHours(axisStartTime);
-                    startTime.setMinutes(currentInterval * 15);
+                    startTime.setMinutes(currentInterval * intervalSize);
 
                     position = currentInterval * intervalHeight; // snap to valid intervals
                     position = position / columnHeight * 100;
