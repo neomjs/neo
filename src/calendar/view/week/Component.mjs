@@ -101,6 +101,12 @@ class Component extends BaseComponent {
          */
         locale_: Neo.config.locale,
         /**
+         * Time in minutes, will get passed from the MainContainer
+         * @member {Number} minimumEventDuration=30
+         * @protected
+         */
+        minimumEventDuration: 30,
+        /**
          * @member {Object} resizablePluginConfig=null
          */
         resizablePluginConfig: null,
