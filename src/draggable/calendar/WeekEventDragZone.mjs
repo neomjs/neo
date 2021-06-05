@@ -36,7 +36,7 @@ class WeekEventDragZone extends DragZone {
          */
         currentInterval: 0,
         /**
-         * @member {Number} startTime=0
+         * @member {Number} endTime=0
          */
         endTime: 0,
         /**
@@ -225,14 +225,16 @@ class WeekEventDragZone extends DragZone {
      * @param {Object} data
      */
     dragMove(data) {
-        let me          = this,
-            path        = data.targetPath,
-            i           = 0,
-            len         = path.length,
-            oldInterval = me.currentInterval,
-            owner       = me.owner,
-            record      = me.eventRecord,
-            deltas, duration, endTime, height, intervalHeight, intervals, position, startTime;
+        let me            = this,
+            path          = data.targetPath,
+            i             = 0,
+            keepEndDate   = me.keepEndDate,
+            keepStartDate = me.keepStartDate,
+            len           = path.length,
+            oldInterval   = me.currentInterval,
+            owner         = me.owner,
+            record        = me.eventRecord,
+            axisStartDate, deltas, duration, endTime, height, intervalHeight, intervals, position, startInterval, startTime;
 
         if (me.dragProxy) {
             if (!me.keepEndDate && !me.keepStartDate) {
@@ -255,6 +257,19 @@ class WeekEventDragZone extends DragZone {
             // events must not end after the last visible interval
             me.currentInterval = Math.min(me.currentInterval, intervals - (me.eventDuration / 15));
 
+            if (keepEndDate || keepStartDate) {
+                axisStartDate = new Date(record.startDate.valueOf());
+                axisStartDate.setHours(me.startTime);
+
+                startInterval = (record.startDate - axisStartDate) * 4 / 60 / 60 / 1000;
+            }
+
+            if (keepEndDate) {
+                me.currentInterval = Math.min(me.currentInterval, startInterval + (me.eventDuration / 15) - 30 / 15);
+            } else if (keepStartDate) {
+                me.currentInterval = Math.max(me.currentInterval, startInterval - (me.eventDuration / 15) + 30 / 15);
+            }
+
             if (oldInterval !== me.currentInterval) {
                 deltas = [{
                     id   : me.dragProxy.id,
@@ -264,12 +279,13 @@ class WeekEventDragZone extends DragZone {
                 endTime   = new Date(record.endDate.valueOf());
                 startTime = new Date(record.startDate.valueOf());
 
-                if (!me.keepEndDate) {
+
+                if (!keepEndDate) {
                     endTime.setHours(me.startTime);
                     endTime.setMinutes(me.eventDuration + me.currentInterval * 15);
                 }
 
-                if (me.keepStartDate) {
+                if (keepStartDate) {
                     me.newEndDate = endTime;
 
                     duration = (endTime - record.startDate) / 60 / 60 / 1000; // duration in hours
@@ -286,7 +302,7 @@ class WeekEventDragZone extends DragZone {
                     deltas[0].style.top = `calc(${position}% + 1px)`;
                 }
 
-                if (me.keepEndDate) {
+                if (keepEndDate) {
                     duration = (record.endDate - startTime) / 60 / 60 / 1000; // duration in hours
                     height   = Math.round(duration / (me.endTime - me.startTime) * 100 * 1000) / 1000;
 
