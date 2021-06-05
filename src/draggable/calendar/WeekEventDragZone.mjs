@@ -226,13 +226,14 @@ class WeekEventDragZone extends DragZone {
      */
     dragMove(data) {
         let me            = this,
-            path          = data.targetPath,
+            eventDuration = me.eventDuration,
             i             = 0,
             keepEndDate   = me.keepEndDate,
             keepStartDate = me.keepStartDate,
             len           = path.length,
             oldInterval   = me.currentInterval,
             owner         = me.owner,
+            path          = data.targetPath,
             record        = me.eventRecord,
             axisStartDate, deltas, duration, endTime, height, intervalHeight, intervals, position, startInterval, startTime;
 
@@ -255,7 +256,7 @@ class WeekEventDragZone extends DragZone {
             me.currentInterval = Math.floor(position / intervalHeight);
 
             // events must not end after the last visible interval
-            me.currentInterval = Math.min(me.currentInterval, intervals - (me.eventDuration / 15));
+            me.currentInterval = Math.min(me.currentInterval, intervals - (eventDuration / 15));
 
             if (keepEndDate || keepStartDate) {
                 axisStartDate = new Date(record.startDate.valueOf());
@@ -265,9 +266,9 @@ class WeekEventDragZone extends DragZone {
             }
 
             if (keepEndDate) {
-                me.currentInterval = Math.min(me.currentInterval, startInterval + (me.eventDuration / 15) - 30 / 15);
+                me.currentInterval = Math.min(me.currentInterval, startInterval + (eventDuration / 15) - 30 / 15);
             } else if (keepStartDate) {
-                me.currentInterval = Math.max(me.currentInterval, startInterval - (me.eventDuration / 15) + 30 / 15);
+                me.currentInterval = Math.max(me.currentInterval, startInterval - (eventDuration / 15) + 30 / 15);
             }
 
             if (oldInterval !== me.currentInterval) {
@@ -282,7 +283,7 @@ class WeekEventDragZone extends DragZone {
 
                 if (!keepEndDate) {
                     endTime.setHours(me.startTime);
-                    endTime.setMinutes(me.eventDuration + me.currentInterval * 15);
+                    endTime.setMinutes(eventDuration + me.currentInterval * 15);
                 }
 
                 if (keepStartDate) {
