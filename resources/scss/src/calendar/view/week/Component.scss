@@ -82,7 +82,7 @@
         transition-property       : height, top, width;
         transition-timing-function: ease-out;
 
-        &:focus {
+        &.neo-focus {
             background-color: rgba(255, 0, 0, 0.6);
             outline         : 0;
 
