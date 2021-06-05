@@ -848,9 +848,6 @@ class Component extends BaseComponent {
                         startHours = (record.startDate.getHours() * 60 + record.startDate.getMinutes()) / 60;
                         top        = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
 
-                        // console.log(j, record);
-                        // console.log(top);
-
                         column.cn.push({
                             cls     : ['neo-event', 'neo-draggable'],
                             flag    : record[eventStore.keyProperty],
