@@ -56,7 +56,17 @@ class EditEventContainer extends Container {
             labelPosition: 'inline',
             labelText    : 'End Time',
             value        : '16:00'
-        }]
+        }];
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onFocusLeave(data) {
+        let vdom = this.vdom;
+        vdom.removeDom = true;
+        this.vdom = vdom;
     }
 }
 
