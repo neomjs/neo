@@ -17,6 +17,7 @@ const globalDomEvents = [
     'change',
     'click',
     'contextmenu',
+    'dblclick',
     'drag:end',
     'drag:move',
     'drag:start',
