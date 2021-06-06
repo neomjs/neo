@@ -596,8 +596,10 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDoubleClick(data) {
-        let me        = this,
-            eventVdom = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom,
+        let me                 = this,
+            editEventContainer = me.editEventContainer,
+            eventVdom          = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom,
+            record             = me.eventStore.get(eventVdom.flag),
             position, style;
 
         Neo.main.DomAccess.getBoundingClientRect({
@@ -609,23 +611,26 @@ class Component extends BaseComponent {
                 top : `${rect.top}px`
             };
 
-            if (!me.editEventContainer) {
-                me.editEventContainer = Neo.create({
-                    module    : EditEventContainer,
-                    appName   : me.appName,
-                    autoMount : true,
-                    autoRender: true,
-                    record    : me.eventStore.get(eventVdom.flag),
-                    width     : 300,
+            if (!editEventContainer) {
+                me.editEventContainer = editEventContainer = Neo.create({
+                    module : EditEventContainer,
+                    appName: me.appName,
+                    record : record,
+                    width  : 300,
 
                     style: position
                 });
             } else {
-                style = me.editEventContainer.style;
-
+                style = editEventContainer.style;
                 Object.assign(style, position);
-                me.editEventContainer.style = style;
+
+                editEventContainer.setSilent({
+                    record: record,
+                    style : style
+                });
             }
+
+            editEventContainer.render(true);
         });
     }
 

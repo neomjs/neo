@@ -25,12 +25,7 @@ class EditEventContainer extends Container {
         /**
          * @member {Neo.calendar.model.Event|null} record_=null
          */
-        record_: null,
-        /**
-         * @member {Neo.form.field.Text|null} titleField=null
-         * @protected
-         */
-        titleField: null
+        record_: null
     }}
 
     /**
@@ -43,15 +38,14 @@ class EditEventContainer extends Container {
         let me     = this,
             record = me.record;
 
-        me.titleField = Neo.create({
+        me.items = [{
             module       : TextField,
+            flag         : 'title-field',
             flex         : 'none',
             labelPosition: 'inline',
             labelText    : 'Event Title',
             value        : record.title
-        });
-
-        me.items = [me.titleField, {
+        }, {
             module       : TimeField,
             flex         : 'none',
             labelPosition: 'inline',
@@ -73,9 +67,10 @@ class EditEventContainer extends Container {
      * @protected
      */
     afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
         if (value) {
-            super.afterSetMounted(value, oldValue);
-            this.titleField.focus();
+            this.down({flag:'title-field'}).focus();
         }
     }
 
@@ -84,9 +79,7 @@ class EditEventContainer extends Container {
      * @param {Object} data
      */
     onFocusLeave(data) {
-        let vdom = this.vdom;
-        vdom.removeDom = true;
-        this.vdom = vdom;
+        this.unmount();
     }
 }
 

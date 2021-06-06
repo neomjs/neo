@@ -1217,7 +1217,7 @@ class Base extends CoreBase {
             me._rendered = true; // silent update
             me.fire('rendered', me.id);
 
-            console.log('rendered: ' + me.appName + ' ' + me.id, me);
+            // console.log('rendered: ' + me.appName + ' ' + me.id, me);
 
             if (autoMount) {
                 me.mounted = true;
