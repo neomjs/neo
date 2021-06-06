@@ -445,15 +445,15 @@ class Resizable extends Base {
      * @param {Object} data
      */
     onMouseMove(data) {
-        let me    = this,
-            dir   = me.directions,
-            i     = 0,
-            gap   = me.gap,
-            h     = false,
-            len   = data.path.length,
-            owner = me.owner,
+        let me         = this,
+            dir        = me.directions,
+            i          = 0,
+            gap        = me.gap,
+            h          = false,
+            len        = data.path.length,
+            owner      = me.owner,
             targetNode = me.targetNode,
-            vdom  = owner.vdom,
+            vdom       = owner.vdom,
             bottom, left, right, target, top;
 
         if (!me.isDragging && !owner.isDragging) {
