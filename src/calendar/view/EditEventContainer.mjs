@@ -25,7 +25,12 @@ class EditEventContainer extends Container {
         /**
          * @member {Neo.calendar.model.Event|null} record_=null
          */
-        record_: null
+        record_: null,
+        /**
+         * @member {Neo.form.field.Text|null} titleField=null
+         * @protected
+         */
+        titleField: null
     }}
 
     /**
@@ -38,13 +43,15 @@ class EditEventContainer extends Container {
         let me     = this,
             record = me.record;
 
-        me.items = [{
+        me.titleField = Neo.create({
             module       : TextField,
             flex         : 'none',
             labelPosition: 'inline',
             labelText    : 'Event Title',
             value        : record.title
-        }, {
+        });
+
+        me.items = [me.titleField, {
             module       : TimeField,
             flex         : 'none',
             labelPosition: 'inline',
@@ -57,6 +64,19 @@ class EditEventContainer extends Container {
             labelText    : 'End Time',
             value        : '16:00'
         }];
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        if (value) {
+            super.afterSetMounted(value, oldValue);
+            this.focus(this.titleField.getInputEl().id);
+        }
     }
 
     /**
