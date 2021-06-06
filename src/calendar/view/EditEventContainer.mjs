@@ -1,5 +1,6 @@
 import Container from '../../container/Base.mjs';
 import TextField from '../../form/field/Text.mjs';
+import TimeField from '../../form/field/Time.mjs';
 
 /**
  * @class Neo.calendar.view.EditEventContainer
@@ -43,6 +44,18 @@ class EditEventContainer extends Container {
             labelPosition: 'inline',
             labelText    : 'Event Title',
             value        : record.title
+        }, {
+            module       : TimeField,
+            flex         : 'none',
+            labelPosition: 'inline',
+            labelText    : 'Start Time',
+            value        : '09:30'
+        }, {
+            module       : TimeField,
+            flex         : 'none',
+            labelPosition: 'inline',
+            labelText    : 'End Time',
+            value        : '16:00'
         }]
     }
 }
