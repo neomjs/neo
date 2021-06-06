@@ -249,8 +249,10 @@ class WeekEventDragZone extends DragZone {
 
             currentInterval = Math.floor(position / intervalHeight);
 
-            // events must not end after the last visible interval
-            currentInterval = Math.min(currentInterval, intervals - (eventDuration / intervalSize));
+            if (!me.keepEndDate) {
+                // events must not end after the last visible interval
+                currentInterval = Math.min(currentInterval, intervals - (eventDuration / intervalSize));
+            }
 
             if (keepEndDate || keepStartDate) {
                 axisStartDate = new Date(record.startDate.valueOf());
@@ -261,6 +263,7 @@ class WeekEventDragZone extends DragZone {
 
                 if (keepEndDate) {
                     currentInterval = Math.min(currentInterval, startInterval + (eventDuration / intervalSize) - owner.minimumEventDuration / intervalSize);
+                    console.log(currentInterval, startInterval, eventDuration);
                 } else if (keepStartDate) {
                     currentInterval = Math.max(currentInterval, startInterval - (eventDuration / intervalSize) + owner.minimumEventDuration / intervalSize);
                 }
