@@ -50,6 +50,7 @@ class EditEventContainer extends FormContainer {
             flex         : 'none',
             labelPosition: 'inline',
             labelText    : 'Event Title',
+            listeners    : {change: me.onTitleFieldChange, scope: me},
             name         : 'title',
             required     : true,
             value        : record.title
@@ -58,9 +59,10 @@ class EditEventContainer extends FormContainer {
             flex         : 'none',
             labelPosition: 'inline',
             labelText    : 'Start Time',
+            listeners    : {change: me.onTimeFieldChange, scope: me},
             maxValue     : timeAxis.endTime,
             minValue     : timeAxis.startTime,
-            name         : 'startTime',
+            name         : 'startDate',
             stepSize     : 15 * 60,
             value        : owner.intlFormat_time.format(record.startDate)
         }, {
@@ -68,9 +70,10 @@ class EditEventContainer extends FormContainer {
             flex         : 'none',
             labelPosition: 'inline',
             labelText    : 'End Time',
+            listeners    : {change: me.onTimeFieldChange, scope: me},
             maxValue     : timeAxis.endTime,
             minValue     : timeAxis.startTime,
-            name         : 'endTime',
+            name         : 'endDate',
             stepSize     : 15 * 60,
             value        : owner.intlFormat_time.format(record.endDate)
         }];
@@ -113,7 +116,34 @@ class EditEventContainer extends FormContainer {
      * @param {Object} data
      */
     onFocusLeave(data) {
-        this.unmount();
+        // we need a short delay, since a TimeField picker could be open
+        setTimeout(() => {
+            this.unmount();
+        }, 100)
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onTimeFieldChange(data) {
+        let date  = this.record[data.component.name],
+            value = data.value.split(':').map(e => Number(e));
+
+        date.setHours(value[0]);
+        date.setMinutes(value[1]);
+        this.owner.updateEvents();
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onTitleFieldChange(data) {
+        if (!Neo.isEmpty(data.value)) {
+            this.record.title = data.value;
+            this.owner.updateEvents();
+        }
     }
 }
 
