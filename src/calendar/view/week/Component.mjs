@@ -815,17 +815,18 @@ class Component extends BaseComponent {
      * @param {Boolean} [silent=false]
      */
     updateEvents(startIndex=0, endIndex=21, silent=false) {
-        let me         = this,
-            timeAxis   = me.timeAxis,
-            endTime    = timeAxis.getTime(timeAxis.endTime),
-            startTime  = timeAxis.getTime(timeAxis.startTime),
-            totalTime  = endTime - startTime,
-            date       = DateUtil.clone(me.firstColumnDate),
-            eventStore = me.eventStore,
-            vdom       = me.vdom,
-            content    = me.getColumnContainer(),
-            j          = startIndex,
-            len        = eventStore.getCount(),
+        let me                = this,
+            timeAxis          = me.timeAxis,
+            endTime           = timeAxis.getTime(timeAxis.endTime),
+            startTime         = timeAxis.getTime(timeAxis.startTime),
+            totalTime         = endTime - startTime,
+            date              = DateUtil.clone(me.firstColumnDate),
+            eventStore        = me.eventStore,
+            vdom              = me.vdom,
+            content           = me.getColumnContainer(),
+            j                 = startIndex,
+            len               = eventStore.getCount(),
+            showEventEndDates = me.showEventEndDates,
             column, duration, eventCls, hasOverflow, height, i, record, recordKey, startHours, top;
 
         date.setDate(date.getDate() + startIndex);
@@ -841,18 +842,18 @@ class Component extends BaseComponent {
                 // todo: we need a check for date overlaps => startDate < current day, endDate >= current day
                 if (DateUtil.matchDate(date, record.startDate)) {
                     if (DateUtil.matchDate(date, record.endDate)) {
-                        hasOverflow = false;
-                        eventCls    = ['neo-event', 'neo-draggable'];
-                        recordKey   = record[eventStore.keyProperty];
                         duration    = (record.endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
+                        eventCls    = ['neo-event', 'neo-draggable'];
+                        hasOverflow = false;
                         height      = Math.round(duration / totalTime * 100 * 1000) / 1000;
+                        recordKey   = record[eventStore.keyProperty];
                         startHours  = (record.startDate.getHours() * 60 + record.startDate.getMinutes()) / 60;
                         top         = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
 
                         if (duration * 60 / timeAxis.interval === 1) {
-                            hasOverflow = timeAxis.rowHeight < (me.showEventEndDates ? 50 : 34);
+                            hasOverflow = timeAxis.rowHeight < (showEventEndDates ? 50 : 34);
 
-                            if (hasOverflow && !(me.showEventEndDates && timeAxis.rowHeight >= 34)) {
+                            if (hasOverflow && !(showEventEndDates && timeAxis.rowHeight >= 34)) {
                                 eventCls.push('neo-overflow');
                             }
                         }
@@ -875,7 +876,7 @@ class Component extends BaseComponent {
                                 cls      : ['neo-event-time', 'neo-event-end-time'],
                                 html     : me.intlFormat_time.format(record.endDate),
                                 id       : me.id + '__enddate__' + recordKey,
-                                removeDom: hasOverflow || !me.showEventEndDates
+                                removeDom: hasOverflow || !showEventEndDates
                             }],
 
                             style: {
