@@ -42,7 +42,6 @@
         display       : flex;
         flex          : 1 0 calc(100% / 21);
         flex-direction: column;
-        overflow      : hidden;
         position      : relative;
 
         &:last-child {

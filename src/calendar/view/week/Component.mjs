@@ -598,41 +598,39 @@ class Component extends BaseComponent {
     onEventDoubleClick(data) {
         let me                 = this,
             editEventContainer = me.editEventContainer,
+            eventNode          = data.path[0],
             eventVdom          = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom,
             record             = me.eventStore.get(eventVdom.flag),
             position, style;
 
-        Neo.main.DomAccess.getBoundingClientRect({
-            appName: me.appName,
-            id     : data.path[0].id
-        }).then(rect => {
-            position = {
-                left: `${rect.right + 15}px`,
-                top : `${rect.top}px`
-            };
+        position = {
+            left: `${eventNode.rect.width + 15}px`,
+            top : eventVdom.style.top
+        };
 
-            if (!editEventContainer) {
-                me.editEventContainer = editEventContainer = Neo.create({
-                    module : EditEventContainer,
-                    appName: me.appName,
-                    owner  : me,
-                    record : record,
-                    width  : 300,
+        if (!editEventContainer) {
+            me.editEventContainer = editEventContainer = Neo.create({
+                module  : EditEventContainer,
+                appName : me.appName,
+                owner   : me,
+                parentId: data.path[1].id,
+                record  : record,
+                width   : 250,
 
-                    style: position
-                });
-            } else {
-                style = editEventContainer.style;
-                Object.assign(style, position);
+                style: position
+            });
+        } else {
+            style = editEventContainer.style;
+            Object.assign(style, position);
 
-                editEventContainer.setSilent({
-                    record: record,
-                    style : style
-                });
-            }
+            editEventContainer.setSilent({
+                parentId: data.path[1].id,
+                record  : record,
+                style   : style
+            });
+        }
 
-            editEventContainer.render(true);
-        });
+        editEventContainer.render(true);
     }
 
     /**
