@@ -263,7 +263,6 @@ class WeekEventDragZone extends DragZone {
 
                 if (keepEndDate) {
                     currentInterval = Math.min(currentInterval, startInterval + (eventDuration / intervalSize) - owner.minimumEventDuration / intervalSize);
-                    console.log(currentInterval, startInterval, eventDuration);
                 } else if (keepStartDate) {
                     currentInterval = Math.max(currentInterval, startInterval - (eventDuration / intervalSize) + owner.minimumEventDuration / intervalSize);
                 }
