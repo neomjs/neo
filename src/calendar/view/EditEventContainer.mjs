@@ -1,12 +1,12 @@
-import Container from '../../container/Base.mjs';
-import TextField from '../../form/field/Text.mjs';
-import TimeField from '../../form/field/Time.mjs';
+import FormContainer from '../../form/Container.mjs';
+import TextField     from '../../form/field/Text.mjs';
+import TimeField     from '../../form/field/Time.mjs';
 
 /**
  * @class Neo.calendar.view.EditEventContainer
- * @extends Neo.container.Base
+ * @extends Neo.form.Container
  */
-class EditEventContainer extends Container {
+class EditEventContainer extends FormContainer {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.calendar.view.EditEventContainer'
@@ -50,6 +50,7 @@ class EditEventContainer extends Container {
             flex         : 'none',
             labelPosition: 'inline',
             labelText    : 'Event Title',
+            name         : 'title',
             value        : record.title
         }, {
             module       : TimeField,
@@ -58,6 +59,7 @@ class EditEventContainer extends Container {
             labelText    : 'Start Time',
             maxValue     : timeAxis.endTime,
             minValue     : timeAxis.startTime,
+            name         : 'startTime',
             value        : owner.intlFormat_time.format(record.startDate)
         }, {
             module       : TimeField,
@@ -66,6 +68,7 @@ class EditEventContainer extends Container {
             labelText    : 'End Time',
             maxValue     : timeAxis.endTime,
             minValue     : timeAxis.startTime,
+            name         : 'endTime',
             value        : owner.intlFormat_time.format(record.endDate)
         }];
     }
@@ -92,7 +95,13 @@ class EditEventContainer extends Container {
      */
     afterSetRecord(value, oldValue) {
         if (oldValue !== undefined) {
-            this.down({flag:'title-field'}).value = value.title;
+            let me = this;
+
+            me.setValues({
+                endTime  : me.owner.intlFormat_time.format(value.endDate),
+                startTime: me.owner.intlFormat_time.format(value.startDate),
+                title    : value.title
+            });
         }
     }
 
