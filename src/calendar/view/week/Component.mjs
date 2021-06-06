@@ -606,8 +606,8 @@ class Component extends BaseComponent {
                 appName   : me.appName,
                 autoMount : true,
                 autoRender: true,
-                height    : 600,
-                width     : 600
+                height    : 300,
+                width     : 300
             });
         }
     }
