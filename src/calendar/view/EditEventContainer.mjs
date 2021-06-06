@@ -75,7 +75,7 @@ class EditEventContainer extends Container {
     afterSetMounted(value, oldValue) {
         if (value) {
             super.afterSetMounted(value, oldValue);
-            this.focus(this.titleField.getInputEl().id);
+            this.titleField.focus();
         }
     }
 
