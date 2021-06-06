@@ -20,7 +20,11 @@ class EditEventContainer extends Container {
         /**
          * @member {String[]} cls=['neo-calendar-edit-event-container']
          */
-        cls: ['neo-calendar-edit-event-container']
+        cls: ['neo-calendar-edit-event-container'],
+        /**
+         * @member {Neo.calendar.model.Event|null} record_=null
+         */
+        record_: null
     }}
 
     /**
@@ -30,13 +34,15 @@ class EditEventContainer extends Container {
     constructor(config) {
         super(config);
 
-        let me = this;
+        let me     = this,
+            record = me.record;
 
         me.items = [{
             module       : TextField,
             flex         : 'none',
             labelPosition: 'inline',
-            labelText    : 'Event Title'
+            labelText    : 'Event Title',
+            value        : record.title
         }]
     }
 }

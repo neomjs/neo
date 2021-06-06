@@ -596,7 +596,8 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDoubleClick(data) {
-        let me = this,
+        let me        = this,
+            eventVdom = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom,
             position, style;
 
         Neo.main.DomAccess.getBoundingClientRect({
@@ -615,6 +616,7 @@ class Component extends BaseComponent {
                     autoMount : true,
                     autoRender: true,
                     height    : 300,
+                    record    : me.eventStore.get(eventVdom.flag),
                     width     : 300,
 
                     style: position
