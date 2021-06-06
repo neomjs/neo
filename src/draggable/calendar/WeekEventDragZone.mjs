@@ -126,9 +126,7 @@ class WeekEventDragZone extends DragZone {
             vdom      = me.dragProxyConfig && me.dragProxyConfig.vdom,
             clone     = VDomUtil.clone(vdom ? vdom : me.dragElement);
 
-        if (!me.keepEndDate) {
             clone.cn[2].removeDom = false;
-        }
 
         const config = {
             module          : DragProxyComponent,
