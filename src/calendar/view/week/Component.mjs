@@ -596,12 +596,18 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDoubleClick(data) {
-        let me = this;
+        let me = this,
+            position, style;
 
         Neo.main.DomAccess.getBoundingClientRect({
             appName: me.appName,
             id     : data.path[0].id
         }).then(rect => {
+            position = {
+                left: `${rect.right + 20}px`,
+                top : `${rect.top}px`
+            };
+
             if (!me.editEventContainer) {
                 me.editEventContainer = Neo.create({
                     module    : EditEventContainer,
@@ -611,11 +617,13 @@ class Component extends BaseComponent {
                     height    : 300,
                     width     : 300,
 
-                    style: {
-                        left: `${rect.right + 20}px`,
-                        top : `${rect.top}px`,
-                    }
+                    style: position
                 });
+            } else {
+                style = me.editEventContainer.style;
+
+                Object.assign(style, position);
+                me.editEventContainer.style = style;
             }
         });
     }
