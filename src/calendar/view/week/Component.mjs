@@ -852,7 +852,7 @@ class Component extends BaseComponent {
                         if (duration * 60 / timeAxis.interval === 1) {
                             hasOverflow = timeAxis.rowHeight < (me.showEventEndDates ? 50 : 34);
 
-                            if (hasOverflow) {
+                            if (hasOverflow && !(me.showEventEndDates && timeAxis.rowHeight >= 34)) {
                                 eventCls.push('neo-overflow');
                             }
                         }
