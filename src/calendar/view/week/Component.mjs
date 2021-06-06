@@ -604,7 +604,7 @@ class Component extends BaseComponent {
             id     : data.path[0].id
         }).then(rect => {
             position = {
-                left: `${rect.right + 20}px`,
+                left: `${rect.right + 15}px`,
                 top : `${rect.top}px`
             };
 
