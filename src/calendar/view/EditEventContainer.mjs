@@ -51,6 +51,7 @@ class EditEventContainer extends FormContainer {
             labelPosition: 'inline',
             labelText    : 'Event Title',
             name         : 'title',
+            required     : true,
             value        : record.title
         }, {
             module       : TimeField,
@@ -60,6 +61,7 @@ class EditEventContainer extends FormContainer {
             maxValue     : timeAxis.endTime,
             minValue     : timeAxis.startTime,
             name         : 'startTime',
+            stepSize     : 15 * 60,
             value        : owner.intlFormat_time.format(record.startDate)
         }, {
             module       : TimeField,
@@ -69,6 +71,7 @@ class EditEventContainer extends FormContainer {
             maxValue     : timeAxis.endTime,
             minValue     : timeAxis.startTime,
             name         : 'endTime',
+            stepSize     : 15 * 60,
             value        : owner.intlFormat_time.format(record.endDate)
         }];
     }
