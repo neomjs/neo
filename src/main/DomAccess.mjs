@@ -148,6 +148,10 @@ class DomAccess extends Base {
 
         if (node) {
             node.focus();
+
+            if (Neo.isNumber(node.selectionStart)) {
+                node.selectionStart = node.selectionEnd = node.value.length;
+            }
         }
 
         return {id: data.id};
