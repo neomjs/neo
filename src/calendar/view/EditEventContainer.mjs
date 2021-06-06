@@ -23,6 +23,10 @@ class EditEventContainer extends Container {
          */
         cls: ['neo-calendar-edit-event-container'],
         /**
+         * @member {Neo.calendar.view.week.Component|null} owner=null
+         */
+        owner: null,
+        /**
          * @member {Neo.calendar.model.Event|null} record_=null
          */
         record_: null
@@ -36,7 +40,9 @@ class EditEventContainer extends Container {
         super(config);
 
         let me     = this,
-            record = me.record;
+            owner  = me.owner,
+            record = me.record,
+            timeAxis = owner.timeAxis;
 
         me.items = [{
             module       : TextField,
@@ -50,13 +56,17 @@ class EditEventContainer extends Container {
             flex         : 'none',
             labelPosition: 'inline',
             labelText    : 'Start Time',
-            value        : '09:30'
+            maxValue     : timeAxis.endTime,
+            minValue     : timeAxis.startTime,
+            value        : owner.intlFormat_time.format(record.startDate)
         }, {
             module       : TimeField,
             flex         : 'none',
             labelPosition: 'inline',
             labelText    : 'End Time',
-            value        : '16:00'
+            maxValue     : timeAxis.endTime,
+            minValue     : timeAxis.startTime,
+            value        : owner.intlFormat_time.format(record.endDate)
         }];
     }
 
@@ -71,6 +81,18 @@ class EditEventContainer extends Container {
 
         if (value) {
             this.down({flag:'title-field'}).focus();
+        }
+    }
+
+    /**
+     * Triggered after the record config got changed
+     * @param {Neo.calendar.model.Event} value
+     * @param {Neo.calendar.model.Event} oldValue
+     * @protected
+     */
+    afterSetRecord(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.down({flag:'title-field'}).value = value.title;
         }
     }
 

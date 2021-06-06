@@ -615,6 +615,7 @@ class Component extends BaseComponent {
                 me.editEventContainer = editEventContainer = Neo.create({
                     module : EditEventContainer,
                     appName: me.appName,
+                    owner  : me,
                     record : record,
                     width  : 300,
 

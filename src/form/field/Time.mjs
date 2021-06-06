@@ -205,7 +205,7 @@ class Time extends Picker {
         if (start.length < 3) {start.push(0);}
         currentDate.setHours(...start);
 
-        while (currentDate <= endDate) {//console.log(currentDate);
+        while (currentDate <= endDate) {
             listItems.push({
                 value: dt.format(currentDate)
             });
