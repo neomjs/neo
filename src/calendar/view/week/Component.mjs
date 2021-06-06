@@ -1,10 +1,10 @@
 import BaseComponent     from '../../../component/Base.mjs';
 import DateUtil          from '../../../util/Date.mjs';
+import EventDragZone     from './EventDragZone.mjs';
 import EventResizable    from './EventResizable.mjs';
 import NeoArray          from '../../../util/Array.mjs';
 import TimeAxisComponent from './TimeAxisComponent.mjs';
 import VDomUtil          from '../../../util/VDom.mjs';
-import WeekEventDragZone from '../../../draggable/calendar/WeekEventDragZone.mjs';
 
 const todayDate = new Date();
 
@@ -657,7 +657,7 @@ class Component extends BaseComponent {
 
         if (!eventDragZone) {
             me.eventDragZone = eventDragZone = Neo.create({
-                module           : WeekEventDragZone,
+                module           : EventDragZone,
                 appName          : me.appName,
                 owner            : me,
                 scrollContainerId: me.getScrollContainer().id,

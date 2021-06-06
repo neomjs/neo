@@ -1,19 +1,19 @@
-import DragProxyComponent from '../DragProxyComponent.mjs';
-import DragZone           from '../../draggable/DragZone.mjs';
-import NeoArray           from '../../util/Array.mjs';
-import VDomUtil           from '../../util/VDom.mjs';
+import DragProxyComponent from '../../../draggable/DragProxyComponent.mjs';
+import DragZone           from '../../../draggable/DragZone.mjs';
+import NeoArray           from '../../../util/Array.mjs';
+import VDomUtil           from '../../../util/VDom.mjs';
 
 /**
- * @class Neo.draggable.calendar.WeekEventDragZone
+ * @class Neo.calendar.view.week.EventDragZone
  * @extends Neo.draggable.DragZone
  */
-class WeekEventDragZone extends DragZone {
+class EventDragZone extends DragZone {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.draggable.calendar.WeekEventDragZone'
+         * @member {String} className='Neo.calendar.view.week.EventDragZone'
          * @protected
          */
-        className: 'Neo.draggable.calendar.WeekEventDragZone',
+        className: 'Neo.calendar.view.week.EventDragZone',
         /**
          * @member {String} ntype='calendar-week-event-dragzone'
          * @protected
@@ -376,6 +376,6 @@ class WeekEventDragZone extends DragZone {
     }
 }
 
-Neo.applyClassConfig(WeekEventDragZone);
+Neo.applyClassConfig(EventDragZone);
 
-export {WeekEventDragZone as default};
+export {EventDragZone as default};
