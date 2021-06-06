@@ -346,7 +346,6 @@ class Component extends BaseComponent {
      */
     afterSetShowEventEndDates(value, oldValue) {
         if (oldValue !== undefined) {
-            // todo: we could just do an inline parsing (faster)
             this.updateEvents();
         }
     }
@@ -827,7 +826,7 @@ class Component extends BaseComponent {
             content    = me.getColumnContainer(),
             j          = startIndex,
             len        = eventStore.getCount(),
-            column, duration, height, i, record, recordKey, startHours, top;
+            column, duration, eventCls, hasOverflow, height, i, record, recordKey, startHours, top;
 
         date.setDate(date.getDate() + startIndex);
 
@@ -842,14 +841,24 @@ class Component extends BaseComponent {
                 // todo: we need a check for date overlaps => startDate < current day, endDate >= current day
                 if (DateUtil.matchDate(date, record.startDate)) {
                     if (DateUtil.matchDate(date, record.endDate)) {
-                        recordKey  = record[eventStore.keyProperty];
-                        duration   = (record.endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
-                        height     = Math.round(duration / totalTime * 100 * 1000) / 1000;
-                        startHours = (record.startDate.getHours() * 60 + record.startDate.getMinutes()) / 60;
-                        top        = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
+                        hasOverflow = false;
+                        eventCls    = ['neo-event', 'neo-draggable'];
+                        recordKey   = record[eventStore.keyProperty];
+                        duration    = (record.endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
+                        height      = Math.round(duration / totalTime * 100 * 1000) / 1000;
+                        startHours  = (record.startDate.getHours() * 60 + record.startDate.getMinutes()) / 60;
+                        top         = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
+
+                        if (duration * 60 / timeAxis.interval === 1) {
+                            hasOverflow = timeAxis.rowHeight < (me.showEventEndDates ? 50 : 34);
+
+                            if (hasOverflow) {
+                                eventCls.push('neo-overflow');
+                            }
+                        }
 
                         column.cn.push({
-                            cls     : ['neo-event', 'neo-draggable'],
+                            cls     : eventCls,
                             flag    : record[eventStore.keyProperty],
                             id      : me.id + '__' + recordKey,
                             tabIndex: -1,
@@ -866,7 +875,7 @@ class Component extends BaseComponent {
                                 cls      : ['neo-event-time', 'neo-event-end-time'],
                                 html     : me.intlFormat_time.format(record.endDate),
                                 id       : me.id + '__enddate__' + recordKey,
-                                removeDom: !me.showEventEndDates
+                                removeDom: hasOverflow || !me.showEventEndDates
                             }],
 
                             style: {

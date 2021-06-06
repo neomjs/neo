@@ -99,6 +99,14 @@
             }
         }
 
+        &.neo-overflow {
+            flex-direction: row;
+
+            .neo-event-title {
+                margin: 0 .5em;
+            }
+        }
+
         .neo-resizable {
             color: v(c-w-event-resizable-color);
         }
@@ -117,7 +125,10 @@
     }
 
     .neo-event-title {
-        font-weight: bold;
+        font-weight  : bold;
+        overflow     : hidden;
+        text-overflow: ellipsis;
+        white-space  : nowrap ;
     }
 
     .neo-header-row-item {
