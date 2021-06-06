@@ -615,7 +615,6 @@ class Component extends BaseComponent {
                     appName   : me.appName,
                     autoMount : true,
                     autoRender: true,
-                    height    : 300,
                     record    : me.eventStore.get(eventVdom.flag),
                     width     : 300,
 
