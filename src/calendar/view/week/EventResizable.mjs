@@ -19,6 +19,7 @@ class EventResizable extends Resizable {
      */
     onDragEnd(data) {
         this.removeBodyCursorCls();
+        this.removeAllNodes();
     }
 
     /**

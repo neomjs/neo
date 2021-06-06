@@ -217,13 +217,17 @@ class Resizable extends Base {
             nodeName   = 'node' + Neo.capitalize(name.replace(Resizable.nameRegEx, (str, letter) => letter.toUpperCase())),
             targetNode = me.targetNode;
 
-        me.currentNodeName = name;
-        me[nodeName] = {cls: ['neo-resizable', `neo-resizable-${name}`]};
+        if (targetNode) {
+            me.currentNodeName = name;
+            me[nodeName] = {cls: ['neo-resizable', `neo-resizable-${name}`]};
 
-        targetNode.cn = targetNode.cn || [];
-        targetNode.cn.push(me[nodeName]);
+            targetNode.cn = targetNode.cn || [];
+            targetNode.cn.push(me[nodeName]);
 
-        return true;
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -445,15 +449,15 @@ class Resizable extends Base {
      * @param {Object} data
      */
     onMouseMove(data) {
-        let me    = this,
-            dir   = me.directions,
-            i     = 0,
-            gap   = me.gap,
-            h     = false,
-            len   = data.path.length,
-            owner = me.owner,
+        let me         = this,
+            dir        = me.directions,
+            i          = 0,
+            gap        = me.gap,
+            h          = false,
+            len        = data.path.length,
+            owner      = me.owner,
             targetNode = me.targetNode,
-            vdom  = owner.vdom,
+            vdom       = owner.vdom,
             bottom, left, right, target, top;
 
         if (!me.isDragging && !owner.isDragging) {

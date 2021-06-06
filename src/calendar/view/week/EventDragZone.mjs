@@ -1,19 +1,19 @@
-import DragProxyComponent from '../DragProxyComponent.mjs';
-import DragZone           from '../../draggable/DragZone.mjs';
-import NeoArray           from '../../util/Array.mjs';
-import VDomUtil           from '../../util/VDom.mjs';
+import DragProxyComponent from '../../../draggable/DragProxyComponent.mjs';
+import DragZone           from '../../../draggable/DragZone.mjs';
+import NeoArray           from '../../../util/Array.mjs';
+import VDomUtil           from '../../../util/VDom.mjs';
 
 /**
- * @class Neo.draggable.calendar.WeekEventDragZone
+ * @class Neo.calendar.view.week.EventDragZone
  * @extends Neo.draggable.DragZone
  */
-class WeekEventDragZone extends DragZone {
+class EventDragZone extends DragZone {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.draggable.calendar.WeekEventDragZone'
+         * @member {String} className='Neo.calendar.view.week.EventDragZone'
          * @protected
          */
-        className: 'Neo.draggable.calendar.WeekEventDragZone',
+        className: 'Neo.calendar.view.week.EventDragZone',
         /**
          * @member {String} ntype='calendar-week-event-dragzone'
          * @protected
@@ -126,9 +126,7 @@ class WeekEventDragZone extends DragZone {
             vdom      = me.dragProxyConfig && me.dragProxyConfig.vdom,
             clone     = VDomUtil.clone(vdom ? vdom : me.dragElement);
 
-        if (!me.keepEndDate) {
             clone.cn[2].removeDom = false;
-        }
 
         const config = {
             module          : DragProxyComponent,
@@ -251,8 +249,10 @@ class WeekEventDragZone extends DragZone {
 
             currentInterval = Math.floor(position / intervalHeight);
 
-            // events must not end after the last visible interval
-            currentInterval = Math.min(currentInterval, intervals - (eventDuration / intervalSize));
+            if (!keepEndDate) {
+                // events must not end after the last visible interval
+                currentInterval = Math.min(currentInterval, intervals - (eventDuration / intervalSize));
+            }
 
             if (keepEndDate || keepStartDate) {
                 axisStartDate = new Date(record.startDate.valueOf());
@@ -266,7 +266,10 @@ class WeekEventDragZone extends DragZone {
                 } else if (keepStartDate) {
                     currentInterval = Math.max(currentInterval, startInterval - (eventDuration / intervalSize) + owner.minimumEventDuration / intervalSize);
                 }
-            } else {
+            }
+
+            if (!keepStartDate) {
+                // events must not start before the first visible interval
                 currentInterval = Math.max(0, currentInterval);
             }
 
@@ -373,6 +376,6 @@ class WeekEventDragZone extends DragZone {
     }
 }
 
-Neo.applyClassConfig(WeekEventDragZone);
+Neo.applyClassConfig(EventDragZone);
 
-export {WeekEventDragZone as default};
+export {EventDragZone as default};

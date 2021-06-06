@@ -75,6 +75,7 @@
         display         : flex;
         flex-direction  : column;
         font-size       : .8em;
+        overflow        : hidden;
         padding         : .2em .4em;;
         position        : absolute;
 
@@ -92,6 +93,18 @@
 
             .neo-event-title {
                 color: #fff;
+            }
+
+            .neo-resizable {
+                color: #fff;
+            }
+        }
+
+        &.neo-overflow {
+            flex-direction: row;
+
+            .neo-event-title {
+                margin: 0 .5em;
             }
         }
 
@@ -113,7 +126,10 @@
     }
 
     .neo-event-title {
-        font-weight: bold;
+        font-weight  : bold;
+        overflow     : hidden;
+        text-overflow: ellipsis;
+        white-space  : nowrap ;
     }
 
     .neo-header-row-item {
