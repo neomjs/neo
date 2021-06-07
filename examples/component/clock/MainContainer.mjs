@@ -21,10 +21,19 @@ class MainContainer extends ConfigurationViewport {
         return [{
             module    :  NumberField,
             clearable : true,
+            labelText : 'fontSize',
+            listeners : {change: me.onConfigChange.bind(me, 'fontSize')},
+            maxValue  : 30,
+            minValue  : 1,
+            stepSize  : 1,
+            value     : me.exampleComponent.fontSize
+        }, {
+            module    :  NumberField,
+            clearable : true,
             labelText : 'size',
             listeners : {change: me.onConfigChange.bind(me, 'size')},
-            maxValue  : 30,
-            minValue  : 5,
+            maxValue  : 600,
+            minValue  : 20,
             stepSize  : 1,
             value     : me.exampleComponent.size
         }];

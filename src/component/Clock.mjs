@@ -22,10 +22,15 @@ class Clock extends Component {
          */
         cls: ['neo-clock'],
         /**
-         * Value in em
-         * @member {Number} size_=20
+         * Value in px
+         * @member {Number} fontSize_=20
          */
-        size_: 20,
+        fontSize_: 20,
+        /**
+         * Value in px
+         * @member {Number} size_=500
+         */
+        size_: 500,
         /**
          * @member {Object} _vdom
          */
@@ -37,6 +42,19 @@ class Clock extends Component {
     }}
 
     /**
+     * Triggered after the fontSize config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetFontSize(value, oldValue) {
+        let style = this.style;
+
+        style.fontSize = `${value}px`;
+        this.style = style;
+    }
+
+    /**
      * Triggered after the size config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -45,9 +63,8 @@ class Clock extends Component {
     afterSetSize(value, oldValue) {
         let style = this.style;
 
-        style.fontSize = `${value}px`;
-        style.height   = `${value}em`;
-        style.width    = `${value}em`;
+        style.height = `${value}px`;
+        style.width  = `${value}px`;
         this.style = style;
     }
 }

@@ -6,7 +6,7 @@
     font-size       : 30px;
     justify-content : center;
 
-    background-image: radial-gradient(farthest-side circle at center center, #ffffff 0%, #bbb 100%);
+    background-image: radial-gradient(farthest-side circle at center center, #fff 0%, #bbb 100%);
 
     &:before {
         background-color: #bbb;
@@ -43,7 +43,7 @@
             0 -3.4em #962033,
             0 -6.8em #962033,
             1px 0 7px #777,
-            1px -3.3em 7px #777,
-            1px -6.6em 7px #777;
+            1px -3.4em 7px #777,
+            1px -6.8em 7px #777;
     }
 }
