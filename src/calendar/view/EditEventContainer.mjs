@@ -44,6 +44,8 @@ class EditEventContainer extends FormContainer {
             record = me.record,
             timeAxis = owner.timeAxis;
 
+        me.vdom.tabIndex = -1;
+
         me.items = [{
             module              : TextField,
             clearToOriginalValue: true,
