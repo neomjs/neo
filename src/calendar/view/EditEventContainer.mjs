@@ -39,52 +39,8 @@ class EditEventContainer extends FormContainer {
     constructor(config) {
         super(config);
 
-        let me     = this,
-            owner  = me.owner,
-            record = me.record,
-            timeAxis = owner.timeAxis;
-
         // focus trap, see: https://github.com/neomjs/neo/issues/2306
-        me.vdom.tabIndex = -1;
-
-        me.items = [{
-            module              : TextField,
-            clearToOriginalValue: true,
-            flag                : 'title-field',
-            flex                : 'none',
-            labelPosition       : 'inline',
-            labelText           : 'Event Title',
-            listeners           : {change: me.onTitleFieldChange, scope: me},
-            name                : 'title',
-            required            : true,
-            value               : record.title
-        }, {
-            module              : TimeField,
-            clearToOriginalValue: true,
-            flex                : 'none',
-            labelPosition       : 'inline',
-            labelText           : 'Start Time',
-            listeners           : {change: me.onTimeFieldChange, scope: me},
-            maxValue            : timeAxis.endTime,
-            minValue            : timeAxis.startTime,
-            name                : 'startDate',
-            stepSize            : 15 * 60,
-            value               : owner.intlFormat_time.format(record.startDate),
-            width               : '9em'
-        }, {
-            module              : TimeField,
-            clearToOriginalValue: true,
-            flex                : 'none',
-            labelPosition       : 'inline',
-            labelText           : 'End Time',
-            listeners           : {change: me.onTimeFieldChange, scope: me},
-            maxValue            : timeAxis.endTime,
-            minValue            : timeAxis.startTime,
-            name                : 'endDate',
-            stepSize            : 15 * 60,
-            value               : owner.intlFormat_time.format(record.endDate),
-            width               : '9em'
-        }];
+        this.vdom.tabIndex = -1;
     }
 
     /**
@@ -111,12 +67,92 @@ class EditEventContainer extends FormContainer {
         if (oldValue !== undefined) {
             let me = this;
 
-            me.setValues({
+            me.getField('endDate')  .minValue = me.getEndTimeMinValue(value);
+            me.getField('startDate').maxValue = me.getStartTimeMaxValue(value);
+
+            me.reset({
                 endDate  : me.owner.intlFormat_time.format(value.endDate),
                 startDate: me.owner.intlFormat_time.format(value.startDate),
                 title    : value.title
             });
         }
+    }
+
+    /**
+     *
+     */
+    createItems() {
+        let me     = this,
+            owner  = me.owner,
+            record = me.record,
+            timeAxis = owner.timeAxis;
+
+        me.items = [{
+            module              : TextField,
+            clearToOriginalValue: true,
+            flag                : 'title-field',
+            flex                : 'none',
+            labelPosition       : 'inline',
+            labelText           : 'Event Title',
+            listeners           : {change: me.onTitleFieldChange, scope: me},
+            name                : 'title',
+            required            : true,
+            value               : record.title
+        }, {
+            module              : TimeField,
+            clearToOriginalValue: true,
+            flex                : 'none',
+            labelPosition       : 'inline',
+            labelText           : 'Start Time',
+            listeners           : {change: me.onTimeFieldChange, scope: me},
+            maxValue            : me.getStartTimeMaxValue(record),
+            minValue            : timeAxis.startTime,
+            name                : 'startDate',
+            stepSize            : 15 * 60,
+            value               : owner.intlFormat_time.format(record.startDate),
+            width               : '9em'
+        }, {
+            module              : TimeField,
+            clearToOriginalValue: true,
+            flex                : 'none',
+            labelPosition       : 'inline',
+            labelText           : 'End Time',
+            listeners           : {change: me.onTimeFieldChange, scope: me},
+            maxValue            : timeAxis.endTime,
+            minValue            : me.getEndTimeMinValue(record),
+            name                : 'endDate',
+            stepSize            : 15 * 60,
+            value               : owner.intlFormat_time.format(record.endDate),
+            width               : '9em'
+        }];
+
+        super.createItems();
+    }
+
+    /**
+     *
+     * @param {Neo.calendar.model.Event} record
+     * @returns {String}
+     */
+    getEndTimeMinValue(record) {
+        let date = new Date(record.startDate.valueOf());
+
+        date.setMinutes(date.getMinutes() + this.owner.minimumEventDuration);
+
+        return this.owner.intlFormat_time.format(date);
+    }
+
+    /**
+     *
+     * @param {Neo.calendar.model.Event} record
+     * @returns {String}
+     */
+    getStartTimeMaxValue(record) {
+        let date = new Date(record.endDate.valueOf());
+
+        date.setMinutes(date.getMinutes() - this.owner.minimumEventDuration);
+
+        return this.owner.intlFormat_time.format(date);
     }
 
     /**
@@ -135,12 +171,22 @@ class EditEventContainer extends FormContainer {
      * @param {Object} data
      */
     onTimeFieldChange(data) {
-        let date  = this.record[data.component.name],
-            value = data.value.split(':').map(e => Number(e));
+        let me     = this,
+            name   = data.component.name,
+            record = me.record,
+            date   = me.record[name],
+            value  = data.value.split(':').map(e => Number(e));
 
         date.setHours(value[0]);
         date.setMinutes(value[1]);
-        this.owner.updateEvents();
+
+        me.owner.updateEvents();
+
+        if (name === 'endDate') {
+            me.getField('startDate').maxValue = me.getStartTimeMaxValue(record);
+        } else {
+            me.getField('endDate')  .minValue = me.getEndTimeMinValue(record);
+        }
     }
 
     /**

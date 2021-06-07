@@ -895,6 +895,21 @@ class Text extends Base {
     }
 
     /**
+     * Resets the field to its original value or null depending on the clearToOriginalValue config
+     * You can optionally pass a new value, which will adjust the originalConfig.value if needed.
+     * @param {String|null} [value]
+     */
+    reset(value) {
+        let me = this;
+
+        if (value && me.clearToOriginalValue) {
+            me.originalConfig.value = value;
+        }
+
+        me.value = me.clearToOriginalValue ? me.originalConfig.value : null;
+    }
+
+    /**
      * Used for labelPosition: 'inline' to adjust the top border matching to the length of the label
      * @param {Boolean} [silent=false] true to get the value, but not apply it to the DOM
      * @protected

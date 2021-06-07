@@ -118,6 +118,10 @@ class Time extends Picker {
      */
     afterSetMaxValue(value, oldValue) {
         this.changeInputElKey('max', value);
+
+        if (oldValue !== undefined) {
+            this.recreateListItems();
+        }
     }
 
     /**
@@ -128,6 +132,10 @@ class Time extends Picker {
      */
     afterSetMinValue(value, oldValue) {
         this.changeInputElKey('min', value);
+
+        if (oldValue !== undefined) {
+            this.recreateListItems();
+        }
     }
 
     /**
@@ -305,6 +313,17 @@ class Time extends Picker {
      */
     onListItemNavigate(record) {
         this.onListItemClick(record);
+    }
+
+    /**
+     *
+     */
+    recreateListItems() {
+        let me = this;
+
+        me.collection.clear();
+        me.collection.add(me.createCollectionItems());
+        me.list.createItems();
     }
 
     /**

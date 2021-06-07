@@ -31,6 +31,25 @@ class Container extends BaseContainer {
     }}
 
     /**
+     * Either pass a field id or name
+     * @param {String} name
+     * @returns {Neo.form.field.Base|null} fields
+     */
+    getField(name) {
+        let fields = ComponentManager.getChildren(this);
+
+        for (let field of fields) {
+            if (field instanceof BaseField) {
+                if (field.id === name || field.name === name) {
+                    return field;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      *
      * @returns {Neo.form.field.Base[]} fields
      */
@@ -78,6 +97,27 @@ class Container extends BaseContainer {
         }
 
         return true;
+    }
+
+    /**
+     * Resets field values by field name or field id.
+     * Fields not included with a value will get reset to null.
+     * @param {Object} [values]
+     */
+    reset(values={}) {
+        let fields = this.getFields(),
+            keys   = values ? Object.keys(values) : [],
+            index;
+
+        fields.forEach(item => {
+            index = keys.indexOf(item.name);
+
+            if (index < 0) {
+                index = keys.indexOf(item.id);
+            }
+
+            item.reset(index > -1 ? values[keys[index]] : null);
+        });
     }
 
     /**
