@@ -131,6 +131,18 @@ class Time extends Picker {
     }
 
     /**
+     * Triggered after the pickerIsMounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetPickerIsMounted(value, oldValue) {
+        if (value) {
+            this.selectCurrentListItem();
+        }
+    }
+
+    /**
      * Triggered after the stepSize config got changed
      * @param {Number} value
      * @param {Number} oldValue
