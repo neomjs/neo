@@ -31,6 +31,25 @@ class Container extends BaseContainer {
     }}
 
     /**
+     * Either pass a field id or name
+     * @param {String} name
+     * @returns {Neo.form.field.Base|null} fields
+     */
+    getField(name) {
+        let fields = ComponentManager.getChildren(this);
+
+        for (let field of fields) {
+            if (field instanceof BaseField) {
+                if (field.id === name || field.name === name) {
+                    return field;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      *
      * @returns {Neo.form.field.Base[]} fields
      */
