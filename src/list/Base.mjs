@@ -129,10 +129,7 @@ class Base extends Component {
         let me = this;
 
         if (value && !me.dragZone) {
-            import(
-                /* webpackChunkName: 'src/draggable/list/DragZone-mjs.js' */
-                '../draggable/list/DragZone.mjs'
-            ).then(module => {
+            import('../draggable/list/DragZone.mjs').then(module => {
                 me.dragZone = Neo.create({
                     module : module.default,
                     appName: me.appName,
