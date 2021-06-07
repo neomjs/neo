@@ -53,6 +53,14 @@ class Base extends Component {
     isValid() {
         return true;
     }
+
+    /**
+     * Resets the field to a new value or null
+     * @param {*} [value]
+     */
+    reset(value) {
+        this.value = value || null;
+    }
 }
 
 /**
