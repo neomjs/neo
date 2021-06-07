@@ -132,6 +132,10 @@ class Time extends Picker {
      */
     afterSetMinValue(value, oldValue) {
         this.changeInputElKey('min', value);
+
+        if (oldValue !== undefined) {
+            this.recreateListItems();
+        }
     }
 
     /**
