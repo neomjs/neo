@@ -82,7 +82,7 @@ class EditEventContainer extends FormContainer {
             labelText           : 'End Time',
             listeners           : {change: me.onTimeFieldChange, scope: me},
             maxValue            : timeAxis.endTime,
-            minValue            : timeAxis.startTime,
+            minValue            : me.getEndTimeMinValue(record),
             name                : 'endDate',
             stepSize            : 15 * 60,
             value               : owner.intlFormat_time.format(record.endDate),
@@ -120,6 +120,19 @@ class EditEventContainer extends FormContainer {
                 title    : value.title
             });
         }
+    }
+
+    /**
+     *
+     * @param {Neo.calendar.model.Event} record
+     * @returns {String}
+     */
+    getEndTimeMinValue(record) {
+        let date = new Date(record.startDate.valueOf());
+
+        date.setMinutes(date.getMinutes() + this.owner.minimumEventDuration);
+
+        return this.owner.intlFormat_time.format(date);
     }
 
     /**
