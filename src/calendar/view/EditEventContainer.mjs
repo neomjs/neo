@@ -39,13 +39,53 @@ class EditEventContainer extends FormContainer {
     constructor(config) {
         super(config);
 
+        // focus trap, see: https://github.com/neomjs/neo/issues/2306
+        this.vdom.tabIndex = -1;
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        if (value) {
+            this.down({flag:'title-field'}).focus();
+        }
+    }
+
+    /**
+     * Triggered after the record config got changed
+     * @param {Neo.calendar.model.Event} value
+     * @param {Neo.calendar.model.Event} oldValue
+     * @protected
+     */
+    afterSetRecord(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.getField('endDate')  .minValue = me.getEndTimeMinValue(value);
+            me.getField('startDate').maxValue = me.getStartTimeMaxValue(value);
+
+            me.reset({
+                endDate  : me.owner.intlFormat_time.format(value.endDate),
+                startDate: me.owner.intlFormat_time.format(value.startDate),
+                title    : value.title
+            });
+        }
+    }
+
+    /**
+     *
+     */
+    createItems() {
         let me     = this,
             owner  = me.owner,
             record = me.record,
             timeAxis = owner.timeAxis;
-
-        // focus trap, see: https://github.com/neomjs/neo/issues/2306
-        me.vdom.tabIndex = -1;
 
         me.items = [{
             module              : TextField,
@@ -85,41 +125,8 @@ class EditEventContainer extends FormContainer {
             value               : owner.intlFormat_time.format(record.endDate),
             width               : '9em'
         }];
-    }
 
-    /**
-     * Triggered after the mounted config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetMounted(value, oldValue) {
-        super.afterSetMounted(value, oldValue);
-
-        if (value) {
-            this.down({flag:'title-field'}).focus();
-        }
-    }
-
-    /**
-     * Triggered after the record config got changed
-     * @param {Neo.calendar.model.Event} value
-     * @param {Neo.calendar.model.Event} oldValue
-     * @protected
-     */
-    afterSetRecord(value, oldValue) {
-        if (oldValue !== undefined) {
-            let me = this;
-
-            me.getField('endDate')  .minValue = me.getEndTimeMinValue(value);
-            me.getField('startDate').maxValue = me.getStartTimeMaxValue(value);
-
-            me.reset({
-                endDate  : me.owner.intlFormat_time.format(value.endDate),
-                startDate: me.owner.intlFormat_time.format(value.startDate),
-                title    : value.title
-            });
-        }
+        super.createItems();
     }
 
     /**
