@@ -129,6 +129,7 @@ class RecordFactory extends Base {
                     }
                 };
 
+                ns[key].isClass = true;
 
                 return ns[key];
             }
