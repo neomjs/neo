@@ -23,13 +23,25 @@ class EditEventContainer extends FormContainer {
          */
         cls: ['neo-calendar-edit-event-container'],
         /**
+         * @member {Object|null} endTimeFieldConfig=null
+         */
+        endTimeFieldConfig: null,
+        /**
          * @member {Neo.calendar.view.week.Component|null} owner=null
          */
         owner: null,
         /**
          * @member {Neo.calendar.model.Event|null} record_=null
          */
-        record_: null
+        record_: null,
+        /**
+         * @member {Object|null} startTimeFieldConfig=null
+         */
+        startTimeFieldConfig: null,
+        /**
+         * @member {Object|null} titleFieldConfig=null
+         */
+        titleFieldConfig: null
     }}
 
     /**
@@ -97,7 +109,8 @@ class EditEventContainer extends FormContainer {
             listeners           : {change: me.onTitleFieldChange, scope: me},
             name                : 'title',
             required            : true,
-            value               : record.title
+            value               : record.title,
+            ...me.titleFieldConfig || {}
         }, {
             module              : TimeField,
             clearToOriginalValue: true,
@@ -110,7 +123,8 @@ class EditEventContainer extends FormContainer {
             name                : 'startDate',
             stepSize            : 15 * 60,
             value               : owner.intlFormat_time.format(record.startDate),
-            width               : '9em'
+            width               : '9em',
+            ...me.startTimeFieldConfig || {}
         }, {
             module              : TimeField,
             clearToOriginalValue: true,
@@ -123,7 +137,8 @@ class EditEventContainer extends FormContainer {
             name                : 'endDate',
             stepSize            : 15 * 60,
             value               : owner.intlFormat_time.format(record.endDate),
-            width               : '9em'
+            width               : '9em',
+            ...me.endTimeFieldConfig || {}
         }];
 
         super.createItems();
