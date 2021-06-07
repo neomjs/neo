@@ -26,7 +26,8 @@ class Clock extends Component {
          */
         _vdom:
         {cn: [
-
+            {cls: ['neo-minutes']},
+            {cls: ['neo-hours']}
         ]}
     }}
 }
