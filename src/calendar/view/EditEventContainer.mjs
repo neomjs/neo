@@ -114,6 +114,9 @@ class EditEventContainer extends FormContainer {
         if (oldValue !== undefined) {
             let me = this;
 
+            me.getField('endDate')  .minValue = me.getEndTimeMinValue(value);
+            me.getField('startDate').maxValue = me.getStartTimeMaxValue(value);
+
             me.reset({
                 endDate  : me.owner.intlFormat_time.format(value.endDate),
                 startDate: me.owner.intlFormat_time.format(value.startDate),
