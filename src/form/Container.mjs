@@ -81,6 +81,27 @@ class Container extends BaseContainer {
     }
 
     /**
+     * Resets field values by field name or field id.
+     * Fields not included with a value will get reset to null.
+     * @param {Object} [values]
+     */
+    reset(values={}) {
+        let fields = this.getFields(),
+            keys   = values ? Object.keys(values) : [],
+            index;
+
+        fields.forEach(item => {
+            index = keys.indexOf(item.name);
+
+            if (index < 0) {
+                index = keys.indexOf(item.id);
+            }
+
+            item.reset(index > -1 ? values[keys[index]] : null);
+        });
+    }
+
+    /**
      * Set field values by field name or field id
      * @param {Object} values={}
      */
