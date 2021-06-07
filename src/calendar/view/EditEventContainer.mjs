@@ -77,14 +77,15 @@ class EditEventContainer extends FormContainer {
      */
     afterSetRecord(value, oldValue) {
         if (oldValue !== undefined) {
-            let me = this;
+            let me         = this,
+                timeFormat = me.owner.intlFormat_time;
 
             me.getField('endTime')  .minValue = me.getEndTimeMinValue(value);
             me.getField('startTime').maxValue = me.getStartTimeMaxValue(value);
 
             me.reset({
-                endTime  : me.owner.intlFormat_time.format(value.endDate),
-                startTime: me.owner.intlFormat_time.format(value.startDate),
+                endTime  : timeFormat.format(value.endDate),
+                startTime: timeFormat.format(value.startDate),
                 title    : value.title
             });
         }
