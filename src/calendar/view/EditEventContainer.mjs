@@ -109,8 +109,8 @@ class EditEventContainer extends FormContainer {
             let me = this;
 
             me.setValues({
-                endTime  : me.owner.intlFormat_time.format(value.endDate),
-                startTime: me.owner.intlFormat_time.format(value.startDate),
+                endDate  : me.owner.intlFormat_time.format(value.endDate),
+                startDate: me.owner.intlFormat_time.format(value.startDate),
                 title    : value.title
             });
         }
