@@ -23,10 +23,10 @@ class MainContainer extends ConfigurationViewport {
             clearable : true,
             labelText : 'size',
             listeners : {change: me.onConfigChange.bind(me, 'size')},
-            maxValue  : 300,
-            minValue  : 100,
-            stepSize  : 5,
-            value     : me.exampleComponent.width
+            maxValue  : 30,
+            minValue  : 5,
+            stepSize  : 1,
+            value     : me.exampleComponent.size
         }];
     }
 

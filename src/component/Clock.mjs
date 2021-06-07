@@ -45,8 +45,9 @@ class Clock extends Component {
     afterSetSize(value, oldValue) {
         let style = this.style;
 
-        style.height = `${value}em`;
-        style.width  = `${value}em`;
+        style.fontSize = `${value}px`;
+        style.height   = `${value}em`;
+        style.width    = `${value}em`;
         this.style = style;
     }
 }
