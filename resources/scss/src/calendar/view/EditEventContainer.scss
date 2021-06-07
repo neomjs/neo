@@ -1,6 +1,6 @@
 .neo-calendar-edit-event-container {
-    background-color: #fff;
-    border          : 1px solid #1c60a0;
+    background-color: v(calendar-edit-event-background-color);
+    border          : 1px solid v(calendar-edit-event-border-color);
     padding         : .7em;
     position        : absolute;
     top             : 0;
@@ -8,7 +8,7 @@
 
     &:before {
         border-bottom: 12px solid transparent;
-        border-right : 12px solid #1c60a0;
+        border-right : 12px solid v(calendar-edit-event-border-color);
         border-top   : 12px solid transparent;
         content      : '';
         display      : block;
