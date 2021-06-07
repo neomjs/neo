@@ -22,7 +22,12 @@ class Clock extends Component {
          */
         cls: ['neo-clock'],
         /**
-         * @member {Object} _vdom={tag: 'label'}
+         * Value in em
+         * @member {Number} size_=20
+         */
+        size_: 20,
+        /**
+         * @member {Object} _vdom
          */
         _vdom:
         {cn: [
@@ -30,6 +35,20 @@ class Clock extends Component {
             {cls: ['neo-hours']}
         ]}
     }}
+
+    /**
+     * Triggered after the size config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetSize(value, oldValue) {
+        let style = this.style;
+
+        style.height = `${value}em`;
+        style.width  = `${value}em`;
+        this.style = style;
+    }
 }
 
 Neo.applyClassConfig(Clock);
