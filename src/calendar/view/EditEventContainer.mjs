@@ -42,13 +42,10 @@ class EditEventContainer extends FormContainer {
         let me     = this,
             owner  = me.owner,
             record = me.record,
-            timeAxis = owner.timeAxis,
-            startTimeMaxValue;
+            timeAxis = owner.timeAxis;
 
         // focus trap, see: https://github.com/neomjs/neo/issues/2306
         me.vdom.tabIndex = -1;
-
-        console.log(owner.minimumEventDuration);
 
         me.items = [{
             module              : TextField,
