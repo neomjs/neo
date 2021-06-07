@@ -374,10 +374,14 @@ class Text extends Base {
                     triggers[i].mounted = value;
                 }
             }
-        }
 
-        if (value && me.labelPosition === 'inline') {
-            me.updateCenterBorderElWidth();
+            if (me.labelPosition === 'inline') {
+                if (value) {
+                    me.updateCenterBorderElWidth();
+                } else {
+                    delete me.getCenterBorderEl().width;
+                }
+            }
         }
     }
 
