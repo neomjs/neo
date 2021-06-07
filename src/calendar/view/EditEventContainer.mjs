@@ -42,10 +42,13 @@ class EditEventContainer extends FormContainer {
         let me     = this,
             owner  = me.owner,
             record = me.record,
-            timeAxis = owner.timeAxis;
+            timeAxis = owner.timeAxis,
+            startTimeMaxValue;
 
         // focus trap, see: https://github.com/neomjs/neo/issues/2306
         me.vdom.tabIndex = -1;
+
+        console.log(owner.minimumEventDuration);
 
         me.items = [{
             module              : TextField,
@@ -65,7 +68,7 @@ class EditEventContainer extends FormContainer {
             labelPosition       : 'inline',
             labelText           : 'Start Time',
             listeners           : {change: me.onTimeFieldChange, scope: me},
-            maxValue            : timeAxis.endTime,
+            maxValue            : me.getStartTimeMaxValue(record),
             minValue            : timeAxis.startTime,
             name                : 'startDate',
             stepSize            : 15 * 60,
@@ -117,6 +120,19 @@ class EditEventContainer extends FormContainer {
                 title    : value.title
             });
         }
+    }
+
+    /**
+     *
+     * @param {Neo.calendar.model.Event} record
+     * @returns {String}
+     */
+    getStartTimeMaxValue(record) {
+        let date = new Date(record.endDate.valueOf());
+
+        date.setMinutes(date.getMinutes() - this.owner.minimumEventDuration);
+
+        return this.owner.intlFormat_time.format(date);
     }
 
     /**
