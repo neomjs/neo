@@ -164,12 +164,22 @@ class EditEventContainer extends FormContainer {
      * @param {Object} data
      */
     onTimeFieldChange(data) {
-        let date  = this.record[data.component.name],
-            value = data.value.split(':').map(e => Number(e));
+        let me     = this,
+            name   = data.component.name,
+            record = me.record,
+            date   = me.record[name],
+            value  = data.value.split(':').map(e => Number(e));
 
         date.setHours(value[0]);
         date.setMinutes(value[1]);
-        this.owner.updateEvents();
+
+        me.owner.updateEvents();
+
+        if (name === 'endDate') {
+            me.getField('startDate').maxValue = me.getStartTimeMaxValue(record);
+        } else {
+            me.getField('endDate')  .minValue = me.getEndTimeMinValue(record);
+        }
     }
 
     /**
