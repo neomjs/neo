@@ -45,37 +45,42 @@ class EditEventContainer extends FormContainer {
             timeAxis = owner.timeAxis;
 
         me.items = [{
-            module       : TextField,
-            flag         : 'title-field',
-            flex         : 'none',
-            labelPosition: 'inline',
-            labelText    : 'Event Title',
-            listeners    : {change: me.onTitleFieldChange, scope: me},
-            name         : 'title',
-            required     : true,
-            value        : record.title
+            module              : TextField,
+            clearToOriginalValue: true,
+            flag                : 'title-field',
+            flex                : 'none',
+            labelPosition       : 'inline',
+            labelText           : 'Event Title',
+            listeners           : {change: me.onTitleFieldChange, scope: me},
+            name                : 'title',
+            required            : true,
+            value               : record.title
         }, {
-            module       : TimeField,
-            flex         : 'none',
-            labelPosition: 'inline',
-            labelText    : 'Start Time',
-            listeners    : {change: me.onTimeFieldChange, scope: me},
-            maxValue     : timeAxis.endTime,
-            minValue     : timeAxis.startTime,
-            name         : 'startDate',
-            stepSize     : 15 * 60,
-            value        : owner.intlFormat_time.format(record.startDate)
+            module              : TimeField,
+            clearToOriginalValue: true,
+            flex                : 'none',
+            labelPosition       : 'inline',
+            labelText           : 'Start Time',
+            listeners           : {change: me.onTimeFieldChange, scope: me},
+            maxValue            : timeAxis.endTime,
+            minValue            : timeAxis.startTime,
+            name                : 'startDate',
+            stepSize            : 15 * 60,
+            value               : owner.intlFormat_time.format(record.startDate),
+            width               : '9em'
         }, {
-            module       : TimeField,
-            flex         : 'none',
-            labelPosition: 'inline',
-            labelText    : 'End Time',
-            listeners    : {change: me.onTimeFieldChange, scope: me},
-            maxValue     : timeAxis.endTime,
-            minValue     : timeAxis.startTime,
-            name         : 'endDate',
-            stepSize     : 15 * 60,
-            value        : owner.intlFormat_time.format(record.endDate)
+            module              : TimeField,
+            clearToOriginalValue: true,
+            flex                : 'none',
+            labelPosition       : 'inline',
+            labelText           : 'End Time',
+            listeners           : {change: me.onTimeFieldChange, scope: me},
+            maxValue            : timeAxis.endTime,
+            minValue            : timeAxis.startTime,
+            name                : 'endDate',
+            stepSize            : 15 * 60,
+            value               : owner.intlFormat_time.format(record.endDate),
+            width               : '9em'
         }];
     }
 

@@ -64,7 +64,7 @@ class Text extends Base {
         /**
          * True will reset the field to its initial value config.
          * Recommended for fields with required: true
-         * @member {Boolean} clearToOriginalValue=false
+         * @member {Boolean} clearToOriginalValue_=false
          */
         clearToOriginalValue_: false,
         /**
