@@ -1,21 +1,21 @@
-import CalendarsContainer from './view/CalendarsContainer.mjs';
-import CalendarStore      from './store/Calendars.mjs';
-import ClassSystemUtil    from '../util/ClassSystem.mjs';
-import Container          from '../container/Base.mjs';
-import DateSelector       from '../component/DateSelector.mjs';
-import DateUtil           from '../util/Date.mjs';
-import DayComponent       from './view/DayComponent.mjs';
-import EventStore         from './store/Events.mjs';
-import MonthComponent     from './view/MonthComponent.mjs';
-import SettingsContainer  from './view/SettingsContainer.mjs';
-import Toolbar            from '../container/Toolbar.mjs';
-import WeekComponent      from './view/week/Component.mjs';
-import YearComponent      from './view/YearComponent.mjs';
+import CalendarsContainer from './CalendarsContainer.mjs';
+import CalendarStore      from '../store/Calendars.mjs';
+import ClassSystemUtil    from '../../util/ClassSystem.mjs';
+import Container          from '../../container/Base.mjs';
+import DateSelector       from '../../component/DateSelector.mjs';
+import DateUtil           from '../../util/Date.mjs';
+import DayComponent       from './DayComponent.mjs';
+import EventStore         from '../store/Events.mjs';
+import MonthComponent     from './MonthComponent.mjs';
+import SettingsContainer  from './SettingsContainer.mjs';
+import Toolbar            from '../../container/Toolbar.mjs';
+import WeekComponent      from './week/Component.mjs';
+import YearComponent      from './YearComponent.mjs';
 
 const todayDate = new Date();
 
 /**
- * @class Neo.calendar.MainContainer
+ * @class Neo.calendar.view.MainContainer
  * @extends Neo.container.Base
  */
 class MainContainer extends Container {
@@ -30,10 +30,10 @@ class MainContainer extends Container {
 
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.calendar.MainContainer'
+         * @member {String} className='Neo.calendar.view.MainContainer'
          * @protected
          */
-        className: 'Neo.calendar.MainContainer',
+        className: 'Neo.calendar.view.MainContainer',
         /**
          * @member {String} ntype='calendar-maincontainer'
          * @protected

@@ -1461,6 +1461,8 @@ class Base extends CoreBase {
     unmount() {
         let me = this;
 
+        me.mounted = false;
+
         Neo.currentWorker.promiseMessage('main', {
             action : 'updateDom',
             appName: me.appName,
@@ -1468,8 +1470,6 @@ class Base extends CoreBase {
                 action: 'removeNode',
                 id    : me.vdom.id
             }]
-        }).then(() => {
-            me.mounted = false;
         }).catch(err => {
             console.log('Error attempting to unmount component', err, me);
         });

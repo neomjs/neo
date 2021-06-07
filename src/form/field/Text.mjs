@@ -64,7 +64,7 @@ class Text extends Base {
         /**
          * True will reset the field to its initial value config.
          * Recommended for fields with required: true
-         * @member {Boolean} clearToOriginalValue=false
+         * @member {Boolean} clearToOriginalValue_=false
          */
         clearToOriginalValue_: false,
         /**
@@ -362,8 +362,26 @@ class Text extends Base {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        if (value && this.labelPosition === 'inline') {
-            this.updateCenterBorderElWidth();
+        let me = this;
+
+        if (oldValue !== undefined) {
+            let triggers = me.triggers,
+                i        = 0,
+                len      = triggers.length;
+
+            for (; i < len; i++) {
+                if (!triggers[i].vdom.removeDom) {
+                    triggers[i].mounted = value;
+                }
+            }
+
+            if (me.labelPosition === 'inline') {
+                if (value) {
+                    me.updateCenterBorderElWidth();
+                } else {
+                    delete me.getCenterBorderEl().width;
+                }
+            }
         }
     }
 
