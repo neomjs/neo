@@ -117,7 +117,15 @@ class Time extends Picker {
      * @protected
      */
     afterSetMaxValue(value, oldValue) {
-        this.changeInputElKey('max', value);
+        let me = this;
+
+        me.changeInputElKey('max', value);
+
+        if (oldValue !== undefined) {
+            me.collection.clear();
+            me.collection.add(me.createCollectionItems());
+            me.list.createItems();
+        }
     }
 
     /**
