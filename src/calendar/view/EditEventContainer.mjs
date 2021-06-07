@@ -65,7 +65,7 @@ class EditEventContainer extends FormContainer {
         super.afterSetMounted(value, oldValue);
 
         if (value) {
-            this.down({flag:'title-field'}).focus();
+            this.getField('title').focus();
         }
     }
 
@@ -102,7 +102,6 @@ class EditEventContainer extends FormContainer {
         me.items = [{
             module              : TextField,
             clearToOriginalValue: true,
-            flag                : 'title-field',
             flex                : 'none',
             labelPosition       : 'inline',
             labelText           : 'Event Title',
