@@ -270,7 +270,8 @@ class Component extends BaseComponent {
      */
     afterSetCurrentDate(value, oldValue) {
         if (oldValue !== undefined) {
-            this.updateHeader();
+            this.updateHeader(false, true);
+            this.updateEvents();
         }
     }
 
