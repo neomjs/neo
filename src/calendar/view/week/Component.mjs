@@ -62,6 +62,10 @@ class Component extends BaseComponent {
          */
         editEventContainer: null,
         /**
+         * @member {Object|null} editEventContainerConfig=null
+         */
+        editEventContainerConfig: null,
+        /**
          * @member {Neo.draggable.DragZone|null} eventDragZone=null
          */
         eventDragZone: null,
@@ -616,9 +620,9 @@ class Component extends BaseComponent {
                 owner   : me,
                 parentId: data.path[1].id,
                 record  : record,
+                style   : position,
                 width   : 250,
-
-                style: position
+                ...me.editEventContainerConfig || {}
             });
         } else {
             style = editEventContainer.style;
@@ -734,7 +738,7 @@ class Component extends BaseComponent {
 
         if (oldPath) {
             if (oldPath[0].cls && oldPath[0].cls.includes('neo-event')) {
-                Neo.currentWorker.applyDeltas(this.appName, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
+                Neo.applyDeltas(this.appName, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
             }
         }
 
