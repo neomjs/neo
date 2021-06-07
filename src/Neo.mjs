@@ -236,7 +236,7 @@ Neo = self.Neo = Object.assign({
         if (obj !== null && typeof obj === 'object') {
             if (obj.constructor.isClass && obj instanceof Neo.core.Base) {
                 return ignoreNeoInstances ? obj : this.cloneNeoInstance(obj);
-            } else if(obj.constructor.isClass || obj.constructor.name === 'Record') {
+            } else if(obj.constructor.isClass) {
                 return obj;
             } else if (obj instanceof Date) {
                 obj = new Date(obj.valueOf());
