@@ -362,8 +362,22 @@ class Text extends Base {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
-        if (value && this.labelPosition === 'inline') {
-            this.updateCenterBorderElWidth();
+        let me = this;
+
+        if (oldValue !== undefined) {
+            let triggers = me.triggers,
+                i        = 0,
+                len      = triggers.length;
+
+            for (; i < len; i++) {
+                if (!triggers[i].vdom.removeDom) {
+                    triggers[i].mounted = value;
+                }
+            }
+        }
+
+        if (value && me.labelPosition === 'inline') {
+            me.updateCenterBorderElWidth();
         }
     }
 
