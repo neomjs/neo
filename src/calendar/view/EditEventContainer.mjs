@@ -111,7 +111,7 @@ class EditEventContainer extends FormContainer {
         if (oldValue !== undefined) {
             let me = this;
 
-            me.setValues({
+            me.reset({
                 endDate  : me.owner.intlFormat_time.format(value.endDate),
                 startDate: me.owner.intlFormat_time.format(value.startDate),
                 title    : value.title
