@@ -79,12 +79,12 @@ class EditEventContainer extends FormContainer {
         if (oldValue !== undefined) {
             let me = this;
 
-            me.getField('endDate')  .minValue = me.getEndTimeMinValue(value);
-            me.getField('startDate').maxValue = me.getStartTimeMaxValue(value);
+            me.getField('endTime')  .minValue = me.getEndTimeMinValue(value);
+            me.getField('startTime').maxValue = me.getStartTimeMaxValue(value);
 
             me.reset({
-                endDate  : me.owner.intlFormat_time.format(value.endDate),
-                startDate: me.owner.intlFormat_time.format(value.startDate),
+                endTime  : me.owner.intlFormat_time.format(value.endDate),
+                startTime: me.owner.intlFormat_time.format(value.startDate),
                 title    : value.title
             });
         }
@@ -123,7 +123,7 @@ class EditEventContainer extends FormContainer {
             labelText: 'Start Time',
             maxValue : me.getStartTimeMaxValue(record),
             minValue : timeAxis.startTime,
-            name     : 'startDate',
+            name     : 'startTime',
             value    : owner.intlFormat_time.format(record.startDate),
             ...timeFieldDefaults,
             ...me.startTimeFieldConfig || {}
@@ -131,7 +131,7 @@ class EditEventContainer extends FormContainer {
             labelText: 'End Time',
             maxValue : timeAxis.endTime,
             minValue : me.getEndTimeMinValue(record),
-            name     : 'endDate',
+            name     : 'endTime',
             value    : owner.intlFormat_time.format(record.endDate),
             ...timeFieldDefaults,
             ...me.endTimeFieldConfig || {}
@@ -185,7 +185,7 @@ class EditEventContainer extends FormContainer {
         let me     = this,
             name   = data.component.name,
             record = me.record,
-            date   = me.record[name],
+            date   = me.record[name === 'endTime' ? 'endDate' : 'startDate'],
             value  = data.value.split(':').map(e => Number(e));
 
         date.setHours(value[0]);
@@ -193,10 +193,10 @@ class EditEventContainer extends FormContainer {
 
         me.owner.updateEvents();
 
-        if (name === 'endDate') {
-            me.getField('startDate').maxValue = me.getStartTimeMaxValue(record);
+        if (name === 'endTime') {
+            me.getField('startTime').maxValue = me.getStartTimeMaxValue(record);
         } else {
-            me.getField('endDate')  .minValue = me.getEndTimeMinValue(record);
+            me.getField('endTime')  .minValue = me.getEndTimeMinValue(record);
         }
     }
 
