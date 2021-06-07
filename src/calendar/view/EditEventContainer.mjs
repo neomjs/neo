@@ -44,6 +44,7 @@ class EditEventContainer extends FormContainer {
             record = me.record,
             timeAxis = owner.timeAxis;
 
+        // focus trap, see: https://github.com/neomjs/neo/issues/2306
         me.vdom.tabIndex = -1;
 
         me.items = [{
