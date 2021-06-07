@@ -1,10 +1,11 @@
-import BaseComponent     from '../../../component/Base.mjs';
-import DateUtil          from '../../../util/Date.mjs';
-import EventDragZone     from './EventDragZone.mjs';
-import EventResizable    from './EventResizable.mjs';
-import NeoArray          from '../../../util/Array.mjs';
-import TimeAxisComponent from './TimeAxisComponent.mjs';
-import VDomUtil          from '../../../util/VDom.mjs';
+import BaseComponent      from '../../../component/Base.mjs';
+import DateUtil           from '../../../util/Date.mjs';
+import EditEventContainer from '../EditEventContainer.mjs';
+import EventDragZone      from './EventDragZone.mjs';
+import EventResizable     from './EventResizable.mjs';
+import NeoArray           from '../../../util/Array.mjs';
+import TimeAxisComponent  from './TimeAxisComponent.mjs';
+import VDomUtil           from '../../../util/VDom.mjs';
 
 const todayDate = new Date();
 
@@ -56,6 +57,10 @@ class Component extends BaseComponent {
          * @member {String} dayNameFormat_='short'
          */
         dayNameFormat_: 'short',
+        /**
+         * @member {Neo.calendar.view.EditEventContainer|null} editEventContainer=null
+         */
+        editEventContainer: null,
         /**
          * @member {Neo.draggable.DragZone|null} eventDragZone=null
          */
@@ -591,7 +596,41 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDoubleClick(data) {
-        console.log('onEventDoubleClick', data);
+        let me                 = this,
+            editEventContainer = me.editEventContainer,
+            eventNode          = data.path[0],
+            eventVdom          = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom,
+            record             = me.eventStore.get(eventVdom.flag),
+            position, style;
+
+        position = {
+            left: `${eventNode.rect.width + 15}px`,
+            top : eventVdom.style.top
+        };
+
+        if (!editEventContainer) {
+            me.editEventContainer = editEventContainer = Neo.create({
+                module  : EditEventContainer,
+                appName : me.appName,
+                owner   : me,
+                parentId: data.path[1].id,
+                record  : record,
+                width   : 250,
+
+                style: position
+            });
+        } else {
+            style = editEventContainer.style;
+            Object.assign(style, position);
+
+            editEventContainer.setSilent({
+                parentId: data.path[1].id,
+                record  : record,
+                style   : style
+            });
+        }
+
+        editEventContainer.render(true);
     }
 
     /**

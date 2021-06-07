@@ -605,6 +605,15 @@ class Text extends Base {
     }
 
     /**
+     * Calls focus() on the inputEl node instead
+     * @param {String} id=this.id
+     * @override
+     */
+    focus(id=this.id) {
+        super.focus(this.getInputEl().id);
+    }
+
+    /**
      *
      * @returns {Object|null}
      */

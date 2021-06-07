@@ -1,0 +1,21 @@
+.neo-calendar-edit-event-container {
+    background-color: #fff;
+    border          : 1px solid #1c60a0;
+    padding         : .7em;
+    position        : absolute;
+    top             : 0;
+    z-index         : 10000;
+
+    &:before {
+        border-bottom: 12px solid transparent;
+        border-right : 12px solid #1c60a0;
+        border-top   : 12px solid transparent;
+        content      : '';
+        display      : block;
+        height       : 0;
+        left         : -12px;
+        position     : absolute;
+        top          : 10px;
+        width        : 0;
+    }
+}

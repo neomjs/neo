@@ -60,10 +60,10 @@ class Picker extends Text {
          */
         pickerHeight: 100,
         /**
-         * @member {Boolean} pickerIsMounted=false
+         * @member {Boolean} pickerIsMounted_=false
          * @protected
          */
-        pickerIsMounted: false,
+        pickerIsMounted_: false,
         /**
          * The height of the picker container. Defaults to px.
          * @member {Number|null} pickerMaxHeight=200
@@ -269,9 +269,9 @@ class Picker extends Text {
         me.applyClientRects(true);
         vdom.cn.push(picker.vdom);
 
-        me.pickerIsMounted = true;
-
         me.promiseVdomUpdate().then(data => {
+            me.pickerIsMounted = true;
+
             picker.mounted = me.pickerIsMounted;
 
             if (callback) {

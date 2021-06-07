@@ -873,16 +873,16 @@ class Base extends CoreBase {
 
     /**
      * Calls focus() on the top level DOM node of this component or on a given node via id
-     * @param {String} [id]
+     * @param {String} id=this.id
      */
-    focus(id) {
+    focus(id=this.id) {
         let me = this;
 
         // remote method access
         Neo.main.DomAccess.focus({
             id: id || me.id
         }).then(data => {
-            // console.log('focus received: ' + id || me.id);
+            // console.log('focus received: ' + id);
         }).catch(err => {
             console.log('Error attempting to receive focus for component', err, me);
         });
@@ -1217,7 +1217,7 @@ class Base extends CoreBase {
             me._rendered = true; // silent update
             me.fire('rendered', me.id);
 
-            console.log('rendered: ' + me.appName + ' ' + me.id, me);
+            // console.log('rendered: ' + me.appName + ' ' + me.id, me);
 
             if (autoMount) {
                 me.mounted = true;
