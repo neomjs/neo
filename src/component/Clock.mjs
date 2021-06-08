@@ -32,6 +32,11 @@ class Clock extends Component {
          */
         size_: 500,
         /**
+         * Format: hh:mm[:ss]
+         * @member {String} time_='10:10'
+         */
+        time_: '10:10',
+        /**
          * @member {Object} _vdom
          */
         _vdom:
