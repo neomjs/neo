@@ -32,17 +32,17 @@ class Clock extends Component {
          */
         size_: 500,
         /**
-         * Format: hh:mm[:ss]
-         * @member {String} time_='10:10'
+         * Format: hh:mm
+         * @member {String} time_='10:20'
          */
-        time_: '10:10',
+        time_: '10:20',
         /**
          * @member {Object} _vdom
          */
         _vdom:
         {cn: [
-            {cls: ['neo-minutes']},
-            {cls: ['neo-hours']}
+            {cls: ['neo-minutes'], style: {}},
+            {cls: ['neo-hours'],   style: {}}
         ]}
     }}
 
@@ -71,6 +71,24 @@ class Clock extends Component {
         style.height = `${value}px`;
         style.width  = `${value}px`;
         this.style = style;
+    }
+
+    /**
+     * Triggered after the time config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetTime(value, oldValue) {
+        let timeArray    = value.split(':').map(e => Number(e)),
+            hoursAngle   = 30 * (timeArray[0] % 12) + .5 * timeArray[1],
+            minutesAngle = timeArray[1] * 6,
+            vdom         = this.vdom;
+
+        vdom.cn[0].style.transform = `rotate(${minutesAngle}deg)`;
+        vdom.cn[1].style.transform = `rotate(${hoursAngle}deg)`;
+
+        this.vdom = vdom;
     }
 }
 
