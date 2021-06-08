@@ -41,6 +41,8 @@ class MainContainer extends ConfigurationViewport {
             module   : TimeField,
             labelText: 'time',
             listeners: {change: me.onConfigChange.bind(me, 'time')},
+            maxValue : '12:00',
+            minValue : '00:00',
             value    : me.exampleComponent.time
         }];
     }
