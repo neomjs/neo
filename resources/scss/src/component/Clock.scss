@@ -24,24 +24,15 @@
         height          : 4em;
         position        : absolute;
         transition      : .2s transform ease-out;
-        width           : .3em;
     }
 
     .neo-hours {
-        box-shadow:
-            0 -2em #962033,
-            0 -4em #962033,
-            1px 0 3px #777,
-            1px -1.9em 3px #777,
-            1px -3.8em 3px #777;
+        width     : .4em;
+        box-shadow: 0 -2em #962033, 0 -4em #962033;
     }
 
     .neo-minutes {
-        box-shadow:
-            0 -3.4em #962033,
-            0 -6.8em #962033,
-            1px 0 7px #777,
-            1px -3.4em 7px #777,
-            1px -6.8em 7px #777;
+        width     : .3em;
+        box-shadow: 0 -3.4em #962033, 0 -6.8em #962033;
     }
 }
