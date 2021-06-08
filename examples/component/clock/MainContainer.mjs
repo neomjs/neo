@@ -1,6 +1,7 @@
 import Clock                 from '../../../src/component/Clock.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
+import TimeField             from '../../../src/form/field/Time.mjs';
 
 /**
  * @class Neo.examples.component.chip.MainContainer
@@ -36,6 +37,11 @@ class MainContainer extends ConfigurationViewport {
             minValue  : 20,
             stepSize  : 1,
             value     : me.exampleComponent.size
+        }, {
+            module   : TimeField,
+            labelText: 'time',
+            listeners: {change: me.onConfigChange.bind(me, 'time')},
+            value    : me.exampleComponent.time
         }];
     }
 

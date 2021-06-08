@@ -63,7 +63,7 @@ class Time extends Picker {
          */
         pickerHeight: 150,
         /**
-         * Defaults to 1min
+         * Value in seconds, defaults to 5min
          * @member {Number} stepSize_=60*5
          */
         stepSize_: 60 * 5, // 5min
