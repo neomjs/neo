@@ -4,6 +4,12 @@
     justify-content: center;
     padding        : 2px;
 
+    &:hover {
+        .neo-clock {
+            background-color: v(trigger-time-background-color-hover);
+        }
+    }
+
     .neo-clock {
         background-color: v(trigger-color);
         background-image: none;
