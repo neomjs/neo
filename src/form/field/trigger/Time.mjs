@@ -1,3 +1,4 @@
+import Clock  from '../../../component/Clock.mjs';
 import Picker from './Picker.mjs';
 
 /**
@@ -18,10 +19,83 @@ class Time extends Picker {
          */
         ntype: 'trigger-time',
         /**
-         * @member {String|null} iconCls='fa fa-clock'
+         * @member {String[]} cls=['neo-timefield-trigger','neo-field-trigger']
          */
-        iconCls: 'fa fa-clock'
+        cls: ['neo-timefield-trigger', 'neo-field-trigger'],
+        /**
+         * @member {Neo.component.Clock|null} clock=null
+         * @protected
+         */
+        clock: null,
+        /**
+         * @member {Object|null} clockConfig=null
+         */
+        clockConfig: null,
+        /**
+         * @member {String|null} iconCls=null
+         */
+        iconCls: null,
+        /**
+         * Internal flag used by field.getTrigger()
+         * @member {String} type='time'
+         */
+        type: 'time',
+        /**
+         * Format: hh:mm
+         * @member {String|null} value_=null
+         */
+        value_: null
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me   = this,
+            vdom = me.vdom;
+
+        me.clock = Neo.create({
+            module  : Clock,
+            appName : me.appName,
+            parentId: me.id,
+            fontSize: .6,
+            showDisc: false,
+            size    : null,
+            ...me.clockConfig || {}
+        });
+
+        vdom.cn = [me.clock.vdom];
+        me.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the appName config got changed
+     * @param {String} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        super.afterSetAppName(value, oldValue);
+
+        if (value) {
+            this.clock.appName = value;
+        }
+    }
+
+    /**
+     * Triggered after the value config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetValue(value, oldValue) {
+        if (value) {
+            this.clock.time = value;
+        }
+    }
 }
 
 Neo.applyClassConfig(Time);

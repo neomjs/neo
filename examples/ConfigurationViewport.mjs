@@ -12,12 +12,24 @@ import Viewport  from '../src/container/Viewport.mjs';
  */
 class ConfigurationViewport extends Viewport {
     static getConfig() {return {
+        /**
+         * @member {String} className='Neo.examples.ConfigurationContainer'
+         * @protected
+         */
         className: 'Neo.examples.ConfigurationContainer',
-        ntype    : 'configuration-viewport',
-
+        /**
+         * @member {String} ntype='configuration-viewport'
+         * @protected
+         */
+        ntype: 'configuration-viewport',
+        /**
+         * @member {Boolean} autoMount=true
+         */
         autoMount: true,
-        layout   : {ntype: 'hbox', align: 'stretch'},
-
+        /**
+         * @member {Object} layout={ntype:'hbox', align:'stretch'}
+         */
+        layout: {ntype: 'hbox', align: 'stretch'},
         /**
          * @member {Number} configItemLabelWidth=150
          */
@@ -40,6 +52,9 @@ class ConfigurationViewport extends Viewport {
         exampleComponentFlex: 2
     }}
 
+    /**
+     *
+     */
     onConstructed() {
         let me = this,
             theme;
@@ -67,6 +82,7 @@ class ConfigurationViewport extends Viewport {
 
             headers: [{
                 dock : 'top',
+                style: {borderLeft:0, borderRight:0, borderTop:0},
                 items: [{
                     ntype: 'label',
                     text : 'Configuration'

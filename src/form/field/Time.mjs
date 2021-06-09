@@ -63,7 +63,7 @@ class Time extends Picker {
          */
         pickerHeight: 150,
         /**
-         * Defaults to 1min
+         * Value in seconds, defaults to 5min
          * @member {Number} stepSize_=60*5
          */
         stepSize_: 60 * 5, // 5min
@@ -172,8 +172,12 @@ class Time extends Picker {
     afterSetValue(value, oldValue, preventListSelect=false) {
         super.afterSetValue(value, oldValue);
 
-        if (this.pickerIsMounted && !preventListSelect) {
-            this.selectCurrentListItem(true);
+        let me = this;
+
+        me.getTrigger('time').value = value;
+
+        if (me.pickerIsMounted && !preventListSelect) {
+            me.selectCurrentListItem(true);
         }
     }
 
