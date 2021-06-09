@@ -71,9 +71,8 @@ class Base extends Component {
         /**
          * @member {Object} _vdom={tabIndex: -1}
          */
-        _vdom: {
-            tabIndex: -1
-        },
+        _vdom:
+        {tabIndex: -1},
         /**
          * @member {Number} weight_=10
          */
