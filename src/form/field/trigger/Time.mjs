@@ -71,6 +71,20 @@ class Time extends Picker {
     }
 
     /**
+     * Triggered after the appName config got changed
+     * @param {String} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        super.afterSetAppName(value, oldValue);
+
+        if (value) {
+            this.clock.appName = value;
+        }
+    }
+
+    /**
      * Triggered after the value config got changed
      * @param {String} value
      * @param {String} oldValue
