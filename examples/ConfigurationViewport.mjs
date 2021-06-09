@@ -82,6 +82,7 @@ class ConfigurationViewport extends Viewport {
 
             headers: [{
                 dock : 'top',
+                style: {borderLeft:0, borderRight:0, borderTop:0},
                 items: [{
                     ntype: 'label',
                     text : 'Configuration'
