@@ -7,9 +7,8 @@
     .neo-clock {
         background-color: v(trigger-color);
         background-image: none;
-        //flex            : 1 1 auto;
-        height: 14px;
-        width: 14px;
+        height          : 16px;
+        width           : 16px;
 
         .neo-hours,
         .neo-minutes {
@@ -17,12 +16,10 @@
         }
 
         .neo-hours {
-            width     : .4em;
             box-shadow: 0 -2em #fff, 0 -4em #fff;
         }
 
         .neo-minutes {
-            width     : .3em;
             box-shadow: 0 -3.4em #fff, 0 -6.8em #fff;
         }
     }

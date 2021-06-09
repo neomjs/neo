@@ -172,8 +172,12 @@ class Time extends Picker {
     afterSetValue(value, oldValue, preventListSelect=false) {
         super.afterSetValue(value, oldValue);
 
-        if (this.pickerIsMounted && !preventListSelect) {
-            this.selectCurrentListItem(true);
+        let me = this;
+
+        me.getTrigger('time').value = value;
+
+        if (me.pickerIsMounted && !preventListSelect) {
+            me.selectCurrentListItem(true);
         }
     }
 

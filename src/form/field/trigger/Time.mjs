@@ -29,7 +29,17 @@ class Time extends Picker {
         /**
          * @member {String|null} iconCls=null
          */
-        iconCls: null
+        iconCls: null,
+        /**
+         * Internal flag used by field.getTrigger()
+         * @member {String} type='time'
+         */
+        type: 'time',
+        /**
+         * Format: hh:mm
+         * @member {String|null} value_=null
+         */
+        value_: null
     }}
 
     /**
@@ -46,12 +56,24 @@ class Time extends Picker {
             module  : Clock,
             appName : me.appName,
             parentId: me.id,
-            fontSize: .7,
+            fontSize: .6,
             size    : null
         });
 
         vdom.cn = [me.clock.vdom];
         me.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the value config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetValue(value, oldValue) {
+        if (value) {
+            this.clock.time = value;
+        }
     }
 }
 
