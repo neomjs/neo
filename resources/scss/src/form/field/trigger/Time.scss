@@ -12,15 +12,15 @@
 
         .neo-hours,
         .neo-minutes {
-            background-color: white;
+            background-color: v(trigger-time-pointer-color);
         }
 
         .neo-hours {
-            box-shadow: 0 -2em #fff, 0 -4em #fff;
+            box-shadow: 0 -2em v(trigger-time-pointer-color), 0 -4em v(trigger-time-pointer-color);
         }
 
         .neo-minutes {
-            box-shadow: 0 -3.4em #fff, 0 -6.8em #fff;
+            box-shadow: 0 -3.4em v(trigger-time-pointer-color), 0 -6.8em v(trigger-time-pointer-color);
         }
     }
 }
