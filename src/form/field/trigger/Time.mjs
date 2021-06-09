@@ -19,9 +19,17 @@ class Time extends Picker {
          */
         ntype: 'trigger-time',
         /**
+         * @member {String[]} cls=['neo-timefield-trigger','neo-field-trigger']
+         */
+        cls: ['neo-timefield-trigger', 'neo-field-trigger'],
+        /**
          * @member {Neo.component.Clock|null} clock=null
          */
-        clock: null
+        clock: null,
+        /**
+         * @member {String|null} iconCls=null
+         */
+        iconCls: null
     }}
 
     /**
@@ -38,6 +46,7 @@ class Time extends Picker {
             module  : Clock,
             appName : me.appName,
             parentId: me.id,
+            fontSize: 1,
             size    : null
         });
 
