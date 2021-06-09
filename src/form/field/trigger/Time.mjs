@@ -46,7 +46,7 @@ class Time extends Picker {
             module  : Clock,
             appName : me.appName,
             parentId: me.id,
-            fontSize: 1,
+            fontSize: .7,
             size    : null
         });
 
