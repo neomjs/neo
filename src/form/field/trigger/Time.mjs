@@ -24,8 +24,13 @@ class Time extends Picker {
         cls: ['neo-timefield-trigger', 'neo-field-trigger'],
         /**
          * @member {Neo.component.Clock|null} clock=null
+         * @protected
          */
         clock: null,
+        /**
+         * @member {Object|null} clockConfig=null
+         */
+        clockConfig: null,
         /**
          * @member {String|null} iconCls=null
          */
@@ -57,7 +62,8 @@ class Time extends Picker {
             appName : me.appName,
             parentId: me.id,
             fontSize: .6,
-            size    : null
+            size    : null,
+            ...me.clockConfig || {}
         });
 
         vdom.cn = [me.clock.vdom];
