@@ -28,7 +28,7 @@ class Clock extends Component {
         fontSize_: 20,
         /**
          * Value in px
-         * @member {Number} size_=500
+         * @member {Number|null} size_=500
          */
         size_: 500,
         /**
@@ -68,8 +68,14 @@ class Clock extends Component {
     afterSetSize(value, oldValue) {
         let style = this.style;
 
-        style.height = `${value}px`;
-        style.width  = `${value}px`;
+        if (Neo.isNumber(value)) {
+            style.height = `${value}px`;
+            style.width  = `${value}px`;
+        } else {
+            delete style.height;
+            delete style.width;
+        }
+
         this.style = style;
     }
 

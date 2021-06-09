@@ -1,3 +1,4 @@
+import Clock  from '../../../component/Clock.mjs';
 import Picker from './Picker.mjs';
 
 /**
@@ -18,10 +19,31 @@ class Time extends Picker {
          */
         ntype: 'trigger-time',
         /**
-         * @member {String|null} iconCls='fa fa-clock'
+         * @member {Neo.component.Clock|null} clock=null
          */
-        iconCls: 'fa fa-clock'
+        clock: null
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me   = this,
+            vdom = me.vdom;
+
+        me.clock = Neo.create({
+            module  : Clock,
+            appName : me.appName,
+            parentId: me.id,
+            size    : null
+        });
+
+        vdom.cn = [me.clock.vdom];
+        me.vdom = vdom;
+    }
 }
 
 Neo.applyClassConfig(Time);
