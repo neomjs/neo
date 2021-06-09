@@ -1,4 +1,5 @@
 import Component from './Base.mjs';
+import NeoArray  from '../util/Array.mjs';
 
 /**
  * Simple CSS based clock to get used inside form.field.trigger.Time
@@ -26,6 +27,11 @@ class Clock extends Component {
          * @member {Number} fontSize_=20
          */
         fontSize_: 20,
+        /**
+         * Show a small disc on the center of the clock (above the pointers)
+         * @member {Boolean} showDisc_=true
+         */
+        showDisc_: true,
         /**
          * Value in px
          * @member {Number|null} size_=500
@@ -57,6 +63,19 @@ class Clock extends Component {
 
         style.fontSize = `${value}px`;
         this.style = style;
+    }
+
+    /**
+     * Triggered after the showDisc config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowDisc(value, oldValue) {
+        let cls = this.cls;
+
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-show-disc')
+        this.cls = cls;
     }
 
     /**

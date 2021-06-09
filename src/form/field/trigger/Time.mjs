@@ -62,6 +62,7 @@ class Time extends Picker {
             appName : me.appName,
             parentId: me.id,
             fontSize: .6,
+            showDisc: false,
             size    : null,
             ...me.clockConfig || {}
         });

@@ -8,14 +8,16 @@
 
     background-image: radial-gradient(farthest-side circle at center center, #fff 0%, #bbb 100%);
 
-    &:before {
-        background-color: #bbb;
-        border-radius   : 50%;
-        content         : '';
-        height          : 1em;
-        position        : absolute;
-        width           : 1em;
-        z-index         : 5;
+    &.neo-show-disc {
+        &:before {
+            background-color: #bbb;
+            border-radius   : 50%;
+            content         : '';
+            height          : 1em;
+            position        : absolute;
+            width           : 1em;
+            z-index         : 5;
+        }
     }
 
     .neo-hours,
