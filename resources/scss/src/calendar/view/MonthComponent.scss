@@ -47,9 +47,18 @@
             border          : 1px solid red;
             border-radius   : 3px;
             color           : red;
+            display         : flex;
             font-size       : .7em;
             margin          : 1px;
             padding         : 3px;
+
+            .neo-event-time {
+                text-align: end;
+            }
+
+            .neo-event-title {
+                flex: 1;
+            }
         }
 
         .neo-month-header {
