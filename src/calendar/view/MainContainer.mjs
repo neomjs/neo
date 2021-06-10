@@ -41,7 +41,8 @@ class MainContainer extends Container {
         ntype: 'calendar-maincontainer',
         /**
          * The currently active view. Must be a value included inside the views config.
-         * @member {String} activeView_='week'
+         * valid values: 'day', 'week', 'month', 'year'
+         * @member {String} activeView_='month'
          */
         activeView_: 'week',
         /**
@@ -243,7 +244,7 @@ class MainContainer extends Container {
      */
     afterSetEventStore(value, oldValue) {
         if (oldValue !== undefined) {
-            this.weekComponent.eventStore = value;
+            this.setViewConfig('eventStore', value);
         }
     }
 
@@ -666,7 +667,8 @@ class MainContainer extends Container {
      */
     onEventStoreLoad(data) {
         // todo: update the active view (card)
-        this.weekComponent.updateEvents();
+        this.monthComponent.createContent();
+        this.weekComponent .updateEvents();
     }
 
     /**

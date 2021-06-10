@@ -65,6 +65,11 @@ class MonthComponent extends Component {
          */
         intlFormat_month: null,
         /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_time=null
+         * @protected
+         */
+        intlFormat_time: null,
+        /**
          * @member {Boolean} isScrolling=false
          * @protected
          */
@@ -88,6 +93,10 @@ class MonthComponent extends Component {
          * @member {Boolean} showWeekends_=true
          */
         showWeekends_: true,
+        /**
+         * @member {Object} timeFormat_={hour:'2-digit',minute:'2-digit'}
+         */
+        timeFormat_: {hour: '2-digit', minute: '2-digit'},
         /**
          * True to use box shadows for the months while scrolling
          * @member {Boolean} useScrollBoxShadows_=true
@@ -167,6 +176,7 @@ class MonthComponent extends Component {
 
             me.intlFormat_day   = new Intl.DateTimeFormat(value, {weekday: me.dayNameFormat});
             me.intlFormat_month = new Intl.DateTimeFormat(value, {month  : me.monthNameFormat});
+            me.intlFormat_time  = new Intl.DateTimeFormat(value, me.timeFormat);
 
             me.updateMonthNames(true);
             me.updateHeader();
@@ -246,6 +256,16 @@ class MonthComponent extends Component {
             // triggers the vdom update
             me.updateHeader();
         }
+    }
+
+    /**
+     * Triggered after the timeFormat config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterSetTimeFormat(value, oldValue) {
+        this.intlFormat_time = new Intl.DateTimeFormat(this.locale, value);
     }
 
     /**
@@ -338,7 +358,7 @@ class MonthComponent extends Component {
         let me     = this,
             i      = 0,
             header = null,
-            day, dayConfig, row, weekDay;
+            day, dayConfig, dayRecords, row, weekDay;
 
         row = {
             flag: DateUtil.convertToyyyymmdd(date),
@@ -370,8 +390,11 @@ class MonthComponent extends Component {
             }
 
             dayConfig = {
-                cls : ['neo-day'],
-                html: day
+                cls: ['neo-day'],
+                cn : [{
+                    cls : ['neo-day-number'],
+                    html: day
+                }]
             };
 
             weekDay = date.getDay();
@@ -384,6 +407,25 @@ class MonthComponent extends Component {
                 }
             }
 
+            if (!dayConfig.removeDom) {
+                dayRecords = me.getDayRecords(date);
+
+                dayRecords.forEach(record => {
+                    dayConfig.cn.push({
+                        cls     : ['neo-event'],
+                        tabIndex: -1,
+
+                        cn: [{
+                            cls : ['neo-event-title'],
+                            html: record.title
+                        }, {
+                            cls : ['neo-event-time'],
+                            html: me.intlFormat_time.format(record.startDate)
+                        }]
+                    });
+                })
+            }
+
             row.cn.push(dayConfig);
 
             date.setDate(date.getDate() + 1);
@@ -392,6 +434,55 @@ class MonthComponent extends Component {
         return {
             header: header,
             row   : row
+        }
+    }
+
+    /**
+     *
+     * @param {Date} date
+     * @returns {Neo.calendar.model.Event[]}
+     */
+    getDayRecords(date) {
+        let me         = this,
+            eventStore = me.eventStore,
+            dayRecords = [],
+            i          = 0,
+            len        = eventStore.getCount(),
+            record;
+
+        for (; i < len; i++) {
+            record = me.eventStore.items[i];
+
+            if (DateUtil.matchDate(date, record.startDate)) {
+                if (DateUtil.matchDate(date, record.endDate)) {
+                    dayRecords.push(record);
+                }
+            }
+        }
+
+        return dayRecords;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Object[]} data.oldPath
+     * @param {Object[]} data.path
+     */
+    onFocusChange(data) {
+        let oldPath = data.oldPath,
+            path    = data.path;
+
+        if (oldPath) {
+            if (oldPath[0].cls && oldPath[0].cls.includes('neo-event')) {
+                Neo.applyDeltas(this.appName, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
+            }
+        }
+
+        if (path) {
+            if (path[0].cls && path[0].cls.includes('neo-event')) {
+                Neo.applyDeltas(this.appName, {id: path[0].id, cls: {add: ['neo-focus']}});
+            }
         }
     }
 
