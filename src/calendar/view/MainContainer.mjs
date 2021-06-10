@@ -44,7 +44,7 @@ class MainContainer extends Container {
          * valid values: 'day', 'week', 'month', 'year'
          * @member {String} activeView_='month'
          */
-        activeView_: 'month',
+        activeView_: 'week',
         /**
          * Scale the calendar with using s different base font-size
          * @member {Number|null} baseFontSize_=null
