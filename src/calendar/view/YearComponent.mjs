@@ -155,9 +155,10 @@ class YearComponent extends Component {
         let me           = this,
             domListeners = me.domListeners;
 
-        domListeners.push({
-            wheel: {fn: me.onWheel, scope: me}
-        });
+        domListeners.push(
+            {click: me.onNavButtonClick, delegate: '.neo-nav-button', scope: me},
+            {wheel: me.onWheel, scope: me}
+        );
 
         me.domListeners = domListeners;
 
@@ -651,6 +652,19 @@ class YearComponent extends Component {
         }
 
         return this.id + '__' + year + '-' + month + '-' + day;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onNavButtonClick(data) {
+        let me          = this,
+            currentDate = me.currentDate; // cloned
+
+        currentDate.setFullYear(currentDate.getFullYear() + (data.path[0].cls.includes('neo-next-button') ? 1 : -1));
+
+        me.currentDate = currentDate;
     }
 
     /**
