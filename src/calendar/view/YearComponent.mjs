@@ -192,6 +192,42 @@ class YearComponent extends Component {
     }
 
     /**
+     * Triggered after the eventIndicatorHigh config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetEventIndicatorHigh(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.createMonths();
+        }
+    }
+
+    /**
+     * Triggered after the eventIndicatorLow config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetEventIndicatorLow(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.createMonths();
+        }
+    }
+
+    /**
+     * Triggered after the eventIndicatorMedium config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetEventIndicatorMedium(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.createMonths();
+        }
+    }
+
+    /**
      * Triggered after the locale config got changed
      * @param {String} value
      * @param {String} oldValue
