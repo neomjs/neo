@@ -49,6 +49,18 @@ class YearComponent extends Component {
          */
         dayNameFormat_: 'narrow',
         /**
+         * @member {Number} eventIndicatorHigh_=3
+         */
+        eventIndicatorHigh_: 3,
+        /**
+         * @member {Number} eventIndicatorLow_=1
+         */
+        eventIndicatorLow_: 1,
+        /**
+         * @member {Number} eventIndicatorMedium_=2
+         */
+        eventIndicatorMedium_: 2,
+        /**
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
         eventStore_: null,
@@ -519,11 +531,11 @@ class YearComponent extends Component {
                 if (!config.removeDom) {
                     dayRecords = me.eventStore.getDayRecords(date);
 
-                    if (dayRecords.length > 2) {
+                    if (dayRecords.length >= me.eventIndicatorHigh) {
                         configCls.push('neo-events-high');
-                    } else if (dayRecords.length > 1) {
+                    } else if (dayRecords.length >= me.eventIndicatorMedium) {
                         configCls.push('neo-events-medium');
-                    } else if (dayRecords.length > 0) {
+                    } else if (dayRecords.length >= me.eventIndicatorLow) {
                         configCls.push('neo-events-low');
                     }
                 }
