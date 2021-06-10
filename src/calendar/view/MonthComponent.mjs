@@ -421,13 +421,12 @@ class MonthComponent extends Component {
             i          = 0,
             len        = eventStore.getCount(),
             record;
-console.log(len);
+
         for (; i < len; i++) {
             record = me.eventStore.items[i];
 
             if (DateUtil.matchDate(date, record.startDate)) {
                 if (DateUtil.matchDate(date, record.endDate)) {
-                    console.log('match', record);
                     dayRecords.push(record);
                 }
             }
