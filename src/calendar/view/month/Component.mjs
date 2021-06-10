@@ -408,7 +408,7 @@ class Component extends BaseComponent {
             }
 
             if (!dayConfig.removeDom) {
-                dayRecords = me.getDayRecords(date);
+                dayRecords = me.eventStore.getDayRecords(date);
 
                 dayRecords.forEach(record => {
                     dayConfig.cn.push({
@@ -435,32 +435,6 @@ class Component extends BaseComponent {
             header: header,
             row   : row
         }
-    }
-
-    /**
-     *
-     * @param {Date} date
-     * @returns {Neo.calendar.model.Event[]}
-     */
-    getDayRecords(date) {
-        let me         = this,
-            eventStore = me.eventStore,
-            dayRecords = [],
-            i          = 0,
-            len        = eventStore.getCount(),
-            record;
-
-        for (; i < len; i++) {
-            record = me.eventStore.items[i];
-
-            if (DateUtil.matchDate(date, record.startDate)) {
-                if (DateUtil.matchDate(date, record.endDate)) {
-                    dayRecords.push(record);
-                }
-            }
-        }
-
-        return dayRecords;
     }
 
     /**
