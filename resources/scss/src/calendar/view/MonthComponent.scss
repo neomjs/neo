@@ -29,12 +29,24 @@
             color          : v(c-m-day-number-color);
             display        : flex;
             flex           : 1 1 100%;
-            justify-content: flex-end;
+            flex-direction : column;
+            justify-content: stretch;
             padding        : .3em;
 
             &:last-child {
                 border-right: 1px solid transparent;
             }
+
+            .neo-day-number {
+                text-align: end;
+            }
+        }
+
+        .neo-event {
+            background-color: rgba(255, 0, 0, 0.1);
+            border          : 1px solid red;
+            border-radius   : 3px;
+            color           : red;
         }
 
         .neo-month-header {
