@@ -459,7 +459,7 @@ class YearComponent extends Component {
             columns        = 7,
             i              = 0,
             weekDate       = DateUtil.clone(currentDate),
-            cellId, cnCls, config, dateDay, day, dayRecords, hasContent, j, row, rows;
+            cellId, config, configCls, dateDay, day, dayRecords, hasContent, j, row, rows;
 
         rows = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
         day  = 1 - firstDayOffset;
@@ -497,33 +497,34 @@ class YearComponent extends Component {
                     }]
                 };
 
+                configCls = config.cls;
+
                 if (dateDay === 0 || dateDay === 6) {
-                    config.cls.push('neo-weekend');
+                    configCls.push('neo-weekend');
 
                     if (!me.showWeekends) {
                         config.removeDom = true;
                     }
                 }
 
-                cnCls = config.cn[0].cls;
 
                 if (today.year === currentYear && today.month === currentMonth && today.day === day) {
-                    cnCls.push('neo-today');
+                    config.cn[0].cls.push('neo-today');
                 }
 
                 if (valueYear === currentYear && valueMonth === currentMonth && day === currentDay) {
-                    config.cls.push('neo-selected');
+                    configCls.push('neo-selected');
                 }
 
                 if (!config.removeDom) {
                     dayRecords = me.eventStore.getDayRecords(date);
 
-                    if (dayRecords.length > 4) {
-                        cnCls.push('neo-events-high');
-                    } else if (dayRecords.length > 2) {
-                        cnCls.push('neo-events-medium');
+                    if (dayRecords.length > 2) {
+                        configCls.push('neo-events-high');
+                    } else if (dayRecords.length > 1) {
+                        configCls.push('neo-events-medium');
                     } else if (dayRecords.length > 0) {
-                        cnCls.push('neo-events-low');
+                        configCls.push('neo-events-low');
                     }
                 }
 
