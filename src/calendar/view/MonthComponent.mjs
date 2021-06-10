@@ -412,8 +412,10 @@ class MonthComponent extends Component {
 
                 dayRecords.forEach(record => {
                     dayConfig.cn.push({
-                        cls : ['neo-event'],
-                        cn : [{
+                        cls     : ['neo-event'],
+                        tabIndex: -1,
+
+                        cn: [{
                             cls : ['neo-event-title'],
                             html: record.title
                         }, {
