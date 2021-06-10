@@ -867,9 +867,8 @@ class Component extends BaseComponent {
             vdom              = me.vdom,
             content           = me.getColumnContainer(),
             j                 = startIndex,
-            len               = eventStore.getCount(),
             showEventEndDates = me.showEventEndDates,
-            column, duration, eventCls, hasOverflow, height, i, record, recordKey, startHours, top;
+            column, dayRecords, duration, eventCls, hasOverflow, height, i, len, record, recordKey, startHours, top;
 
         date.setDate(date.getDate() + startIndex);
 
@@ -878,57 +877,54 @@ class Component extends BaseComponent {
 
             column.cn = []; // remove previous events from the vdom
 
+            dayRecords = eventStore.getDayRecords(date);
+            len        = dayRecords.length;
+
             for (i = 0; i < len; i++) {
-                record = eventStore.items[i];
+                record      = dayRecords[i];
+                duration    = (record.endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
+                eventCls    = ['neo-event', 'neo-draggable'];
+                hasOverflow = false;
+                height      = Math.round(duration / totalTime * 100 * 1000) / 1000;
+                recordKey   = record[eventStore.keyProperty];
+                startHours  = (record.startDate.getHours() * 60 + record.startDate.getMinutes()) / 60;
+                top         = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
 
-                // todo: we need a check for date overlaps => startDate < current day, endDate >= current day
-                if (DateUtil.matchDate(date, record.startDate)) {
-                    if (DateUtil.matchDate(date, record.endDate)) {
-                        duration    = (record.endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
-                        eventCls    = ['neo-event', 'neo-draggable'];
-                        hasOverflow = false;
-                        height      = Math.round(duration / totalTime * 100 * 1000) / 1000;
-                        recordKey   = record[eventStore.keyProperty];
-                        startHours  = (record.startDate.getHours() * 60 + record.startDate.getMinutes()) / 60;
-                        top         = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
+                if (duration * 60 / timeAxis.interval === 1) {
+                    hasOverflow = timeAxis.rowHeight < (showEventEndDates ? 50 : 34);
 
-                        if (duration * 60 / timeAxis.interval === 1) {
-                            hasOverflow = timeAxis.rowHeight < (showEventEndDates ? 50 : 34);
-
-                            if (hasOverflow && !(showEventEndDates && timeAxis.rowHeight >= 34)) {
-                                eventCls.push('neo-overflow');
-                            }
-                        }
-
-                        column.cn.push({
-                            cls     : eventCls,
-                            flag    : record[eventStore.keyProperty],
-                            id      : me.id + '__' + recordKey,
-                            tabIndex: -1,
-
-                            cn: [{
-                                cls : ['neo-event-time'],
-                                html: me.intlFormat_time.format(record.startDate),
-                                id  : me.id + '__time__' + recordKey
-                            }, {
-                                cls : ['neo-event-title'],
-                                html: record.title,
-                                id  : me.id + '__title__' + recordKey
-                            }, {
-                                cls      : ['neo-event-time', 'neo-event-end-time'],
-                                html     : me.intlFormat_time.format(record.endDate),
-                                id       : me.id + '__enddate__' + recordKey,
-                                removeDom: hasOverflow || !showEventEndDates
-                            }],
-
-                            style: {
-                                height: `calc(${height}% - 2px)`,
-                                top   : `calc(${top}% + 1px)`,
-                                width : 'calc(100% - 1px)' // todo
-                            }
-                        });
+                    if (hasOverflow && !(showEventEndDates && timeAxis.rowHeight >= 34)) {
+                        eventCls.push('neo-overflow');
                     }
                 }
+
+                column.cn.push({
+                    cls     : eventCls,
+                    flag    : record[eventStore.keyProperty],
+                    id      : me.id + '__' + recordKey,
+                    tabIndex: -1,
+
+                    cn: [{
+                        cls : ['neo-event-time'],
+                        html: me.intlFormat_time.format(record.startDate),
+                        id  : me.id + '__time__' + recordKey
+                    }, {
+                        cls : ['neo-event-title'],
+                        html: record.title,
+                        id  : me.id + '__title__' + recordKey
+                    }, {
+                        cls      : ['neo-event-time', 'neo-event-end-time'],
+                        html     : me.intlFormat_time.format(record.endDate),
+                        id       : me.id + '__enddate__' + recordKey,
+                        removeDom: hasOverflow || !showEventEndDates
+                    }],
+
+                    style: {
+                        height: `calc(${height}% - 2px)`,
+                        top   : `calc(${top}% + 1px)`,
+                        width : 'calc(100% - 1px)' // todo
+                    }
+                });
             }
 
             date.setDate(date.getDate() + 1);
