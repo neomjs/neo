@@ -338,7 +338,7 @@ class MonthComponent extends Component {
         let me     = this,
             i      = 0,
             header = null,
-            day, dayConfig, row, weekDay;
+            day, dayConfig, dayRecords, row, weekDay;
 
         row = {
             flag: DateUtil.convertToyyyymmdd(date),
@@ -370,8 +370,11 @@ class MonthComponent extends Component {
             }
 
             dayConfig = {
-                cls : ['neo-day'],
-                html: day
+                cls: ['neo-day'],
+                cn : [{
+                    cls : ['neo-day-number'],
+                    html: day
+                }]
             };
 
             weekDay = date.getDay();
@@ -384,6 +387,16 @@ class MonthComponent extends Component {
                 }
             }
 
+            if (!dayConfig.removeDom) {
+                dayRecords = me.getDayRecords(date);
+
+                dayRecords.forEach(dayRecord => {
+                    dayConfig.cn.push({
+                        html: dayRecord.title
+                    });
+                })
+            }
+
             row.cn.push(dayConfig);
 
             date.setDate(date.getDate() + 1);
@@ -393,6 +406,33 @@ class MonthComponent extends Component {
             header: header,
             row   : row
         }
+    }
+
+    /**
+     *
+     * @param {Date} date
+     * @returns {Neo.calendar.model.Event[]}
+     */
+    getDayRecords(date) {
+        let me         = this,
+            eventStore = me.eventStore,
+            dayRecords = [],
+            i          = 0,
+            len        = eventStore.getCount(),
+            record;
+console.log(len);
+        for (; i < len; i++) {
+            record = me.eventStore.items[i];
+
+            if (DateUtil.matchDate(date, record.startDate)) {
+                if (DateUtil.matchDate(date, record.endDate)) {
+                    console.log('match', record);
+                    dayRecords.push(record);
+                }
+            }
+        }
+
+        return dayRecords;
     }
 
     /**
