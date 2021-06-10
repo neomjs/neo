@@ -4,6 +4,46 @@
         "allDay"    : false,
         "id"        : 1,
         "calendarId": 1,
+        "description": "Event 1 description",
+        "endDate"    : "Mon Jul 14 2021 11:15:00 GMT+0200",
+        "startDate"  : "Mon Jul 14 2021 09:15:00 GMT+0200",
+        "title"      : "Event 1"
+    },
+    {
+        "attendees" : ["Tobias"],
+        "allDay"    : false,
+        "id"        : 2,
+        "calendarId": 1,
+        "description": "Event 2 description",
+        "endDate"    : "Mon Jul 14 2021 13:15:00 GMT+0200",
+        "startDate"  : "Mon Jul 14 2021 11:30:00 GMT+0200",
+        "title"      : "Event 2"
+    },
+    {
+        "attendees" : ["Tobias"],
+        "allDay"    : false,
+        "id"        : 3,
+        "calendarId": 1,
+        "description": "Event 3 description",
+        "endDate"    : "Mon Jul 14 2021 15:00:00 GMT+0200",
+        "startDate"  : "Mon Jul 14 2021 13:45:00 GMT+0200",
+        "title"      : "Event 3 with a long title"
+    },
+    {
+        "attendees" : ["Tobias"],
+        "allDay"    : false,
+        "id"        : 4,
+        "calendarId": 1,
+        "description": "Event 4 description",
+        "endDate"    : "Mon Jul 14 2021 17:45:00 GMT+0200",
+        "startDate"  : "Mon Jul 14 2021 16:00:00 GMT+0200",
+        "title"      : "Event 4"
+    },
+    {
+        "attendees" : ["Tobias"],
+        "allDay"    : false,
+        "id"        : 5,
+        "calendarId": 1,
         "description": "Description Text",
         "endDate"    : "Mon Jul 20 2021 16:45:00 GMT+0200",
         "startDate"  : "Mon Jul 20 2021 09:15:00 GMT+0200",
@@ -12,7 +52,7 @@
     {
         "attendees" : ["Tobias"],
         "allDay"    : false,
-        "id"        : 2,
+        "id"        : 6,
         "calendarId": 1,
         "description": "Description Text 2",
         "endDate"    : "Wed Jul 22 2021 14:00:00 GMT+0200",
@@ -22,7 +62,7 @@
     {
         "attendees" : ["Tobias"],
         "allDay"    : false,
-        "id"        : 3,
+        "id"        : 7,
         "calendarId": 1,
         "description": "Description Text 3",
         "endDate"    : "Thu Jul 23 2021 14:00:00 GMT+0200",
@@ -32,7 +72,7 @@
     {
         "attendees" : ["Tobias"],
         "allDay"    : false,
-        "id"        : 4,
+        "id"        : 8,
         "calendarId": 1,
         "description": "Description Text 3",
         "endDate"    : "Wed Jul 29 2021 14:00:00 GMT+0200",
