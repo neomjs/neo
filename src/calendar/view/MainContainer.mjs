@@ -244,7 +244,7 @@ class MainContainer extends Container {
      */
     afterSetEventStore(value, oldValue) {
         if (oldValue !== undefined) {
-            this.weekComponent.eventStore = value;
+            this.setViewConfig('eventStore', value);
         }
     }
 
