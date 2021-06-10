@@ -130,7 +130,11 @@ class YearComponent extends Component {
         vdom:
         {cn: [
             {cls: ['neo-content-wrapper'], cn: [
-                {cls: ['neo-year-header']},
+                {cls: ['neo-year-header'], cn: [
+                    {},
+                    {cls: ['neo-nav-button', 'neo-prev-button']},
+                    {cls: ['neo-nav-button', 'neo-next-button']}
+                ]},
                 {cls: ['neo-months-container']}
             ]}
         ]},
@@ -423,7 +427,13 @@ class YearComponent extends Component {
                                 cls: ['neo-content-wrapper'],
                                 cn : [{
                                     cls : ['neo-year-header'],
-                                    html: me.currentDate.getFullYear()
+                                    cn  : [{
+                                        html: me.currentDate.getFullYear()
+                                    }, {
+                                        cls: ['neo-nav-button', 'neo-prev-button']
+                                    }, {
+                                        cls: ['neo-nav-button', 'neo-next-button']
+                                    }]
                                 }, {
                                     cls: ['neo-months-container']
                                 }]
@@ -726,7 +736,7 @@ class YearComponent extends Component {
      *
      */
     updateHeaderYear() {
-        this.vdom.cn[0].cn[0].html = this.currentDate.getFullYear();
+        this.vdom.cn[0].cn[0].cn[0].html = this.currentDate.getFullYear();
     }
 
     /**

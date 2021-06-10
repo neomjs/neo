@@ -40,10 +40,47 @@
 
     .neo-year-header {
         color        : v(c-y-year-color);
+        display      : flex;
         font-size    : 1.3em;
         font-weight  : 600;
         margin-bottom: .5em;
         padding      : .4em .8em;
+
+        .neo-nav-button {
+            align-items     : center;
+            background-color: v(dateselector-nav-button-background-color);
+            cursor          : pointer;
+            display         : flex;
+            justify-content : center;
+            width           : 1.4em;
+
+            &:before {
+                color      : v(dateselector-nav-button-color);
+                font-family: "Font Awesome 5 Free";
+                font-weight: 900;
+                transition : color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            &:hover {
+                &:before {
+                    color: v(dateselector-nav-button-color-hover);
+                }
+            }
+        }
+
+        .neo-next-button {
+            &:before {
+                content: "\f13a";
+            }
+        }
+
+        .neo-prev-button {
+            margin-left: auto;
+
+            &:before {
+                content: "\f139";
+            }
+        }
     }
 
     .neo-month-name {
