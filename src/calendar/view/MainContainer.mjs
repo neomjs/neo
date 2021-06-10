@@ -42,9 +42,9 @@ class MainContainer extends Container {
         /**
          * The currently active view. Must be a value included inside the views config.
          * valid values: 'day', 'week', 'month', 'year'
-         * @member {String} activeView_='month'
+         * @member {String} activeView_='week'
          */
-        activeView_: 'month',
+        activeView_: 'year',
         /**
          * Scale the calendar with using s different base font-size
          * @member {Number|null} baseFontSize_=null
@@ -666,9 +666,12 @@ class MainContainer extends Container {
      * @param {Object[]} data
      */
     onEventStoreLoad(data) {
+        let me = this;
+
         // todo: update the active view (card)
-        this.monthComponent.createContent();
-        this.weekComponent .updateEvents();
+        me.monthComponent.createContent();
+        me.weekComponent .updateEvents();
+        me.yearComponent .createMonths();
     }
 
     /**

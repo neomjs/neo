@@ -459,7 +459,7 @@ class YearComponent extends Component {
             columns        = 7,
             i              = 0,
             weekDate       = DateUtil.clone(currentDate),
-            cellId, config, dateDay, day, hasContent, j, row, rows;
+            cellId, cnCls, config, dateDay, day, dayRecords, hasContent, j, row, rows;
 
         rows = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
         day  = 1 - firstDayOffset;
@@ -505,12 +505,26 @@ class YearComponent extends Component {
                     }
                 }
 
+                cnCls = config.cn[0].cls;
+
                 if (today.year === currentYear && today.month === currentMonth && today.day === day) {
-                    config.cn[0].cls.push('neo-today');
+                    cnCls.push('neo-today');
                 }
 
                 if (valueYear === currentYear && valueMonth === currentMonth && day === currentDay) {
                     config.cls.push('neo-selected');
+                }
+
+                if (!config.removeDom) {
+                    dayRecords = me.eventStore.getDayRecords(date);
+
+                    if (dayRecords.length > 4) {
+                        cnCls.push('neo-events-high');
+                    } else if (dayRecords.length > 2) {
+                        cnCls.push('neo-events-medium');
+                    } else if (dayRecords.length > 0) {
+                        cnCls.push('neo-events-low');
+                    }
                 }
 
                 row.cn.push(config);
