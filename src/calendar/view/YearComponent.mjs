@@ -419,32 +419,25 @@ class YearComponent extends Component {
                     vdom          = me.vdom;
                     y             = scrollFromTop ? 0 : -data.height;
 
-                    vdom.cn.push({
-                        cls: ['neo-relative'],
-                        cn : [{
-                            cls: ['neo-animation-wrapper'],
-                            cn : [{
-                                cls: ['neo-content-wrapper'],
-                                cn : [{
-                                    cls : ['neo-year-header'],
-                                    cn  : [{
-                                        html: me.currentDate.getFullYear()
-                                    }, {
-                                        cls: ['neo-nav-button', 'neo-prev-button']
-                                    }, {
-                                        cls: ['neo-nav-button', 'neo-next-button']
-                                    }]
-                                }, {
-                                    cls: ['neo-months-container']
-                                }]
-                            }],
+                    vdom.cn.push(
+                        {cls: ['neo-relative'], cn: [
+                            {cls: ['neo-animation-wrapper'], cn: [
+                                {cls: ['neo-content-wrapper'], cn: [
+                                    {cls: ['neo-year-header'], cn: [
+                                        {html: me.currentDate.getFullYear()},
+                                        {cls: ['neo-nav-button', 'neo-prev-button']},
+                                        {cls: ['neo-nav-button', 'neo-next-button']}
+                                    ]},
+                                    {cls: ['neo-months-container']}
+                                ]}
+                            ],
                             style: {
                                 height   : `${2 * data.height}px`,
                                 transform: `translateY(${y}px)`,
                                 width    : `${data.width}px`
-                            }
-                        }]
-                    });
+                            }}
+                        ]}
+                    );
 
                     me.createMonths(true, vdom.cn[1].cn[0].cn[0].cn[1]);
                     vdom.cn[1].cn[0].cn[scrollFromTop ? 'unshift' : 'push'](vdom.cn[0]);
