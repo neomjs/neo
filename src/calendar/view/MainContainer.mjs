@@ -6,7 +6,7 @@ import DateSelector       from '../../component/DateSelector.mjs';
 import DateUtil           from '../../util/Date.mjs';
 import DayComponent       from './DayComponent.mjs';
 import EventStore         from '../store/Events.mjs';
-import MonthComponent     from './MonthComponent.mjs';
+import MonthComponent     from './month/Component.mjs';
 import SettingsContainer  from './SettingsContainer.mjs';
 import Toolbar            from '../../container/Toolbar.mjs';
 import WeekComponent      from './week/Component.mjs';
@@ -110,7 +110,7 @@ class MainContainer extends Container {
          */
         minimumEventDuration_: 30,
         /**
-         * @member {Neo.calendar.view.MonthComponent|null} monthComponent=null
+         * @member {Neo.calendar.view.Component|null} monthComponent=null
          */
         monthComponent: null,
         /**
