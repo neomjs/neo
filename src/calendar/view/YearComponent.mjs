@@ -49,6 +49,18 @@ class YearComponent extends Component {
          */
         dayNameFormat_: 'narrow',
         /**
+         * @member {Number} eventIndicatorHigh_=3
+         */
+        eventIndicatorHigh_: 3,
+        /**
+         * @member {Number} eventIndicatorLow_=1
+         */
+        eventIndicatorLow_: 1,
+        /**
+         * @member {Number} eventIndicatorMedium_=2
+         */
+        eventIndicatorMedium_: 2,
+        /**
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
         eventStore_: null,
@@ -177,6 +189,42 @@ class YearComponent extends Component {
      */
     afterSetDayNameFormat(value, oldValue) {
         this.updateDayNamesRows(value, oldValue);
+    }
+
+    /**
+     * Triggered after the eventIndicatorHigh config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetEventIndicatorHigh(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.createMonths();
+        }
+    }
+
+    /**
+     * Triggered after the eventIndicatorLow config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetEventIndicatorLow(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.createMonths();
+        }
+    }
+
+    /**
+     * Triggered after the eventIndicatorMedium config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetEventIndicatorMedium(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.createMonths();
+        }
     }
 
     /**
@@ -459,7 +507,7 @@ class YearComponent extends Component {
             columns        = 7,
             i              = 0,
             weekDate       = DateUtil.clone(currentDate),
-            cellId, config, dateDay, day, hasContent, j, row, rows;
+            cellId, config, configCls, dateDay, day, dayRecords, hasContent, j, row, rows;
 
         rows = (daysInMonth + firstDayOffset) / 7 > 5 ? 6 : 5;
         day  = 1 - firstDayOffset;
@@ -497,20 +545,35 @@ class YearComponent extends Component {
                     }]
                 };
 
+                configCls = config.cls;
+
                 if (dateDay === 0 || dateDay === 6) {
-                    config.cls.push('neo-weekend');
+                    configCls.push('neo-weekend');
 
                     if (!me.showWeekends) {
                         config.removeDom = true;
                     }
                 }
 
+
                 if (today.year === currentYear && today.month === currentMonth && today.day === day) {
                     config.cn[0].cls.push('neo-today');
                 }
 
                 if (valueYear === currentYear && valueMonth === currentMonth && day === currentDay) {
-                    config.cls.push('neo-selected');
+                    configCls.push('neo-selected');
+                }
+
+                if (!config.removeDom) {
+                    dayRecords = me.eventStore.getDayRecords(date);
+
+                    if (dayRecords.length >= me.eventIndicatorHigh) {
+                        configCls.push('neo-events-high');
+                    } else if (dayRecords.length >= me.eventIndicatorMedium) {
+                        configCls.push('neo-events-medium');
+                    } else if (dayRecords.length >= me.eventIndicatorLow) {
+                        configCls.push('neo-events-low');
+                    }
                 }
 
                 row.cn.push(config);

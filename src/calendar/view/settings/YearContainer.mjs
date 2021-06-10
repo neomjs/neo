@@ -1,5 +1,6 @@
 import CheckBoxField from '../../../form/field/CheckBox.mjs';
 import Container     from '../../../container/Base.mjs';
+import NumberField   from '../../../form/field/Number.mjs';
 import RadioField    from '../../../form/field/Radio.mjs';
 
 /**
@@ -33,10 +34,48 @@ class YearContainer extends Container {
      */
     createItems() {
         let me            = this,
-            labelWidth    = 160,
+            labelWidth    = 180,
             yearComponent = me.getYearComponent();
 
         me.items = [{
+            module              : NumberField,
+            clearable           : true,
+            clearToOriginalValue: true,
+            flex                : 'none',
+            labelText           : 'eventIndicatorHigh',
+            labelWidth          : labelWidth,
+            listeners           : {change: me.onConfigChange, scope: me},
+            maxValue            : 10,
+            minValue            : 1,
+            name                : 'eventIndicatorHigh',
+            value               : yearComponent.eventIndicatorHigh
+        }, {
+            module              : NumberField,
+            clearable           : true,
+            clearToOriginalValue: true,
+            flex                : 'none',
+            labelText           : 'eventIndicatorMedium',
+            labelWidth          : labelWidth,
+            listeners           : {change: me.onConfigChange, scope: me},
+            maxValue            : 10,
+            minValue            : 1,
+            name                : 'eventIndicatorMedium',
+            style               : {marginTop: '5px'},
+            value               : yearComponent.eventIndicatorMedium
+        }, {
+            module              : NumberField,
+            clearable           : true,
+            clearToOriginalValue: true,
+            flex                : 'none',
+            labelText           : 'eventIndicatorLow',
+            labelWidth          : labelWidth,
+            listeners           : {change: me.onConfigChange, scope: me},
+            maxValue            : 10,
+            minValue            : 1,
+            name                : 'eventIndicatorLow',
+            style               : {marginTop: '5px'},
+            value               : yearComponent.eventIndicatorLow
+        }, {
             module        : RadioField,
             checked       : yearComponent.monthNameFormat === 'short',
             fieldValue    : 'short',
@@ -46,6 +85,7 @@ class YearContainer extends Container {
             labelWidth    : labelWidth,
             listeners     : {change: me.onRadioChange, scope: me},
             name          : 'monthNameFormat',
+            style         : {marginTop: '5px'},
             valueLabelText: 'short'
         }, {
             module        : RadioField,

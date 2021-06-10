@@ -1,7 +1,7 @@
-import Component from '../../component/Base.mjs';
-import DateUtil  from '../../util/Date.mjs';
-import NeoArray  from '../../util/Array.mjs';
-import VDomUtil  from '../../util/VDom.mjs';
+import BaseComponent from '../../../component/Base.mjs';
+import DateUtil      from '../../../util/Date.mjs';
+import NeoArray      from '../../../util/Array.mjs';
+import VDomUtil      from '../../../util/VDom.mjs';
 
 const todayDate = new Date();
 
@@ -12,16 +12,16 @@ const today = {
 };
 
 /**
- * @class Neo.calendar.view.MonthComponent
+ * @class Neo.calendar.view.month.Component
  * @extends Neo.component.Base
  */
-class MonthComponent extends Component {
+class Component extends BaseComponent {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.calendar.view.MonthComponent'
+         * @member {String} className='Neo.calendar.view.month.Component'
          * @protected
          */
-        className: 'Neo.calendar.view.MonthComponent',
+        className: 'Neo.calendar.view.month.Component',
         /**
          * @member {String} ntype='calendar-view-monthcomponent'
          * @protected
@@ -408,7 +408,7 @@ class MonthComponent extends Component {
             }
 
             if (!dayConfig.removeDom) {
-                dayRecords = me.getDayRecords(date);
+                dayRecords = me.eventStore.getDayRecords(date);
 
                 dayRecords.forEach(record => {
                     dayConfig.cn.push({
@@ -435,32 +435,6 @@ class MonthComponent extends Component {
             header: header,
             row   : row
         }
-    }
-
-    /**
-     *
-     * @param {Date} date
-     * @returns {Neo.calendar.model.Event[]}
-     */
-    getDayRecords(date) {
-        let me         = this,
-            eventStore = me.eventStore,
-            dayRecords = [],
-            i          = 0,
-            len        = eventStore.getCount(),
-            record;
-
-        for (; i < len; i++) {
-            record = me.eventStore.items[i];
-
-            if (DateUtil.matchDate(date, record.startDate)) {
-                if (DateUtil.matchDate(date, record.endDate)) {
-                    dayRecords.push(record);
-                }
-            }
-        }
-
-        return dayRecords;
     }
 
     /**
@@ -675,6 +649,6 @@ class MonthComponent extends Component {
     }
 }
 
-Neo.applyClassConfig(MonthComponent);
+Neo.applyClassConfig(Component);
 
-export {MonthComponent as default};
+export {Component as default};

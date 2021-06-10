@@ -31,6 +31,7 @@
             flex           : 1 1 100%;
             flex-direction : column;
             justify-content: stretch;
+            overflow       : hidden;
             padding        : .3em;
 
             &:last-child {
@@ -44,7 +45,7 @@
 
         .neo-event {
             background-color: rgba(255, 0, 0, 0.1);
-            border          : 1px solid red;
+            border          : 1px solid rgba(255, 0, 0, 0.6);
             border-radius   : 3px;
             color           : red;
             cursor          : pointer;
@@ -59,7 +60,8 @@
 
                 .neo-event-time,
                 .neo-event-title {
-                    color: #fff;
+                    color      : #fff;
+                    font-weight: bold;
                 }
             }
 
@@ -74,7 +76,10 @@
             }
 
             .neo-event-title {
-                flex: 1;
+                flex         : 1;
+                overflow     : hidden;
+                text-overflow: ellipsis;
+                white-space  : nowrap;
             }
         }
 

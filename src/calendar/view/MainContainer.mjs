@@ -6,7 +6,7 @@ import DateSelector       from '../../component/DateSelector.mjs';
 import DateUtil           from '../../util/Date.mjs';
 import DayComponent       from './DayComponent.mjs';
 import EventStore         from '../store/Events.mjs';
-import MonthComponent     from './MonthComponent.mjs';
+import MonthComponent     from './month/Component.mjs';
 import SettingsContainer  from './SettingsContainer.mjs';
 import Toolbar            from '../../container/Toolbar.mjs';
 import WeekComponent      from './week/Component.mjs';
@@ -42,7 +42,7 @@ class MainContainer extends Container {
         /**
          * The currently active view. Must be a value included inside the views config.
          * valid values: 'day', 'week', 'month', 'year'
-         * @member {String} activeView_='month'
+         * @member {String} activeView_='week'
          */
         activeView_: 'week',
         /**
@@ -110,7 +110,7 @@ class MainContainer extends Container {
          */
         minimumEventDuration_: 30,
         /**
-         * @member {Neo.calendar.view.MonthComponent|null} monthComponent=null
+         * @member {Neo.calendar.view.Component|null} monthComponent=null
          */
         monthComponent: null,
         /**
@@ -666,9 +666,12 @@ class MainContainer extends Container {
      * @param {Object[]} data
      */
     onEventStoreLoad(data) {
+        let me = this;
+
         // todo: update the active view (card)
-        this.monthComponent.createContent();
-        this.weekComponent .updateEvents();
+        me.monthComponent.createContent();
+        me.weekComponent .updateEvents();
+        me.yearComponent .createMonths();
     }
 
     /**
