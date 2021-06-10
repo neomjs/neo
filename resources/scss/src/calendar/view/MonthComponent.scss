@@ -47,10 +47,17 @@
             border          : 1px solid red;
             border-radius   : 3px;
             color           : red;
+            cursor          : pointer;
             display         : flex;
             font-size       : .7em;
             margin          : 1px;
             padding         : 3px;
+
+            .neo-event-time,
+            .neo-event-title {
+                pointer-events: none;
+                user-select   : none;
+            }
 
             .neo-event-time {
                 text-align: end;
