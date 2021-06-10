@@ -139,7 +139,7 @@ class Component extends BaseComponent {
          */
         timeAxisPosition_: 'start',
         /**
-         * @member {Object} timeFormat_=null
+         * @member {Object} timeFormat_={hour:'2-digit',minute:'2-digit'}
          */
         timeFormat_: {hour: '2-digit', minute: '2-digit'},
         /**
@@ -389,9 +389,7 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetTimeFormat(value, oldValue) {
-        let me = this;
-
-        me.intlFormat_time = new Intl.DateTimeFormat(me.locale, value);
+        this.intlFormat_time = new Intl.DateTimeFormat(this.locale, value);
     }
 
     /**

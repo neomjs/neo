@@ -65,6 +65,11 @@ class MonthComponent extends Component {
          */
         intlFormat_month: null,
         /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_time=null
+         * @protected
+         */
+        intlFormat_time: null,
+        /**
          * @member {Boolean} isScrolling=false
          * @protected
          */
@@ -88,6 +93,10 @@ class MonthComponent extends Component {
          * @member {Boolean} showWeekends_=true
          */
         showWeekends_: true,
+        /**
+         * @member {Object} timeFormat_={hour:'2-digit',minute:'2-digit'}
+         */
+        timeFormat_: {hour: '2-digit', minute: '2-digit'},
         /**
          * True to use box shadows for the months while scrolling
          * @member {Boolean} useScrollBoxShadows_=true
@@ -167,6 +176,7 @@ class MonthComponent extends Component {
 
             me.intlFormat_day   = new Intl.DateTimeFormat(value, {weekday: me.dayNameFormat});
             me.intlFormat_month = new Intl.DateTimeFormat(value, {month  : me.monthNameFormat});
+            me.intlFormat_time  = new Intl.DateTimeFormat(value, me.timeFormat);
 
             me.updateMonthNames(true);
             me.updateHeader();
@@ -246,6 +256,16 @@ class MonthComponent extends Component {
             // triggers the vdom update
             me.updateHeader();
         }
+    }
+
+    /**
+     * Triggered after the timeFormat config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterSetTimeFormat(value, oldValue) {
+        this.intlFormat_time = new Intl.DateTimeFormat(this.locale, value);
     }
 
     /**
@@ -390,10 +410,16 @@ class MonthComponent extends Component {
             if (!dayConfig.removeDom) {
                 dayRecords = me.getDayRecords(date);
 
-                dayRecords.forEach(dayRecord => {
+                dayRecords.forEach(record => {
                     dayConfig.cn.push({
                         cls : ['neo-event'],
-                        html: dayRecord.title
+                        cn : [{
+                            cls : ['neo-event-title'],
+                            html: record.title
+                        }, {
+                            cls : ['neo-event-time'],
+                            html: me.intlFormat_time.format(record.startDate)
+                        }]
                     });
                 })
             }
