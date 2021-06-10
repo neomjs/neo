@@ -31,6 +31,7 @@
             flex           : 1 1 100%;
             flex-direction : column;
             justify-content: stretch;
+            overflow       : hidden;
             padding        : .3em;
 
             &:last-child {
@@ -74,7 +75,10 @@
             }
 
             .neo-event-title {
-                flex: 1;
+                flex         : 1;
+                overflow     : hidden;
+                text-overflow: ellipsis;
+                white-space  : nowrap;
             }
         }
 
