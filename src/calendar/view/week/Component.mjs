@@ -147,7 +147,6 @@ class Component extends BaseComponent {
          */
         vdom:
         {cn: [
-            {cls: ['neo-header']},
             {cls: ['neo-scroll-overlay']},
             {cls: ['neo-c-w-scrollcontainer'], flag: 'neo-c-w-scrollcontainer', cn: [
                 {cls: ['neo-header-row'], flag: 'neo-header-row', cn: []},
