@@ -667,7 +667,8 @@ class MainContainer extends Container {
      */
     onEventStoreLoad(data) {
         // todo: update the active view (card)
-        this.weekComponent.updateEvents();
+        this.monthComponent.createContent();
+        this.weekComponent .updateEvents();
     }
 
     /**
