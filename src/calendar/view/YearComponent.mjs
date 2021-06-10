@@ -130,7 +130,11 @@ class YearComponent extends Component {
         vdom:
         {cn: [
             {cls: ['neo-content-wrapper'], cn: [
-                {cls: ['neo-year-header']},
+                {cls: ['neo-year-header'], cn: [
+                    {},
+                    {cls: ['neo-nav-button', 'neo-prev-button']},
+                    {cls: ['neo-nav-button', 'neo-next-button']}
+                ]},
                 {cls: ['neo-months-container']}
             ]}
         ]},
@@ -151,9 +155,10 @@ class YearComponent extends Component {
         let me           = this,
             domListeners = me.domListeners;
 
-        domListeners.push({
-            wheel: {fn: me.onWheel, scope: me}
-        });
+        domListeners.push(
+            {click: me.onNavButtonClick, delegate: '.neo-nav-button', scope: me},
+            {wheel: me.onWheel, scope: me}
+        );
 
         me.domListeners = domListeners;
 
@@ -415,26 +420,25 @@ class YearComponent extends Component {
                     vdom          = me.vdom;
                     y             = scrollFromTop ? 0 : -data.height;
 
-                    vdom.cn.push({
-                        cls: ['neo-relative'],
-                        cn : [{
-                            cls: ['neo-animation-wrapper'],
-                            cn : [{
-                                cls: ['neo-content-wrapper'],
-                                cn : [{
-                                    cls : ['neo-year-header'],
-                                    html: me.currentDate.getFullYear()
-                                }, {
-                                    cls: ['neo-months-container']
-                                }]
-                            }],
+                    vdom.cn.push(
+                        {cls: ['neo-relative'], cn: [
+                            {cls: ['neo-animation-wrapper'], cn: [
+                                {cls: ['neo-content-wrapper'], cn: [
+                                    {cls: ['neo-year-header'], cn: [
+                                        {html: me.currentDate.getFullYear()},
+                                        {cls: ['neo-nav-button', 'neo-prev-button']},
+                                        {cls: ['neo-nav-button', 'neo-next-button']}
+                                    ]},
+                                    {cls: ['neo-months-container']}
+                                ]}
+                            ],
                             style: {
                                 height   : `${2 * data.height}px`,
                                 transform: `translateY(${y}px)`,
                                 width    : `${data.width}px`
-                            }
-                        }]
-                    });
+                            }}
+                        ]}
+                    );
 
                     me.createMonths(true, vdom.cn[1].cn[0].cn[0].cn[1]);
                     vdom.cn[1].cn[0].cn[scrollFromTop ? 'unshift' : 'push'](vdom.cn[0]);
@@ -654,6 +658,19 @@ class YearComponent extends Component {
      *
      * @param {Object} data
      */
+    onNavButtonClick(data) {
+        let me          = this,
+            currentDate = me.currentDate; // cloned
+
+        currentDate.setFullYear(currentDate.getFullYear() + (data.path[0].cls.includes('neo-next-button') ? 1 : -1));
+
+        me.currentDate = currentDate;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onWheel(data) {
         if (Math.abs(data.deltaY) > Math.abs(data.deltaX)) {
             let me          = this,
@@ -726,7 +743,7 @@ class YearComponent extends Component {
      *
      */
     updateHeaderYear() {
-        this.vdom.cn[0].cn[0].html = this.currentDate.getFullYear();
+        this.vdom.cn[0].cn[0].cn[0].html = this.currentDate.getFullYear();
     }
 
     /**
