@@ -5,6 +5,7 @@ import Container          from '../../container/Base.mjs';
 import DateSelector       from '../../component/DateSelector.mjs';
 import DateUtil           from '../../util/Date.mjs';
 import DayComponent       from './DayComponent.mjs';
+import EditEventContainer from './EditEventContainer.mjs';
 import EventStore         from '../store/Events.mjs';
 import MonthComponent     from './month/Component.mjs';
 import SettingsContainer  from './SettingsContainer.mjs';
@@ -87,6 +88,15 @@ class MainContainer extends Container {
          * @member {Object|null} dayComponentConfig=null
          */
         dayComponentConfig: null,
+        /**
+         * Read only
+         * @member {Neo.calendar.view.EditEventContainer|null} editEventContainer_=null
+         */
+        editEventContainer_: null,
+        /**
+         * @member {Object|null} editEventContainerConfig=null
+         */
+        editEventContainerConfig: null,
         /**
          * Only full hours are valid for now
          * format: 'hh:mm'
@@ -406,6 +416,27 @@ class MainContainer extends Container {
         if (oldValue !== undefined) {
             this.setViewConfig('weekStartDay', value);
         }
+    }
+
+    /**
+     * Gets triggered before getting the value of the editEventContainer config
+     * @param {Neo.calendar.view.EditEventContainer|null} value
+     * @returns {Neo.calendar.view.EditEventContainer}
+     */
+    beforeGetEditEventContainer(value) {
+        if (!value) {
+            let me = this;
+
+            me._editEventContainer = value = Neo.create({
+                module : EditEventContainer,
+                appName: me.appName,
+                owner  : me,
+                width  : 250,
+                ...me.editEventContainerConfig || {}
+            });
+        }
+
+        return value;
     }
 
     /**
