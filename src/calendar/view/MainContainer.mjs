@@ -88,6 +88,12 @@ class MainContainer extends Container {
          */
         dayComponentConfig: null,
         /**
+         * Only full hours are valid for now
+         * format: 'hh:mm'
+         * @member {String} endTime_='24:00'
+         */
+        endTime_: '24:00',
+        /**
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
         eventStore_: null,
@@ -151,6 +157,12 @@ class MainContainer extends Container {
          * @member {Number} sideBarWidth=220
          */
         sideBarWidth: 220,
+        /**
+         * Only full hours are valid for now
+         * format: 'hh:mm'
+         * @member {String} startTime_='00:00'
+         */
+        startTime_: '00:00',
         /**
          * @member {Boolean} useSettingsContainer_=true
          */
@@ -233,6 +245,18 @@ class MainContainer extends Container {
             me.weekComponent.currentDate = value;
             me.yearComponent.currentDate = value;
             me.dateSelector .value       = DateUtil.convertToyyyymmdd(value);
+        }
+    }
+
+    /**
+     * Triggered after the endTime config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetEndTime(value, oldValue) {
+        if (oldValue !== undefined) {
+            console.log('afterSetEndTime', value);
         }
     }
 
@@ -353,6 +377,18 @@ class MainContainer extends Container {
                     }, 400);
                 });
             }
+        }
+    }
+
+    /**
+     * Triggered after the startTime config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetStartTime(value, oldValue) {
+        if (oldValue !== undefined) {
+            console.log('afterSetStartTime', value);
         }
     }
 
