@@ -112,6 +112,11 @@ class MainContainer extends Container {
          */
         eventStoreConfig: null,
         /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_time=null
+         * @protected
+         */
+        intlFormat_time: null,
+        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
          */
@@ -173,6 +178,10 @@ class MainContainer extends Container {
          * @member {String} startTime_='00:00'
          */
         startTime_: '00:00',
+        /**
+         * @member {Object} timeFormat_={hour:'2-digit',minute:'2-digit'}
+         */
+        timeFormat_: {hour: '2-digit', minute: '2-digit'},
         /**
          * @member {Boolean} useSettingsContainer_=true
          */
@@ -292,7 +301,10 @@ class MainContainer extends Container {
      */
     afterSetLocale(value, oldValue) {
         if (oldValue !== undefined) {
-            this.setViewConfig('locale', value);
+            let me = this;
+
+            me.intlFormat_time = new Intl.DateTimeFormat(value, me.timeFormat);
+            me.setViewConfig('locale', value);
         }
     }
 
@@ -404,6 +416,16 @@ class MainContainer extends Container {
                 item.startTime = value;
             });
         }
+    }
+
+    /**
+     * Triggered after the timeFormat config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterSetTimeFormat(value, oldValue) {
+        this.intlFormat_time = new Intl.DateTimeFormat(this.locale, value);
     }
 
     /**
