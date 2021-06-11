@@ -598,9 +598,13 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDoubleClick(data) {
+        if (!data.path[0].cls.includes('neo-event')) {
+            data.path.shift();
+        }
+
         let me                 = this,
             editEventContainer = me.editEventContainer,
-            eventNode          = data.path[0].cls.includes('neo-event') ? data.path[0] : data.path[1],
+            eventNode          = data.path[0],
             eventVdom          = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
             record             = me.eventStore.get(eventVdom.flag),
             position, style;
