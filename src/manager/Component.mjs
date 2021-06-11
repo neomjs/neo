@@ -90,7 +90,7 @@ class Component extends Base {
                 if (returnValue !== null) {
                     return returnValue;
                 }
-            } if (returnValue.length > 0) {
+            } else if (returnValue.length > 0) {
                 returnArray.push(...returnValue);
             }
         }
