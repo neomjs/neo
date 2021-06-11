@@ -865,10 +865,11 @@ class Base extends CoreBase {
     /**
      * Convenience shortcut for Neo.manager.Component.down
      * @param {Object|String} config
+     * @param {Boolean} returnFirstMatch=true
      * @returns {Neo.core.Base} The matching instance or null
      */
-    down(config) {
-        return ComponentManager.down(this, config);
+    down(config, returnFirstMatch=true) {
+        return ComponentManager.down(this, config, returnFirstMatch);
     }
 
     /**
