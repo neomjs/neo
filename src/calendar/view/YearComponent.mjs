@@ -91,6 +91,11 @@ class YearComponent extends Component {
          */
         monthNameFormat_: 'long',
         /**
+         * @member {Neo.calendar.view.MainContainer|null} owner=null
+         * @protected
+         */
+        owner: null,
+        /**
          * True to scroll new years in from the top
          * @member {Boolean} scrollNewYearFromTop=false
          */

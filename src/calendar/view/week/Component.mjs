@@ -116,6 +116,11 @@ class Component extends BaseComponent {
          */
         minimumEventDuration: 30,
         /**
+         * @member {Neo.calendar.view.MainContainer|null} owner=null
+         * @protected
+         */
+        owner: null,
+        /**
          * @member {Object} resizablePluginConfig=null
          */
         resizablePluginConfig: null,

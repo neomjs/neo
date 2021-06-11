@@ -85,6 +85,11 @@ class Component extends BaseComponent {
          */
         monthNameFormat_: 'short',
         /**
+         * @member {Neo.calendar.view.MainContainer|null} owner=null
+         * @protected
+         */
+        owner: null,
+        /**
          * @member {String|null} scrollTask=null
          * @protected
          */
