@@ -884,7 +884,7 @@ class Component extends BaseComponent {
 
                 column.cn.push({
                     cls     : eventCls,
-                    flag    : record[eventStore.keyProperty],
+                    flag    : recordKey,
                     id      : me.id + '__' + recordKey,
                     tabIndex: -1,
 

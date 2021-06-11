@@ -361,22 +361,26 @@ class Component extends BaseComponent {
      * @returns {Object}
      */
     createWeek(date) {
-        let me     = this,
-            i      = 0,
-            header = null,
-            day, dayConfig, dayRecords, row, weekDay;
+        let me         = this,
+            i          = 0,
+            eventStore = me.eventStore,
+            header     = null,
+            ymdDate    = DateUtil.convertToyyyymmdd(date),
+            day, dayConfig, dayRecords, recordKey, row, weekDay;
 
         row = {
-            flag: DateUtil.convertToyyyymmdd(date),
+            flag: ymdDate,
             cls : ['neo-week'],
-            cn  : []
+            cn  : [],
+            id  : `${me.id}__week__${ymdDate}`
         };
 
         for (; i < 7; i++) {
-            day = date.getDate();
+            day     = date.getDate();
+            ymdDate = DateUtil.convertToyyyymmdd(date);
 
             if (day === 1) {
-                row.flag = DateUtil.convertToyyyymmdd(date); // the first day of a month wins
+                row.flag = ymdDate; // the first day of a month wins
 
                 header = {
                     cls: ['neo-month-header'],
@@ -397,9 +401,11 @@ class Component extends BaseComponent {
 
             dayConfig = {
                 cls: ['neo-day'],
+                id : `${me.id}__day__${ymdDate}`,
                 cn : [{
                     cls : ['neo-day-number'],
-                    html: day
+                    html: day,
+                    id : `${me.id}__day_number__${ymdDate}`
                 }]
             };
 
@@ -417,17 +423,22 @@ class Component extends BaseComponent {
                 dayRecords = me.eventStore.getDayRecords(date);
 
                 dayRecords.forEach(record => {
+                    recordKey = record[eventStore.keyProperty];
+
                     dayConfig.cn.push({
                         cls     : ['neo-event'],
-                        flag    : record[me.eventStore.keyProperty],
+                        flag    : recordKey,
+                        id      : me.id + '__' + recordKey,
                         tabIndex: -1,
 
                         cn: [{
                             cls : ['neo-event-title'],
-                            html: record.title
+                            html: record.title,
+                            id  : me.id + '__title__' + recordKey
                         }, {
                             cls : ['neo-event-time'],
-                            html: me.intlFormat_time.format(record.startDate)
+                            html: me.intlFormat_time.format(record.startDate),
+                            id  : me.id + '__time__' + recordKey
                         }]
                     });
                 })
@@ -622,10 +633,10 @@ class Component extends BaseComponent {
     }
 
     /**
-     *
+     * Neo.calendar.view.EditEventContainer expects this method to exist
      */
     updateEvents() {
-       console.log('updateEvents');
+       this.createContent();
     }
 
     /**
