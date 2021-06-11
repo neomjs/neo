@@ -600,8 +600,8 @@ class Component extends BaseComponent {
     onEventDoubleClick(data) {
         let me                 = this,
             editEventContainer = me.editEventContainer,
-            eventNode          = data.path[0],
-            eventVdom          = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom,
+            eventNode          = data.path[0].cls.includes('neo-event') ? data.path[0] : data.path[1],
+            eventVdom          = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
             record             = me.eventStore.get(eventVdom.flag),
             position, style;
 
