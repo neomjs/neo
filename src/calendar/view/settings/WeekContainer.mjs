@@ -2,7 +2,6 @@ import CheckBoxField from '../../../form/field/CheckBox.mjs';
 import Container     from '../../../container/Base.mjs';
 import NumberField   from '../../../form/field/Number.mjs';
 import RadioField    from '../../../form/field/Radio.mjs';
-import TimeField     from '../../../form/field/Time.mjs';
 
 /**
  * @class Neo.calendar.view.settings.WeekContainer
@@ -47,27 +46,6 @@ class WeekContainer extends Container {
             timeAxis      = weekComponent.timeAxis;
 
         me.items = [{
-            module              : TimeField,
-            clearable           : true,
-            clearToOriginalValue: true,
-            labelText           : 'startTime',
-            listeners           : {change: me.onTimeAxisConfigChange, scope: me},
-            maxValue            : '10:00',
-            minValue            : '00:00',
-            name                : 'startTime',
-            stepSize            : 60 * 60, // 1h
-            style               : {},
-            value               : timeAxis.startTime
-        }, {
-            module   : TimeField,
-            labelText: 'endTime',
-            listeners: {change: me.onTimeAxisConfigChange, scope: me},
-            maxValue : '23:00',
-            minValue : '14:00',
-            name     : 'endTime',
-            stepSize : 60 * 60, // 1h
-            value    : timeAxis.endTime !== '24:00' ? timeAxis.endTime : null
-        }, {
             module              : NumberField,
             clearable           : true,
             clearToOriginalValue: true,

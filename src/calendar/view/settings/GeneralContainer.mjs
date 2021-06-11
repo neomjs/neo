@@ -2,6 +2,7 @@ import CheckBoxField from '../../../form/field/CheckBox.mjs';
 import Container     from '../../../container/Base.mjs';
 import NumberField   from '../../../form/field/Number.mjs';
 import RadioField    from '../../../form/field/Radio.mjs';
+import TimeField     from '../../../form/field/Time.mjs';
 
 /**
  * @class Neo.calendar.view.settings.GeneralContainer
@@ -151,6 +152,31 @@ class GeneralContainer extends Container {
             name          : 'scrollNewYearFromTop',
             style         : {marginTop: '10px'},
             valueLabelText: 'scrollNewYearFromTop'
+        }, {
+            module    : TimeField,
+            flex      : 'none',
+            labelText : 'startTime',
+            labelWidth: 110,
+            listeners : {change: me.onConfigChange, scope: me},
+            maxValue  : '10:00',
+            minValue  : '00:00',
+            name      : 'startTime',
+            stepSize  : 60 * 60, // 1h
+            style     : {marginTop: '10px'},
+            value     : calendar.startTime,
+            width     : '14em'
+        }, {
+            module    : TimeField,
+            flex      : 'none',
+            labelText : 'endTime',
+            labelWidth: 110,
+            listeners : {change: me.onConfigChange, scope: me},
+            maxValue  : '23:00',
+            minValue  : '14:00',
+            name      : 'endTime',
+            stepSize  : 60 * 60, // 1h
+            value     : calendar.endTime !== '24:00' ? calendar.endTime : null,
+            width     : '14em'
         }];
 
         super.createItems();

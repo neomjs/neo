@@ -85,6 +85,11 @@ class Component extends BaseComponent {
          */
         monthNameFormat_: 'short',
         /**
+         * @member {Neo.calendar.view.MainContainer|null} owner=null
+         * @protected
+         */
+        owner: null,
+        /**
          * @member {String|null} scrollTask=null
          * @protected
          */
@@ -135,9 +140,10 @@ class Component extends BaseComponent {
             header       = vdom.cn[0].cn[0],
             domListeners = me.domListeners;
 
-        domListeners.push({
-            wheel: {fn: me.onWheel, scope: me}
-        });
+        domListeners.push(
+            {dblclick: me.onEventDoubleClick, delegate: 'neo-event', scope: me},
+            {wheel   : me.onWheel, scope: me}
+        );
 
         me.domListeners = domListeners;
 
@@ -355,22 +361,26 @@ class Component extends BaseComponent {
      * @returns {Object}
      */
     createWeek(date) {
-        let me     = this,
-            i      = 0,
-            header = null,
-            day, dayConfig, dayRecords, row, weekDay;
+        let me         = this,
+            i          = 0,
+            eventStore = me.eventStore,
+            header     = null,
+            ymdDate    = DateUtil.convertToyyyymmdd(date),
+            day, dayConfig, dayRecords, recordKey, row, weekDay;
 
         row = {
-            flag: DateUtil.convertToyyyymmdd(date),
+            flag: ymdDate,
             cls : ['neo-week'],
-            cn  : []
+            cn  : [],
+            id  : `${me.id}__week__${ymdDate}`
         };
 
         for (; i < 7; i++) {
-            day = date.getDate();
+            day     = date.getDate();
+            ymdDate = DateUtil.convertToyyyymmdd(date);
 
             if (day === 1) {
-                row.flag = DateUtil.convertToyyyymmdd(date); // the first day of a month wins
+                row.flag = ymdDate; // the first day of a month wins
 
                 header = {
                     cls: ['neo-month-header'],
@@ -391,9 +401,11 @@ class Component extends BaseComponent {
 
             dayConfig = {
                 cls: ['neo-day'],
+                id : `${me.id}__day__${ymdDate}`,
                 cn : [{
                     cls : ['neo-day-number'],
-                    html: day
+                    html: day,
+                    id : `${me.id}__day_number__${ymdDate}`
                 }]
             };
 
@@ -411,16 +423,22 @@ class Component extends BaseComponent {
                 dayRecords = me.eventStore.getDayRecords(date);
 
                 dayRecords.forEach(record => {
+                    recordKey = record[eventStore.keyProperty];
+
                     dayConfig.cn.push({
                         cls     : ['neo-event'],
+                        flag    : recordKey,
+                        id      : me.id + '__' + recordKey,
                         tabIndex: -1,
 
                         cn: [{
                             cls : ['neo-event-title'],
-                            html: record.title
+                            html: record.title,
+                            id  : me.id + '__title__' + recordKey
                         }, {
                             cls : ['neo-event-time'],
-                            html: me.intlFormat_time.format(record.startDate)
+                            html: me.intlFormat_time.format(record.startDate),
+                            id  : me.id + '__time__' + recordKey
                         }]
                     });
                 })
@@ -435,6 +453,35 @@ class Component extends BaseComponent {
             header: header,
             row   : row
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onEventDoubleClick(data) {
+        let me                  = this,
+            editEventContainer  = me.owner.editEventContainer,
+            eventNode           = data.path[0],
+            weekNode            = data.path[2],
+            scrollContainerNode = data.path[3],
+            eventVdom           = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
+            record              = me.eventStore.get(eventVdom.flag),
+            style               = editEventContainer.style;
+
+        Object.assign(style, {
+            left: `${eventNode.rect.right - weekNode.rect.left + 15}px`,
+            top : `${eventNode.rect.top - scrollContainerNode.rect.top + scrollContainerNode.scrollTop - 12}px`,
+        });
+
+        editEventContainer.setSilent({
+            currentView: me,
+            parentId   : data.path[1].id,
+            record     : record,
+            style      : style
+        });
+
+        editEventContainer.render(true);
     }
 
     /**
@@ -583,6 +630,13 @@ class Component extends BaseComponent {
         me.vdom = vdom;
 
         // todo: #990 => scroll the view to the closest row
+    }
+
+    /**
+     * Neo.calendar.view.EditEventContainer expects this method to exist
+     */
+    updateEvents() {
+       this.createContent();
     }
 
     /**

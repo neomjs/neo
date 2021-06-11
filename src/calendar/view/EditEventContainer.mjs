@@ -23,6 +23,10 @@ class EditEventContainer extends FormContainer {
          */
         cls: ['neo-calendar-edit-event-container'],
         /**
+         * @member {Neo.component.Base|null} currentView=null
+         */
+        currentView: null,
+        /**
          * @member {Object|null} endTimeFieldConfig=null
          */
         endTimeFieldConfig: null,
@@ -76,7 +80,7 @@ class EditEventContainer extends FormContainer {
      * @protected
      */
     afterSetRecord(value, oldValue) {
-        if (oldValue !== undefined) {
+        if (value && oldValue) {
             let me         = this,
                 timeFormat = me.owner.intlFormat_time;
 
@@ -88,6 +92,8 @@ class EditEventContainer extends FormContainer {
                 startTime: timeFormat.format(value.startDate),
                 title    : value.title
             });
+        } else if (value) {
+            this.createItems();
         }
     }
 
@@ -95,10 +101,9 @@ class EditEventContainer extends FormContainer {
      *
      */
     createItems() {
-        let me       = this,
-            owner    = me.owner,
-            record   = me.record,
-            timeAxis = owner.timeAxis,
+        let me     = this,
+            owner  = me.owner,
+            record = me.record,
             timeFieldDefaults = {
                 module              : TimeField,
                 clearToOriginalValue: true,
@@ -109,36 +114,38 @@ class EditEventContainer extends FormContainer {
                 width               : '9em'
             };
 
-        me.items = [{
-            module              : TextField,
-            clearToOriginalValue: true,
-            flex                : 'none',
-            labelPosition       : 'inline',
-            labelText           : 'Event Title',
-            listeners           : {change: me.onTitleFieldChange, scope: me},
-            name                : 'title',
-            required            : true,
-            value               : record.title,
-            ...me.titleFieldConfig || {}
-        }, {
-            labelText: 'Start Time',
-            maxValue : me.getStartTimeMaxValue(record),
-            minValue : timeAxis.startTime,
-            name     : 'startTime',
-            value    : owner.intlFormat_time.format(record.startDate),
-            ...timeFieldDefaults,
-            ...me.startTimeFieldConfig || {}
-        }, {
-            labelText: 'End Time',
-            maxValue : timeAxis.endTime,
-            minValue : me.getEndTimeMinValue(record),
-            name     : 'endTime',
-            value    : owner.intlFormat_time.format(record.endDate),
-            ...timeFieldDefaults,
-            ...me.endTimeFieldConfig || {}
-        }];
+        if (record) {
+            me.items = [{
+                module              : TextField,
+                clearToOriginalValue: true,
+                flex                : 'none',
+                labelPosition       : 'inline',
+                labelText           : 'Event Title',
+                listeners           : {change: me.onTitleFieldChange, scope: me},
+                name                : 'title',
+                required            : true,
+                value               : record.title,
+                ...me.titleFieldConfig || {}
+            }, {
+                labelText: 'Start Time',
+                maxValue : me.getStartTimeMaxValue(record),
+                minValue : owner.startTime,
+                name     : 'startTime',
+                value    : owner.intlFormat_time.format(record.startDate),
+                ...timeFieldDefaults,
+                ...me.startTimeFieldConfig || {}
+            }, {
+                labelText: 'End Time',
+                maxValue : owner.endTime,
+                minValue : me.getEndTimeMinValue(record),
+                name     : 'endTime',
+                value    : owner.intlFormat_time.format(record.endDate),
+                ...timeFieldDefaults,
+                ...me.endTimeFieldConfig || {}
+            }];
 
-        super.createItems();
+            super.createItems();
+        }
     }
 
     /**
@@ -192,7 +199,7 @@ class EditEventContainer extends FormContainer {
         date.setHours(value[0]);
         date.setMinutes(value[1]);
 
-        me.owner.updateEvents();
+        me.currentView.updateEvents();
 
         if (name === 'endTime') {
             me.getField('startTime').maxValue = me.getStartTimeMaxValue(record);
@@ -208,7 +215,7 @@ class EditEventContainer extends FormContainer {
     onTitleFieldChange(data) {
         if (!Neo.isEmpty(data.value)) {
             this.record.title = data.value;
-            this.owner.updateEvents();
+            this.currentView.updateEvents();
         }
     }
 }

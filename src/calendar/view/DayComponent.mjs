@@ -43,6 +43,11 @@ class DayComponent extends Component {
          */
         html: 'Day', // todo: remove
         /**
+         * @member {Neo.calendar.view.MainContainer|null} owner=null
+         * @protected
+         */
+        owner: null,
+        /**
          * @member {Object} vdom
          */
         vdom: {},

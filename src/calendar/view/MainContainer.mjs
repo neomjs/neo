@@ -5,6 +5,7 @@ import Container          from '../../container/Base.mjs';
 import DateSelector       from '../../component/DateSelector.mjs';
 import DateUtil           from '../../util/Date.mjs';
 import DayComponent       from './DayComponent.mjs';
+import EditEventContainer from './EditEventContainer.mjs';
 import EventStore         from '../store/Events.mjs';
 import MonthComponent     from './month/Component.mjs';
 import SettingsContainer  from './SettingsContainer.mjs';
@@ -44,7 +45,7 @@ class MainContainer extends Container {
          * valid values: 'day', 'week', 'month', 'year'
          * @member {String} activeView_='week'
          */
-        activeView_: 'week',
+        activeView_: 'month',
         /**
          * Scale the calendar with using s different base font-size
          * @member {Number|null} baseFontSize_=null
@@ -88,6 +89,21 @@ class MainContainer extends Container {
          */
         dayComponentConfig: null,
         /**
+         * Read only
+         * @member {Neo.calendar.view.EditEventContainer|null} editEventContainer_=null
+         */
+        editEventContainer_: null,
+        /**
+         * @member {Object|null} editEventContainerConfig=null
+         */
+        editEventContainerConfig: null,
+        /**
+         * Only full hours are valid for now
+         * format: 'hh:mm'
+         * @member {String} endTime_='24:00'
+         */
+        endTime_: '24:00',
+        /**
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
         eventStore_: null,
@@ -95,6 +111,11 @@ class MainContainer extends Container {
          * @member {Object|null} eventStoreConfig=null
          */
         eventStoreConfig: null,
+        /**
+         * @member {Intl.DateTimeFormat|null} intlFormat_time=null
+         * @protected
+         */
+        intlFormat_time: null,
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
@@ -151,6 +172,16 @@ class MainContainer extends Container {
          * @member {Number} sideBarWidth=220
          */
         sideBarWidth: 220,
+        /**
+         * Only full hours are valid for now
+         * format: 'hh:mm'
+         * @member {String} startTime_='00:00'
+         */
+        startTime_: '00:00',
+        /**
+         * @member {Object} timeFormat_={hour:'2-digit',minute:'2-digit'}
+         */
+        timeFormat_: {hour: '2-digit', minute: '2-digit'},
         /**
          * @member {Boolean} useSettingsContainer_=true
          */
@@ -237,6 +268,20 @@ class MainContainer extends Container {
     }
 
     /**
+     * Triggered after the endTime config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetEndTime(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.down({ntype: 'calendar-timeaxis'}, false).forEach(item => {
+                item.endTime = value;
+            });
+        }
+    }
+
+    /**
      * Triggered after the eventStore config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -256,7 +301,10 @@ class MainContainer extends Container {
      */
     afterSetLocale(value, oldValue) {
         if (oldValue !== undefined) {
-            this.setViewConfig('locale', value);
+            let me = this;
+
+            me.intlFormat_time = new Intl.DateTimeFormat(value, me.timeFormat);
+            me.setViewConfig('locale', value);
         }
     }
 
@@ -357,6 +405,30 @@ class MainContainer extends Container {
     }
 
     /**
+     * Triggered after the startTime config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetStartTime(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.down({ntype: 'calendar-timeaxis'}, false).forEach(item => {
+                item.startTime = value;
+            });
+        }
+    }
+
+    /**
+     * Triggered after the timeFormat config got changed
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @protected
+     */
+    afterSetTimeFormat(value, oldValue) {
+        this.intlFormat_time = new Intl.DateTimeFormat(this.locale, value);
+    }
+
+    /**
      * Triggered after the weekStartDay config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -366,6 +438,27 @@ class MainContainer extends Container {
         if (oldValue !== undefined) {
             this.setViewConfig('weekStartDay', value);
         }
+    }
+
+    /**
+     * Gets triggered before getting the value of the editEventContainer config
+     * @param {Neo.calendar.view.EditEventContainer|null} value
+     * @returns {Neo.calendar.view.EditEventContainer}
+     */
+    beforeGetEditEventContainer(value) {
+        if (!value) {
+            let me = this;
+
+            me._editEventContainer = value = Neo.create({
+                module : EditEventContainer,
+                appName: me.appName,
+                owner  : me,
+                width  : 250,
+                ...me.editEventContainerConfig || {}
+            });
+        }
+
+        return value;
     }
 
     /**
@@ -586,6 +679,7 @@ class MainContainer extends Container {
             currentDate : me.currentDate,
             eventStore  : me.eventStore,
             locale      : me.locale,
+            owner       : me,
             showWeekends: me.showWeekends,
             weekStartDay: me.weekStartDay
         };
