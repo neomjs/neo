@@ -135,9 +135,10 @@ class Component extends BaseComponent {
             header       = vdom.cn[0].cn[0],
             domListeners = me.domListeners;
 
-        domListeners.push({
-            wheel: {fn: me.onWheel, scope: me}
-        });
+        domListeners.push(
+            {dblclick: me.onEventDoubleClick, delegate: 'neo-event', scope: me},
+            {wheel   : me.onWheel, scope: me}
+        );
 
         me.domListeners = domListeners;
 
@@ -435,6 +436,14 @@ class Component extends BaseComponent {
             header: header,
             row   : row
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onEventDoubleClick(data) {
+        console.log('onEventDoubleClick', data);
     }
 
     /**
