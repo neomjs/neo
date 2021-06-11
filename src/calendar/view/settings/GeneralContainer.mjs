@@ -163,7 +163,8 @@ class GeneralContainer extends Container {
             name      : 'startTime',
             stepSize  : 60 * 60, // 1h
             style     : {marginTop: '10px'},
-            value     : calendar.startTime
+            value     : calendar.startTime,
+            width     : '14em'
         }, {
             module    : TimeField,
             flex      : 'none',
@@ -174,7 +175,8 @@ class GeneralContainer extends Container {
             minValue  : '14:00',
             name      : 'endTime',
             stepSize  : 60 * 60, // 1h
-            value     : calendar.endTime !== '24:00' ? calendar.endTime : null
+            value     : calendar.endTime !== '24:00' ? calendar.endTime : null,
+            width     : '14em'
         }];
 
         super.createItems();
