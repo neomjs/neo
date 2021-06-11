@@ -256,7 +256,9 @@ class MainContainer extends Container {
      */
     afterSetEndTime(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('afterSetEndTime', value);
+            this.down({ntype: 'calendar-timeaxis'}, false).forEach(item => {
+                item.endTime = value;
+            });
         }
     }
 
@@ -388,7 +390,9 @@ class MainContainer extends Container {
      */
     afterSetStartTime(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('afterSetStartTime', value);
+            this.down({ntype: 'calendar-timeaxis'}, false).forEach(item => {
+                item.startTime = value;
+            });
         }
     }
 
