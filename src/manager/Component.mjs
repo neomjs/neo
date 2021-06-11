@@ -86,12 +86,12 @@ class Component extends Base {
         for (; i < len; i++) {
             returnValue = me.down(childItems[i], config, returnFirstMatch);
 
-            if (returnValue !== null) {
-                if (returnFirstMatch) {
+            if (returnFirstMatch) {
+                if (returnValue !== null) {
                     return returnValue;
                 }
-
-                returnArray.push(returnValue);
+            } if (returnValue.length > 0) {
+                returnArray.push(...returnValue);
             }
         }
 
