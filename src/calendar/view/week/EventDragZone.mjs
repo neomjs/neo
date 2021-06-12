@@ -266,20 +266,20 @@ class EventDragZone extends DragZone {
                 currentInterval = Math.min(currentInterval, intervals - (eventDuration / intervalSize));
             }
 
+            endTime   = new Date(record.endDate.valueOf());
+            startTime = new Date(record.startDate.valueOf());
+
+            deltas = [{
+                id   : me.dragProxy.id,
+                style: {}
+            }];
+
             if (keepEndDate || keepStartDate) {
                 axisStartDate = new Date(record.startDate.valueOf());
                 axisStartDate.setHours(axisStartTime);
                 axisStartDate.setMinutes(0);
 
                 startInterval = (record.startDate - axisStartDate) / intervalSize / 60 / 1000;
-
-                endTime   = new Date(record.endDate.valueOf());
-                startTime = new Date(record.startDate.valueOf());
-
-                deltas = [{
-                    id   : me.dragProxy.id,
-                    style: {}
-                }];
 
                 minimumEventIntervals = owner.minimumEventDuration / intervalSize;
 
