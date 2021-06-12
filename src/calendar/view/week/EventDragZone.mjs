@@ -24,6 +24,10 @@ class EventDragZone extends DragZone {
          */
         addDragProxyCls: false,
         /**
+         * @member {Boolean} allowResizingAcrossOppositeEdge=true
+         */
+        allowResizingAcrossOppositeEdge: true,
+        /**
          * @member {Number} axisEndTime=0
          */
         axisEndTime: 0,
@@ -217,20 +221,23 @@ class EventDragZone extends DragZone {
      * @param {Object} data
      */
     dragMove(data) {
-        let me            = this,
-            axisEndTime   = me.axisEndTime,
-            axisStartTime = me.axisStartTime,
-            columnHeight  = me.columnHeight,
-            eventDuration = me.eventDuration,
-            i             = 0,
-            intervalSize  = me.intervalSize,
-            keepEndDate   = me.keepEndDate,
-            keepStartDate = me.keepStartDate,
-            path          = data.targetPath,
-            len           = path.length,
-            owner         = me.owner,
-            record        = me.eventRecord,
-            axisStartDate, currentInterval, deltas, duration, endTime, height, intervalHeight, intervals, position, startInterval, startTime;
+        let me              = this,
+            axisEndTime     = me.axisEndTime,
+            axisStartTime   = me.axisStartTime,
+            columnHeight    = me.columnHeight,
+            eventDuration   = me.eventDuration,
+            forceUpdate     = false,
+            i               = 0,
+            intervalSize    = me.intervalSize,
+            keepEndDate     = me.keepEndDate,
+            keepStartDate   = me.keepStartDate,
+            path            = data.targetPath,
+            len             = path.length,
+            owner           = me.owner,
+            record          = me.eventRecord,
+            switchDirection = false,
+            axisStartDate, currentInterval, deltas, duration, endTime, height, intervalHeight, intervals, limitInterval,
+            minimumEventIntervals, position, startInterval, startTime;
 
         if (me.dragProxy) {
             if (!keepEndDate && !keepStartDate) {
@@ -261,10 +268,53 @@ class EventDragZone extends DragZone {
 
                 startInterval = (record.startDate - axisStartDate) / intervalSize / 60 / 1000;
 
+                endTime   = new Date(record.endDate.valueOf());
+                startTime = new Date(record.startDate.valueOf());
+
+                deltas = [{
+                    id   : me.dragProxy.id,
+                    style: {}
+                }];
+
+                minimumEventIntervals = owner.minimumEventDuration / intervalSize;
+
                 if (keepEndDate) {
-                    currentInterval = Math.min(currentInterval, startInterval + (eventDuration / intervalSize) - owner.minimumEventDuration / intervalSize);
+                    currentInterval = Math.min(currentInterval, startInterval + (eventDuration / intervalSize) - minimumEventIntervals);
                 } else if (keepStartDate) {
-                    currentInterval = Math.max(currentInterval, startInterval - (eventDuration / intervalSize) + owner.minimumEventDuration / intervalSize);
+                    limitInterval = startInterval - (eventDuration / intervalSize);
+
+                    if (me.allowResizingAcrossOppositeEdge) {
+                        if (currentInterval <= limitInterval - minimumEventIntervals) {
+                            switchDirection = true;
+
+                            endTime.setHours(axisStartTime);
+                            endTime.setMinutes(eventDuration + limitInterval * intervalSize);
+                            //console.log(endTime);
+
+                            me.newEndDate = endTime;
+
+                            startTime.setHours(axisStartTime);
+                            startTime.setMinutes(eventDuration + currentInterval * intervalSize);
+                            //console.log(startTime);
+
+                            duration = (endTime - startTime) / 60 / 60 / 1000; // duration in hours
+
+                            position = (eventDuration / intervalSize + currentInterval) * intervalHeight; // snap to valid intervals
+                            position = position / columnHeight * 100;
+
+                            deltas[0].style.top = `calc(${position}% + 1px)`;
+                        } else if (currentInterval === limitInterval + minimumEventIntervals) {
+                            forceUpdate = true;
+                            position    = startInterval * intervalHeight;
+                            position    = position / columnHeight * 100;
+
+                            deltas[0].style.top = `calc(${position}% + 1px)`;
+                        }
+                    }
+
+                    if (!switchDirection) {
+                        currentInterval = Math.max(currentInterval, limitInterval  + minimumEventIntervals);
+                    }
                 }
             }
 
@@ -273,41 +323,35 @@ class EventDragZone extends DragZone {
                 currentInterval = Math.max(0, currentInterval);
             }
 
-            if (me.currentInterval !== currentInterval) {
-                deltas = [{
-                    id   : me.dragProxy.id,
-                    style: {}
-                }];
+            if (me.currentInterval !== currentInterval || forceUpdate) {
+                if (!switchDirection) {
+                    if (!keepEndDate) {
+                        endTime.setHours(axisStartTime);
+                        endTime.setMinutes(eventDuration + currentInterval * intervalSize);
+                    }
 
-                endTime   = new Date(record.endDate.valueOf());
-                startTime = new Date(record.startDate.valueOf());
+                    if (keepStartDate) {
+                        me.newEndDate = endTime;
+                        duration = (endTime - record.startDate) / 60 / 60 / 1000; // duration in hours
+                    } else {
+                        startTime.setHours(axisStartTime);
+                        startTime.setMinutes(currentInterval * intervalSize);
 
-                if (!keepEndDate) {
-                    endTime.setHours(axisStartTime);
-                    endTime.setMinutes(eventDuration + currentInterval * intervalSize);
+                        position = currentInterval * intervalHeight; // snap to valid intervals
+                        position = position / columnHeight * 100;
+
+                        deltas[0].style.top = `calc(${position}% + 1px)`;
+                    }
+
+                    if (keepEndDate) {
+                        duration = (record.endDate - startTime) / 60 / 60 / 1000; // duration in hours
+                    }
                 }
 
-                if (keepStartDate) {
-                    me.newEndDate = endTime;
-                    duration = (endTime - record.startDate) / 60 / 60 / 1000; // duration in hours
-                } else {
-                    startTime.setHours(axisStartTime);
-                    startTime.setMinutes(currentInterval * intervalSize);
-
-                    position = currentInterval * intervalHeight; // snap to valid intervals
-                    position = position / columnHeight * 100;
-
-                    deltas[0].style.top = `calc(${position}% + 1px)`;
-                }
-
-                if (keepEndDate) {
-                    duration = (record.endDate - startTime) / 60 / 60 / 1000; // duration in hours
-                } else {
-                    deltas.push({
-                        id       : me.dragProxy.vdom.cn[2].id,
-                        innerHTML: owner.intlFormat_time.format(endTime)
-                    });
-                }
+                deltas.push({
+                    id       : me.dragProxy.vdom.cn[2].id,
+                    innerHTML: owner.intlFormat_time.format(endTime)
+                });
 
                 if (keepEndDate || keepStartDate) {
                     height = Math.round(duration / (axisEndTime - axisStartTime) * 100 * 1000) / 1000;
