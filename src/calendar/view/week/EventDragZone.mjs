@@ -60,6 +60,7 @@ class EventDragZone extends DragZone {
          * Internal flag.
          * If we resize across the opposite edge and then back, we need to update the related edge position once.
          * @member {Boolean} forceUpdate=false
+         * @protected
          */
         forceUpdate: false,
         /**
@@ -84,9 +85,17 @@ class EventDragZone extends DragZone {
          */
         moveInMainThread: false,
         /**
+         * Internal flag.
          * @member {Date} newEndDate=null
+         * @protected
          */
         newEndDate: null,
+        /**
+         * Internal flag.
+         * @member {Date} newStartDate=null
+         * @protected
+         */
+        newStartDate: null,
         /**
          * @member {Number} scrollFactorLeft=3
          */
@@ -188,7 +197,7 @@ class EventDragZone extends DragZone {
 
         if (me.keepStartDate) {
             endDate   = me.newEndDate;
-            startDate = record.startDate;
+            startDate = me.newStartDate || record.startDate;
         } else {
             startDate = new Date(VDomUtil.findVdomChild(me.owner.vdom, me.proxyParentId).vdom.flag + ' 00:00:00');
             startDate.setHours(me.axisStartTime);
@@ -216,6 +225,7 @@ class EventDragZone extends DragZone {
             keepEndDate  : false,
             keepStartDate: false,
             newEndDate   : null,
+            newStartDate : null,
             proxyParentId: null
         });
 
@@ -289,6 +299,9 @@ class EventDragZone extends DragZone {
                     limitInterval = startInterval - (eventDuration / intervalSize);
 
                     if (me.allowResizingAcrossOppositeEdge) {
+                        // events must not start before the first visible interval
+                        currentInterval = Math.max(-(eventDuration / intervalSize), currentInterval);
+
                         if (currentInterval <= limitInterval - minimumEventIntervals) {
                             switchDirection = true;
                             me.forceUpdate  = true;
@@ -301,6 +314,8 @@ class EventDragZone extends DragZone {
                             startTime.setHours(axisStartTime);
                             startTime.setMinutes(eventDuration + currentInterval * intervalSize);
 
+                            me.newStartDate = startTime;
+
                             duration = (endTime - startTime) / 60 / 60 / 1000; // duration in hours
 
                             position = (eventDuration / intervalSize + currentInterval) * intervalHeight; // snap to valid intervals
@@ -311,8 +326,8 @@ class EventDragZone extends DragZone {
                             return;
                         } else if (me.forceUpdate && currentInterval >= limitInterval + minimumEventIntervals) {
                             if (me.currentInterval !== currentInterval) {
-                                me.forceUpdate = false;
-                                me.newEndDate  = null;
+                                me.forceUpdate  = false;
+                                me.newStartDate = null;
                                 deltas[0].style.top = `calc(${startInterval * intervalHeight / columnHeight * 100}% + 1px)`;
                             }
                         }
