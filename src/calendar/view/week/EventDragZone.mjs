@@ -204,7 +204,8 @@ class EventDragZone extends DragZone {
             startDate.setMinutes(me.currentInterval * me.intervalSize);
 
             if (me.keepEndDate) {
-                endDate = record.endDate;
+                endDate   = me.newEndDate || record.endDate;
+                startDate = me.newStartDate || startDate;
             } else {
                 endDate = new Date(startDate.valueOf());
                 endDate.setMinutes(endDate.getMinutes() + me.eventDuration);
@@ -294,7 +295,33 @@ class EventDragZone extends DragZone {
                 minimumEventIntervals = owner.minimumEventDuration / intervalSize;
 
                 if (keepEndDate) {
-                    currentInterval = Math.min(currentInterval, startInterval + (eventDuration / intervalSize) - minimumEventIntervals);
+                    limitInterval = startInterval + (eventDuration / intervalSize);
+
+                    if (me.allowResizingAcrossOppositeEdge) {
+                        if (currentInterval >= limitInterval + minimumEventIntervals) {
+                            switchDirection = true;
+
+                            endTime.setHours(axisStartTime);
+                            endTime.setMinutes(currentInterval * intervalSize);
+
+                            me.newEndDate = endTime;
+
+                            startTime.setHours(axisStartTime);
+                            startTime.setMinutes(limitInterval * intervalSize);
+
+                            me.newStartDate = startTime;
+
+                            duration = (endTime - startTime) / 60 / 60 / 1000; // duration in hours
+                            deltas[0].style.top = `calc(${limitInterval * intervalHeight / columnHeight * 100}% + 1px)`;
+                        } else {
+                            me.newStartDate = null;
+                        }
+                    }
+
+                    if (!switchDirection) {
+                        currentInterval = Math.min(currentInterval, limitInterval - minimumEventIntervals);
+                    }
+
                 } else if (keepStartDate) {
                     limitInterval = startInterval - (eventDuration / intervalSize);
 
@@ -323,6 +350,7 @@ class EventDragZone extends DragZone {
 
                             deltas[0].style.top = `calc(${position}% + 1px)`;
                         } else if (me.forceUpdate && currentInterval < limitInterval + minimumEventIntervals) {
+                            // when we resize back to the original direction, keep the min interval until we snap back
                             return;
                         } else if (me.forceUpdate && currentInterval >= limitInterval + minimumEventIntervals) {
                             if (me.currentInterval !== currentInterval) {
@@ -334,7 +362,7 @@ class EventDragZone extends DragZone {
                     }
 
                     if (!switchDirection) {
-                        currentInterval = Math.max(currentInterval, limitInterval  + minimumEventIntervals);
+                        currentInterval = Math.max(currentInterval, limitInterval + minimumEventIntervals);
                     }
                 }
             }
