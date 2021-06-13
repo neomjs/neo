@@ -18,7 +18,11 @@ class MainContainerModel extends Component {
             /**
              * @member {Boolean} data.allowEventEditing=true
              */
-            allowEventEditing: true
+            allowEventEditing: true,
+            /**
+             * @member {Boolean} data.enableEventResizingAcrossOppositeEdge=true
+             */
+            enableEventResizingAcrossOppositeEdge: true
         }
     }}
 }
