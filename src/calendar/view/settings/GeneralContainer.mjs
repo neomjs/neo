@@ -144,6 +144,16 @@ class GeneralContainer extends Container {
             valueLabelText: 'showWeekends'
         }, {
             module        : CheckBoxField,
+            checked       : calendar.data.allowEventEditing,
+            flex          : 'none',
+            hideLabel     : true,
+            hideValueLabel: false,
+            listeners     : {change: me.onDataChange, scope: me},
+            name          : 'allowEventEditing',
+            style         : {marginTop: '10px'},
+            valueLabelText: 'allowEventEditing'
+        }, {
+            module        : CheckBoxField,
             checked       : calendar.scrollNewYearFromTop,
             flex          : 'none',
             hideLabel     : true,
@@ -188,6 +198,14 @@ class GeneralContainer extends Container {
      */
     onConfigChange(data) {
         this.up('calendar-maincontainer')[data.component.name] = data.value;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDataChange(data) {
+        this.getModel().setData(data.component.name, data.value);
     }
 
     /**
