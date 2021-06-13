@@ -365,7 +365,7 @@ class Text extends Base {
         let me = this;
 
         if (oldValue !== undefined) {
-            let triggers = me.triggers,
+            let triggers = me.triggers || [],
                 i        = 0,
                 len      = triggers.length;
 
