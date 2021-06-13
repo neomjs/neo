@@ -45,7 +45,7 @@ class Component extends BaseComponent {
          * @member {Object} bind
          */
         bind: {
-            enableResizingAcrossOppositeEdge: data => `${data.enableEventResizingAcrossOppositeEdge}`
+            enableResizingAcrossOppositeEdge: data => data.enableEventResizingAcrossOppositeEdge
         },
         /**
          * @member {String[]} cls=['neo-calendar-weekcomponent']
