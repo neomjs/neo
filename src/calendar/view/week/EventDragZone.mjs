@@ -114,6 +114,23 @@ class EventDragZone extends DragZone {
     }
 
     /**
+     * Resolves the 24:00 issue, where an event would end on the next day
+     * @param {Date} date
+     * @returns {Date}
+     */
+    adjustEndDate(date) {
+        if (date.getHours() === 0 && date.getMinutes() === 0) {
+            // if an event ends at 24:00, change it to 23:59 => otherwise the day increases by 1
+            date.setMinutes(date.getMinutes() - 1);
+        } else if (!(date.getHours() === 23 && date.getMinutes() === 59) && date.getMinutes() % this.intervalSize !== 0) {
+            // otherwise switch non interval based values back
+            date.setMinutes(date.getMinutes() + 1);
+        }
+
+        return date;
+    }
+
+    /**
      * Triggered after the proxyParentId config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -212,10 +229,7 @@ class EventDragZone extends DragZone {
             }
         }
 
-        // if an event ends at 24:00, change it to 23:59 => otherwise the day increases by 1
-        if (endDate.getHours() === 0 && endDate.getMinutes() === 0) {
-            endDate.setMinutes(endDate.getMinutes() - 1);
-        }
+        endDate = me.adjustEndDate(endDate);
 
         record.endDate   = endDate;
         record.startDate = startDate;
@@ -305,6 +319,7 @@ class EventDragZone extends DragZone {
 
                             endTime.setHours(axisStartTime);
                             endTime.setMinutes(currentInterval * intervalSize);
+                            endTime = me.adjustEndDate(endTime);
 
                             me.newEndDate = endTime;
 
@@ -338,6 +353,7 @@ class EventDragZone extends DragZone {
 
                             endTime.setHours(axisStartTime);
                             endTime.setMinutes(eventDuration + limitInterval * intervalSize);
+                            endTime = me.adjustEndDate(endTime);
 
                             me.newEndDate = endTime;
 
@@ -400,6 +416,8 @@ class EventDragZone extends DragZone {
                     }
                 }
 
+                endTime = me.adjustEndDate(endTime);
+
                 deltas.push({
                     id       : me.dragProxy.vdom.cn[2].id,
                     innerHTML: owner.intlFormat_time.format(endTime)
@@ -434,19 +452,20 @@ class EventDragZone extends DragZone {
      */
     dragStart(data) {
         let me = this,
-            offsetX, offsetY;
+            eventDuration, offsetX, offsetY;
 
         Neo.main.DomAccess.getBoundingClientRect({
             id: [me.getDragElementRoot().id, data.path[1].id]
         }).then(rects => {
-            offsetX = data.clientX - rects[0].left;
-            offsetY = data.clientY - rects[0].top;
+            eventDuration = (me.eventRecord.endDate - me.eventRecord.startDate) / 60 / 1000;
+            offsetX       = data.clientX - rects[0].left;
+            offsetY       = data.clientY - rects[0].top;
 
             Object.assign(me, {
                 columnHeight   : rects[1].height,
                 columnTop      : rects[1].top,
                 dragElementRect: rects[0],
-                eventDuration  : (me.eventRecord.endDate - me.eventRecord.startDate) / 60 / 1000,
+                eventDuration  : Math.round(eventDuration / me.intervalSize) * me.intervalSize,
                 offsetX        : offsetX,
                 offsetY        : offsetY
             });
