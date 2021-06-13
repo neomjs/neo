@@ -212,11 +212,9 @@ class EventDragZone extends DragZone {
             }
         }
 
-        if (!me.keepEndDate) {
-            // if an event ends at 24:00, change it to 23:59 => otherwise the day increases by 1
-            if (endDate.getHours() === 0 && endDate.getMinutes() === 0) {
-                endDate.setMinutes(endDate.getMinutes() - 1);
-            }
+        // if an event ends at 24:00, change it to 23:59 => otherwise the day increases by 1
+        if (endDate.getHours() === 0 && endDate.getMinutes() === 0) {
+            endDate.setMinutes(endDate.getMinutes() - 1);
         }
 
         record.endDate   = endDate;
