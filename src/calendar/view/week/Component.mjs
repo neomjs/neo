@@ -594,32 +594,32 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDoubleClick(data) {
-        console.log(this.data);
+        if (this.data.allowEventEditing) {
+            if (!data.path[0].cls.includes('neo-event')) {
+                data.path.shift();
+            }
 
-        if (!data.path[0].cls.includes('neo-event')) {
-            data.path.shift();
+            let me                 = this,
+                editEventContainer = me.owner.editEventContainer,
+                eventNode          = data.path[0],
+                eventVdom          = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
+                record             = me.eventStore.get(eventVdom.flag),
+                style              = editEventContainer.style;
+
+            Object.assign(style, {
+                left: `${eventNode.rect.width + 15}px`,
+                top : eventVdom.style.top
+            });
+
+            editEventContainer.setSilent({
+                currentView: me,
+                parentId   : data.path[1].id,
+                record     : record,
+                style      : style
+            });
+
+            editEventContainer.render(true);
         }
-
-        let me                 = this,
-            editEventContainer = me.owner.editEventContainer,
-            eventNode          = data.path[0],
-            eventVdom          = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
-            record             = me.eventStore.get(eventVdom.flag),
-            style              = editEventContainer.style;
-
-        Object.assign(style, {
-            left: `${eventNode.rect.width + 15}px`,
-            top : eventVdom.style.top
-        });
-
-        editEventContainer.setSilent({
-            currentView: me,
-            parentId   : data.path[1].id,
-            record     : record,
-            style      : style
-        });
-
-        editEventContainer.render(true);
     }
 
     /**
