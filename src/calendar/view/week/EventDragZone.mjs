@@ -298,8 +298,12 @@ class EventDragZone extends DragZone {
                     limitInterval = startInterval + (eventDuration / intervalSize);
 
                     if (me.allowResizingAcrossOppositeEdge) {
-                        if (currentInterval >= limitInterval + minimumEventIntervals) {
+                        if (me.forceUpdate && currentInterval > limitInterval -minimumEventIntervals && currentInterval < limitInterval + minimumEventIntervals) {
+                            // when we resize back to the original direction, keep the min interval until we snap back
+                            return;
+                        } else if (currentInterval >= limitInterval + minimumEventIntervals) {
                             switchDirection = true;
+                            me.forceUpdate  = true;
 
                             endTime.setHours(axisStartTime);
                             endTime.setMinutes(currentInterval * intervalSize);
@@ -314,6 +318,7 @@ class EventDragZone extends DragZone {
                             duration = (endTime - startTime) / 60 / 60 / 1000; // duration in hours
                             deltas[0].style.top = `calc(${limitInterval * intervalHeight / columnHeight * 100}% + 1px)`;
                         } else {
+                            me.forceUpdate  = false;
                             me.newStartDate = null;
                         }
                     }
