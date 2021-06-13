@@ -41,13 +41,6 @@ class Component extends BaseComponent {
          */
         ntype: 'calendar-view-weekcomponent',
         /**
-         * Bindings to the model.Component chain
-         * @member {Object} bind
-         */
-        bind: {
-            enableResizingAcrossOppositeEdge: data => data.enableEventResizingAcrossOppositeEdge
-        },
-        /**
          * @member {String[]} cls=['neo-calendar-weekcomponent']
          */
         cls: ['neo-calendar-weekcomponent'],
@@ -63,12 +56,6 @@ class Component extends BaseComponent {
          * @member {String} dayNameFormat_='short'
          */
         dayNameFormat_: 'short',
-        /**
-         * Bound to the closest model.Component
-         * @member {Boolean} enableResizingAcrossOppositeEdge_=true
-         * @protected
-         */
-        enableResizingAcrossOppositeEdge_: true,
         /**
          * @member {Neo.draggable.DragZone|null} eventDragZone=null
          */
@@ -301,16 +288,6 @@ class Component extends BaseComponent {
         if (oldValue !== undefined) {
             me.updateHeader();
         }
-    }
-
-    /**
-     * Triggered after the enableResizingAcrossOppositeEdge config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetEnableResizingAcrossOppositeEdge(value, oldValue) {
-        console.log('enableResizingAcrossOppositeEdge', typeof value, value);
     }
 
     /**
@@ -698,11 +675,12 @@ class Component extends BaseComponent {
         me.isDragging = true;
 
         const config = {
-            axisEndTime  : timeAxis.getTime(timeAxis.endTime),
-            axisStartTime: timeAxis.getTime(timeAxis.startTime),
-            dragElement  : dragElement,
-            eventRecord  : me.eventStore.get(dragElement.flag),
-            proxyParentId: data.path[1].id
+            axisEndTime                     : timeAxis.getTime(timeAxis.endTime),
+            axisStartTime                   : timeAxis.getTime(timeAxis.startTime),
+            dragElement                     : dragElement,
+            enableResizingAcrossOppositeEdge: me.data.enableEventResizingAcrossOppositeEdge,
+            eventRecord                     : me.eventStore.get(dragElement.flag),
+            proxyParentId                   : data.path[1].id
         };
 
         if (!eventDragZone) {
