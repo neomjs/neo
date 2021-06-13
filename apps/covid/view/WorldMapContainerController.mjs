@@ -82,7 +82,7 @@ class WorldMapContainerController extends ComponentController {
         Neo.main.addon.AmCharts.callMethod({
             id  : chartId,
             path: 'series.values.0.invalidateData'
-        }). then(() => {
+        }).then(() => {
             me.getReference('currentMapViewLabel').text = 'Current view: ' + Neo.capitalize(data.component.series);
 
             countryData.sort((a, b) => b[data.component.series] - a[data.component.series]);

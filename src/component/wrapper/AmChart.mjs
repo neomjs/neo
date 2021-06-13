@@ -35,9 +35,9 @@ class AmChart extends Component {
         combineSeriesTooltip: false,
         /**
          * Stores the chart data
-         * @member {Array|null} data_=null
+         * @member {Array|null} chartData_=null
          */
-        data_: null,
+        chartData_: null,
         /**
          * Charts & maps can have different targets to apply the data to. E.g.:
          * myChart.data = data; // => ''
@@ -63,12 +63,12 @@ class AmChart extends Component {
     }}
 
     /**
-     * Triggered after the data config got changed
+     * Triggered after the chartData config got changed
      * @param {Array|null} value
      * @param {Array|null} oldValue
      * @protected
      */
-    afterSetData(value, oldValue) {
+    afterSetChartData(value, oldValue) {
         let me = this;
 
         if (value) {
@@ -104,14 +104,13 @@ class AmChart extends Component {
                 appName             : me.appName,
                 combineSeriesTooltip: me.combineSeriesTooltip,
                 config              : me.chartConfig,
-                data                : me.data,
                 id                  : me.id,
                 package             : me.package,
                 type                : me.chartType
             };
 
-            if (me.data) {
-                opts.data     = me.data;
+            if (me.chartData) {
+                opts.data     = me.chartData;
                 opts.dataPath = me.dataPath;
             }
 
