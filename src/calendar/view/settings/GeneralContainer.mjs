@@ -248,7 +248,7 @@ class GeneralContainer extends Container {
      * @param {Object} data
      */
     onRadioDataChange(data) {
-        if (data.value) {
+        if (data.value) {console.log(typeof data.component.fieldValue, data.component.fieldValue);
             this.getModel().setData(data.component.name, data.component.fieldValue);
         }
     }

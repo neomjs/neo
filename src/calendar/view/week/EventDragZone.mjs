@@ -24,9 +24,9 @@ class EventDragZone extends DragZone {
          */
         addDragProxyCls: false,
         /**
-         * @member {Boolean} allowResizingAcrossOppositeEdge=true
+         * @member {Boolean} enableResizingAcrossOppositeEdge=true
          */
-        allowResizingAcrossOppositeEdge: true,
+        enableResizingAcrossOppositeEdge: true,
         /**
          * @member {Number} axisEndTime=0
          */
@@ -309,7 +309,7 @@ class EventDragZone extends DragZone {
                 if (keepEndDate) {
                     limitInterval = startInterval + (eventDuration / intervalSize);
 
-                    if (me.allowResizingAcrossOppositeEdge) {
+                    if (me.enableResizingAcrossOppositeEdge) {
                         if (me.forceUpdate && currentInterval > limitInterval -minimumEventIntervals && currentInterval < limitInterval + minimumEventIntervals) {
                             // when we resize back to the original direction, keep the min interval until we snap back
                             return;
@@ -343,7 +343,7 @@ class EventDragZone extends DragZone {
                 } else if (keepStartDate) {
                     limitInterval = startInterval - (eventDuration / intervalSize);
 
-                    if (me.allowResizingAcrossOppositeEdge) {
+                    if (me.enableResizingAcrossOppositeEdge) {
                         // events must not start before the first visible interval
                         currentInterval = Math.max(-(eventDuration / intervalSize), currentInterval);
 

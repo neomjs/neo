@@ -685,6 +685,7 @@ class MainContainer extends Container {
             eventStore  : me.eventStore,
             locale      : me.locale,
             owner       : me,
+            parentId    : me.id,
             showWeekends: me.showWeekends,
             weekStartDay: me.weekStartDay
         };

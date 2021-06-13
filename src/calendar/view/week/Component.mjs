@@ -41,6 +41,13 @@ class Component extends BaseComponent {
          */
         ntype: 'calendar-view-weekcomponent',
         /**
+         * Bindings to the model.Component chain
+         * @member {Object} bind
+         */
+        bind: {
+            enableResizingAcrossOppositeEdge: data => `${data.enableEventResizingAcrossOppositeEdge}`
+        },
+        /**
          * @member {String[]} cls=['neo-calendar-weekcomponent']
          */
         cls: ['neo-calendar-weekcomponent'],
@@ -56,6 +63,12 @@ class Component extends BaseComponent {
          * @member {String} dayNameFormat_='short'
          */
         dayNameFormat_: 'short',
+        /**
+         * Bound to the closest model.Component
+         * @member {Boolean} enableResizingAcrossOppositeEdge_=true
+         * @protected
+         */
+        enableResizingAcrossOppositeEdge_: true,
         /**
          * @member {Neo.draggable.DragZone|null} eventDragZone=null
          */
@@ -288,6 +301,16 @@ class Component extends BaseComponent {
         if (oldValue !== undefined) {
             me.updateHeader();
         }
+    }
+
+    /**
+     * Triggered after the enableResizingAcrossOppositeEdge config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetEnableResizingAcrossOppositeEdge(value, oldValue) {
+        console.log('enableResizingAcrossOppositeEdge', typeof value, value);
     }
 
     /**
