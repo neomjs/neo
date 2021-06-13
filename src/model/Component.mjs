@@ -334,7 +334,7 @@ class Component extends Base {
             value = value.toString();
         }
 
-        let parts  = value.match(expressionContentRegex) || [],
+        let parts  = value.match(expressionContentRegex) || value.match(dataVariableRegex) || [],
             result = [],
             dataVars;
 

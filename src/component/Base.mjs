@@ -82,6 +82,13 @@ class Base extends CoreBase {
          */
         controller_: null,
         /**
+         * Convenience shortcut to access the data config of the closest model.Component.
+         * Read only.
+         * @member {Object} data_=null
+         * @protected
+         */
+        data_: null,
+        /**
          * Disabled components will get the neo-disabled cls applied and won't receive DOM events
          * @member {Boolean} disabled_=false
          */
@@ -654,6 +661,17 @@ class Base extends CoreBase {
                 me.updateStyle(value, oldValue, me.vdom.id);
             }
         }
+    }
+
+    /**
+     * Triggered when accessing the data config
+     * Convenience shortcut which is expensive to use,
+     * since it will generate a merged parent model data map.
+     * @param {Object} value
+     * @protected
+     */
+    beforeGetData(value) {
+        return this.getModel().getHierarchyData();
     }
 
     /**

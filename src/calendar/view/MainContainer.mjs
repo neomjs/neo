@@ -7,6 +7,7 @@ import DateUtil           from '../../util/Date.mjs';
 import DayComponent       from './DayComponent.mjs';
 import EditEventContainer from './EditEventContainer.mjs';
 import EventStore         from '../store/Events.mjs';
+import MainContainerModel from './MainContainerModel.mjs';
 import MonthComponent     from './month/Component.mjs';
 import SettingsContainer  from './SettingsContainer.mjs';
 import Toolbar            from '../../container/Toolbar.mjs';
@@ -45,7 +46,7 @@ class MainContainer extends Container {
          * valid values: 'day', 'week', 'month', 'year'
          * @member {String} activeView_='week'
          */
-        activeView_: 'month',
+        activeView_: 'week',
         /**
          * Scale the calendar with using s different base font-size
          * @member {Number|null} baseFontSize_=null
@@ -130,6 +131,10 @@ class MainContainer extends Container {
          * @member {Number} minimumEventDuration_=30
          */
         minimumEventDuration_: 30,
+        /**
+         * @member {Neo.calendar.view.MainContainerModel} model=MainContainerModel
+         */
+        model: MainContainerModel,
         /**
          * @member {Neo.calendar.view.Component|null} monthComponent=null
          */
@@ -680,6 +685,7 @@ class MainContainer extends Container {
             eventStore  : me.eventStore,
             locale      : me.locale,
             owner       : me,
+            parentId    : me.id,
             showWeekends: me.showWeekends,
             weekStartDay: me.weekStartDay
         };

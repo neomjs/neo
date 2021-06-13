@@ -24,6 +24,10 @@ class EventDragZone extends DragZone {
          */
         addDragProxyCls: false,
         /**
+         * @member {Boolean} enableResizingAcrossOppositeEdge=true
+         */
+        enableResizingAcrossOppositeEdge: true,
+        /**
          * @member {Number} axisEndTime=0
          */
         axisEndTime: 0,
@@ -53,6 +57,13 @@ class EventDragZone extends DragZone {
          */
         eventRecord: null,
         /**
+         * Internal flag.
+         * If we resize across the opposite edge and then back, we need to update the related edge position once.
+         * @member {Boolean} forceUpdate=false
+         * @protected
+         */
+        forceUpdate: false,
+        /**
          * time in minutes
          * @member {Number} intervalSize=15
          */
@@ -74,9 +85,17 @@ class EventDragZone extends DragZone {
          */
         moveInMainThread: false,
         /**
+         * Internal flag.
          * @member {Date} newEndDate=null
+         * @protected
          */
         newEndDate: null,
+        /**
+         * Internal flag.
+         * @member {Date} newStartDate=null
+         * @protected
+         */
+        newStartDate: null,
         /**
          * @member {Number} scrollFactorLeft=3
          */
@@ -92,6 +111,23 @@ class EventDragZone extends DragZone {
      */
     addBodyCursorCls() {
         Neo.applyDeltas(this.appName, {id: 'document.body', cls: {add: ['neo-cursor-move']}});
+    }
+
+    /**
+     * Resolves the 24:00 issue, where an event would end on the next day
+     * @param {Date} date
+     * @returns {Date}
+     */
+    adjustEndDate(date) {
+        if (date.getHours() === 0 && date.getMinutes() === 0) {
+            // if an event ends at 24:00, change it to 23:59 => otherwise the day increases by 1
+            date.setMinutes(date.getMinutes() - 1);
+        } else if (!(date.getHours() === 23 && date.getMinutes() === 59) && date.getMinutes() % this.intervalSize !== 0) {
+            // otherwise switch non interval based values back
+            date.setMinutes(date.getMinutes() + 1);
+        }
+
+        return date;
     }
 
     /**
@@ -178,26 +214,22 @@ class EventDragZone extends DragZone {
 
         if (me.keepStartDate) {
             endDate   = me.newEndDate;
-            startDate = record.startDate;
+            startDate = me.newStartDate || record.startDate;
         } else {
             startDate = new Date(VDomUtil.findVdomChild(me.owner.vdom, me.proxyParentId).vdom.flag + ' 00:00:00');
             startDate.setHours(me.axisStartTime);
             startDate.setMinutes(me.currentInterval * me.intervalSize);
 
             if (me.keepEndDate) {
-                endDate = record.endDate;
+                endDate   = me.newEndDate || record.endDate;
+                startDate = me.newStartDate || startDate;
             } else {
                 endDate = new Date(startDate.valueOf());
                 endDate.setMinutes(endDate.getMinutes() + me.eventDuration);
             }
         }
 
-        if (!me.keepEndDate) {
-            // if an event ends at 24:00, change it to 23:59 => otherwise the day increases by 1
-            if (endDate.getHours() === 0 && endDate.getMinutes() === 0) {
-                endDate.setMinutes(endDate.getMinutes() - 1);
-            }
-        }
+        endDate = me.adjustEndDate(endDate);
 
         record.endDate   = endDate;
         record.startDate = startDate;
@@ -206,6 +238,7 @@ class EventDragZone extends DragZone {
             keepEndDate  : false,
             keepStartDate: false,
             newEndDate   : null,
+            newStartDate : null,
             proxyParentId: null
         });
 
@@ -217,20 +250,22 @@ class EventDragZone extends DragZone {
      * @param {Object} data
      */
     dragMove(data) {
-        let me            = this,
-            axisEndTime   = me.axisEndTime,
-            axisStartTime = me.axisStartTime,
-            columnHeight  = me.columnHeight,
-            eventDuration = me.eventDuration,
-            i             = 0,
-            intervalSize  = me.intervalSize,
-            keepEndDate   = me.keepEndDate,
-            keepStartDate = me.keepStartDate,
-            path          = data.targetPath,
-            len           = path.length,
-            owner         = me.owner,
-            record        = me.eventRecord,
-            axisStartDate, currentInterval, deltas, duration, endTime, height, intervalHeight, intervals, position, startInterval, startTime;
+        let me              = this,
+            axisEndTime     = me.axisEndTime,
+            axisStartTime   = me.axisStartTime,
+            columnHeight    = me.columnHeight,
+            eventDuration   = me.eventDuration,
+            i               = 0,
+            intervalSize    = me.intervalSize,
+            keepEndDate     = me.keepEndDate,
+            keepStartDate   = me.keepStartDate,
+            path            = data.targetPath,
+            len             = path.length,
+            owner           = me.owner,
+            record          = me.eventRecord,
+            switchDirection = false,
+            axisStartDate, currentInterval, deltas, duration, endTime, height, intervalHeight, intervals, limitInterval,
+            minimumEventIntervals, position, startInterval, startTime;
 
         if (me.dragProxy) {
             if (!keepEndDate && !keepStartDate) {
@@ -254,6 +289,14 @@ class EventDragZone extends DragZone {
                 currentInterval = Math.min(currentInterval, intervals - (eventDuration / intervalSize));
             }
 
+            endTime   = new Date(record.endDate.valueOf());
+            startTime = new Date(record.startDate.valueOf());
+
+            deltas = [{
+                id   : me.dragProxy.id,
+                style: {}
+            }];
+
             if (keepEndDate || keepStartDate) {
                 axisStartDate = new Date(record.startDate.valueOf());
                 axisStartDate.setHours(axisStartTime);
@@ -261,10 +304,85 @@ class EventDragZone extends DragZone {
 
                 startInterval = (record.startDate - axisStartDate) / intervalSize / 60 / 1000;
 
+                minimumEventIntervals = owner.minimumEventDuration / intervalSize;
+
                 if (keepEndDate) {
-                    currentInterval = Math.min(currentInterval, startInterval + (eventDuration / intervalSize) - owner.minimumEventDuration / intervalSize);
+                    limitInterval = startInterval + (eventDuration / intervalSize);
+
+                    if (me.enableResizingAcrossOppositeEdge) {
+                        if (me.forceUpdate && currentInterval > limitInterval -minimumEventIntervals && currentInterval < limitInterval + minimumEventIntervals) {
+                            // when we resize back to the original direction, keep the min interval until we snap back
+                            return;
+                        } else if (currentInterval >= limitInterval + minimumEventIntervals) {
+                            switchDirection = true;
+                            me.forceUpdate  = true;
+
+                            endTime.setHours(axisStartTime);
+                            endTime.setMinutes(currentInterval * intervalSize);
+                            endTime = me.adjustEndDate(endTime);
+
+                            me.newEndDate = endTime;
+
+                            startTime.setHours(axisStartTime);
+                            startTime.setMinutes(limitInterval * intervalSize);
+
+                            me.newStartDate = startTime;
+
+                            duration = (endTime - startTime) / 60 / 60 / 1000; // duration in hours
+                            deltas[0].style.top = `calc(${limitInterval * intervalHeight / columnHeight * 100}% + 1px)`;
+                        } else {
+                            me.forceUpdate  = false;
+                            me.newStartDate = null;
+                        }
+                    }
+
+                    if (!switchDirection) {
+                        currentInterval = Math.min(currentInterval, limitInterval - minimumEventIntervals);
+                    }
+
                 } else if (keepStartDate) {
-                    currentInterval = Math.max(currentInterval, startInterval - (eventDuration / intervalSize) + owner.minimumEventDuration / intervalSize);
+                    limitInterval = startInterval - (eventDuration / intervalSize);
+
+                    if (me.enableResizingAcrossOppositeEdge) {
+                        // events must not start before the first visible interval
+                        currentInterval = Math.max(-(eventDuration / intervalSize), currentInterval);
+
+                        if (currentInterval <= limitInterval - minimumEventIntervals) {
+                            switchDirection = true;
+                            me.forceUpdate  = true;
+
+                            endTime.setHours(axisStartTime);
+                            endTime.setMinutes(eventDuration + limitInterval * intervalSize);
+                            endTime = me.adjustEndDate(endTime);
+
+                            me.newEndDate = endTime;
+
+                            startTime.setHours(axisStartTime);
+                            startTime.setMinutes(eventDuration + currentInterval * intervalSize);
+
+                            me.newStartDate = startTime;
+
+                            duration = (endTime - startTime) / 60 / 60 / 1000; // duration in hours
+
+                            position = (eventDuration / intervalSize + currentInterval) * intervalHeight; // snap to valid intervals
+                            position = position / columnHeight * 100;
+
+                            deltas[0].style.top = `calc(${position}% + 1px)`;
+                        } else if (me.forceUpdate && currentInterval < limitInterval + minimumEventIntervals) {
+                            // when we resize back to the original direction, keep the min interval until we snap back
+                            return;
+                        } else if (me.forceUpdate && currentInterval >= limitInterval + minimumEventIntervals) {
+                            if (me.currentInterval !== currentInterval) {
+                                me.forceUpdate  = false;
+                                me.newStartDate = null;
+                                deltas[0].style.top = `calc(${startInterval * intervalHeight / columnHeight * 100}% + 1px)`;
+                            }
+                        }
+                    }
+
+                    if (!switchDirection) {
+                        currentInterval = Math.max(currentInterval, limitInterval + minimumEventIntervals);
+                    }
                 }
             }
 
@@ -274,40 +392,36 @@ class EventDragZone extends DragZone {
             }
 
             if (me.currentInterval !== currentInterval) {
-                deltas = [{
-                    id   : me.dragProxy.id,
-                    style: {}
-                }];
+                if (!switchDirection) {
+                    if (!keepEndDate) {
+                        endTime.setHours(axisStartTime);
+                        endTime.setMinutes(eventDuration + currentInterval * intervalSize);
+                    }
 
-                endTime   = new Date(record.endDate.valueOf());
-                startTime = new Date(record.startDate.valueOf());
+                    if (keepStartDate) {
+                        me.newEndDate = endTime;
+                        duration = (endTime - record.startDate) / 60 / 60 / 1000; // duration in hours
+                    } else {
+                        startTime.setHours(axisStartTime);
+                        startTime.setMinutes(currentInterval * intervalSize);
 
-                if (!keepEndDate) {
-                    endTime.setHours(axisStartTime);
-                    endTime.setMinutes(eventDuration + currentInterval * intervalSize);
+                        position = currentInterval * intervalHeight; // snap to valid intervals
+                        position = position / columnHeight * 100;
+
+                        deltas[0].style.top = `calc(${position}% + 1px)`;
+                    }
+
+                    if (keepEndDate) {
+                        duration = (record.endDate - startTime) / 60 / 60 / 1000; // duration in hours
+                    }
                 }
 
-                if (keepStartDate) {
-                    me.newEndDate = endTime;
-                    duration = (endTime - record.startDate) / 60 / 60 / 1000; // duration in hours
-                } else {
-                    startTime.setHours(axisStartTime);
-                    startTime.setMinutes(currentInterval * intervalSize);
+                endTime = me.adjustEndDate(endTime);
 
-                    position = currentInterval * intervalHeight; // snap to valid intervals
-                    position = position / columnHeight * 100;
-
-                    deltas[0].style.top = `calc(${position}% + 1px)`;
-                }
-
-                if (keepEndDate) {
-                    duration = (record.endDate - startTime) / 60 / 60 / 1000; // duration in hours
-                } else {
-                    deltas.push({
-                        id       : me.dragProxy.vdom.cn[2].id,
-                        innerHTML: owner.intlFormat_time.format(endTime)
-                    });
-                }
+                deltas.push({
+                    id       : me.dragProxy.vdom.cn[2].id,
+                    innerHTML: owner.intlFormat_time.format(endTime)
+                });
 
                 if (keepEndDate || keepStartDate) {
                     height = Math.round(duration / (axisEndTime - axisStartTime) * 100 * 1000) / 1000;
@@ -338,19 +452,20 @@ class EventDragZone extends DragZone {
      */
     dragStart(data) {
         let me = this,
-            offsetX, offsetY;
+            eventDuration, offsetX, offsetY;
 
         Neo.main.DomAccess.getBoundingClientRect({
             id: [me.getDragElementRoot().id, data.path[1].id]
         }).then(rects => {
-            offsetX = data.clientX - rects[0].left;
-            offsetY = data.clientY - rects[0].top;
+            eventDuration = (me.eventRecord.endDate - me.eventRecord.startDate) / 60 / 1000;
+            offsetX       = data.clientX - rects[0].left;
+            offsetY       = data.clientY - rects[0].top;
 
             Object.assign(me, {
                 columnHeight   : rects[1].height,
                 columnTop      : rects[1].top,
                 dragElementRect: rects[0],
-                eventDuration  : (me.eventRecord.endDate - me.eventRecord.startDate) / 60 / 1000,
+                eventDuration  : Math.round(eventDuration / me.intervalSize) * me.intervalSize,
                 offsetX        : offsetX,
                 offsetY        : offsetY
             });

@@ -594,30 +594,32 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDoubleClick(data) {
-        if (!data.path[0].cls.includes('neo-event')) {
-            data.path.shift();
+        if (this.data.allowEventEditing) {
+            if (!data.path[0].cls.includes('neo-event')) {
+                data.path.shift();
+            }
+
+            let me                 = this,
+                editEventContainer = me.owner.editEventContainer,
+                eventNode          = data.path[0],
+                eventVdom          = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
+                record             = me.eventStore.get(eventVdom.flag),
+                style              = editEventContainer.style;
+
+            Object.assign(style, {
+                left: `${eventNode.rect.width + 15}px`,
+                top : eventVdom.style.top
+            });
+
+            editEventContainer.setSilent({
+                currentView: me,
+                parentId   : data.path[1].id,
+                record     : record,
+                style      : style
+            });
+
+            editEventContainer.render(true);
         }
-
-        let me                 = this,
-            editEventContainer = me.owner.editEventContainer,
-            eventNode          = data.path[0],
-            eventVdom          = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
-            record             = me.eventStore.get(eventVdom.flag),
-            style              = editEventContainer.style;
-
-        Object.assign(style, {
-            left: `${eventNode.rect.width + 15}px`,
-            top : eventVdom.style.top
-        });
-
-        editEventContainer.setSilent({
-            currentView: me,
-            parentId   : data.path[1].id,
-            record     : record,
-            style      : style
-        });
-
-        editEventContainer.render(true);
     }
 
     /**
@@ -673,11 +675,12 @@ class Component extends BaseComponent {
         me.isDragging = true;
 
         const config = {
-            axisEndTime  : timeAxis.getTime(timeAxis.endTime),
-            axisStartTime: timeAxis.getTime(timeAxis.startTime),
-            dragElement  : dragElement,
-            eventRecord  : me.eventStore.get(dragElement.flag),
-            proxyParentId: data.path[1].id
+            axisEndTime                     : timeAxis.getTime(timeAxis.endTime),
+            axisStartTime                   : timeAxis.getTime(timeAxis.startTime),
+            dragElement                     : dragElement,
+            enableResizingAcrossOppositeEdge: me.data.enableEventResizingAcrossOppositeEdge,
+            eventRecord                     : me.eventStore.get(dragElement.flag),
+            proxyParentId                   : data.path[1].id
         };
 
         if (!eventDragZone) {

@@ -35,7 +35,8 @@ class GeneralContainer extends Container {
      */
     createItems() {
         let me       = this,
-            calendar = me.up('calendar-maincontainer');
+            calendar = me.up('calendar-maincontainer'),
+            data     = me.data;
 
         me.items = [{
             module    : NumberField,
@@ -144,6 +145,16 @@ class GeneralContainer extends Container {
             valueLabelText: 'showWeekends'
         }, {
             module        : CheckBoxField,
+            checked       : data.allowEventEditing,
+            flex          : 'none',
+            hideLabel     : true,
+            hideValueLabel: false,
+            listeners     : {change: me.onDataChange, scope: me},
+            name          : 'allowEventEditing',
+            style         : {marginTop: '10px'},
+            valueLabelText: 'allowEventEditing'
+        }, {
+            module        : CheckBoxField,
             checked       : calendar.scrollNewYearFromTop,
             flex          : 'none',
             hideLabel     : true,
@@ -177,6 +188,30 @@ class GeneralContainer extends Container {
             stepSize  : 60 * 60, // 1h
             value     : calendar.endTime !== '24:00' ? calendar.endTime : null,
             width     : '14em'
+        }, {
+            module        : RadioField,
+            checked       : data.enableEventResizingAcrossOppositeEdge,
+            fieldValue    : true,
+            flex          : 'none',
+            hideValueLabel: false,
+            labelText     : 'Event Resizing',
+            labelWidth    : 110,
+            listeners     : {change: me.onRadioDataChange, scope: me},
+            name          : 'enableEventResizingAcrossOppositeEdge',
+            style         : {marginTop: '10px'},
+            valueLabelText: 'X opposite edge'
+        }, {
+            module        : RadioField,
+            checked       : !data.enableEventResizingAcrossOppositeEdge,
+            fieldValue    : false,
+            flex          : 'none',
+            hideValueLabel: false,
+            labelText     : '',
+            labelWidth    : 110,
+            listeners     : {change: me.onRadioDataChange, scope: me},
+            name          : 'enableEventResizingAcrossOppositeEdge',
+            style         : {marginTop: '5px'},
+            valueLabelText: 'Min duration'
         }];
 
         super.createItems();
@@ -194,9 +229,27 @@ class GeneralContainer extends Container {
      *
      * @param {Object} data
      */
+    onDataChange(data) {
+        this.getModel().setData(data.component.name, data.value);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onRadioChange(data) {
         if (data.value) {
             this.up('calendar-maincontainer')[data.component.name] = data.component.fieldValue;
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onRadioDataChange(data) {
+        if (data.value) {console.log(typeof data.component.fieldValue, data.component.fieldValue);
+            this.getModel().setData(data.component.name, data.component.fieldValue);
         }
     }
 }

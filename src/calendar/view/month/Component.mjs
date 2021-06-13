@@ -460,28 +460,30 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDoubleClick(data) {
-        let me                  = this,
-            editEventContainer  = me.owner.editEventContainer,
-            eventNode           = data.path[0],
-            weekNode            = data.path[2],
-            scrollContainerNode = data.path[3],
-            eventVdom           = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
-            record              = me.eventStore.get(eventVdom.flag),
-            style               = editEventContainer.style;
+        if (this.data.allowEventEditing) {
+            let me                  = this,
+                editEventContainer  = me.owner.editEventContainer,
+                eventNode           = data.path[0],
+                weekNode            = data.path[2],
+                scrollContainerNode = data.path[3],
+                eventVdom           = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
+                record              = me.eventStore.get(eventVdom.flag),
+                style               = editEventContainer.style;
 
-        Object.assign(style, {
-            left: `${eventNode.rect.right - weekNode.rect.left + 15}px`,
-            top : `${eventNode.rect.top - scrollContainerNode.rect.top + scrollContainerNode.scrollTop - 12}px`,
-        });
+            Object.assign(style, {
+                left: `${eventNode.rect.right - weekNode.rect.left + 15}px`,
+                top : `${eventNode.rect.top - scrollContainerNode.rect.top + scrollContainerNode.scrollTop - 12}px`,
+            });
 
-        editEventContainer.setSilent({
-            currentView: me,
-            parentId   : data.path[1].id,
-            record     : record,
-            style      : style
-        });
+            editEventContainer.setSilent({
+                currentView: me,
+                parentId   : data.path[1].id,
+                record     : record,
+                style      : style
+            });
 
-        editEventContainer.render(true);
+            editEventContainer.render(true);
+        }
     }
 
     /**

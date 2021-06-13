@@ -33,9 +33,9 @@ class MapboxGL extends Component {
          */
         convertDataToGeoJson: true,
         /**
-         * @member {Array|null} data_=null
+         * @member {Array|null} chartData_=null
          */
-        data_: null,
+        chartData_: null,
         /**
          * Assuming there is just 1 source for data changes.
          * Create a ticket in case it needs to get enhanced.
@@ -88,12 +88,12 @@ class MapboxGL extends Component {
     }
 
     /**
-     * Triggered after the data config got changed
+     * Triggered after the chartData config got changed
      * @param {Array|null} value
      * @param {Array|null} oldValue
      * @protected
      */
-    afterSetData(value, oldValue) {
+    afterSetChartData(value, oldValue) {
         let me = this;
 
         if (value) {
@@ -169,8 +169,8 @@ class MapboxGL extends Component {
                 zoom       : me.zoom
             };
 
-            if (me.data) {
-                opts.data         = me.data;
+            if (me.chartData) {
+                opts.data         = me.chartData;
                 opts.dataSourceId = me.dataSourceId;
             }
 
@@ -246,12 +246,12 @@ class MapboxGL extends Component {
     }
 
     /**
-     * Triggered before the data config gets changed.
+     * Triggered before the chartData config gets changed.
      * @param {Array|null} value
      * @param {Array|null} oldValue
      * @protected
      */
-    beforeSetData(value, oldValue) {
+    beforeSetChartData(value, oldValue) {
         if (value && this.convertDataToGeoJson) {
             value = this.convertToGeoJson(value);
         }

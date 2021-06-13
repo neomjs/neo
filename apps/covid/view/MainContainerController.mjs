@@ -99,7 +99,7 @@ class MainContainerController extends ComponentController {
         }
 
         else if (reference === 'mapboxglmap') {
-            me.getReference('mapboxglmap').data = data;
+            me.getReference('mapboxglmap').chartData = data;
             me.mapboxglMapHasData = true;
         }
 
@@ -307,7 +307,7 @@ class MainContainerController extends ComponentController {
             }
 
             if (!me.mapboxglMapHasData) {
-                activeView.data = me.data;
+                activeView.chartData = me.data;
                 me.mapboxglMapHasData = true;
             }
 

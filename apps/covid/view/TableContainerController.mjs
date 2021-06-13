@@ -286,7 +286,7 @@ class TableContainerController extends ComponentController {
             });
         }
 
-        chart.data = dataArray;
+        chart.chartData = dataArray;
     }
 }
 
