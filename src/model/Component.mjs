@@ -510,7 +510,7 @@ class Component extends Base {
                 if (me.isStoreValue(value)) {
                     me.resolveStore(component, key, value.substring(7)); // remove the "stores." at the start
                 } else {
-                   config[key] = me.callFormatter(value);
+                    config[key] = me.callFormatter(value);
                 }
             });
 
