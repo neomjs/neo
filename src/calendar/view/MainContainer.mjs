@@ -134,7 +134,7 @@ class MainContainer extends Container {
         /**
          * @member {Neo.calendar.view.MainContainerModel} model=MainContainerModel
          */
-        model: null,
+        model: MainContainerModel,
         /**
          * @member {Neo.calendar.view.Component|null} monthComponent=null
          */

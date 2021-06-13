@@ -594,6 +594,8 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDoubleClick(data) {
+        console.log(this.getModel().data.allowEventEditing);
+
         if (!data.path[0].cls.includes('neo-event')) {
             data.path.shift();
         }
