@@ -165,6 +165,7 @@ class Component extends BaseComponent {
             domListeners = me.domListeners,
             columnOpts   = {scope: me, delegate: '.neo-c-w-column'},
             eventOpts    = {scope: me, delegate: '.neo-event'},
+            model        = me.getModel(),
             plugins      = me.plugins || [];
 
         domListeners.push(
@@ -206,6 +207,8 @@ class Component extends BaseComponent {
         me.updateHeader(true);
 
         me.headerCreated = true;
+
+        model.stores.events.on('load', me.onEventsStoreLoad, me);
     }
 
     /**
@@ -705,6 +708,14 @@ class Component extends BaseComponent {
         }
 
         eventDragZone.dragStart(data);
+    }
+
+    /**
+     *
+     * @param {Object[]} data
+     */
+    onEventsStoreLoad(data) {
+        this.updateEvents();
     }
 
     /**

@@ -710,7 +710,6 @@ class MainContainer extends Container {
 
         // todo: update the active view (card)
         me.monthComponent.createContent();
-        me.weekComponent .updateEvents();
         me.yearComponent .createMonths();
     }
 
