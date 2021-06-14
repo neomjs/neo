@@ -1,5 +1,6 @@
-import CalendarStore from '../store/Calendars.mjs';
-import Component     from '../../../src/model/Component.mjs';
+import CalendarsStore from '../store/Calendars.mjs';
+import EventsStore    from '../store/Calendars.mjs';
+import Component      from '../../../src/model/Component.mjs';
 
 /**
  * @class Neo.calendar.view.MainContainerModel
@@ -31,18 +32,23 @@ class MainContainerModel extends Component {
         let me = this,
             component = me.component;
 
-        console.log(component.calendarStoreConfig);
-
         /**
          * @member {Object} stores
          */
         me.stores = {
             /**
-             * @member {Object} stores.calendar
+             * @member {Object} stores.calendars
              */
-            calendar: {
-                module: CalendarStore,
+            calendars: {
+                module: CalendarsStore,
                 ...component.calendarStoreConfig || {}
+            },
+            /**
+             * @member {Object} stores.events
+             */
+            events: {
+                module: EventsStore,
+                ...component.eventStoreConfig || {}
             }
         };
     }
