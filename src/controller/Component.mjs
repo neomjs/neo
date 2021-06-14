@@ -42,14 +42,17 @@ class Component extends Base {
     constructor(config) {
         super(config);
 
-        let me = this;
+        let me        = this,
+            component = me.component,
+            listenerId;
 
         me.references = {};
 
-        if (me.component.isConstructed) {
+        if (component.isConstructed) {
             me.onComponentConstructed();
         } else {
-            me.component.on('constructed', () => {
+            listenerId = component.on('constructed', () => {
+                component.un('constructed', listenerId);
                 me.onComponentConstructed();
             });
         }

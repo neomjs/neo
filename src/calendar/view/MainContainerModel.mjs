@@ -24,21 +24,28 @@ class MainContainerModel extends Component {
              * @member {Boolean} data.enableEventResizingAcrossOppositeEdge=true
              */
             enableEventResizingAcrossOppositeEdge: true
-        },
+        }
+    }}
+
+    onComponentConstructed() {
+        let me = this,
+            component = me.component;
+
+        console.log(component.calendarStoreConfig);
+
         /**
          * @member {Object} stores
          */
-        stores: {
+        me.stores = {
             /**
              * @member {Object} stores.calendar
              */
             calendar: {
-                module  : CalendarStore,
-                autoLoad: true,
-                url     : '../../examples/calendar/basic/data/calendars.json'
+                module: CalendarStore,
+                ...component.calendarStoreConfig || {}
             }
-        }
-    }}
+        };
+    }
 }
 
 Neo.applyClassConfig(MainContainerModel);

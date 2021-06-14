@@ -859,6 +859,9 @@ class Component extends BaseComponent {
             showEventEndDates = me.showEventEndDates,
             column, dayRecords, duration, eventCls, hasOverflow, height, i, len, record, recordKey, startHours, top;
 
+        console.log(calendarStore);
+        console.log(calendarStore.getCount());
+
         date.setDate(date.getDate() + startIndex);
 
         for (; j < endIndex; j++) {

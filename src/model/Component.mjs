@@ -63,7 +63,21 @@ class Component extends Base {
     constructor(config) {
         Neo.currentWorker.isUsingViewModels = true;
         super(config);
-        this.bindings = {};
+
+        let me        = this,
+            component = me.component,
+            listenerId;
+
+        me.bindings = {};
+
+        if (component.isConstructed) {
+            me.onComponentConstructed();
+        } else {
+            listenerId = component.on('constructed', () => {
+                component.un('constructed', listenerId);
+                me.onComponentConstructed();
+            });
+        }
     }
 
     /**
@@ -450,6 +464,12 @@ class Component extends Base {
     isStoreValue(value) {
         return Neo.isString(value) && value.startsWith('stores.');
     }
+
+    /**
+     * Override this method inside your view models as a starting point
+     * (instead of using onConstructed() inside your model)
+     */
+    onComponentConstructed() {}
 
     /**
      *
