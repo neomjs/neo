@@ -465,7 +465,7 @@ class Component extends BaseComponent {
                 weekNode            = data.path[2],
                 scrollContainerNode = data.path[3],
                 eventVdom           = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
-                record              = me.eventStore.get(eventVdom.flag),
+                record              = me.getModel().getStore('events').get(eventVdom.flag),
                 style               = editEventContainer.style;
 
             Object.assign(style, {

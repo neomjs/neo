@@ -290,16 +290,6 @@ class Component extends BaseComponent {
     }
 
     /**
-     * Triggered after the eventStore config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetEventStore(value, oldValue) {
-        // console.log('afterSetEventStore', value);
-    }
-
-    /**
      * Triggered after the locale config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -480,8 +470,7 @@ class Component extends BaseComponent {
      *
      */
     destroy(...args) {
-        this.eventStore = null;
-        this.timeAxis   = null;
+        this.timeAxis = null;
 
         super.destroy(...args);
     }
@@ -602,7 +591,7 @@ class Component extends BaseComponent {
                 editEventContainer = me.owner.editEventContainer,
                 eventNode          = data.path[0],
                 eventVdom          = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
-                record             = me.eventStore.get(eventVdom.flag),
+                record             = me.getModel().getStore('events').get(eventVdom.flag),
                 style              = editEventContainer.style;
 
             Object.assign(style, {
@@ -678,7 +667,7 @@ class Component extends BaseComponent {
             axisStartTime                   : timeAxis.getTime(timeAxis.startTime),
             dragElement                     : dragElement,
             enableResizingAcrossOppositeEdge: me.data.enableEventResizingAcrossOppositeEdge,
-            eventRecord                     : me.eventStore.get(dragElement.flag),
+            eventRecord                     : me.getModel().getStore('events').get(dragElement.flag),
             proxyParentId                   : data.path[1].id
         };
 
@@ -845,7 +834,7 @@ class Component extends BaseComponent {
     }
 
     /**
-     * The algorithm relies on the eventStore being sorted by startDate ASC
+     * The algorithm relies on the eventsStore being sorted by startDate ASC
      * @param {Number} [startIndex=0]
      * @param {Number} [endIndex=21]
      * @param {Boolean} [silent=false]
@@ -853,8 +842,8 @@ class Component extends BaseComponent {
     updateEvents(startIndex=0, endIndex=21, silent=false) {
         let me                = this,
             model             = me.getModel(),
-            calendarStore     = model.getStore('calendars'),
-            eventStore        = model.getStore('events'),
+            calendarsStore    = model.getStore('calendars'),
+            eventsStore       = model.getStore('events'),
             timeAxis          = me.timeAxis,
             endTime           = timeAxis.getTime(timeAxis.endTime),
             startTime         = timeAxis.getTime(timeAxis.startTime),
@@ -873,18 +862,18 @@ class Component extends BaseComponent {
 
             column.cn = []; // remove previous events from the vdom
 
-            dayRecords = eventStore.getDayRecords(date);
+            dayRecords = eventsStore.getDayRecords(date);
             len        = dayRecords.length;
 
             for (i = 0; i < len; i++) {
                 record = dayRecords[i];
 
-                if (calendarStore.get(record.calendarId).active) {
+                if (calendarsStore.get(record.calendarId).active) {
                     duration    = (record.endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
                     eventCls    = ['neo-event', 'neo-draggable'];
                     hasOverflow = false;
                     height      = Math.round(duration / totalTime * 100 * 1000) / 1000;
-                    recordKey   = record[eventStore.keyProperty];
+                    recordKey   = record[eventsStore.keyProperty];
                     startHours  = (record.startDate.getHours() * 60 + record.startDate.getMinutes()) / 60;
                     top         = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
 
