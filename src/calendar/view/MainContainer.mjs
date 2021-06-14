@@ -532,7 +532,7 @@ class MainContainer extends Container {
         me.calendarsContainer = Neo.create({
             module  : CalendarsContainer,
             flex    : 1,
-            parentId: me.id
+            parentId: me.id // we need the parentId to access the model inside the ctor
         });
 
         me.dateSelector = Neo.create({
