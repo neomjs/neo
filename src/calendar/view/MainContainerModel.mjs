@@ -30,7 +30,7 @@ class MainContainerModel extends Component {
          */
         stores: {
             /**
-             * @member {Neo.calendar.store.Calendars} stores.calendar=CalendarStore
+             * @member {Object} stores.calendar
              */
             calendar: {
                 module  : CalendarStore,
