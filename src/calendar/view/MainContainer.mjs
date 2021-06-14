@@ -182,7 +182,7 @@ class MainContainer extends Container {
         useSettingsContainer_: true,
         /**
          * Any combination and order of 'day', 'week', 'month', 'year'
-         * @member {String[]} views_=['day', 'week', 'month', 'year']
+         * @member {String[]} views_=['day','week','month','year']
          */
         views_: ['day', 'week', 'month', 'year'],
         /**
