@@ -65,7 +65,7 @@ class CalendarsContainer extends Container {
         if (!me.mounted && me.rendering) {
             const listenerId = me.on('rendered', () => {
                 me.un('rendered', listenerId);
-                me.onStoreLoad(data);
+                me.onCalendarsStoreLoad(data);
             });
         } else {
             data.forEach(item => {
