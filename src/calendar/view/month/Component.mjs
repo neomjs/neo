@@ -134,7 +134,8 @@ class Component extends BaseComponent {
             date         = me.currentDate, // cloned
             vdom         = me.vdom,
             header       = vdom.cn[0].cn[0],
-            domListeners = me.domListeners;
+            domListeners = me.domListeners,
+            model        = me.getModel();
 
         domListeners.push(
             {dblclick: me.onEventDoubleClick, delegate: 'neo-event', scope: me},
@@ -146,8 +147,9 @@ class Component extends BaseComponent {
         header.cn[0].html = me.intlFormat_month.format(date);
         header.cn[1].html = ` ${date.getFullYear()}`;
 
-        //me.updateHeader(true);
-        //me.createContent();
+        me.updateHeader(true);
+
+        model.stores.events.on('load', me.onEventsStoreLoad, me);
     }
 
     /**
@@ -480,6 +482,14 @@ class Component extends BaseComponent {
 
             editEventContainer.render(true);
         }
+    }
+
+    /**
+     *
+     * @param {Object[]} data
+     */
+    onEventsStoreLoad(data) {
+        this.createContent();
     }
 
     /**

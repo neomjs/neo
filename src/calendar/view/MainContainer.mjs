@@ -709,7 +709,6 @@ class MainContainer extends Container {
         console.log('onEventStoreLoad', data);
 
         // todo: update the active view (card)
-        me.monthComponent.createContent();
         me.yearComponent .createMonths();
     }
 
