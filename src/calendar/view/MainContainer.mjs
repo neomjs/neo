@@ -530,8 +530,9 @@ class MainContainer extends Container {
         let me = this;
 
         me.calendarsContainer = Neo.create({
-            module: CalendarsContainer,
-            flex  : 1
+            module  : CalendarsContainer,
+            flex    : 1,
+            parentId: me.id
         });
 
         me.dateSelector = Neo.create({
@@ -676,15 +677,6 @@ class MainContainer extends Container {
         me.yearComponent      = null;
 
         super.destroy(...args);
-    }
-
-    /**
-     *
-     * @param {Object[]} data
-     */
-    onCalendarStoreLoad(data) {
-        console.log('onCalendarStoreLoad', data);
-        this.calendarsContainer.onStoreLoad(data);
     }
 
     /**

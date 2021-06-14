@@ -47,8 +47,7 @@ class MainContainerModel extends Component {
              * @member {Object} stores.calendars
              */
             calendars: {
-                module   : CalendarsStore,
-                listeners: {load: component.onCalendarStoreLoad, scope: component},
+                module: CalendarsStore,
                 ...component.calendarStoreConfig || {}
             },
             /**

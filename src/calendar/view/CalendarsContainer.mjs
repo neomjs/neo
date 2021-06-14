@@ -44,9 +44,21 @@ class CalendarsContainer extends Container {
 
     /**
      *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me = this;
+
+        me.getModel().stores.calendars.on('load', me.onCalendarsStoreLoad, me);
+    }
+
+    /**
+     *
      * @param {Object[]} data
      */
-    onStoreLoad(data) {
+    onCalendarsStoreLoad(data) {
         let me    = this,
             items = [];
 
