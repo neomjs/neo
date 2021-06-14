@@ -154,7 +154,8 @@ class YearComponent extends Component {
         super(config);
 
         let me           = this,
-            domListeners = me.domListeners;
+            domListeners = me.domListeners,
+            model        = me.getModel();
 
         domListeners.push(
             {click: me.onNavButtonClick, delegate: '.neo-nav-button', scope: me},
@@ -164,7 +165,8 @@ class YearComponent extends Component {
         me.domListeners = domListeners;
 
         me.updateHeaderYear();
-        //me.createMonths();
+
+        model.stores.events.on('load', me.onEventsStoreLoad, me);
     }
 
     /**
@@ -654,6 +656,14 @@ class YearComponent extends Component {
         }
 
         return this.id + '__' + year + '-' + month + '-' + day;
+    }
+
+    /**
+     *
+     * @param {Object[]} data
+     */
+    onEventsStoreLoad(data) {
+        this.createMonths();
     }
 
     /**

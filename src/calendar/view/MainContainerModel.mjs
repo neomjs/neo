@@ -56,8 +56,7 @@ class MainContainerModel extends Component {
              * @member {Object} stores.events
              */
             events: {
-                module   : EventsStore,
-                listeners: {load: component.onEventStoreLoad, scope: component},
+                module: EventsStore,
                 ...component.eventStoreConfig || {}
             }
         };

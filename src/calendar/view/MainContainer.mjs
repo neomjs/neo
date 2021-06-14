@@ -701,19 +701,6 @@ class MainContainer extends Container {
 
     /**
      *
-     * @param {Object[]} data
-     */
-    onEventStoreLoad(data) {
-        let me = this;
-
-        console.log('onEventStoreLoad', data);
-
-        // todo: update the active view (card)
-        me.yearComponent .createMonths();
-    }
-
-    /**
-     *
      * @param data
      */
     onNextIntervalButtonClick(data) {
