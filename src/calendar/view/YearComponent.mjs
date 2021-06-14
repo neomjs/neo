@@ -166,7 +166,7 @@ class YearComponent extends Component {
 
         me.updateHeaderYear();
 
-        model.stores.events.on('load', me.onEventsStoreLoad, me);
+        model.getStore('events').on('load', me.onEventsStoreLoad, me);
     }
 
     /**
@@ -506,7 +506,7 @@ class YearComponent extends Component {
             currentMonth   = currentDate.getMonth(),
             currentYear    = currentDate.getFullYear(),
             date           = DateUtil.clone(currentDate),
-            eventsStore    = me.getModel().stores.events,
+            eventsStore    = me.getModel().getStore('events'),
             valueDate      = me.currentDate, // cloned
             valueMonth     = valueDate.getMonth(),
             valueYear      = valueDate.getFullYear(),

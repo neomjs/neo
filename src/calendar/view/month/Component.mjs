@@ -149,7 +149,7 @@ class Component extends BaseComponent {
 
         me.updateHeader(true);
 
-        model.stores.events.on('load', me.onEventsStoreLoad, me);
+        model.getStore('events').on('load', me.onEventsStoreLoad, me);
     }
 
     /**

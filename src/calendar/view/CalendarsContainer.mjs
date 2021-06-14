@@ -51,7 +51,7 @@ class CalendarsContainer extends Container {
 
         let me = this;
 
-        me.getModel().stores.calendars.on('load', me.onCalendarsStoreLoad, me);
+        me.getModel().getStore('calendars').on('load', me.onCalendarsStoreLoad, me);
     }
 
     /**

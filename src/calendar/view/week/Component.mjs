@@ -208,7 +208,7 @@ class Component extends BaseComponent {
 
         me.headerCreated = true;
 
-        model.stores.events.on('load', me.onEventsStoreLoad, me);
+        model.getStore('events').on('load', me.onEventsStoreLoad, me);
     }
 
     /**
@@ -853,8 +853,8 @@ class Component extends BaseComponent {
     updateEvents(startIndex=0, endIndex=21, silent=false) {
         let me                = this,
             model             = me.getModel(),
-            calendarStore     = model.stores.calendars,
-            eventStore        = model.stores.events,
+            calendarStore     = model.getStore('calendars'),
+            eventStore        = model.getStore('events'),
             timeAxis          = me.timeAxis,
             endTime           = timeAxis.getTime(timeAxis.endTime),
             startTime         = timeAxis.getTime(timeAxis.startTime),

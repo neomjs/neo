@@ -275,7 +275,7 @@ class Component extends Base {
     }
 
     /**
-     *
+     * Access the closest data property inside the VM parent chain.
      * @param {String} key
      * @param {Neo.model.Component} [originModel=this] for internal usage only
      * @returns {*} value
@@ -397,6 +397,30 @@ class Component extends Base {
         parentComponent = parentId && Neo.getComponent(parentId);
 
         return parentComponent && parentComponent.getModel() || null;
+    }
+
+    /**
+     * Access the closest store inside the VM parent chain.
+     * @param {String} key
+     * @param {Neo.model.Component} [originModel=this] for internal usage only
+     * @returns {*} value
+     */
+    getStore(key, originModel=this) {
+        let me     = this,
+            stores = me.stores,
+            parentModel;
+
+        if (stores && stores.hasOwnProperty(key)) {
+            return stores[key];
+        }
+
+        parentModel = me.getParent();
+
+        if (!parentModel) {
+            console.error(`store '${key}' does not exist.`, originModel);
+        }
+
+        return parentModel.getStore(key, originModel);
     }
 
     /**
