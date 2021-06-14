@@ -1,7 +1,7 @@
 [
     {
         "active": true,
-        "color" : "blue",
+        "color" : "red",
         "id"    : 1,
         "name"  : "Gerard"
     },
@@ -31,7 +31,7 @@
     },
     {
         "active": true,
-        "color" : "red",
+        "color" : "blue",
         "id"    : 6,
         "name"  : "Tobias"
     }

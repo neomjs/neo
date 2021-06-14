@@ -53,7 +53,7 @@
         "attendees" : ["Tobias"],
         "allDay"    : false,
         "id"        : 6,
-        "calendarId": 1,
+        "calendarId": 6,
         "description": "Description Text 2",
         "endDate"    : "Wed Jul 22 2021 14:00:00 GMT+0200",
         "startDate"  : "Wed Jul 22 2021 12:00:00 GMT+0200",

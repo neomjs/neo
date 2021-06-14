@@ -1,4 +1,5 @@
-import Component from '../../../src/model/Component.mjs';
+import CalendarStore from '../store/Calendars.mjs';
+import Component     from '../../../src/model/Component.mjs';
 
 /**
  * @class Neo.calendar.view.MainContainerModel
@@ -23,6 +24,19 @@ class MainContainerModel extends Component {
              * @member {Boolean} data.enableEventResizingAcrossOppositeEdge=true
              */
             enableEventResizingAcrossOppositeEdge: true
+        },
+        /**
+         * @member {Object} stores
+         */
+        stores: {
+            /**
+             * @member {Neo.calendar.store.Calendars} stores.calendar=CalendarStore
+             */
+            calendar: {
+                module  : CalendarStore,
+                autoLoad: true,
+                url     : '../../examples/calendar/basic/data/calendars.json'
+            }
         }
     }}
 }
