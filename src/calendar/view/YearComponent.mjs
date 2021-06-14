@@ -61,10 +61,6 @@ class YearComponent extends Component {
          */
         eventIndicatorMedium_: 2,
         /**
-         * @member {Neo.calendar.store.Events|null} eventStore_=null
-         */
-        eventStore_: null,
-        /**
          * @member {Intl.DateTimeFormat|null} intlFormat_day=null
          * @protected
          */
@@ -168,7 +164,7 @@ class YearComponent extends Component {
         me.domListeners = domListeners;
 
         me.updateHeaderYear();
-        me.createMonths();
+        //me.createMonths();
     }
 
     /**
@@ -508,6 +504,7 @@ class YearComponent extends Component {
             currentMonth   = currentDate.getMonth(),
             currentYear    = currentDate.getFullYear(),
             date           = DateUtil.clone(currentDate),
+            eventsStore    = me.getModel().stores.events,
             valueDate      = me.currentDate, // cloned
             valueMonth     = valueDate.getMonth(),
             valueYear      = valueDate.getFullYear(),
@@ -574,7 +571,7 @@ class YearComponent extends Component {
                 }
 
                 if (!config.removeDom) {
-                    dayRecords = me.eventStore.getDayRecords(date);
+                    dayRecords = eventsStore.getDayRecords(date);
 
                     if (dayRecords.length >= me.eventIndicatorHigh) {
                         configCls.push('neo-events-high');

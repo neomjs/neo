@@ -61,10 +61,6 @@ class Component extends BaseComponent {
          */
         eventDragZone: null,
         /**
-         * @member {Neo.calendar.store.Events|null} eventStore_=null
-         */
-        eventStore_: null,
-        /**
          * Will get passed from updateHeader()
          * @member {Date|null} firstColumnDate=null
          * @protected
@@ -846,8 +842,8 @@ class Component extends BaseComponent {
     updateEvents(startIndex=0, endIndex=21, silent=false) {
         let me                = this,
             model             = me.getModel(),
-            calendarStore     = model.stores.calendar,
-            eventStore        = me.eventStore,
+            calendarStore     = model.stores.calendars,
+            eventStore        = model.stores.events,
             timeAxis          = me.timeAxis,
             endTime           = timeAxis.getTime(timeAxis.endTime),
             startTime         = timeAxis.getTime(timeAxis.startTime),
@@ -858,9 +854,6 @@ class Component extends BaseComponent {
             j                 = startIndex,
             showEventEndDates = me.showEventEndDates,
             column, dayRecords, duration, eventCls, hasOverflow, height, i, len, record, recordKey, startHours, top;
-
-        console.log(calendarStore);
-        console.log(calendarStore.getCount());
 
         date.setDate(date.getDate() + startIndex);
 
@@ -875,7 +868,6 @@ class Component extends BaseComponent {
             for (i = 0; i < len; i++) {
                 record = dayRecords[i];
 
-                // todo: we should filter the eventStore instead
                 if (calendarStore.get(record.calendarId).active) {
                     duration    = (record.endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
                     eventCls    = ['neo-event', 'neo-draggable'];

@@ -44,10 +44,6 @@ class Component extends BaseComponent {
          */
         dayNameFormat_: 'short',
         /**
-         * @member {Neo.calendar.store.Events|null} eventStore_=null
-         */
-        eventStore_: null,
-        /**
          * Internal flag to store the header height in px after getting mounted.
          * Needed for the infinite scrolling
          * @member {Number|null} headerHeight=null
@@ -150,8 +146,8 @@ class Component extends BaseComponent {
         header.cn[0].html = me.intlFormat_month.format(date);
         header.cn[1].html = ` ${date.getFullYear()}`;
 
-        me.updateHeader(true);
-        me.createContent();
+        //me.updateHeader(true);
+        //me.createContent();
     }
 
     /**
@@ -361,11 +357,11 @@ class Component extends BaseComponent {
      * @returns {Object}
      */
     createWeek(date) {
-        let me         = this,
-            i          = 0,
-            eventStore = me.eventStore,
-            header     = null,
-            ymdDate    = DateUtil.convertToyyyymmdd(date),
+        let me          = this,
+            i           = 0,
+            eventsStore = me.getModel().stores.events,
+            header      = null,
+            ymdDate     = DateUtil.convertToyyyymmdd(date),
             day, dayConfig, dayRecords, recordKey, row, weekDay;
 
         row = {
@@ -420,10 +416,10 @@ class Component extends BaseComponent {
             }
 
             if (!dayConfig.removeDom) {
-                dayRecords = me.eventStore.getDayRecords(date);
+                dayRecords = eventsStore.getDayRecords(date);
 
                 dayRecords.forEach(record => {
-                    recordKey = record[eventStore.keyProperty];
+                    recordKey = record[eventsStore.keyProperty];
 
                     dayConfig.cn.push({
                         cls     : ['neo-event'],

@@ -1,5 +1,5 @@
 import CalendarsStore from '../store/Calendars.mjs';
-import EventsStore    from '../store/Calendars.mjs';
+import EventsStore    from '../store/Events.mjs';
 import Component      from '../../../src/model/Component.mjs';
 
 /**
@@ -28,6 +28,9 @@ class MainContainerModel extends Component {
         }
     }}
 
+    /**
+     *
+     */
     onComponentConstructed() {
         let me = this,
             component = me.component;
@@ -37,17 +40,21 @@ class MainContainerModel extends Component {
          */
         me.stores = {
             /**
+             * config object for {Neo.calendar.store.Calendars}
              * @member {Object} stores.calendars
              */
             calendars: {
-                module: CalendarsStore,
+                module   : CalendarsStore,
+                listeners: {load: component.onCalendarStoreLoad, scope: component},
                 ...component.calendarStoreConfig || {}
             },
             /**
+             * config object for {Neo.calendar.store.Events}
              * @member {Object} stores.events
              */
             events: {
-                module: EventsStore,
+                module   : EventsStore,
+                listeners: {load: component.onEventStoreLoad, scope: component},
                 ...component.eventStoreConfig || {}
             }
         };

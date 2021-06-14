@@ -1,12 +1,9 @@
 import CalendarsContainer from './CalendarsContainer.mjs';
-import CalendarStore      from '../store/Calendars.mjs';
-import ClassSystemUtil    from '../../util/ClassSystem.mjs';
 import Container          from '../../container/Base.mjs';
 import DateSelector       from '../../component/DateSelector.mjs';
 import DateUtil           from '../../util/Date.mjs';
 import DayComponent       from './DayComponent.mjs';
 import EditEventContainer from './EditEventContainer.mjs';
-import EventStore         from '../store/Events.mjs';
 import MainContainerModel from './MainContainerModel.mjs';
 import MonthComponent     from './month/Component.mjs';
 import SettingsContainer  from './SettingsContainer.mjs';
@@ -57,10 +54,6 @@ class MainContainer extends Container {
          */
         calendarsContainer: null,
         /**
-         * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
-         */
-        calendarStore_: null,
-        /**
          * @member {Object|null} calendarStoreConfig=null
          */
         calendarStoreConfig: null,
@@ -104,10 +97,6 @@ class MainContainer extends Container {
          * @member {String} endTime_='24:00'
          */
         endTime_: '24:00',
-        /**
-         * @member {Neo.calendar.store.Events|null} eventStore_=null
-         */
-        eventStore_: null,
         /**
          * @member {Object|null} eventStoreConfig=null
          */
@@ -287,18 +276,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered after the eventStore config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetEventStore(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.setViewConfig('eventStore', value);
-        }
-    }
-
-    /**
      * Triggered after the locale config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -467,44 +444,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered before the calendarStore config gets changed.
-     * @param {Neo.calendar.store.Calendars} value
-     * @param {Neo.calendar.store.Calendars} oldValue
-     * @protected
-     */
-    beforeSetCalendarStore(value, oldValue) {
-        let me = this;
-
-        if (oldValue) {
-            oldValue.destroy();
-        }
-
-        return ClassSystemUtil.beforeSetInstance(value, CalendarStore, {
-            listeners: {load: me.onCalendarStoreLoad, scope: me},
-            ...me.calendarStoreConfig || {}
-        });
-    }
-
-    /**
-     * Triggered before the eventStore config gets changed.
-     * @param {Neo.calendar.store.Events} value
-     * @param {Neo.calendar.store.Events} oldValue
-     * @protected
-     */
-    beforeSetEventStore(value, oldValue) {
-        let me = this;
-
-        if (oldValue) {
-            oldValue.destroy();
-        }
-
-        return ClassSystemUtil.beforeSetInstance(value, EventStore, {
-            listeners: {load: me.onEventStoreLoad, scope: me},
-            ...me.eventStoreConfig || {}
-        });
-    }
-
-    /**
      * Triggered before the views config gets changed.
      * @param {String[]} value
      * @param {String[]} oldValue
@@ -591,9 +530,8 @@ class MainContainer extends Container {
         let me = this;
 
         me.calendarsContainer = Neo.create({
-            module       : CalendarsContainer,
-            calendarStore: me.calendarStore,
-            flex         : 1
+            module: CalendarsContainer,
+            flex  : 1
         });
 
         me.dateSelector = Neo.create({
@@ -682,7 +620,6 @@ class MainContainer extends Container {
         const defaultConfig = {
             appName     : me.appName,
             currentDate : me.currentDate,
-            eventStore  : me.eventStore,
             locale      : me.locale,
             owner       : me,
             parentId    : me.id,
@@ -746,6 +683,7 @@ class MainContainer extends Container {
      * @param {Object[]} data
      */
     onCalendarStoreLoad(data) {
+        console.log('onCalendarStoreLoad', data);
         this.calendarsContainer.onStoreLoad(data);
     }
 
@@ -767,6 +705,8 @@ class MainContainer extends Container {
      */
     onEventStoreLoad(data) {
         let me = this;
+
+        console.log('onEventStoreLoad', data);
 
         // todo: update the active view (card)
         me.monthComponent.createContent();
