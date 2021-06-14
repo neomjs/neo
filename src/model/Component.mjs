@@ -63,21 +63,7 @@ class Component extends Base {
     constructor(config) {
         Neo.currentWorker.isUsingViewModels = true;
         super(config);
-
-        let me        = this,
-            component = me.component,
-            listenerId;
-
-        me.bindings = {};
-
-        if (component.isConstructed) {
-            me.onComponentConstructed();
-        } else {
-            listenerId = component.on('constructed', () => {
-                component.un('constructed', listenerId);
-                me.onComponentConstructed();
-            });
-        }
+        this.bindings = {};
     }
 
     /**

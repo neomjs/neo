@@ -30,9 +30,12 @@ class MainContainerModel extends Component {
 
     /**
      *
+     * @param {Object} config
      */
-    onComponentConstructed() {
-        let me = this,
+    constructor(config) {
+        super(config);
+
+        let me        = this,
             component = me.component;
 
         /**

@@ -54,9 +54,9 @@ class MainContainer extends Container {
          */
         calendarsContainer: null,
         /**
-         * @member {Object|null} calendarStoreConfig=null
+         * @member {Object|null} calendarStoreConfig_=null
          */
-        calendarStoreConfig: null,
+        calendarStoreConfig_: null,
         /**
          * @member {String[]} cls=['neo-container']
          */
@@ -98,9 +98,9 @@ class MainContainer extends Container {
          */
         endTime_: '24:00',
         /**
-         * @member {Object|null} eventStoreConfig=null
+         * @member {Object|null} eventStoreConfig_=null
          */
-        eventStoreConfig: null,
+        eventStoreConfig_: null,
         /**
          * @member {Intl.DateTimeFormat|null} intlFormat_time=null
          * @protected
