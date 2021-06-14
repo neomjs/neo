@@ -24,7 +24,15 @@ class MainContainerModel extends Component {
             /**
              * @member {Boolean} data.enableEventResizingAcrossOppositeEdge=true
              */
-            enableEventResizingAcrossOppositeEdge: true
+            enableEventResizingAcrossOppositeEdge: true,
+            /**
+             * @member {String} eventMaxEndTime
+             */
+            eventMaxEndTime: '24:00',
+            /**
+             * @member {String} eventMinStartTime
+             */
+            eventMinStartTime: '00:00'
         }
     }}
 
