@@ -27,6 +27,12 @@ class YearComponent extends Component {
          */
         ntype: 'calendar-view-yearcomponent',
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            currentDate: data => data.currentDate
+        },
+        /**
          * Stores the last date change which got triggered while a year transition was running
          * @member {Date|null} cachedUpdate=null
          * @protected
