@@ -237,8 +237,6 @@ class Component extends Base {
                 }
             }
         });
-
-        console.log(me.data);
     }
 
     /**

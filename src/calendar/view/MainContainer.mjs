@@ -263,9 +263,9 @@ class MainContainer extends Container {
         if (oldValue !== undefined) {
             let me = this;
 
-            me.weekComponent.currentDate = value;
-            me.yearComponent.currentDate = value;
-            me.dateSelector .value       = DateUtil.convertToyyyymmdd(value);
+            //me.weekComponent.currentDate = value;
+            //me.yearComponent.currentDate = value;
+            //me.dateSelector .value       = DateUtil.convertToyyyymmdd(value);
         }
     }
 
@@ -667,7 +667,7 @@ class MainContainer extends Container {
      */
     onDateSelectorChange(opts) {
         if (opts.oldValue !== undefined) {
-            this.currentDate = new Date(opts.value);
+            //this.currentDate = new Date(opts.value);
         }
     }
 

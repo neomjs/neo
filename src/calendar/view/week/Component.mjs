@@ -41,11 +41,17 @@ class Component extends BaseComponent {
          */
         ntype: 'calendar-view-weekcomponent',
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            currentDate: data => data.currentDate
+        },
+        /**
          * @member {String[]} cls=['neo-calendar-weekcomponent']
          */
         cls: ['neo-calendar-weekcomponent'],
         /**
-         * Will get passed from the MainContainer
+         * Will get passed from the MainContainer model
          * @member {Date|null} currentDate_=null
          * @protected
          */
