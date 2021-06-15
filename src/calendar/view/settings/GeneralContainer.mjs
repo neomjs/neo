@@ -168,25 +168,25 @@ class GeneralContainer extends Container {
             flex      : 'none',
             labelText : 'startTime',
             labelWidth: 110,
-            listeners : {change: me.onConfigChange, scope: me},
+            listeners : {change: me.onDataChange, scope: me},
             maxValue  : '10:00',
             minValue  : '00:00',
             name      : 'startTime',
             stepSize  : 60 * 60, // 1h
             style     : {marginTop: '10px'},
-            value     : calendar.startTime,
+            value     : data.startTime,
             width     : '14em'
         }, {
             module    : TimeField,
             flex      : 'none',
             labelText : 'endTime',
             labelWidth: 110,
-            listeners : {change: me.onConfigChange, scope: me},
+            listeners : {change: me.onDataChange, scope: me},
             maxValue  : '23:00',
             minValue  : '14:00',
             name      : 'endTime',
             stepSize  : 60 * 60, // 1h
-            value     : calendar.endTime !== '24:00' ? calendar.endTime : null,
+            value     : data.endTime !== '24:00' ? data.endTime : null,
             width     : '14em'
         }, {
             module        : RadioField,
@@ -248,7 +248,7 @@ class GeneralContainer extends Container {
      * @param {Object} data
      */
     onRadioDataChange(data) {
-        if (data.value) {console.log(typeof data.component.fieldValue, data.component.fieldValue);
+        if (data.value) {
             this.getModel().setData(data.component.name, data.component.fieldValue);
         }
     }

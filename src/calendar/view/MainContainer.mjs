@@ -1,12 +1,9 @@
 import CalendarsContainer from './CalendarsContainer.mjs';
-import CalendarStore      from '../store/Calendars.mjs';
-import ClassSystemUtil    from '../../util/ClassSystem.mjs';
 import Container          from '../../container/Base.mjs';
 import DateSelector       from '../../component/DateSelector.mjs';
 import DateUtil           from '../../util/Date.mjs';
 import DayComponent       from './DayComponent.mjs';
 import EditEventContainer from './EditEventContainer.mjs';
-import EventStore         from '../store/Events.mjs';
 import MainContainerModel from './MainContainerModel.mjs';
 import MonthComponent     from './month/Component.mjs';
 import SettingsContainer  from './SettingsContainer.mjs';
@@ -53,17 +50,21 @@ class MainContainer extends Container {
          */
         baseFontSize_: null,
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            currentDate: {twoWay: true, value: data => data.currentDate},
+            endTime    : {twoWay: true, value: data => data.endTime},
+            startTime  : {twoWay: true, value: data => data.startTime}
+        },
+        /**
          * @member {Neo.calendar.view.CalendarsContainer|null} calendarsContainer=null
          */
         calendarsContainer: null,
         /**
-         * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
+         * @member {Object|null} calendarStoreConfig_=null
          */
-        calendarStore_: null,
-        /**
-         * @member {Object|null} calendarStoreConfig=null
-         */
-        calendarStoreConfig: null,
+        calendarStoreConfig_: null,
         /**
          * @member {String[]} cls=['neo-container']
          */
@@ -105,13 +106,9 @@ class MainContainer extends Container {
          */
         endTime_: '24:00',
         /**
-         * @member {Neo.calendar.store.Events|null} eventStore_=null
+         * @member {Object|null} eventStoreConfig_=null
          */
-        eventStore_: null,
-        /**
-         * @member {Object|null} eventStoreConfig=null
-         */
-        eventStoreConfig: null,
+        eventStoreConfig_: null,
         /**
          * @member {Intl.DateTimeFormat|null} intlFormat_time=null
          * @protected
@@ -193,7 +190,7 @@ class MainContainer extends Container {
         useSettingsContainer_: true,
         /**
          * Any combination and order of 'day', 'week', 'month', 'year'
-         * @member {String[]} views_=['day', 'week', 'month', 'year']
+         * @member {String[]} views_=['day','week','month','year']
          */
         views_: ['day', 'week', 'month', 'year'],
         /**
@@ -252,49 +249,6 @@ class MainContainer extends Container {
             }
 
             this.style = style;
-        }
-    }
-
-    /**
-     * Triggered after the currentDate config got changed
-     * todo: Only update the active view, adjust the state on card change
-     * @param {Date} value
-     * @param {Date} oldValue
-     * @protected
-     */
-    afterSetCurrentDate(value, oldValue) {
-        if (oldValue !== undefined) {
-            let me = this;
-
-            me.weekComponent.currentDate = value;
-            me.yearComponent.currentDate = value;
-            me.dateSelector .value       = DateUtil.convertToyyyymmdd(value);
-        }
-    }
-
-    /**
-     * Triggered after the endTime config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetEndTime(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.down({ntype: 'calendar-timeaxis'}, false).forEach(item => {
-                item.endTime = value;
-            });
-        }
-    }
-
-    /**
-     * Triggered after the eventStore config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetEventStore(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.setViewConfig('eventStore', value);
         }
     }
 
@@ -410,20 +364,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered after the startTime config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetStartTime(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.down({ntype: 'calendar-timeaxis'}, false).forEach(item => {
-                item.startTime = value;
-            });
-        }
-    }
-
-    /**
      * Triggered after the timeFormat config got changed
      * @param {Object} value
      * @param {Object} oldValue
@@ -464,44 +404,6 @@ class MainContainer extends Container {
         }
 
         return value;
-    }
-
-    /**
-     * Triggered before the calendarStore config gets changed.
-     * @param {Neo.calendar.store.Calendars} value
-     * @param {Neo.calendar.store.Calendars} oldValue
-     * @protected
-     */
-    beforeSetCalendarStore(value, oldValue) {
-        let me = this;
-
-        if (oldValue) {
-            oldValue.destroy();
-        }
-
-        return ClassSystemUtil.beforeSetInstance(value, CalendarStore, {
-            listeners: {load: me.onCalendarStoreLoad, scope: me},
-            ...me.calendarStoreConfig || {}
-        });
-    }
-
-    /**
-     * Triggered before the eventStore config gets changed.
-     * @param {Neo.calendar.store.Events} value
-     * @param {Neo.calendar.store.Events} oldValue
-     * @protected
-     */
-    beforeSetEventStore(value, oldValue) {
-        let me = this;
-
-        if (oldValue) {
-            oldValue.destroy();
-        }
-
-        return ClassSystemUtil.beforeSetInstance(value, EventStore, {
-            listeners: {load: me.onEventStoreLoad, scope: me},
-            ...me.eventStoreConfig || {}
-        });
     }
 
     /**
@@ -591,21 +493,28 @@ class MainContainer extends Container {
         let me = this;
 
         me.calendarsContainer = Neo.create({
-            module       : CalendarsContainer,
-            calendarStore: me.calendarStore,
-            flex         : 1
+            module  : CalendarsContainer,
+            flex    : 1,
+            parentId: me.id // we need the parentId to access the model inside the ctor
         });
 
         me.dateSelector = Neo.create({
             module              : DateSelector,
+            appName             : me.appName,
             flex                : 'none',
             height              : me.sideBarWidth,
             listeners           : {change: me.onDateSelectorChange, scope: me},
             locale              : me.locale,
+            parentId            : me.id, // we need the parentId to access the model inside the ctor
             scrollNewYearFromTop: me.scrollNewYearFromTop,
             showWeekends        : me.showWeekends,
             value               : DateUtil.convertToyyyymmdd(me.currentDate),
             weekStartDay        : me.weekStartDay,
+
+            bind: {
+                value: data => DateUtil.convertToyyyymmdd(data.currentDate)
+            },
+
             ...me.dateSelectorConfig || {}
         });
 
@@ -682,7 +591,6 @@ class MainContainer extends Container {
         const defaultConfig = {
             appName     : me.appName,
             currentDate : me.currentDate,
-            eventStore  : me.eventStore,
             locale      : me.locale,
             owner       : me,
             parentId    : me.id,
@@ -743,35 +651,14 @@ class MainContainer extends Container {
 
     /**
      *
-     * @param {Object[]} data
-     */
-    onCalendarStoreLoad(data) {
-        this.calendarsContainer.onStoreLoad(data);
-    }
-
-    /**
-     *
      * @param {Object} opts
      * @param {String} opts.oldValue
      * @param {String} opts.value
      */
     onDateSelectorChange(opts) {
         if (opts.oldValue !== undefined) {
-            this.currentDate = new Date(opts.value);
+            this.getModel().setData('currentDate', new Date(opts.value));
         }
-    }
-
-    /**
-     *
-     * @param {Object[]} data
-     */
-    onEventStoreLoad(data) {
-        let me = this;
-
-        // todo: update the active view (card)
-        me.monthComponent.createContent();
-        me.weekComponent .updateEvents();
-        me.yearComponent .createMonths();
     }
 
     /**

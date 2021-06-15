@@ -41,11 +41,17 @@ class Component extends BaseComponent {
          */
         ntype: 'calendar-view-weekcomponent',
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            currentDate: data => data.currentDate
+        },
+        /**
          * @member {String[]} cls=['neo-calendar-weekcomponent']
          */
         cls: ['neo-calendar-weekcomponent'],
         /**
-         * Will get passed from the MainContainer
+         * Will get passed from the MainContainer model
          * @member {Date|null} currentDate_=null
          * @protected
          */
@@ -60,10 +66,6 @@ class Component extends BaseComponent {
          * @member {Neo.draggable.DragZone|null} eventDragZone=null
          */
         eventDragZone: null,
-        /**
-         * @member {Neo.calendar.store.Events|null} eventStore_=null
-         */
-        eventStore_: null,
         /**
          * Will get passed from updateHeader()
          * @member {Date|null} firstColumnDate=null
@@ -169,6 +171,7 @@ class Component extends BaseComponent {
             domListeners = me.domListeners,
             columnOpts   = {scope: me, delegate: '.neo-c-w-column'},
             eventOpts    = {scope: me, delegate: '.neo-event'},
+            model        = me.getModel(),
             plugins      = me.plugins || [];
 
         domListeners.push(
@@ -210,6 +213,8 @@ class Component extends BaseComponent {
         me.updateHeader(true);
 
         me.headerCreated = true;
+
+        model.getStore('events').on('load', me.onEventsStoreLoad, me);
     }
 
     /**
@@ -288,16 +293,6 @@ class Component extends BaseComponent {
         if (oldValue !== undefined) {
             me.updateHeader();
         }
-    }
-
-    /**
-     * Triggered after the eventStore config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetEventStore(value, oldValue) {
-        // console.log('afterSetEventStore', value);
     }
 
     /**
@@ -481,8 +476,7 @@ class Component extends BaseComponent {
      *
      */
     destroy(...args) {
-        this.eventStore = null;
-        this.timeAxis   = null;
+        this.timeAxis = null;
 
         super.destroy(...args);
     }
@@ -603,7 +597,7 @@ class Component extends BaseComponent {
                 editEventContainer = me.owner.editEventContainer,
                 eventNode          = data.path[0],
                 eventVdom          = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
-                record             = me.eventStore.get(eventVdom.flag),
+                record             = me.getModel().getStore('events').get(eventVdom.flag),
                 style              = editEventContainer.style;
 
             Object.assign(style, {
@@ -679,7 +673,7 @@ class Component extends BaseComponent {
             axisStartTime                   : timeAxis.getTime(timeAxis.startTime),
             dragElement                     : dragElement,
             enableResizingAcrossOppositeEdge: me.data.enableEventResizingAcrossOppositeEdge,
-            eventRecord                     : me.eventStore.get(dragElement.flag),
+            eventRecord                     : me.getModel().getStore('events').get(dragElement.flag),
             proxyParentId                   : data.path[1].id
         };
 
@@ -709,6 +703,14 @@ class Component extends BaseComponent {
         }
 
         eventDragZone.dragStart(data);
+    }
+
+    /**
+     *
+     * @param {Object[]} data
+     */
+    onEventsStoreLoad(data) {
+        this.updateEvents();
     }
 
     /**
@@ -838,19 +840,21 @@ class Component extends BaseComponent {
     }
 
     /**
-     * The algorithm relies on the eventStore being sorted by startDate ASC
+     * The algorithm relies on the eventsStore being sorted by startDate ASC
      * @param {Number} [startIndex=0]
      * @param {Number} [endIndex=21]
      * @param {Boolean} [silent=false]
      */
     updateEvents(startIndex=0, endIndex=21, silent=false) {
         let me                = this,
+            model             = me.getModel(),
+            calendarsStore    = model.getStore('calendars'),
+            eventsStore       = model.getStore('events'),
             timeAxis          = me.timeAxis,
             endTime           = timeAxis.getTime(timeAxis.endTime),
             startTime         = timeAxis.getTime(timeAxis.startTime),
             totalTime         = endTime - startTime,
             date              = DateUtil.clone(me.firstColumnDate),
-            eventStore        = me.eventStore,
             vdom              = me.vdom,
             content           = me.getColumnContainer(),
             j                 = startIndex,
@@ -864,54 +868,57 @@ class Component extends BaseComponent {
 
             column.cn = []; // remove previous events from the vdom
 
-            dayRecords = eventStore.getDayRecords(date);
+            dayRecords = eventsStore.getDayRecords(date);
             len        = dayRecords.length;
 
             for (i = 0; i < len; i++) {
-                record      = dayRecords[i];
-                duration    = (record.endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
-                eventCls    = ['neo-event', 'neo-draggable'];
-                hasOverflow = false;
-                height      = Math.round(duration / totalTime * 100 * 1000) / 1000;
-                recordKey   = record[eventStore.keyProperty];
-                startHours  = (record.startDate.getHours() * 60 + record.startDate.getMinutes()) / 60;
-                top         = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
+                record = dayRecords[i];
 
-                if (duration * 60 / timeAxis.interval === 1) {
-                    hasOverflow = timeAxis.rowHeight < (showEventEndDates ? 50 : 34);
+                if (calendarsStore.get(record.calendarId).active) {
+                    duration    = (record.endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
+                    eventCls    = ['neo-event', 'neo-draggable'];
+                    hasOverflow = false;
+                    height      = Math.round(duration / totalTime * 100 * 1000) / 1000;
+                    recordKey   = record[eventsStore.keyProperty];
+                    startHours  = (record.startDate.getHours() * 60 + record.startDate.getMinutes()) / 60;
+                    top         = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
 
-                    if (hasOverflow && !(showEventEndDates && timeAxis.rowHeight >= 34)) {
-                        eventCls.push('neo-overflow');
+                    if (duration * 60 / timeAxis.interval === 1) {
+                        hasOverflow = timeAxis.rowHeight < (showEventEndDates ? 50 : 34);
+
+                        if (hasOverflow && !(showEventEndDates && timeAxis.rowHeight >= 34)) {
+                            eventCls.push('neo-overflow');
+                        }
                     }
+
+                    column.cn.push({
+                        cls     : eventCls,
+                        flag    : recordKey,
+                        id      : me.id + '__' + recordKey,
+                        tabIndex: -1,
+
+                        cn: [{
+                            cls : ['neo-event-time'],
+                            html: me.intlFormat_time.format(record.startDate),
+                            id  : me.id + '__time__' + recordKey
+                        }, {
+                            cls : ['neo-event-title'],
+                            html: record.title,
+                            id  : me.id + '__title__' + recordKey
+                        }, {
+                            cls      : ['neo-event-time', 'neo-event-end-time'],
+                            html     : me.intlFormat_time.format(record.endDate),
+                            id       : me.id + '__enddate__' + recordKey,
+                            removeDom: hasOverflow || !showEventEndDates
+                        }],
+
+                        style: {
+                            height: `calc(${height}% - 2px)`,
+                            top   : `calc(${top}% + 1px)`,
+                            width : 'calc(100% - 1px)' // todo
+                        }
+                    });
                 }
-
-                column.cn.push({
-                    cls     : eventCls,
-                    flag    : recordKey,
-                    id      : me.id + '__' + recordKey,
-                    tabIndex: -1,
-
-                    cn: [{
-                        cls : ['neo-event-time'],
-                        html: me.intlFormat_time.format(record.startDate),
-                        id  : me.id + '__time__' + recordKey
-                    }, {
-                        cls : ['neo-event-title'],
-                        html: record.title,
-                        id  : me.id + '__title__' + recordKey
-                    }, {
-                        cls      : ['neo-event-time', 'neo-event-end-time'],
-                        html     : me.intlFormat_time.format(record.endDate),
-                        id       : me.id + '__enddate__' + recordKey,
-                        removeDom: hasOverflow || !showEventEndDates
-                    }],
-
-                    style: {
-                        height: `calc(${height}% - 2px)`,
-                        top   : `calc(${top}% + 1px)`,
-                        width : 'calc(100% - 1px)' // todo
-                    }
-                });
             }
 
             date.setDate(date.getDate() + 1);

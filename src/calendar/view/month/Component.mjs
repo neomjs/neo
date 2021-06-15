@@ -28,6 +28,12 @@ class Component extends BaseComponent {
          */
         ntype: 'calendar-view-monthcomponent',
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            currentDate: data => data.currentDate
+        },
+        /**
          * @member {String[]} cls=['neo-calendar-monthcomponent']
          */
         cls: ['neo-calendar-monthcomponent'],
@@ -43,10 +49,6 @@ class Component extends BaseComponent {
          * @member {String} dayNameFormat_='short'
          */
         dayNameFormat_: 'short',
-        /**
-         * @member {Neo.calendar.store.Events|null} eventStore_=null
-         */
-        eventStore_: null,
         /**
          * Internal flag to store the header height in px after getting mounted.
          * Needed for the infinite scrolling
@@ -135,10 +137,8 @@ class Component extends BaseComponent {
         super(config);
 
         let me           = this,
-            date         = me.currentDate, // cloned
-            vdom         = me.vdom,
-            header       = vdom.cn[0].cn[0],
-            domListeners = me.domListeners;
+            domListeners = me.domListeners,
+            model        = me.getModel();
 
         domListeners.push(
             {dblclick: me.onEventDoubleClick, delegate: 'neo-event', scope: me},
@@ -147,11 +147,25 @@ class Component extends BaseComponent {
 
         me.domListeners = domListeners;
 
-        header.cn[0].html = me.intlFormat_month.format(date);
-        header.cn[1].html = ` ${date.getFullYear()}`;
-
         me.updateHeader(true);
-        me.createContent();
+
+        model.getStore('events').on('load', me.onEventsStoreLoad, me);
+    }
+
+    /**
+     * Triggered after the currentDate config got changed
+     * @param {Date} value
+     * @param {Date} oldValue
+     * @protected
+     */
+    afterSetCurrentDate(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.createContent(true);
+            me.updateHeader();
+            me.afterSetMounted(true, false); // todo: extract the logic into a new method
+        }
     }
 
     /**
@@ -221,7 +235,7 @@ class Component extends BaseComponent {
                 }).then(data => {
                     me.headerHeight = data[1].height;
 
-                    Neo.main.DomAccess.scrollBy({
+                    Neo.main.DomAccess.scrollTo({
                         direction: 'top',
                         id       : me.vdom.cn[1].id,
                         value    : data[0].height - data[1].height
@@ -361,11 +375,11 @@ class Component extends BaseComponent {
      * @returns {Object}
      */
     createWeek(date) {
-        let me         = this,
-            i          = 0,
-            eventStore = me.eventStore,
-            header     = null,
-            ymdDate    = DateUtil.convertToyyyymmdd(date),
+        let me          = this,
+            i           = 0,
+            eventsStore = me.getModel().getStore('events'),
+            header      = null,
+            ymdDate     = DateUtil.convertToyyyymmdd(date),
             day, dayConfig, dayRecords, recordKey, row, weekDay;
 
         row = {
@@ -420,10 +434,10 @@ class Component extends BaseComponent {
             }
 
             if (!dayConfig.removeDom) {
-                dayRecords = me.eventStore.getDayRecords(date);
+                dayRecords = eventsStore.getDayRecords(date);
 
                 dayRecords.forEach(record => {
-                    recordKey = record[eventStore.keyProperty];
+                    recordKey = record[eventsStore.keyProperty];
 
                     dayConfig.cn.push({
                         cls     : ['neo-event'],
@@ -467,7 +481,7 @@ class Component extends BaseComponent {
                 weekNode            = data.path[2],
                 scrollContainerNode = data.path[3],
                 eventVdom           = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
-                record              = me.eventStore.get(eventVdom.flag),
+                record              = me.getModel().getStore('events').get(eventVdom.flag),
                 style               = editEventContainer.style;
 
             Object.assign(style, {
@@ -484,6 +498,14 @@ class Component extends BaseComponent {
 
             editEventContainer.render(true);
         }
+    }
+
+    /**
+     *
+     * @param {Object[]} data
+     */
+    onEventsStoreLoad(data) {
+        this.createContent();
     }
 
     /**
@@ -646,11 +668,15 @@ class Component extends BaseComponent {
      * @param {Boolean} [create=false]
      */
     updateHeader(create=false) {
-        let me   = this,
-            date = me.currentDate, // cloned
-            vdom = me.vdom,
-            i    = 1,
+        let me     = this,
+            date   = me.currentDate, // cloned
+            vdom   = me.vdom,
+            header = vdom.cn[0].cn[0],
+            i      = 1,
             day, node;
+
+        header.cn[0].html = me.intlFormat_month.format(date);
+        header.cn[1].html = ` ${date.getFullYear()}`;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay);
 

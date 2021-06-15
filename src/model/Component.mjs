@@ -3,8 +3,8 @@ import ClassSystemUtil from '../util/ClassSystem.mjs';
 import NeoArray        from '../util/Array.mjs';
 import Observable      from '../core/Observable.mjs';
 
-const expressionContentRegex = /\${(.+?)}/g,
-      dataVariableRegex      = /(data|[a-z])((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi;
+const dataVariableRegex = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi,
+      variableNameRegex = /^\w*/;
 
 /**
  * An optional component (view) model for adding bindings to configs
@@ -174,7 +174,7 @@ class Component extends Base {
             if (parentModel) {
                 parentModel.createBinding(componentId, key, value, formatter);
             } else {
-                console.error('No model.Component found with the specified data property', value);
+                console.error('No model.Component found with the specified data property', keyLeaf, value);
             }
         }
     }
@@ -201,6 +201,10 @@ class Component extends Base {
      */
     createBindings(component) {
         Object.entries(component.bind).forEach(([key, value]) => {
+            if (Neo.isObject(value)) {
+                value = value.value;
+            }
+
             if (!this.isStoreValue(value)) {
                 this.createBindingByFormatter(component.id, value, key);
             }
@@ -275,7 +279,7 @@ class Component extends Base {
     }
 
     /**
-     *
+     * Access the closest data property inside the VM parent chain.
      * @param {String} key
      * @param {Neo.model.Component} [originModel=this] for internal usage only
      * @returns {*} value
@@ -334,18 +338,30 @@ class Component extends Base {
             value = value.toString();
         }
 
-        let parts  = value.match(expressionContentRegex) || value.match(dataVariableRegex) || [],
-            result = [],
-            dataVars;
+        if (Neo.config.environment === 'dist/production') {
+            // see: https://github.com/neomjs/neo/issues/2371
+            // inside dist/prod the formatter:
+            // data => DateUtil.convertToyyyymmdd(data.currentDate)
+            // will get minified to:
+            // e=>s.Z.convertToyyyymmdd(e.currentDate)
+            // the new strategy: find the first variable name => "e"
+            // replace it with "data":
+            // data=>s.Z.convertToyyyymmdd(data.currentDate)
+            // from there we can use the dev mode regex again.
 
-        parts.forEach(part => {
-            dataVars = part.match(dataVariableRegex) || [];
+            let dataName       = value.match(variableNameRegex)[0],
+                variableRegExp = new RegExp(`(?<!\\w)${dataName}(?!\\w)`, 'gm'); // negative lookbehind & negative lookahead
 
-            dataVars.forEach(variable => {
-                // remove the "data." at the start in dev mode or "e." (1 character) in dist/production
-                variable = variable.substr(variable.indexOf('.') + 1);
-                NeoArray.add(result, variable);
-            });
+            value = value.replace(variableRegExp, 'data');
+        }
+
+        let dataVars = value.match(dataVariableRegex) || [],
+            result   = [];
+
+        dataVars.forEach(variable => {
+            // remove the "data." at the start
+            variable = variable.substr(5);
+            NeoArray.add(result, variable);
         });
 
         result.sort();
@@ -375,10 +391,21 @@ class Component extends Base {
     /**
      * Returns a plain version of this.data.
      * This excludes the property getters & setters.
+     * @param {Object} [data=this.data]
      * @returns {Object}
      */
-    getPlainData() {
-        return JSON.parse(JSON.stringify(this.data));
+    getPlainData(data=this.data) {
+        let plainData = {};
+
+        Object.entries(data).forEach(([key, value]) => {
+            if (Neo.typeOf(value) === 'Object') {
+                plainData[key] = this.getPlainData(value);
+            } else {
+                plainData[key] = value;
+            }
+        });
+
+        return plainData;
     }
 
     /**
@@ -400,6 +427,30 @@ class Component extends Base {
     }
 
     /**
+     * Access the closest store inside the VM parent chain.
+     * @param {String} key
+     * @param {Neo.model.Component} [originModel=this] for internal usage only
+     * @returns {*} value
+     */
+    getStore(key, originModel=this) {
+        let me     = this,
+            stores = me.stores,
+            parentModel;
+
+        if (stores && stores.hasOwnProperty(key)) {
+            return stores[key];
+        }
+
+        parentModel = me.getParent();
+
+        if (!parentModel) {
+            console.error(`store '${key}' does not exist.`, originModel);
+        }
+
+        return parentModel.getStore(key, originModel);
+    }
+
+    /**
      * Internal method to avoid code redundancy.
      * Use setData() or setDataAtSameLevel() instead.
      *
@@ -415,7 +466,7 @@ class Component extends Base {
         let me = this,
             data, keyLeaf, parentModel, scope;
 
-        if (Neo.isObject(key)) {
+        if (Neo.isObject(key)) {console.log(key);
             Object.entries(key).forEach(([dataKey, dataValue]) => {
                 me.internalSetData(dataKey, dataValue, originModel);
             });
@@ -452,6 +503,12 @@ class Component extends Base {
     }
 
     /**
+     * Override this method inside your view models as a starting point
+     * (instead of using onConstructed() inside your model)
+     */
+    onComponentConstructed() {}
+
+    /**
      *
      * @param {String} key
      * @param {*} value
@@ -466,7 +523,7 @@ class Component extends Base {
             hierarchyData = {};
 
             Object.entries(binding).forEach(([componentId, configObject]) => {
-                component = Neo.getComponent(componentId);
+                component = Neo.getComponent(componentId) || Neo.get(componentId); // timing issue: the cmp might not be registered inside manager.Component yet
                 config    = {};
                 model     = component.getModel();
 
@@ -507,6 +564,10 @@ class Component extends Base {
             me.createBindings(component);
 
             Object.entries(component.bind).forEach(([key, value]) => {
+                if (Neo.isObject(value)) {
+                    value = value.value;
+                }
+
                 if (me.isStoreValue(value)) {
                     me.resolveStore(component, key, value.substring(7)); // remove the "stores." at the start
                 } else {

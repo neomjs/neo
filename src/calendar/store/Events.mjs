@@ -15,17 +15,15 @@ class Events extends Store {
         className: 'Neo.calendar.store.Events',
         /**
          * @member {String} keyProperty='id'
-         * @protected
          */
         keyProperty: 'id',
         /**
          * @member {Neo.data.Model} model=Event
-         * @protected
          */
         model: Event,
         /**
+         * The event related algorithms rely on the startDate based sorting
          * @member {Object[]} sorters
-         * @protected
          */
         sorters: [{
             property : 'startDate',

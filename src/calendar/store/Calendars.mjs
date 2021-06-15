@@ -14,17 +14,14 @@ class Calendars extends Store {
         className: 'Neo.calendar.store.Calendars',
         /**
          * @member {String} keyProperty='id'
-         * @protected
          */
         keyProperty: 'id',
         /**
          * @member {Neo.data.Model} model=Calendar
-         * @protected
          */
         model: Calendar,
         /**
          * @member {Object[]} sorters
-         * @protected
          */
         sorters: [{
             property : 'name',

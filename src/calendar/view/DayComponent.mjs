@@ -41,7 +41,7 @@ class DayComponent extends Component {
         /**
          * @member {String} html='Month'
          */
-        html: 'Day', // todo: remove
+        html: 'todo: Day View', // todo: remove
         /**
          * @member {Neo.calendar.view.MainContainer|null} owner=null
          * @protected

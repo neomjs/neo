@@ -296,7 +296,9 @@ class Base extends CoreBase {
 
         me._vdom = vdom; // silent update
 
-        if (me.mounted && !me.silentVdomUpdate) {
+        if (me.silentVdomUpdate) {
+            me.needsVdomUpdate = true;
+        } else if (me.mounted) {
             me.updateCls(value, oldCls);
         }
     }
@@ -382,7 +384,9 @@ class Base extends CoreBase {
             me._vdom = vdom;
         }
 
-        if (!me.silentVdomUpdate) {
+        if (me.silentVdomUpdate) {
+            me.needsVdomUpdate = true;
+        } else {
             if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app && app.rendering === true) {
                 me.hasRenderingListener = true;
 
@@ -435,6 +439,24 @@ class Base extends CoreBase {
     afterSetAppName(value, oldValue) {
         if (value) {
             Neo.currentWorker.insertThemeFiles(value, this.__proto__);
+        }
+    }
+
+    /**
+     * Triggered after any config got changed
+     * @param {String} key
+     * @param {*} value
+     * @param {*} oldValue
+     * @protected
+     */
+    afterSetConfig(key, value, oldValue) {
+        if (Neo.currentWorker.isUsingViewModels) {
+            let me   = this,
+                bind = me.bind;
+
+            if (bind && bind[key] && bind[key].twoWay) {
+                me.getModel().setData(key, value);
+            }
         }
     }
 
@@ -1376,6 +1398,7 @@ class Base extends CoreBase {
      * Change multiple configs at once, ensuring that all afterSet methods get all new assigned values
      * @param {Object} values={}
      * @param {Boolean} [silent=false]
+     * @returns {Promise<*>}
      */
     set(values={}, silent=false) {
         let me   = this,
@@ -1387,8 +1410,9 @@ class Base extends CoreBase {
 
         me.silentVdomUpdate = false;
 
-        if (silent) {
+        if (silent || !me.needsVdomUpdate) {
             me._vdom = vdom;
+            return Promise.resolve();
         } else {
             return me.promiseVdomUpdate();
         }
@@ -1564,7 +1588,9 @@ class Base extends CoreBase {
 
             vdom.vdom.style = value; // keep the vdom in sync
 
-            if (me.mounted && !me.silentVdomUpdate) {
+            if (me.silentVdomUpdate) {
+                me.needsVdomUpdate = true;
+            } else if (me.mounted) {
                 vnodeStyle = vnode.vnode.style;
 
                 // keep the vnode in sync

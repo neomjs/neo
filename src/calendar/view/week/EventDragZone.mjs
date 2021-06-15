@@ -264,8 +264,8 @@ class EventDragZone extends DragZone {
             owner           = me.owner,
             record          = me.eventRecord,
             switchDirection = false,
-            axisStartDate, currentInterval, deltas, duration, endTime, height, intervalHeight, intervals, limitInterval,
-            minimumEventIntervals, position, startInterval, startTime;
+            axisStartDate, currentInterval, deltas, duration, endDate, height, intervalHeight, intervals, limitInterval,
+            minimumEventIntervals, position, startInterval, startDate;
 
         if (me.dragProxy) {
             if (!keepEndDate && !keepStartDate) {
@@ -289,8 +289,8 @@ class EventDragZone extends DragZone {
                 currentInterval = Math.min(currentInterval, intervals - (eventDuration / intervalSize));
             }
 
-            endTime   = new Date(record.endDate.valueOf());
-            startTime = new Date(record.startDate.valueOf());
+            endDate   = new Date(record.endDate.valueOf());
+            startDate = new Date(record.startDate.valueOf());
 
             deltas = [{
                 id   : me.dragProxy.id,
@@ -317,18 +317,18 @@ class EventDragZone extends DragZone {
                             switchDirection = true;
                             me.forceUpdate  = true;
 
-                            endTime.setHours(axisStartTime);
-                            endTime.setMinutes(currentInterval * intervalSize);
-                            endTime = me.adjustEndDate(endTime);
+                            endDate.setHours(axisStartTime);
+                            endDate.setMinutes(currentInterval * intervalSize);
+                            endDate = me.adjustEndDate(endDate);
 
-                            me.newEndDate = endTime;
+                            me.newEndDate = endDate;
 
-                            startTime.setHours(axisStartTime);
-                            startTime.setMinutes(limitInterval * intervalSize);
+                            startDate.setHours(axisStartTime);
+                            startDate.setMinutes(limitInterval * intervalSize);
 
-                            me.newStartDate = startTime;
+                            me.newStartDate = startDate;
 
-                            duration = (endTime - startTime) / 60 / 60 / 1000; // duration in hours
+                            duration = (endDate - startDate) / 60 / 60 / 1000; // duration in hours
                             deltas[0].style.top = `calc(${limitInterval * intervalHeight / columnHeight * 100}% + 1px)`;
                         } else {
                             me.forceUpdate  = false;
@@ -351,18 +351,18 @@ class EventDragZone extends DragZone {
                             switchDirection = true;
                             me.forceUpdate  = true;
 
-                            endTime.setHours(axisStartTime);
-                            endTime.setMinutes(eventDuration + limitInterval * intervalSize);
-                            endTime = me.adjustEndDate(endTime);
+                            endDate.setHours(axisStartTime);
+                            endDate.setMinutes(eventDuration + limitInterval * intervalSize);
+                            endDate = me.adjustEndDate(endDate);
 
-                            me.newEndDate = endTime;
+                            me.newEndDate = endDate;
 
-                            startTime.setHours(axisStartTime);
-                            startTime.setMinutes(eventDuration + currentInterval * intervalSize);
+                            startDate.setHours(axisStartTime);
+                            startDate.setMinutes(eventDuration + currentInterval * intervalSize);
 
-                            me.newStartDate = startTime;
+                            me.newStartDate = startDate;
 
-                            duration = (endTime - startTime) / 60 / 60 / 1000; // duration in hours
+                            duration = (endDate - startDate) / 60 / 60 / 1000; // duration in hours
 
                             position = (eventDuration / intervalSize + currentInterval) * intervalHeight; // snap to valid intervals
                             position = position / columnHeight * 100;
@@ -394,16 +394,16 @@ class EventDragZone extends DragZone {
             if (me.currentInterval !== currentInterval) {
                 if (!switchDirection) {
                     if (!keepEndDate) {
-                        endTime.setHours(axisStartTime);
-                        endTime.setMinutes(eventDuration + currentInterval * intervalSize);
+                        endDate.setHours(axisStartTime);
+                        endDate.setMinutes(eventDuration + currentInterval * intervalSize);
                     }
 
                     if (keepStartDate) {
-                        me.newEndDate = endTime;
-                        duration = (endTime - record.startDate) / 60 / 60 / 1000; // duration in hours
+                        me.newEndDate = endDate;
+                        duration = (endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
                     } else {
-                        startTime.setHours(axisStartTime);
-                        startTime.setMinutes(currentInterval * intervalSize);
+                        startDate.setHours(axisStartTime);
+                        startDate.setMinutes(currentInterval * intervalSize);
 
                         position = currentInterval * intervalHeight; // snap to valid intervals
                         position = position / columnHeight * 100;
@@ -412,15 +412,15 @@ class EventDragZone extends DragZone {
                     }
 
                     if (keepEndDate) {
-                        duration = (record.endDate - startTime) / 60 / 60 / 1000; // duration in hours
+                        duration = (record.endDate - startDate) / 60 / 60 / 1000; // duration in hours
                     }
                 }
 
-                endTime = me.adjustEndDate(endTime);
+                endDate = me.adjustEndDate(endDate);
 
                 deltas.push({
                     id       : me.dragProxy.vdom.cn[2].id,
-                    innerHTML: owner.intlFormat_time.format(endTime)
+                    innerHTML: owner.intlFormat_time.format(endDate)
                 });
 
                 if (keepEndDate || keepStartDate) {
@@ -430,7 +430,7 @@ class EventDragZone extends DragZone {
 
                 deltas.push({
                     id       : me.dragProxy.vdom.cn[0].id,
-                    innerHTML: owner.intlFormat_time.format(startTime)
+                    innerHTML: owner.intlFormat_time.format(startDate)
                 });
 
                 // check if the node did not get removed yet
