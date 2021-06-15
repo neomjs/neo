@@ -253,23 +253,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered after the currentDate config got changed
-     * todo: Only update the active view, adjust the state on card change
-     * @param {Date} value
-     * @param {Date} oldValue
-     * @protected
-     */
-    afterSetCurrentDate(value, oldValue) {
-        if (oldValue !== undefined) {
-            let me = this;
-
-            //me.weekComponent.currentDate = value;
-            //me.yearComponent.currentDate = value;
-            //me.dateSelector .value       = DateUtil.convertToyyyymmdd(value);
-        }
-    }
-
-    /**
      * Triggered after the locale config got changed
      * @param {String} value
      * @param {String} oldValue
