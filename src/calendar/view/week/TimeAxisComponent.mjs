@@ -170,7 +170,7 @@ class TimeAxisComponent extends Component {
      * @param {String} oldValue
      * @protected
      */
-    afterSetStartTime(value, oldValue) {console.log('afterSetStartTime');
+    afterSetStartTime(value, oldValue) {
         if (oldValue !== undefined) {
             this.afterSetRowHeight(this.rowHeight, 0);
         }
