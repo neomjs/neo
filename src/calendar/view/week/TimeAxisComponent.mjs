@@ -117,7 +117,7 @@ class TimeAxisComponent extends Component {
      * @protected
      */
     afterSetRowHeight(value, oldValue) {
-        if (oldValue !== undefined) {
+        if (oldValue !== undefined && this.vdom.cn) {
             let me          = this,
                 endTime     = me.getTime(me.endTime),
                 startTime   = me.getTime(me.startTime),
