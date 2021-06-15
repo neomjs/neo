@@ -517,14 +517,21 @@ class MainContainer extends Container {
 
         me.dateSelector = Neo.create({
             module              : DateSelector,
+            appName             : me.appName,
             flex                : 'none',
             height              : me.sideBarWidth,
             listeners           : {change: me.onDateSelectorChange, scope: me},
             locale              : me.locale,
+            parentId            : me.id, // we need the parentId to access the model inside the ctor
             scrollNewYearFromTop: me.scrollNewYearFromTop,
             showWeekends        : me.showWeekends,
             value               : DateUtil.convertToyyyymmdd(me.currentDate),
             weekStartDay        : me.weekStartDay,
+
+            bind: {
+                value: data => DateUtil.convertToyyyymmdd(data.currentDate)
+            },
+
             ...me.dateSelectorConfig || {}
         });
 

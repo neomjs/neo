@@ -4,7 +4,7 @@ import NeoArray        from '../util/Array.mjs';
 import Observable      from '../core/Observable.mjs';
 
 const expressionContentRegex = /\${(.+?)}/g,
-      dataVariableRegex      = /(data|[a-z])((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi;
+      dataVariableRegex      = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi;
 
 /**
  * An optional component (view) model for adding bindings to configs
@@ -174,7 +174,7 @@ class Component extends Base {
             if (parentModel) {
                 parentModel.createBinding(componentId, key, value, formatter);
             } else {
-                console.error('No model.Component found with the specified data property', value);
+                console.error('No model.Component found with the specified data property', keyLeaf, value);
             }
         }
     }
@@ -336,6 +336,13 @@ class Component extends Base {
     getFormatterVariables(value) {
         if (Neo.isFunction(value)) {
             value = value.toString();
+        }
+
+        if (Neo.config.environment === 'dist/production') {
+            let dataName       = value.match(/^\w*/)[0],
+                variableRegExp = new RegExp(`(?<!\\w)${dataName}(?!\\w)`, 'gm');
+
+            value = value.replace(variableRegExp, 'data');
         }
 
         let parts  = value.match(expressionContentRegex) || value.match(dataVariableRegex) || [],
