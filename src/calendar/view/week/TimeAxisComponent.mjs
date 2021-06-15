@@ -27,6 +27,13 @@ class TimeAxisComponent extends Component {
          */
         ntype: 'calendar-timeaxis',
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            endTime  : data => data.endTime,
+            startTime: data => data.startTime
+        },
+        /**
          * @member {String[]} cls=['neo-calendar-timeaxis']
          */
         cls: ['neo-calendar-timeaxis'],
@@ -84,7 +91,7 @@ class TimeAxisComponent extends Component {
 
             // todo: handle 24:00 as 23:59
             if (!value) {
-                me.endTime = '24:00';
+                me._endTime = '24:00';
             }
 
             me.afterSetRowHeight(me.rowHeight, 0);
@@ -163,7 +170,7 @@ class TimeAxisComponent extends Component {
      * @param {String} oldValue
      * @protected
      */
-    afterSetStartTime(value, oldValue) {
+    afterSetStartTime(value, oldValue) {console.log('afterSetStartTime');
         if (oldValue !== undefined) {
             this.afterSetRowHeight(this.rowHeight, 0);
         }
