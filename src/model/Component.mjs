@@ -237,6 +237,8 @@ class Component extends Base {
                 }
             }
         });
+
+        console.log(me.data);
     }
 
     /**
@@ -379,10 +381,21 @@ class Component extends Base {
     /**
      * Returns a plain version of this.data.
      * This excludes the property getters & setters.
+     * @param {Object} [data=this.data]
      * @returns {Object}
      */
-    getPlainData() {
-        return JSON.parse(JSON.stringify(this.data));
+    getPlainData(data=this.data) {
+        let plainData = {};
+
+        Object.entries(data).forEach(([key, value]) => {
+            if (Neo.typeOf(value) === 'Object') {
+                plainData[key] = this.getPlainData(value);
+            } else {
+                plainData[key] = value;
+            }
+        });
+
+        return plainData;
     }
 
     /**
@@ -443,7 +456,7 @@ class Component extends Base {
         let me = this,
             data, keyLeaf, parentModel, scope;
 
-        if (Neo.isObject(key)) {
+        if (Neo.isObject(key)) {console.log(key);
             Object.entries(key).forEach(([dataKey, dataValue]) => {
                 me.internalSetData(dataKey, dataValue, originModel);
             });
@@ -500,7 +513,7 @@ class Component extends Base {
             hierarchyData = {};
 
             Object.entries(binding).forEach(([componentId, configObject]) => {
-                component = Neo.getComponent(componentId);
+                component = Neo.getComponent(componentId) || Neo.get(componentId); // timing issue: the cmp might not be registered inside manager.Component yet
                 config    = {};
                 model     = component.getModel();
 
