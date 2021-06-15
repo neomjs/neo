@@ -3,8 +3,8 @@ import ClassSystemUtil from '../util/ClassSystem.mjs';
 import NeoArray        from '../util/Array.mjs';
 import Observable      from '../core/Observable.mjs';
 
-const expressionContentRegex = /\${(.+?)}/g,
-      dataVariableRegex      = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi;
+const dataVariableRegex = /data((?!(\.[a-z_]\w*\(\)))\.[a-z_]\w*)+/gi,
+      variableNameRegex = /^\w*/;
 
 /**
  * An optional component (view) model for adding bindings to configs
@@ -339,24 +339,29 @@ class Component extends Base {
         }
 
         if (Neo.config.environment === 'dist/production') {
-            let dataName       = value.match(/^\w*/)[0],
-                variableRegExp = new RegExp(`(?<!\\w)${dataName}(?!\\w)`, 'gm');
+            // see: https://github.com/neomjs/neo/issues/2371
+            // inside dist/prod the formatter:
+            // data => DateUtil.convertToyyyymmdd(data.currentDate)
+            // will get minified to:
+            // e=>s.Z.convertToyyyymmdd(e.currentDate)
+            // the new strategy: find the first variable name => "e"
+            // replace it with "data":
+            // data=>s.Z.convertToyyyymmdd(data.currentDate)
+            // from there we can use the dev mode regex again.
+
+            let dataName       = value.match(variableNameRegex)[0],
+                variableRegExp = new RegExp(`(?<!\\w)${dataName}(?!\\w)`, 'gm'); // negative lookbehind & negative lookahead
 
             value = value.replace(variableRegExp, 'data');
         }
 
-        let parts  = value.match(expressionContentRegex) || value.match(dataVariableRegex) || [],
-            result = [],
-            dataVars;
+        let dataVars = value.match(dataVariableRegex) || [],
+            result   = [];
 
-        parts.forEach(part => {
-            dataVars = part.match(dataVariableRegex) || [];
-
-            dataVars.forEach(variable => {
-                // remove the "data." at the start in dev mode or "e." (1 character) in dist/production
-                variable = variable.substr(variable.indexOf('.') + 1);
-                NeoArray.add(result, variable);
-            });
+        dataVars.forEach(variable => {
+            // remove the "data." at the start
+            variable = variable.substr(5);
+            NeoArray.add(result, variable);
         });
 
         result.sort();
