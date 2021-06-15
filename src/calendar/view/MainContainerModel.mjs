@@ -2,6 +2,8 @@ import CalendarsStore from '../store/Calendars.mjs';
 import EventsStore    from '../store/Events.mjs';
 import Component      from '../../../src/model/Component.mjs';
 
+const todayDate = new Date();
+
 /**
  * @class Neo.calendar.view.MainContainerModel
  * @extends Neo.model.Component
@@ -21,6 +23,11 @@ class MainContainerModel extends Component {
              * @member {Boolean} data.allowEventEditing=true
              */
             allowEventEditing: true,
+            /**
+             * The currently active date inside all views
+             * @member {Date} currentDate=new Date()
+             */
+            currentDate: todayDate,
             /**
              * @member {Boolean} data.enableEventResizingAcrossOppositeEdge=true
              */
