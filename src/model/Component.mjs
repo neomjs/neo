@@ -201,6 +201,10 @@ class Component extends Base {
      */
     createBindings(component) {
         Object.entries(component.bind).forEach(([key, value]) => {
+            if (Neo.isObject(value)) {
+                value = value.value;
+            }
+
             if (!this.isStoreValue(value)) {
                 this.createBindingByFormatter(component.id, value, key);
             }
@@ -537,6 +541,10 @@ class Component extends Base {
             me.createBindings(component);
 
             Object.entries(component.bind).forEach(([key, value]) => {
+                if (Neo.isObject(value)) {
+                    value = value.value;
+                }
+
                 if (me.isStoreValue(value)) {
                     me.resolveStore(component, key, value.substring(7)); // remove the "stores." at the start
                 } else {

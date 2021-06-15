@@ -443,6 +443,24 @@ class Base extends CoreBase {
     }
 
     /**
+     * Triggered after any config got changed
+     * @param {String} key
+     * @param {*} value
+     * @param {*} oldValue
+     * @protected
+     */
+    afterSetConfig(key, value, oldValue) {
+        if (Neo.currentWorker.isUsingViewModels) {
+            let me   = this,
+                bind = me.bind;
+
+            if (bind && bind[key] && bind[key].twoWay) {
+                me.getModel().setData(key, value);
+            }
+        }
+    }
+
+    /**
      * Triggered after the disabled config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue

@@ -50,6 +50,13 @@ class MainContainer extends Container {
          */
         baseFontSize_: null,
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            endTime  : {twoWay: true, value: data => data.endTime},
+            startTime: {twoWay: true, value: data => data.startTime}
+        },
+        /**
          * @member {Neo.calendar.view.CalendarsContainer|null} calendarsContainer=null
          */
         calendarsContainer: null,
@@ -262,16 +269,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered after the endTime config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetEndTime(value, oldValue) {
-        this.getModel().setData('endTime', value);
-    }
-
-    /**
      * Triggered after the locale config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -380,16 +377,6 @@ class MainContainer extends Container {
                 });
             }
         }
-    }
-
-    /**
-     * Triggered after the startTime config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetStartTime(value, oldValue) {
-        this.getModel().setData('startTime', value);
     }
 
     /**
