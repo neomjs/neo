@@ -859,7 +859,7 @@ class Component extends BaseComponent {
             content           = me.getColumnContainer(),
             j                 = startIndex,
             showEventEndDates = me.showEventEndDates,
-            column, dayRecords, duration, eventCls, hasOverflow, height, i, len, record, recordKey, startHours, top;
+            column, dayRecords, duration, endDate, eventCls, hasOverflow, height, i, len, record, recordKey, startHours, top;
 
         date.setDate(date.getDate() + startIndex);
 
@@ -875,7 +875,14 @@ class Component extends BaseComponent {
                 record = dayRecords[i];
 
                 if (calendarsStore.get(record.calendarId).active) {
-                    duration    = (record.endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
+                    endDate = DateUtil.clone(record.endDate);
+
+                    if (endTime < endDate.getHours()) {
+                        endDate.setHours(endTime);
+                        endDate.setMinutes(0);
+                    }
+
+                    duration    = (endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
                     eventCls    = ['neo-event', 'neo-draggable'];
                     hasOverflow = false;
                     height      = Math.round(duration / totalTime * 100 * 1000) / 1000;
