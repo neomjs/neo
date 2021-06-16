@@ -503,12 +503,6 @@ class Component extends Base {
     }
 
     /**
-     * Override this method inside your view models as a starting point
-     * (instead of using onConstructed() inside your model)
-     */
-    onComponentConstructed() {}
-
-    /**
      *
      * @param {String} key
      * @param {*} value
