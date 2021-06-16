@@ -1,3 +1,4 @@
+import DateUtil           from '../../../util/Date.mjs';
 import DragProxyComponent from '../../../draggable/DragProxyComponent.mjs';
 import DragZone           from '../../../draggable/DragZone.mjs';
 import NeoArray           from '../../../util/Array.mjs';
@@ -224,7 +225,7 @@ class EventDragZone extends DragZone {
                 endDate   = me.newEndDate || record.endDate;
                 startDate = me.newStartDate || startDate;
             } else {
-                endDate = new Date(startDate.valueOf());
+                endDate = DateUtil.clone(record.startDate);
                 endDate.setMinutes(endDate.getMinutes() + me.eventDuration);
             }
         }
@@ -284,13 +285,24 @@ class EventDragZone extends DragZone {
 
             currentInterval = Math.floor(position / intervalHeight);
 
+            endDate   = DateUtil.clone(record.endDate);
+            startDate = DateUtil.clone(record.startDate);
+
+            // events can have a bigger end time than the axis max value.
+            // resizing via the south handle needs to adjust the duration to honor this.
+            if (keepStartDate) {
+                if (axisEndTime < endDate.getHours()) {
+                    endDate.setHours(axisEndTime);
+                    endDate.setMinutes(0);
+
+                    eventDuration = (endDate - startDate) / 60 / 1000; // duration in minutes
+                }
+            }
+
             if (!keepEndDate) {
                 // events must not end after the last visible interval
                 currentInterval = Math.min(currentInterval, intervals - (eventDuration / intervalSize));
             }
-
-            endDate   = new Date(record.endDate.valueOf());
-            startDate = new Date(record.startDate.valueOf());
 
             deltas = [{
                 id   : me.dragProxy.id,
@@ -298,13 +310,12 @@ class EventDragZone extends DragZone {
             }];
 
             if (keepEndDate || keepStartDate) {
-                axisStartDate = new Date(record.startDate.valueOf());
+                axisStartDate = DateUtil.clone(record.startDate);
                 axisStartDate.setHours(axisStartTime);
                 axisStartDate.setMinutes(0);
 
-                startInterval = (record.startDate - axisStartDate) / intervalSize / 60 / 1000;
-
                 minimumEventIntervals = owner.minimumEventDuration / intervalSize;
+                startInterval         = (record.startDate - axisStartDate) / intervalSize / 60 / 1000;
 
                 if (keepEndDate) {
                     limitInterval = startInterval + (eventDuration / intervalSize);
