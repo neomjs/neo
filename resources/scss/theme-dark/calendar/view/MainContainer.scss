@@ -1,21 +1,27 @@
 $neoMap: map-merge($neoMap, (
-    'calendar-border-color'            : #3c3f41,
-    'event-blue-background-color'      : rgba(104, 169, 217, 0.1),
-    'event-blue-background-color-focus': rgba(104, 169, 217, 0.6),
-    'event-blue-color'                 : rgb(104, 169, 217),
-    'event-red-background-color'       : rgba(255, 0, 0, 0.1),
-    'event-red-background-color-focus' : rgba(255, 0, 0, 0.6),
-    'event-red-color'                  : rgb(255, 0, 0)
+    'calendar-border-color'             : #3c3f41,
+    'event-blue-background-color'       : rgba(104, 169, 217, 0.1),
+    'event-blue-background-color-focus' : rgba(104, 169, 217, 0.6),
+    'event-blue-color'                  : rgb(104, 169, 217),
+    'event-green-background-color'      : rgba(127, 255, 0, 0.1),
+    'event-green-background-color-focus': rgba(127, 255, 0, 0.6),
+    'event-green-color'                 : rgb(127, 255, 0),
+    'event-red-background-color'        : rgba(255, 0, 0, 0.1),
+    'event-red-background-color-focus'  : rgba(255, 0, 0, 0.6),
+    'event-red-color'                   : rgb(255, 0, 0)
 ));
 
 @if $useCssVars == true {
     :root .neo-theme-dark { // .neo-calendar-maincontainer
-        --calendar-border-color            : #{neo(calendar-border-color)};
-        --event-blue-background-color      : #{neo(event-blue-background-color)};
-        --event-blue-background-color-focus: #{neo(event-blue-background-color-focus)};
-        --event-blue-color                 : #{neo(event-blue-color)};
-        --event-red-background-color       : #{neo(event-red-background-color)};
-        --event-red-background-color-focus : #{neo(event-red-background-color-focus)};
-        --event-red-color                  : #{neo(event-red-color)};
+        --calendar-border-color             : #{neo(calendar-border-color)};
+        --event-blue-background-color       : #{neo(event-blue-background-color)};
+        --event-blue-background-color-focus : #{neo(event-blue-background-color-focus)};
+        --event-blue-color                  : #{neo(event-blue-color)};
+        --event-red-background-color        : #{neo(event-red-background-color)};
+        --event-red-background-color-focus  : #{neo(event-red-background-color-focus)};
+        --event-red-color                   : #{neo(event-red-color)};
+        --event-green-background-color      : #{neo(event-green-background-color)};
+        --event-green-background-color-focus: #{neo(event-green-background-color-focus)};
+        --event-green-color                 : #{neo(event-green-color)};
     }
 }
