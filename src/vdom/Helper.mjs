@@ -379,6 +379,10 @@ class Helper extends Base {
                         }
                     }
 
+                    console.log('movedNode.vnode.id', movedNode.vnode.id);
+                    console.log('newVnodeDetails.parentNode.childNodes', Neo.clone(newVnodeDetails.parentNode.childNodes, true));
+                    console.log('movedNode.index', movedNode.index);
+
                     if (newVnodeDetails.parentNode.childNodes[movedNode.index].id !== movedNode.vnode.id) {
                         deltas.push({
                             action: 'moveNode',
