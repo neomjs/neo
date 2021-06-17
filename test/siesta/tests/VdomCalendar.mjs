@@ -128,7 +128,7 @@ StartTest(t => {
         output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(deltas, [
-            {action: 'removeNode', id: 'neo-column-1'}
+            {action: 'removeNode', id: 'neo-column-1', parentId: 'neo-calendar-week'}
         ], 'deltas got created successfully');
 
         t.diag("Revert operation");
