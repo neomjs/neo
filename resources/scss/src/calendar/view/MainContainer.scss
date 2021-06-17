@@ -33,6 +33,10 @@
         &.neo-focus {
             background-color: v(event-blue-background-color-focus);
         }
+
+        .neo-resizable {
+            color: v(event-blue-color);
+        }
     }
 
     &.neo-green {
@@ -42,6 +46,10 @@
 
         &.neo-focus {
             background-color: v(event-green-background-color-focus);
+        }
+
+        .neo-resizable {
+            color: v(event-green-color);
         }
     }
 
@@ -53,6 +61,10 @@
         &.neo-focus {
             background-color: v(event-orange-background-color-focus);
         }
+
+        .neo-resizable {
+            color: v(event-orange-color);
+        }
     }
 
     &.neo-pink {
@@ -63,6 +75,10 @@
         &.neo-focus {
             background-color: v(event-pink-background-color-focus);
         }
+
+        .neo-resizable {
+            color: v(event-pink-color);
+        }
     }
 
     &.neo-red {
@@ -72,6 +88,10 @@
 
         &.neo-focus {
             background-color: v(event-red-background-color-focus);
+        }
+
+        .neo-resizable {
+            color: v(event-red-color);
         }
     }
 }
