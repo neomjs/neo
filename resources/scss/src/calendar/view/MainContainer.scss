@@ -33,6 +33,52 @@
         &.neo-focus {
             background-color: v(event-blue-background-color-focus);
         }
+
+        .neo-resizable {
+            color: v(event-blue-color);
+        }
+    }
+
+    &.neo-green {
+        background-color: v(event-green-background-color);
+        border-left     : 2px solid v(event-green-color);
+        color           : v(event-green-color);
+
+        &.neo-focus {
+            background-color: v(event-green-background-color-focus);
+        }
+
+        .neo-resizable {
+            color: v(event-green-color);
+        }
+    }
+
+    &.neo-orange {
+        background-color: v(event-orange-background-color);
+        border-left     : 2px solid v(event-orange-color);
+        color           : v(event-orange-color);
+
+        &.neo-focus {
+            background-color: v(event-orange-background-color-focus);
+        }
+
+        .neo-resizable {
+            color: v(event-orange-color);
+        }
+    }
+
+    &.neo-pink {
+        background-color: v(event-pink-background-color);
+        border-left     : 2px solid v(event-pink-color);
+        color           : v(event-pink-color);
+
+        &.neo-focus {
+            background-color: v(event-pink-background-color-focus);
+        }
+
+        .neo-resizable {
+            color: v(event-pink-color);
+        }
     }
 
     &.neo-red {
@@ -42,6 +88,29 @@
 
         &.neo-focus {
             background-color: v(event-red-background-color-focus);
+        }
+
+        .neo-resizable {
+            color: v(event-red-color);
+        }
+    }
+
+    &.neo-yellow {
+        background-color: v(event-yellow-background-color);
+        border-left     : 2px solid v(event-yellow-border-color);
+        color           : v(event-yellow-color);
+
+        &.neo-focus {
+            background-color: v(event-yellow-background-color-focus);
+            color           : v(event-yellow-color-focus) !important;
+
+            .neo-resizable {
+                color: v(event-yellow-color-focus) !important;
+            }
+        }
+
+        .neo-resizable {
+            color: v(event-yellow-color);
         }
     }
 }

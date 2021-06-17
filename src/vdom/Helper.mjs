@@ -165,6 +165,9 @@ class Helper extends Base {
             // use case: calendar week view => move an event into a column on the right side
 
             if (movedNode) {
+
+                // todo: check if there is a real index change
+
                 deltas.push({
                     action: 'moveNode',
                     id      : oldVnode.id,
@@ -370,16 +373,16 @@ class Helper extends Base {
 
                     let newVnodeDetails = VNodeUtil.findChildVnode(newVnodeRoot, newVnode.id);
 
-                    if (newVnodeDetails.parentNode.id === movedNode.parentNode.id) {
-                        // console.log(newVnodeDetails.index, movedNode.index);
+                    let sameParent = newVnodeDetails.parentNode.id === movedNode.parentNode.id;
 
+                    if (sameParent) {
                         if (newVnodeDetails.index > movedNode.index) {
                             // todo: needs testing => index gaps > 1
                             indexDelta = newVnodeDetails.index - movedNode.index;
                         }
                     }
 
-                    if (newVnodeDetails.parentNode.childNodes[movedNode.index].id !== movedNode.vnode.id) {
+                    if (!sameParent || newVnodeDetails.parentNode.childNodes[movedNode.index].id !== movedNode.vnode.id) {
                         deltas.push({
                             action: 'moveNode',
                             id      : movedNode.vnode.id,

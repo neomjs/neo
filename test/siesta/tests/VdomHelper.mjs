@@ -270,7 +270,7 @@ StartTest(t => {
             nodeName  : 'div',
             style     : {color: 'green'},
             vtype     : 'vnode',
-            
+
             childNodes: [
                 {attributes: {}, childNodes: [], className: [], id: 'neo-vnode-2',  innerHTML: undefined, nodeName: 'div', style: {}, vtype: 'vnode'},
                 {attributes: {}, childNodes: [], className: [], id: 'neo-button-1', innerHTML: undefined, nodeName: 'div', style: {}, vtype: 'vnode'},
@@ -434,7 +434,7 @@ StartTest(t => {
         }, 'vnode got updated successfully');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'removeNode', id: 'neo-list-1__jsakalos'},
+            {action: 'removeNode', id: 'neo-list-1__jsakalos', parentId: 'neo-list-1'},
             {action: 'removeNode', id: 'neo-list-1__mrsunshine'},
             {action: 'removeNode', id: 'neo-list-1__rwaters'}
         ], 'deltas got created successfully');
@@ -507,7 +507,7 @@ StartTest(t => {
 
         t.isDeeplyStrict(deltas, [
             {action: 'moveNode',   id: 'neo-list-1__tobiu', index: 2, parentId: 'neo-list-1'},
-            {action: 'removeNode', id: 'neo-list-1__jsakalos'},
+            {action: 'removeNode', id: 'neo-list-1__jsakalos',        parentId: 'neo-list-1'},
             {action: 'removeNode', id: 'neo-list-1__rwaters'}
         ], 'deltas got created successfully');
 
@@ -524,7 +524,7 @@ StartTest(t => {
         ], 'vnode got updated successfully');
 
         t.isDeeplyStrict(deltas, [
-            {action: 'removeNode', id: 'neo-list-1__bhaustein'}
+            {action: 'removeNode', id: 'neo-list-1__bhaustein', parentId: 'neo-list-1'}
         ], 'deltas got created successfully');
 
         t.diag("restore the initial list state");

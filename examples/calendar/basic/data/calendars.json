@@ -18,7 +18,7 @@
         "name"  : "Hyle"
     },
     {
-        "active": false,
+        "active": true,
         "color" : "yellow",
         "id"    : 4,
         "name"  : "Jay"

@@ -128,7 +128,7 @@ StartTest(t => {
         output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
 
         t.isDeeplyStrict(deltas, [
-            {action: 'removeNode', id: 'neo-column-1'}
+            {action: 'removeNode', id: 'neo-column-1', parentId: 'neo-calendar-week'}
         ], 'deltas got created successfully');
 
         t.diag("Revert operation");
@@ -200,5 +200,37 @@ StartTest(t => {
         t.isDeeplyStrict(deltas, [
             {action: 'removeNode', id: 'neo-1'}
         ], 'deltas got created successfully');
+
+        // see: https://github.com/neomjs/neo/issues/2390
+        t.diag("Move an event with a higher index sibling into a non empty column");
+        console.log('#########');
+
+        vdom =
+        {id: 'neo-calendar-week', cn: [
+            {id: 'neo-column-1', cn: [
+                {id: 'neo-event-1'}
+            ]},
+            {id: 'neo-column-2', cn: [
+                {id: 'neo-event-2'},
+                {id: 'neo-event-3'}
+            ]}
+        ]};
+
+        vnode = VdomHelper.create(vdom);
+
+        vdom =
+        {id: 'neo-calendar-week', cn: [
+            {id: 'neo-column-1', cn: [
+                {id: 'neo-event-1'},
+                {id: 'neo-event-2'}
+            ]},
+            {id: 'neo-column-2', cn: [
+                {id: 'neo-event-3'}
+            ]}
+        ]};
+
+        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+
+        console.log(deltas);
     });
 });
