@@ -206,20 +206,20 @@ StartTest(t => {
 
         vdom =
         {id: 'neo-calendar-week', cn: [
-            {id: 'neo-column-1', cls: ['neo-c-w-column'], cn: [
-                {id: 'neo-event-1', cls: ['neo-event']}
+            {id: 'neo-column-1', cn: [
+                {id: 'neo-event-1'}
             ]},
-            {id: 'neo-column-2', cls: ['neo-c-w-column'], cn: [
+            {id: 'neo-column-2', cn: [
                 {id: 'neo-event-2', cls: ['neo-event']}
             ]},
-            {id: 'neo-column-3', cls: ['neo-c-w-column']},
-            {id: 'neo-column-4', cls: ['neo-c-w-column'], cn: [
-                {id: 'neo-event-3', cls: ['neo-event']},
-                {id: 'neo-event-4', cls: ['neo-event']}
+            {id: 'neo-column-3'},
+            {id: 'neo-column-4', cn: [
+                {id: 'neo-event-3'}, // move this event into col2
+                {id: 'neo-event-4'}
             ]},
-            {id: 'neo-column-5', cls: ['neo-c-w-column'], cn: [
-                {id: 'neo-event-5', cls: ['neo-event']},
-                {id: 'neo-event-6', cls: ['neo-event']}
+            {id: 'neo-column-5', cn: [
+                {id: 'neo-event-5'},
+                {id: 'neo-event-6'}
             ]}
         ]};
 
@@ -227,20 +227,20 @@ StartTest(t => {
 
         vdom =
         {id: 'neo-calendar-week', cn: [
-            {id: 'neo-column-1', cls: ['neo-c-w-column'], cn: [
-                {id: 'neo-event-1', cls: ['neo-event']}
+            {id: 'neo-column-1', cn: [
+                {id: 'neo-event-1'}
             ]},
-            {id: 'neo-column-2', cls: ['neo-c-w-column'], cn: [
-                {id: 'neo-event-2', cls: ['neo-event']},
-                {id: 'neo-event-3', cls: ['neo-event']}
+            {id: 'neo-column-2', cn: [
+                {id: 'neo-event-2'},
+                {id: 'neo-event-3'}
             ]},
-            {id: 'neo-column-3', cls: ['neo-c-w-column']},
-            {id: 'neo-column-4', cls: ['neo-c-w-column'], cn: [
-                {id: 'neo-event-4', cls: ['neo-event']}
+            {id: 'neo-column-3'},
+            {id: 'neo-column-4', cn: [
+                {id: 'neo-event-4'}
             ]},
-            {id: 'neo-column-5', cls: ['neo-c-w-column'], cn: [
-                {id: 'neo-event-5', cls: ['neo-event']},
-                {id: 'neo-event-6', cls: ['neo-event']}
+            {id: 'neo-column-5', cn: [
+                {id: 'neo-event-5'},
+                {id: 'neo-event-6'}
             ]}
         ]};
 

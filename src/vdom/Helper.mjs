@@ -370,8 +370,10 @@ class Helper extends Base {
 
                     let newVnodeDetails = VNodeUtil.findChildVnode(newVnodeRoot, newVnode.id);
 
+                    console.log(newVnodeDetails.parentNode.id, movedNode.parentNode.id)
+
                     if (newVnodeDetails.parentNode.id === movedNode.parentNode.id) {
-                        // console.log(newVnodeDetails.index, movedNode.index);
+                        console.log(newVnodeDetails.index, movedNode.index);
 
                         if (newVnodeDetails.index > movedNode.index) {
                             // todo: needs testing => index gaps > 1
@@ -380,8 +382,9 @@ class Helper extends Base {
                     }
 
                     console.log('movedNode.vnode.id', movedNode.vnode.id);
-                    console.log('newVnodeDetails.parentNode.childNodes', Neo.clone(newVnodeDetails.parentNode.childNodes, true));
                     console.log('movedNode.index', movedNode.index);
+                    console.log('newVnodeDetails.parentNode.childNodes');
+                    console.log(Neo.clone(newVnodeDetails.parentNode.childNodes, true));
 
                     if (newVnodeDetails.parentNode.childNodes[movedNode.index].id !== movedNode.vnode.id) {
                         deltas.push({
