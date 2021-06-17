@@ -36,6 +36,21 @@ This is something I would love to share with you!
 </table>
 <!--bronze end-->
 
+<h3 align="center">Generous Backers</h3>
+<!--generous backers start-->
+<table>
+  <tbody>
+    <tr>
+      <td align="center" valign="middle">
+        <a href="https://github.com/keckeroo">
+          <img width="40px" src="https://avatars.githubusercontent.com/u/1653769?v=4">
+        </a>
+      </td>
+    </tr>
+  </tbody>
+</table>
+<!--generous backers end-->
+
 <h3 align="center">Backers</h3>
 <!--backers start-->
 <table>
