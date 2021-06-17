@@ -444,7 +444,7 @@ class Component extends Base {
         parentModel = me.getParent();
 
         if (!parentModel) {
-            console.error(`store '${key}' does not exist.`, originModel);
+            console.error(`store '${key}' found inside this model or parents.`, originModel);
         }
 
         return parentModel.getStore(key, originModel);
@@ -501,12 +501,6 @@ class Component extends Base {
     isStoreValue(value) {
         return Neo.isString(value) && value.startsWith('stores.');
     }
-
-    /**
-     * Override this method inside your view models as a starting point
-     * (instead of using onConstructed() inside your model)
-     */
-    onComponentConstructed() {}
 
     /**
      *
@@ -605,20 +599,7 @@ class Component extends Base {
      * @param {Neo.model.Component} [originModel=this] for internal usage only
      */
     resolveStore(component, configName, storeName, originModel=this) {
-        let me = this,
-            parentModel;
-
-        if (!me.stores || !me.stores.hasOwnProperty(storeName)) {
-            parentModel = me.getParent();
-
-            if (parentModel) {
-                parentModel.resolveStore(component, configName, storeName);
-            } else {
-                console.error('bound store not found inside this model or parents:', storeName, originModel);
-            }
-        } else {
-            component[configName] = me.stores[storeName];
-        }
+        component[configName] = this.getStore(storeName);
     }
 
     /**

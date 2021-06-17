@@ -23,3 +23,25 @@
         }
     }
 }
+
+.neo-event {
+    &.neo-blue {
+        background-color: v(event-blue-background-color);
+        border-left     : 2px solid v(event-blue-color);
+        color           : v(event-blue-color);
+
+        &.neo-focus {
+            background-color: v(event-blue-background-color-focus);
+        }
+    }
+
+    &.neo-red {
+        background-color: v(event-red-background-color);
+        border-left     : 2px solid v(event-red-color);
+        color           : v(event-red-color);
+
+        &.neo-focus {
+            background-color: v(event-red-background-color-focus);
+        }
+    }
+}

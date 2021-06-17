@@ -66,8 +66,6 @@
     }
 
     .neo-event {
-        background-color: rgba(255, 0, 0, 0.1);
-        border-left     : 2px solid red;
         border-right    : 1px solid transparent;
         cursor          : pointer;
         display         : flex;
@@ -82,13 +80,8 @@
         transition-timing-function: ease-out;
 
         &.neo-focus {
-            background-color: rgba(255, 0, 0, 0.6);
-            outline         : 0;
-
-            .neo-event-time,
-            .neo-event-title {
-                color: #fff;
-            }
+            color  : #fff;
+            outline: 0;
 
             .neo-resizable {
                 color: #fff;
@@ -110,7 +103,6 @@
 
     .neo-event-time,
     .neo-event-title {
-        color         : red;
         pointer-events: none;
         user-select   : none;
     }
