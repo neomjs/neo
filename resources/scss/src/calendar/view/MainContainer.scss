@@ -26,22 +26,22 @@
 
 .neo-event {
     &.neo-blue {
-        background-color: rgba(104, 169, 217, 0.1);
-        border-left     : 2px solid rgb(104, 169, 217);
-        color           : rgb(104, 169, 217);
+        background-color: v(event-blue-background-color);
+        border-left     : 2px solid v(event-blue-color);
+        color           : v(event-blue-color);
 
         &.neo-focus {
-            background-color: rgba(104, 169, 217, 0.6);
+            background-color: v(event-blue-background-color-focus);
         }
     }
 
     &.neo-red {
-        background-color: rgba(255, 0, 0, 0.1);
-        border-left     : 2px solid rgb(255, 0, 0);
-        color           : rgb(255, 0, 0);
+        background-color: v(event-red-background-color);
+        border-left     : 2px solid v(event-red-color);
+        color           : v(event-red-color);
 
         &.neo-focus {
-            background-color: rgba(255, 0, 0, 0.6);
+            background-color: v(event-red-background-color-focus);
         }
     }
 }
