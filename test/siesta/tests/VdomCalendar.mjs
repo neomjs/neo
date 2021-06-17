@@ -203,27 +203,7 @@ StartTest(t => {
 
         // see: https://github.com/neomjs/neo/issues/2390
         t.diag("Move an event with a higher index sibling into a non empty column");
-
-        vdom =
-        {id: 'neo-calendar-week', cn: [
-            {id: 'neo-column-1', cn: [
-                {id: 'neo-event-1'}
-            ]},
-            {id: 'neo-column-2', cn: [
-                {id: 'neo-event-2', cls: ['neo-event']}
-            ]},
-            {id: 'neo-column-3'},
-            {id: 'neo-column-4', cn: [
-                {id: 'neo-event-3'}, // move this event into col2
-                {id: 'neo-event-4'}
-            ]},
-            {id: 'neo-column-5', cn: [
-                {id: 'neo-event-5'},
-                {id: 'neo-event-6'}
-            ]}
-        ]};
-
-        vnode = VdomHelper.create(vdom);
+        console.log('#########');
 
         vdom =
         {id: 'neo-calendar-week', cn: [
@@ -233,14 +213,19 @@ StartTest(t => {
             {id: 'neo-column-2', cn: [
                 {id: 'neo-event-2'},
                 {id: 'neo-event-3'}
+            ]}
+        ]};
+
+        vnode = VdomHelper.create(vdom);
+
+        vdom =
+        {id: 'neo-calendar-week', cn: [
+            {id: 'neo-column-1', cn: [
+                {id: 'neo-event-1'},
+                {id: 'neo-event-2'}
             ]},
-            {id: 'neo-column-3'},
-            {id: 'neo-column-4', cn: [
-                {id: 'neo-event-4'}
-            ]},
-            {id: 'neo-column-5', cn: [
-                {id: 'neo-event-5'},
-                {id: 'neo-event-6'}
+            {id: 'neo-column-2', cn: [
+                {id: 'neo-event-3'}
             ]}
         ]};
 
