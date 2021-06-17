@@ -222,10 +222,10 @@ class EventDragZone extends DragZone {
             startDate.setMinutes(me.currentInterval * me.intervalSize);
 
             if (me.keepEndDate) {
-                endDate   = me.newEndDate || record.endDate;
+                endDate   = me.newEndDate   || record.endDate;
                 startDate = me.newStartDate || startDate;
             } else {
-                endDate = DateUtil.clone(record.startDate);
+                endDate = DateUtil.clone(startDate);
                 endDate.setMinutes(endDate.getMinutes() + me.eventDuration);
             }
         }
