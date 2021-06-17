@@ -210,6 +210,7 @@ class EventDragZone extends DragZone {
         super.dragEnd(data);
 
         let me     = this,
+            owner  = me.owner,
             record = me.eventRecord,
             endDate, startDate;
 
@@ -217,7 +218,7 @@ class EventDragZone extends DragZone {
             endDate   = me.newEndDate;
             startDate = me.newStartDate || record.startDate;
         } else {
-            startDate = new Date(VDomUtil.findVdomChild(me.owner.vdom, me.proxyParentId).vdom.flag + ' 00:00:00');
+            startDate = new Date(VDomUtil.findVdomChild(owner.vdom, me.proxyParentId).vdom.flag + ' 00:00:00');
             startDate.setHours(me.axisStartTime);
             startDate.setMinutes(me.currentInterval * me.intervalSize);
 
@@ -243,7 +244,11 @@ class EventDragZone extends DragZone {
             proxyParentId: null
         });
 
-        me.owner.updateEvents();
+        // todo: updating a record field which is included inside a sorter should trigger collection.doSort()
+        // see: https://github.com/neomjs/neo/issues/2392
+
+        owner.getModel().getStore('events').doSort();
+        owner.updateEvents();
     }
 
     /**
