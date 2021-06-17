@@ -55,6 +55,16 @@
         }
     }
 
+    &.neo-pink {
+        background-color: v(event-pink-background-color);
+        border-left     : 2px solid v(event-pink-color);
+        color           : v(event-pink-color);
+
+        &.neo-focus {
+            background-color: v(event-pink-background-color-focus);
+        }
+    }
+
     &.neo-red {
         background-color: v(event-red-background-color);
         border-left     : 2px solid v(event-red-color);

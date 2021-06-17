@@ -80,9 +80,19 @@
         "title"      : "Lunch Break 2"
     },
     {
-        "attendees"  : ["Tobias"],
+        "attendees"  : ["Grgur"],
         "allDay"     : false,
         "id"         : 9,
+        "calendarId" : 2,
+        "description": "Steak",
+        "endDate"    : "Thu Jul 23 2021 21:00:00 GMT+0200",
+        "startDate"  : "Thu Jul 23 2021 19:30:00 GMT+0200",
+        "title"      : "Dinner"
+    },
+    {
+        "attendees"  : ["Tobias"],
+        "allDay"     : false,
+        "id"         : 10,
         "calendarId" : 1,
         "description": "Description Text 3",
         "endDate"    : "Wed Jul 29 2021 14:00:00 GMT+0200",
@@ -92,7 +102,7 @@
     {
         "attendees"  : ["Tobias"],
         "allDay"     : false,
-        "id"         : 10,
+        "id"         : 11,
         "calendarId" : 1,
         "description": "Description Text Siesta",
         "endDate"    : "Wed Jul 29 2021 15:00:00 GMT+0200",

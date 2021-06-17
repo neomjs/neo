@@ -9,6 +9,9 @@ $neoMap: map-merge($neoMap, (
     'event-orange-background-color'      : rgba(255, 140, 0, 0.1),
     'event-orange-background-color-focus': rgba(255, 140, 0, 0.6),
     'event-orange-color'                 : rgb(255, 140, 0),
+    'event-pink-background-color'        : rgba(255, 20, 147, 0.1),
+    'event-pink-background-color-focus'  : rgba(255, 20, 147, 0.6),
+    'event-pink-color'                   : rgb(255, 20, 147),
     'event-red-background-color'         : rgba(255, 0, 0, 0.1),
     'event-red-background-color-focus'   : rgba(255, 0, 0, 0.6),
     'event-red-color'                    : rgb(255, 0, 0)
@@ -26,6 +29,9 @@ $neoMap: map-merge($neoMap, (
         --event-orange-background-color      : #{neo(event-orange-background-color)};
         --event-orange-background-color-focus: #{neo(event-orange-background-color-focus)};
         --event-orange-color                 : #{neo(event-orange-color)};
+        --event-pink-background-color        : #{neo(event-pink-background-color)};
+        --event-pink-background-color-focus  : #{neo(event-pink-background-color-focus)};
+        --event-pink-color                   : #{neo(event-pink-color)};
         --event-red-background-color         : #{neo(event-red-background-color)};
         --event-red-background-color-focus   : #{neo(event-red-background-color-focus)};
         --event-red-color                    : #{neo(event-red-color)};
