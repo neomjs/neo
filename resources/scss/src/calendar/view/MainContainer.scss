@@ -45,6 +45,16 @@
         }
     }
 
+    &.neo-orange {
+        background-color: v(event-orange-background-color);
+        border-left     : 2px solid v(event-orange-color);
+        color           : v(event-orange-color);
+
+        &.neo-focus {
+            background-color: v(event-orange-background-color-focus);
+        }
+    }
+
     &.neo-red {
         background-color: v(event-red-background-color);
         border-left     : 2px solid v(event-red-color);
