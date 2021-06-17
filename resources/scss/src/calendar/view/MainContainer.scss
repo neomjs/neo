@@ -94,4 +94,23 @@
             color: v(event-red-color);
         }
     }
+
+    &.neo-yellow {
+        background-color: v(event-yellow-background-color);
+        border-left     : 2px solid v(event-yellow-border-color);
+        color           : v(event-yellow-color);
+
+        &.neo-focus {
+            background-color: v(event-yellow-background-color-focus);
+            color           : v(event-yellow-color-focus) !important;
+
+            .neo-resizable {
+                color: v(event-yellow-color-focus) !important;
+            }
+        }
+
+        .neo-resizable {
+            color: v(event-yellow-color);
+        }
+    }
 }
