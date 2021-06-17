@@ -23,3 +23,25 @@
         }
     }
 }
+
+.neo-event {
+    &.neo-blue {
+        background-color: rgba(104, 169, 217, 0.1);
+        border-left     : 2px solid rgb(104, 169, 217);
+        color           : rgb(104, 169, 217);
+
+        &.neo-focus {
+            background-color: rgba(104, 169, 217, 0.6);
+        }
+    }
+
+    &.neo-red {
+        background-color: rgba(255, 0, 0, 0.1);
+        border-left     : 2px solid rgb(255, 0, 0);
+        color           : rgb(255, 0, 0);
+
+        &.neo-focus {
+            background-color: rgba(255, 0, 0, 0.6);
+        }
+    }
+}
