@@ -200,5 +200,53 @@ StartTest(t => {
         t.isDeeplyStrict(deltas, [
             {action: 'removeNode', id: 'neo-1'}
         ], 'deltas got created successfully');
+
+        // see: https://github.com/neomjs/neo/issues/2390
+        t.diag("Move an event with a higher index sibling into a non empty column");
+
+        vdom =
+        {id: 'neo-calendar-week', cn: [
+            {id: 'neo-column-1', cls: ['neo-c-w-column'], cn: [
+                {id: 'neo-event-1', cls: ['neo-event']}
+            ]},
+            {id: 'neo-column-2', cls: ['neo-c-w-column'], cn: [
+                {id: 'neo-event-2', cls: ['neo-event']}
+            ]},
+            {id: 'neo-column-3', cls: ['neo-c-w-column']},
+            {id: 'neo-column-4', cls: ['neo-c-w-column'], cn: [
+                {id: 'neo-event-3', cls: ['neo-event']},
+                {id: 'neo-event-4', cls: ['neo-event']}
+            ]},
+            {id: 'neo-column-5', cls: ['neo-c-w-column'], cn: [
+                {id: 'neo-event-5', cls: ['neo-event']},
+                {id: 'neo-event-6', cls: ['neo-event']}
+            ]}
+        ]};
+
+        vnode = VdomHelper.create(vdom);
+
+
+        vdom =
+        {id: 'neo-calendar-week', cn: [
+            {id: 'neo-column-1', cls: ['neo-c-w-column'], cn: [
+                {id: 'neo-event-1', cls: ['neo-event']}
+            ]},
+            {id: 'neo-column-2', cls: ['neo-c-w-column'], cn: [
+                {id: 'neo-event-3', cls: ['neo-event']},
+                {id: 'neo-event-2', cls: ['neo-event']}
+            ]},
+            {id: 'neo-column-3', cls: ['neo-c-w-column']},
+            {id: 'neo-column-4', cls: ['neo-c-w-column'], cn: [
+                {id: 'neo-event-4', cls: ['neo-event']}
+            ]},
+            {id: 'neo-column-5', cls: ['neo-c-w-column'], cn: [
+                {id: 'neo-event-5', cls: ['neo-event']},
+                {id: 'neo-event-6', cls: ['neo-event']}
+            ]}
+        ]};
+
+        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+
+        console.log(deltas);
     });
 });
