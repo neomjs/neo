@@ -49,7 +49,8 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create({
-            module: Clock
+            module: Clock,
+            time  : '10:20'
         });
     }
 }
