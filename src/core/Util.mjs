@@ -261,7 +261,7 @@ class Util extends Base {
                     return 'Set';
                 }
 
-                if (item.constructor.isClass) {
+                if (item && item.constructor.isClass) {
                     if (item instanceof Neo.core.Base) {
                         return 'NeoInstance';
                     }
