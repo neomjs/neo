@@ -593,9 +593,7 @@ class Component extends BaseComponent {
      * @param {Object[]} data
      */
     onCalendarStoreLoad(data) {
-        if (this.eventStore.getCount() > 0) {
-            this.updateEvents();
-        }
+        this.eventStore.getCount() > 0 && this.updateEvents();
     }
 
     /**
@@ -755,9 +753,7 @@ class Component extends BaseComponent {
      * @param {Object[]} data
      */
     onEventStoreLoad(data) {
-        if (this.calendarStore.getCount() > 0) {
-            this.updateEvents();
-        }
+        this.calendarStore.getCount() > 0 && this.updateEvents();
     }
 
     /**

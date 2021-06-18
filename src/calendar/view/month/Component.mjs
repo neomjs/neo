@@ -31,8 +31,15 @@ class Component extends BaseComponent {
          * @member {Object} bind
          */
         bind: {
-            currentDate: data => data.currentDate
+            calendarStore: 'stores.calendars',
+            currentDate  : data => data.currentDate,
+            eventStore   : 'stores.events'
         },
+        /**
+         * Bound to the view model
+         * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
+         */
+        calendarStore_: null,
         /**
          * @member {String[]} cls=['neo-calendar-monthcomponent']
          */
@@ -49,6 +56,11 @@ class Component extends BaseComponent {
          * @member {String} dayNameFormat_='short'
          */
         dayNameFormat_: 'short',
+        /**
+         * Bound to the view model
+         * @member {Neo.calendar.store.Events|null} eventStore_=null
+         */
+        eventStore_: null,
         /**
          * Internal flag to store the header height in px after getting mounted.
          * Needed for the infinite scrolling
@@ -137,8 +149,7 @@ class Component extends BaseComponent {
         super(config);
 
         let me           = this,
-            domListeners = me.domListeners,
-            model        = me.getModel();
+            domListeners = me.domListeners;
 
         domListeners.push(
             {dblclick: me.onEventDoubleClick, delegate: 'neo-event', scope: me},
@@ -148,8 +159,19 @@ class Component extends BaseComponent {
         me.domListeners = domListeners;
 
         me.updateHeader(true);
+    }
 
-        model.getStore('events').on('load', me.onEventsStoreLoad, me);
+    /**
+     * Triggered after the calendarStore config got changed
+     * @param {Neo.calendar.store.Calendars|null} value
+     * @param {Neo.calendar.store.Calendars|null} oldValue
+     * @protected
+     */
+    afterSetCalendarStore(value, oldValue) {
+        let me = this;
+
+        oldValue && oldValue.un('load', me.onCalendarStoreLoad, me);
+        value    && value   .on('load', me.onCalendarStoreLoad, me);
     }
 
     /**
@@ -182,6 +204,19 @@ class Component extends BaseComponent {
         if (oldValue !== undefined) {
             me.updateHeader();
         }
+    }
+
+    /**
+     * Triggered after the eventStore config got changed
+     * @param {Neo.calendar.store.Events|null} value
+     * @param {Neo.calendar.store.Events|null} oldValue
+     * @protected
+     */
+    afterSetEventStore(value, oldValue) {
+        let me = this;
+
+        oldValue && oldValue.un('load', me.onEventStoreLoad, me);
+        value    && value   .on('load', me.onEventStoreLoad, me);
     }
 
     /**
@@ -471,6 +506,14 @@ class Component extends BaseComponent {
 
     /**
      *
+     * @param {Object[]} data
+     */
+    onCalendarStoreLoad(data) {
+        this.eventStore.getCount() > 0 && this.createContent();
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onEventDoubleClick(data) {
@@ -504,8 +547,8 @@ class Component extends BaseComponent {
      *
      * @param {Object[]} data
      */
-    onEventsStoreLoad(data) {
-        this.createContent();
+    onEventStoreLoad(data) {
+        this.calendarStore.getCount() > 0 && this.createContent();
     }
 
     /**
