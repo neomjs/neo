@@ -44,8 +44,15 @@ class Component extends BaseComponent {
          * @member {Object} bind
          */
         bind: {
-            currentDate: data => data.currentDate
+            calendarStore: 'stores.calendars',
+            currentDate  : data => data.currentDate,
+            eventStore   : 'stores.events'
         },
+        /**
+         * Bound to the view model
+         * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
+         */
+        calendarStore_: null,
         /**
          * @member {String[]} cls=['neo-calendar-weekcomponent']
          */
@@ -66,6 +73,11 @@ class Component extends BaseComponent {
          * @member {Neo.draggable.DragZone|null} eventDragZone=null
          */
         eventDragZone: null,
+        /**
+         * Bound to the view model
+         * @member {Neo.calendar.store.Events|null} eventStore_=null
+         */
+        eventStore_: null,
         /**
          * Will get passed from updateHeader()
          * @member {Date|null} firstColumnDate=null
@@ -171,7 +183,6 @@ class Component extends BaseComponent {
             domListeners = me.domListeners,
             columnOpts   = {scope: me, delegate: '.neo-c-w-column'},
             eventOpts    = {scope: me, delegate: '.neo-event'},
-            model        = me.getModel(),
             plugins      = me.plugins || [];
 
         domListeners.push(
@@ -213,9 +224,6 @@ class Component extends BaseComponent {
         me.updateHeader(true);
 
         me.headerCreated = true;
-
-        model.getStore('calendars').on('load', me.onCalendarStoreLoad, me);
-        model.getStore('events')   .on('load', me.onEventStoreLoad,    me);
     }
 
     /**
@@ -268,6 +276,19 @@ class Component extends BaseComponent {
     }
 
     /**
+     * Triggered after the calendarStore config got changed
+     * @param {Neo.calendar.store.Calendars|null} value
+     * @param {Neo.calendar.store.Calendars|null} oldValue
+     * @protected
+     */
+    afterSetCalendarStore(value, oldValue) {
+        let me = this;
+
+        oldValue && oldValue.un('load', me.onCalendarStoreLoad, me);
+        value    && value   .on('load', me.onCalendarStoreLoad, me);
+    }
+
+    /**
      * Triggered after the currentDate config got changed
      * @param {Date} value
      * @param {Date} oldValue
@@ -294,6 +315,19 @@ class Component extends BaseComponent {
         if (oldValue !== undefined) {
             me.updateHeader();
         }
+    }
+
+    /**
+     * Triggered after the eventStore config got changed
+     * @param {Neo.calendar.store.Events|null} value
+     * @param {Neo.calendar.store.Events|null} oldValue
+     * @protected
+     */
+    afterSetEventStore(value, oldValue) {
+        let me = this;
+
+        oldValue && oldValue.un('load', me.onEventStoreLoad, me);
+        value    && value   .on('load', me.onEventStoreLoad, me);
     }
 
     /**
@@ -559,7 +593,7 @@ class Component extends BaseComponent {
      * @param {Object[]} data
      */
     onCalendarStoreLoad(data) {
-        if (this.getModel().getStore('events').getCount() > 0) {
+        if (this.eventStore.getCount() > 0) {
             this.updateEvents();
         }
     }
@@ -608,7 +642,7 @@ class Component extends BaseComponent {
                 editEventContainer = me.owner.editEventContainer,
                 eventNode          = data.path[0],
                 eventVdom          = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
-                record             = me.getModel().getStore('events').get(eventVdom.flag),
+                record             = me.eventStore.get(eventVdom.flag),
                 style              = editEventContainer.style;
 
             Object.assign(style, {
@@ -684,7 +718,7 @@ class Component extends BaseComponent {
             axisStartTime                   : timeAxis.getTime(timeAxis.startTime),
             dragElement                     : dragElement,
             enableResizingAcrossOppositeEdge: me.data.enableEventResizingAcrossOppositeEdge,
-            eventRecord                     : me.getModel().getStore('events').get(dragElement.flag),
+            eventRecord                     : me.eventStore.get(dragElement.flag),
             proxyParentId                   : data.path[1].id
         };
 
@@ -721,7 +755,7 @@ class Component extends BaseComponent {
      * @param {Object[]} data
      */
     onEventStoreLoad(data) {
-        if (this.getModel().getStore('calendars').getCount() > 0) {
+        if (this.calendarStore.getCount() > 0) {
             this.updateEvents();
         }
     }
@@ -853,16 +887,15 @@ class Component extends BaseComponent {
     }
 
     /**
-     * The algorithm relies on the eventsStore being sorted by startDate ASC
+     * The algorithm relies on the eventStore being sorted by startDate ASC
      * @param {Number} [startIndex=0]
      * @param {Number} [endIndex=21]
      * @param {Boolean} [silent=false]
      */
     updateEvents(startIndex=0, endIndex=21, silent=false) {
         let me                = this,
-            model             = me.getModel(),
-            calendarsStore    = model.getStore('calendars'),
-            eventsStore       = model.getStore('events'),
+            calendarStore     = me.calendarStore,
+            eventStore        = me.eventStore,
             timeAxis          = me.timeAxis,
             endTime           = timeAxis.getTime(timeAxis.endTime),
             startTime         = timeAxis.getTime(timeAxis.startTime),
@@ -881,12 +914,12 @@ class Component extends BaseComponent {
 
             column.cn = []; // remove previous events from the vdom
 
-            dayRecords = eventsStore.getDayRecords(date);
+            dayRecords = eventStore.getDayRecords(date);
             len        = dayRecords.length;
 
             for (i = 0; i < len; i++) {
                 record         = dayRecords[i];
-                calendarRecord = calendarsStore.get(record.calendarId);
+                calendarRecord = calendarStore.get(record.calendarId);
 
                 if (calendarRecord.active) {
                     endDate = DateUtil.clone(record.endDate);
@@ -900,7 +933,7 @@ class Component extends BaseComponent {
                     eventCls    = ['neo-event', 'neo-draggable', `neo-${calendarRecord.color}`];
                     hasOverflow = false;
                     height      = Math.round(duration / totalTime * 100 * 1000) / 1000;
-                    recordKey   = record[eventsStore.keyProperty];
+                    recordKey   = record[eventStore.keyProperty];
                     startHours  = (record.startDate.getHours() * 60 + record.startDate.getMinutes()) / 60;
                     top         = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
 
