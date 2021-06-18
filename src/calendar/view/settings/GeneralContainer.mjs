@@ -165,30 +165,32 @@ class GeneralContainer extends Container {
             style         : {marginTop: '10px'},
             valueLabelText: 'scrollNewYearFromTop'
         }, {
-            module    : TimeField,
-            flex      : 'none',
-            labelText : 'startTime',
-            labelWidth: 110,
-            listeners : {change: me.onDataChange, scope: me},
-            maxValue  : '10:00',
-            minValue  : '00:00',
-            name      : 'startTime',
-            stepSize  : 60 * 60, // 1h
-            style     : {marginTop: '10px'},
-            value     : data.startTime,
-            width     : '14em'
+            module              : TimeField,
+            clearToOriginalValue: true,
+            flex                : 'none',
+            labelText           : 'startTime',
+            labelWidth          : 110,
+            listeners           : {change: me.onDataChange, scope: me},
+            maxValue            : '10:00',
+            minValue            : '00:00',
+            name                : 'startTime',
+            stepSize            : 60 * 60, // 1h
+            style               : {marginTop: '10px'},
+            value               : data.startTime,
+            width               : '14em'
         }, {
-            module    : TimeField,
-            flex      : 'none',
-            labelText : 'endTime',
-            labelWidth: 110,
-            listeners : {change: me.onDataChange, scope: me},
-            maxValue  : '23:00',
-            minValue  : '14:00',
-            name      : 'endTime',
-            stepSize  : 60 * 60, // 1h
-            value     : data.endTime !== '24:00' ? data.endTime : null,
-            width     : '14em'
+            module              : TimeField,
+            clearToOriginalValue: true,
+            flex                : 'none',
+            labelText           : 'endTime',
+            labelWidth          : 110,
+            listeners           : {change: me.onDataChange, scope: me},
+            maxValue            : '23:00',
+            minValue            : '14:00',
+            name                : 'endTime',
+            stepSize            : 60 * 60, // 1h
+            value               : data.endTime !== '24:00' ? data.endTime : null,
+            width               : '14em'
         },{
             module: Fieldset,
             flex  : 'none',

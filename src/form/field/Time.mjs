@@ -73,7 +73,12 @@ class Time extends Picker {
          */
         triggers: [{
             module: TimeTrigger
-        }]
+        }],
+        /**
+         * @member {Intl.DateTimeFormat|null} valueFormat_=null
+         * @protected
+         */
+        valueFormat_: null
     }}
 
     /**
@@ -83,7 +88,14 @@ class Time extends Picker {
     constructor(config) {
         super(config);
 
-        let me = this;
+        let me           = this,
+            clearTrigger = me.getTrigger('clear');
+
+        me.originalConfig.value = me.formatTime(me.value);
+
+        if (clearTrigger) {
+            clearTrigger.onFieldChange();
+        }
 
         me.collection = Neo.create({
             module     : Collection,
@@ -182,6 +194,25 @@ class Time extends Picker {
     }
 
     /**
+     * Gets triggered before getting the value of the valueFormat config
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     * @returns {String}
+     */
+    beforeGetValueFormat(value, oldValue) {
+        if (!value) {
+            this._valueFormat = value = new Intl.DateTimeFormat('de-DE', {
+                hour  : '2-digit',
+                minute: '2-digit',
+                second: this.stepSize < 60 ? '2-digit' : undefined
+            });
+        }
+
+        return value;
+    }
+
+    /**
      * Triggered before the maxValue config gets changed
      * @param {String} value
      * @param {String} oldValue
@@ -189,8 +220,13 @@ class Time extends Picker {
      * @returns {String}
      */
     beforeSetMaxValue(value, oldValue) {
-        // todo: check format => '08:00'
-        return value;
+        if (value) {
+            if (value.includes('24') || (value.startsWith('12') && value.includes('AM'))) {
+                return '23:59:00';
+            }
+        }
+
+        return this.formatTime(value);
     }
 
     /**
@@ -201,8 +237,18 @@ class Time extends Picker {
      * @returns {String}
      */
     beforeSetMinValue(value, oldValue) {
-        // todo: check format => '08:00'
-        return value;
+        return this.formatTime(value);
+    }
+
+    /**
+     * Triggered before the value config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     * @returns {String}
+     */
+    beforeSetValue(value, oldValue) {
+        return this.formatTime(value);
     }
 
     /**
@@ -223,11 +269,8 @@ class Time extends Picker {
             second: me.stepSize < 60 ? '2-digit' : undefined
         });
 
-        if (end.length < 3) {end.push(0);}
-        endDate.setHours(...end);
-
-        if (start.length < 3) {start.push(0);}
         currentDate.setHours(...start);
+        endDate    .setHours(...end);
 
         while (currentDate <= endDate) {
             listItems.push({
@@ -262,6 +305,21 @@ class Time extends Picker {
                 callback.apply(me);
             }
         });
+    }
+
+    /**
+     * Transforms AM / PM based times into a 24h format.
+     * E.g. "08:00 AM" => "08:00"
+     * @param {String|null} value
+     * @protected
+     * @returns {String|null}
+     */
+    formatTime(value) {
+        if (value) {
+            return this.valueFormat.format(new Date(`November 23, 2019  ${value}`));
+        }
+
+        return value;
     }
 
     /**
@@ -306,6 +364,8 @@ class Time extends Picker {
             value    = record.value;
 
         if (me.value !== value) {
+            value = me.formatTime(value);
+
             me._value = value;
             me.afterSetValue(value, oldValue, true); // prevent the list from getting selected / focused
         }
@@ -328,6 +388,21 @@ class Time extends Picker {
         me.collection.clear();
         me.collection.add(me.createCollectionItems());
         me.list.createItems();
+    }
+
+    /**
+     * Resets the field to its original value or null depending on the clearToOriginalValue config
+     * You can optionally pass a new value, which will adjust the originalConfig.value if needed.
+     * @param {String|null} [value]
+     */
+    reset(value) {
+        let me = this;
+
+        if (value && me.clearToOriginalValue) {
+            me.originalConfig.value = me.formatTime(value);
+        }
+
+        me.value = me.clearToOriginalValue ? me.originalConfig.value : null;
     }
 
     /**

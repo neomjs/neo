@@ -942,6 +942,14 @@ class Component extends BaseComponent {
                 if (calendarRecord.active) {
                     endDate = DateUtil.clone(record.endDate);
 
+                    if (endTime <= record.startDate.getHours()) {
+                        continue;
+                    }
+
+                    if (startTime >= endDate.getHours()) {
+                        continue;
+                    }
+
                     if (endTime < endDate.getHours()) {
                         endDate.setHours(endTime);
                         endDate.setMinutes(0);
