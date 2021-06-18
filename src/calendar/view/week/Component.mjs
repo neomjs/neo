@@ -46,6 +46,7 @@ class Component extends BaseComponent {
         bind: {
             calendarStore: 'stores.calendars',
             currentDate  : data => data.currentDate,
+            eventBorder  : data => data.eventBorder,
             eventStore   : 'stores.events'
         },
         /**
@@ -69,6 +70,11 @@ class Component extends BaseComponent {
          * @member {String} dayNameFormat_='short'
          */
         dayNameFormat_: 'short',
+        /**
+         * Bound to the view model
+         * @member {String|null} eventBorder_=null
+         */
+        eventBorder_: null,
         /**
          * @member {Neo.draggable.DragZone|null} eventDragZone=null
          */
@@ -315,6 +321,22 @@ class Component extends BaseComponent {
         if (oldValue !== undefined) {
             me.updateHeader();
         }
+    }
+
+    /**
+     * Triggered after the eventBorder config got changed
+     * @param {Neo.calendar.store.Events|null} value
+     * @param {Neo.calendar.store.Events|null} oldValue
+     * @protected
+     */
+    afterSetEventBorder(value, oldValue) {
+        let me  = this,
+            cls = me.cls;
+
+        oldValue && NeoArray.remove(cls, `neo-event-border-${oldValue}`);
+        value    && NeoArray.add(   cls, `neo-event-border-${value}`);
+
+        me.cls = cls;
     }
 
     /**

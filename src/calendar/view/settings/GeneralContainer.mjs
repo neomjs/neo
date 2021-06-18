@@ -196,8 +196,8 @@ class GeneralContainer extends Container {
             title : 'Event Configs',
             items : [{
                 module        : RadioField,
-                checked       : data.eventBorder === 'allSides',
-                fieldValue    : 'allSides',
+                checked       : data.eventBorder === 'all-sides',
+                fieldValue    : 'all-sides',
                 flex          : 'none',
                 hideValueLabel: false,
                 labelText     : 'Border',
