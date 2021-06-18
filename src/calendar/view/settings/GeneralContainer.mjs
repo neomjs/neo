@@ -1,5 +1,6 @@
 import CheckBoxField from '../../../form/field/CheckBox.mjs';
 import Container     from '../../../container/Base.mjs';
+import Fieldset      from '../../../form/Fieldset.mjs';
 import NumberField   from '../../../form/field/Number.mjs';
 import RadioField    from '../../../form/field/Radio.mjs';
 import TimeField     from '../../../form/field/Time.mjs';
@@ -188,30 +189,59 @@ class GeneralContainer extends Container {
             stepSize  : 60 * 60, // 1h
             value     : data.endTime !== '24:00' ? data.endTime : null,
             width     : '14em'
-        }, {
-            module        : RadioField,
-            checked       : data.enableEventResizingAcrossOppositeEdge,
-            fieldValue    : true,
-            flex          : 'none',
-            hideValueLabel: false,
-            labelText     : 'Event Resizing',
-            labelWidth    : 110,
-            listeners     : {change: me.onRadioDataChange, scope: me},
-            name          : 'enableEventResizingAcrossOppositeEdge',
-            style         : {marginTop: '10px'},
-            valueLabelText: 'X opposite edge'
-        }, {
-            module        : RadioField,
-            checked       : !data.enableEventResizingAcrossOppositeEdge,
-            fieldValue    : false,
-            flex          : 'none',
-            hideValueLabel: false,
-            labelText     : '',
-            labelWidth    : 110,
-            listeners     : {change: me.onRadioDataChange, scope: me},
-            name          : 'enableEventResizingAcrossOppositeEdge',
-            style         : {marginTop: '5px'},
-            valueLabelText: 'Min duration'
+        },{
+            module: Fieldset,
+            flex  : 'none',
+            style : {marginTop: '5px'},
+            title : 'Event Configs',
+            items : [{
+                module        : RadioField,
+                checked       : data.eventBorder === 'all-sides',
+                fieldValue    : 'all-sides',
+                flex          : 'none',
+                hideValueLabel: false,
+                labelText     : 'Border',
+                labelWidth    : 80,
+                listeners     : {change: me.onRadioDataChange, scope: me},
+                name          : 'eventBorder',
+                valueLabelText: 'All sides'
+            }, {
+                module        : RadioField,
+                checked       : data.eventBorder === 'left',
+                fieldValue    : 'left',
+                flex          : 'none',
+                hideValueLabel: false,
+                labelText     : '',
+                labelWidth    : 80,
+                listeners     : {change: me.onRadioDataChange, scope: me},
+                name          : 'eventBorder',
+                style         : {marginTop: '5px'},
+                valueLabelText: 'Left'
+            }, {
+                module        : RadioField,
+                checked       : data.enableEventResizingAcrossOppositeEdge,
+                fieldValue    : true,
+                flex          : 'none',
+                hideValueLabel: false,
+                labelText     : 'Resizing',
+                labelWidth    : 80,
+                listeners     : {change: me.onRadioDataChange, scope: me},
+                name          : 'enableEventResizingAcrossOppositeEdge',
+                style         : {marginTop: '15px'},
+                valueLabelText: 'X opposite edge'
+            }, {
+                module        : RadioField,
+                checked       : !data.enableEventResizingAcrossOppositeEdge,
+                fieldValue    : false,
+                flex          : 'none',
+                hideValueLabel: false,
+                labelText     : '',
+                labelWidth    : 80,
+                listeners     : {change: me.onRadioDataChange, scope: me},
+                name          : 'enableEventResizingAcrossOppositeEdge',
+                style         : {marginTop: '5px'},
+                valueLabelText: 'Min duration'
+            }]
         }];
 
         super.createItems();

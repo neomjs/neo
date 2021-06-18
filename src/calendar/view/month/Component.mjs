@@ -31,8 +31,16 @@ class Component extends BaseComponent {
          * @member {Object} bind
          */
         bind: {
-            currentDate: data => data.currentDate
+            calendarStore: 'stores.calendars',
+            currentDate  : data => data.currentDate,
+            eventBorder  : data => data.eventBorder,
+            eventStore   : 'stores.events'
         },
+        /**
+         * Bound to the view model
+         * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
+         */
+        calendarStore_: null,
         /**
          * @member {String[]} cls=['neo-calendar-monthcomponent']
          */
@@ -49,6 +57,16 @@ class Component extends BaseComponent {
          * @member {String} dayNameFormat_='short'
          */
         dayNameFormat_: 'short',
+        /**
+         * Bound to the view model
+         * @member {String|null} eventBorder_=null
+         */
+        eventBorder_: null,
+        /**
+         * Bound to the view model
+         * @member {Neo.calendar.store.Events|null} eventStore_=null
+         */
+        eventStore_: null,
         /**
          * Internal flag to store the header height in px after getting mounted.
          * Needed for the infinite scrolling
@@ -137,8 +155,7 @@ class Component extends BaseComponent {
         super(config);
 
         let me           = this,
-            domListeners = me.domListeners,
-            model        = me.getModel();
+            domListeners = me.domListeners;
 
         domListeners.push(
             {dblclick: me.onEventDoubleClick, delegate: 'neo-event', scope: me},
@@ -148,8 +165,19 @@ class Component extends BaseComponent {
         me.domListeners = domListeners;
 
         me.updateHeader(true);
+    }
 
-        model.getStore('events').on('load', me.onEventsStoreLoad, me);
+    /**
+     * Triggered after the calendarStore config got changed
+     * @param {Neo.calendar.store.Calendars|null} value
+     * @param {Neo.calendar.store.Calendars|null} oldValue
+     * @protected
+     */
+    afterSetCalendarStore(value, oldValue) {
+        let me = this;
+
+        oldValue && oldValue.un('load', me.onCalendarStoreLoad, me);
+        value    && value   .on('load', me.onCalendarStoreLoad, me);
     }
 
     /**
@@ -182,6 +210,35 @@ class Component extends BaseComponent {
         if (oldValue !== undefined) {
             me.updateHeader();
         }
+    }
+
+    /**
+     * Triggered after the eventBorder config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetEventBorder(value, oldValue) {
+        let me  = this,
+            cls = me.cls;
+
+        oldValue && NeoArray.remove(cls, `neo-event-border-${oldValue}`);
+        value    && NeoArray.add(   cls, `neo-event-border-${value}`);
+
+        me.cls = cls;
+    }
+
+    /**
+     * Triggered after the eventStore config got changed
+     * @param {Neo.calendar.store.Events|null} value
+     * @param {Neo.calendar.store.Events|null} oldValue
+     * @protected
+     */
+    afterSetEventStore(value, oldValue) {
+        let me = this;
+
+        oldValue && oldValue.un('load', me.onEventStoreLoad, me);
+        value    && value   .on('load', me.onEventStoreLoad, me);
     }
 
     /**
@@ -375,12 +432,13 @@ class Component extends BaseComponent {
      * @returns {Object}
      */
     createWeek(date) {
-        let me          = this,
-            i           = 0,
-            eventsStore = me.getModel().getStore('events'),
-            header      = null,
-            ymdDate     = DateUtil.convertToyyyymmdd(date),
-            day, dayConfig, dayRecords, recordKey, row, weekDay;
+        let me            = this,
+            i             = 0,
+            calendarStore = me.calendarStore,
+            eventsStore   = me.eventStore,
+            header        = null,
+            ymdDate       = DateUtil.convertToyyyymmdd(date),
+            calendarRecord, day, dayConfig, dayRecords, recordKey, row, weekDay;
 
         row = {
             flag: ymdDate,
@@ -437,24 +495,27 @@ class Component extends BaseComponent {
                 dayRecords = eventsStore.getDayRecords(date);
 
                 dayRecords.forEach(record => {
-                    recordKey = record[eventsStore.keyProperty];
+                    recordKey      = record[eventsStore.keyProperty];
+                    calendarRecord = calendarStore.get(record.calendarId);
 
-                    dayConfig.cn.push({
-                        cls     : ['neo-event'],
-                        flag    : recordKey,
-                        id      : me.id + '__' + recordKey,
-                        tabIndex: -1,
+                    if (calendarRecord.active) {
+                        dayConfig.cn.push({
+                            cls     : ['neo-event', `neo-${calendarRecord.color}`],
+                            flag    : recordKey,
+                            id      : me.id + '__' + recordKey,
+                            tabIndex: -1,
 
-                        cn: [{
-                            cls : ['neo-event-title'],
-                            html: record.title,
-                            id  : me.id + '__title__' + recordKey
-                        }, {
-                            cls : ['neo-event-time'],
-                            html: me.intlFormat_time.format(record.startDate),
-                            id  : me.id + '__time__' + recordKey
-                        }]
-                    });
+                            cn: [{
+                                cls : ['neo-event-title'],
+                                html: record.title,
+                                id  : me.id + '__title__' + recordKey
+                            }, {
+                                cls : ['neo-event-time'],
+                                html: me.intlFormat_time.format(record.startDate),
+                                id  : me.id + '__time__' + recordKey
+                            }]
+                        });
+                    }
                 })
             }
 
@@ -471,6 +532,14 @@ class Component extends BaseComponent {
 
     /**
      *
+     * @param {Object[]} data
+     */
+    onCalendarStoreLoad(data) {
+        this.eventStore.getCount() > 0 && this.createContent();
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onEventDoubleClick(data) {
@@ -481,7 +550,7 @@ class Component extends BaseComponent {
                 weekNode            = data.path[2],
                 scrollContainerNode = data.path[3],
                 eventVdom           = VDomUtil.findVdomChild(me.vdom, eventNode.id).vdom,
-                record              = me.getModel().getStore('events').get(eventVdom.flag),
+                record              = me.eventStore.get(eventVdom.flag),
                 style               = editEventContainer.style;
 
             Object.assign(style, {
@@ -504,8 +573,8 @@ class Component extends BaseComponent {
      *
      * @param {Object[]} data
      */
-    onEventsStoreLoad(data) {
-        this.createContent();
+    onEventStoreLoad(data) {
+        this.calendarStore.getCount() > 0 && this.createContent();
     }
 
     /**

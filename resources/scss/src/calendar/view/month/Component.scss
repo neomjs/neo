@@ -45,10 +45,8 @@
         }
 
         .neo-event {
-            background-color: rgba(255, 0, 0, 0.1);
-            border          : 1px solid rgba(255, 0, 0, 0.6);
-            border-radius   : 3px;
-            color           : red;
+            //border          : 1px solid currentColor;
+            //border-radius   : 3px;
             cursor          : pointer;
             display         : flex;
             font-size       : .7em;
@@ -56,12 +54,11 @@
             padding         : 3px;
 
             &.neo-focus {
-                background-color: rgba(255, 0, 0, 0.6);
-                outline         : 0;
+                color  : #fff;
+                outline: 0;
 
                 .neo-event-time,
                 .neo-event-title {
-                    color      : #fff;
                     font-weight: bold;
                 }
             }

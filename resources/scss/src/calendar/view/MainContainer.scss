@@ -114,3 +114,33 @@
         }
     }
 }
+
+.neo-event-border-all-sides {
+    .neo-event {
+        border-radius: 3px;
+
+        &.neo-blue {
+            border: 1px solid v(event-blue-color);
+        }
+
+        &.neo-green {
+            border: 1px solid v(event-green-color);
+        }
+
+        &.neo-orange {
+            border: 1px solid v(event-orange-color);
+        }
+
+        &.neo-pink {
+            border: 1px solid v(event-pink-color);
+        }
+
+        &.neo-red {
+            border: 1px solid v(event-red-color);
+        }
+
+        &.neo-yellow {
+            border: 1px solid v(event-yellow-border-color);
+        }
+    }
+}
