@@ -293,6 +293,17 @@ class EventDragZone extends DragZone {
             endDate   = DateUtil.clone(record.endDate);
             startDate = DateUtil.clone(record.startDate);
 
+            // events can have a smaller start time than the axis min value.
+            // resizing via the north handle needs to adjust the duration to honor this.
+            if (keepEndDate) {
+                if (axisStartTime > startDate.getHours()) {
+                    startDate.setHours(axisStartTime);
+                    startDate.setMinutes(0);
+
+                    eventDuration = (endDate - startDate) / 60 / 1000; // duration in minutes
+                }
+            }
+
             // events can have a bigger end time than the axis max value.
             // resizing via the south handle needs to adjust the duration to honor this.
             if (keepStartDate) {
