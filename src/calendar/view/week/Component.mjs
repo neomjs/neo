@@ -214,7 +214,8 @@ class Component extends BaseComponent {
 
         me.headerCreated = true;
 
-        model.getStore('events').on('load', me.onEventsStoreLoad, me);
+        model.getStore('calendars').on('load', me.onCalendarStoreLoad, me);
+        model.getStore('events')   .on('load', me.onEventStoreLoad,    me);
     }
 
     /**
@@ -555,6 +556,16 @@ class Component extends BaseComponent {
 
     /**
      *
+     * @param {Object[]} data
+     */
+    onCalendarStoreLoad(data) {
+        if (this.getModel().getStore('events').getCount() > 0) {
+            this.updateEvents();
+        }
+    }
+
+    /**
+     *
      * @param {Object} data
      */
     onColumnDragEnd(data) {
@@ -709,8 +720,10 @@ class Component extends BaseComponent {
      *
      * @param {Object[]} data
      */
-    onEventsStoreLoad(data) {
-        this.updateEvents();
+    onEventStoreLoad(data) {
+        if (this.getModel().getStore('calendars').getCount() > 0) {
+            this.updateEvents();
+        }
     }
 
     /**
