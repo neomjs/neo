@@ -325,8 +325,8 @@ class Component extends BaseComponent {
 
     /**
      * Triggered after the eventBorder config got changed
-     * @param {Neo.calendar.store.Events|null} value
-     * @param {Neo.calendar.store.Events|null} oldValue
+     * @param {String|null} value
+     * @param {String|null} oldValue
      * @protected
      */
     afterSetEventBorder(value, oldValue) {
