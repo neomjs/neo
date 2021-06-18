@@ -196,6 +196,29 @@ class GeneralContainer extends Container {
             title : 'Event Configs',
             items : [{
                 module        : RadioField,
+                checked       : data.eventBorder === 'allSides',
+                fieldValue    : 'allSides',
+                flex          : 'none',
+                hideValueLabel: false,
+                labelText     : 'Border',
+                labelWidth    : 80,
+                listeners     : {change: me.onRadioDataChange, scope: me},
+                name          : 'eventBorder',
+                valueLabelText: 'All sides'
+            }, {
+                module        : RadioField,
+                checked       : data.eventBorder === 'left',
+                fieldValue    : 'left',
+                flex          : 'none',
+                hideValueLabel: false,
+                labelText     : '',
+                labelWidth    : 80,
+                listeners     : {change: me.onRadioDataChange, scope: me},
+                name          : 'eventBorder',
+                style         : {marginTop: '5px'},
+                valueLabelText: 'Left'
+            }, {
+                module        : RadioField,
                 checked       : data.enableEventResizingAcrossOppositeEdge,
                 fieldValue    : true,
                 flex          : 'none',
@@ -204,6 +227,7 @@ class GeneralContainer extends Container {
                 labelWidth    : 80,
                 listeners     : {change: me.onRadioDataChange, scope: me},
                 name          : 'enableEventResizingAcrossOppositeEdge',
+                style         : {marginTop: '15px'},
                 valueLabelText: 'X opposite edge'
             }, {
                 module        : RadioField,

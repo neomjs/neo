@@ -39,6 +39,11 @@ class MainContainerModel extends Component {
              */
             endTime: '24:00',
             /**
+             * Valid values: allSides, left
+             * @member {String} data.eventBorder='left'
+             */
+            eventBorder: 'left',
+            /**
              * Only full hours are valid for now
              * format: 'hh:mm'
              * @member {String} data.startTime='00:00'
