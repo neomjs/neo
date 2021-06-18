@@ -923,7 +923,8 @@ class Component extends BaseComponent {
             content           = me.getColumnContainer(),
             j                 = startIndex,
             showEventEndDates = me.showEventEndDates,
-            calendarRecord, column, dayRecords, duration, endDate, eventCls, hasOverflow, height, i, len, record, recordKey, startHours, top;
+            calendarRecord, column, dayRecords, duration, endDate, eventCls, hasOverflow, height, i, len, record,
+            recordKey, startDate, startHours, top;
 
         date.setDate(date.getDate() + startIndex);
 
@@ -940,9 +941,10 @@ class Component extends BaseComponent {
                 calendarRecord = calendarStore.get(record.calendarId);
 
                 if (calendarRecord.active) {
-                    endDate = DateUtil.clone(record.endDate);
+                    endDate   = DateUtil.clone(record.endDate);
+                    startDate = DateUtil.clone(record.startDate);
 
-                    if (endTime <= record.startDate.getHours()) {
+                    if (endTime <= startDate.getHours()) {
                         continue;
                     }
 
@@ -955,12 +957,17 @@ class Component extends BaseComponent {
                         endDate.setMinutes(0);
                     }
 
-                    duration    = (endDate - record.startDate) / 60 / 60 / 1000; // duration in hours
+                    if (startTime > startDate.getHours()) {
+                        startDate.setHours(startTime);
+                        startDate.setMinutes(0);
+                    }
+
+                    duration    = (endDate - startDate) / 60 / 60 / 1000; // duration in hours
                     eventCls    = ['neo-event', 'neo-draggable', `neo-${calendarRecord.color}`];
                     hasOverflow = false;
                     height      = Math.round(duration / totalTime * 100 * 1000) / 1000;
                     recordKey   = record[eventStore.keyProperty];
-                    startHours  = (record.startDate.getHours() * 60 + record.startDate.getMinutes()) / 60;
+                    startHours  = (startDate.getHours() * 60 + startDate.getMinutes()) / 60;
                     top         = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
 
                     if (duration * 60 / timeAxis.interval === 1) {
@@ -995,7 +1002,7 @@ class Component extends BaseComponent {
                         style: {
                             height: `calc(${height}% - 2px)`,
                             top   : `calc(${top}% + 1px)`,
-                            width : 'calc(100% - 1px)' // todo
+                            width : 'calc(100% - 1px)'
                         }
                     });
                 }
