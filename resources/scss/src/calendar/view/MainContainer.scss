@@ -144,3 +144,37 @@
         }
     }
 }
+
+.neo-event-border-right {
+    .neo-event {
+        &.neo-blue {
+            border-left : 0;
+            border-right: 2px solid v(event-blue-color);
+        }
+
+        &.neo-green {
+            border-left : 0;
+            border-right: 2px solid v(event-green-color);
+        }
+
+        &.neo-orange {
+            border-left : 0;
+            border-right: 2px solid v(event-orange-color);
+        }
+
+        &.neo-pink {
+            border-left : 0;
+            border-right: 2px solid v(event-pink-color);
+        }
+
+        &.neo-red {
+            border-left : 0;
+            border-right: 2px solid v(event-red-color);
+        }
+
+        &.neo-yellow {
+            border-left : 0;
+            border-right: 2px solid v(event-yellow-border-color);
+        }
+    }
+}
