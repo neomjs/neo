@@ -18,6 +18,12 @@ class CalendarsContainer extends Container {
          */
         ntype: 'calendar-calendarscontainer',
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            calendarStore: 'stores.calendars'
+        },
+        /**
          * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
          */
         calendarStore_: null,
@@ -43,29 +49,30 @@ class CalendarsContainer extends Container {
     }}
 
     /**
-     *
-     * @param {Object} config
+     * Triggered after the calendarStore config got changed
+     * @param {Neo.calendar.store.Calendars|null} value
+     * @param {Neo.calendar.store.Calendars|null} oldValue
+     * @protected
      */
-    constructor(config) {
-        super(config);
-
+    afterSetCalendarStore(value, oldValue) {
         let me = this;
 
-        me.getModel().getStore('calendars').on('load', me.onCalendarsStoreLoad, me);
+        oldValue && oldValue.un('load', me.onCalendarStoreLoad, me);
+        value    && value   .on('load', me.onCalendarStoreLoad, me);
     }
 
     /**
      *
      * @param {Object[]} data
      */
-    onCalendarsStoreLoad(data) {
+    onCalendarStoreLoad(data) {
         let me    = this,
             items = [];
 
         if (!me.mounted && me.rendering) {
             const listenerId = me.on('rendered', () => {
                 me.un('rendered', listenerId);
-                me.onCalendarsStoreLoad(data);
+                me.onCalendarStoreLoad(data);
             });
         } else {
             data.forEach(item => {
