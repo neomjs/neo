@@ -75,10 +75,12 @@ class CalendarsContainer extends Container {
                 me.onCalendarStoreLoad(data);
             });
         } else {
-            data.forEach(item => {
+            data.forEach(record => {
                 items.push({
-                    checked       : item.active,
-                    valueLabelText: item.name
+                    checked       : record.active,
+                    fieldValue    : record[me.calendarStore.keyProperty],
+                    listeners     : {change: me.onCheckboxChange, scope: me},
+                    valueLabelText: record.name
                 });
             });
 
@@ -87,6 +89,14 @@ class CalendarsContainer extends Container {
             me.parseItemConfigs(items);
             me.createItems();
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onCheckboxChange(data) {
+        this.calendarStore.get(data.component.fieldValue).active = data.value;
     }
 }
 
