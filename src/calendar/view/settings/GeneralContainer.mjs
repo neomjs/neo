@@ -156,11 +156,11 @@ class GeneralContainer extends Container {
             valueLabelText: 'allowEventEditing'
         }, {
             module        : CheckBoxField,
-            checked       : calendar.scrollNewYearFromTop,
+            checked       : data.scrollNewYearFromTop,
             flex          : 'none',
             hideLabel     : true,
             hideValueLabel: false,
-            listeners     : {change: me.onConfigChange, scope: me},
+            listeners     : {change: me.onDataChange, scope: me},
             name          : 'scrollNewYearFromTop',
             style         : {marginTop: '10px'},
             valueLabelText: 'scrollNewYearFromTop'
