@@ -78,6 +78,7 @@ class CalendarsContainer extends Container {
             data.forEach(record => {
                 items.push({
                     checked       : record.active,
+                    cls           : ['neo-checkboxfield', `neo-color-${record.color}`],
                     fieldValue    : record[me.calendarStore.keyProperty],
                     listeners     : {change: me.onCheckboxChange, scope: me},
                     valueLabelText: record.name
