@@ -629,7 +629,7 @@ class Component extends BaseComponent {
 
     /**
      *
-     * @param {Object[]} data
+     * @param {Object} data
      */
     onCalendarStoreRecordChange(data) {
         this.updateEvents();
