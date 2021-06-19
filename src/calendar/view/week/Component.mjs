@@ -290,8 +290,17 @@ class Component extends BaseComponent {
     afterSetCalendarStore(value, oldValue) {
         let me = this;
 
-        oldValue && oldValue.un('load', me.onCalendarStoreLoad, me);
-        value    && value   .on('load', me.onCalendarStoreLoad, me);
+        oldValue && oldValue.un({
+            load        : me.onCalendarStoreLoad,
+            recordChange: me.onCalendarStoreRecordChange,
+            scope       : me
+        });
+
+        value && value.on({
+            load        : me.onCalendarStoreLoad,
+            recordChange: me.onCalendarStoreRecordChange,
+            scope       : me
+        });
     }
 
     /**
@@ -616,6 +625,14 @@ class Component extends BaseComponent {
      */
     onCalendarStoreLoad(data) {
         this.eventStore.getCount() > 0 && this.updateEvents();
+    }
+
+    /**
+     *
+     * @param {Object[]} data
+     */
+    onCalendarStoreRecordChange(data) {
+        this.updateEvents();
     }
 
     /**
