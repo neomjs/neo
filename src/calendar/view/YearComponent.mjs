@@ -30,7 +30,9 @@ class YearComponent extends Component {
          * @member {Object} bind
          */
         bind: {
-            currentDate: data => data.currentDate
+            calendarStore: 'stores.calendars',
+            currentDate  : data => data.currentDate,
+            eventStore   : 'stores.events'
         },
         /**
          * Stores the last date change which got triggered while a year transition was running
@@ -38,6 +40,11 @@ class YearComponent extends Component {
          * @protected
          */
         cachedUpdate: null,
+        /**
+         * Bound to the view model
+         * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
+         */
+        calendarStore_: null,
         /**
          * @member {String[]} cls=['neo-calendar-yearcomponent']
          */
@@ -66,6 +73,11 @@ class YearComponent extends Component {
          * @member {Number} eventIndicatorMedium_=2
          */
         eventIndicatorMedium_: 2,
+        /**
+         * Bound to the view model
+         * @member {Neo.calendar.store.Events|null} eventStore_=null
+         */
+        eventStore_: null,
         /**
          * @member {Intl.DateTimeFormat|null} intlFormat_day=null
          * @protected
@@ -160,8 +172,7 @@ class YearComponent extends Component {
         super(config);
 
         let me           = this,
-            domListeners = me.domListeners,
-            model        = me.getModel();
+            domListeners = me.domListeners;
 
         domListeners.push(
             {click: me.onNavButtonClick, delegate: '.neo-nav-button', scope: me},
@@ -171,8 +182,28 @@ class YearComponent extends Component {
         me.domListeners = domListeners;
 
         me.updateHeaderYear();
+    }
 
-        model.getStore('events').on('load', me.onEventsStoreLoad, me);
+    /**
+     * Triggered after the calendarStore config got changed
+     * @param {Neo.calendar.store.Calendars|null} value
+     * @param {Neo.calendar.store.Calendars|null} oldValue
+     * @protected
+     */
+    afterSetCalendarStore(value, oldValue) {
+        let me = this;
+
+        oldValue && oldValue.un({
+            load        : me.onCalendarStoreLoad,
+            recordChange: me.onCalendarStoreRecordChange,
+            scope       : me
+        });
+
+        value && value.on({
+            load        : me.onCalendarStoreLoad,
+            recordChange: me.onCalendarStoreRecordChange,
+            scope       : me
+        });
     }
 
     /**
@@ -239,6 +270,19 @@ class YearComponent extends Component {
         if (oldValue !== undefined) {
             this.createMonths();
         }
+    }
+
+    /**
+     * Triggered after the eventStore config got changed
+     * @param {Neo.calendar.store.Events|null} value
+     * @param {Neo.calendar.store.Events|null} oldValue
+     * @protected
+     */
+    afterSetEventStore(value, oldValue) {
+        let me = this;
+
+        oldValue && oldValue.un('load', me.onEventStoreLoad, me);
+        value    && value   .on('load', me.onEventStoreLoad, me);
     }
 
     /**
@@ -512,7 +556,7 @@ class YearComponent extends Component {
             currentMonth   = currentDate.getMonth(),
             currentYear    = currentDate.getFullYear(),
             date           = DateUtil.clone(currentDate),
-            eventsStore    = me.getModel().getStore('events'),
+            eventStore     = me.eventStore,
             valueDate      = me.currentDate, // cloned
             valueMonth     = valueDate.getMonth(),
             valueYear      = valueDate.getFullYear(),
@@ -579,7 +623,7 @@ class YearComponent extends Component {
                 }
 
                 if (!config.removeDom) {
-                    dayRecords = eventsStore.getDayRecords(date);
+                    dayRecords = eventStore.getDayRecords(date);
 
                     if (dayRecords.length >= me.eventIndicatorHigh) {
                         configCls.push('neo-events-high');
@@ -668,8 +712,24 @@ class YearComponent extends Component {
      *
      * @param {Object[]} data
      */
-    onEventsStoreLoad(data) {
+    onCalendarStoreLoad(data) {
+        this.eventStore.getCount() > 0 && this.createMonths();
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onCalendarStoreRecordChange(data) {
         this.createMonths();
+    }
+
+    /**
+     *
+     * @param {Object[]} data
+     */
+    onEventStoreLoad(data) {
+        this.calendarStore.getCount() > 0 && this.createMonths();
     }
 
     /**
