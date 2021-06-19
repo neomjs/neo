@@ -552,6 +552,7 @@ class YearComponent extends Component {
      */
     createMonthContent(containerEl, currentDate) {
         let me             = this,
+            calendarStore  = me.calendarStore,
             currentDay     = currentDate.getDate(),
             currentMonth   = currentDate.getMonth(),
             currentYear    = currentDate.getFullYear(),
@@ -624,6 +625,7 @@ class YearComponent extends Component {
 
                 if (!config.removeDom) {
                     dayRecords = eventStore.getDayRecords(date);
+                    dayRecords = dayRecords.filter(record => calendarStore.get(record.calendarId).active);
 
                          if (dayRecords.length >= me.eventIndicatorHigh)   {configCls.push('neo-events-high');}
                     else if (dayRecords.length >= me.eventIndicatorMedium) {configCls.push('neo-events-medium');}
