@@ -53,9 +53,10 @@ class MainContainer extends Container {
          * @member {Object} bind
          */
         bind: {
-            currentDate: {twoWay: true, value: data => data.currentDate},
-            endTime    : {twoWay: true, value: data => data.endTime},
-            startTime  : {twoWay: true, value: data => data.startTime}
+            currentDate         : {twoWay: true, value: data => data.currentDate},
+            endTime             : {twoWay: true, value: data => data.endTime},
+            scrollNewYearFromTop: {twoWay: true, value: data => data.scrollNewYearFromTop},
+            startTime           : {twoWay: true, value: data => data.startTime}
         },
         /**
          * @member {Neo.calendar.view.CalendarsContainer|null} calendarsContainer=null
