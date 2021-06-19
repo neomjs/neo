@@ -44,6 +44,11 @@ class MainContainerModel extends Component {
              */
             eventBorder: 'left',
             /**
+             * True to scroll new years in from the top
+             * @member {Boolean} data.scrollNewYearFromTop=false
+             */
+            scrollNewYearFromTop: false,
+            /**
              * Only full hours are valid for now
              * format: 'hh:mm'
              * @member {String} data.startTime='00:00'

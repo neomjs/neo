@@ -752,15 +752,11 @@ class DateSelector extends Component {
             date, monthIncrement, yearIncrement;
 
         if (Math.abs(data.deltaY) >= Math.abs(data.deltaX)) {
-                 if (data.deltaY <= -wheelDelta) {yearIncrement  =  1;}
-            else if (data.deltaY >=  wheelDelta) {yearIncrement  = -1;}
+                 if (data.deltaY >=  wheelDelta) {yearIncrement  =  1;}
+            else if (data.deltaY <= -wheelDelta) {yearIncrement  = -1;}
         } else {
                  if (data.deltaX >=  wheelDelta) {monthIncrement =  1;}
             else if (data.deltaX <= -wheelDelta) {monthIncrement = -1;}
-        }
-
-        if (yearIncrement && !me.scrollNewYearFromTop) {
-            yearIncrement *= -1;
         }
 
         if (monthIncrement) {

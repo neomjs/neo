@@ -165,7 +165,7 @@ class Component extends Base {
             keyLeaf = data.key,
             bindingScope, parentModel;
 
-        if (scope && scope[keyLeaf]) {
+        if (scope && scope.hasOwnProperty(keyLeaf)) {
             bindingScope = Neo.ns(`${key}.${componentId}`, true, me.bindings);
             bindingScope[value] = formatter;
         } else {
@@ -174,7 +174,7 @@ class Component extends Base {
             if (parentModel) {
                 parentModel.createBinding(componentId, key, value, formatter);
             } else {
-                console.error('No model.Component found with the specified data property', keyLeaf, value);
+                console.error('No model.Component found with the specified data property', componentId, keyLeaf, value);
             }
         }
     }
@@ -350,9 +350,9 @@ class Component extends Base {
             // from there we can use the dev mode regex again.
 
             let dataName       = value.match(variableNameRegex)[0],
-                variableRegExp = new RegExp(`(?<!\\w)${dataName}(?!\\w)`, 'gm'); // negative lookbehind & negative lookahead
+                variableRegExp = new RegExp(`(^|[^\\w.])(${dataName})(?!\\w)`, 'g');
 
-            value = value.replace(variableRegExp, 'data');
+            value = value.replace(variableRegExp, '$1data');
         }
 
         let dataVars = value.match(dataVariableRegex) || [],

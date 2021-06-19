@@ -53,9 +53,10 @@ class MainContainer extends Container {
          * @member {Object} bind
          */
         bind: {
-            currentDate: {twoWay: true, value: data => data.currentDate},
-            endTime    : {twoWay: true, value: data => data.endTime},
-            startTime  : {twoWay: true, value: data => data.startTime}
+            currentDate         : {twoWay: true, value: data => data.currentDate},
+            endTime             : {twoWay: true, value: data => data.endTime},
+            scrollNewYearFromTop: {twoWay: true, value: data => data.scrollNewYearFromTop},
+            startTime           : {twoWay: true, value: data => data.startTime}
         },
         /**
          * @member {Neo.calendar.view.CalendarsContainer|null} calendarsContainer=null
@@ -287,8 +288,7 @@ class MainContainer extends Container {
      */
     afterSetScrollNewYearFromTop(value, oldValue) {
         if (oldValue !== undefined) {
-            this.dateSelector .scrollNewYearFromTop = value;
-            this.yearComponent.scrollNewYearFromTop = value;
+            this.dateSelector.scrollNewYearFromTop = value;
         }
     }
 
@@ -499,20 +499,20 @@ class MainContainer extends Container {
         });
 
         me.dateSelector = Neo.create({
-            module              : DateSelector,
-            appName             : me.appName,
-            flex                : 'none',
-            height              : me.sideBarWidth,
-            listeners           : {change: me.onDateSelectorChange, scope: me},
-            locale              : me.locale,
-            parentId            : me.id, // we need the parentId to access the model inside the ctor
-            scrollNewYearFromTop: me.scrollNewYearFromTop,
-            showWeekends        : me.showWeekends,
-            value               : DateUtil.convertToyyyymmdd(me.currentDate),
-            weekStartDay        : me.weekStartDay,
+            module      : DateSelector,
+            appName     : me.appName,
+            flex        : 'none',
+            height      : me.sideBarWidth,
+            listeners   : {change: me.onDateSelectorChange, scope: me},
+            locale      : me.locale,
+            parentId    : me.id, // we need the parentId to access the model inside the ctor
+            showWeekends: me.showWeekends,
+            value       : DateUtil.convertToyyyymmdd(me.currentDate),
+            weekStartDay: me.weekStartDay,
 
             bind: {
-                value: data => DateUtil.convertToyyyymmdd(data.currentDate)
+                scrollNewYearFromTop: data => data.scrollNewYearFromTop,
+                value               : data => DateUtil.convertToyyyymmdd(data.currentDate)
             },
 
             ...me.dateSelectorConfig || {}
