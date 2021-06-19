@@ -625,13 +625,9 @@ class YearComponent extends Component {
                 if (!config.removeDom) {
                     dayRecords = eventStore.getDayRecords(date);
 
-                    if (dayRecords.length >= me.eventIndicatorHigh) {
-                        configCls.push('neo-events-high');
-                    } else if (dayRecords.length >= me.eventIndicatorMedium) {
-                        configCls.push('neo-events-medium');
-                    } else if (dayRecords.length >= me.eventIndicatorLow) {
-                        configCls.push('neo-events-low');
-                    }
+                         if (dayRecords.length >= me.eventIndicatorHigh)   {configCls.push('neo-events-high');}
+                    else if (dayRecords.length >= me.eventIndicatorMedium) {configCls.push('neo-events-medium');}
+                    else if (dayRecords.length >= me.eventIndicatorLow)    {configCls.push('neo-events-low');}
                 }
 
                 row.cn.push(config);
