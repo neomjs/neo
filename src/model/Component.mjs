@@ -350,9 +350,9 @@ class Component extends Base {
             // from there we can use the dev mode regex again.
 
             let dataName       = value.match(variableNameRegex)[0],
-                variableRegExp = new RegExp(`(?<!\\w)${dataName}(?!\\w)`, 'gm'); // negative lookbehind & negative lookahead
+                variableRegExp = new RegExp(`(^|[^\\w.])(${dataName})(?!\\w)`, 'g');
 
-            value = value.replace(variableRegExp, 'data');
+            value = value.replace(variableRegExp, '$1data');
         }
 
         let dataVars = value.match(dataVariableRegex) || [],
