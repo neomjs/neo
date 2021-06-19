@@ -30,9 +30,10 @@ class YearComponent extends Component {
          * @member {Object} bind
          */
         bind: {
-            calendarStore: 'stores.calendars',
-            currentDate  : data => data.currentDate,
-            eventStore   : 'stores.events'
+            calendarStore       : 'stores.calendars',
+            currentDate         : data => data.currentDate,
+            eventStore          : 'stores.events',
+            scrollNewYearFromTop: data => data.scrollNewYearFromTop
         },
         /**
          * Stores the last date change which got triggered while a year transition was running

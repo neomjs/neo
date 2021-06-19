@@ -288,8 +288,7 @@ class MainContainer extends Container {
      */
     afterSetScrollNewYearFromTop(value, oldValue) {
         if (oldValue !== undefined) {
-            this.dateSelector .scrollNewYearFromTop = value;
-            this.yearComponent.scrollNewYearFromTop = value;
+            this.dateSelector.scrollNewYearFromTop = value;
         }
     }
 
