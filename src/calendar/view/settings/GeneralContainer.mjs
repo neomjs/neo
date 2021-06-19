@@ -221,6 +221,18 @@ class GeneralContainer extends Container {
                 valueLabelText: 'Left'
             }, {
                 module        : RadioField,
+                checked       : data.eventBorder === 'right',
+                fieldValue    : 'right',
+                flex          : 'none',
+                hideValueLabel: false,
+                labelText     : '',
+                labelWidth    : 80,
+                listeners     : {change: me.onRadioDataChange, scope: me},
+                name          : 'eventBorder',
+                style         : {marginTop: '5px'},
+                valueLabelText: 'Right'
+            }, {
+                module        : RadioField,
                 checked       : data.enableEventResizingAcrossOppositeEdge,
                 fieldValue    : true,
                 flex          : 'none',

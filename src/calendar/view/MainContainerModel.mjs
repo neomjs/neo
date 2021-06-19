@@ -39,7 +39,7 @@ class MainContainerModel extends Component {
              */
             endTime: '24:00',
             /**
-             * Valid values: all-sides, left
+             * Valid values: all-sides, left, right
              * @member {String} data.eventBorder='left'
              */
             eventBorder: 'left',
