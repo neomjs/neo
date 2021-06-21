@@ -671,7 +671,7 @@ class MainContainer extends Container {
      */
     onDateSelectorChange(opts) {
         if (opts.oldValue !== undefined) {
-            this.getModel().setData('currentDate', new Date(opts.value));
+            this.getModel().setData('currentDate', new Date(`${opts.value} 00:00:00`));
         }
     }
 
