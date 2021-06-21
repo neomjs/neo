@@ -6,7 +6,6 @@ import DayComponent       from './DayComponent.mjs';
 import EditEventContainer from './EditEventContainer.mjs';
 import MainContainerModel from './MainContainerModel.mjs';
 import MonthComponent     from './month/Component.mjs';
-import SettingsContainer  from './SettingsContainer.mjs';
 import Toolbar            from '../../container/Toolbar.mjs';
 import WeekComponent      from './week/Component.mjs';
 import YearComponent      from './YearComponent.mjs';
@@ -374,6 +373,34 @@ class MainContainer extends Container {
     }
 
     /**
+     * Triggered after the useSettingsContainer config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetUseSettingsContainer(value, oldValue) {
+        let me = this;
+
+        if (value) {
+            import('./SettingsContainer.mjs').then(module => {
+                me.items[1].add({
+                    module             : module.default,
+                    removeInactiveCards: me.removeInactiveCards,
+                    style              : {marginRight: me.settingsExpanded ? '0' : `-${me.settingsContainerWidth}px`},
+                    width              : me.settingsContainerWidth,
+                    ...me.settingsContainerConfig
+                });
+
+                me.items[0].items[1].add({
+                    handler: me.toggleSettings.bind(me),
+                    iconCls: 'fa fa-cog',
+                    style  : {marginLeft: '10px'}
+                });
+            });
+        }
+    }
+
+    /**
      * Triggered after the weekStartDay config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -474,14 +501,6 @@ class MainContainer extends Container {
             items : ['->', ...me.createViewHeaderButtons()]
         }];
 
-        if (me.useSettingsContainer) {
-            items[1].items.push({
-                handler: me.toggleSettings.bind(me),
-                iconCls: 'fa fa-cog',
-                style  : {marginLeft: '10px'}
-            });
-        }
-
         return items;
     }
 
@@ -544,16 +563,6 @@ class MainContainer extends Container {
                 }
             }]
         }];
-
-        if (me.useSettingsContainer) {
-            me.items[1].items.push({
-                module: SettingsContainer,
-                removeInactiveCards: me.removeInactiveCards,
-                style              : {marginRight: me.settingsExpanded ? '0' : `-${me.settingsContainerWidth}px`},
-                width              : me.settingsContainerWidth,
-                ...me.settingsContainerConfig
-            });
-        }
     }
 
     /**
