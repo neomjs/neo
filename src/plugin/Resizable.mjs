@@ -447,7 +447,7 @@ class Resizable extends Base {
     }
 
     /**
-     *
+     * See: https://github.com/neomjs/neo/issues/2431
      * @param {Object} data
      */
     onMouseDown(data) {
@@ -534,7 +534,7 @@ class Resizable extends Base {
     }
 
     /**
-     *
+     * See: https://github.com/neomjs/neo/issues/2431
      * @param {Object} data
      */
     onMouseUp(data) {
