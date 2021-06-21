@@ -271,7 +271,7 @@ class EventDragZone extends DragZone {
             record          = me.eventRecord,
             switchDirection = false,
             axisStartDate, currentInterval, deltas, duration, endDate, height, intervalHeight, intervals, limitInterval,
-            minimumEventIntervals, position, startInterval, startDate;
+            minimumEventIntervals, position, startDate, startInterval;
 
         if (me.dragProxy) {
             if (!keepEndDate && !keepStartDate) {
