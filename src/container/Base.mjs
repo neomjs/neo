@@ -552,6 +552,15 @@ class Base extends Component {
     }
 
     /**
+     * Removes the container item at the last index
+     * @param {Boolean} [destroyItem=true]
+     * @param {Boolean} [silent=false]
+     */
+    removeLast(destroyItem=true, silent=false) {
+        this.removeAt(this.items.length - 1, destroyItem, silent);
+    }
+
+    /**
      * Switches the position of 2 direct child items
      * You can either pass an index (Number) or id (String)
      * @param {Number|String} item1id
