@@ -202,10 +202,11 @@ class Time extends Picker {
      */
     beforeGetValueFormat(value, oldValue) {
         if (!value) {
-            this._valueFormat = value = new Intl.DateTimeFormat('de-DE', {
+            this._valueFormat = value = new Intl.DateTimeFormat(Neo.config.locale, {
                 hour  : '2-digit',
                 minute: '2-digit',
-                second: this.stepSize < 60 ? '2-digit' : undefined
+                second: this.stepSize < 60 ? '2-digit' : undefined,
+                hour12: false
             });
         }
 
