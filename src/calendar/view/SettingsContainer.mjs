@@ -26,6 +26,11 @@ class SettingsContainer extends Container {
          */
         cls: ['neo-calendar-settingscontainer', 'neo-container'],
         /**
+         * Read only
+         * @member {Boolean} collapsed=false
+         */
+        collapsed: false,
+        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
          */
@@ -43,8 +48,14 @@ class SettingsContainer extends Container {
      */
     constructor(config) {
         super(config);
-        this.vdom.removeDom = true;
-        this.createItems();
+
+        let me = this;
+
+        if (me.collapsed) {
+            me.vdom.removeDom = true;
+        }
+
+        me.createItems();
     }
 
     /**
@@ -62,6 +73,8 @@ class SettingsContainer extends Container {
 
         Neo.getComponent(me.parentId).promiseVdomUpdate().then(() => {
             setTimeout(() => {
+                me.collapsed = true;
+
                 vdom = me.vdom;
                 vdom.removeDom = true;
                 me.vdom = vdom;
@@ -136,7 +149,8 @@ class SettingsContainer extends Container {
         delete me.vdom.removeDom;
 
         Neo.getComponent(me.parentId).promiseVdomUpdate().then(() => {
-            me.mounted = true;
+            me.collapsed = false;
+            me.mounted   = true;
 
             setTimeout(() => {
                 style = me.style || {}

@@ -385,6 +385,7 @@ class MainContainer extends Container {
             import('./SettingsContainer.mjs').then(module => {
                 me.items[1].add({
                     module             : module.default,
+                    collapsed          : !me.settingsExpanded,
                     removeInactiveCards: me.removeInactiveCards,
                     style              : {marginRight: me.settingsExpanded ? '0' : `-${me.settingsContainerWidth}px`},
                     width              : me.settingsContainerWidth,
@@ -397,6 +398,10 @@ class MainContainer extends Container {
                     style  : {marginLeft: '10px'}
                 });
             });
+        } else if (value === false && oldValue) {
+            // we only need this logic in case we dynamically change the config from true to false
+            me.items[1]         .removeLast();
+            me.items[0].items[1].removeLast();
         }
     }
 
