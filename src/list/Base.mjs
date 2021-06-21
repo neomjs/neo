@@ -134,7 +134,7 @@ class Base extends Component {
                     module : module.default,
                     appName: me.appName,
                     owner  : me,
-                    ...me.dragZoneConfig || {}
+                    ...me.dragZoneConfig
                 });
             });
         }

@@ -104,10 +104,10 @@ class Time extends Picker {
         });
 
         me.list = Neo.create({
-            module        : List,
-            displayField  : 'value',
-            store         : me.collection,
-            ...me.listConfig || {}
+            module      : List,
+            displayField: 'value',
+            store       : me.collection,
+            ...me.listConfig
         });
 
         me.list.keys._keys.push(

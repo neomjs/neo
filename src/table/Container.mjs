@@ -126,14 +126,14 @@ class Container extends BaseContainer {
             module           : header.Toolbar,
             id               : me.headerToolbarId,
             showHeaderFilters: me.showHeaderFilters,
-            ...me.headerToolbarConfig || {}
+            ...me.headerToolbarConfig
         }, {
             module         : View,
             containerId    : me.id,
             id             : me.viewId,
             store          : me.store,
             useRowRecordIds: !me.createRandomData,
-            ...me.viewConfig || {}
+            ...me.viewConfig
         }];
 
         me.vdom.id = me.id + 'wrapper';

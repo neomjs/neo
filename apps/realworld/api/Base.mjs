@@ -140,7 +140,7 @@ class Base extends CoreBase {
             url    : this.createUrl(opts),
 
             headers: {
-                ...this.defaultHeaders || {},
+                ...this.defaultHeaders,
                 'Content-Type'    : 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             }
@@ -168,7 +168,7 @@ class Base extends CoreBase {
             url    : this.createUrl(opts),
 
             headers: {
-                ...this.defaultHeaders || {},
+                ...this.defaultHeaders,
                 'Content-Type'    : 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             }
@@ -215,7 +215,7 @@ class Base extends CoreBase {
             url    : this.createUrl(opts),
 
             headers: {
-                ...this.defaultHeaders || {},
+                ...this.defaultHeaders,
                 'Content-Type'    : 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             }
@@ -246,7 +246,7 @@ class Base extends CoreBase {
             url    : this.createUrl(opts),
 
             headers: {
-                ...this.defaultHeaders || {},
+                ...this.defaultHeaders,
                 'Content-Type'    : 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             }

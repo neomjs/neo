@@ -125,7 +125,7 @@ class EditEventContainer extends FormContainer {
                 name                : 'title',
                 required            : true,
                 value               : record.title,
-                ...me.titleFieldConfig || {}
+                ...me.titleFieldConfig
             }, {
                 labelText: 'Start Time',
                 maxValue : me.getStartTimeMaxValue(record),
@@ -133,7 +133,7 @@ class EditEventContainer extends FormContainer {
                 name     : 'startTime',
                 value    : owner.intlFormat_time.format(record.startDate),
                 ...timeFieldDefaults,
-                ...me.startTimeFieldConfig || {}
+                ...me.startTimeFieldConfig
             }, {
                 labelText: 'End Time',
                 maxValue : owner.endTime,
@@ -141,7 +141,7 @@ class EditEventContainer extends FormContainer {
                 name     : 'endTime',
                 value    : owner.intlFormat_time.format(record.endDate),
                 ...timeFieldDefaults,
-                ...me.endTimeFieldConfig || {}
+                ...me.endTimeFieldConfig
             }];
 
             super.createItems();

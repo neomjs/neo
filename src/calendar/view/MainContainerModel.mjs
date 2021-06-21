@@ -77,7 +77,7 @@ class MainContainerModel extends Component {
              */
             calendars: {
                 module: CalendarsStore,
-                ...component.calendarStoreConfig || {}
+                ...component.calendarStoreConfig
             },
             /**
              * config object for {Neo.calendar.store.Events}
@@ -85,7 +85,7 @@ class MainContainerModel extends Component {
              */
             events: {
                 module: EventsStore,
-                ...component.eventStoreConfig || {}
+                ...component.eventStoreConfig
             }
         };
     }

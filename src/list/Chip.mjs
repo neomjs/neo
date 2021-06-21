@@ -101,7 +101,7 @@ class Chip extends Base {
                 id      : me.getItemId(item[me.getKeyProperty()]),
                 parentId: me.id,
                 text    : item[me.displayField],
-                ...me.chipConfig || {}
+                ...me.chipConfig
             });
 
             vdom.cn.push(listItem.vdom);

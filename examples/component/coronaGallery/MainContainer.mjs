@@ -343,7 +343,7 @@ class MainContainer extends Viewport {
         me.gallery = Neo.create({
             module: CountryGallery,
             id    : 'neo-gallery-1',
-            ...me.galleryConfig || {}
+            ...me.galleryConfig
         });
 
         me.items[0].items.unshift(me.gallery);

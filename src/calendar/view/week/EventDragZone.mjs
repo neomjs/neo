@@ -171,7 +171,7 @@ class EventDragZone extends DragZone {
             moveInMainThread: me.moveInMainThread,
             parentId        : me.proxyParentId,
 
-            ...me.dragProxyConfig || {},
+            ...me.dragProxyConfig,
 
             vdom: me.useProxyWrapper ? {cn: [clone]} : clone // we want to override dragProxyConfig.vdom if needed
         };

@@ -210,7 +210,7 @@ class Component extends BaseComponent {
             delegationCls: 'neo-event',
             directions   : ['b', 't'],
             flag         : 'resizable',
-            ...me.resizablePluginConfig || {}
+            ...me.resizablePluginConfig
         });
 
         me.plugins = plugins;
@@ -222,7 +222,7 @@ class Component extends BaseComponent {
                 change: me.onTimeAxisChange,
                 scope : me
             },
-            ...me.timeAxisConfig || {}
+            ...me.timeAxisConfig
         });
 
         me.getColumnTimeAxisContainer().cn[me.timeAxisPosition === 'start' ? 'unshift' : 'push'](me.timeAxis.vdom);

@@ -168,7 +168,7 @@ class Xhr extends Base {
      */
     request(opts) {
         let me      = this,
-            headers = {...me.defaultHeaders || {}, ...opts.headers || {}},
+            headers = {...me.defaultHeaders, ...opts.headers || {}},
             id      = Neo.getId('xhr-request'),
             method  = opts.method || 'GET',
             xhr     = new XMLHttpRequest();

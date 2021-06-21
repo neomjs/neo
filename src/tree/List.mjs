@@ -77,7 +77,7 @@ class Tree extends Base {
                         module : module.default,
                         appName: me.appName,
                         owner  : me,
-                        ...me.dragZoneConfig || {}
+                        ...me.dragZoneConfig
                     });
                 });
             }
@@ -106,7 +106,7 @@ class Tree extends Base {
                         appName            : me.appName,
                         boundaryContainerId: me.id,
                         owner              : me,
-                        ...me.sortZoneConfig || {}
+                        ...me.sortZoneConfig
                     });
                 });
             }

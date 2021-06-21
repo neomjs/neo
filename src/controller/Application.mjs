@@ -109,7 +109,7 @@ Neo.applyClassConfig(Application);
 // convenience shortcut
 Neo.app = config => Neo.create({
     module: Application,
-    ...config || {}
+    ...config
 });
 
 export {Application as default};

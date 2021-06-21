@@ -64,7 +64,7 @@ class Time extends Picker {
             fontSize: .6,
             showDisc: false,
             size    : null,
-            ...me.clockConfig || {}
+            ...me.clockConfig
         });
 
         vdom.cn = [me.clock.vdom];

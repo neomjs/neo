@@ -232,7 +232,7 @@ class Fieldset extends Container {
                     module : Legend,
                     iconCls: iconCls,
                     text   : title,
-                    ...me.legendConfig || {}
+                    ...me.legendConfig
                 });
             }
         }

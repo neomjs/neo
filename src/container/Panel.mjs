@@ -134,7 +134,7 @@ class Panel extends Container {
                 flex        : 1,
                 items       : items,
                 itemDefaults: me.itemDefaults,
-                ...me.containerConfig || {}
+                ...me.containerConfig
             };
 
             horizontalItems.push({...me.headerDefaults, ...config});
@@ -157,7 +157,7 @@ class Panel extends Container {
                 flex        : 1,
                 items       : items,
                 itemDefaults: me.itemDefaults,
-                ...me.containerConfig || {}
+                ...me.containerConfig
             };
 
             verticalItems.push({...me.headerDefaults, ...config});

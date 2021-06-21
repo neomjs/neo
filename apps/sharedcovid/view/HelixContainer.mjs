@@ -255,7 +255,7 @@ class HelixContainer extends Container {
         me.helix = Neo.create({
             module   : Helix,
             reference: 'helix',
-            ...me.helixConfig || {}
+            ...me.helixConfig
         });
 
         me.items[0].items.push(me.helix);

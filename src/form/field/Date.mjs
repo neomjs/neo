@@ -70,8 +70,8 @@ class DateField extends Picker {
 
         me.dateSelector = Neo.create(DateSelector, {
             dayNameFormat: 'short',
-            value        : me.value  || DateUtil.convertToyyyymmdd(new Date()),
-            ...me.dateSelectorConfig || {}
+            value        : me.value || DateUtil.convertToyyyymmdd(new Date()),
+            ...me.dateSelectorConfig
         });
 
         me.dateSelector.keys._keys.push(

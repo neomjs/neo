@@ -313,7 +313,7 @@ class MainContainer extends Viewport {
         me.helix = Neo.create({
             module: Helix,
             id    : 'neo-helix-1',
-            ...me.helixConfig || {}
+            ...me.helixConfig
         });
 
         me.items[0].items.unshift(me.helix);

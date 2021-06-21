@@ -66,7 +66,7 @@ class Split extends Button {
             iconCls : me.triggerButtonIconCls,
             parentId: me.id,
             pressed : me.pressed,
-            ...me.triggerButtonConfig || {}
+            ...me.triggerButtonConfig
         });
 
         vdom.cn.push(me.triggerButton.vdom);

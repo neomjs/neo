@@ -70,19 +70,19 @@ class BooleanContainer extends Container {
             checked       : me.value === true,
             fieldValue    : true,
             valueLabelText: '<i class="fa fa-check"></i>',
-            ...me.radioConfig || {}
+            ...me.radioConfig
         }, {
             ...defaults,
             checked       : me.value === false,
             fieldValue    : false,
             valueLabelText: '<i class="fa fa-times"></i>',
-            ...me.radioConfig || {}
+            ...me.radioConfig
         }, {
             ...defaults,
             checked       : me.value === null,
             fieldValue    : null,
             valueLabelText: '<i class="fa fa-check"></i> <i class="fa fa-times"></i>',
-            ...me.radioConfig || {}
+            ...me.radioConfig
         }];
 
         super.createItems();

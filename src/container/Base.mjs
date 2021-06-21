@@ -347,7 +347,7 @@ class Base extends Component {
                 }
 
                 item = {
-                    ...me.itemDefaults || {},
+                    ...me.itemDefaults,
 
                     appName    : me.appName,
                     parentId   : me.id,

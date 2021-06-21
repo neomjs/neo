@@ -201,7 +201,7 @@ class GalleryContainer extends Container {
         me.gallery = Neo.create({
             module   : Gallery,
             reference: 'gallery',
-            ...me.galleryConfig || {}
+            ...me.galleryConfig
         });
 
         me.items[0].items.push(me.gallery);
