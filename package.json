@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "2.2.33",
+    "version": "2.2.34",
     "description": "The webworkers driven UI framework",
     "repository": {
         "type": "git",

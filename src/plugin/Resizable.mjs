@@ -183,8 +183,10 @@ class Resizable extends Base {
             {'drag:end'  : me.onDragEnd,    scope: me, delegate: '.neo-resizable'},
             {'drag:move' : me.onDragMove,   scope: me, delegate: '.neo-resizable'},
             {'drag:start': me.onDragStart,  scope: me, delegate: '.neo-resizable'},
+            {mousedown   : me.onMouseDown,  scope: me, delegate: '.neo-resizable'},
             {mousemove   : me.onMouseMove,  scope: me, local   : true},
-            {mouseleave  : me.onMouseLeave, scope: me, delegate: `.${me.delegationCls}`}
+            {mouseleave  : me.onMouseLeave, scope: me, delegate: `.${me.delegationCls}`},
+            {mouseup     : me.onMouseUp,    scope: me, delegate: '.neo-resizable'}
         );
 
         me.owner.domListeners = domListeners;
@@ -445,6 +447,14 @@ class Resizable extends Base {
     }
 
     /**
+     * See: https://github.com/neomjs/neo/issues/2431
+     * @param {Object} data
+     */
+    onMouseDown(data) {
+        this.isDragging = true;
+    }
+
+    /**
      *
      * @param {Object} data
      */
@@ -521,6 +531,14 @@ class Resizable extends Base {
                 me.removeAllNodes();
             }
         }
+    }
+
+    /**
+     * See: https://github.com/neomjs/neo/issues/2431
+     * @param {Object} data
+     */
+    onMouseUp(data) {
+        this.isDragging = false;
     }
 
     /**

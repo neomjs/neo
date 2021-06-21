@@ -26,8 +26,10 @@ const globalDomEvents = [
     'input',
     'keydown',
     'keyup',
+    'mousedown',
     'mouseenter',
     'mouseleave',
+    'mouseup',
     'wheel'
 ];
 

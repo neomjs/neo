@@ -12,8 +12,10 @@ const globalDomEvents = [
     {name: 'input',       handler: 'onChange'},
     {name: 'keydown',     handler: 'onKeyDown'},
     {name: 'keyup',       handler: 'onKeyUp'},
+    {name: 'mousedown',   handler: 'onMouseDown'},
     {name: 'mouseenter',  handler: 'onMouseEnter', options: {capture: true}},
     {name: 'mouseleave',  handler: 'onMouseLeave', options: {capture: true}},
+    {name: 'mouseup',     handler: 'onMouseUp'},
     {name: 'wheel',       handler: 'onWheel',      options: {passive: false}}
 ];
 
@@ -533,6 +535,14 @@ class DomEvents extends Base {
      *
      * @param {Object} event
      */
+    onMouseDown(event) {
+        this.sendMessageToApp(this.getMouseEventData(event));
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
     onMouseEnter(event) {
         let me       = this,
             appEvent = {...me.getMouseEventData(event), fromElementId: event.fromElement && event.fromElement.id || null};
@@ -551,6 +561,14 @@ class DomEvents extends Base {
 
         me.sendMessageToApp(appEvent);
         me.fire('mouseLeave', appEvent);
+    }
+
+    /**
+     *
+     * @param {Object} event
+     */
+    onMouseUp(event) {
+        this.sendMessageToApp(this.getMouseEventData(event));
     }
 
     /**
