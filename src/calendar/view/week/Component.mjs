@@ -940,8 +940,8 @@ class Component extends BaseComponent {
             content           = me.getColumnContainer(),
             j                 = startIndex,
             showEventEndDates = me.showEventEndDates,
-            calendarRecord, column, dayRecords, duration, endDate, eventCls, hasOverflow, height, i, len, record,
-            recordKey, startDate, startHours, top;
+            calendarRecord, column, dayRecords, duration, endDate, eventCls, eventIntervals, hasOverflow, height, i,
+            len, record, recordKey, startDate, startHours, top;
 
         date.setDate(date.getDate() + startIndex);
 
@@ -979,18 +979,19 @@ class Component extends BaseComponent {
                         startDate.setMinutes(0);
                     }
 
-                    duration    = (endDate - startDate) / 60 / 60 / 1000; // duration in hours
-                    eventCls    = ['neo-event', 'neo-draggable', `neo-${calendarRecord.color}`];
-                    hasOverflow = false;
-                    height      = Math.round(duration / totalTime * 100 * 1000) / 1000;
-                    recordKey   = record[eventStore.keyProperty];
-                    startHours  = (startDate.getHours() * 60 + startDate.getMinutes()) / 60;
-                    top         = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
+                    duration       = (endDate - startDate) / 60 / 60 / 1000; // duration in hours
+                    eventCls       = ['neo-event', 'neo-draggable', `neo-${calendarRecord.color}`];
+                    eventIntervals = duration * 60 / timeAxis.interval;
+                    hasOverflow    = false;
+                    height         = Math.round(duration / totalTime * 100 * 1000) / 1000;
+                    recordKey      = record[eventStore.keyProperty];
+                    startHours     = (startDate.getHours() * 60 + startDate.getMinutes()) / 60;
+                    top            = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
 
-                    if (duration * 60 / timeAxis.interval === 1) {
-                        hasOverflow = timeAxis.rowHeight < (showEventEndDates ? 50 : 34);
+                    if (eventIntervals <= 2) {
+                        hasOverflow = timeAxis.rowHeight * eventIntervals < (showEventEndDates ? 50 : 34);
 
-                        if (hasOverflow && !(showEventEndDates && timeAxis.rowHeight >= 34)) {
+                        if (hasOverflow && !(showEventEndDates && (timeAxis.rowHeight / eventIntervals >= 34))) {
                             eventCls.push('neo-overflow');
                         }
                     }
@@ -1013,7 +1014,7 @@ class Component extends BaseComponent {
                             cls      : ['neo-event-time', 'neo-event-end-time'],
                             html     : me.intlFormat_time.format(record.endDate),
                             id       : me.id + '__enddate__' + recordKey,
-                            removeDom: hasOverflow || !showEventEndDates
+                            removeDom: hasOverflow && eventIntervals === 1 || !showEventEndDates
                         }],
 
                         style: {

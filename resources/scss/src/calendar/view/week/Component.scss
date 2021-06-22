@@ -91,6 +91,10 @@
         &.neo-overflow {
             flex-direction: row;
 
+            .neo-event-end-time {
+                flex: 1;
+            }
+
             .neo-event-title {
                 margin: 0 .5em;
             }

@@ -65,6 +65,12 @@ class EventDragZone extends DragZone {
          */
         forceUpdate: false,
         /**
+         * Internal flag
+         * @member {Boolean} hasOverflow=false
+         * @protected
+         */
+        hasOverflow: false,
+        /**
          * time in minutes
          * @member {Number} intervalSize=15
          */
@@ -237,6 +243,7 @@ class EventDragZone extends DragZone {
         record.startDate = startDate;
 
         Object.assign(me, {
+            hasOverflow  : false,
             keepEndDate  : false,
             keepStartDate: false,
             newEndDate   : null,
@@ -270,8 +277,9 @@ class EventDragZone extends DragZone {
             owner           = me.owner,
             record          = me.eventRecord,
             switchDirection = false,
-            axisStartDate, currentInterval, deltas, duration, endDate, height, intervalHeight, intervals, limitInterval,
-            minimumEventIntervals, position, startDate, startInterval;
+            timeAxis        = owner.timeAxis,
+            axisStartDate, currentInterval, deltas, duration, endDate, eventIntervals, hasOverflow, height, intervalHeight,
+            intervals, limitInterval, minimumEventIntervals, position, startDate, startInterval;
 
         if (me.dragProxy) {
             if (!keepEndDate && !keepStartDate) {
@@ -460,12 +468,36 @@ class EventDragZone extends DragZone {
                     innerHTML: owner.intlFormat_time.format(startDate)
                 });
 
-                // check if the node did not get removed yet
+                // check if the node got added yet
                 if (me.dragProxy.vdom.cn[0].id) {
-                    Neo.currentWorker.promiseMessage('main', {
-                        action: 'updateDom',
-                        deltas: deltas
-                    });
+                    eventIntervals = (duration && duration * 60 || eventDuration) / timeAxis.interval;
+                    console.log(eventIntervals);
+
+                    if (eventIntervals <= 2) {
+                        hasOverflow = timeAxis.rowHeight / eventIntervals < 25;
+
+                        if (hasOverflow) {
+                            if (!me.hasOverflow) {console.log('add', me.dragProxy.id, me.dragProxy.vdom.cn[0].id);
+                                deltas.push({
+                                    id : me.dragProxy.id,
+                                    cls: {add: ['neo-overflow']}
+                                });
+
+                                me.hasOverflow = true;
+                            }
+                        }
+                    } else {
+                        if (me.hasOverflow) {console.log('remove');
+                            deltas.push({
+                                id : me.dragProxy.id,
+                                cls: {remove: ['neo-overflow']}
+                            });
+
+                            me.hasOverflow = false;
+                        }
+                    }
+
+                    Neo.applyDeltas(me.appName, deltas);
                 }
             }
 
