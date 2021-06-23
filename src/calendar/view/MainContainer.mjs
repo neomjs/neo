@@ -481,8 +481,9 @@ class MainContainer extends Container {
      * @returns {Object[]}
      */
     createHeaderItems() {
-        let me    = this,
-            items = [{
+        let me = this;
+
+        return [{
             module: Toolbar,
             cls   : ['neo-calendar-header-toolbar', 'neo-left', 'neo-toolbar'],
             width : me.sideBarWidth,
@@ -505,8 +506,6 @@ class MainContainer extends Container {
             cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
             items : ['->', ...me.createViewHeaderButtons()]
         }];
-
-        return items;
     }
 
     /**
