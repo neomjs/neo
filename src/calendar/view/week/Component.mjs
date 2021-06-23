@@ -136,9 +136,9 @@ class Component extends BaseComponent {
          */
         resizablePluginConfig: null,
         /**
-         * @member {Boolean} showEventEndDates_=false
+         * @member {Boolean} showEventEndTime_=false
          */
-        showEventEndDates_: false,
+        showEventEndTime_: false,
         /**
          * @member {Object} timeAxis=null
          */
@@ -405,12 +405,12 @@ class Component extends BaseComponent {
     }
 
     /**
-     * Triggered after the showEventEndDates config got changed
+     * Triggered after the showEventEndTime config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetShowEventEndDates(value, oldValue) {
+    afterSetShowEventEndTime(value, oldValue) {
         if (oldValue !== undefined) {
             this.updateEvents();
         }
@@ -939,7 +939,7 @@ class Component extends BaseComponent {
             vdom              = me.vdom,
             content           = me.getColumnContainer(),
             j                 = startIndex,
-            showEventEndDates = me.showEventEndDates,
+            showEventEndTime  = me.showEventEndTime,
             calendarRecord, column, dayRecords, duration, endDate, eventCls, eventIntervals, hasOverflow, height, i,
             len, record, recordKey, startDate, startHours, top;
 
@@ -989,12 +989,16 @@ class Component extends BaseComponent {
                     top            = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
 
                     if (eventIntervals <= 2) {
-                        hasOverflow = timeAxis.rowHeight * eventIntervals < (showEventEndDates ? 50 : 34);
+                        hasOverflow = timeAxis.rowHeight * eventIntervals < (showEventEndTime ? 50 : 34);
 
-                        if (hasOverflow && !(showEventEndDates && (timeAxis.rowHeight / eventIntervals >= 34))) {
+                        if (hasOverflow && !(showEventEndTime && (timeAxis.rowHeight / eventIntervals >= 34))) {
                             eventCls.push('neo-overflow');
                         }
                     }
+
+                    showEventEndTime = !(hasOverflow && eventIntervals === 1 || !showEventEndTime);
+
+                    showEventEndTime && eventCls.push('neo-show-end-time');
 
                     column.cn.push({
                         cls     : eventCls,
@@ -1014,7 +1018,7 @@ class Component extends BaseComponent {
                             cls      : ['neo-event-time', 'neo-event-end-time'],
                             html     : me.intlFormat_time.format(record.endDate),
                             id       : me.id + '__enddate__' + recordKey,
-                            removeDom: hasOverflow && eventIntervals === 1 || !showEventEndDates
+                            removeDom: !showEventEndTime
                         }],
 
                         style: {
