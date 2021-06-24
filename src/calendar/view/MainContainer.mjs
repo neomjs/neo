@@ -611,23 +611,27 @@ class MainContainer extends Container {
         const map = {
             day: {
                 module: () => import('./DayComponent.mjs'),
+                flag  : 'day',
                 style : {padding: '20px'},
                 ...defaultConfig,
                 ...me.dayComponentConfig
             },
             month: {
                 module: () => import('./month/Component.mjs'),
+                flag  : 'month',
                 ...defaultConfig,
                 ...me.monthComponentConfig
             },
             week: {
                 module: () => import('./week/Component.mjs'),
+                flag  : 'week',
                 minimumEventDuration: me.minimumEventDuration,
                 ...defaultConfig,
                 ...me.weekComponentConfig
             },
             year: {
                 module              : () => import('./YearComponent.mjs'),
+                flag                : 'year',
                 scrollNewYearFromTop: me.scrollNewYearFromTop,
                 ...defaultConfig,
                 ...me.yearComponentConfig
@@ -635,7 +639,7 @@ class MainContainer extends Container {
         }
 
         me.views.forEach(view => {
-            me[view + 'Component'] = cmp = map[view];
+            me[`${view}Component`] = cmp = map[view];
             cards.push(cmp);
         });
 
@@ -664,7 +668,7 @@ class MainContainer extends Container {
      * @param data
      */
     onCardLoaded(data) {
-        console.log('onCardLoaded', data);
+        this[`${data.item.flag}Component`] = data.item;
     }
 
     /**
