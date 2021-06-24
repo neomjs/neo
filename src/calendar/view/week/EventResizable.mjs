@@ -44,6 +44,16 @@ class EventResizable extends Resizable {
         me.addBodyCursorCls();
         me.owner.eventDragZone[me.currentNodeName === 'top' ? 'keepEndDate' : 'keepStartDate'] = true;
     }
+
+    /**
+     * Only show the resize handles in case dragging is enabled.
+     * @param {Object} data
+     */
+    onMouseMove(data) {
+        if (this.owner.eventsEnableDrag) {
+            super.onMouseMove(data);
+        }
+    }
 }
 
 Neo.applyClassConfig(EventResizable);
