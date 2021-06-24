@@ -20,33 +20,6 @@ class MonthContainer extends Container {
     }}
 
     /**
-     * Gets triggered when the activeIndex of the parents card layout changes
-     */
-    activate() {
-        let me            = this,
-            mainContainer = me.getMainContainer(),
-            listenerId;
-
-        if (mainContainer) {
-            if (me.items.length < 1) {
-                if (Neo.typeOf(mainContainer.monthComponent) !== 'NeoInstance') {
-                    listenerId = mainContainer.on('cardLoaded', () => {
-                        mainContainer.un('cardLoaded', listenerId);
-
-                        setTimeout(() => {
-                            me.createContent();
-                        }, 30);
-                    });
-                } else {
-                    me.createContent();
-                }
-            }
-
-            mainContainer.activeView = 'month';
-        }
-    }
-
-    /**
      *
      */
     createContent() {
@@ -128,18 +101,10 @@ class MonthContainer extends Container {
 
     /**
      *
-     * @returns {Neo.calendar.view.MainContainer}
-     */
-    getMainContainer() {
-        return this.up('calendar-maincontainer');
-    }
-
-    /**
-     *
      * @returns {Neo.calendar.view.month.Component}
      */
     getMonthComponent() {
-        return this.getMainContainer().monthComponent;
+        return this.up('calendar-maincontainer').monthComponent;
     }
 
     /**
