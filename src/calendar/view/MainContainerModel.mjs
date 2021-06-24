@@ -20,10 +20,6 @@ class MainContainerModel extends Component {
          */
         data: {
             /**
-             * @member {Boolean} data.allowEventEditing=true
-             */
-            allowEventEditing: true,
-            /**
              * The currently active date inside all views
              * @member {Date} currentDate=new Date()
              */
@@ -47,7 +43,12 @@ class MainContainerModel extends Component {
                  * Enables moving and resizing events via drag & drop
                  * @member {Object} data.events.enableDrag = true
                  */
-                enableDrag: true
+                enableDrag: true,
+                /**
+                 * Enables editing events via double click => calendar.view.EditEventContainer
+                 * @member {Boolean} data.events.enableEdit=true
+                 */
+                enableEdit: true
             },
             /**
              * Valid values: all-sides, left, right
