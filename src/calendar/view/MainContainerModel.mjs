@@ -39,6 +39,17 @@ class MainContainerModel extends Component {
              */
             endTime: '24:00',
             /**
+             * Nested property for event related configs
+             * @member {Object} data.events
+             */
+            events: {
+                /**
+                 * Enables moving and resizing events via drag & drop
+                 * @member {Object} data.events.enableDrag = true
+                 */
+                enableDrag: true
+            },
+            /**
              * Valid values: all-sides, left, right
              * @member {String} data.eventBorder='left'
              */
