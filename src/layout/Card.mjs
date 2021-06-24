@@ -66,7 +66,7 @@ class Card extends Base {
             container   = Neo.getComponent(containerId) || Neo.get(containerId), // the instance might not be registered yet
             sCfg        = me.getStaticConfig(),
             needsUpdate = false,
-            isActiveIndex, cls, i, item, items, len, module, proto, vdom;
+            cls, i, isActiveIndex, item, items, len, module, proto, vdom;
 
         if (Neo.isNumber(value) && container) {
             items = container.items;
