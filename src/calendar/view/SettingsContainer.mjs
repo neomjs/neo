@@ -54,8 +54,6 @@ class SettingsContainer extends Container {
         if (me.collapsed) {
             me.vdom.removeDom = true;
         }
-
-        me.createItems();
     }
 
     /**
