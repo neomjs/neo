@@ -62,12 +62,13 @@ class Card extends Base {
      */
     async afterSetActiveIndex(value, oldValue) {
         let me          = this,
-            container   = Neo.getComponent(me.containerId),
+            containerId = me.containerId,
+            container   = Neo.getComponent(containerId) || Neo.get(containerId), // the instance might not be registered yet
             sCfg        = me.getStaticConfig(),
             needsUpdate = false,
             isActiveIndex, cls, i, item, items, len, module, proto, vdom;
 
-        if (container) {
+        if (Neo.isNumber(value) && container) {
             items = container.items;
             vdom  = container.vdom;
             len   = items.length;
