@@ -44,10 +44,11 @@ class Component extends BaseComponent {
          * @member {Object} bind
          */
         bind: {
-            calendarStore: 'stores.calendars',
-            currentDate  : data => data.currentDate,
-            eventBorder  : data => data.eventBorder,
-            eventStore   : 'stores.events'
+            calendarStore   : 'stores.calendars',
+            currentDate     : data => data.currentDate,
+            eventBorder     : data => data.eventBorder,
+            eventsEnableDrag: data => data.events.enableDrag,
+            eventStore      : 'stores.events'
         },
         /**
          * Bound to the view model
@@ -59,7 +60,7 @@ class Component extends BaseComponent {
          */
         cls: ['neo-calendar-weekcomponent'],
         /**
-         * Will get passed from the MainContainer model
+         * Bound to the view model.
          * @member {Date|null} currentDate_=null
          * @protected
          */
@@ -84,6 +85,12 @@ class Component extends BaseComponent {
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
         eventStore_: null,
+        /**
+         * Enables moving and resizing events via drag & drop.
+         * Bound to the view model.
+         * @member {Boolean} eventsEnableDrag_=true
+         */
+        eventsEnableDrag_: true,
         /**
          * Will get passed from updateHeader()
          * @member {Date|null} firstColumnDate=null
@@ -703,18 +710,20 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDragEnd(data) {
-        let me = this;
+        if (this.eventsEnableDrag) {
+            let me = this;
 
-        me.eventDragZone.dragEnd();
+            me.eventDragZone.dragEnd();
 
-        if (!me.isTopLevelEvent(data)) {
-            data = me.adjustResizeEvent(data);
-            me.getPlugin({flag:'resizable'}).onDragEnd(data);
-        } else {
-            me.eventDragZone.removeBodyCursorCls();
+            if (!me.isTopLevelEvent(data)) {
+                data = me.adjustResizeEvent(data);
+                me.getPlugin({flag:'resizable'}).onDragEnd(data);
+            } else {
+                me.eventDragZone.removeBodyCursorCls();
+            }
+
+            me.isDragging = false;
         }
-
-        me.isDragging = false;
     }
 
     /**
@@ -722,13 +731,15 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDragMove(data) {
-        let me = this;
+        if (this.eventsEnableDrag) {
+            let me = this;
 
-        if (!me.isTopLevelEvent(data)) {
-            data = me.adjustResizeEvent(data);
+            if (!me.isTopLevelEvent(data)) {
+                data = me.adjustResizeEvent(data);
+            }
+
+            me.eventDragZone.dragMove(data);
         }
-
-        me.eventDragZone.dragMove(data);
     }
 
     /**
@@ -736,55 +747,57 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDragStart(data) {
-        let me              = this,
-            eventDragZone   = me.eventDragZone,
-            isTopLevelEvent = me.isTopLevelEvent(data),
-            dragElement, timeAxis;
+        if (this.eventsEnableDrag) {
+            let me              = this,
+                eventDragZone   = me.eventDragZone,
+                isTopLevelEvent = me.isTopLevelEvent(data),
+                dragElement, timeAxis;
 
-        if (!isTopLevelEvent) {
-            data = me.adjustResizeEvent(data);
-        }
+            if (!isTopLevelEvent) {
+                data = me.adjustResizeEvent(data);
+            }
 
-        dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom;
-        timeAxis    = me.timeAxis;
+            dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom;
+            timeAxis    = me.timeAxis;
 
-        me.isDragging = true;
+            me.isDragging = true;
 
-        const config = {
-            axisEndTime                     : timeAxis.getTime(timeAxis.endTime),
-            axisStartTime                   : timeAxis.getTime(timeAxis.startTime),
-            dragElement                     : dragElement,
-            enableResizingAcrossOppositeEdge: me.data.enableEventResizingAcrossOppositeEdge,
-            eventRecord                     : me.eventStore.get(dragElement.flag),
-            proxyParentId                   : data.path[1].id
-        };
+            const config = {
+                axisEndTime                     : timeAxis.getTime(timeAxis.endTime),
+                axisStartTime                   : timeAxis.getTime(timeAxis.startTime),
+                dragElement                     : dragElement,
+                enableResizingAcrossOppositeEdge: me.data.enableEventResizingAcrossOppositeEdge,
+                eventRecord                     : me.eventStore.get(dragElement.flag),
+                proxyParentId                   : data.path[1].id
+            };
 
-        if (!eventDragZone) {
-            me.eventDragZone = eventDragZone = Neo.create({
-                module           : EventDragZone,
-                appName          : me.appName,
-                owner            : me,
-                scrollContainerId: me.getScrollContainer().id,
-                ...config,
+            if (!eventDragZone) {
+                me.eventDragZone = eventDragZone = Neo.create({
+                    module           : EventDragZone,
+                    appName          : me.appName,
+                    owner            : me,
+                    scrollContainerId: me.getScrollContainer().id,
+                    ...config,
 
-                dragProxyConfig: {
-                    style: {
-                        transition: 'none',
-                        willChange: 'height'
+                    dragProxyConfig: {
+                        style: {
+                            transition: 'none',
+                            willChange: 'height'
+                        }
                     }
-                }
-            });
-        } else {
-            eventDragZone.set(config);
-        }
+                });
+            } else {
+                eventDragZone.set(config);
+            }
 
-        if (isTopLevelEvent) {
-            eventDragZone.addBodyCursorCls();
-        } else {
-            me.getPlugin({flag:'resizable'}).onDragStart(data);
-        }
+            if (isTopLevelEvent) {
+                eventDragZone.addBodyCursorCls();
+            } else {
+                me.getPlugin({flag:'resizable'}).onDragStart(data);
+            }
 
-        eventDragZone.dragStart(data);
+            eventDragZone.dragStart(data);
+        }
     }
 
     /**
