@@ -25,10 +25,6 @@ class MainContainerModel extends Component {
              */
             currentDate: todayDate,
             /**
-             * @member {Boolean} data.enableEventResizingAcrossOppositeEdge=true
-             */
-            enableEventResizingAcrossOppositeEdge: true,
-            /**
              * Only full hours are valid for now
              * format: 'hh:mm'
              * @member {String} data.endTime='24:00'
@@ -53,7 +49,13 @@ class MainContainerModel extends Component {
                  * Enables editing events via double click => calendar.view.EditEventContainer
                  * @member {Boolean} data.events.enableEdit=true
                  */
-                enableEdit: true
+                enableEdit: true,
+                /**
+                 * Enables resizing an event via the south handle to an earlier start time and
+                 * resizing via the north handle to a later end time.
+                 * @member {Boolean} data.events.enableResizingAcrossOppositeEdge=true
+                 */
+                enableResizingAcrossOppositeEdge: true
             },
             /**
              * True to scroll new years in from the top
