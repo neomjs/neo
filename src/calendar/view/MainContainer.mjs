@@ -2,13 +2,9 @@ import CalendarsContainer from './CalendarsContainer.mjs';
 import Container          from '../../container/Base.mjs';
 import DateSelector       from '../../component/DateSelector.mjs';
 import DateUtil           from '../../util/Date.mjs';
-import DayComponent       from './DayComponent.mjs';
 import EditEventContainer from './EditEventContainer.mjs';
 import MainContainerModel from './MainContainerModel.mjs';
-import MonthComponent     from './month/Component.mjs';
 import Toolbar            from '../../container/Toolbar.mjs';
-import WeekComponent      from './week/Component.mjs';
-import YearComponent      from './YearComponent.mjs';
 
 const todayDate = new Date();
 
@@ -613,24 +609,24 @@ class MainContainer extends Container {
 
         const map = {
             day: {
-                module: DayComponent,
+                module: () => import('./DayComponent.mjs'),
                 style : {padding: '20px'},
                 ...defaultConfig,
                 ...me.dayComponentConfig
             },
             month: {
-                module: MonthComponent,
+                module: () => import('./month/Component.mjs'),
                 ...defaultConfig,
                 ...me.monthComponentConfig
             },
             week: {
-                module: WeekComponent,
+                module: () => import('./week/Component.mjs'),
                 minimumEventDuration: me.minimumEventDuration,
                 ...defaultConfig,
                 ...me.weekComponentConfig
             },
             year: {
-                module              : YearComponent,
+                module              : () => import('./YearComponent.mjs'),
                 scrollNewYearFromTop: me.scrollNewYearFromTop,
                 ...defaultConfig,
                 ...me.yearComponentConfig
@@ -638,7 +634,7 @@ class MainContainer extends Container {
         }
 
         me.views.forEach(view => {
-            me[view + 'Component'] = cmp = Neo.create(map[view]);
+            me[view + 'Component'] = cmp = map[view];
             cards.push(cmp);
         });
 

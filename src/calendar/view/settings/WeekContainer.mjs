@@ -34,7 +34,7 @@ class WeekContainer extends Container {
     createItems() {
         let me            = this,
             weekComponent = me.getWeekComponent(),
-            timeAxis      = weekComponent.timeAxis;
+            timeAxis      = weekComponent.timeAxis || {};
 
         me.items = [{
             module              : NumberField,
