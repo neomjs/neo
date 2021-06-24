@@ -146,16 +146,6 @@ class GeneralContainer extends Container {
             valueLabelText: 'showWeekends'
         }, {
             module        : CheckBoxField,
-            checked       : data.allowEventEditing,
-            flex          : 'none',
-            hideLabel     : true,
-            hideValueLabel: false,
-            listeners     : {change: me.onDataChange, scope: me},
-            name          : 'allowEventEditing',
-            style         : {marginTop: '10px'},
-            valueLabelText: 'allowEventEditing'
-        }, {
-            module        : CheckBoxField,
             checked       : data.scrollNewYearFromTop,
             flex          : 'none',
             hideLabel     : true,
@@ -265,6 +255,16 @@ class GeneralContainer extends Container {
                 name          : 'events.enableDrag',
                 style         : {marginTop: '15px'},
                 valueLabelText: 'Enable drag'
+            }, {
+                module        : CheckBoxField,
+                checked       : data.events.enableEdit,
+                flex          : 'none',
+                hideLabel     : true,
+                hideValueLabel: false,
+                listeners     : {change: me.onDataChange, scope: me},
+                name          : 'events.enableEdit',
+                style         : {marginTop: '10px'},
+                valueLabelText: 'Enable edit'
             }]
         }];
 
