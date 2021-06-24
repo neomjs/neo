@@ -759,7 +759,7 @@ class Component extends BaseComponent {
                 axisEndTime                     : timeAxis.getTime(timeAxis.endTime),
                 axisStartTime                   : timeAxis.getTime(timeAxis.startTime),
                 dragElement                     : dragElement,
-                enableResizingAcrossOppositeEdge: me.data.enableEventResizingAcrossOppositeEdge,
+                enableResizingAcrossOppositeEdge: me.data.events.enableResizingAcrossOppositeEdge,
                 eventRecord                     : me.eventStore.get(dragElement.flag),
                 proxyParentId                   : data.path[1].id
             };
