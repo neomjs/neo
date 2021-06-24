@@ -640,9 +640,8 @@ class MainContainer extends Container {
                 ...me.weekComponentConfig
             },
             year: {
-                module              : () => import('./YearComponent.mjs'),
-                flag                : 'year',
-                scrollNewYearFromTop: me.scrollNewYearFromTop,
+                module: () => import('./YearComponent.mjs'),
+                flag  : 'year',
                 ...defaultConfig,
                 ...me.yearComponentConfig
             }
