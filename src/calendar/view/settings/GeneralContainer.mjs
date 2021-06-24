@@ -188,37 +188,37 @@ class GeneralContainer extends Container {
             title : 'Event Configs',
             items : [{
                 module        : RadioField,
-                checked       : data.eventBorder === 'all-sides',
+                checked       : data.events.border === 'all-sides',
                 fieldValue    : 'all-sides',
                 flex          : 'none',
                 hideValueLabel: false,
                 labelText     : 'Border',
                 labelWidth    : 80,
                 listeners     : {change: me.onRadioDataChange, scope: me},
-                name          : 'eventBorder',
+                name          : 'events.border',
                 valueLabelText: 'All sides'
             }, {
                 module        : RadioField,
-                checked       : data.eventBorder === 'left',
+                checked       : data.events.border === 'left',
                 fieldValue    : 'left',
                 flex          : 'none',
                 hideValueLabel: false,
                 labelText     : '',
                 labelWidth    : 80,
                 listeners     : {change: me.onRadioDataChange, scope: me},
-                name          : 'eventBorder',
+                name          : 'events.border',
                 style         : {marginTop: '5px'},
                 valueLabelText: 'Left'
             }, {
                 module        : RadioField,
-                checked       : data.eventBorder === 'right',
+                checked       : data.events.border === 'right',
                 fieldValue    : 'right',
                 flex          : 'none',
                 hideValueLabel: false,
                 labelText     : '',
                 labelWidth    : 80,
                 listeners     : {change: me.onRadioDataChange, scope: me},
-                name          : 'eventBorder',
+                name          : 'events.border',
                 style         : {marginTop: '5px'},
                 valueLabelText: 'Right'
             }, {
