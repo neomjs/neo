@@ -40,6 +40,11 @@ class MainContainerModel extends Component {
              */
             events: {
                 /**
+                 * Valid values: all-sides, left, right
+                 * @member {String} data.events.border='left'
+                 */
+                border: 'left',
+                /**
                  * Enables moving and resizing events via drag & drop
                  * @member {Object} data.events.enableDrag = true
                  */
@@ -50,11 +55,6 @@ class MainContainerModel extends Component {
                  */
                 enableEdit: true
             },
-            /**
-             * Valid values: all-sides, left, right
-             * @member {String} data.eventBorder='left'
-             */
-            eventBorder: 'left',
             /**
              * True to scroll new years in from the top
              * @member {Boolean} data.scrollNewYearFromTop=false
