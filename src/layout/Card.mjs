@@ -106,6 +106,10 @@ class Card extends Base {
 
                     items[i] = item = Neo.create(item);
 
+                    container.fire('cardLoaded', {
+                        item: item
+                    });
+
                     vdom.cn[i] = item.vdom;
                 }
 

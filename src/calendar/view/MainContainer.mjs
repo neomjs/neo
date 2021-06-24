@@ -553,10 +553,11 @@ class MainContainer extends Container {
                 width : me.sideBarWidth,
                 items : [me.dateSelector, me.calendarsContainer]
             }, {
-                module: Container,
-                flex  : 1,
-                items : me.createViews(),
-                layout: {
+                module   : Container,
+                flex     : 1,
+                items    : me.createViews(),
+                listeners: {cardLoaded: me.onCardLoaded, scope: me},
+                layout   : {
                     ntype              : 'card',
                     activeIndex        : me.views.indexOf(me.activeView),
                     removeInactiveCards: me.removeInactiveCards
@@ -656,6 +657,14 @@ class MainContainer extends Container {
         me.yearComponent      = null;
 
         super.destroy(...args);
+    }
+
+    /**
+     *
+     * @param data
+     */
+    onCardLoaded(data) {
+        console.log('onCardLoaded', data);
     }
 
     /**
