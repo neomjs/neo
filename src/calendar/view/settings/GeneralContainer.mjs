@@ -255,6 +255,16 @@ class GeneralContainer extends Container {
                 name          : 'enableEventResizingAcrossOppositeEdge',
                 style         : {marginTop: '5px'},
                 valueLabelText: 'Min duration'
+            }, {
+                module        : CheckBoxField,
+                checked       : data.events.enableDrag,
+                flex          : 'none',
+                hideLabel     : true,
+                hideValueLabel: false,
+                listeners     : {change: me.onDataChange, scope: me},
+                name          : 'events.enableDrag',
+                style         : {marginTop: '15px'},
+                valueLabelText: 'Enable drag'
             }]
         }];
 
