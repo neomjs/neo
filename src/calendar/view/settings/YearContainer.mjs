@@ -22,15 +22,6 @@ class YearContainer extends Container {
 
     /**
      *
-     * @param {Object} config
-     */
-    constructor(config) {
-        super(config);
-        this.createItems();
-    }
-
-    /**
-     *
      */
     createItems() {
         let me            = this,

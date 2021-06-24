@@ -24,15 +24,6 @@ class GeneralContainer extends Container {
 
     /**
      *
-     * @param config
-     */
-    constructor(config) {
-        super(config);
-        this.createItems();
-    }
-
-    /**
-     *
      */
     createItems() {
         let me       = this,
