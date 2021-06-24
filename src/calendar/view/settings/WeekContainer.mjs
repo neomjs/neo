@@ -71,13 +71,13 @@ class WeekContainer extends Container {
             value               : timeAxis.rowHeight
         }, {
             module        : CheckBoxField,
-            checked       : weekComponent.showEventEndDates,
+            checked       : weekComponent.showEventEndTime,
             hideLabel     : true,
             hideValueLabel: false,
             listeners     : {change: me.onConfigChange, scope: me},
-            name          : 'showEventEndDates',
+            name          : 'showEventEndTime',
             style         : {marginTop: '10px'},
-            valueLabelText: 'showEventEndDates'
+            valueLabelText: 'showEventEndTime'
         }, {
             module        : RadioField,
             checked       : weekComponent.timeAxisPosition === 'start',

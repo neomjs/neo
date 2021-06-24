@@ -216,7 +216,7 @@ class Button extends BaseButton {
                         marginLeft : '.5em',
                         marginRight: '.5em'
                     },
-                    ...me.editorConfig || {}
+                    ...me.editorConfig
                 });
 
                 me.vdom.cn.push(me.filterField.vdom);
@@ -384,7 +384,7 @@ class Button extends BaseButton {
                     property: me.dataField,
                     operator: operator,
                     value   : null,
-                    ...me.filterConfig || {}
+                    ...me.filterConfig
                 });
 
                 store.filters = filters;
@@ -421,7 +421,7 @@ class Button extends BaseButton {
                     property: me.dataField,
                     operator: 'like',
                     value   : value,
-                    ...me.filterConfig || {}
+                    ...me.filterConfig
                 });
 
                 store.filters = filters;

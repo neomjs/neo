@@ -88,11 +88,25 @@
             }
         }
 
+        &.neo-show-end-time {
+            &.neo-overflow {
+                flex-wrap: wrap;
+
+                .neo-event-title {
+                    flex: 1 1 10%;
+                }
+            }
+        }
+
         &.neo-overflow {
             flex-direction: row;
 
+            .neo-event-end-time {
+                flex: 1 0 100%;
+            }
+
             .neo-event-title {
-                margin: 0 .5em;
+                margin: 0 0 0 .5em;
             }
         }
     }

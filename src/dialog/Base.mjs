@@ -270,7 +270,7 @@ class Base extends Panel {
                         appName      : me.appName,
                         delegationCls: 'neo-dialog',
                         flag         : 'resizable',
-                        ...me.resizablePluginConfig || {}
+                        ...me.resizablePluginConfig
                     });
 
                     me.plugins = plugins;
@@ -614,7 +614,7 @@ class Base extends Panel {
                     dragProxyConfig    : {vdom: me.getProxyVdom()},
                     owner              : me,
                     useProxyWrapper    : false,
-                    ...me.dragZoneConfig || {}
+                    ...me.dragZoneConfig
                 });
 
                 me.fire('dragZoneCreated', {

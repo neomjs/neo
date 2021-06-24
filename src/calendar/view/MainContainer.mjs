@@ -431,7 +431,7 @@ class MainContainer extends Container {
                 appName: me.appName,
                 owner  : me,
                 width  : 250,
-                ...me.editEventContainerConfig || {}
+                ...me.editEventContainerConfig
             });
         }
 
@@ -481,8 +481,9 @@ class MainContainer extends Container {
      * @returns {Object[]}
      */
     createHeaderItems() {
-        let me    = this,
-            items = [{
+        let me = this;
+
+        return [{
             module: Toolbar,
             cls   : ['neo-calendar-header-toolbar', 'neo-left', 'neo-toolbar'],
             width : me.sideBarWidth,
@@ -505,8 +506,6 @@ class MainContainer extends Container {
             cls   : ['neo-calendar-header-toolbar', 'neo-toolbar'],
             items : ['->', ...me.createViewHeaderButtons()]
         }];
-
-        return items;
     }
 
     /**
@@ -539,7 +538,7 @@ class MainContainer extends Container {
                 value               : data => DateUtil.convertToyyyymmdd(data.currentDate)
             },
 
-            ...me.dateSelectorConfig || {}
+            ...me.dateSelectorConfig
         });
 
         me.items = [{
@@ -617,24 +616,24 @@ class MainContainer extends Container {
                 module: DayComponent,
                 style : {padding: '20px'},
                 ...defaultConfig,
-                ...me.dayComponentConfig || {}
+                ...me.dayComponentConfig
             },
             month: {
                 module: MonthComponent,
                 ...defaultConfig,
-                ...me.monthComponentConfig || {}
+                ...me.monthComponentConfig
             },
             week: {
                 module: WeekComponent,
                 minimumEventDuration: me.minimumEventDuration,
                 ...defaultConfig,
-                ...me.weekComponentConfig || {}
+                ...me.weekComponentConfig
             },
             year: {
                 module              : YearComponent,
                 scrollNewYearFromTop: me.scrollNewYearFromTop,
                 ...defaultConfig,
-                ...me.yearComponentConfig || {}
+                ...me.yearComponentConfig
             }
         }
 

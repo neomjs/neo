@@ -125,7 +125,7 @@ class Picker extends Text {
             maxHeight: me.pickerMaxHeight,
             vdom     : {cn: [], tabIndex: -1},
             width    : me.pickerWidth,
-            ...me.pickerConfig || {}
+            ...me.pickerConfig
         });
     }
 

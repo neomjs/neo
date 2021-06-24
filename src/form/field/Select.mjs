@@ -89,7 +89,7 @@ class Select extends Picker {
             selectionModel: {stayInList: false},
             silentSelect  : true,
             store         : me.store,
-            ...me.listConfig || {}
+            ...me.listConfig
         });
 
         me.list.keys._keys.push(

@@ -20,18 +20,10 @@ class MainContainerModel extends Component {
          */
         data: {
             /**
-             * @member {Boolean} data.allowEventEditing=true
-             */
-            allowEventEditing: true,
-            /**
              * The currently active date inside all views
              * @member {Date} currentDate=new Date()
              */
             currentDate: todayDate,
-            /**
-             * @member {Boolean} data.enableEventResizingAcrossOppositeEdge=true
-             */
-            enableEventResizingAcrossOppositeEdge: true,
             /**
              * Only full hours are valid for now
              * format: 'hh:mm'
@@ -39,10 +31,32 @@ class MainContainerModel extends Component {
              */
             endTime: '24:00',
             /**
-             * Valid values: all-sides, left, right
-             * @member {String} data.eventBorder='left'
+             * Nested property for event related configs
+             * @member {Object} data.events
              */
-            eventBorder: 'left',
+            events: {
+                /**
+                 * Valid values: all-sides, left, right
+                 * @member {String} data.events.border='left'
+                 */
+                border: 'left',
+                /**
+                 * Enables moving and resizing events via drag & drop
+                 * @member {Object} data.events.enableDrag = true
+                 */
+                enableDrag: true,
+                /**
+                 * Enables editing events via double click => calendar.view.EditEventContainer
+                 * @member {Boolean} data.events.enableEdit=true
+                 */
+                enableEdit: true,
+                /**
+                 * Enables resizing an event via the south handle to an earlier start time and
+                 * resizing via the north handle to a later end time.
+                 * @member {Boolean} data.events.enableResizingAcrossOppositeEdge=true
+                 */
+                enableResizingAcrossOppositeEdge: true
+            },
             /**
              * True to scroll new years in from the top
              * @member {Boolean} data.scrollNewYearFromTop=false
@@ -77,7 +91,7 @@ class MainContainerModel extends Component {
              */
             calendars: {
                 module: CalendarsStore,
-                ...component.calendarStoreConfig || {}
+                ...component.calendarStoreConfig
             },
             /**
              * config object for {Neo.calendar.store.Events}
@@ -85,7 +99,7 @@ class MainContainerModel extends Component {
              */
             events: {
                 module: EventsStore,
-                ...component.eventStoreConfig || {}
+                ...component.eventStoreConfig
             }
         };
     }

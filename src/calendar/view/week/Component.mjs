@@ -46,7 +46,7 @@ class Component extends BaseComponent {
         bind: {
             calendarStore: 'stores.calendars',
             currentDate  : data => data.currentDate,
-            eventBorder  : data => data.eventBorder,
+            eventBorder  : data => data.events.border,
             eventStore   : 'stores.events'
         },
         /**
@@ -59,7 +59,7 @@ class Component extends BaseComponent {
          */
         cls: ['neo-calendar-weekcomponent'],
         /**
-         * Will get passed from the MainContainer model
+         * Bound to the view model.
          * @member {Date|null} currentDate_=null
          * @protected
          */
@@ -136,9 +136,9 @@ class Component extends BaseComponent {
          */
         resizablePluginConfig: null,
         /**
-         * @member {Boolean} showEventEndDates_=false
+         * @member {Boolean} showEventEndTime_=false
          */
-        showEventEndDates_: false,
+        showEventEndTime_: false,
         /**
          * @member {Object} timeAxis=null
          */
@@ -210,7 +210,7 @@ class Component extends BaseComponent {
             delegationCls: 'neo-event',
             directions   : ['b', 't'],
             flag         : 'resizable',
-            ...me.resizablePluginConfig || {}
+            ...me.resizablePluginConfig
         });
 
         me.plugins = plugins;
@@ -222,7 +222,7 @@ class Component extends BaseComponent {
                 change: me.onTimeAxisChange,
                 scope : me
             },
-            ...me.timeAxisConfig || {}
+            ...me.timeAxisConfig
         });
 
         me.getColumnTimeAxisContainer().cn[me.timeAxisPosition === 'start' ? 'unshift' : 'push'](me.timeAxis.vdom);
@@ -405,12 +405,12 @@ class Component extends BaseComponent {
     }
 
     /**
-     * Triggered after the showEventEndDates config got changed
+     * Triggered after the showEventEndTime config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetShowEventEndDates(value, oldValue) {
+    afterSetShowEventEndTime(value, oldValue) {
         if (oldValue !== undefined) {
             this.updateEvents();
         }
@@ -670,7 +670,7 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDoubleClick(data) {
-        if (this.data.allowEventEditing) {
+        if (this.data.events.enableEdit) {
             if (!data.path[0].cls.includes('neo-event')) {
                 data.path.shift();
             }
@@ -703,18 +703,20 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDragEnd(data) {
-        let me = this;
+        if (this.data.events.enableDrag) {
+            let me = this;
 
-        me.eventDragZone.dragEnd();
+            me.eventDragZone.dragEnd();
 
-        if (!me.isTopLevelEvent(data)) {
-            data = me.adjustResizeEvent(data);
-            me.getPlugin({flag:'resizable'}).onDragEnd(data);
-        } else {
-            me.eventDragZone.removeBodyCursorCls();
+            if (!me.isTopLevelEvent(data)) {
+                data = me.adjustResizeEvent(data);
+                me.getPlugin({flag:'resizable'}).onDragEnd(data);
+            } else {
+                me.eventDragZone.removeBodyCursorCls();
+            }
+
+            me.isDragging = false;
         }
-
-        me.isDragging = false;
     }
 
     /**
@@ -722,13 +724,15 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDragMove(data) {
-        let me = this;
+        if (this.data.events.enableDrag) {
+            let me = this;
 
-        if (!me.isTopLevelEvent(data)) {
-            data = me.adjustResizeEvent(data);
+            if (!me.isTopLevelEvent(data)) {
+                data = me.adjustResizeEvent(data);
+            }
+
+            me.eventDragZone.dragMove(data);
         }
-
-        me.eventDragZone.dragMove(data);
     }
 
     /**
@@ -736,55 +740,57 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDragStart(data) {
-        let me              = this,
-            eventDragZone   = me.eventDragZone,
-            isTopLevelEvent = me.isTopLevelEvent(data),
-            dragElement, timeAxis;
+        if (this.data.events.enableDrag) {
+            let me              = this,
+                eventDragZone   = me.eventDragZone,
+                isTopLevelEvent = me.isTopLevelEvent(data),
+                dragElement, timeAxis;
 
-        if (!isTopLevelEvent) {
-            data = me.adjustResizeEvent(data);
-        }
+            if (!isTopLevelEvent) {
+                data = me.adjustResizeEvent(data);
+            }
 
-        dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom;
-        timeAxis    = me.timeAxis;
+            dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom;
+            timeAxis    = me.timeAxis;
 
-        me.isDragging = true;
+            me.isDragging = true;
 
-        const config = {
-            axisEndTime                     : timeAxis.getTime(timeAxis.endTime),
-            axisStartTime                   : timeAxis.getTime(timeAxis.startTime),
-            dragElement                     : dragElement,
-            enableResizingAcrossOppositeEdge: me.data.enableEventResizingAcrossOppositeEdge,
-            eventRecord                     : me.eventStore.get(dragElement.flag),
-            proxyParentId                   : data.path[1].id
-        };
+            const config = {
+                axisEndTime                     : timeAxis.getTime(timeAxis.endTime),
+                axisStartTime                   : timeAxis.getTime(timeAxis.startTime),
+                dragElement                     : dragElement,
+                enableResizingAcrossOppositeEdge: me.data.events.enableResizingAcrossOppositeEdge,
+                eventRecord                     : me.eventStore.get(dragElement.flag),
+                proxyParentId                   : data.path[1].id
+            };
 
-        if (!eventDragZone) {
-            me.eventDragZone = eventDragZone = Neo.create({
-                module           : EventDragZone,
-                appName          : me.appName,
-                owner            : me,
-                scrollContainerId: me.getScrollContainer().id,
-                ...config,
+            if (!eventDragZone) {
+                me.eventDragZone = eventDragZone = Neo.create({
+                    module           : EventDragZone,
+                    appName          : me.appName,
+                    owner            : me,
+                    scrollContainerId: me.getScrollContainer().id,
+                    ...config,
 
-                dragProxyConfig: {
-                    style: {
-                        transition: 'none',
-                        willChange: 'height'
+                    dragProxyConfig: {
+                        style: {
+                            transition: 'none',
+                            willChange: 'height'
+                        }
                     }
-                }
-            });
-        } else {
-            eventDragZone.set(config);
-        }
+                });
+            } else {
+                eventDragZone.set(config);
+            }
 
-        if (isTopLevelEvent) {
-            eventDragZone.addBodyCursorCls();
-        } else {
-            me.getPlugin({flag:'resizable'}).onDragStart(data);
-        }
+            if (isTopLevelEvent) {
+                eventDragZone.addBodyCursorCls();
+            } else {
+                me.getPlugin({flag:'resizable'}).onDragStart(data);
+            }
 
-        eventDragZone.dragStart(data);
+            eventDragZone.dragStart(data);
+        }
     }
 
     /**
@@ -939,9 +945,9 @@ class Component extends BaseComponent {
             vdom              = me.vdom,
             content           = me.getColumnContainer(),
             j                 = startIndex,
-            showEventEndDates = me.showEventEndDates,
-            calendarRecord, column, dayRecords, duration, endDate, eventCls, hasOverflow, height, i, len, record,
-            recordKey, startDate, startHours, top;
+            showEventEndTime  = me.showEventEndTime,
+            calendarRecord, column, dayRecords, duration, endDate, eventCls, eventIntervals, hasOverflow, height, i,
+            len, record, recordKey, startDate, startHours, top;
 
         date.setDate(date.getDate() + startIndex);
 
@@ -979,21 +985,26 @@ class Component extends BaseComponent {
                         startDate.setMinutes(0);
                     }
 
-                    duration    = (endDate - startDate) / 60 / 60 / 1000; // duration in hours
-                    eventCls    = ['neo-event', 'neo-draggable', `neo-${calendarRecord.color}`];
-                    hasOverflow = false;
-                    height      = Math.round(duration / totalTime * 100 * 1000) / 1000;
-                    recordKey   = record[eventStore.keyProperty];
-                    startHours  = (startDate.getHours() * 60 + startDate.getMinutes()) / 60;
-                    top         = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
+                    duration       = (endDate - startDate) / 60 / 60 / 1000; // duration in hours
+                    eventCls       = ['neo-event', 'neo-draggable', `neo-${calendarRecord.color}`];
+                    eventIntervals = duration * 60 / timeAxis.interval;
+                    hasOverflow    = false;
+                    height         = Math.round(duration / totalTime * 100 * 1000) / 1000;
+                    recordKey      = record[eventStore.keyProperty];
+                    startHours     = (startDate.getHours() * 60 + startDate.getMinutes()) / 60;
+                    top            = Math.round((startHours - startTime) / totalTime * 100 * 1000) / 1000;
 
-                    if (duration * 60 / timeAxis.interval === 1) {
-                        hasOverflow = timeAxis.rowHeight < (showEventEndDates ? 50 : 34);
+                    if (eventIntervals <= 2) {
+                        hasOverflow = timeAxis.rowHeight * eventIntervals < (showEventEndTime ? 50 : 34);
 
-                        if (hasOverflow && !(showEventEndDates && timeAxis.rowHeight >= 34)) {
+                        if (hasOverflow && !(showEventEndTime && (timeAxis.rowHeight / eventIntervals >= 34))) {
                             eventCls.push('neo-overflow');
                         }
                     }
+
+                    showEventEndTime = !(hasOverflow && eventIntervals === 1 || !showEventEndTime);
+
+                    showEventEndTime && eventCls.push('neo-show-end-time');
 
                     column.cn.push({
                         cls     : eventCls,
@@ -1013,7 +1024,7 @@ class Component extends BaseComponent {
                             cls      : ['neo-event-time', 'neo-event-end-time'],
                             html     : me.intlFormat_time.format(record.endDate),
                             id       : me.id + '__enddate__' + recordKey,
-                            removeDom: hasOverflow || !showEventEndDates
+                            removeDom: !showEventEndTime
                         }],
 
                         style: {

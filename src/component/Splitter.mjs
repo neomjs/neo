@@ -222,7 +222,7 @@ class Splitter extends Component {
                 moveVertical       : !vertical,
                 owner              : me,
                 useProxyWrapper    : false,
-                ...me.dragZoneConfig || {}
+                ...me.dragZoneConfig
             });
         } else {
             me.dragZone.set({

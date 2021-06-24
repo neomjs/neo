@@ -153,7 +153,7 @@ class TableContainer extends Container {
                 text   : 'Table'
             },
 
-            ...me.historicalDataTableConfig || {}
+            ...me.historicalDataTableConfig
         });
 
         me.items[1].items[0].items.push(me.historicalDataTable);
@@ -161,7 +161,7 @@ class TableContainer extends Container {
         me.table = Neo.create({
             module   : Table,
             reference: 'table',
-            ...me.tableConfig || {}
+            ...me.tableConfig
         });
 
         me.items[0].items.push(me.table);

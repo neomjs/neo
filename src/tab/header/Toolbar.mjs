@@ -45,7 +45,7 @@ class Toolbar extends BaseToolbar {
                     appName            : me.appName,
                     boundaryContainerId: me.id,
                     owner              : me,
-                    ...me.sortZoneConfig || {}
+                    ...me.sortZoneConfig
                 });
             });
         }

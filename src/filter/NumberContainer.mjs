@@ -91,13 +91,13 @@ class NumberContainer extends Container {
             flex     : 'none',
             listeners: {change: me.onOperatorChange, scope: me},
             value    : me.operator,
-            ...me.buttonConfig || {}
+            ...me.buttonConfig
         }, {
             module   : me.fieldModule,
             flex     : '1 1 auto',
             hideLabel: true,
             listeners: {change: me.onValueChange, scope: me},
-            ...me.fieldConfig || {}
+            ...me.fieldConfig
         }];
 
         super.createItems();

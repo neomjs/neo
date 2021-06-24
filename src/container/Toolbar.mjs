@@ -117,7 +117,7 @@ class Toolbar extends Container {
                     appName            : me.appName,
                     boundaryContainerId: me.id,
                     owner              : me,
-                    ...me.sortZoneConfig || {}
+                    ...me.sortZoneConfig
                 });
             });
         }

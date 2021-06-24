@@ -259,7 +259,7 @@ class Container extends BaseContainer {
             items                : tabButtons,
             sortable             : me.sortable,
             useActiveTabIndicator: me.useActiveTabIndicator,
-            ...me.headerToolbarDefaults || {}
+            ...me.headerToolbarDefaults
         }, {
             module               : Strip,
             cls                  : ['neo-tab-strip', 'neo-dock-' + me.tabBarPosition],
@@ -267,7 +267,7 @@ class Container extends BaseContainer {
             id                   : me.tabStripId,
             tabContainerId       : me.id,
             useActiveTabIndicator: me.useActiveTabIndicator,
-            ...me.tabStripDefaults || {}
+            ...me.tabStripDefaults
         }, {
             ntype                : 'container',
             cls                  : ['neo-container', 'neo-tab-content-container'],
@@ -276,7 +276,7 @@ class Container extends BaseContainer {
             items                : tabComponents,
             layout               : {ntype: 'card', activeIndex: me.activeIndex, removeInactiveCards: me.removeInactiveCards},
             useActiveTabIndicator: me.useActiveTabIndicator,
-            ...me.contentContainerDefaults || {}
+            ...me.contentContainerDefaults
         }];
 
         me.itemDefaults = null;

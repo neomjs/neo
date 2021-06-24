@@ -498,7 +498,7 @@ class Base extends CoreBase {
                     module : module.default,
                     appName: me.appName,
                     owner  : me,
-                    ...me.dropZoneConfig || {}
+                    ...me.dropZoneConfig
                 });
             });
         }
