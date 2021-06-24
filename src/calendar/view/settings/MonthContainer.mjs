@@ -20,14 +20,41 @@ class MonthContainer extends Container {
     }}
 
     /**
+     * Gets triggered when the activeIndex of the parents card layout changes
+     */
+    activate() {
+        let me            = this,
+            mainContainer = me.getMainContainer(),
+            listenerId;
+
+        if (mainContainer) {
+            if (me.items.length < 1) {
+                if (Neo.typeOf(mainContainer.monthComponent) !== 'NeoInstance') {
+                    listenerId = mainContainer.on('cardLoaded', () => {
+                        mainContainer.un('cardLoaded', listenerId);
+
+                        setTimeout(() => {
+                            me.createContent();
+                        }, 30);
+                    });
+                } else {
+                    me.createContent();
+                }
+            }
+
+            mainContainer.activeView = 'month';
+        }
+    }
+
+    /**
      *
      */
-    createItems() {
+    createContent() {
         let me             = this,
             labelWidth     = 140,
             monthComponent = me.getMonthComponent();
 
-        me.items = [{
+        me.add([{
             module        : RadioField,
             checked       : monthComponent.dayNameFormat === 'narrow',
             fieldValue    : 'narrow',
@@ -96,17 +123,23 @@ class MonthContainer extends Container {
             name          : 'useScrollBoxShadows',
             style         : {marginTop: '10px'},
             valueLabelText: 'useScrollBoxShadows'
-        }];
-
-        super.createItems();
+        }]);
     }
 
     /**
      *
-     * @returns {Neo.calendar.view.Component}
+     * @returns {Neo.calendar.view.MainContainer}
+     */
+    getMainContainer() {
+        return this.up('calendar-maincontainer');
+    }
+
+    /**
+     *
+     * @returns {Neo.calendar.view.month.Component}
      */
     getMonthComponent() {
-        return this.up('calendar-maincontainer').monthComponent;
+        return this.getMainContainer().monthComponent;
     }
 
     /**

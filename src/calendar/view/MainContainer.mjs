@@ -229,6 +229,26 @@ class MainContainer extends Container {
     }
 
     /**
+     * Triggered after the activeView config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetActiveView(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.items[1].items[1].layout.activeIndex = me.views.indexOf(value);
+
+            me.items[0].items[1].items.forEach(item => {
+                if (item.toggleGroup === 'timeInterval') {
+                    item.pressed = item.value === value;
+                }
+            });
+        }
+    }
+
+    /**
      * Triggered after the baseFontSize config got changed
      * @param {String} value
      * @param {String} oldValue
@@ -455,21 +475,11 @@ class MainContainer extends Container {
 
     /**
      *
-     * @param {String} interval
+     * @param {String} view
      * @protected
      */
-    changeTimeInterval(interval) {
-        let me = this;
-
-        me.items[1].items[1].layout.activeIndex = me.views.indexOf(interval);
-
-        me.items[0].items[1].items.forEach(item => {
-            if (item.toggleGroup === 'timeInterval') {
-                item.pressed = item.value === interval;
-            }
-        });
-
-        me.activeView = interval;
+    changeActiveView(view) {
+        this.activeView = view;
     }
 
     /**
@@ -577,7 +587,7 @@ class MainContainer extends Container {
 
         me.views.forEach((view, index) => {
             buttons.push({
-                handler    : me.changeTimeInterval.bind(me, view),
+                handler    : me.changeActiveView.bind(me, view),
                 height     : 24,
                 pressed    : activeIndex === index,
                 text       : Neo.capitalize(view),
@@ -669,6 +679,9 @@ class MainContainer extends Container {
      */
     onCardLoaded(data) {
         this[`${data.item.flag}Component`] = data.item;
+
+        // fire the event on this instance as well => setting views can subscribe to it more easily
+        this.fire('cardLoaded', {item: data.item});
     }
 
     /**
