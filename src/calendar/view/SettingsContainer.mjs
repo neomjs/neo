@@ -1,9 +1,5 @@
-import Container        from '../../container/Base.mjs';
-import GeneralContainer from './settings/GeneralContainer.mjs';
-import MonthContainer   from './settings/MonthContainer.mjs';
-import TabContainer     from '../../tab/Container.mjs';
-import WeekContainer    from './settings/WeekContainer.mjs';
-import YearContainer    from './settings/YearContainer.mjs';
+import Container    from '../../container/Base.mjs';
+import TabContainer from '../../tab/Container.mjs';
 
 /**
  * @class Neo.calendar.view.SettingsContainer
@@ -96,7 +92,7 @@ class SettingsContainer extends Container {
             removeInactiveCards: me.removeInactiveCards,
 
             items: [{
-                module: GeneralContainer,
+                module: () => import('./settings/GeneralContainer.mjs'),
                 style : {padding: '20px'},
 
                 tabButtonConfig: {
@@ -111,21 +107,21 @@ class SettingsContainer extends Container {
                     text: 'Day'
                 }
             }, {
-                module: WeekContainer,
+                module: () => import('./settings/WeekContainer.mjs'),
                 style : {padding: '20px'},
 
                 tabButtonConfig: {
                     text: 'Week'
                 }
             }, {
-                module: MonthContainer,
+                module: () => import('./settings/MonthContainer.mjs'),
                 style : {padding: '20px'},
 
                 tabButtonConfig: {
                     text: 'Month'
                 }
             }, {
-                module: YearContainer,
+                module: () => import('./settings/YearContainer.mjs'),
                 style : {padding: '20px'},
 
                 tabButtonConfig: {
