@@ -471,13 +471,12 @@ class EventDragZone extends DragZone {
                 // check if the node got added yet
                 if (me.dragProxy.vdom.cn[0].id) {
                     eventIntervals = (duration && duration * 60 || eventDuration) / timeAxis.interval;
-                    console.log(eventIntervals);
 
                     if (eventIntervals <= 2) {
                         hasOverflow = timeAxis.rowHeight / eventIntervals < 25;
 
                         if (hasOverflow) {
-                            if (!me.hasOverflow) {console.log('add', me.dragProxy.id, me.dragProxy.vdom.cn[0].id);
+                            if (!me.hasOverflow) {
                                 deltas.push({
                                     id : me.dragProxy.id,
                                     cls: {add: ['neo-overflow']}
@@ -487,7 +486,7 @@ class EventDragZone extends DragZone {
                             }
                         }
                     } else {
-                        if (me.hasOverflow) {console.log('remove');
+                        if (me.hasOverflow) {
                             deltas.push({
                                 id : me.dragProxy.id,
                                 cls: {remove: ['neo-overflow']}
