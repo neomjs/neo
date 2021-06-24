@@ -29,14 +29,41 @@ class WeekContainer extends Container {
     }}
 
     /**
+     * Gets triggered when the activeIndex of the parents card layout changes
+     */
+    activate() {
+        let me            = this,
+            mainContainer = me.getMainContainer(),
+            listenerId;
+
+        if (mainContainer) {
+            if (me.items.length < 1) {
+                if (Neo.typeOf(mainContainer.weekComponent) !== 'NeoInstance') {
+                    listenerId = mainContainer.on('cardLoaded', () => {
+                        mainContainer.un('cardLoaded', listenerId);
+
+                        setTimeout(() => {
+                            me.createContent();
+                        }, 30);
+                    });
+                } else {
+                    me.createContent();
+                }
+            }
+
+            mainContainer.activeView = 'week';
+        }
+    }
+
+    /**
      *
      */
-    createItems() {
+    createContent() {
         let me            = this,
             weekComponent = me.getWeekComponent(),
             timeAxis      = weekComponent.timeAxis || {};
 
-        me.items = [{
+        me.add([{
             module              : NumberField,
             clearable           : true,
             clearToOriginalValue: true,
@@ -88,9 +115,15 @@ class WeekContainer extends Container {
             listeners     : {change: me.onTimeAxisPositionChange, scope: me},
             name          : 'timeAxisPosition',
             valueLabelText: 'end'
-        }];
+        }]);
+    }
 
-        super.createItems();
+    /**
+     *
+     * @returns {Neo.calendar.view.MainContainer}
+     */
+    getMainContainer() {
+        return this.up('calendar-maincontainer');
     }
 
     /**
@@ -106,7 +139,7 @@ class WeekContainer extends Container {
      * @returns {Neo.calendar.view.Component}
      */
     getWeekComponent() {
-        return this.up('calendar-maincontainer').weekComponent;
+        return this.getMainContainer().weekComponent;
     }
 
     /**
