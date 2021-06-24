@@ -21,22 +21,13 @@ class MonthContainer extends Container {
 
     /**
      *
-     * @param config
      */
-    constructor(config) {
-        super(config);
-        this.createItems();
-    }
-
-    /**
-     *
-     */
-    createItems() {
+    createContent() {
         let me             = this,
             labelWidth     = 140,
             monthComponent = me.getMonthComponent();
 
-        me.items = [{
+        me.add([{
             module        : RadioField,
             checked       : monthComponent.dayNameFormat === 'narrow',
             fieldValue    : 'narrow',
@@ -105,14 +96,12 @@ class MonthContainer extends Container {
             name          : 'useScrollBoxShadows',
             style         : {marginTop: '10px'},
             valueLabelText: 'useScrollBoxShadows'
-        }];
-
-        super.createItems();
+        }]);
     }
 
     /**
      *
-     * @returns {Neo.calendar.view.Component}
+     * @returns {Neo.calendar.view.month.Component}
      */
     getMonthComponent() {
         return this.up('calendar-maincontainer').monthComponent;

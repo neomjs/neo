@@ -2,13 +2,9 @@ import CalendarsContainer from './CalendarsContainer.mjs';
 import Container          from '../../container/Base.mjs';
 import DateSelector       from '../../component/DateSelector.mjs';
 import DateUtil           from '../../util/Date.mjs';
-import DayComponent       from './DayComponent.mjs';
 import EditEventContainer from './EditEventContainer.mjs';
 import MainContainerModel from './MainContainerModel.mjs';
-import MonthComponent     from './month/Component.mjs';
 import Toolbar            from '../../container/Toolbar.mjs';
-import WeekComponent      from './week/Component.mjs';
-import YearComponent      from './YearComponent.mjs';
 
 const todayDate = new Date();
 
@@ -229,6 +225,26 @@ class MainContainer extends Container {
 
         if (!me.sideBarExpanded) {
             me.afterSetSideBarExpanded(false, true);
+        }
+    }
+
+    /**
+     * Triggered after the activeView config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetActiveView(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            me.items[1].items[1].layout.activeIndex = me.views.indexOf(value);
+
+            me.items[0].items[1].items.forEach(item => {
+                if (item.toggleGroup === 'timeInterval') {
+                    item.pressed = item.value === value;
+                }
+            });
         }
     }
 
@@ -459,21 +475,11 @@ class MainContainer extends Container {
 
     /**
      *
-     * @param {String} interval
+     * @param {String} view
      * @protected
      */
-    changeTimeInterval(interval) {
-        let me = this;
-
-        me.items[1].items[1].layout.activeIndex = me.views.indexOf(interval);
-
-        me.items[0].items[1].items.forEach(item => {
-            if (item.toggleGroup === 'timeInterval') {
-                item.pressed = item.value === interval;
-            }
-        });
-
-        me.activeView = interval;
+    changeActiveView(view) {
+        this.activeView = view;
     }
 
     /**
@@ -557,10 +563,11 @@ class MainContainer extends Container {
                 width : me.sideBarWidth,
                 items : [me.dateSelector, me.calendarsContainer]
             }, {
-                module: Container,
-                flex  : 1,
-                items : me.createViews(),
-                layout: {
+                module   : Container,
+                flex     : 1,
+                items    : me.createViews(),
+                listeners: {cardLoaded: me.onCardLoaded, scope: me},
+                layout   : {
                     ntype              : 'card',
                     activeIndex        : me.views.indexOf(me.activeView),
                     removeInactiveCards: me.removeInactiveCards
@@ -580,7 +587,7 @@ class MainContainer extends Container {
 
         me.views.forEach((view, index) => {
             buttons.push({
-                handler    : me.changeTimeInterval.bind(me, view),
+                handler    : me.changeActiveView.bind(me, view),
                 height     : 24,
                 pressed    : activeIndex === index,
                 text       : Neo.capitalize(view),
@@ -613,24 +620,28 @@ class MainContainer extends Container {
 
         const map = {
             day: {
-                module: DayComponent,
+                module: () => import('./DayComponent.mjs'),
+                flag  : 'day',
                 style : {padding: '20px'},
                 ...defaultConfig,
                 ...me.dayComponentConfig
             },
             month: {
-                module: MonthComponent,
+                module: () => import('./month/Component.mjs'),
+                flag  : 'month',
                 ...defaultConfig,
                 ...me.monthComponentConfig
             },
             week: {
-                module: WeekComponent,
+                module: () => import('./week/Component.mjs'),
+                flag  : 'week',
                 minimumEventDuration: me.minimumEventDuration,
                 ...defaultConfig,
                 ...me.weekComponentConfig
             },
             year: {
-                module              : YearComponent,
+                module              : () => import('./YearComponent.mjs'),
+                flag                : 'year',
                 scrollNewYearFromTop: me.scrollNewYearFromTop,
                 ...defaultConfig,
                 ...me.yearComponentConfig
@@ -638,7 +649,7 @@ class MainContainer extends Container {
         }
 
         me.views.forEach(view => {
-            me[view + 'Component'] = cmp = Neo.create(map[view]);
+            me[`${view}Component`] = cmp = map[view];
             cards.push(cmp);
         });
 
@@ -660,6 +671,17 @@ class MainContainer extends Container {
         me.yearComponent      = null;
 
         super.destroy(...args);
+    }
+
+    /**
+     *
+     * @param data
+     */
+    onCardLoaded(data) {
+        this[`${data.item.flag}Component`] = data.item;
+
+        // fire the event on this instance as well => setting views can subscribe to it more easily
+        this.fire('cardLoaded', {item: data.item});
     }
 
     /**

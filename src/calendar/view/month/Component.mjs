@@ -164,6 +164,10 @@ class Component extends BaseComponent {
 
         me.domListeners = domListeners;
 
+        if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {
+            me.createContent(true); // silent update
+        }
+
         me.updateHeader(true);
     }
 

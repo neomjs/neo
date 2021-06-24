@@ -30,22 +30,13 @@ class WeekContainer extends Container {
 
     /**
      *
-     * @param {Object} config
      */
-    constructor(config) {
-        super(config);
-        this.createItems();
-    }
-
-    /**
-     *
-     */
-    createItems() {
+    createContent() {
         let me            = this,
             weekComponent = me.getWeekComponent(),
-            timeAxis      = weekComponent.timeAxis;
+            timeAxis      = weekComponent.timeAxis || {};
 
-        me.items = [{
+        me.add([{
             module              : NumberField,
             clearable           : true,
             clearToOriginalValue: true,
@@ -97,9 +88,7 @@ class WeekContainer extends Container {
             listeners     : {change: me.onTimeAxisPositionChange, scope: me},
             name          : 'timeAxisPosition',
             valueLabelText: 'end'
-        }];
-
-        super.createItems();
+        }]);
     }
 
     /**

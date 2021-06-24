@@ -227,6 +227,10 @@ class Component extends BaseComponent {
 
         me.getColumnTimeAxisContainer().cn[me.timeAxisPosition === 'start' ? 'unshift' : 'push'](me.timeAxis.vdom);
 
+        if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {
+            me.updateEvents(true); // silent update
+        }
+
         me.updateHeader(true);
 
         me.headerCreated = true;
@@ -929,11 +933,11 @@ class Component extends BaseComponent {
 
     /**
      * The algorithm relies on the eventStore being sorted by startDate ASC
+     * @param {Boolean} [silent=false]
      * @param {Number} [startIndex=0]
      * @param {Number} [endIndex=21]
-     * @param {Boolean} [silent=false]
      */
-    updateEvents(startIndex=0, endIndex=21, silent=false) {
+    updateEvents(silent=false, startIndex=0, endIndex=21) {
         let me                = this,
             calendarStore     = me.calendarStore,
             eventStore        = me.eventStore,

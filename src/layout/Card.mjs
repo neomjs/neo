@@ -62,12 +62,13 @@ class Card extends Base {
      */
     async afterSetActiveIndex(value, oldValue) {
         let me          = this,
-            container   = Neo.getComponent(me.containerId),
+            containerId = me.containerId,
+            container   = Neo.getComponent(containerId) || Neo.get(containerId), // the instance might not be registered yet
             sCfg        = me.getStaticConfig(),
             needsUpdate = false,
-            isActiveIndex, cls, i, item, items, len, module, proto, vdom;
+            cls, i, isActiveIndex, item, items, len, module, proto, vdom;
 
-        if (container) {
+        if (Neo.isNumber(value) && container) {
             items = container.items;
             vdom  = container.vdom;
             len   = items.length;
@@ -105,6 +106,10 @@ class Card extends Base {
 
                     items[i] = item = Neo.create(item);
 
+                    container.fire('cardLoaded', {
+                        item: item
+                    });
+
                     vdom.cn[i] = item.vdom;
                 }
 
@@ -120,6 +125,7 @@ class Card extends Base {
 
                         if (isActiveIndex) {
                             delete item.vdom.removeDom;
+                            Neo.isFunction(item.activate) && item.activate();
                         } else {
                             item.mounted = false;
                             item.vdom.removeDom = true;

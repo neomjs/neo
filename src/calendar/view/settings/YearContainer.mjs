@@ -22,22 +22,13 @@ class YearContainer extends Container {
 
     /**
      *
-     * @param {Object} config
      */
-    constructor(config) {
-        super(config);
-        this.createItems();
-    }
-
-    /**
-     *
-     */
-    createItems() {
+    createContent() {
         let me            = this,
             labelWidth    = 180,
             yearComponent = me.getYearComponent();
 
-        me.items = [{
+        me.add([{
             module              : NumberField,
             clearable           : true,
             clearToOriginalValue: true,
@@ -126,9 +117,7 @@ class YearContainer extends Container {
             listeners : {change: me.onConfigChange, scope: me},
             name      : 'sixWeeksPerMonth',
             style     : {marginTop: '10px'}
-        }];
-
-        super.createItems();
+        }]);
     }
 
     /**

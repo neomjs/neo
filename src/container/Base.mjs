@@ -327,9 +327,10 @@ class Base extends Component {
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
     insert(index, item, silent=false) {
-        let me    = this,
-            items = me.items,
-            vdom  = me.vdom,
+        let me          = this,
+            items       = me.items,
+            returnArray = [],
+            vdom        = me.vdom,
             i, len;
 
         if (Array.isArray(item)) {
@@ -338,8 +339,10 @@ class Base extends Component {
 
             for (; i < len; i++) {
                 // insert the array backwards
-                me.insert(index, item[len - 1 - i], true);
+                returnArray.unshift(me.insert(index, item[len - 1 - i], true));
             }
+
+            item = returnArray;
         } else if (typeof item === 'object') {
             if (!(item instanceof Neo.component.Base)) {
                 if (item.module) {

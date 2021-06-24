@@ -182,6 +182,10 @@ class YearComponent extends Component {
 
         me.domListeners = domListeners;
 
+        if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {
+            me.createMonths(true); // silent update
+        }
+
         me.updateHeaderYear();
     }
 

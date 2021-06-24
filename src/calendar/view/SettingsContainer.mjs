@@ -1,9 +1,5 @@
-import Container        from '../../container/Base.mjs';
-import GeneralContainer from './settings/GeneralContainer.mjs';
-import MonthContainer   from './settings/MonthContainer.mjs';
-import TabContainer     from '../../tab/Container.mjs';
-import WeekContainer    from './settings/WeekContainer.mjs';
-import YearContainer    from './settings/YearContainer.mjs';
+import Container    from '../../container/Base.mjs';
+import TabContainer from '../../tab/Container.mjs';
 
 /**
  * @class Neo.calendar.view.SettingsContainer
@@ -44,7 +40,7 @@ class SettingsContainer extends Container {
 
     /**
      *
-     * @param config
+     * @param {Object} config
      */
     constructor(config) {
         super(config);
@@ -54,8 +50,6 @@ class SettingsContainer extends Container {
         if (me.collapsed) {
             me.vdom.removeDom = true;
         }
-
-        me.createItems();
     }
 
     /**
@@ -98,7 +92,8 @@ class SettingsContainer extends Container {
             removeInactiveCards: me.removeInactiveCards,
 
             items: [{
-                module: GeneralContainer,
+                module: () => import('./settings/GeneralContainer.mjs'),
+                flag  : 'general',
                 style : {padding: '20px'},
 
                 tabButtonConfig: {
@@ -106,6 +101,7 @@ class SettingsContainer extends Container {
                 }
             }, {
                 ntype: 'component',
+                flag : 'day',
                 html : 'Day',
                 style: {padding: '20px'},
 
@@ -113,27 +109,35 @@ class SettingsContainer extends Container {
                     text: 'Day'
                 }
             }, {
-                module: WeekContainer,
+                module: () => import('./settings/WeekContainer.mjs'),
+                flag  : 'week',
                 style : {padding: '20px'},
 
                 tabButtonConfig: {
                     text: 'Week'
                 }
             }, {
-                module: MonthContainer,
+                module: () => import('./settings/MonthContainer.mjs'),
+                flag  : 'month',
                 style : {padding: '20px'},
 
                 tabButtonConfig: {
                     text: 'Month'
                 }
             }, {
-                module: YearContainer,
+                module: () => import('./settings/YearContainer.mjs'),
+                flag  : 'year',
                 style : {padding: '20px'},
 
                 tabButtonConfig: {
                     text: 'Year'
                 }
-            }]
+            }],
+
+            listeners: {
+                activeIndexChange: me.onCardIndexChange,
+                scope            : me
+            }
         }];
 
         super.createItems();
@@ -158,6 +162,42 @@ class SettingsContainer extends Container {
                 me.style = style;
             }, 50);
         });
+    }
+
+    /**
+     *
+     * @returns {Neo.calendar.view.MainContainer}
+     */
+    getMainContainer() {
+        return this.up('calendar-maincontainer');
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onCardIndexChange(data) {
+        let me            = this,
+            container     = data.item,
+            mainContainer = me.getMainContainer(),
+            listenerId;
+
+        if (mainContainer) {
+            if (Neo.isFunction(container.createContent) && container.items.length < 1) {
+                if (Neo.typeOf(mainContainer[`${container.flag}Component`]) !== 'NeoInstance') {
+                    listenerId = mainContainer.on('cardLoaded', () => {
+                        mainContainer.un('cardLoaded', listenerId);
+                        setTimeout(() => {container.createContent();}, 30);
+                    });
+                } else {
+                    setTimeout(() => {container.createContent();}, 30);
+                }
+            }
+
+            if (container.flag !== 'general') {
+                mainContainer.activeView = container.flag;
+            }
+        }
     }
 }
 
