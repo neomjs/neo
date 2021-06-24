@@ -223,26 +223,26 @@ class GeneralContainer extends Container {
                 valueLabelText: 'Right'
             }, {
                 module        : RadioField,
-                checked       : data.enableEventResizingAcrossOppositeEdge,
+                checked       : data.events.enableResizingAcrossOppositeEdge,
                 fieldValue    : true,
                 flex          : 'none',
                 hideValueLabel: false,
                 labelText     : 'Resizing',
                 labelWidth    : 80,
                 listeners     : {change: me.onRadioDataChange, scope: me},
-                name          : 'enableEventResizingAcrossOppositeEdge',
+                name          : 'events.enableResizingAcrossOppositeEdge',
                 style         : {marginTop: '15px'},
                 valueLabelText: 'X opposite edge'
             }, {
                 module        : RadioField,
-                checked       : !data.enableEventResizingAcrossOppositeEdge,
+                checked       : !data.events.enableResizingAcrossOppositeEdge,
                 fieldValue    : false,
                 flex          : 'none',
                 hideValueLabel: false,
                 labelText     : '',
                 labelWidth    : 80,
                 listeners     : {change: me.onRadioDataChange, scope: me},
-                name          : 'enableEventResizingAcrossOppositeEdge',
+                name          : 'events.enableResizingAcrossOppositeEdge',
                 style         : {marginTop: '5px'},
                 valueLabelText: 'Min duration'
             }, {
