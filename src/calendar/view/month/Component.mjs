@@ -560,7 +560,7 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDoubleClick(data) {
-        if (this.data.allowEventEditing) {
+        if (this.data.events.enableEdit) {
             let me                  = this,
                 editEventContainer  = me.owner.editEventContainer,
                 eventNode           = data.path[0],

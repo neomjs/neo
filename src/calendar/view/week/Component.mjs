@@ -44,11 +44,10 @@ class Component extends BaseComponent {
          * @member {Object} bind
          */
         bind: {
-            calendarStore   : 'stores.calendars',
-            currentDate     : data => data.currentDate,
-            eventBorder     : data => data.eventBorder,
-            eventsEnableDrag: data => data.events.enableDrag,
-            eventStore      : 'stores.events'
+            calendarStore: 'stores.calendars',
+            currentDate  : data => data.currentDate,
+            eventBorder  : data => data.eventBorder,
+            eventStore   : 'stores.events'
         },
         /**
          * Bound to the view model
@@ -85,12 +84,6 @@ class Component extends BaseComponent {
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
         eventStore_: null,
-        /**
-         * Enables moving and resizing events via drag & drop.
-         * Bound to the view model.
-         * @member {Boolean} eventsEnableDrag_=true
-         */
-        eventsEnableDrag_: true,
         /**
          * Will get passed from updateHeader()
          * @member {Date|null} firstColumnDate=null
@@ -677,7 +670,7 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDoubleClick(data) {
-        if (this.data.allowEventEditing) {
+        if (this.data.events.enableEdit) {
             if (!data.path[0].cls.includes('neo-event')) {
                 data.path.shift();
             }
@@ -710,7 +703,7 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDragEnd(data) {
-        if (this.eventsEnableDrag) {
+        if (this.data.events.enableDrag) {
             let me = this;
 
             me.eventDragZone.dragEnd();
@@ -731,7 +724,7 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDragMove(data) {
-        if (this.eventsEnableDrag) {
+        if (this.data.events.enableDrag) {
             let me = this;
 
             if (!me.isTopLevelEvent(data)) {
@@ -747,7 +740,7 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDragStart(data) {
-        if (this.eventsEnableDrag) {
+        if (this.data.events.enableDrag) {
             let me              = this,
                 eventDragZone   = me.eventDragZone,
                 isTopLevelEvent = me.isTopLevelEvent(data),
