@@ -33,7 +33,7 @@ class Component extends BaseComponent {
         bind: {
             calendarStore: 'stores.calendars',
             currentDate  : data => data.currentDate,
-            eventBorder  : data => data.eventBorder,
+            eventBorder  : data => data.events.border,
             eventStore   : 'stores.events'
         },
         /**
