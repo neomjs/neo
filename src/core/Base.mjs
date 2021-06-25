@@ -122,7 +122,7 @@ class Base {
         const values = Array.isArray(staticName) ? staticName : this.getStaticConfig(staticName);
 
         if (!values.includes(value)) {
-            Neo.logError('Supported values for ' + name + ' are:', values.join(', '), this);
+            Neo.logError(`Supported values for ${name} are: ${values.join(', ')}`, this);
             return oldValue;
         }
 
