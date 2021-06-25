@@ -885,7 +885,7 @@ class Component extends BaseComponent {
                 date = new Date(columns.cn[columns.cn.length - 1].flag);
 
                 columns.cn.splice(0, 7);
-                header.cn.splice(0, 7);
+                header .cn.splice(0, 7);
 
                 for (; i < 7; i++) {
                     date.setDate(date.getDate() + 1);
@@ -893,7 +893,7 @@ class Component extends BaseComponent {
                     config = me.createColumnAndHeader(date);
 
                     columns.cn.push(config.column);
-                    header.cn.push(config.header);
+                    header .cn.push(config.header);
                 }
 
                 firstColumnDate.setDate(firstColumnDate.getDate() + 7);
@@ -911,7 +911,7 @@ class Component extends BaseComponent {
                 date = new Date(columns.cn[0].flag);
 
                 columns.cn.length = 14;
-                header.cn.length = 14;
+                header .cn.length = 14;
 
                 for (; i < 7; i++) {
                     date.setDate(date.getDate() - 1);
@@ -919,7 +919,7 @@ class Component extends BaseComponent {
                     config = me.createColumnAndHeader(date);
 
                     columns.cn.unshift(config.column);
-                    header.cn.unshift(config.header);
+                    header .cn.unshift(config.header);
                 }
 
                 firstColumnDate.setDate(firstColumnDate.getDate() - 7);
