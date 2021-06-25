@@ -529,12 +529,12 @@ class MainContainer extends Container {
             listeners   : {change: me.onDateSelectorChange, scope: me},
             locale      : me.locale,
             parentId    : me.id, // we need the parentId to access the model inside the ctor
-            showWeekends: me.showWeekends,
             value       : DateUtil.convertToyyyymmdd(me.currentDate),
             weekStartDay: me.weekStartDay,
 
             bind: {
                 scrollNewYearFromTop: data => data.scrollNewYearFromTop,
+                showWeekends        : data => data.showWeekends,
                 value               : data => DateUtil.convertToyyyymmdd(data.currentDate)
             },
 
