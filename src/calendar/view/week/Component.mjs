@@ -525,10 +525,15 @@ class Component extends BaseComponent {
             currentDate = date.getDate(),
             currentDay  = date.getDay(),
             dateCls     = ['neo-date'],
+            removeDom   = false,
             column, header;
 
         if (currentDay === 0 || currentDay === 6) {
             columnCls.push('neo-weekend');
+
+            if (!me.showWeekends) {
+                removeDom = true;
+            }
         }
 
         if (currentDate        === today.day   &&
@@ -538,20 +543,16 @@ class Component extends BaseComponent {
         }
 
         column = {
-            cls : columnCls,
-            flag: DateUtil.convertToyyyymmdd(date)
+            cls      : columnCls,
+            flag     : DateUtil.convertToyyyymmdd(date),
+            removeDom: removeDom
         };
 
-        header = {
-            cls: ['neo-header-row-item'],
-            cn : [{
-                cls : ['neo-day'],
-                html: me.intlFormat_day.format(date)
-            }, {
-                cls : dateCls,
-                html: currentDate
-            }]
-        };
+        header =
+        {cls: ['neo-header-row-item'], removeDom: true, cn: [
+            {cls: ['neo-day'], html: me.intlFormat_day.format(date)},
+            {cls: dateCls,     html: currentDate}
+        ]};
 
         return {
             column: column,
