@@ -51,6 +51,7 @@ class MainContainer extends Container {
             currentDate         : {twoWay: true, value: data => data.currentDate},
             endTime             : {twoWay: true, value: data => data.endTime},
             scrollNewYearFromTop: {twoWay: true, value: data => data.scrollNewYearFromTop},
+            showWeekends        : {twoWay: true, value: data => data.showWeekends},
             startTime           : {twoWay: true, value: data => data.startTime}
         },
         /**
@@ -332,18 +333,6 @@ class MainContainer extends Container {
             } else {
                 settingsContainer.collapse(me.settingsContainerWidth);
             }
-        }
-    }
-
-    /**
-     * Triggered after the showWeekends config got changed
-     * @param {Boolean} value
-     * @param {Boolean} oldValue
-     * @protected
-     */
-    afterSetShowWeekends(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.setViewConfig('showWeekends', value);
         }
     }
 
