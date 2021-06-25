@@ -33,7 +33,8 @@ class YearComponent extends Component {
             calendarStore       : 'stores.calendars',
             currentDate         : data => data.currentDate,
             eventStore          : 'stores.events',
-            scrollNewYearFromTop: data => data.scrollNewYearFromTop
+            scrollNewYearFromTop: data => data.scrollNewYearFromTop,
+            showWeekends        : data => data.showWeekends
         },
         /**
          * Stores the last date change which got triggered while a year transition was running
@@ -42,7 +43,7 @@ class YearComponent extends Component {
          */
         cachedUpdate: null,
         /**
-         * Bound to the view model
+         * Bound to the view model.
          * @member {Neo.calendar.store.Calendars|null} calendarStore_=null
          */
         calendarStore_: null,
@@ -126,6 +127,7 @@ class YearComponent extends Component {
          */
         showDisabledDays_: true,
         /**
+         * Bound to the view model.
          * @member {Boolean} showWeekends_=true
          */
         showWeekends_: true,
