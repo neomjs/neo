@@ -433,9 +433,16 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetShowWeekends(value, oldValue) {
+        let me  = this,
+            cls = me.cls;
+
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-show-weekends');
+
+        me._cls = cls; // silent update
+
         if (oldValue !== undefined) {
-            this.updateHeader(false, true);
-            this.updateEvents();
+            me.updateHeader(false, true);
+            me.updateEvents();
         }
     }
 
@@ -549,7 +556,7 @@ class Component extends BaseComponent {
         };
 
         header =
-        {cls: ['neo-header-row-item'], removeDom: true, cn: [
+        {cls: ['neo-header-row-item'], removeDom: removeDom, cn: [
             {cls: ['neo-day'], html: me.intlFormat_day.format(date)},
             {cls: dateCls,     html: currentDate}
         ]};
@@ -901,8 +908,8 @@ class Component extends BaseComponent {
                 // we need a short delay to move the event rendering into the next animation frame.
                 // Details: https://github.com/neomjs/neo/issues/2216
                 setTimeout(() => {
-                    me.updateEvents(13, 20);
-                }, 50);
+                    me.updateEvents(true, 13, 20);
+                }, 30);
 
                 scrollValue = -width;
             }
@@ -927,8 +934,8 @@ class Component extends BaseComponent {
                 // we need a short delay to move the event rendering into the next animation frame.
                 // Details: https://github.com/neomjs/neo/issues/2216
                 setTimeout(() => {
-                    me.updateEvents(0, 6);
-                }, 50);
+                    me.updateEvents(true, 0, 6);
+                }, 30);
 
                 scrollValue = width;
             }
