@@ -529,8 +529,6 @@ class Component extends BaseComponent {
 
         if (currentDay === 0 || currentDay === 6) {
             columnCls.push('neo-weekend');
-        } else {
-            NeoArray.remove(columnCls, 'neo-weekend');
         }
 
         if (currentDate        === today.day   &&
