@@ -12,6 +12,7 @@ class MainContainer extends Viewport {
     static getConfig() {return {
         className : 'Neo.examples.calendar.basic.MainContainer',
         autoMount : true,
+        cls       : ['neo-examples-calendar-maincontainer', 'neo-viewport'],
         controller: MainContainerController,
         layout    : {ntype: 'vbox', align: 'stretch'},
 
