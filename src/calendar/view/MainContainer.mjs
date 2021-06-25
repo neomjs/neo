@@ -319,7 +319,16 @@ class MainContainer extends Container {
                 settingsContainer = me.items[1].items[2];
 
             if (value) {
-                settingsContainer.expand();
+                if (settingsContainer) {
+                    settingsContainer.expand();
+                } else {
+                    me.createSettingsContainer(true).then(() => {
+                        // short delay to ensure the vnode already exists
+                        setTimeout(() => {
+                            me.items[1].items[2].expand();
+                        }, 50);
+                    });
+                }
             } else {
                 settingsContainer.collapse(me.settingsContainerWidth);
             }
@@ -398,22 +407,18 @@ class MainContainer extends Container {
         let me = this;
 
         if (value) {
-            import('./SettingsContainer.mjs').then(module => {
-                me.items[1].add({
-                    module             : module.default,
-                    collapsed          : !me.settingsExpanded,
-                    removeInactiveCards: me.removeInactiveCards,
-                    style              : {marginRight: me.settingsExpanded ? '0' : `-${me.settingsContainerWidth}px`},
-                    width              : me.settingsContainerWidth,
-                    ...me.settingsContainerConfig
-                });
+            if (me.settingsExpanded) {
+                me.createSettingsContainer(false);
+            }
 
+            // we need a short delay to ensure the items already got created
+            setTimeout(() => {
                 me.items[0].items[1].add({
                     handler: me.toggleSettings.bind(me),
                     iconCls: 'fa fa-cog',
                     style  : {marginLeft: '10px'}
                 });
-            });
+            }, 10);
         } else if (value === false && oldValue) {
             // we only need this logic in case we dynamically change the config from true to false
             me.items[1]         .removeLast();
@@ -574,6 +579,26 @@ class MainContainer extends Container {
                 }
             }]
         }];
+    }
+
+    /**
+     *
+     * @param {Boolean} collapsed
+     * @returns {Promise<*>}
+     */
+    createSettingsContainer(collapsed) {
+        let me = this;
+
+        return import('./SettingsContainer.mjs').then(module => {
+            me.items[1].add({
+                module             : module.default,
+                collapsed          : collapsed,
+                removeInactiveCards: me.removeInactiveCards,
+                style              : {marginRight: !collapsed ? '0' : `-${me.settingsContainerWidth}px`},
+                width              : me.settingsContainerWidth,
+                ...me.settingsContainerConfig
+            });
+        });
     }
 
     /**
