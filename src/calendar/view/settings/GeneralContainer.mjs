@@ -127,11 +127,11 @@ class GeneralContainer extends Container {
             valueLabelText: 'Monday'
         }, {
             module        : CheckBoxField,
-            checked       : calendar.showWeekends,
+            checked       : data.showWeekends,
             flex          : 'none',
             hideLabel     : true,
             hideValueLabel: false,
-            listeners     : {change: me.onConfigChange, scope: me},
+            listeners     : {change: me.onDataChange, scope: me},
             name          : 'showWeekends',
             style         : {marginTop: '10px'},
             valueLabelText: 'showWeekends'
