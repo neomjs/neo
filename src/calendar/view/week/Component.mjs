@@ -47,7 +47,8 @@ class Component extends BaseComponent {
             calendarStore: 'stores.calendars',
             currentDate  : data => data.currentDate,
             eventBorder  : data => data.events.border,
-            eventStore   : 'stores.events'
+            eventStore   : 'stores.events',
+            showWeekends : data => data.showWeekends
         },
         /**
          * Bound to the view model
@@ -139,6 +140,11 @@ class Component extends BaseComponent {
          * @member {Boolean} showEventEndTime_=false
          */
         showEventEndTime_: false,
+        /**
+         * Bound to the view model.
+         * @member {Boolean} showWeekends_=true
+         */
+        showWeekends_: true,
         /**
          * @member {Object} timeAxis=null
          */
@@ -416,6 +422,19 @@ class Component extends BaseComponent {
      */
     afterSetShowEventEndTime(value, oldValue) {
         if (oldValue !== undefined) {
+            this.updateEvents();
+        }
+    }
+
+    /**
+     * Triggered after the showWeekends config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetShowWeekends(value, oldValue) {
+        if (oldValue !== undefined) {
+            this.updateHeader(false, true);
             this.updateEvents();
         }
     }
@@ -1052,13 +1071,14 @@ class Component extends BaseComponent {
      * @param {Boolean} [silent=false]
      */
     updateHeader(create=false, silent=false) {
-        let me      = this,
-            date    = me.currentDate, // cloned
-            vdom    = me.vdom,
-            content = me.getColumnContainer(),
-            header  = me.getHeaderContainer(),
-            i       = 0,
-            columnCls, currentDate, currentDay, dateCls, headerId;
+        let me           = this,
+            date         = me.currentDate, // cloned
+            vdom         = me.vdom,
+            content      = me.getColumnContainer(),
+            header       = me.getHeaderContainer(),
+            i            = 0,
+            showWeekends = me.showWeekends,
+            columnCls, currentDate, currentDay, dateCls, headerId, removeDom;
 
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay - 7);
 
@@ -1069,34 +1089,38 @@ class Component extends BaseComponent {
             currentDate = date.getDate();
             currentDay  = date.getDay();
             dateCls     = ['neo-date'];
+            removeDom   = false;
 
             if (currentDay === 0 || currentDay === 6) {
                 columnCls.push('neo-weekend');
-            } else {
-                NeoArray.remove(columnCls, 'neo-weekend');
+
+                if (!showWeekends) {
+                    removeDom = true;
+                }
             }
 
             if (currentDate        === today.day   &&
                 date.getMonth()    === today.month &&
                 date.getFullYear() === today.year) {
                 dateCls.push('neo-today');
-            } else {
-                NeoArray.remove(dateCls, 'neo-today');
             }
 
             headerId = me.getColumnHeaderId(date);
 
             if (create) {
                 content.cn.push({
-                    cls : columnCls,
-                    flag: DateUtil.convertToyyyymmdd(date),
-                    id  : me.getColumnId(date)
+                    cls      : columnCls,
+                    flag     : DateUtil.convertToyyyymmdd(date),
+                    id       : me.getColumnId(date),
+                    removeDom: removeDom
                 });
 
                 header.cn.push({
-                    cls: ['neo-header-row-item'],
-                    id : headerId,
-                    cn : [{
+                    cls      : ['neo-header-row-item'],
+                    id       : headerId,
+                    removeDom: removeDom,
+
+                    cn: [{
                         cls : ['neo-day'],
                         html: me.intlFormat_day.format(date),
                         id  : `${headerId}_day`
@@ -1108,12 +1132,16 @@ class Component extends BaseComponent {
                 });
             } else {
                 Object.assign(content.cn[i], {
-                    cls : columnCls,
-                    flag: DateUtil.convertToyyyymmdd(date),
-                    id  : me.getColumnId(date)
+                    cls      : columnCls,
+                    flag     : DateUtil.convertToyyyymmdd(date),
+                    id       : me.getColumnId(date),
+                    removeDom: removeDom
                 });
 
-                header.cn[i].id = headerId;
+                Object.assign(header.cn[i], {
+                    id       : headerId,
+                    removeDom: removeDom
+                });
 
                 Object.assign(header.cn[i].cn[0], {
                     html: me.intlFormat_day.format(date),
