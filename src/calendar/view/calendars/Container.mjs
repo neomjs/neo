@@ -1,5 +1,6 @@
 import CheckBoxField from '../../../form/field/CheckBox.mjs';
 import BaseContainer from '../../../container/Base.mjs';
+import List          from './List.mjs';
 
 /**
  * @class Neo.calendar.view.calendars.Container
@@ -83,6 +84,10 @@ class Container extends BaseContainer {
                     listeners     : {change: me.onCheckboxChange, scope: me},
                     valueLabelText: record.name
                 });
+            });
+
+            items.push({
+                module: List
             });
 
             me._items = items;
