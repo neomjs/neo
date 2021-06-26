@@ -1,5 +1,6 @@
 import Base            from '../core/Base.mjs';
 import ClassSystemUtil from '../util/ClassSystem.mjs';
+import Compare         from '../util/Compare.mjs';
 import NeoArray        from '../util/Array.mjs';
 import Observable      from '../core/Observable.mjs';
 
@@ -271,7 +272,7 @@ class Component extends Base {
                     root[_key] = value;
                 }
 
-                if (value !== oldValue) {
+                if (!Compare.isEqual(value, oldValue)) {
                     me.onDataPropertyChange(path ? path : key, value, oldValue);
                 }
             }
