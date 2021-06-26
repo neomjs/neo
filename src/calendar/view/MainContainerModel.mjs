@@ -71,7 +71,12 @@ class MainContainerModel extends Component {
              * format: 'hh:mm'
              * @member {String} data.startTime='00:00'
              */
-            startTime: '00:00'
+            startTime: '00:00',
+            /**
+             * 0-6 => Sun-Sat
+             * @member {Number} data.weekStartDay=0
+             */
+            weekStartDay: 0
         }
     }}
 

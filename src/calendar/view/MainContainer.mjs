@@ -52,7 +52,8 @@ class MainContainer extends Container {
             endTime             : {twoWay: true, value: data => data.endTime},
             scrollNewYearFromTop: {twoWay: true, value: data => data.scrollNewYearFromTop},
             showWeekends        : {twoWay: true, value: data => data.showWeekends},
-            startTime           : {twoWay: true, value: data => data.startTime}
+            startTime           : {twoWay: true, value: data => data.startTime},
+            weekStartDay        : {twoWay: true, value: data => data.weekStartDay}
         },
         /**
          * @member {Neo.calendar.view.CalendarsContainer|null} calendarsContainer=null
@@ -416,18 +417,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered after the weekStartDay config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
-     * @protected
-     */
-    afterSetWeekStartDay(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.setViewConfig('weekStartDay', value);
-        }
-    }
-
-    /**
      * Gets triggered before getting the value of the editEventContainer config
      * @param {Neo.calendar.view.EditEventContainer|null} value
      * @returns {Neo.calendar.view.EditEventContainer}
@@ -522,20 +511,20 @@ class MainContainer extends Container {
         });
 
         me.dateSelector = Neo.create({
-            module      : DateSelector,
-            appName     : me.appName,
-            flex        : 'none',
-            height      : me.sideBarWidth,
-            listeners   : {change: me.onDateSelectorChange, scope: me},
-            locale      : me.locale,
-            parentId    : me.id, // we need the parentId to access the model inside the ctor
-            value       : DateUtil.convertToyyyymmdd(me.currentDate),
-            weekStartDay: me.weekStartDay,
+            module   : DateSelector,
+            appName  : me.appName,
+            flex     : 'none',
+            height   : me.sideBarWidth,
+            listeners: {change: me.onDateSelectorChange, scope: me},
+            locale   : me.locale,
+            parentId : me.id, // we need the parentId to access the model inside the ctor
+            value    : DateUtil.convertToyyyymmdd(me.currentDate),
 
             bind: {
                 scrollNewYearFromTop: data => data.scrollNewYearFromTop,
                 showWeekends        : data => data.showWeekends,
-                value               : data => DateUtil.convertToyyyymmdd(data.currentDate)
+                value               : data => DateUtil.convertToyyyymmdd(data.currentDate),
+                weekStartDay        : data => data.weekStartDay
             },
 
             ...me.dateSelectorConfig
@@ -623,13 +612,10 @@ class MainContainer extends Container {
             cmp;
 
         const defaultConfig = {
-            appName     : me.appName,
-            currentDate : me.currentDate,
-            locale      : me.locale,
-            owner       : me,
-            parentId    : me.id,
-            showWeekends: me.showWeekends,
-            weekStartDay: me.weekStartDay
+            appName : me.appName,
+            locale  : me.locale,
+            owner   : me,
+            parentId: me.id
         };
 
         const map = {
