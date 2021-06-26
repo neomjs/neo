@@ -432,7 +432,7 @@ Neo = self.Neo = Object.assign({
             case 'symbol' : return 'Symbol';
 
             case 'function': {
-                if (item.constructor.prototype.isClass) {
+                if (item.prototype && item.prototype.constructor.isClass) {
                     return 'NeoClass';
                 }
 
