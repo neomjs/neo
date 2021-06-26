@@ -109,11 +109,6 @@ class MainContainer extends Container {
          */
         eventStoreConfig_: null,
         /**
-         * @member {Intl.DateTimeFormat|null} intlFormat_time=null
-         * @protected
-         */
-        intlFormat_time: null,
-        /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
          */
@@ -272,18 +267,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered after the locale config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetLocale(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.intlFormat_time = new Intl.DateTimeFormat(value, this.timeFormat);
-        }
-    }
-
-    /**
      * Triggered after the minimumEventDuration config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -373,16 +356,6 @@ class MainContainer extends Container {
                 });
             }
         }
-    }
-
-    /**
-     * Triggered after the timeFormat config got changed
-     * @param {Object} value
-     * @param {Object} oldValue
-     * @protected
-     */
-    afterSetTimeFormat(value, oldValue) {
-        this.intlFormat_time = new Intl.DateTimeFormat(this.locale, value);
     }
 
     /**
