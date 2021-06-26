@@ -1,4 +1,4 @@
-import CalendarsContainer from './CalendarsContainer.mjs';
+import CalendarsContainer from './calendars/Container.mjs';
 import Container          from '../../container/Base.mjs';
 import DateSelector       from '../../component/DateSelector.mjs';
 import DateUtil           from '../../util/Date.mjs';
@@ -59,7 +59,7 @@ class MainContainer extends Container {
             weekStartDay        : {twoWay: true, value: data => data.weekStartDay}
         },
         /**
-         * @member {Neo.calendar.view.CalendarsContainer|null} calendarsContainer=null
+         * @member {Neo.calendar.view.Container|null} calendarsContainer=null
          */
         calendarsContainer: null,
         /**

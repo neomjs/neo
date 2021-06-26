@@ -1,17 +1,17 @@
-import CheckBoxField from '../../form/field/CheckBox.mjs';
-import Container     from '../../container/Base.mjs';
+import CheckBoxField from '../../../form/field/CheckBox.mjs';
+import BaseContainer from '../../../container/Base.mjs';
 
 /**
- * @class Neo.calendar.view.CalendarsContainer
+ * @class Neo.calendar.view.calendars.Container
  * @extends Neo.container.Base
  */
-class CalendarsContainer extends Container {
+class Container extends BaseContainer {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.calendar.view.CalendarsContainer'
+         * @member {String} className='Neo.calendar.view.calendars.Container'
          * @protected
          */
-        className: 'Neo.calendar.view.CalendarsContainer',
+        className: 'Neo.calendar.view.calendars.Container',
         /**
          * @member {String} ntype='calendar-calendarscontainer'
          * @protected
@@ -101,6 +101,6 @@ class CalendarsContainer extends Container {
     }
 }
 
-Neo.applyClassConfig(CalendarsContainer);
+Neo.applyClassConfig(Container);
 
-export {CalendarsContainer as default};
+export {Container as default};
