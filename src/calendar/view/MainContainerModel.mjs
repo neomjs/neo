@@ -58,6 +58,7 @@ class MainContainerModel extends Component {
                 enableResizingAcrossOppositeEdge: true
             },
             /**
+             * Read only, it will automatically get created inside onDataPropertyChange()
              * @member {Intl.DateTimeFormat|null} data.intlFormat_time=null
              */
             intlFormat_time: null,
@@ -123,6 +124,30 @@ class MainContainerModel extends Component {
                 ...component.eventStoreConfig
             }
         };
+    }
+
+    /**
+     *
+     * @param {String} key
+     * @param {*} value
+     * @param {*} oldValue
+     */
+    onDataPropertyChange(key, value, oldValue) {
+        super.onDataPropertyChange(key, value, oldValue);
+
+        let data = this.data;
+
+        switch(key) {
+            case 'locale': {
+                data.intlFormat_time = new Intl.DateTimeFormat(value, data.timeFormat);
+                break;
+            }
+
+            case 'timeFormat': {
+                data.intlFormat_time = new Intl.DateTimeFormat(data.locale, value);
+                break;
+            }
+        }
     }
 }
 
