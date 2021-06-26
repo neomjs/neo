@@ -7,6 +7,7 @@ const configSymbol = Symbol.for('configSymbol'),
  * The base module to enhance classes, create instances and the Neo namespace
  * @module Neo
  * @singleton
+ * @borrows Neo.core.Util.bindMethods       as bindMethods
  * @borrows Neo.core.Util.capitalize        as capitalize
  * @borrows Neo.core.Util.createStyleObject as createStyleObject
  * @borrows Neo.core.Util.createStyles      as createStyles
@@ -411,6 +412,69 @@ Neo = self.Neo = Object.assign({
             throw new Error('ntype ' + ntype + ' does not exist');
         }
         return Neo.create(className, config);
+    },
+
+    /**
+     *
+     * @param {*} item
+     * @returns {String}
+     */
+    typeOf(item) {
+        switch (typeof item) {
+            case 'bigint' : return 'BigInt';
+            case 'boolean': return 'Boolean';
+            case 'number' : return 'Number';
+            case 'string' : return 'String';
+            case 'symbol' : return 'Symbol';
+
+            case 'function': {
+                if (item.constructor.prototype.isClass) {
+                    return 'NeoClass';
+                }
+
+                return 'Function';
+            }
+
+            case 'object': {
+                if (Array.isArray(item)) {
+                    return 'Array';
+                }
+
+                if (item instanceof Date) {
+                    return 'Date';
+                }
+
+                if (item instanceof Map) {
+                    return 'Map';
+                }
+
+                if (item instanceof Intl.DateTimeFormat) {
+                    return 'Intl.DateTimeFormat';
+                }
+
+                if (item instanceof RegExp) {
+                    return 'RegExp';
+                }
+
+                if (item instanceof Set) {
+                    return 'Set';
+                }
+
+                if (!item) {
+                    return 'Null';
+                }
+
+                if (item.constructor.isClass) {
+                    if (item instanceof Neo.core.Base) {
+                        return 'NeoInstance';
+                    }
+                }
+
+                return 'Object';
+            }
+        }
+
+        return 'Undefined';
     }
 }, Neo);
 
