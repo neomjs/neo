@@ -77,6 +77,10 @@ class MainContainerModel extends Component {
              */
             startTime: '00:00',
             /**
+             * @member {Object} data.timeFormat={hour:'2-digit',minute:'2-digit'}
+             */
+            timeFormat: {hour: '2-digit', minute: '2-digit'},
+            /**
              * 0-6 => Sun-Sat
              * @member {Number} data.weekStartDay=0
              */

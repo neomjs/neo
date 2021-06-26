@@ -54,6 +54,7 @@ class MainContainer extends Container {
             scrollNewYearFromTop: {twoWay: true, value: data => data.scrollNewYearFromTop},
             showWeekends        : {twoWay: true, value: data => data.showWeekends},
             startTime           : {twoWay: true, value: data => data.startTime},
+            timeFormat          : {twoWay: true, value: data => data.timeFormat},
             weekStartDay        : {twoWay: true, value: data => data.weekStartDay}
         },
         /**
