@@ -50,6 +50,7 @@ class MainContainer extends Container {
         bind: {
             currentDate         : {twoWay: true, value: data => data.currentDate},
             endTime             : {twoWay: true, value: data => data.endTime},
+            locale              : {twoWay: true, value: data => data.locale},
             scrollNewYearFromTop: {twoWay: true, value: data => data.scrollNewYearFromTop},
             showWeekends        : {twoWay: true, value: data => data.showWeekends},
             startTime           : {twoWay: true, value: data => data.startTime},
@@ -278,10 +279,7 @@ class MainContainer extends Container {
      */
     afterSetLocale(value, oldValue) {
         if (oldValue !== undefined) {
-            let me = this;
-
-            me.intlFormat_time = new Intl.DateTimeFormat(value, me.timeFormat);
-            me.setViewConfig('locale', value);
+            this.intlFormat_time = new Intl.DateTimeFormat(value, this.timeFormat);
         }
     }
 
@@ -516,11 +514,11 @@ class MainContainer extends Container {
             flex     : 'none',
             height   : me.sideBarWidth,
             listeners: {change: me.onDateSelectorChange, scope: me},
-            locale   : me.locale,
             parentId : me.id, // we need the parentId to access the model inside the ctor
             value    : DateUtil.convertToyyyymmdd(me.currentDate),
 
             bind: {
+                locale              : data => data.locale,
                 scrollNewYearFromTop: data => data.scrollNewYearFromTop,
                 showWeekends        : data => data.showWeekends,
                 value               : data => DateUtil.convertToyyyymmdd(data.currentDate),
@@ -613,7 +611,6 @@ class MainContainer extends Container {
 
         const defaultConfig = {
             appName : me.appName,
-            locale  : me.locale,
             owner   : me,
             parentId: me.id
         };
@@ -717,21 +714,6 @@ class MainContainer extends Container {
      */
     onTodayButtonClick(data) {
         this.currentDate = todayDate;
-    }
-
-    /**
-     * Sets a config for the DateSelector and all views (cards)
-     * @param {String} key
-     * @param {*} value
-     */
-    setViewConfig(key, value) {
-        let me = this;
-
-        me.dateSelector[key] = value;
-
-        me.views.forEach(view => {
-            me[`${view}Component`][key] = value;
-        });
     }
 
     /**

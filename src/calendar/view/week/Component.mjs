@@ -48,6 +48,7 @@ class Component extends BaseComponent {
             currentDate  : data => data.currentDate,
             eventBorder  : data => data.events.border,
             eventStore   : 'stores.events',
+            locale       : data => data.locale,
             showWeekends : data => data.showWeekends,
             weekStartDay : data => data.weekStartDay
         },
@@ -119,6 +120,7 @@ class Component extends BaseComponent {
          */
         isUpdating: false,
         /**
+         * Bound to the view model.
          * @member {String} locale_=Neo.config.locale
          */
         locale_: Neo.config.locale,
@@ -1087,7 +1089,7 @@ class Component extends BaseComponent {
             i            = 0,
             showWeekends = me.showWeekends,
             columnCls, currentDate, currentDay, dateCls, headerId, removeDom;
-console.log(date, Neo.typeOf(date));
+
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay - 7);
 
         me.firstColumnDate = DateUtil.clone(date);

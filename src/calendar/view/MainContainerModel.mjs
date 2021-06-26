@@ -58,6 +58,10 @@ class MainContainerModel extends Component {
                 enableResizingAcrossOppositeEdge: true
             },
             /**
+             * @member {String} data.locale=Neo.config.locale
+             */
+            locale: Neo.config.locale,
+            /**
              * True to scroll new years in from the top
              * @member {Boolean} data.scrollNewYearFromTop=false
              */

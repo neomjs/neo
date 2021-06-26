@@ -43,61 +43,61 @@ class GeneralContainer extends Container {
             value     : calendar.baseFontSize
         }, {
             module        : RadioField,
-            checked       : calendar.locale === 'default',
+            checked       : data.locale === 'default',
             fieldValue    : 'default',
             flex          : 'none',
             hideValueLabel: false,
             labelText     : 'locale',
             labelWidth    : 110,
-            listeners     : {change: me.onRadioChange, scope: me},
+            listeners     : {change: me.onRadioDataChange, scope: me},
             name          : 'locale',
             style         : {marginTop: '5px'},
             valueLabelText: 'default'
         }, {
             module        : RadioField,
-            checked       : calendar.locale === 'de-DE',
+            checked       : data.locale === 'de-DE',
             fieldValue    : 'de-DE',
             flex          : 'none',
             hideValueLabel: false,
             labelText     : '',
             labelWidth    : 110,
-            listeners     : {change: me.onRadioChange, scope: me},
+            listeners     : {change: me.onRadioDataChange, scope: me},
             name          : 'locale',
             style         : {marginTop: '5px'},
             valueLabelText: 'de-DE'
         }, {
             module        : RadioField,
-            checked       : calendar.locale === 'en-US',
+            checked       : data.locale === 'en-US',
             fieldValue    : 'en-US',
             flex          : 'none',
             hideValueLabel: false,
             labelText     : '',
             labelWidth    : 110,
-            listeners     : {change: me.onRadioChange, scope: me},
+            listeners     : {change: me.onRadioDataChange, scope: me},
             name          : 'locale',
             style         : {marginTop: '5px'},
             valueLabelText: 'en-US'
         }, {
             module        : RadioField,
-            checked       : calendar.locale === 'es-ES',
+            checked       : data.locale === 'es-ES',
             fieldValue    : 'es-ES',
             flex          : 'none',
             hideValueLabel: false,
             labelText     : '',
             labelWidth    : 110,
-            listeners     : {change: me.onRadioChange, scope: me},
+            listeners     : {change: me.onRadioDataChange, scope: me},
             name          : 'locale',
             style         : {marginTop: '5px'},
             valueLabelText: 'es-ES'
         }, {
             module        : RadioField,
-            checked       : calendar.locale === 'fr-FR',
+            checked       : data.locale === 'fr-FR',
             fieldValue    : 'fr-FR',
             flex          : 'none',
             hideValueLabel: false,
             labelText     : '',
             labelWidth    : 110,
-            listeners     : {change: me.onRadioChange, scope: me},
+            listeners     : {change: me.onRadioDataChange, scope: me},
             name          : 'locale',
             style         : {marginTop: '5px'},
             valueLabelText: 'fr-FR'
@@ -276,16 +276,6 @@ class GeneralContainer extends Container {
      */
     onDataChange(data) {
         this.getModel().setData(data.component.name, data.value);
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onRadioChange(data) {
-        if (data.value) {
-            this.up('calendar-maincontainer')[data.component.name] = data.component.fieldValue;
-        }
     }
 
     /**
