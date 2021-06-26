@@ -129,13 +129,19 @@
         white-space  : nowrap ;
     }
 
+    &.neo-show-weekends {
+        .neo-header-row-item {
+            flex: 1 0 calc(100% / 7);
+        }
+    }
+
     .neo-header-row-item {
         align-items     : center;
         background-color: v(c-w-header-background-color);
         border-bottom   : 1px solid v(c-w-border-color);
         cursor          : pointer;
         display         : flex;
-        flex            : 1 0 calc(100% / 7);
+        flex            : 1 0 calc(100% / 5);
         flex-direction  : column;
         height          : 4.7em; // we need a fixed height for the bg margin top
         justify-content : center;

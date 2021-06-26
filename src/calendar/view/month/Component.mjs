@@ -34,7 +34,8 @@ class Component extends BaseComponent {
             calendarStore: 'stores.calendars',
             currentDate  : data => data.currentDate,
             eventBorder  : data => data.events.border,
-            eventStore   : 'stores.events'
+            eventStore   : 'stores.events',
+            showWeekends : data => data.showWeekends
         },
         /**
          * Bound to the view model
@@ -63,7 +64,7 @@ class Component extends BaseComponent {
          */
         eventBorder_: null,
         /**
-         * Bound to the view model
+         * Bound to the view model.
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
         eventStore_: null,
@@ -115,6 +116,7 @@ class Component extends BaseComponent {
          */
         scrollTaskId: null,
         /**
+         * Bound to the view model.
          * @member {Boolean} showWeekends_=true
          */
         showWeekends_: true,

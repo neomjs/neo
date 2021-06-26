@@ -63,6 +63,10 @@ class MainContainerModel extends Component {
              */
             scrollNewYearFromTop: false,
             /**
+             * @member {Boolean} data.showWeekends=true
+             */
+            showWeekends: true,
+            /**
              * Only full hours are valid for now
              * format: 'hh:mm'
              * @member {String} data.startTime='00:00'
