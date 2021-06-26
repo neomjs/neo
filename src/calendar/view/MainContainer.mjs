@@ -388,6 +388,16 @@ class MainContainer extends Container {
     }
 
     /**
+     * Triggered before the activeView config gets changed.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetActiveView(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'activeView', 'validViews');
+    }
+
+    /**
      * Triggered before the views config gets changed.
      * @param {String[]} value
      * @param {String[]} oldValue
