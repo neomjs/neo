@@ -22,7 +22,8 @@ class EditEventContainer extends FormContainer {
          * @member {Object} bind
          */
         bind: {
-            intlFormat_time: data => data.intlFormat_time
+            intlFormat_time     : data => data.intlFormat_time,
+            minimumEventDuration: data => data.minimumEventDuration
         },
         /**
          * @member {String[]} cls=['neo-calendar-edit-event-container']
@@ -169,7 +170,7 @@ class EditEventContainer extends FormContainer {
     getEndTimeMinValue(record) {
         let date = new Date(record.startDate.valueOf());
 
-        date.setMinutes(date.getMinutes() + this.owner.minimumEventDuration);
+        date.setMinutes(date.getMinutes() + this.minimumEventDuration);
 
         return this.intlFormat_time.format(date);
     }
@@ -182,7 +183,7 @@ class EditEventContainer extends FormContainer {
     getStartTimeMaxValue(record) {
         let date = new Date(record.endDate.valueOf());
 
-        date.setMinutes(date.getMinutes() - this.owner.minimumEventDuration);
+        date.setMinutes(date.getMinutes() - this.minimumEventDuration);
 
         return this.intlFormat_time.format(date);
     }
