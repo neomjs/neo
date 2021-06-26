@@ -228,7 +228,7 @@ Neo = self.Neo = Object.assign({
      * @returns {Object|Array|*} the cloned input
      */
     clone(obj, deep=false, ignoreNeoInstances=false) {
-        let out;
+        let locale, opts, out;
 
         if (Array.isArray(obj)) {
             return !deep ? [...obj] : [...obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))];
@@ -241,6 +241,12 @@ Neo = self.Neo = Object.assign({
                 return obj;
             } else if (obj instanceof Date) {
                 obj = new Date(obj.valueOf());
+            } else if (obj instanceof Intl.DateTimeFormat) {
+                opts   = obj.resolvedOptions();
+                locale = opts.locale;
+                delete opts.locale;
+
+                obj = new Intl.DateTimeFormat(locale, opts);
             } else if (obj instanceof Map) {
                 obj = new Map(obj); // shallow copy
             } else {
