@@ -180,6 +180,7 @@ class Component extends BaseComponent {
         ]},
         /**
          * 0-6 => Sun-Sat
+         * Bound to the view model.
          * @member {Number} weekStartDay_=0
          */
         weekStartDay_: 0
