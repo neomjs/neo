@@ -19,6 +19,12 @@ class EditEventContainer extends FormContainer {
          */
         ntype: 'calendar-edit-event-container',
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            intlFormat_time: data => data.intlFormat_time
+        },
+        /**
          * @member {String[]} cls=['neo-calendar-edit-event-container']
          */
         cls: ['neo-calendar-edit-event-container'],
@@ -30,6 +36,12 @@ class EditEventContainer extends FormContainer {
          * @member {Object|null} endTimeFieldConfig=null
          */
         endTimeFieldConfig: null,
+        /**
+         * Bound to the view model.
+         * @member {Intl.DateTimeFormat|null} intlFormat_time=null
+         * @protected
+         */
+        intlFormat_time: null,
         /**
          * @member {Neo.calendar.view.week.Component|null} owner=null
          */
@@ -82,7 +94,7 @@ class EditEventContainer extends FormContainer {
     afterSetRecord(value, oldValue) {
         if (value && oldValue) {
             let me         = this,
-                timeFormat = me.owner.intlFormat_time;
+                timeFormat = me.intlFormat_time;
 
             me.getField('endTime')  .minValue = me.getEndTimeMinValue(value);
             me.getField('startTime').maxValue = me.getStartTimeMaxValue(value);
@@ -101,9 +113,10 @@ class EditEventContainer extends FormContainer {
      *
      */
     createItems() {
-        let me     = this,
-            owner  = me.owner,
-            record = me.record,
+        let me         = this,
+            owner      = me.owner,
+            record     = me.record,
+            timeFormat = me.intlFormat_time,
             timeFieldDefaults = {
                 module              : TimeField,
                 clearToOriginalValue: true,
@@ -131,7 +144,7 @@ class EditEventContainer extends FormContainer {
                 maxValue : me.getStartTimeMaxValue(record),
                 minValue : owner.startTime,
                 name     : 'startTime',
-                value    : owner.intlFormat_time.format(record.startDate),
+                value    : timeFormat.format(record.startDate),
                 ...timeFieldDefaults,
                 ...me.startTimeFieldConfig
             }, {
@@ -139,7 +152,7 @@ class EditEventContainer extends FormContainer {
                 maxValue : owner.endTime,
                 minValue : me.getEndTimeMinValue(record),
                 name     : 'endTime',
-                value    : owner.intlFormat_time.format(record.endDate),
+                value    : timeFormat.format(record.endDate),
                 ...timeFieldDefaults,
                 ...me.endTimeFieldConfig
             }];
@@ -158,7 +171,7 @@ class EditEventContainer extends FormContainer {
 
         date.setMinutes(date.getMinutes() + this.owner.minimumEventDuration);
 
-        return this.owner.intlFormat_time.format(date);
+        return this.intlFormat_time.format(date);
     }
 
     /**
@@ -171,7 +184,7 @@ class EditEventContainer extends FormContainer {
 
         date.setMinutes(date.getMinutes() - this.owner.minimumEventDuration);
 
-        return this.owner.intlFormat_time.format(date);
+        return this.intlFormat_time.format(date);
     }
 
     /**
