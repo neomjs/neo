@@ -269,18 +269,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered after the scrollNewYearFromTop config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetScrollNewYearFromTop(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.dateSelector.scrollNewYearFromTop = value;
-        }
-    }
-
-    /**
      * Triggered after the settingsExpanded config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
