@@ -150,15 +150,7 @@ Neo = self.Neo = Object.assign({
      * Neo.applyFromNs(Neo, Util, {
      *     createStyleObject: 'createStyleObject',
      *     createStyles     : 'createStyles',
-     *     capitalize       : 'capitalize',
-     *     decamel          : 'decamel',
-     *     isArray          : 'isArray',
-     *     isBoolean        : 'isBoolean',
-     *     isDefined        : 'isDefined',
-     *     isNumber         : 'isNumber',
-     *     isObject         : 'isObject',
-     *     isString         : 'isString',
-     *     toArray          : 'toArray'
+     *     capitalize       : 'capitalize'
      * }, true);
      *
      * // e.g. Neo.core.Util.isObject => Neo.isObject
