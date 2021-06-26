@@ -399,6 +399,7 @@ class MainContainer extends Container {
             me._editEventContainer = value = Neo.create({
                 module : EditEventContainer,
                 appName: me.appName,
+                model  : {parent: me.getModel()},
                 owner  : me,
                 width  : 250,
                 ...me.editEventContainerConfig
