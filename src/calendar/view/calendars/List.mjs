@@ -5,7 +5,7 @@ import BaseList      from '../../../list/Base.mjs';
  * @class Neo.calendar.view.calendars.List
  * @extends Neo.list.Base
  */
-class Container extends BaseList {
+class List extends BaseList {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.calendar.view.calendars.List'
@@ -26,6 +26,6 @@ class Container extends BaseList {
     }}
 }
 
-Neo.applyClassConfig(Container);
+Neo.applyClassConfig(List);
 
-export {Container as default};
+export {List as default};
