@@ -40,7 +40,7 @@ class Container extends BaseContainer {
             module        : CheckBoxField,
             flex          : 'none',
             hideLabel     : true,
-            hideValueLabel: false,
+            hideValueLabel: false
         },
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
