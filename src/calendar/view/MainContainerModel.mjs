@@ -58,6 +58,10 @@ class MainContainerModel extends Component {
                 enableResizingAcrossOppositeEdge: true
             },
             /**
+             * @member {Intl.DateTimeFormat|null} data.intlFormat_time=null
+             */
+            intlFormat_time: null,
+            /**
              * @member {String} data.locale=Neo.config.locale
              */
             locale: Neo.config.locale,
