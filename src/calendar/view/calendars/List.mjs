@@ -52,14 +52,20 @@ class List extends BaseList {
         me.store.items.forEach(record => {
             listItem = Neo.create({
                 checked       : record.active,
-                cls           : [me.itemCls, 'neo-checkboxfield', `neo-color-${record.color}`],
+                cls           : ['neo-checkboxfield', `neo-color-${record.color}`],
                 fieldValue    : record[me.store.keyProperty],
                 listeners     : {change: me.onCheckboxChange, scope: me},
                 valueLabelText: record.name,
                 ...me.itemDefaults
             });
 
-            vdom.cn.push(listItem.vdom);
+            vdom.cn.push({
+                tag     : 'li',
+                cls     : [me.itemCls],
+                id      : me.getItemId(record[me.getKeyProperty()]),
+                cn      : [listItem.vdom],
+                tabIndex: -1
+            });
         });
 
         if (silent) {
