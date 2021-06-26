@@ -51,6 +51,7 @@ class List extends BaseList {
 
         me.store.items.forEach(record => {
             listItem = Neo.create({
+                appName       : me.appName,
                 checked       : record.active,
                 cls           : ['neo-checkboxfield', `neo-color-${record.color}`],
                 fieldValue    : record[me.store.keyProperty],
