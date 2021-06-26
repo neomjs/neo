@@ -686,10 +686,7 @@ function mixinProperty(proto, mixinProto) {
                 return;
             }
             throw new Error(
-                proto.className + ': Multiple mixins defining same property (' +
-                mixinProto.className + ', ' +
-                proto[key]._from + ') => ' +
-                key
+                `${proto.className}: Multiple mixins defining same property (${mixinProto.className}, ${proto[key]._from}) => ${key}`
             );
         }
 
