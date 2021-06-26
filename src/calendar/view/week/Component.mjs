@@ -44,14 +44,15 @@ class Component extends BaseComponent {
          * @member {Object} bind
          */
         bind: {
-            calendarStore  : 'stores.calendars',
-            currentDate    : data => data.currentDate,
-            eventBorder    : data => data.events.border,
-            eventStore     : 'stores.events',
-            intlFormat_time: data => data.intlFormat_time,
-            locale         : data => data.locale,
-            showWeekends   : data => data.showWeekends,
-            weekStartDay   : data => data.weekStartDay
+            calendarStore       : 'stores.calendars',
+            currentDate         : data => data.currentDate,
+            eventBorder         : data => data.events.border,
+            eventStore          : 'stores.events',
+            intlFormat_time     : data => data.intlFormat_time,
+            locale              : data => data.locale,
+            minimumEventDuration: data => data.minimumEventDuration,
+            showWeekends        : data => data.showWeekends,
+            weekStartDay        : data => data.weekStartDay
         },
         /**
          * Bound to the view model
@@ -127,7 +128,7 @@ class Component extends BaseComponent {
          */
         locale_: Neo.config.locale,
         /**
-         * Time in minutes, will get passed from the MainContainer
+         * Time in minutes. Bound to the view model.
          * @member {Number} minimumEventDuration=30
          * @protected
          */

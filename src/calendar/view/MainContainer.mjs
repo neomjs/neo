@@ -51,6 +51,7 @@ class MainContainer extends Container {
             currentDate         : {twoWay: true, value: data => data.currentDate},
             endTime             : {twoWay: true, value: data => data.endTime},
             locale              : {twoWay: true, value: data => data.locale},
+            minimumEventDuration: {twoWay: true, value: data => data.minimumEventDuration},
             scrollNewYearFromTop: {twoWay: true, value: data => data.scrollNewYearFromTop},
             showWeekends        : {twoWay: true, value: data => data.showWeekends},
             startTime           : {twoWay: true, value: data => data.startTime},
@@ -264,18 +265,6 @@ class MainContainer extends Container {
             }
 
             this.style = style;
-        }
-    }
-
-    /**
-     * Triggered after the minimumEventDuration config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
-     * @protected
-     */
-    afterSetMinimumEventDuration(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.weekComponent.minimumEventDuration = value;
         }
     }
 
