@@ -50,9 +50,12 @@ class MainContainer extends Container {
         bind: {
             currentDate         : {twoWay: true, value: data => data.currentDate},
             endTime             : {twoWay: true, value: data => data.endTime},
+            locale              : {twoWay: true, value: data => data.locale},
             scrollNewYearFromTop: {twoWay: true, value: data => data.scrollNewYearFromTop},
             showWeekends        : {twoWay: true, value: data => data.showWeekends},
-            startTime           : {twoWay: true, value: data => data.startTime}
+            startTime           : {twoWay: true, value: data => data.startTime},
+            timeFormat          : {twoWay: true, value: data => data.timeFormat},
+            weekStartDay        : {twoWay: true, value: data => data.weekStartDay}
         },
         /**
          * @member {Neo.calendar.view.CalendarsContainer|null} calendarsContainer=null
@@ -106,11 +109,6 @@ class MainContainer extends Container {
          * @member {Object|null} eventStoreConfig_=null
          */
         eventStoreConfig_: null,
-        /**
-         * @member {Intl.DateTimeFormat|null} intlFormat_time=null
-         * @protected
-         */
-        intlFormat_time: null,
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
@@ -270,21 +268,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered after the locale config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetLocale(value, oldValue) {
-        if (oldValue !== undefined) {
-            let me = this;
-
-            me.intlFormat_time = new Intl.DateTimeFormat(value, me.timeFormat);
-            me.setViewConfig('locale', value);
-        }
-    }
-
-    /**
      * Triggered after the minimumEventDuration config got changed
      * @param {Number} value
      * @param {Number} oldValue
@@ -377,16 +360,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered after the timeFormat config got changed
-     * @param {Object} value
-     * @param {Object} oldValue
-     * @protected
-     */
-    afterSetTimeFormat(value, oldValue) {
-        this.intlFormat_time = new Intl.DateTimeFormat(this.locale, value);
-    }
-
-    /**
      * Triggered after the useSettingsContainer config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
@@ -416,18 +389,6 @@ class MainContainer extends Container {
     }
 
     /**
-     * Triggered after the weekStartDay config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
-     * @protected
-     */
-    afterSetWeekStartDay(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.setViewConfig('weekStartDay', value);
-        }
-    }
-
-    /**
      * Gets triggered before getting the value of the editEventContainer config
      * @param {Neo.calendar.view.EditEventContainer|null} value
      * @returns {Neo.calendar.view.EditEventContainer}
@@ -439,6 +400,7 @@ class MainContainer extends Container {
             me._editEventContainer = value = Neo.create({
                 module : EditEventContainer,
                 appName: me.appName,
+                model  : {parent: me.getModel()},
                 owner  : me,
                 width  : 250,
                 ...me.editEventContainerConfig
@@ -522,20 +484,20 @@ class MainContainer extends Container {
         });
 
         me.dateSelector = Neo.create({
-            module      : DateSelector,
-            appName     : me.appName,
-            flex        : 'none',
-            height      : me.sideBarWidth,
-            listeners   : {change: me.onDateSelectorChange, scope: me},
-            locale      : me.locale,
-            parentId    : me.id, // we need the parentId to access the model inside the ctor
-            value       : DateUtil.convertToyyyymmdd(me.currentDate),
-            weekStartDay: me.weekStartDay,
+            module   : DateSelector,
+            appName  : me.appName,
+            flex     : 'none',
+            height   : me.sideBarWidth,
+            listeners: {change: me.onDateSelectorChange, scope: me},
+            parentId : me.id, // we need the parentId to access the model inside the ctor
+            value    : DateUtil.convertToyyyymmdd(me.currentDate),
 
             bind: {
+                locale              : data => data.locale,
                 scrollNewYearFromTop: data => data.scrollNewYearFromTop,
                 showWeekends        : data => data.showWeekends,
-                value               : data => DateUtil.convertToyyyymmdd(data.currentDate)
+                value               : data => DateUtil.convertToyyyymmdd(data.currentDate),
+                weekStartDay        : data => data.weekStartDay
             },
 
             ...me.dateSelectorConfig
@@ -623,13 +585,9 @@ class MainContainer extends Container {
             cmp;
 
         const defaultConfig = {
-            appName     : me.appName,
-            currentDate : me.currentDate,
-            locale      : me.locale,
-            owner       : me,
-            parentId    : me.id,
-            showWeekends: me.showWeekends,
-            weekStartDay: me.weekStartDay
+            appName : me.appName,
+            owner   : me,
+            parentId: me.id
         };
 
         const map = {
@@ -731,21 +689,6 @@ class MainContainer extends Container {
      */
     onTodayButtonClick(data) {
         this.currentDate = todayDate;
-    }
-
-    /**
-     * Sets a config for the DateSelector and all views (cards)
-     * @param {String} key
-     * @param {*} value
-     */
-    setViewConfig(key, value) {
-        let me = this;
-
-        me.dateSelector[key] = value;
-
-        me.views.forEach(view => {
-            me[`${view}Component`][key] = value;
-        });
     }
 
     /**

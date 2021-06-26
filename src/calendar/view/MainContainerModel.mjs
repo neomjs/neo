@@ -58,6 +58,15 @@ class MainContainerModel extends Component {
                 enableResizingAcrossOppositeEdge: true
             },
             /**
+             * Read only, it will automatically get created inside onDataPropertyChange()
+             * @member {Intl.DateTimeFormat|null} data.intlFormat_time=null
+             */
+            intlFormat_time: null,
+            /**
+             * @member {String} data.locale=Neo.config.locale
+             */
+            locale: Neo.config.locale,
+            /**
              * True to scroll new years in from the top
              * @member {Boolean} data.scrollNewYearFromTop=false
              */
@@ -71,7 +80,16 @@ class MainContainerModel extends Component {
              * format: 'hh:mm'
              * @member {String} data.startTime='00:00'
              */
-            startTime: '00:00'
+            startTime: '00:00',
+            /**
+             * @member {Object} data.timeFormat={hour:'2-digit',minute:'2-digit'}
+             */
+            timeFormat: {hour: '2-digit', minute: '2-digit'},
+            /**
+             * 0-6 => Sun-Sat
+             * @member {Number} data.weekStartDay=0
+             */
+            weekStartDay: 0
         }
     }}
 
@@ -106,6 +124,30 @@ class MainContainerModel extends Component {
                 ...component.eventStoreConfig
             }
         };
+    }
+
+    /**
+     *
+     * @param {String} key
+     * @param {*} value
+     * @param {*} oldValue
+     */
+    onDataPropertyChange(key, value, oldValue) {
+        super.onDataPropertyChange(key, value, oldValue);
+
+        let data = this.data;
+
+        switch(key) {
+            case 'locale': {
+                data.intlFormat_time = new Intl.DateTimeFormat(value, data.timeFormat);
+                break;
+            }
+
+            case 'timeFormat': {
+                data.intlFormat_time = new Intl.DateTimeFormat(data.locale, value);
+                break;
+            }
+        }
     }
 }
 

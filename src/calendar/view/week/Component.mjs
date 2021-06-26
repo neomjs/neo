@@ -44,11 +44,14 @@ class Component extends BaseComponent {
          * @member {Object} bind
          */
         bind: {
-            calendarStore: 'stores.calendars',
-            currentDate  : data => data.currentDate,
-            eventBorder  : data => data.events.border,
-            eventStore   : 'stores.events',
-            showWeekends : data => data.showWeekends
+            calendarStore  : 'stores.calendars',
+            currentDate    : data => data.currentDate,
+            eventBorder    : data => data.events.border,
+            eventStore     : 'stores.events',
+            intlFormat_time: data => data.intlFormat_time,
+            locale         : data => data.locale,
+            showWeekends   : data => data.showWeekends,
+            weekStartDay   : data => data.weekStartDay
         },
         /**
          * Bound to the view model
@@ -103,10 +106,11 @@ class Component extends BaseComponent {
          */
         intlFormat_day: null,
         /**
-         * @member {Intl.DateTimeFormat|null} intlFormat_time=null
+         * Bound to the view model.
+         * @member {Intl.DateTimeFormat|null} intlFormat_time_=null
          * @protected
          */
-        intlFormat_time: null,
+        intlFormat_time_: null,
         /**
          * @member {Boolean} isDragging=false
          * @protected
@@ -118,6 +122,7 @@ class Component extends BaseComponent {
          */
         isUpdating: false,
         /**
+         * Bound to the view model.
          * @member {String} locale_=Neo.config.locale
          */
         locale_: Neo.config.locale,
@@ -161,10 +166,6 @@ class Component extends BaseComponent {
          */
         timeAxisPosition_: 'start',
         /**
-         * @member {Object} timeFormat_={hour:'2-digit',minute:'2-digit'}
-         */
-        timeFormat_: {hour: '2-digit', minute: '2-digit'},
-        /**
          * @member {Object} vdom
          */
         vdom:
@@ -179,6 +180,7 @@ class Component extends BaseComponent {
         ]},
         /**
          * 0-6 => Sun-Sat
+         * Bound to the view model.
          * @member {Number} weekStartDay_=0
          */
         weekStartDay_: 0
@@ -320,7 +322,7 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetCurrentDate(value, oldValue) {
-        if (oldValue !== undefined) {
+        if (this.isConstructed) {
             this.updateHeader(false, true);
             this.updateEvents();
         }
@@ -337,7 +339,7 @@ class Component extends BaseComponent {
 
         me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
 
-        if (oldValue !== undefined) {
+        if (oldValue) {
             me.updateHeader();
         }
     }
@@ -378,11 +380,10 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetLocale(value, oldValue) {
-        if (oldValue !== undefined) {
+        if (oldValue) {
             let me = this;
 
             me.intlFormat_day  = new Intl.DateTimeFormat(value, {weekday: me.dayNameFormat});
-            me.intlFormat_time = new Intl.DateTimeFormat(value, me.timeFormat);
 
             me.updateHeader();
         }
@@ -466,16 +467,6 @@ class Component extends BaseComponent {
 
         me._cls = cls;
         me.vdom = vdom;
-    }
-
-    /**
-     * Triggered after the timeFormat config got changed
-     * @param {Object} value
-     * @param {Object} oldValue
-     * @protected
-     */
-    afterSetTimeFormat(value, oldValue) {
-        this.intlFormat_time = new Intl.DateTimeFormat(this.locale, value);
     }
 
     /**

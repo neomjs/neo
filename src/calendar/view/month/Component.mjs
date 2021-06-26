@@ -35,7 +35,9 @@ class Component extends BaseComponent {
             currentDate  : data => data.currentDate,
             eventBorder  : data => data.events.border,
             eventStore   : 'stores.events',
-            showWeekends : data => data.showWeekends
+            locale       : data => data.locale,
+            showWeekends : data => data.showWeekends,
+            weekStartDay : data => data.weekStartDay
         },
         /**
          * Bound to the view model
@@ -96,6 +98,7 @@ class Component extends BaseComponent {
          */
         isScrolling: false,
         /**
+         * Bound to the view model.
          * @member {String} locale_=Neo.config.locale
          */
         locale_: Neo.config.locale,
@@ -144,6 +147,7 @@ class Component extends BaseComponent {
         ]},
         /**
          * 0-6 => Sun-Sat
+         * Bound to the view model.
          * @member {Number} weekStartDay_=0
          */
         weekStartDay_: 0
@@ -202,7 +206,7 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetCurrentDate(value, oldValue) {
-        if (oldValue !== undefined) {
+        if (this.isConstructed) {
             let me = this;
 
             me.createContent(true);
@@ -263,7 +267,7 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetLocale(value, oldValue) {
-        if (oldValue !== undefined) {
+        if (oldValue) {
             let me = this;
 
             me.intlFormat_day   = new Intl.DateTimeFormat(value, {weekday: me.dayNameFormat});

@@ -253,6 +253,10 @@ class Util extends Base {
                     return 'Map';
                 }
 
+                if (item instanceof Intl.DateTimeFormat) {
+                    return 'Intl.DateTimeFormat';
+                }
+
                 if (item instanceof RegExp) {
                     return 'RegExp';
                 }

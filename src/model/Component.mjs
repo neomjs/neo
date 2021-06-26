@@ -271,7 +271,7 @@ class Component extends Base {
                     root[_key] = value;
                 }
 
-                if (value !== oldValue) {
+                if (!Neo.isEqual(value, oldValue)) {
                     me.onDataPropertyChange(path ? path : key, value, oldValue);
                 }
             }

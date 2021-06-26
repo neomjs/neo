@@ -1,16 +1,16 @@
 import Base from '../core/Base.mjs';
 
 /**
- * @class Neo.util.Compare
+ * @class Neo.core.Compare
  * @extends Neo.core.Base
  */
 class Compare extends Base {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.util.Compare'
+         * @member {String} className='Neo.core.Compare'
          * @protected
          */
-        className: 'Neo.util.Compare'
+        className: 'Neo.core.Compare'
     }}
 
     /**
@@ -120,12 +120,19 @@ class Compare extends Base {
 
                 break;
             }
+
+            default: {
+                return item1 === item2;
+            }
         }
 
-        return item1 === item2;
+        return true;
     }
 }
 
 Neo.applyClassConfig(Compare);
+
+// alias
+Neo.isEqual = Compare.isEqual;
 
 export default Compare;

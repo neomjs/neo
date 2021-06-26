@@ -14,6 +14,7 @@ const configSymbol = Symbol.for('configSymbol'),
  * @borrows Neo.core.Util.isArray           as isArray
  * @borrows Neo.core.Util.isBoolean         as isBoolean
  * @borrows Neo.core.Util.isDefined         as isDefined
+ * @borrows Neo.core.Compare.isEqual        as isEqual
  * @borrows Neo.core.Util.isNumber          as isNumber
  * @borrows Neo.core.Util.isObject          as isObject
  * @borrows Neo.core.Util.isString          as isString
@@ -227,7 +228,7 @@ Neo = self.Neo = Object.assign({
      * @returns {Object|Array|*} the cloned input
      */
     clone(obj, deep=false, ignoreNeoInstances=false) {
-        let out;
+        let locale, opts, out;
 
         if (Array.isArray(obj)) {
             return !deep ? [...obj] : [...obj.map(val => Neo.clone(val, deep, ignoreNeoInstances))];
@@ -240,6 +241,12 @@ Neo = self.Neo = Object.assign({
                 return obj;
             } else if (obj instanceof Date) {
                 obj = new Date(obj.valueOf());
+            } else if (obj instanceof Intl.DateTimeFormat) {
+                opts   = obj.resolvedOptions();
+                locale = opts.locale;
+                delete opts.locale;
+
+                obj = new Intl.DateTimeFormat(locale, opts);
             } else if (obj instanceof Map) {
                 obj = new Map(obj); // shallow copy
             } else {
@@ -539,7 +546,7 @@ function autoGenerateGetSet(proto, key) {
                     me[_key] = value;
                 }
 
-                if (hasChanged(value, oldValue)) {
+                if (!Neo.isEqual(value, oldValue)) {
                     if (typeof me[afterSet] === 'function') {
                         me[afterSet](value, oldValue);
                     }
@@ -569,28 +576,6 @@ function exists(className) {
     } catch(e) {
         return false;
     }
-}
-
-/**
- * Checks if the value of a config has changed
- * todo: we could compare objects & arrays for equality
- * @param {*} value
- * @param {*} oldValue
- * @returns {Boolean}
- * @private
- */
-function hasChanged(value, oldValue) {
-    if (Array.isArray(value)) {
-        return true;
-    } else if (Neo.isObject(value)) {
-        if (oldValue instanceof Date && value instanceof Date) {
-            return oldValue.valueOf() !== value.valueOf();
-        }
-
-        return true;
-    }
-
-    return oldValue !== value;
 }
 
 /**

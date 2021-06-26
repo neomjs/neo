@@ -1,5 +1,6 @@
 import Neo          from '../Neo.mjs';
 import Base         from './Base.mjs';
+import Compare      from '../core/Compare.mjs';
 import StoreManager from '../manager/Store.mjs';
 import Util         from '../core/Util.mjs';
 import Xhr          from '../Xhr.mjs';

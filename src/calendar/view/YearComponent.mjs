@@ -33,8 +33,10 @@ class YearComponent extends Component {
             calendarStore       : 'stores.calendars',
             currentDate         : data => data.currentDate,
             eventStore          : 'stores.events',
+            locale              : data => data.locale,
             scrollNewYearFromTop: data => data.scrollNewYearFromTop,
-            showWeekends        : data => data.showWeekends
+            showWeekends        : data => data.showWeekends,
+            weekStartDay        : data => data.weekStartDay
         },
         /**
          * Stores the last date change which got triggered while a year transition was running
@@ -76,7 +78,7 @@ class YearComponent extends Component {
          */
         eventIndicatorMedium_: 2,
         /**
-         * Bound to the view model
+         * Bound to the view model.
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
         eventStore_: null,
@@ -97,6 +99,7 @@ class YearComponent extends Component {
          */
         isUpdating_: false,
         /**
+         * Bound to the view model.
          * @member {String} locale_=Neo.config.locale
          */
         locale_: Neo.config.locale,
@@ -162,6 +165,7 @@ class YearComponent extends Component {
         ]},
         /**
          * 0-6 => Sun-Sat
+         * Bound to the view model.
          * @member {Number} weekStartDay_=0
          */
         weekStartDay_: 0
@@ -220,7 +224,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetCurrentDate(value, oldValue) {
-        if (oldValue !== undefined) {
+        if (this.isConstructed) {
             let oldYear = oldValue.getFullYear(),
                 year    = value   .getFullYear();
 
