@@ -241,7 +241,7 @@ class MainContainer extends Container {
             me.items[1].items[1].layout.activeIndex = me.views.indexOf(value);
 
             me.items[0].items[1].items.forEach(item => {
-                if (item.toggleGroup === 'timeInterval') {
+                if (item.toggleGroup === 'mainViews') {
                     item.pressed = item.value === value;
                 }
             });
@@ -544,7 +544,7 @@ class MainContainer extends Container {
                 height     : 24,
                 pressed    : activeIndex === index,
                 text       : Neo.capitalize(view),
-                toggleGroup: 'timeInterval',
+                toggleGroup: 'mainViews',
                 value      : view
             });
         });
