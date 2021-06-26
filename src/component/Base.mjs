@@ -1,5 +1,4 @@
 import ClassSystemUtil  from '../util/ClassSystem.mjs';
-import Compare          from '../util/Compare.mjs';
 import ComponentManager from '../manager/Component.mjs';
 import CoreBase         from '../core/Base.mjs';
 import DomEventManager  from '../manager/DomEvent.mjs';
@@ -1324,7 +1323,7 @@ class Base extends CoreBase {
             len = domListeners.length;
 
             for (; i < len; i++) {
-                if (Compare.isEqual(item, domListeners[i])) {
+                if (Neo.isEqual(item, domListeners[i])) {
                     domListeners.splice(i, 1);
                     break;
                 }
@@ -1538,7 +1537,7 @@ class Base extends CoreBase {
             vnode = me.vnode,
             opts;
 
-        if (!Compare.isEqual(cls, oldCls)) {
+        if (!Neo.isEqual(cls, oldCls)) {
             if (vnode) {
                 vnode.className = cls; // keep the vnode in sync
                 me.vnode = vnode;
