@@ -103,25 +103,25 @@ class GeneralContainer extends Container {
             valueLabelText: 'fr-FR'
         }, {
             module        : RadioField,
-            checked       : calendar.weekStartDay === 0,
+            checked       : data.weekStartDay === 0,
             fieldValue    : 0,
             flex          : 'none',
             hideValueLabel: false,
             labelText     : 'weekStartDay',
             labelWidth    : 110,
-            listeners     : {change: me.onRadioChange, scope: me},
+            listeners     : {change: me.onRadioDataChange, scope: me},
             name          : 'weekStartDay',
             style         : {marginTop: '10px'},
             valueLabelText: 'Sunday'
         }, {
             module        : RadioField,
-            checked       : calendar.weekStartDay === 1,
+            checked       : data.weekStartDay === 1,
             fieldValue    : 1,
             flex          : 'none',
             hideValueLabel: false,
             labelText     : '',
             labelWidth    : 110,
-            listeners     : {change: me.onRadioChange, scope: me},
+            listeners     : {change: me.onRadioDataChange, scope: me},
             name          : 'weekStartDay',
             style         : {marginTop: '5px'},
             valueLabelText: 'Monday'

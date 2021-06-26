@@ -35,7 +35,8 @@ class Component extends BaseComponent {
             currentDate  : data => data.currentDate,
             eventBorder  : data => data.events.border,
             eventStore   : 'stores.events',
-            showWeekends : data => data.showWeekends
+            showWeekends : data => data.showWeekends,
+            weekStartDay : data => data.weekStartDay
         },
         /**
          * Bound to the view model

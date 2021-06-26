@@ -34,7 +34,8 @@ class YearComponent extends Component {
             currentDate         : data => data.currentDate,
             eventStore          : 'stores.events',
             scrollNewYearFromTop: data => data.scrollNewYearFromTop,
-            showWeekends        : data => data.showWeekends
+            showWeekends        : data => data.showWeekends,
+            weekStartDay        : data => data.weekStartDay
         },
         /**
          * Stores the last date change which got triggered while a year transition was running
