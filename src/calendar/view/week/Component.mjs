@@ -321,7 +321,7 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetCurrentDate(value, oldValue) {
-        if (oldValue !== undefined) {
+        if (this.isConstructed) {
             this.updateHeader(false, true);
             this.updateEvents();
         }
@@ -1086,7 +1086,7 @@ class Component extends BaseComponent {
             i            = 0,
             showWeekends = me.showWeekends,
             columnCls, currentDate, currentDay, dateCls, headerId, removeDom;
-
+console.log(date, Neo.typeOf(date));
         date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay - 7);
 
         me.firstColumnDate = DateUtil.clone(date);
