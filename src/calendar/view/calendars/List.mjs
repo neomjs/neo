@@ -29,7 +29,6 @@ class List extends BaseList {
         cls: ['neo-calendars-list', 'neo-list'],
         /**
          * @member {Object} itemDefaults
-         * @protected
          */
         itemDefaults: {
             module        : CheckBoxField,
