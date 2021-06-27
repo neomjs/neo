@@ -1,11 +1,11 @@
-import Base          from './Base.mjs';
 import ChipComponent from '../component/Chip.mjs';
+import ComponentList from './Component.mjs';
 
 /**
  * @class Neo.list.Chip
- * @extends Neo.list.Base
+ * @extends Neo.list.Component
  */
-class Chip extends Base {
+class Chip extends ComponentList {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.list.Chip'
@@ -18,10 +18,6 @@ class Chip extends Base {
          */
         ntype: 'chiplist',
         /**
-         * @member {Object|null} chipConfig=null
-         */
-        chipConfig: null,
-        /**
          * @member {String[]} cls=['neo-chip-list','neo-list']
          */
         cls: ['neo-chip-list', 'neo-list'],
@@ -29,6 +25,13 @@ class Chip extends Base {
          * @member {String} itemCls='neo-chip'
          */
         itemCls: 'neo-chip',
+        /**
+         * @member {Object} itemDefaults
+         */
+        itemDefaults: {
+            module : ChipComponent,
+            iconCls: 'fa fa-home'
+        },
         /**
          * True will flex each list item horizontally
          * @member {Boolean} stacked_=true
@@ -38,31 +41,8 @@ class Chip extends Base {
          * @member {Object} _vdom
          */
         _vdom:
-        {cn: []}
+        {cn: []} // we are using a div instead of a li tag
     }}
-
-    /**
-     * Triggered after the appName config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetAppName(value, oldValue) {
-        if (value) {
-            super.afterSetAppName(value, oldValue);
-
-            let me    = this,
-                items = me.store && me.store.items,
-                itemId;
-
-            if (items) {
-                items.forEach(record => {
-                    itemId = me.getItemId(record[me.getKeyProperty()]);
-                    Neo.getComponent(itemId).appName = value;
-                });
-            }
-        }
-    }
 
     /**
      * Triggered after the stacked config got changed
@@ -72,63 +52,49 @@ class Chip extends Base {
      */
     afterSetStacked(value, oldValue) {
         if (oldValue !== undefined) {
-            let me = this,
-                itemId;
+            let me    = this,
+                items = me.items || [];
 
-            me.store.items.forEach(record => {
-                itemId = me.getItemId(record[me.getKeyProperty()]);
-                Neo.getComponent(itemId).display = value ? 'flex' : 'inline-flex';
+            items.forEach(item => {
+                item.display = value ? 'flex' : 'inline-flex';
             });
         }
     }
 
     /**
-     * @param {Boolean} [silent=false]
+     * Override this method for custom list items
+     * @param {Object} record
+     * @param {Number} index
+     * @returns {Object} The list item object
      */
-    createItems(silent=false) {
-        let me   = this,
-            vdom = me.vdom,
-            listItem;
+    createItem(record, index) {
+        let me       = this,
+            id       = record[me.store.keyProperty],
+            items    = me.items || [],
+            listItem = items[index],
 
-        vdom.cn = [];
+            config = {
+                display: me.stacked ? 'flex' : 'inline-flex',
+                id     : me.getComponentId(id),
+                text   : record[me.displayField]
+            };
 
-        me.store.items.forEach(item => {
-            listItem = Neo.create({
-                module  : ChipComponent,
-                appName : me.appName,
-                display : me.stacked ? 'flex' : 'inline-flex',
-                iconCls : 'fa fa-home',
-                id      : me.getItemId(item[me.getKeyProperty()]),
-                parentId: me.id,
-                text    : item[me.displayField],
-                ...me.chipConfig
-            });
-
-            vdom.cn.push(listItem.vdom);
-        });
-
-        if (silent) {
-            me._vdom = vdom;
+        if (listItem) {
+            listItem.set(config);
         } else {
-            me.promiseVdomUpdate().then(() => {
-                me.fire('createItems');
+            items[index] = listItem = Neo.create({
+                appName  : me.appName,
+                cls      : [me.itemCls],
+                parentId : me.id,
+                tabIndex : -1,
+                ...me.itemDefaults,
+                ...config
             });
         }
-    }
 
-    /**
-     *
-     */
-    destroy() {
-        let me = this,
-            itemId;
+        me.items = items;
 
-        me.store.items.forEach(record => {
-            itemId = me.getItemId(record[me.getKeyProperty()]);
-            Neo.getComponent(itemId).destroy();
-        });
-
-        super.destroy();
+        return listItem.vdom;
     }
 }
 
