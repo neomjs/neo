@@ -11,6 +11,13 @@
             font-weight : 600;
             margin-left : auto;
             margin-right: 4px;
+            opacity     : 0;
+        }
+
+        &:hover {
+            &::after {
+                opacity: 1;
+            }
         }
 
         .neo-checkbox-input {
@@ -78,6 +85,7 @@
     }
 
     .neo-list-item {
-        padding: 0;
+        background-color: transparent;
+        padding         : 0;
     }
 }
