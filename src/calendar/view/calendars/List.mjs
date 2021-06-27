@@ -1,11 +1,11 @@
-import BaseList      from '../../../list/Base.mjs';
 import CheckBoxField from '../../../form/field/CheckBox.mjs';
+import ComponentList from '../../../list/Component.mjs';
 
 /**
  * @class Neo.calendar.view.calendars.List
- * @extends Neo.list.Base
+ * @extends Neo.list.Component
  */
-class List extends BaseList {
+class List extends ComponentList {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.calendar.view.calendars.List'
@@ -35,30 +35,8 @@ class List extends BaseList {
             flex          : 'none',
             hideLabel     : true,
             hideValueLabel: false
-        },
-        /**
-         * @member {Neo.form.field.CheckBox[]|null} items=null
-         */
-        items: null
-    }}
-
-    /**
-     * Triggered after the appName config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
-     * @protected
-     */
-    afterSetAppName(value, oldValue) {
-        let me = this;
-
-        super.afterSetAppName(value, oldValue);
-
-        if (value && me.items) {
-            me.items.forEach(item => {
-                item.appName = value;
-            });
         }
-    }
+    }}
 
     /**
      * Override this method for custom renderers
@@ -76,7 +54,7 @@ class List extends BaseList {
             checked       : record.active,
             cls           : ['neo-checkboxfield', `neo-color-${record.color}`],
             fieldValue    : id,
-            id            : me.getCheckboxId(id),
+            id            : me.getComponentId(id),
             valueLabelText: record.name
         };
 
@@ -95,28 +73,6 @@ class List extends BaseList {
         me.items = items;
 
         return [listItem.vdom, {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit']}];
-    }
-
-    /**
-     *
-     */
-    destroy(...args) {
-        let items = this.items || [];
-
-        items.forEach(checkBox => {
-            checkBox.destroy();
-        });
-
-        super.destroy(...args);
-    }
-
-    /**
-     *
-     * @param {Number|String} id
-     * @returns {String}
-     */
-    getCheckboxId(id) {
-        return `${this.id}__checkbox__${id}`;
     }
 
     /**

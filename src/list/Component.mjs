@@ -16,8 +16,52 @@ class Component extends Base {
          * @member {String} ntype='component-list'
          * @protected
          */
-        ntype: 'component-list'
+        ntype: 'component-list',
+        /**
+         * @member {Neo.form.field.CheckBox[]|null} items=null
+         */
+        items: null
     }}
+
+    /**
+     * Triggered after the appName config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        let me = this;
+
+        super.afterSetAppName(value, oldValue);
+
+        if (value && me.items) {
+            me.items.forEach(item => {
+                item.appName = value;
+            });
+        }
+    }
+
+    /**
+     *
+     */
+    destroy(...args) {
+        let items = this.items || [];
+
+        items.forEach(item => {
+            item.destroy();
+        });
+
+        super.destroy(...args);
+    }
+
+    /**
+     *
+     * @param {Number|String} id
+     * @returns {String}
+     */
+    getComponentId(id) {
+        return `${this.id}__component__${id}`;
+    }
 }
 
 Neo.applyClassConfig(Component);
