@@ -40,42 +40,25 @@ class List extends BaseList {
     }}
 
     /**
-     * @param {Boolean} [silent=false]
+     * Override this method for custom renderers
+     * @param {Object} record
+     * @returns {Object[]|String} Either an vdom cn array or a html string
      */
-    createItems(silent=false) {
-        let me   = this,
-            vdom = me.vdom,
-            listItem;
+    createItemContent(record) {
+        let me = this,
 
-        vdom.cn = [];
-
-        me.store.items.forEach(record => {
-            listItem = Neo.create({
-                appName       : me.appName,
-                checked       : record.active,
-                cls           : ['neo-checkboxfield', `neo-color-${record.color}`],
-                fieldValue    : record[me.store.keyProperty],
-                listeners     : {change: me.onCheckboxChange, scope: me},
-                valueLabelText: record.name,
-                ...me.itemDefaults
-            });
-
-            vdom.cn.push({
-                tag     : 'li',
-                cls     : [me.itemCls],
-                id      : me.getItemId(record[me.getKeyProperty()]),
-                cn      : [listItem.vdom],
-                tabIndex: -1
-            });
+        listItem = Neo.create({
+            appName       : me.appName,
+            checked       : record.active,
+            cls           : ['neo-checkboxfield', `neo-color-${record.color}`],
+            fieldValue    : record[me.store.keyProperty],
+            listeners     : {change: me.onCheckboxChange, scope: me},
+            parentId      : me.id,
+            valueLabelText: record.name,
+            ...me.itemDefaults
         });
 
-        if (silent) {
-            me._vdom = vdom;
-        } else {
-            me.promiseVdomUpdate().then(() => {
-                me.fire('createItems');
-            });
-        }
+        return [listItem.vdom];
     }
 
     /**
