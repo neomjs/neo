@@ -35,7 +35,11 @@ class List extends BaseList {
             flex          : 'none',
             hideLabel     : true,
             hideValueLabel: false
-        }
+        },
+        /**
+         * @member {Neo.form.field.CheckBox[]|null} items=null
+         */
+        items: null
     }}
 
     /**
@@ -45,20 +49,32 @@ class List extends BaseList {
      * @returns {Object[]|String} Either an vdom cn array or a html string
      */
     createItemContent(record, index) {
-        let me = this,
-            id = record[me.store.keyProperty],
+        let me       = this,
+            id       = record[me.store.keyProperty],
+            items    = me.items || [],
+            listItem = items[index],
 
-        listItem = Neo.create({
-            appName       : me.appName,
+        config = {
             checked       : record.active,
             cls           : ['neo-checkboxfield', `neo-color-${record.color}`],
             fieldValue    : id,
             id            : me.getCheckboxId(id),
-            listeners     : {change: me.onCheckboxChange, scope: me},
-            parentId      : me.id,
-            valueLabelText: record.name,
-            ...me.itemDefaults
-        });
+            valueLabelText: record.name
+        };
+
+        if (listItem) {
+            listItem.set(config);
+        } else {
+            items[index] = listItem = Neo.create({
+                appName  : me.appName,
+                listeners: {change: me.onCheckboxChange, scope: me},
+                parentId : me.id,
+                ...me.itemDefaults,
+                ...config
+            });
+        }
+
+        me.items = items;
 
         return [listItem.vdom, {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit']}];
     }
@@ -67,12 +83,8 @@ class List extends BaseList {
      *
      */
     destroy(...args) {
-        let me = this,
-            itemId;
-
-        me.store.items.forEach(record => {
-            itemId = me.getCheckboxId(record[me.getKeyProperty()]);
-            Neo.getComponent(itemId).destroy();
+        this.items.forEach(checkBox => {
+            checkBox.destroy();
         });
 
         super.destroy(...args);
@@ -114,8 +126,9 @@ class List extends BaseList {
      * @param {String} itemId
      */
     onKeyDownEnter(itemId) {
-        let recordId = this.getItemRecordId(itemId),
-            checkBox = Neo.getComponent(this.getCheckboxId(recordId));
+        let me       = this,
+            recordId = me.getItemRecordId(itemId),
+            checkBox = me.items[me.store.indexOf(recordId)];
 
         checkBox.checked = !checkBox.checked;
     }
