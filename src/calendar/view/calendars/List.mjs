@@ -46,12 +46,14 @@ class List extends BaseList {
      */
     createItemContent(record) {
         let me = this,
+            id = record[me.store.keyProperty],
 
         listItem = Neo.create({
             appName       : me.appName,
             checked       : record.active,
             cls           : ['neo-checkboxfield', `neo-color-${record.color}`],
-            fieldValue    : record[me.store.keyProperty],
+            fieldValue    : id,
+            id            : me.getCheckboxId(id),
             listeners     : {change: me.onCheckboxChange, scope: me},
             parentId      : me.id,
             valueLabelText: record.name,
@@ -69,11 +71,20 @@ class List extends BaseList {
             itemId;
 
         me.store.items.forEach(record => {
-            itemId = me.getItemId(record[me.getKeyProperty()]);
+            itemId = me.getCheckboxId(record[me.getKeyProperty()]);
             Neo.getComponent(itemId).destroy();
         });
 
         super.destroy(...args);
+    }
+
+    /**
+     *
+     * @param {Number|String} id
+     * @returns {String}
+     */
+    getCheckboxId(id) {
+        return `${this.id}__checkbox__${id}`;
     }
 
     /**
