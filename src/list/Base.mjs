@@ -221,11 +221,12 @@ class Base extends Component {
     /**
      * Override this method for custom list items
      * @param {Object} record
+     * @param {Number} index
      * @returns {Object} The list item object
      */
-    createItem(record) {
+    createItem(record, index) {
         let me          = this,
-            itemContent = me.createItemContent(record);
+            itemContent = me.createItemContent(record, index);
 
         const item = {
             tag     : 'li',
@@ -242,9 +243,10 @@ class Base extends Component {
     /**
      * Override this method for custom renderers
      * @param {Object} record
+     * @param {Number} index
      * @returns {Object[]|String} Either an vdom cn array or a html string
      */
-    createItemContent(record) {
+    createItemContent(record, index) {
         let me       = this,
             itemText = record[this.displayField],
             filter;
@@ -271,8 +273,8 @@ class Base extends Component {
 
         vdom.cn = [];
 
-        me.store.items.forEach(item => {
-            vdom.cn.push(me.createItem(item));
+        me.store.items.forEach((item, index) => {
+            vdom.cn.push(me.createItem(item, index));
         });
 
         if (silent) {
