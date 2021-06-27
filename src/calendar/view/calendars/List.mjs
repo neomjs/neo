@@ -59,7 +59,7 @@ class List extends BaseList {
             ...me.itemDefaults
         });
 
-        return [listItem.vdom];
+        return [listItem.vdom, {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit']}];
     }
 
     /**
@@ -92,6 +92,18 @@ class List extends BaseList {
      */
     onCheckboxChange(data) {
         this.store.get(data.component.fieldValue).active = data.value;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onClick(data) {
+        super.onClick(data);
+
+        if (data.path[0].cls.includes('neo-edit-icon')) {
+            console.log('edit icon click', data.path[1].id);
+        }
     }
 }
 
