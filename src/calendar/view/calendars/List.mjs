@@ -104,16 +104,19 @@ class List extends BaseList {
         if (data.path[0].cls.includes('neo-edit-icon')) {
             let record = this.store.get(this.getItemRecordId(data.path[1].id));
 
-            console.log('edit icon click', record);
+            console.log('edit icon click', record.name);
         }
     }
 
     /**
      *
-     * @param {Object} itemId
+     * @param {String} itemId
      */
     onKeyDownEnter(itemId) {
-        console.log('onKeyDownEnter', itemId);
+        let recordId = this.getItemRecordId(itemId),
+            checkBox = Neo.getComponent(this.getCheckboxId(recordId));
+
+        checkBox.checked = !checkBox.checked;
     }
 }
 
