@@ -44,14 +44,17 @@ class Component extends BaseComponent {
          * @member {Object} bind
          */
         bind: {
-            calendarStore  : 'stores.calendars',
-            currentDate    : data => data.currentDate,
-            eventBorder    : data => data.events.border,
-            eventStore     : 'stores.events',
-            intlFormat_time: data => data.intlFormat_time,
-            locale         : data => data.locale,
-            showWeekends   : data => data.showWeekends,
-            weekStartDay   : data => data.weekStartDay
+            calendarStore       : 'stores.calendars',
+            currentDate         : data => data.currentDate,
+            endTime             : data => data.endTime,
+            eventBorder         : data => data.events.border,
+            eventStore          : 'stores.events',
+            intlFormat_time     : data => data.intlFormat_time,
+            locale              : data => data.locale,
+            minimumEventDuration: data => data.minimumEventDuration,
+            showWeekends        : data => data.showWeekends,
+            startTime           : data => data.startTime,
+            weekStartDay        : data => data.weekStartDay
         },
         /**
          * Bound to the view model
@@ -127,7 +130,7 @@ class Component extends BaseComponent {
          */
         locale_: Neo.config.locale,
         /**
-         * Time in minutes, will get passed from the MainContainer
+         * Time in minutes. Bound to the view model.
          * @member {Number} minimumEventDuration=30
          * @protected
          */
@@ -776,8 +779,8 @@ class Component extends BaseComponent {
             me.isDragging = true;
 
             const config = {
-                axisEndTime                     : timeAxis.getTime(timeAxis.endTime),
-                axisStartTime                   : timeAxis.getTime(timeAxis.startTime),
+                axisEndTime                     : timeAxis.getTime(me.endTime),
+                axisStartTime                   : timeAxis.getTime(me.startTime),
                 dragElement                     : dragElement,
                 enableResizingAcrossOppositeEdge: me.data.events.enableResizingAcrossOppositeEdge,
                 eventRecord                     : me.eventStore.get(dragElement.flag),
@@ -958,8 +961,8 @@ class Component extends BaseComponent {
             calendarStore     = me.calendarStore,
             eventStore        = me.eventStore,
             timeAxis          = me.timeAxis,
-            endTime           = timeAxis.getTime(timeAxis.endTime),
-            startTime         = timeAxis.getTime(timeAxis.startTime),
+            endTime           = timeAxis.getTime(me.endTime),
+            startTime         = timeAxis.getTime(me.startTime),
             totalTime         = endTime - startTime,
             date              = DateUtil.clone(me.firstColumnDate),
             vdom              = me.vdom,

@@ -150,15 +150,7 @@ Neo = self.Neo = Object.assign({
      * Neo.applyFromNs(Neo, Util, {
      *     createStyleObject: 'createStyleObject',
      *     createStyles     : 'createStyles',
-     *     capitalize       : 'capitalize',
-     *     decamel          : 'decamel',
-     *     isArray          : 'isArray',
-     *     isBoolean        : 'isBoolean',
-     *     isDefined        : 'isDefined',
-     *     isNumber         : 'isNumber',
-     *     isObject         : 'isObject',
-     *     isString         : 'isString',
-     *     toArray          : 'toArray'
+     *     capitalize       : 'capitalize'
      * }, true);
      *
      * // e.g. Neo.core.Util.isObject => Neo.isObject
@@ -432,7 +424,7 @@ Neo = self.Neo = Object.assign({
             case 'symbol' : return 'Symbol';
 
             case 'function': {
-                if (item.constructor.prototype.isClass) {
+                if (item.prototype && item.prototype.constructor.isClass) {
                     return 'NeoClass';
                 }
 
@@ -686,10 +678,7 @@ function mixinProperty(proto, mixinProto) {
                 return;
             }
             throw new Error(
-                proto.className + ': Multiple mixins defining same property (' +
-                mixinProto.className + ', ' +
-                proto[key]._from + ') => ' +
-                key
+                `${proto.className}: Multiple mixins defining same property (${mixinProto.className}, ${proto[key]._from}) => ${key}`
             );
         }
 

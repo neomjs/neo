@@ -36,6 +36,18 @@ class ListModel extends Model {
      *
      * @param {Object} data
      */
+    onKeyDownEnter(data) {
+        let view = this.view;
+
+        if (!view.disableSelection) {
+            view.onKeyDownEnter && view.onKeyDownEnter(this.getSelection()[0]);
+        }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onKeyDownLeft(data) {
         this.onKeyDownUp(data);
     }
@@ -121,6 +133,7 @@ class ListModel extends Model {
         if (view.keys) {
             view.keys._keys.push(
                 {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
+                {fn: 'onKeyDownEnter' ,key: 'Enter' ,scope: id},
                 {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
                 {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
                 {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
@@ -154,6 +167,7 @@ class ListModel extends Model {
         if (view.keys) {
             view.keys.removeKeys([
                 {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
+                {fn: 'onKeyDownEnter' ,key: 'Enter' ,scope: id},
                 {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
                 {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
                 {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}

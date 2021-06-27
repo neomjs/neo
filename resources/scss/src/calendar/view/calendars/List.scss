@@ -1,6 +1,4 @@
-.neo-calendar-calendarscontainer {
-    margin: 10px;
-
+.neo-calendars-list {
     .neo-checkboxfield {
         align-items: center;
         display    : flex;
@@ -66,6 +64,30 @@
             &::after {
                 color: v(event-yellow-border-color) !important;
             }
+        }
+    }
+
+    .neo-list-item {
+        align-items     : center;
+        background-color: transparent;
+        display         : flex;
+        padding         : 0;
+
+        &:hover {
+            .neo-edit-icon {
+                opacity: 1;
+            }
+        }
+
+        .neo-edit-icon {
+            color       : v(calendars-list-edit-icon-color);
+            font-size   : 16px;
+            font-weight : 600;
+            height      : 1em;
+            margin-left : auto;
+            margin-right: 4px;
+            opacity     : 0;
+            width       : 1em;
         }
     }
 }

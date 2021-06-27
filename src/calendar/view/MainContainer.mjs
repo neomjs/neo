@@ -1,4 +1,4 @@
-import CalendarsContainer from './CalendarsContainer.mjs';
+import CalendarsContainer from './calendars/Container.mjs';
 import Container          from '../../container/Base.mjs';
 import DateSelector       from '../../component/DateSelector.mjs';
 import DateUtil           from '../../util/Date.mjs';
@@ -51,6 +51,7 @@ class MainContainer extends Container {
             currentDate         : {twoWay: true, value: data => data.currentDate},
             endTime             : {twoWay: true, value: data => data.endTime},
             locale              : {twoWay: true, value: data => data.locale},
+            minimumEventDuration: {twoWay: true, value: data => data.minimumEventDuration},
             scrollNewYearFromTop: {twoWay: true, value: data => data.scrollNewYearFromTop},
             showWeekends        : {twoWay: true, value: data => data.showWeekends},
             startTime           : {twoWay: true, value: data => data.startTime},
@@ -58,7 +59,7 @@ class MainContainer extends Container {
             weekStartDay        : {twoWay: true, value: data => data.weekStartDay}
         },
         /**
-         * @member {Neo.calendar.view.CalendarsContainer|null} calendarsContainer=null
+         * @member {Neo.calendar.view.Container|null} calendarsContainer=null
          */
         calendarsContainer: null,
         /**
@@ -240,7 +241,7 @@ class MainContainer extends Container {
             me.items[1].items[1].layout.activeIndex = me.views.indexOf(value);
 
             me.items[0].items[1].items.forEach(item => {
-                if (item.toggleGroup === 'timeInterval') {
+                if (item.toggleGroup === 'mainViews') {
                     item.pressed = item.value === value;
                 }
             });
@@ -264,30 +265,6 @@ class MainContainer extends Container {
             }
 
             this.style = style;
-        }
-    }
-
-    /**
-     * Triggered after the minimumEventDuration config got changed
-     * @param {Number} value
-     * @param {Number} oldValue
-     * @protected
-     */
-    afterSetMinimumEventDuration(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.weekComponent.minimumEventDuration = value;
-        }
-    }
-
-    /**
-     * Triggered after the scrollNewYearFromTop config got changed
-     * @param {String} value
-     * @param {String} oldValue
-     * @protected
-     */
-    afterSetScrollNewYearFromTop(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.dateSelector.scrollNewYearFromTop = value;
         }
     }
 
@@ -408,6 +385,16 @@ class MainContainer extends Container {
         }
 
         return value;
+    }
+
+    /**
+     * Triggered before the activeView config gets changed.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetActiveView(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'activeView', 'validViews');
     }
 
     /**
@@ -567,7 +554,7 @@ class MainContainer extends Container {
                 height     : 24,
                 pressed    : activeIndex === index,
                 text       : Neo.capitalize(view),
-                toggleGroup: 'timeInterval',
+                toggleGroup: 'mainViews',
                 value      : view
             });
         });

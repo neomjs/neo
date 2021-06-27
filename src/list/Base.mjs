@@ -356,12 +356,18 @@ class Base extends Component {
      * @param {Object} data
      */
     onClick(data) {
-        let me = this;
+        let me = this,
+            item;
 
         if (data.path[0].id === me.id) {
             me.onContainerClick(data);
-        }  else if (data.path[0].cls.includes(me.itemCls)) {
-            me.onItemClick(data);
+        } else {
+            for (item of data.path) {
+                if (item.cls.includes(me.itemCls)) {
+                    me.onItemClick(item);
+                    break;
+                }
+            }
         }
     }
 
@@ -393,14 +399,13 @@ class Base extends Component {
 
     /**
      *
-     * @param {Object} data
+     * @param {Object} node
      */
-    onItemClick(data) {
-        let me     = this,
-            nodeId = data.path[0].id;
+    onItemClick(node) {
+        let me = this;
 
         if (!me.disableSelection && me.selectionModel) {
-            me.selectionModel.select(nodeId);
+            me.selectionModel.select(node.id);
         }
 
         /**
@@ -409,7 +414,7 @@ class Base extends Component {
          * @param {String} id the record matching the list item
          * @returns {Object}
          */
-        me.fire('itemClick', me.store.get(me.getItemRecordId(nodeId)));
+        me.fire('itemClick', me.store.get(me.getItemRecordId(node.id)));
     }
 
     /**

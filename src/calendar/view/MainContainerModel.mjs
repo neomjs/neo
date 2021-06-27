@@ -67,6 +67,11 @@ class MainContainerModel extends Component {
              */
             locale: Neo.config.locale,
             /**
+             * Time in minutes
+             * @member {Number} data.minimumEventDuration=30
+             */
+            minimumEventDuration: 30,
+            /**
              * True to scroll new years in from the top
              * @member {Boolean} data.scrollNewYearFromTop=false
              */
