@@ -43,6 +43,24 @@ class List extends BaseList {
     }}
 
     /**
+     * Triggered after the appName config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetAppName(value, oldValue) {
+        let me = this;
+
+        super.afterSetAppName(value, oldValue);
+
+        if (value && me.items) {
+            me.items.forEach(item => {
+                item.appName = value;
+            });
+        }
+    }
+
+    /**
      * Override this method for custom renderers
      * @param {Object} record
      * @param {Number} index
