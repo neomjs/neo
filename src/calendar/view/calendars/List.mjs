@@ -107,6 +107,14 @@ class List extends BaseList {
             console.log('edit icon click', record);
         }
     }
+
+    /**
+     *
+     * @param {Object} itemId
+     */
+    onKeyDownEnter(itemId) {
+        console.log('onKeyDownEnter', itemId);
+    }
 }
 
 Neo.applyClassConfig(List);
