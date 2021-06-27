@@ -432,6 +432,10 @@ Neo = self.Neo = Object.assign({
             }
 
             case 'object': {
+                if (!item) {
+                    return 'Null';
+                }
+
                 if (Array.isArray(item)) {
                     return 'Array';
                 }
@@ -454,10 +458,6 @@ Neo = self.Neo = Object.assign({
 
                 if (item instanceof Set) {
                     return 'Set';
-                }
-
-                if (!item) {
-                    return 'Null';
                 }
 
                 if (item.constructor.isClass) {
