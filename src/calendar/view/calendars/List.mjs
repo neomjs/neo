@@ -102,7 +102,9 @@ class List extends BaseList {
         super.onClick(data);
 
         if (data.path[0].cls.includes('neo-edit-icon')) {
-            console.log('edit icon click', data.path[1].id);
+            let record = this.store.get(this.getItemRecordId(data.path[1].id));
+
+            console.log('edit icon click', record);
         }
     }
 }
