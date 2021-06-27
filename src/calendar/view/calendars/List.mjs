@@ -83,7 +83,9 @@ class List extends BaseList {
      *
      */
     destroy(...args) {
-        this.items.forEach(checkBox => {
+        let items = this.items || [];
+
+        items.forEach(checkBox => {
             checkBox.destroy();
         });
 
