@@ -90,7 +90,9 @@ class Base extends Component {
             domListeners   = me.domListeners || [],
             fieldListeners;
 
-        domListeners.push({click: {fn: me.onTriggerClick, scope: me}});
+        domListeners.push(
+            {click: me.onTriggerClick, scope: me}
+        );
 
         me.domListeners = domListeners;
 
@@ -101,8 +103,8 @@ class Base extends Component {
                 fieldListeners = me.field.domListeners || [];
 
                 fieldListeners.push(
-                    {mouseenter: {fn: me.onMouseEnter, scope: me}},
-                    {mouseleave: {fn: me.onMouseLeave, scope: me}}
+                    {mouseenter: me.onMouseEnter, scope: me},
+                    {mouseleave: me.onMouseLeave, scope: me}
                 );
 
                 me.field.domListeners = fieldListeners;
