@@ -107,12 +107,12 @@ class MainContainerController extends Component {
      */
     onHashChange(value, oldValue) {
         let me                  = this,
-            hash                = value && value.hash,
+            hash                = value?.hash,
             contentTabContainer = me.getReference('content-tabcontainer'),
             structureStore      = me.getReference('api-treelist').store,
             record, tab;
 
-        if (hash && hash.hasOwnProperty('viewSource')) {
+        if (hash?.hasOwnProperty('viewSource')) {
             record = structureStore.find('className', hash.viewSource)[0];
 
             if (record) {
