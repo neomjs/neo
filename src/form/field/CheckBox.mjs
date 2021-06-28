@@ -25,6 +25,11 @@ class CheckBox extends Base {
          */
         cls: ['neo-checkboxfield'],
         /**
+         * True to change the checked state when clicking on the value label
+         * @member {Boolean} enableLabelClicks_=true
+         */
+        enableLabelClicks_: true,
+        /**
          * @member {Boolean} hideLabel_=false
          */
         hideLabel_: false,
@@ -72,20 +77,15 @@ class CheckBox extends Base {
         super(config);
 
         let me           = this,
-            domListeners = Neo.clone(me.domListeners, true),
-            vdom         = me.vdom,
-            inputEl      = vdom.cn[1],
-            valueLabel   = vdom.cn[2];
+            domListeners = me.domListeners,
+            vdom         = me.vdom;
 
-        inputEl.id = valueLabel.for = me.id + '-input';
+        vdom.cn[1].id = me.getInputElId();
         me.vdom = vdom;
 
-        domListeners.push({
-            change: {
-                fn   : me.onInputValueChange,
-                scope: me
-            }
-        });
+        domListeners.push(
+            {change: me.onInputValueChange, scope: me}
+        );
 
         me.domListeners = domListeners;
     }
@@ -110,6 +110,26 @@ class CheckBox extends Base {
                 value    : value
             });
         }
+    }
+
+    /**
+     * Triggered after the enableLabelClicks config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetEnableLabelClicks(value, oldValue) {
+        let me    = this,
+            vdom  = me.vdom,
+            label = vdom.cn[2];
+
+        if (value) {
+            label.for = me.getInputElId();
+        } else {
+            delete label.for;
+        }
+
+        me.vdom = vdom;
     }
 
     /**
@@ -226,6 +246,10 @@ class CheckBox extends Base {
         }
     }
 
+    getInputElId() {
+        return `${this.id}-input`;
+    }
+
     /**
      * Gets triggered when a user checks a checkbox input.
      * @param {Object} data
@@ -238,7 +262,7 @@ class CheckBox extends Base {
 
         // keep the vdom & vnode in sync for future updates
         me.vdom.cn[1].checked = checked;
-        me.vnode.childNodes[me.hideLabel ? 0 : 1].attributes.checked = checked + '';
+        me.vnode.childNodes[me.hideLabel ? 0 : 1].attributes.checked = `${checked}`;
 
         me.fire('change', {
             component: me,

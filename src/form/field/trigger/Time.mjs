@@ -60,8 +60,8 @@ class Time extends Picker {
         me.clock = Neo.create({
             module  : Clock,
             appName : me.appName,
-            parentId: me.id,
             fontSize: .6,
+            parentId: me.id,
             showDisc: false,
             size    : null,
             ...me.clockConfig

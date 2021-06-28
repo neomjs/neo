@@ -191,51 +191,67 @@ class Base extends Component {
             layout   = me.layout,
             vdom     = me.vdom,
             vdomRoot = me.getVdomRoot(),
-            lazyLoadItem, module;
+            lazyLoadItem, module, type;
 
         vdomRoot.cn = [];
 
         items.forEach((item, index) => {
-            if (item.constructor.isClass && item instanceof Neo.core.Base) {
-                Object.assign(item, {
-                    appName : me.appName,
-                    parentId: me.id
-                });
-            } else if(item.isClass) {
-                item = Neo.create(item, {
-                    appName : me.appName,
-                    parentId: me.id
-                });
-            } else if (typeof item === 'string') {
-                item = Neo.ntype({
-                    ntype   : 'component',
-                    appName : me.appName,
-                    parentId: me.id,
-                    vdom    : {innerHTML: item}
-                });
-            } else {
-                if (defaults) {
-                    Neo.assignDefaults(item, defaults);
+            type = Neo.typeOf(item);
+
+            switch (type) {
+                case 'NeoClass': {
+                    item = Neo.create(item, {
+                        appName : me.appName,
+                        parentId: me.id
+                    });
+
+                    break;
                 }
 
-                module = item.module;
+                case 'NeoInstance': {
+                    Object.assign(item, {
+                        appName : me.appName,
+                        parentId: me.id
+                    });
 
-                lazyLoadItem = module && !module.isClass && Neo.isFunction(module);
-
-                if (module && !lazyLoadItem) {
-                    item.className = module.prototype.className;
+                    break;
                 }
 
-                Object.assign(item, {
-                    appName : me.appName,
-                    parentId: me.id,
-                    style   : item.style || {}
-                });
+                case 'String': {
+                    item = Neo.create({
+                        module  : Component,
+                        appName : me.appName,
+                        parentId: me.id,
+                        vdom    : {innerHTML: item}
+                    });
 
-                if (!lazyLoadItem) {
-                    item = Neo[item.className ? 'create' : 'ntype'](item);
-                } else {
-                    item.vdom = {removeDom: true};
+                    break;
+                }
+
+                default: { // Object
+                    if (defaults) {
+                        Neo.assignDefaults(item, defaults);
+                    }
+
+                    module = item.module;
+
+                    lazyLoadItem = module && !module.isClass && Neo.isFunction(module);
+
+                    if (module && !lazyLoadItem) {
+                        item.className = module.prototype.className;
+                    }
+
+                    Object.assign(item, {
+                        appName : me.appName,
+                        parentId: me.id,
+                        style   : item.style || {}
+                    });
+
+                    if (!lazyLoadItem) {
+                        item = Neo[item.className ? 'create' : 'ntype'](item);
+                    } else {
+                        item.vdom = {removeDom: true};
+                    }
                 }
             }
 
@@ -328,46 +344,55 @@ class Base extends Component {
      */
     insert(index, item, silent=false) {
         let me          = this,
+            config      = {appName: me.appName, parentId: me.id, parentIndex: index},
             items       = me.items,
             returnArray = [],
+            type        = Neo.typeOf(item),
             vdom        = me.vdom,
             i, len;
 
-        if (Array.isArray(item)) {
-            i   = 0;
-            len = item.length;
+        switch (type) {
+            case 'Array': {
+                i   = 0;
+                len = item.length;
 
-            for (; i < len; i++) {
-                // insert the array backwards
-                returnArray.unshift(me.insert(index, item[len - 1 - i], true));
+                for (; i < len; i++) {
+                    // insert the array backwards
+                    returnArray.unshift(me.insert(index, item[len - 1 - i], true));
+                }
+
+                item = returnArray;
+                break;
             }
 
-            item = returnArray;
-        } else if (typeof item === 'object') {
-            if (!(item instanceof Neo.component.Base)) {
+            case 'NeoClass': {
+                item = Neo.create({
+                    ...me.itemDefaults,
+                    module: item,
+                    ...config
+                });
+                break;
+            }
+
+            case 'NeoInstance': {
+                item.set(config);
+                break;
+            }
+
+            case 'Object': {
                 if (item.module) {
                     item.className = item.module.prototype.className;
                 }
 
-                item = {
+                item = Neo[item.className ? 'create' : 'ntype']({
                     ...me.itemDefaults,
-
-                    appName    : me.appName,
-                    parentId   : me.id,
-                    parentIndex: index,
-
+                    ...config,
                     ...item
-                };
-
-                item = Neo[item.className ? 'create' : 'ntype'](item);
-            } else {
-                Object.assign(item, {
-                    appName    : me.appName,
-                    parentId   : me.id,
-                    parentIndex: index
                 });
             }
+        }
 
+        if (type !== 'Array') {
             // added the true param => for card layouts, we do not want a dynamically inserted cmp to get removed right away
             // since it will most likely get activated right away
             me.layout.applyChildAttributes(item, index, true);
@@ -394,10 +419,7 @@ class Base extends Component {
     }
 
     /**
-     * Override this method to change the order configs are applied to this instance.
-     * @param {Object} config
-     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
-     * @returns {Object} config
+     *
      */
     mergeConfig(...args) {
         let me     = this,

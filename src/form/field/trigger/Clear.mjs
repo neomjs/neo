@@ -67,10 +67,8 @@ class Clear extends Base {
 
     /**
      *
-     * @param {Boolean} updateParentVdom
-     * @param {Boolean} silent
      */
-    destroy(updateParentVdom, silent) {
+    destroy(...args) {
         let me = this;
 
         me.field.un({
@@ -79,7 +77,7 @@ class Clear extends Base {
             scope                     : me
         });
 
-        super.destroy(updateParentVdom, silent);
+        super.destroy(...args);
     }
 
     /**

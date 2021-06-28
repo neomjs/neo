@@ -77,14 +77,20 @@ class ListModel extends Model {
      */
     onNavKey(data, step) {
         let me               = this,
-            item             = data.path[0],
             view             = me.view,
             store            = view.store,
             maxItems         = store.getCount(),
             preventSelection = false,
-            index, itemId, record, recordId;
+            index, item, itemId, node, record, recordId;
 
-        if (item.cls.includes(view.itemCls)) {
+        for (node of data.path) {
+            if (node.cls.includes(view.itemCls)) {
+                item = node;
+                break;
+            }
+        }
+
+        if (item) {
             recordId = view.getItemRecordId(item.id);
             index    = store.indexOf(recordId) + step;
 

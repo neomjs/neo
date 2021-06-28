@@ -48,7 +48,7 @@ class CopyToClipboard extends Base {
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetHidden(value) {
+    afterSetHidden(value, oldValue) {
         let cls = this.cls;
         NeoArray[value? 'add' : 'remove'](cls, 'neo-is-hidden');
         this.cls = cls;

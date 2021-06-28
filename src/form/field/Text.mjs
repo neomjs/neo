@@ -128,7 +128,7 @@ class Text extends Base {
         super(config);
 
         let me           = this,
-            domListeners = Neo.clone(me.domListeners, true, true),
+            domListeners = me.domListeners,
             vdom         = me.vdom,
             inputEl      = me.getInputEl(),
             labelEl      = me.getLabelEl();
@@ -137,12 +137,9 @@ class Text extends Base {
 
         me.vdom = vdom;
 
-        domListeners.push({
-            input: {
-                fn   : me.onInputValueChange,
-                scope: me
-            }
-        });
+        domListeners.push(
+            {input: me.onInputValueChange, scope: me}
+        );
 
         me.domListeners = domListeners;
     }

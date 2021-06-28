@@ -31,10 +31,11 @@ class List extends ComponentList {
          * @member {Object} itemDefaults
          */
         itemDefaults: {
-            module        : CheckBoxField,
-            flex          : 'none',
-            hideLabel     : true,
-            hideValueLabel: false
+            module           : CheckBoxField,
+            enableLabelClicks: false,
+            flex             : 'none',
+            hideLabel        : true,
+            hideValueLabel   : false
         }
     }}
 
@@ -88,7 +89,11 @@ class List extends ComponentList {
      * @param {Object} data
      */
     onClick(data) {
-        super.onClick(data);
+        // The click even arrives before the CheckBox onInputValueChange() gets triggered.
+        // We need a short delay to ensure the vdom of the list item contains the new checked state
+        setTimeout(() => {
+            super.onClick(data);
+        }, 20);
 
         if (data.path[0].cls.includes('neo-edit-icon')) {
             let record = this.store.get(this.getItemRecordId(data.path[1].id));
