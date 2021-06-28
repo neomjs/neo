@@ -49,7 +49,7 @@ class List extends ComponentList {
         let me       = this,
             id       = record[me.store.keyProperty],
             items    = me.items || [],
-            listItem = items[index],
+            checkBox = items[index],
 
         config = {
             checked       : record.active,
@@ -59,10 +59,10 @@ class List extends ComponentList {
             valueLabelText: record.name
         };
 
-        if (listItem) {
-            listItem.set(config);
+        if (checkBox) {
+            checkBox.set(config);
         } else {
-            items[index] = listItem = Neo.create({
+            items[index] = checkBox = Neo.create({
                 appName  : me.appName,
                 listeners: {change: me.onCheckboxChange, scope: me},
                 parentId : me.id,
@@ -73,7 +73,7 @@ class List extends ComponentList {
 
         me.items = items;
 
-        return [listItem.vdom, {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit']}];
+        return [checkBox.vdom, {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit']}];
     }
 
     /**
