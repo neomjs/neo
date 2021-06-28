@@ -357,9 +357,10 @@ class Tree extends Base {
 
     /**
      *
+     * @param {Object} node
      * @param {Object} data
      */
-    onItemClick(data) {
+    onItemClick(node, data) {
         let me    = this,
             vdom  = me.vdom,
             items = me.store.items,
@@ -395,7 +396,7 @@ class Tree extends Base {
                 me.fire('leafItemClick', record);
             }
 
-            super.onItemClick(data);
+            super.onItemClick(node, data);
         }
     }
 
