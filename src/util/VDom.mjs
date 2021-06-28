@@ -174,7 +174,7 @@ class VDom extends Base {
 
         if (vdom.cn) {
             vdom.cn.forEach(row => {
-                if (row?.cn[index]) {
+                if (row.cn?.[index]) {
                     columnNodes.push(row.cn[index]);
                 }
             });
@@ -209,9 +209,7 @@ class VDom extends Base {
             }
         }
 
-        const childNodes = vdom?.cn || [];
-
-        childNodes.forEach(childNode => {
+        (vdom?.cn || []).forEach(childNode => {
             if (childNode.flag === flag) {
                 matchArray.push(childNode);
             }
@@ -232,7 +230,7 @@ class VDom extends Base {
     static getParentNodes(vdom, id, topLevel=true) {
         let parents = null,
             i       = 0,
-            len     = vdom?.cn.length || 0;
+            len     = vdom.cn?.length || 0;
 
         if (vdom.id === id) {
             return [];
