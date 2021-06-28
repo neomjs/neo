@@ -466,7 +466,7 @@ class Component extends Base {
         let me = this,
             data, keyLeaf, parentModel, scope;
 
-        if (Neo.isObject(key)) {console.log(key);
+        if (Neo.isObject(key)) {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
                 me.internalSetData(dataKey, dataValue, originModel);
             });
