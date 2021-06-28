@@ -96,9 +96,24 @@ class List extends ComponentList {
         }, 20);
 
         if (data.path[0].cls.includes('neo-edit-icon')) {
-            let record = this.store.get(this.getItemRecordId(data.path[1].id));
+            let me                    = this,
+                editCalendarContainer = me.up('calendar-maincontainer').editCalendarContainer, // todo: add a reference
+                record                = me.store.get(me.getItemRecordId(data.path[1].id)),
+                style                 = editCalendarContainer.style;
 
-            console.log('edit icon click', record.name);
+            Object.assign(style, {
+                left: `200px`,
+                top : `200px`,
+            });
+
+            editCalendarContainer.setSilent({
+                currentView: me,
+                parentId   : 'document.body',
+                record     : record,
+                style      : style
+            });
+
+            editCalendarContainer.render(true);
         }
     }
 
