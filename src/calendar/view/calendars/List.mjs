@@ -31,10 +31,11 @@ class List extends ComponentList {
          * @member {Object} itemDefaults
          */
         itemDefaults: {
-            module        : CheckBoxField,
-            flex          : 'none',
-            hideLabel     : true,
-            hideValueLabel: false
+            module           : CheckBoxField,
+            enableLabelClicks: false,
+            flex             : 'none',
+            hideLabel        : true,
+            hideValueLabel   : false
         }
     }}
 
