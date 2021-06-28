@@ -386,7 +386,7 @@ class Base extends CoreBase {
         if (me.silentVdomUpdate) {
             me.needsVdomUpdate = true;
         } else {
-            if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app && app.rendering === true) {
+            if (!me.mounted && me.isConstructed && !me.hasRenderingListener && app?.rendering === true) {
                 me.hasRenderingListener = true;
 
                 listenerId = app.on('mounted', () => {
@@ -453,7 +453,7 @@ class Base extends CoreBase {
             let me   = this,
                 bind = me.bind;
 
-            if (bind && bind[key] && bind[key].twoWay) {
+            if (bind?.[key]?.twoWay) {
                 me.getModel().setData(key, value);
             }
         }
@@ -609,7 +609,7 @@ class Base extends CoreBase {
             if (value) {
                 me.hasBeenMounted = true;
 
-                if (me.domListeners && me.domListeners.length > 0) {
+                if (me.domListeners?.length > 0) {
                     // todo: the main thread reply of mount arrives after pushing the task into the queue which does not ensure the dom is mounted
                     setTimeout(() => {
                         DomEventManager.mountDomListeners(me);
@@ -858,7 +858,7 @@ class Base extends CoreBase {
     destroy(updateParentVdom=false, silent=false) {
         let me          = this,
             parent      = Neo.getComponent(me.parentId),
-            parentModel = parent && parent.getModel(),
+            parentModel = parent?.getModel(),
             parentController, parentVdom;
 
         me.domListeners = [];
@@ -1031,7 +1031,7 @@ class Base extends CoreBase {
         }
 
         app      = Neo.apps[me.appName];
-        mainView = app && app.mainView;
+        mainView = app?.mainView;
 
         if (mainView) {
             parentNodes = VDomUtil.getParentNodes(mainView.vdom, me.id);
@@ -1045,7 +1045,7 @@ class Base extends CoreBase {
             }
         }
 
-        return Neo.config.themes && Neo.config.themes[0];
+        return Neo.config.themes?.[0];
     }
 
     /**
@@ -1056,7 +1056,7 @@ class Base extends CoreBase {
      */
     getVdomChild(id, vdom) {
         let node = VDomUtil.findVdomChild(vdom || this.vdom, id);
-        return node && node.vdom;
+        return node?.vdom;
     }
 
     /**

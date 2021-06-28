@@ -68,7 +68,7 @@ class Observable extends Base {
                 id    : eventId || Neo.getId('event')
             };
 
-            if (existing = me.listeners && me.listeners[name]) {
+            if (existing = me.listeners?.[name]) {
                 existing.forEach(cfg => {
                     if (cfg.id === eventId || (cfg.fn === listener && cfg.scope === scope)) {
                         console.error('Duplicate event handler attached:', name, me);
@@ -136,7 +136,7 @@ class Observable extends Base {
             me.addListener(listeners);
         }
 
-        while (proto && proto.constructor.isClass) {
+        while (proto?.constructor.isClass) {
             if (proto.constructor.staticConfig.observable && !proto.constructor.listeners) {
                 Object.assign(proto.constructor, {
                     addListener   : me.addListener,

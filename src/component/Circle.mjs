@@ -529,7 +529,7 @@ class Circle extends Component {
     getItemEl(itemId) {
         let item = VDomUtil.findVdomChild(this.getFrontEl(), itemId);
 
-        return item && item.vdom;
+        return item?.vdom;
     }
 
     /**
@@ -551,9 +551,9 @@ class Circle extends Component {
     getItemRecordId(vnodeId) {
         let itemId   = vnodeId.split('__')[1],
             model    = this.store.model,
-            keyField = model && model.getField(model.keyProperty);
+            keyField = model?.getField(model.keyProperty);
 
-        if (keyField && keyField.type.toLowerCase() === 'number') {
+        if (keyField?.type.toLowerCase() === 'number') {
             itemId = parseInt(itemId);
         }
 
@@ -799,7 +799,7 @@ class Circle extends Component {
 
         me[silent ? '_vdom' : 'vdom'] = vdom;
     }
-    
+
     /**
      *
      * @param {Boolean} [silent=false]
@@ -809,7 +809,7 @@ class Circle extends Component {
             innerCircle = me.getInnerCircle(),
             vdom        = me.vdom;
 
-        innerCircle.cn[0].html = me.store && me.store.getCount() || 0;
+        innerCircle.cn[0].html = me.store?.getCount() || 0;
         innerCircle.cn[1].html = me.title;
 
         me[silent ? '_vdom' : 'vdom'] = vdom;

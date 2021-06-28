@@ -36,13 +36,13 @@ class Fit extends Base {
     applyRenderAttributes() {
         let me        = this,
             container = Neo.getComponent(me.containerId),
-            cls       = container && container.cls;
+            cls       = container?.cls || [];
 
         if (!container) {
             Neo.logError('layout.Fit: applyRenderAttributes -> container not yet created', me.containerId);
         }
 
-        NeoArray.add(cls || [], 'neo-layout-fit');
+        NeoArray.add(cls, 'neo-layout-fit');
 
         container.cls = cls;
     }
@@ -54,7 +54,7 @@ class Fit extends Base {
     removeRenderAttributes() {
         let me        = this,
             container = Neo.getComponent(me.containerId),
-            cls       = container && container.cls;
+            cls       = container?.cls || [];
 
         if (!container) {
             Neo.logError('layout.Fit: removeRenderAttributes -> container not yet created', me.containerId);

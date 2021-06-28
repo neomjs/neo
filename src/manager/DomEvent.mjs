@@ -92,7 +92,7 @@ class DomEvent extends Base {
                 break;
             }
 
-            listeners = me.items[id] && me.items[id][eventName];
+            listeners = me.items[id]?.[eventName];
 
             if (listeners) {
                 // console.log('fire', eventName, data, listeners, path);
@@ -199,7 +199,7 @@ class DomEvent extends Base {
         let listeners = this.items,
             event;
 
-        if (listeners && listeners[config.id]) {
+        if (listeners?.[config.id]) {
             event = listeners[config.id][config.eventName];
 
             if (event) {

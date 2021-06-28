@@ -107,7 +107,7 @@ class Component extends Base {
         parentId        = me.component.parentId;
         parentComponent = parentId && Neo.getComponent(parentId);
 
-        return parentComponent && parentComponent.getController() || null;
+        return parentComponent?.getController() || null;
     }
 
     /**

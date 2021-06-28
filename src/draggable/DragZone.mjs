@@ -192,7 +192,7 @@ class DragZone extends Base {
         let me        = this,
             component = Neo.getComponent(me.getDragElementRoot().id) || me.owner,
             rect      = me.dragElementRect,
-            vdom      = me.dragProxyConfig && me.dragProxyConfig.vdom,
+            vdom      = me.dragProxyConfig?.vdom,
             clone     = VDomUtil.clone(vdom ? vdom : me.dragElement);
 
         const config = {

@@ -202,8 +202,8 @@ class SortZone extends DragZone {
                 indexMap[index] = index;
 
                 itemStyles.push({
-                    height: item.style && item.style.height,
-                    width : item.style && item.style.width
+                    height: item.style?.height,
+                    width : item.style?.width
                 });
             });
 

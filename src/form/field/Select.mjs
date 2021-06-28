@@ -210,7 +210,7 @@ class Select extends Picker {
      */
     getInputHintEl() {
         let el = VDomUtil.findVdomChild(this.vdom, this.getInputHintId());
-        return el && el.vdom;
+        return el?.vdom;
     }
 
     /**
@@ -321,7 +321,7 @@ class Select extends Picker {
         let me = this;
 
         if (me.typeAhead) {
-            if (me.picker && me.picker.mounted) {
+            if (me.picker?.mounted) {
                 me.updateTypeAheadValue();
             }
         }
@@ -483,7 +483,7 @@ class Select extends Picker {
         }
 
         if (me.typeAhead) {
-            if (!(me.picker && me.picker.containsFocus)) {
+            if (!me.picker?.containsFocus) {
                 me.updateTypeAheadValue();
             }
         }

@@ -323,7 +323,7 @@ class Base extends CoreBase {
             value = value ? [value] : [];
         }
 
-        let len = oldValue && oldValue.length || 0,
+        let len = oldValue?.length || 0,
             hasMatch, i;
 
         value.forEach((key, index) => {
@@ -604,7 +604,7 @@ class Base extends CoreBase {
             filters         = me._filters,
             countAllFilters = filters.length,
             countFilters    = 0,
-            items           = me.allItems && me.allItems._items || me._items,
+            items           = me.allItems?._items || me._items,
             i               = 0,
             countItems      = items.length,
             filteredItems   = [],
@@ -819,7 +819,7 @@ class Base extends CoreBase {
      */
     getKeyAt(index) {
         let item = this._items[index];
-        return item && item[this.keyProperty];
+        return item?.[this.keyProperty];
     }
 
     /**

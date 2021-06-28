@@ -638,7 +638,7 @@ class Gallery extends Component {
      */
     onSelectionChange(value) {
         let me             = this,
-            index          = me.store.indexOf(value && value[0] || 0),
+            index          = me.store.indexOf(value?.[0] || 0),
             imageHeight    = me.imageHeight,
             imageWidth     = me.imageWidth,
             vdom           = me.vdom,

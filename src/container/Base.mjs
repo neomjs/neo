@@ -304,7 +304,7 @@ class Base extends Component {
     indexOf(itemId) {
         let me  = this,
             i   = 0,
-            len = me.items && me.items.length || 0;
+            len = me.items?.length || 0;
 
         if (!Neo.isString(itemId)) {
             itemId = itemId.id;

@@ -106,7 +106,7 @@ class Component extends Base {
     findParentComponent(path) {
         let me  = this,
             i   = 0,
-            len = path && path.length || 0,
+            len = path?.length || 0,
             id;
 
         for (; i < len; i++) {
@@ -160,7 +160,7 @@ class Component extends Base {
     getParentIds(component) {
         let parentIds = [];
 
-        while (component && component.parentId) {
+        while (component?.parentId) {
             component = this.getById(component.parentId);
 
             if (component) {
@@ -180,7 +180,7 @@ class Component extends Base {
         let me            = this,
             componentPath = [],
             i             = 0,
-            len           = path && path.length || 0;
+            len           = path?.length || 0;
 
         for (; i < len; i++) {
             if (me.has(path[i])) {
@@ -199,7 +199,7 @@ class Component extends Base {
     getParents(component) {
         let parents = [];
 
-        while (component && component.parentId) {
+        while (component?.parentId) {
             component = this.getById(component.parentId);
 
             if (component) {
@@ -235,7 +235,7 @@ class Component extends Base {
         configArray  = Object.entries(config);
         configLength = configArray.length;
 
-        while (component && component.parentId) {
+        while (component?.parentId) {
             component = this.getById(component.parentId);
 
             if (!component) {

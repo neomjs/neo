@@ -133,13 +133,13 @@ class Flexbox extends Base {
         let me        = this,
             container = Neo.getComponent(me.containerId),
             prefix    = me.prefix,
-            cls       = container && container.cls;
+            cls       = container?.cls || [];
 
         if (!container) {
             Neo.logError('layout.Flexbox: applyRenderAttributes -> container not yet created', me.containerId);
         }
 
-        NeoArray.add(cls || [], prefix + 'container');
+        NeoArray.add(cls, prefix + 'container');
 
         if (me.align) {
             NeoArray.add(cls, prefix + 'align-' + me.align);
@@ -223,7 +223,7 @@ class Flexbox extends Base {
         let me        = this,
             container = Neo.getComponent(me.containerId),
             prefix    = me.prefix,
-            cls       = container && container.cls;
+            cls       = container?.cls || [];
 
         if (!container) {
             Neo.logError('layout.Flexbox: removeRenderAttributes -> container not yet created', me.containerId);
@@ -278,9 +278,9 @@ class Flexbox extends Base {
         let me        = this,
             container = Neo.getComponent(me.containerId),
             prefix    = me.prefix,
-            cls       = container && container.cls;
+            cls       = container?.cls;
 
-        if (container && container.rendered) {
+        if (container?.rendered) {
             NeoArray.remove(cls, prefix + propertyName + '-' + oldValue);
 
             if (value !== null) {

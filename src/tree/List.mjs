@@ -380,7 +380,7 @@ class Tree extends Base {
         }
 
         if (item) {
-            if (item.cls && item.cls.includes('neo-list-folder')) {
+            if (item.cls?.includes('neo-list-folder')) {
                 NeoArray.toggle(item.cls, 'neo-folder-open');
                 me.vdom = vdom;
             } else {

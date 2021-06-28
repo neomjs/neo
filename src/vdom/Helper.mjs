@@ -655,7 +655,7 @@ class Helper extends Base {
         } else if (vnode.vtype !== 'text') {
             children = vnode.childNodes;
             i        = 0;
-            len      = children && children.length || 0;
+            len      = children?.length || 0;
 
             for (; i < len; i++) {
                 childValue = this.findVnode(children[i], id, vnode, i);

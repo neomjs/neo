@@ -225,7 +225,7 @@ class App extends Base {
         let config = Neo.config,
             url    = `../../resources/theme-map${Neo.config.useCssVars ? '' : '-no-vars'}.json`;
 
-        if (config.workerBasePath && config.workerBasePath.includes('node_modules')) {
+        if (config.workerBasePath?.includes('node_modules')) {
             url = '../../' + url;
         }
 

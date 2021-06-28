@@ -333,7 +333,7 @@ class DomEvents extends Base {
      * @returns {Object}
      */
     getTargetData(node) {
-        let r    = node.getBoundingClientRect && node.getBoundingClientRect(),
+        let r    = node.getBoundingClientRect?.(),
             rect = {};
 
         if (r) {
@@ -374,9 +374,9 @@ class DomEvents extends Base {
             scrollLeft       : node.scrollLeft,
             scrollTop        : node.scrollTop,
             scrollWidth      : node.scrollWidth,
-            style            : node.style && node.style.cssText,
+            style            : node.style?.cssText,
             tabIndex         : node.tabIndex,
-            tagName          : node.tagName && node.tagName.toLowerCase()
+            tagName          : node.tagName?.toLowerCase()
         };
     }
 
@@ -387,7 +387,7 @@ class DomEvents extends Base {
      */
     getTouchCoords(event) {
         const {touches, changedTouches} = event;
-        return (touches && touches[0]) || (changedTouches && changedTouches[0]);
+        return touches?.[0] || changedTouches?.[0];
     }
 
     /**
@@ -545,7 +545,7 @@ class DomEvents extends Base {
      */
     onMouseEnter(event) {
         let me       = this,
-            appEvent = {...me.getMouseEventData(event), fromElementId: event.fromElement && event.fromElement.id || null};
+            appEvent = {...me.getMouseEventData(event), fromElementId: event.fromElement?.id || null};
 
         me.sendMessageToApp(appEvent);
         me.fire('mouseEnter', appEvent);
@@ -557,7 +557,7 @@ class DomEvents extends Base {
      */
     onMouseLeave(event) {
         let me       = this,
-            appEvent = {...me.getMouseEventData(event), toElementId: event.toElement && event.toElement.id || null};
+            appEvent = {...me.getMouseEventData(event), toElementId: event.toElement?.id || null};
 
         me.sendMessageToApp(appEvent);
         me.fire('mouseLeave', appEvent);
@@ -736,7 +736,7 @@ class DomEvents extends Base {
             node = path[i];
 
             for (j=0; j < countTargets; j++) {
-                if (node.classList && node.classList.contains(targetArray[j])) {
+                if (node.classList?.contains(targetArray[j])) {
                     return {
                         cls : targetArray[j],
                         node: node

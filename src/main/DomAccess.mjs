@@ -347,7 +347,7 @@ class DomAccess extends Base {
                 scope = key.scope ? document[key.scope] : element;
 
                 key.params.forEach((param, paramIndex) => {
-                    if (key.paramIsDomNode[paramIndex] && key.paramIsDomNode[paramIndex] === true) {
+                    if (key.paramIsDomNode[paramIndex] === true) {
                         key.params[paramIndex] = this.getElement(key.params[paramIndex]);
                     }
                 });

@@ -32,7 +32,7 @@ class VNode extends Base {
             matchArray = [],
             styleMatch = true,
             i          = 0,
-            len        = vnode.childNodes && vnode.childNodes.length,
+            len        = vnode.childNodes?.length || 0,
             optsArray, optsLength, subChild;
 
         optsArray  = Object.entries(opts);
@@ -98,13 +98,11 @@ class VNode extends Base {
             };
         }
 
-        if (vnode.childNodes) {
-            for (; i < len; i++) {
-                subChild = VNode.findChildVnode(vnode.childNodes[i], opts, i, vnode);
+        for (; i < len; i++) {
+            subChild = VNode.findChildVnode(vnode.childNodes[i], opts, i, vnode);
 
-                if (subChild) {
-                    return subChild;
-                }
+            if (subChild) {
+                return subChild;
             }
         }
 

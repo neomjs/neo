@@ -150,7 +150,7 @@ class Base extends Container {
                 items = me.items || [],
                 item  = items[0];
 
-            if (item && item.ntype === 'label') {
+            if (item?.ntype === 'label') {
                 item.text = value;
             } else {
                 items.push({
