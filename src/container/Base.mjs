@@ -344,46 +344,55 @@ class Base extends Component {
      */
     insert(index, item, silent=false) {
         let me          = this,
+            config      = {appName: me.appName, parentId: me.id, parentIndex: index},
             items       = me.items,
             returnArray = [],
+            type        = Neo.typeOf(item),
             vdom        = me.vdom,
             i, len;
 
-        if (Array.isArray(item)) {
-            i   = 0;
-            len = item.length;
+        switch (type) {
+            case 'Array': {
+                i   = 0;
+                len = item.length;
 
-            for (; i < len; i++) {
-                // insert the array backwards
-                returnArray.unshift(me.insert(index, item[len - 1 - i], true));
+                for (; i < len; i++) {
+                    // insert the array backwards
+                    returnArray.unshift(me.insert(index, item[len - 1 - i], true));
+                }
+
+                item = returnArray;
+                break;
             }
 
-            item = returnArray;
-        } else if (typeof item === 'object') {
-            if (!(item instanceof Neo.component.Base)) {
+            case 'NeoClass': {
+                item = Neo.create({
+                    ...me.itemDefaults,
+                    module: item,
+                    ...config
+                });
+                break;
+            }
+
+            case 'NeoInstance': {
+                item.set(config);
+                break;
+            }
+
+            case 'Object': {
                 if (item.module) {
                     item.className = item.module.prototype.className;
                 }
 
-                item = {
+                item = Neo[item.className ? 'create' : 'ntype']({
                     ...me.itemDefaults,
-
-                    appName    : me.appName,
-                    parentId   : me.id,
-                    parentIndex: index,
-
+                    ...config,
                     ...item
-                };
-
-                item = Neo[item.className ? 'create' : 'ntype'](item);
-            } else {
-                Object.assign(item, {
-                    appName    : me.appName,
-                    parentId   : me.id,
-                    parentIndex: index
                 });
             }
+        }
 
+        if (type !== 'Array') {
             // added the true param => for card layouts, we do not want a dynamically inserted cmp to get removed right away
             // since it will most likely get activated right away
             me.layout.applyChildAttributes(item, index, true);
