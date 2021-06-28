@@ -67,13 +67,13 @@ Neo = self.Neo = Object.assign({
             proto = proto.__proto__;
         }
 
-        config       = baseCfg       ? baseCfg       : {};
-        staticConfig = baseStaticCfg ? baseStaticCfg : {};
+        config       = baseCfg       || {};
+        staticConfig = baseStaticCfg || {};
 
         protos.forEach(element => {
             ctor = element.constructor;
-            let cfg       = ctor.getConfig       && ctor.getConfig()       || {},
-                staticCfg = ctor.getStaticConfig && ctor.getStaticConfig() || {},
+            let cfg       = ctor.getConfig      ?.() || {},
+                staticCfg = ctor.getStaticConfig?.() || {},
                 mixins;
 
             if (cfg) {
@@ -105,7 +105,7 @@ Neo = self.Neo = Object.assign({
 
             mixins = config.hasOwnProperty('mixins') && config.mixins || [];
 
-            if (staticCfg && staticCfg.observable) {
+            if (staticCfg?.observable) {
                 mixins.push('Neo.core.Observable');
             }
 
