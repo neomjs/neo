@@ -54,7 +54,7 @@ class VDom extends Base {
             matchArray = [],
             styleMatch = true,
             i          = 0,
-            len        = vdom?.cn.length,
+            len        = vdom.cn?.length,
             optsArray  = Object.entries(opts),
             optsLength = optsArray.length,
             subChild;
