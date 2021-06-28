@@ -204,13 +204,13 @@ class YearComponent extends Component {
     afterSetCalendarStore(value, oldValue) {
         let me = this;
 
-        oldValue && oldValue.un({
+        oldValue?.un({
             load        : me.onCalendarStoreLoad,
             recordChange: me.onCalendarStoreRecordChange,
             scope       : me
         });
 
-        value && value.on({
+        value?.on({
             load        : me.onCalendarStoreLoad,
             recordChange: me.onCalendarStoreRecordChange,
             scope       : me
@@ -292,8 +292,8 @@ class YearComponent extends Component {
     afterSetEventStore(value, oldValue) {
         let me = this;
 
-        oldValue && oldValue.un('load', me.onEventStoreLoad, me);
-        value    && value   .on('load', me.onEventStoreLoad, me);
+        oldValue?.un('load', me.onEventStoreLoad, me);
+        value   ?.on('load', me.onEventStoreLoad, me);
     }
 
     /**

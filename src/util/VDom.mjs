@@ -54,7 +54,7 @@ class VDom extends Base {
             matchArray = [],
             styleMatch = true,
             i          = 0,
-            len        = vdom.cn && vdom.cn.length,
+            len        = vdom?.cn.length,
             optsArray  = Object.entries(opts),
             optsLength = optsArray.length,
             subChild;
@@ -140,7 +140,7 @@ class VDom extends Base {
      */
     static getByFlag(vdom, flag) {
         let node = VDom.findVdomChild(vdom, {flag: flag});
-        return node && node.vdom;
+        return node?.vdom;
     }
 
     /**
@@ -150,7 +150,7 @@ class VDom extends Base {
      * @returns {Array} childIds
      */
     static getChildIds(vdom, childIds=[]) {
-        let childNodes = vdom && vdom.cn || [];
+        let childNodes = vdom?.cn || [];
 
         childNodes.forEach(childNode => {
             if (childNode.id) {
@@ -174,7 +174,7 @@ class VDom extends Base {
 
         if (vdom.cn) {
             vdom.cn.forEach(row => {
-                if (row.cn && row.cn[index]) {
+                if (row?.cn[index]) {
                     columnNodes.push(row.cn[index]);
                 }
             });
@@ -209,7 +209,7 @@ class VDom extends Base {
             }
         }
 
-        const childNodes = vdom && vdom.cn || [];
+        const childNodes = vdom?.cn || [];
 
         childNodes.forEach(childNode => {
             if (childNode.flag === flag) {
@@ -232,7 +232,7 @@ class VDom extends Base {
     static getParentNodes(vdom, id, topLevel=true) {
         let parents = null,
             i       = 0,
-            len     = vdom.cn && vdom.cn.length;
+            len     = vdom?.cn.length || 0;
 
         if (vdom.id === id) {
             return [];
@@ -369,7 +369,7 @@ class VDom extends Base {
             if (childNodes) {
                 cn   = childNodes.filter(item => item.removeDom !== true);
                 i    = 0;
-                len  = cn && cn.length || 0;
+                len  = cn?.length || 0;
 
                 for (; i < len; i++) {
                     if (vnode.childNodes) {
