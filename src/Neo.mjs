@@ -434,10 +434,8 @@ Neo = self.Neo = Object.assign({
             }
 
             case 'object': {
-                if (item.constructor.isClass) {
-                    if (item instanceof Neo.core.Base) {
-                        return 'NeoInstance';
-                    }
+                if (item.constructor.isClass && item instanceof Neo.core.Base) {
+                    return 'NeoInstance';
                 }
             }
         }
