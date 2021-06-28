@@ -416,61 +416,33 @@ Neo = self.Neo = Object.assign({
      * @returns {String}
      */
     typeOf(item) {
-        switch (typeof item) {
-            case 'bigint' : return 'BigInt';
-            case 'boolean': return 'Boolean';
-            case 'number' : return 'Number';
-            case 'string' : return 'String';
-            case 'symbol' : return 'Symbol';
+        if (item === null) {
+            return 'Null';
+        }
 
+        if (item === undefined) {
+            return 'Undefined';
+        }
+
+        switch (typeof item) {
             case 'function': {
                 if (item.prototype && item.prototype.constructor.isClass) {
                     return 'NeoClass';
                 }
 
-                return 'Function';
+                break;
             }
 
             case 'object': {
-                if (!item) {
-                    return 'Null';
-                }
-
-                if (Array.isArray(item)) {
-                    return 'Array';
-                }
-
-                if (item instanceof Date) {
-                    return 'Date';
-                }
-
-                if (item instanceof Intl.DateTimeFormat) {
-                    return 'Intl.DateTimeFormat';
-                }
-
-                if (item instanceof Map) {
-                    return 'Map';
-                }
-
-                if (item instanceof RegExp) {
-                    return 'RegExp';
-                }
-
-                if (item instanceof Set) {
-                    return 'Set';
-                }
-
                 if (item.constructor.isClass) {
                     if (item instanceof Neo.core.Base) {
                         return 'NeoInstance';
                     }
                 }
-
-                return 'Object';
             }
         }
 
-        return 'Undefined';
+        return item.constructor.name;
     }
 }, Neo);
 
