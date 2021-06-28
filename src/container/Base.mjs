@@ -196,6 +196,8 @@ class Base extends Component {
         vdomRoot.cn = [];
 
         items.forEach((item, index) => {
+            // todo: use Neo.typeOf()
+
             if (item.constructor.isClass && item instanceof Neo.core.Base) {
                 Object.assign(item, {
                     appName : me.appName,
@@ -394,10 +396,7 @@ class Base extends Component {
     }
 
     /**
-     * Override this method to change the order configs are applied to this instance.
-     * @param {Object} config
-     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
-     * @returns {Object} config
+     *
      */
     mergeConfig(...args) {
         let me     = this,

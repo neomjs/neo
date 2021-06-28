@@ -262,7 +262,7 @@ class CheckBox extends Base {
 
         // keep the vdom & vnode in sync for future updates
         me.vdom.cn[1].checked = checked;
-        me.vnode.childNodes[me.hideLabel ? 0 : 1].attributes.checked = checked + '';
+        me.vnode.childNodes[me.hideLabel ? 0 : 1].attributes.checked = `${checked}`;
 
         me.fire('change', {
             component: me,
