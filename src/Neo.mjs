@@ -413,15 +413,11 @@ Neo = self.Neo = Object.assign({
     /**
      *
      * @param {*} item
-     * @returns {String}
+     * @returns {String|null}
      */
     typeOf(item) {
-        if (item === null) {
-            return 'Null';
-        }
-
-        if (item === undefined) {
-            return 'Undefined';
+        if (item === null || item === undefined) {
+            return null;
         }
 
         switch (typeof item) {
