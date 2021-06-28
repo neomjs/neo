@@ -97,18 +97,22 @@ class List extends ComponentList {
 
         if (data.path[0].cls.includes('neo-edit-icon')) {
             let me                    = this,
-                editCalendarContainer = me.up('calendar-maincontainer').editCalendarContainer, // todo: add a reference
+                listItemRect          = data.path[1].rect,
+                mainContainer         = me.up('calendar-maincontainer'), // todo: add a reference
+                editCalendarContainer = mainContainer.editCalendarContainer,
                 record                = me.store.get(me.getItemRecordId(data.path[1].id)),
                 style                 = editCalendarContainer.style;
 
+            console.log(data.path);
+
             Object.assign(style, {
-                left: `200px`,
-                top : `200px`,
+                left: `${listItemRect.right + 13}px`,
+                top : `${listItemRect.top   - 10}px`,
             });
 
             editCalendarContainer.setSilent({
                 currentView: me,
-                parentId   : 'document.body',
+                parentId   : mainContainer.id,
                 record     : record,
                 style      : style
             });
