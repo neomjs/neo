@@ -266,7 +266,7 @@ class MainContainerController extends ComponentController {
         let me             = this,
             activeIndex    = me.getTabIndex(value.hash),
             activeView     = me.getView(activeIndex),
-            country        = value.hash && value.hash.country,
+            country        = value.hash?.country,
             countryField   = me.getReference('country-field'),
             tabContainer   = me.getReference('tab-container'),
             delaySelection = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
@@ -288,7 +288,7 @@ class MainContainerController extends ComponentController {
 
         // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
 
-        if (me.data && activeView.store && activeView.store.getCount() < 1) {
+        if (me.data && activeView.store?.getCount() < 1) {
             activeView.store.data = me.data;
             delaySelection = 500;
         }
@@ -465,13 +465,13 @@ class MainContainerController extends ComponentController {
             buttonText   = 'Theme Dark';
             href         = '../dist/development/neo-theme-light-no-css-vars.css';
             iconCls      = 'fa fa-moon';
-            mapViewStyle = mapView && mapView.mapboxStyleLight;
+            mapViewStyle = mapView?.mapboxStyleLight;
             theme        = 'neo-theme-light';
         } else {
             buttonText   = 'Theme Light';
             href         = '../dist/development/neo-theme-dark-no-css-vars.css';
             iconCls      = 'fa fa-sun';
-            mapViewStyle = mapView && mapView.mapboxStyleDark;
+            mapViewStyle = mapView?.mapboxStyleDark;
             theme        = 'neo-theme-dark';
         }
 

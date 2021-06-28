@@ -168,7 +168,7 @@ class SignUpComponent extends Component {
      */
     getErrorMessagesList() {
         let el = VDomUtil.findVdomChild(this.vdom, {cls: 'error-messages'});
-        return el && el.vdom;
+        return el?.vdom;
     }
 
     /**

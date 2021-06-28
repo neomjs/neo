@@ -60,7 +60,7 @@ class TableContainerController extends ComponentController {
         let me        = this,
             dataArray = [],
             map       = {},
-            timeline  = data && data.timeline,
+            timeline  = data?.timeline,
             nextItem;
 
         // https://github.com/NovelCOVID/API/issues/309 // different format for 'all'
@@ -265,9 +265,9 @@ class TableContainerController extends ComponentController {
         }
 
         // removed optional chaining for now, see: https://github.com/neomjs/neo/issues/467
-        me.loadHistoricalData(record && record.countryInfo && record.countryInfo.iso2 || 'all');
+        me.loadHistoricalData(record?.countryInfo?.iso2 || 'all');
 
-        me.getReference('historical-data-label').html = 'Historical Data (' + (record && record.country || 'World') + ')';
+        me.getReference('historical-data-label').html = 'Historical Data (' + (record?.country || 'World') + ')';
     }
 
     /**

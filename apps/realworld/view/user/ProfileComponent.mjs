@@ -261,7 +261,7 @@ class ProfileComponent extends Component {
      * @param {Object} value
      */
     onCurrentUserChange(value) {console.log('onCurrentUserChange', value);
-        this.myProfile = this.username === value && value.username;
+        this.myProfile = this.username === value?.username;
     }
 
     /**
