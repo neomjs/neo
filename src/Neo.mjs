@@ -310,12 +310,13 @@ Neo = self.Neo = Object.assign({
      * @tutorial 02_ClassSystem
      */
     create(className, config) {
-        let cls, instance;
+        let type = Neo.typeOf(className),
+            cls, instance;
 
-        if (typeof className === 'function' && undefined !== className.constructor) {
+        if (type === 'NeoClass') {
             cls = className;
         } else {
-            if (typeof className === 'object') {
+            if (type === 'Object') {
                 config = className;
 
                 if (!config.className && !config.module) {
@@ -324,7 +325,7 @@ Neo = self.Neo = Object.assign({
                     return null;
                 }
 
-                className = config.className ? config.className : config.module.prototype.className;
+                className = config.className || config.module.prototype.className;
             }
 
             if (!exists(className)) {
