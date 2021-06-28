@@ -164,7 +164,7 @@ Neo = self.Neo = Object.assign({
     applyFromNs(target, namespace, config, bind) {
         let fnName;
 
-        if (target && config && typeof config === 'object') {
+        if (target && Neo.typeOf(config) === 'Object') {
             Object.entries(config).forEach(([key, value]) => {
                 fnName = namespace[value];
                 target[key] = bind ? fnName.bind(namespace) : fnName;
@@ -202,7 +202,7 @@ Neo = self.Neo = Object.assign({
      * @returns {Object} target
      */
     assignDefaults(target, defaults) {
-        if (target && defaults && typeof defaults === 'object') {
+        if (target && Neo.typeOf(defaults) === 'Object') {
             Object.entries(defaults).forEach(([key, value]) => {
                 if (!target.hasOwnProperty(key)) {
                     target[key] = value;
@@ -639,7 +639,7 @@ function mixinProperty(proto, mixinProto) {
         if (~ignoreMixin.indexOf(key)) {
             return;
         }
-        if (proto[key] && proto[key]._from) {
+        if (proto[key]?._from) {
             if (mixinProto.className === proto[key]._from) {
                 console.warn('Mixin set multiple times or already defined on a Base Class', proto.className, mixinProto.className, key);
                 return;
