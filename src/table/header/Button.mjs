@@ -370,7 +370,7 @@ class Button extends BaseButton {
     changeFilterOperator(data) {
         let me             = this,
             tableContainer = me.up('table-container'),
-            store          = tableContainer && tableContainer.store,
+            store          = tableContainer?.store,
             operator       = data.value,
             filter, filters;
 
@@ -401,7 +401,7 @@ class Button extends BaseButton {
     changeFilterValue(data) {
         let me             = this,
             tableContainer = me.up('table-container'),
-            store          = tableContainer && tableContainer.store,
+            store          = tableContainer?.store,
             value          = data.value,
             field, filter, filters, model;
 

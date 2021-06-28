@@ -211,7 +211,7 @@ class RecordFactory extends Base {
      * @returns {Boolean}
      */
     isRecord(obj) {
-        return obj && obj.constructor && obj.constructor.name && obj.constructor.name === 'Record';
+        return obj?.constructor.name === 'Record';
     }
 
     /**
@@ -239,7 +239,7 @@ class RecordFactory extends Base {
      * @returns {*}
      */
     parseRecordValue(field, value) {
-        const type = field.type && field.type.toLowerCase();
+        const type = field?.type.toLowerCase();
 
         if (type === 'date') {
             return new Date(value);

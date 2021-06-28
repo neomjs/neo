@@ -55,7 +55,7 @@ class HeaderComponent extends Component {
             store     = me.up('main-container').store,
             record    = store.find({$kind: className === 'Neo' ? 'module' : 'class', neoClassName: className})[0],
             i         = 0,
-            len       = record && record.tags && record.tags.length || 0,
+            len       = record?.tags?.length || 0,
             singleton = false;
 
         for (; i < len; i++) {

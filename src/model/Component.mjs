@@ -165,7 +165,7 @@ class Component extends Base {
             keyLeaf = data.key,
             bindingScope, parentModel;
 
-        if (scope && scope.hasOwnProperty(keyLeaf)) {
+        if (scope?.hasOwnProperty(keyLeaf)) {
             bindingScope = Neo.ns(`${key}.${componentId}`, true, me.bindings);
             bindingScope[value] = formatter;
         } else {
@@ -248,7 +248,7 @@ class Component extends Base {
     createDataProperty(key, path, root=this.data) {
         let me = this;
 
-        if (path && path.startsWith('data.')) {
+        if (path?.startsWith('data.')) {
             path = path.substring(5);
         }
 
@@ -291,7 +291,7 @@ class Component extends Base {
             keyLeaf = data.key,
             parentModel;
 
-        if (scope && scope.hasOwnProperty(keyLeaf)) {
+        if (scope?.hasOwnProperty(keyLeaf)) {
             return scope[keyLeaf];
         }
 
@@ -423,7 +423,7 @@ class Component extends Base {
         parentId        = me.component.parentId;
         parentComponent = parentId && Neo.getComponent(parentId);
 
-        return parentComponent && parentComponent.getModel() || null;
+        return parentComponent?.getModel() || null;
     }
 
     /**
@@ -437,7 +437,7 @@ class Component extends Base {
             stores = me.stores,
             parentModel;
 
-        if (stores && stores.hasOwnProperty(key)) {
+        if (stores?.hasOwnProperty(key)) {
             return stores[key];
         }
 
@@ -466,7 +466,7 @@ class Component extends Base {
         let me = this,
             data, keyLeaf, parentModel, scope;
 
-        if (Neo.isObject(key)) {console.log(key);
+        if (Neo.isObject(key)) {
             Object.entries(key).forEach(([dataKey, dataValue]) => {
                 me.internalSetData(dataKey, dataValue, originModel);
             });
@@ -475,7 +475,7 @@ class Component extends Base {
             scope   = data.scope;
             keyLeaf = data.key;
 
-            if (scope && scope.hasOwnProperty(keyLeaf)) {
+            if (scope?.hasOwnProperty(keyLeaf)) {
                 scope[keyLeaf] = value;
             } else {
                 if (originModel) {

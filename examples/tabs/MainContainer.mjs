@@ -85,7 +85,7 @@ class MainContainer extends TabContainer {
                             style = {};
                         }
 
-                        if (style.color && style.color === 'red') {
+                        if (style.color === 'red') {
                             delete style.color;
                         } else {
                             style.color = 'red';

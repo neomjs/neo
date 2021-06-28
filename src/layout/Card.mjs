@@ -81,7 +81,7 @@ class Card extends Base {
             for (i=0; i < len; i++) {
                 module = items[i].module;
 
-                if (i === value && module && !module.isClass && Neo.isFunction(module)) {
+                if (i === value && !module?.isClass && Neo.isFunction(module)) {
                     needsUpdate = true;
                     break;
                 }
@@ -92,7 +92,7 @@ class Card extends Base {
                 item          = items[i];
                 module        = item.module;
 
-                if (isActiveIndex && module && !module.isClass && Neo.isFunction(module)) {
+                if (isActiveIndex && !module?.isClass && Neo.isFunction(module)) {
                     module = await module();
                     module = module.default;
                     proto  = module.prototype;
@@ -173,13 +173,13 @@ class Card extends Base {
     applyRenderAttributes() {
         let me        = this,
             container = Neo.getComponent(me.containerId),
-            cls       = container && container.cls;
+            cls       = container?.cls || [];
 
         if (!container) {
             Neo.logError('layout.Card: applyRenderAttributes -> container not yet created', me.containerId);
         }
 
-        NeoArray.add(cls || [], 'neo-layout-card');
+        NeoArray.add(cls, 'neo-layout-card');
 
         container.cls = cls;
     }
@@ -191,7 +191,7 @@ class Card extends Base {
     removeRenderAttributes() {
         let me        = this,
             container = Neo.getComponent(me.containerId),
-            cls       = container && container.cls;
+            cls       = container?.cls || [];
 
         if (!container) {
             Neo.logError('layout.Card: removeRenderAttributes -> container not yet created', me.containerId);

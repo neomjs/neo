@@ -73,7 +73,7 @@ class MainContainerController extends ComponentController {
      */
     onHashChange(value, oldValue) {
         let me           = this,
-            hash         = value && value.hash,
+            hash         = value?.hash,
             tabContainer = me.getReference('main-tab-container'),
             activeIndex  = me.mainTabs.indexOf(hash.mainview),
             activeView   = me.getView(activeIndex),
@@ -137,7 +137,7 @@ class MainContainerController extends ComponentController {
             }
         }
 
-        if (store && store.getCount() < 1) {
+        if (store?.getCount() < 1) {
             setTimeout(() => {
                 store.load();
             }, 50);

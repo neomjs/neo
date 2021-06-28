@@ -77,7 +77,7 @@ class Strip extends Component {
                 ids.push(tabContainer.getTabAtIndex(tabContainer.activeIndex));
             }
 
-            ids = ids.map(e => e && e.id).filter(Boolean);
+            ids = ids.map(e => e?.id).filter(Boolean);
 
             if (me.useActiveTabIndicator) {
                 Neo.main.DomAccess.getBoundingClientRect({

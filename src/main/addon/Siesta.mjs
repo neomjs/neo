@@ -41,7 +41,7 @@ class Siesta extends Base {
 
         for (; i < len; i++) {
             sheet = document.styleSheets[i];
-            if (sheet.href && sheet.href.includes('highlightjs')) {
+            if (sheet?.href.includes('highlightjs')) {
                 sheet.ownerNode.id = 'hljs-theme';
             }
         }

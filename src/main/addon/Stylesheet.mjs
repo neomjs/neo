@@ -149,7 +149,7 @@ class Stylesheet extends Base {
 
         for (; i < len; i++) {
             sheet = document.styleSheets[i];
-            if (sheet.href && sheet.href.includes(token)) {
+            if (sheet.href?.includes(token)) {
                 return true;
             }
         }

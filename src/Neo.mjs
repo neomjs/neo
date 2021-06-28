@@ -67,13 +67,13 @@ Neo = self.Neo = Object.assign({
             proto = proto.__proto__;
         }
 
-        config       = baseCfg       ? baseCfg       : {};
-        staticConfig = baseStaticCfg ? baseStaticCfg : {};
+        config       = baseCfg       || {};
+        staticConfig = baseStaticCfg || {};
 
         protos.forEach(element => {
             ctor = element.constructor;
-            let cfg       = ctor.getConfig       && ctor.getConfig()       || {},
-                staticCfg = ctor.getStaticConfig && ctor.getStaticConfig() || {},
+            let cfg       = ctor.getConfig      ?.() || {},
+                staticCfg = ctor.getStaticConfig?.() || {},
                 mixins;
 
             if (cfg) {
@@ -105,7 +105,7 @@ Neo = self.Neo = Object.assign({
 
             mixins = config.hasOwnProperty('mixins') && config.mixins || [];
 
-            if (staticCfg && staticCfg.observable) {
+            if (staticCfg?.observable) {
                 mixins.push('Neo.core.Observable');
             }
 
@@ -164,7 +164,7 @@ Neo = self.Neo = Object.assign({
     applyFromNs(target, namespace, config, bind) {
         let fnName;
 
-        if (target && config && typeof config === 'object') {
+        if (target && Neo.typeOf(config) === 'Object') {
             Object.entries(config).forEach(([key, value]) => {
                 fnName = namespace[value];
                 target[key] = bind ? fnName.bind(namespace) : fnName;
@@ -202,7 +202,7 @@ Neo = self.Neo = Object.assign({
      * @returns {Object} target
      */
     assignDefaults(target, defaults) {
-        if (target && defaults && typeof defaults === 'object') {
+        if (target && Neo.typeOf(defaults) === 'Object') {
             Object.entries(defaults).forEach(([key, value]) => {
                 if (!target.hasOwnProperty(key)) {
                     target[key] = value;
@@ -310,12 +310,13 @@ Neo = self.Neo = Object.assign({
      * @tutorial 02_ClassSystem
      */
     create(className, config) {
-        let cls, instance;
+        let type = Neo.typeOf(className),
+            cls, instance;
 
-        if (typeof className === 'function' && undefined !== className.constructor) {
+        if (type === 'NeoClass') {
             cls = className;
         } else {
-            if (typeof className === 'object') {
+            if (type === 'Object') {
                 config = className;
 
                 if (!config.className && !config.module) {
@@ -324,7 +325,7 @@ Neo = self.Neo = Object.assign({
                     return null;
                 }
 
-                className = config.className ? config.className : config.module.prototype.className;
+                className = config.className || config.module.prototype.className;
             }
 
             if (!exists(className)) {
@@ -413,64 +414,30 @@ Neo = self.Neo = Object.assign({
     /**
      *
      * @param {*} item
-     * @returns {String}
+     * @returns {String|null}
      */
     typeOf(item) {
-        switch (typeof item) {
-            case 'bigint' : return 'BigInt';
-            case 'boolean': return 'Boolean';
-            case 'number' : return 'Number';
-            case 'string' : return 'String';
-            case 'symbol' : return 'Symbol';
+        if (item === null || item === undefined) {
+            return null;
+        }
 
+        switch (typeof item) {
             case 'function': {
-                if (item.prototype && item.prototype.constructor.isClass) {
+                if (item.prototype?.constructor.isClass) {
                     return 'NeoClass';
                 }
 
-                return 'Function';
+                break;
             }
 
             case 'object': {
-                if (Array.isArray(item)) {
-                    return 'Array';
+                if (item.constructor.isClass && item instanceof Neo.core.Base) {
+                    return 'NeoInstance';
                 }
-
-                if (item instanceof Date) {
-                    return 'Date';
-                }
-
-                if (item instanceof Intl.DateTimeFormat) {
-                    return 'Intl.DateTimeFormat';
-                }
-
-                if (item instanceof Map) {
-                    return 'Map';
-                }
-
-                if (item instanceof RegExp) {
-                    return 'RegExp';
-                }
-
-                if (item instanceof Set) {
-                    return 'Set';
-                }
-
-                if (!item) {
-                    return 'Null';
-                }
-
-                if (item.constructor.isClass) {
-                    if (item instanceof Neo.core.Base) {
-                        return 'NeoInstance';
-                    }
-                }
-
-                return 'Object';
             }
         }
 
-        return 'Undefined';
+        return item.constructor.name;
     }
 }, Neo);
 
@@ -672,7 +639,7 @@ function mixinProperty(proto, mixinProto) {
         if (~ignoreMixin.indexOf(key)) {
             return;
         }
-        if (proto[key] && proto[key]._from) {
+        if (proto[key]?._from) {
             if (mixinProto.className === proto[key]._from) {
                 console.warn('Mixin set multiple times or already defined on a Base Class', proto.className, mixinProto.className, key);
                 return;

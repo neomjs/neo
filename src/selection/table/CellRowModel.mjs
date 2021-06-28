@@ -92,7 +92,7 @@ class CellRowModel extends CellModel {
     onCellClick(data) {
         let me   = this,
             node = RowModel.getRowNode(data.path), // we could add a separate export for this method
-            id   = node && node.id;
+            id   = node?.id;
 
         if (id) {
             me.deselectAllRows(true);

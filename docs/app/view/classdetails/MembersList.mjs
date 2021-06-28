@@ -131,7 +131,7 @@ class MembersList extends Base {
      * @returns {Object} vdom
      */
     applyConfigsHeader(store, vdom) {
-        if (store.items[0] && store.items[0].kind === 'member') {
+        if (store.items[0]?.kind === 'member') {
             vdom.cn.push({
                 // scrolling placeholder
             }, {
@@ -155,8 +155,7 @@ class MembersList extends Base {
     applyEventsHeader(item, index, store, vdom) {
         if (
             item.kind === 'event' &&
-            store.items[index -1] &&
-            store.items[index -1].kind !== 'event'
+            store.items[index -1]?.kind !== 'event'
         ) {
             vdom.cn.push({
                 // scrolling placeholder
@@ -184,8 +183,7 @@ class MembersList extends Base {
             item.kind === 'function' &&
             (
                 !store.items[index -1] || (
-                    store.items[index -1] &&
-                    store.items[index -1].kind !== 'function'
+                    store.items[index -1]?.kind !== 'function'
                 )
             )
         ) {
@@ -246,7 +244,7 @@ class MembersList extends Base {
             }
 
             // configs
-            if (item.type && item.type.names) {
+            if (item.type?.names) {
                 headerText += (': {' + MembersList.escapeHtml(item.type.names.join('|')) + '}');
             }
 
@@ -310,7 +308,7 @@ class MembersList extends Base {
                 }]
             };
 
-            if (item.examples && item.examples.length > 0) {
+            if (item.examples?.length > 0) {
                 hasExamples = true;
 
                 item.examples.forEach(example => {
@@ -324,7 +322,7 @@ class MembersList extends Base {
                 });
             }
 
-            if (item.params && item.params.length > 0) {
+            if (item.params?.length > 0) {
                 itemConfig.cn.push(MembersList.createParametersTable(item.params));
             }
 

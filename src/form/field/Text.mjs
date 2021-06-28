@@ -637,7 +637,7 @@ class Text extends Base {
      */
     getCenterBorderEl() {
         let el = VDomUtil.findVdomChild(this.vdom, {cls: 'neo-center-border'});
-        return el && el.vdom;
+        return el?.vdom;
     }
 
     /**
@@ -646,7 +646,7 @@ class Text extends Base {
      */
     getInputEl() {
         let el = VDomUtil.findVdomChild(this.vdom, {flag: 'neo-real-input'});
-        return el && el.vdom;
+        return el?.vdom;
     }
 
     /**
@@ -682,7 +682,7 @@ class Text extends Base {
      */
     getLabelEl() {
         let el = VDomUtil.findVdomChild(this.vdom, {tag: 'label'});
-        return el && el.vdom;
+        return el?.vdom;
     }
 
     /**
@@ -759,7 +759,7 @@ class Text extends Base {
      * @returns {Boolean}
      */
     isEmpty() {
-        return !(this.value && this.value.toString().length > 0);
+        return !(this.value?.toString().length > 0);
     }
 
     /**
@@ -769,7 +769,7 @@ class Text extends Base {
     isValid() {
         let me = this;
 
-        if (me.required && (!me.value || me.value && me.value.length < 1)) {
+        if (me.required && (!me.value || me.value?.length < 1)) {
             return false;
         }
 
@@ -957,8 +957,8 @@ class Text extends Base {
      */
     updateTriggerVnodes() {
         let me           = this,
-            triggerRoot  = me.vnode && me.vnode.childNodes[1],
-            childNodes   = triggerRoot && triggerRoot.childNodes || [],
+            triggerRoot  = me.vnode?.childNodes[1],
+            childNodes   = triggerRoot?.childNodes || [],
             trigger;
 
         childNodes.forEach(vnode => {

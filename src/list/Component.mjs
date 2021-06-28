@@ -18,7 +18,7 @@ class Component extends Base {
          */
         ntype: 'component-list',
         /**
-         * @member {Neo.form.field.CheckBox[]|null} items=null
+         * @member {Neo.component.Base[]|null} items=null
          */
         items: null
     }}

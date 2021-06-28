@@ -336,9 +336,9 @@ class Base extends Component {
     getItemRecordId(vnodeId) {
         let itemId   = vnodeId.split('__')[1],
             model    = this.store.model,
-            keyField = model && model.getField(model.keyProperty);
+            keyField = model?.getField(model.keyProperty);
 
-        if (keyField && (keyField.type.toLowerCase() === 'integer' || keyField.type.toLowerCase() === 'number')) {
+        if (keyField?.type.toLowerCase() === 'integer' || keyField?.type.toLowerCase() === 'number') {
             itemId = parseInt(itemId);
         }
 
@@ -366,7 +366,7 @@ class Base extends Component {
         } else {
             for (item of data.path) {
                 if (item.cls.includes(me.itemCls)) {
-                    me.onItemClick(item);
+                    me.onItemClick(item, data);
                     break;
                 }
             }
@@ -402,8 +402,9 @@ class Base extends Component {
     /**
      *
      * @param {Object} node
+     * @param {Object} data
      */
-    onItemClick(node) {
+    onItemClick(node, data) {
         let me = this;
 
         if (!me.disableSelection && me.selectionModel) {

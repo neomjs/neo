@@ -67,7 +67,7 @@ class HierarchyTreeList extends TreeList {
 
         tmpItems.unshift(item);
 
-        while (item && item.hasOwnProperty('augments')) {
+        while (item?.hasOwnProperty('augments')) {
             item = mainStore.find({
                 $kind       : 'class',
                 neoClassName: item.augments[0]

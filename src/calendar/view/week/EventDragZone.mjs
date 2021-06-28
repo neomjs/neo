@@ -148,7 +148,7 @@ class EventDragZone extends DragZone {
             let me = this;
 
             // check if the node did not get removed yet
-            if (me.dragProxy && me.dragProxy.vdom.cn[0].id) {
+            if (me.dragProxy?.vdom.cn[0].id) {
                 Neo.applyDeltas(me.appName, {
                     action  : 'moveNode',
                     id      : me.dragProxy.id,
@@ -166,7 +166,7 @@ class EventDragZone extends DragZone {
     createDragProxy(data) {
         let me        = this,
             component = Neo.getComponent(me.getDragElementRoot().id) || me.owner,
-            vdom      = me.dragProxyConfig && me.dragProxyConfig.vdom,
+            vdom      = me.dragProxyConfig?.vdom,
             clone     = VDomUtil.clone(vdom ? vdom : me.dragElement);
 
             clone.cn[2].removeDom = false;

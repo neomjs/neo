@@ -357,9 +357,10 @@ class Tree extends Base {
 
     /**
      *
+     * @param {Object} node
      * @param {Object} data
      */
-    onItemClick(data) {
+    onItemClick(node, data) {
         let me    = this,
             vdom  = me.vdom,
             items = me.store.items,
@@ -380,7 +381,7 @@ class Tree extends Base {
         }
 
         if (item) {
-            if (item.cls && item.cls.includes('neo-list-folder')) {
+            if (item.cls?.includes('neo-list-folder')) {
                 NeoArray.toggle(item.cls, 'neo-folder-open');
                 me.vdom = vdom;
             } else {
@@ -395,7 +396,7 @@ class Tree extends Base {
                 me.fire('leafItemClick', record);
             }
 
-            super.onItemClick(data);
+            super.onItemClick(node, data);
         }
     }
 

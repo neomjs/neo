@@ -64,7 +64,7 @@ class Xhr extends Base {
             request = me.requests[id],
             cb      = request.callback;
 
-        cb && cb.apply(request.scope || me, [me.getResponse(e), false]);
+        cb?.apply(request.scope || me, [me.getResponse(e), false]);
 
         Object.entries(request).forEach(([key, value]) => {
             request[key] = null;
@@ -83,7 +83,7 @@ class Xhr extends Base {
             request = me.requests[id],
             cb      = request.callback;
 
-        cb && cb.apply(request.scope || me, [me.getResponse(e), true]);
+        cb?.apply(request.scope || me, [me.getResponse(e), true]);
 
         Object.entries(request).forEach(([key, value]) => {
             request[key] = null;

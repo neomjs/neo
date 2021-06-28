@@ -205,7 +205,7 @@ class MainContainerController extends ComponentController {
         }).then(data => {
             me.profileComponent.update({
                 ...data.json.profile,
-                myProfile: data.json.profile.username === (me.currentUser && me.currentUser.username)
+                myProfile: data.json.profile.username === (me.currentUser?.username)
             });
         });
     }

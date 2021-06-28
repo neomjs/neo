@@ -174,7 +174,7 @@ class Component extends BaseComponent {
         me.createCommentComponent = Neo.create({
             module   : CreateCommentComponent,
             parentId : me.id,
-            userImage: currentUser && currentUser.image || null
+            userImage: currentUser?.image || null
         });
 
         VDomUtil.getByFlag(vdom, 'comments-section').cn.unshift(me.createCommentComponent.vdom);

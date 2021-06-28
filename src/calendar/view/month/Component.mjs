@@ -186,13 +186,13 @@ class Component extends BaseComponent {
     afterSetCalendarStore(value, oldValue) {
         let me = this;
 
-        oldValue && oldValue.un({
+        oldValue?.un({
             load        : me.onCalendarStoreLoad,
             recordChange: me.onCalendarStoreRecordChange,
             scope       : me
         });
 
-        value && value.on({
+        value?.on({
             load        : me.onCalendarStoreLoad,
             recordChange: me.onCalendarStoreRecordChange,
             scope       : me
@@ -256,8 +256,8 @@ class Component extends BaseComponent {
     afterSetEventStore(value, oldValue) {
         let me = this;
 
-        oldValue && oldValue.un('load', me.onEventStoreLoad, me);
-        value    && value   .on('load', me.onEventStoreLoad, me);
+        oldValue?.un('load', me.onEventStoreLoad, me);
+        value   ?.on('load', me.onEventStoreLoad, me);
     }
 
     /**
@@ -615,13 +615,13 @@ class Component extends BaseComponent {
             path    = data.path;
 
         if (oldPath) {
-            if (oldPath[0].cls && oldPath[0].cls.includes('neo-event')) {
+            if (oldPath[0]?.cls.includes('neo-event')) {
                 Neo.applyDeltas(this.appName, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
             }
         }
 
         if (path) {
-            if (path[0].cls && path[0].cls.includes('neo-event')) {
+            if (path[0]?.cls.includes('neo-event')) {
                 Neo.applyDeltas(this.appName, {id: path[0].id, cls: {add: ['neo-focus']}});
             }
         }

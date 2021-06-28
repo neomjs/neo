@@ -38,7 +38,7 @@ class MainContainer extends ConfigurationViewport {
             valueLabelText: 'draggable'
         }, {
             module        : CheckBox,
-            checked       : treeList.dragZone && treeList.dragZone.leafNodesOnly || false,
+            checked       : treeList.dragZone?.leafNodesOnly || false,
             hideLabel     : true,
             hideValueLabel: false,
             listeners     : {change: me.onLeafNodesOnlyChange.bind(me)},

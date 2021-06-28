@@ -51,7 +51,7 @@ class View extends Component {
         let me         = this,
             amountRows = inputData.length,
             container  = Neo.getComponent(me.parentId),
-            hasStore   = container.store && container.store.model, // todo: remove as soon as all tables use stores (examples table)
+            hasStore   = container.store?.model, // todo: remove as soon as all tables use stores (examples table)
             columns    = container.items[0].items,
             colCount   = columns.length,
             data       = [],
@@ -71,14 +71,14 @@ class View extends Component {
             if (me.useRowRecordIds) {
                 id = me.id + '-tr-' + inputData[i][me.store.keyProperty];
             } else {
-                id = vdom.cn[i] && vdom.cn[i].id || Neo.getId('tr');
+                id = vdom.cn[i]?.id || Neo.getId('tr');
             }
 
             me.recordVnodeMap[id] = i;
 
             trCls = me.getTrClass(inputData[i], i);
 
-            if (selectedRows && selectedRows.includes(id)) {
+            if (selectedRows?.includes(id)) {
                 trCls.push('neo-selected');
             }
 
@@ -127,7 +127,7 @@ class View extends Component {
                 if (hasStore) {
                     cellId = me.getCellId(inputData[i], column.dataField);
                 } else {
-                    cellId = vdom.cn[i] && vdom.cn[i].cn[j] && vdom.cn[i].cn[j].id || Neo.getId('td');
+                    cellId = vdom.cn[i]?.cn[j]?.id || Neo.getId('td');
                 }
 
                 config = {

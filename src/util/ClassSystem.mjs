@@ -27,7 +27,7 @@ class ClassSystem extends Base {
 
         if (!config && DefaultClass) {
             config = Neo.create(DefaultClass, defaultValues);
-        } else if (config && config.isClass) {
+        } else if (config?.isClass) {
             config = Neo.create(config, defaultValues);
         } else if (Neo.isObject(config) && !(config instanceof Neo.core.Base)) {
             if (config.ntype) {

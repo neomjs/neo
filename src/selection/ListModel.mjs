@@ -40,7 +40,7 @@ class ListModel extends Model {
         let view = this.view;
 
         if (!view.disableSelection) {
-            view.onKeyDownEnter && view.onKeyDownEnter(this.getSelection()[0]);
+            view.onKeyDownEnter?.(this.getSelection()[0]);
         }
     }
 

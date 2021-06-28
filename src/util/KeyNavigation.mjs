@@ -53,7 +53,7 @@ class KeyNavigation extends Base {
      * @returns {String} the component id
      */
     beforeSetComponent(value) {
-        return value && value.id;
+        return value?.id;
     }
 
     /**
