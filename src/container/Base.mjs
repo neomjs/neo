@@ -191,53 +191,67 @@ class Base extends Component {
             layout   = me.layout,
             vdom     = me.vdom,
             vdomRoot = me.getVdomRoot(),
-            lazyLoadItem, module;
+            lazyLoadItem, module, type;
 
         vdomRoot.cn = [];
 
         items.forEach((item, index) => {
-            // todo: use Neo.typeOf()
+            type = Neo.typeOf(item);
 
-            if (item.constructor.isClass && item instanceof Neo.core.Base) {
-                Object.assign(item, {
-                    appName : me.appName,
-                    parentId: me.id
-                });
-            } else if(item.isClass) {
-                item = Neo.create(item, {
-                    appName : me.appName,
-                    parentId: me.id
-                });
-            } else if (typeof item === 'string') {
-                item = Neo.ntype({
-                    ntype   : 'component',
-                    appName : me.appName,
-                    parentId: me.id,
-                    vdom    : {innerHTML: item}
-                });
-            } else {
-                if (defaults) {
-                    Neo.assignDefaults(item, defaults);
+            switch (type) {
+                case 'NeoClass': {
+                    item = Neo.create(item, {
+                        appName : me.appName,
+                        parentId: me.id
+                    });
+
+                    break;
                 }
 
-                module = item.module;
+                case 'NeoInstance': {
+                    Object.assign(item, {
+                        appName : me.appName,
+                        parentId: me.id
+                    });
 
-                lazyLoadItem = module && !module.isClass && Neo.isFunction(module);
-
-                if (module && !lazyLoadItem) {
-                    item.className = module.prototype.className;
+                    break;
                 }
 
-                Object.assign(item, {
-                    appName : me.appName,
-                    parentId: me.id,
-                    style   : item.style || {}
-                });
+                case 'String': {
+                    item = Neo.create({
+                        module  : Component,
+                        appName : me.appName,
+                        parentId: me.id,
+                        vdom    : {innerHTML: item}
+                    });
 
-                if (!lazyLoadItem) {
-                    item = Neo[item.className ? 'create' : 'ntype'](item);
-                } else {
-                    item.vdom = {removeDom: true};
+                    break;
+                }
+
+                default: { // Object
+                    if (defaults) {
+                        Neo.assignDefaults(item, defaults);
+                    }
+
+                    module = item.module;
+
+                    lazyLoadItem = module && !module.isClass && Neo.isFunction(module);
+
+                    if (module && !lazyLoadItem) {
+                        item.className = module.prototype.className;
+                    }
+
+                    Object.assign(item, {
+                        appName : me.appName,
+                        parentId: me.id,
+                        style   : item.style || {}
+                    });
+
+                    if (!lazyLoadItem) {
+                        item = Neo[item.className ? 'create' : 'ntype'](item);
+                    } else {
+                        item.vdom = {removeDom: true};
+                    }
                 }
             }
 
