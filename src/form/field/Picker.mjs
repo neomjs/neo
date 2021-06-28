@@ -172,7 +172,7 @@ class Picker extends Text {
      * @returns {String}
      */
     getPickerId() {
-        return this.id + '__picker';
+        return `${this.id}__picker`;
     }
 
     /**
