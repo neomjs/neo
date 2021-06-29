@@ -23,7 +23,7 @@ class ColorsList extends List {
             store: 'stores.calendars'
         },
         /**
-         * @member {String[]} cls=['neo-calendars-list','neo-list']
+         * @member {String[]} cls=['neo-calendars-colors-list','neo-list']
          */
         cls: ['neo-calendars-colors-list', 'neo-list']
     }}
@@ -32,10 +32,10 @@ class ColorsList extends List {
      * Override this method for custom renderers
      * @param {Object} record
      * @param {Number} index
-     * @returns {Object[]|String} Either an vdom cn array or a html string
+     * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
      */
     createItemContent(record, index) {
-        return [{cls: ['neo-color-item'], style: {backgroundColor: record.color}}];
+        return {style: {backgroundColor: record.color}};
     }
 }
 
