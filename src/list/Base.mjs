@@ -166,17 +166,15 @@ class Base extends Component {
     afterSetStore(value, oldValue) {
         let me = this;
 
-        if (value) {
-            value.on({
-                filter      : me.onStoreFilter,
-                load        : me.onStoreLoad,
-                recordChange: me.onStoreRecordChange,
-                scope       : me
-            });
+        value?.on({
+            filter      : me.onStoreFilter,
+            load        : me.onStoreLoad,
+            recordChange: me.onStoreRecordChange,
+            scope       : me
+        });
 
-            if (value.getCount() > 0) {
-                me.onStoreLoad();
-            }
+        if (value?.getCount() > 0) {
+            me.onStoreLoad();
         }
     }
 

@@ -25,8 +25,29 @@ class ColorsList extends List {
         /**
          * @member {String[]} cls=['neo-calendars-colors-list','neo-list']
          */
-        cls: ['neo-calendars-colors-list', 'neo-list']
+        cls: ['neo-calendars-colors-list', 'neo-list'],
+        /**
+         * The list gets used as a form field, so we are adjusting the selection based on this config
+         * @member {String} value_=null
+         */
+        value_: null
     }}
+
+    /**
+     * Triggered after the value config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetValue(value, oldValue) {
+        let me = this,
+            record;
+
+        if (value && oldValue !== undefined && !me.disableSelection) {
+            record = me.store.find('name', value)[0];
+            me.selectionModel?.select(me.getItemId(record[me.getKeyProperty()]));
+        }
+    }
 
     /**
      * Override this method for custom renderers
@@ -39,6 +60,20 @@ class ColorsList extends List {
             backgroundColor: `var(--event-${record.name}-color)`,
             color          : `var(--event-${record.name}-color)` // needed for the box-shadow (CSS currentColor)
         }};
+    }
+
+    /**
+     *
+     */
+    onConstructed() {
+        super.onConstructed();
+
+        let me    = this,
+            value = me.value;
+
+        if (value) {
+            me.afterSetValue(value, null);
+        }
     }
 
     /**

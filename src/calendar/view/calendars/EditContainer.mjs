@@ -23,6 +23,14 @@ class EditContainer extends FormContainer {
          */
         cls: ['neo-calendar-edit-container'],
         /**
+         * @member {Neo.calendar.view.calendars.ColorsList|null} colorsList=null
+         */
+        colorsList: null,
+        /**
+         * @member {Object|null} colorsListConfig=null
+         */
+        colorsListConfig: null,
+        /**
          * @member {Object|null} nameFieldConfig=null
          */
         nameFieldConfig: null,
@@ -74,6 +82,8 @@ class EditContainer extends FormContainer {
             me.reset({
                 name: value.name
             });
+
+            me.colorsList.value = value.color;
         } else if (value) {
             me.createItems();
         }
@@ -87,6 +97,16 @@ class EditContainer extends FormContainer {
             record = me.record;
 
         if (record) {
+            me.colorsList = Neo.create({
+                module   : ColorsList,
+                appName  : me.appName,
+                listeners: {change: me.onColorChange, scope: me},
+                parentId : me.parentId,
+                style    : {marginTop: '0.5em'},
+                value    : record.color,
+                ...me.colorsListConfig
+            });
+
             me.items = [{
                 module              : TextField,
                 clearToOriginalValue: true,
@@ -98,11 +118,8 @@ class EditContainer extends FormContainer {
                 required            : true,
                 value               : record.name,
                 ...me.nameFieldConfig
-            }, {
-                module   : ColorsList,
-                listeners: {change: me.onColorChange, scope: me},
-                style    : {marginTop: '0.5em'}
-            }];
+            },
+            me.colorsList];
 
             super.createItems();
         }
@@ -125,9 +142,7 @@ class EditContainer extends FormContainer {
      * @param {Object} data.record
      */
     onColorChange(data) {
-        if (!Neo.isEmpty(data.value)) {
-            this.record.color = data.record.name;
-        }
+        this.record.color = data.record.name;
     }
 
     /**
