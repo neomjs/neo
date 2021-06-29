@@ -58,6 +58,11 @@ class Base extends Component {
          */
         itemCls: 'neo-list-item',
         /**
+         * The type of the node / tag for each list item
+         * @member {String} itemTagName='li'
+         */
+        itemTagName: 'li',
+        /**
          * Additional used keys for the selection model
          * @member {Object} keys
          */
@@ -239,7 +244,7 @@ class Base extends Component {
         }
 
         const item = {
-            tag     : 'li',
+            tag     : me.itemTagName,
             cls     : cls,
             id      : me.getItemId(record[me.getKeyProperty(itemId)]),
             tabIndex: -1
