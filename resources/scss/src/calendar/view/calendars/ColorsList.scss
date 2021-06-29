@@ -3,7 +3,11 @@
         border-radius: 50%;
         display      : inline-block;
         height       : 1.5em;
-        margin-right : 0.2em;
+        margin-right : 0.3em;
         width        : 1.5em;
+
+        &.neo-selected {
+            box-shadow: 0 0 0 3px currentColor;
+        }
     }
 }
