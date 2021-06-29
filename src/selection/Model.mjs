@@ -34,10 +34,10 @@ class Model extends Base {
          */
         cls: null,
         /**
-         * @member {Array} items=[]
+         * @member {Array} items_=null
          * @protected
          */
-        items: [],
+        items_: null,
         /**
          * @member {String} selectedCls='selected'
          */
@@ -55,10 +55,24 @@ class Model extends Base {
     }}
 
     /**
+     * Gets triggered before getting the value of the items config
+     * @param {Array|null} value
+     * @returns {Array}
+     */
+    beforeGetItems(value) {
+        if (!value) {
+            this._items = value = [];
+        }
+
+        return value;
+    }
+
+    /**
      * Gets triggered before getting the value of the view config
+     * @param {String} value
      * @returns {Neo.component.Base}
      */
-    beforeGetView() {
+    beforeGetView(value) {
         return Neo.getComponent(this._view);
     }
 
