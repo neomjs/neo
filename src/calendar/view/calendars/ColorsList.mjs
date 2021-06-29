@@ -35,7 +35,7 @@ class ColorsList extends List {
      * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
      */
     createItemContent(record, index) {
-        return {style: {backgroundColor: record.color}};
+        return {style: {backgroundColor: `var(--event-${record.color}-color)`}};
     }
 }
 
