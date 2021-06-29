@@ -151,7 +151,7 @@ class Model extends Base {
      * @returns {Boolean} true in case the item is selected
      */
     isSelected(id) {
-        return this.items.indexOf(id) > -1;
+        return this.items.includes(id);
     }
 
     /**
