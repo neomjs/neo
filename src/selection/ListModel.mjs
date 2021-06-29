@@ -85,13 +85,15 @@ class ListModel extends Model {
 
         for (node of data.path) {
             if (node.cls.includes(view.itemCls)) {
-                item = node;
+                item = node.id;
                 break;
             }
         }
 
+        item = item || me.items?.[0];
+
         if (item) {
-            recordId = view.getItemRecordId(item.id);
+            recordId = view.getItemRecordId(item);
             index    = store.indexOf(recordId) + step;
 
             if (index < 0) {
