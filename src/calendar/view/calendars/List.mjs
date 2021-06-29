@@ -73,7 +73,16 @@ class List extends ComponentList {
 
         me.items = items;
 
-        return [checkBox.vdom, {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit']}];
+        return [checkBox.vdom, {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit'], id: me.getEditIconId(id)}];
+    }
+
+    /**
+     *
+     * @param {Number|String} recordId
+     * @returns {String}
+     */
+    getEditIconId(recordId) {
+        return `${this.id}__${recordId}`;
     }
 
     /**
