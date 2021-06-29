@@ -126,7 +126,7 @@ class EditContainer extends FormContainer {
      */
     onColorChange(data) {
         if (!Neo.isEmpty(data.value)) {
-            this.record.color = data.record.color;
+            this.record.color = data.record.name;
         }
     }
 

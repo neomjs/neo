@@ -16,9 +16,12 @@ class Colors extends Store {
          * @member {Object[]} data=
          */
         data: [
-            {id: 1, color: 'red'},
-            {id: 2, color: 'pink'},
-            {id: 3, color: 'yellow'}
+            {id: 1, name: 'red'},
+            {id: 2, name: 'pink'},
+            {id: 3, name: 'orange'},
+            {id: 4, name: 'yellow'},
+            {id: 5, name: 'green'},
+            {id: 6, name: 'blue'}
         ],
         /**
          * @member {String} keyProperty='id'

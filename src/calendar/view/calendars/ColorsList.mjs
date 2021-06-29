@@ -20,7 +20,7 @@ class ColorsList extends List {
          * @member {Object} bind
          */
         bind: {
-            store: 'stores.calendars'
+            store: 'stores.colors'
         },
         /**
          * @member {String[]} cls=['neo-calendars-colors-list','neo-list']
@@ -34,10 +34,10 @@ class ColorsList extends List {
      * @param {Number} index
      * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
      */
-    createItemContent(record, index) {
+    createItemContent(record, index) {console.log(record);
         return {style: {
-            backgroundColor: `var(--event-${record.color}-color)`,
-            color          : `var(--event-${record.color}-color)` // needed for the box-shadow (CSS currentColor)
+            backgroundColor: `var(--event-${record.name}-color)`,
+            color          : `var(--event-${record.name}-color)` // needed for the box-shadow (CSS currentColor)
         }};
     }
 
