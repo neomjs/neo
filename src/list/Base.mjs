@@ -455,7 +455,13 @@ class Base extends Component {
      *
      */
     onStoreRecordChange(data) {
-        // console.log('onStoreRecordChange', data);
+        let me    = this,
+            index = data.index,
+            vdom  = me.vdom;
+
+        vdom.cn[index] = me.createItem(data.record, index);
+
+        me.vdom = vdom;
     }
 
     /**
