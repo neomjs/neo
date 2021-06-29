@@ -221,6 +221,8 @@ class Model extends Base {
         NeoArray.add(itemCollection || me.items, items);
 
         view[view.hasOwnProperty('silentSelect') && view.silentSelect === true ? '_vdom' : 'vdom'] = vdom;
+
+        view.onSelect?.(items);
     }
 
     /**
