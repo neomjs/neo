@@ -163,9 +163,10 @@ class Base extends Component {
 
         if (value) {
             value.on({
-                filter: me.onStoreFilter,
-                load  : me.onStoreLoad,
-                scope : me
+                filter      : me.onStoreFilter,
+                load        : me.onStoreLoad,
+                recordChange: me.onStoreRecordChange,
+                scope       : me
             });
 
             if (value.getCount() > 0) {
@@ -441,6 +442,19 @@ class Base extends Component {
         } else {
             me.createItems();
         }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.field
+     * @param {Neo.model.Component} data.model
+     * @param {*} data.oldValue
+     * @param {Object} data.record
+     * @param {*} data.value
+     *
+     */
+    onStoreRecordChange(data) {
+        // console.log('onStoreRecordChange', data);
     }
 
     /**

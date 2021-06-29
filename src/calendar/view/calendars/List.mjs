@@ -103,8 +103,6 @@ class List extends ComponentList {
                 record                = me.store.get(me.getItemRecordId(data.path[1].id)),
                 style                 = editCalendarContainer.style;
 
-            console.log(data.path);
-
             Object.assign(style, {
                 left: `${listItemRect.right + 13}px`,
                 top : `${listItemRect.top   - 10}px`,
