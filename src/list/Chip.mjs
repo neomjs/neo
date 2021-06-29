@@ -22,16 +22,17 @@ class Chip extends ComponentList {
          */
         cls: ['neo-chip-list', 'neo-list'],
         /**
-         * @member {String} itemCls='neo-chip'
-         */
-        itemCls: 'neo-chip',
-        /**
          * @member {Object} itemDefaults
          */
         itemDefaults: {
             module : ChipComponent,
             iconCls: 'fa fa-home'
         },
+        /**
+         * The type of the node / tag for each list item
+         * @member {String} itemTagName='div'
+         */
+        itemTagName: 'div',
         /**
          * True will flex each list item horizontally
          * @member {Boolean} stacked_=true
@@ -62,12 +63,12 @@ class Chip extends ComponentList {
     }
 
     /**
-     * Override this method for custom list items
+     * Override this method for custom renderers
      * @param {Object} record
      * @param {Number} index
-     * @returns {Object} The list item object
+     * @returns {Object[]|String} Either an vdom cn array or a html string
      */
-    createItem(record, index) {
+    createItemContent(record, index) {
         let me       = this,
             id       = record[me.store.keyProperty],
             items    = me.items || [],
@@ -84,7 +85,6 @@ class Chip extends ComponentList {
         } else {
             items[index] = listItem = Neo.create({
                 appName  : me.appName,
-                cls      : [me.itemCls],
                 parentId : me.id,
                 tabIndex : -1,
                 ...me.itemDefaults,
@@ -94,7 +94,7 @@ class Chip extends ComponentList {
 
         me.items = items;
 
-        return listItem.vdom;
+        return [listItem.vdom];
     }
 }
 
