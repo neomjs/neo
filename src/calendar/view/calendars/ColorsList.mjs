@@ -34,7 +34,7 @@ class ColorsList extends List {
      * @param {Number} index
      * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
      */
-    createItemContent(record, index) {console.log(record);
+    createItemContent(record, index) {
         return {style: {
             backgroundColor: `var(--event-${record.name}-color)`,
             color          : `var(--event-${record.name}-color)` // needed for the box-shadow (CSS currentColor)

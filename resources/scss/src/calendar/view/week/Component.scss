@@ -75,9 +75,14 @@
         padding         : .2em .4em;;
         position        : absolute;
 
-        transition-duration       : 400ms;
-        transition-property       : height, top, width;
-        transition-timing-function: ease-out;
+
+        transition:
+            background-color .15s ease-out,
+            border-color     .15s ease-out,
+            color            .15s ease-out,
+            height           .4s  ease-out,
+            top              .4s  ease-out,
+            width            .4s  ease-out;
 
         &.neo-focus {
             color  : #fff;
