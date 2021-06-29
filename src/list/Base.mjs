@@ -223,16 +223,25 @@ class Base extends Component {
      * Override this method for custom list items
      * @param {Object} record
      * @param {Number} index
-     * @returns {Object} The list item object
+     * @returns {Object} The list item vdom object
      */
     createItem(record, index) {
-        let me          = this,
-            itemContent = me.createItemContent(record, index);
+        let me             = this,
+            cls            = [me.itemCls],
+            itemContent    = me.createItemContent(record, index),
+            itemId         = me.getItemId(record[me.getKeyProperty()]),
+            selectionModel = me.selectionModel;
+
+        if (!me.disableSelection && selectionModel) {
+            if (selectionModel.isSelected(itemId)) {
+                cls.push(selectionModel.selectedCls);
+            }
+        }
 
         const item = {
             tag     : 'li',
-            cls     : [me.itemCls],
-            id      : me.getItemId(record[me.getKeyProperty()]),
+            cls     : cls,
+            id      : me.getItemId(record[me.getKeyProperty(itemId)]),
             tabIndex: -1
         };
 
