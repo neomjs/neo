@@ -447,7 +447,8 @@ class Base extends Component {
     /**
      * @param {Object} data
      * @param {String} data.field
-     * @param {Neo.model.Component} data.model
+     * @param {Number} data.index
+     * @param {Neo.data.Model} data.model
      * @param {*} data.oldValue
      * @param {Object} data.record
      * @param {*} data.value
