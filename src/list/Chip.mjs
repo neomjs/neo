@@ -81,7 +81,7 @@ class Chip extends ComponentList {
             };
 
         if (listItem) {
-            listItem.set(config);
+            listItem.setSilent(config);
         } else {
             items[index] = listItem = Neo.create({
                 appName  : me.appName,

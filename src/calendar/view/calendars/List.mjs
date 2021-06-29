@@ -60,7 +60,7 @@ class List extends ComponentList {
         };
 
         if (checkBox) {
-            checkBox.set(config);
+            checkBox.setSilent(config);
         } else {
             items[index] = checkBox = Neo.create({
                 appName  : me.appName,
