@@ -336,11 +336,11 @@ class Base extends Component {
 
     /**
      *
-     * @param {Number|String} id
+     * @param {Number|String} recordId
      * @returns {String}
      */
-    getItemId(id) {
-        return `${this.id}__${id}`;
+    getItemId(recordId) {
+        return `${this.id}__${recordId}`;
     }
 
     /**
