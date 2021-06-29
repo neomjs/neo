@@ -99,8 +99,9 @@ class EditContainer extends FormContainer {
                 value               : record.name,
                 ...me.nameFieldConfig
             }, {
-                module: ColorsList,
-                style : {marginTop: '0.5em'}
+                module   : ColorsList,
+                listeners: {change: me.onColorChange, scope: me},
+                style    : {marginTop: '0.5em'}
             }];
 
             super.createItems();
@@ -116,6 +117,17 @@ class EditContainer extends FormContainer {
         setTimeout(() => {
             // this.unmount();
         }, 100)
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Object} data.record
+     */
+    onColorChange(data) {
+        if (!Neo.isEmpty(data.value)) {
+            this.record.color = data.record.color;
+        }
     }
 
     /**

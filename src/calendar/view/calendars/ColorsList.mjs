@@ -40,6 +40,19 @@ class ColorsList extends List {
             color          : `var(--event-${record.color}-color)` // needed for the box-shadow (CSS currentColor)
         }};
     }
+
+    /**
+     * Gets triggered from selection.Model: select()
+     * @param {String[]} items
+     */
+    onSelect(items) {
+        let me       = this,
+            recordId = me.getItemRecordId(items[0]);
+
+        me.fire('change', {
+            record: me.store.get(recordId)
+        });
+    }
 }
 
 Neo.applyClassConfig(ColorsList);
