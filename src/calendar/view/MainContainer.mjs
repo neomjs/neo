@@ -72,6 +72,10 @@ class MainContainer extends Container {
          */
         cls: ['neo-calendar-maincontainer', 'neo-container'],
         /**
+         * @member {Object|null} colorStoreConfig_=null
+         */
+        colorStoreConfig_: null,
+        /**
          * The currently active date inside all views
          * @member {Date} currentDate_=new Date()
          */

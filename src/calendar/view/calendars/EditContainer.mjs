@@ -1,3 +1,4 @@
+import ColorsList    from './ColorsList.mjs';
 import FormContainer from '../../../form/Container.mjs';
 import TextField     from '../../../form/field/Text.mjs';
 
@@ -21,6 +22,14 @@ class EditContainer extends FormContainer {
          * @member {String[]} cls=['neo-calendar-edit-container']
          */
         cls: ['neo-calendar-edit-container'],
+        /**
+         * @member {Neo.calendar.view.calendars.ColorsList|null} colorsList=null
+         */
+        colorsList: null,
+        /**
+         * @member {Object|null} colorsListConfig=null
+         */
+        colorsListConfig: null,
         /**
          * @member {Object|null} nameFieldConfig=null
          */
@@ -73,6 +82,8 @@ class EditContainer extends FormContainer {
             me.reset({
                 name: value.name
             });
+
+            me.colorsList.value = value.color;
         } else if (value) {
             me.createItems();
         }
@@ -86,6 +97,16 @@ class EditContainer extends FormContainer {
             record = me.record;
 
         if (record) {
+            me.colorsList = Neo.create({
+                module   : ColorsList,
+                appName  : me.appName,
+                listeners: {change: me.onColorChange, scope: me},
+                parentId : me.parentId,
+                style    : {marginTop: '0.5em'},
+                value    : record.color,
+                ...me.colorsListConfig
+            });
+
             me.items = [{
                 module              : TextField,
                 clearToOriginalValue: true,
@@ -97,7 +118,8 @@ class EditContainer extends FormContainer {
                 required            : true,
                 value               : record.name,
                 ...me.nameFieldConfig
-            }];
+            },
+            me.colorsList];
 
             super.createItems();
         }
@@ -112,6 +134,15 @@ class EditContainer extends FormContainer {
         setTimeout(() => {
             this.unmount();
         }, 100)
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Object} data.record
+     */
+    onColorChange(data) {
+        this.record.color = data.record.name;
     }
 
     /**

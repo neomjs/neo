@@ -24,10 +24,10 @@ class Container extends BaseContainer {
          */
         cls: ['neo-form-container'],
         /**
-         * @member {Object} vdom={tag: 'form',cn: []}
+         * @member {Object} vdom={tag: 'form',cn: [],onsubmit:'return false;'}
          */
         vdom:
-        {tag: 'form', cn: []}
+        {tag: 'form', cn: [], onsubmit: 'return false;'}
     }}
 
     /**

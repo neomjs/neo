@@ -462,7 +462,7 @@ class Component extends BaseComponent {
             vdom              = me.vdom,
             timeAxisContainer = me.getColumnTimeAxisContainer();
 
-        NeoArray[value === 'end' ? 'add' : 'remove'](cls,  'neo-timeaxis-end');
+        NeoArray[value === 'end' ? 'add' : 'remove'](cls, 'neo-timeaxis-end');
 
         if (oldValue !== undefined) {
             timeAxisContainer.cn.unshift(timeAxisContainer.cn.pop()); // switch the order of the 2 items

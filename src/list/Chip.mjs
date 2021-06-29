@@ -66,7 +66,7 @@ class Chip extends ComponentList {
      * Override this method for custom renderers
      * @param {Object} record
      * @param {Number} index
-     * @returns {Object[]|String} Either an vdom cn array or a html string
+     * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
      */
     createItemContent(record, index) {
         let me       = this,

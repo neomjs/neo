@@ -1,4 +1,5 @@
 import CalendarsStore from '../store/Calendars.mjs';
+import ColorsStore    from '../store/Colors.mjs';
 import EventsStore    from '../store/Events.mjs';
 import Component      from '../../../src/model/Component.mjs';
 
@@ -119,6 +120,14 @@ class MainContainerModel extends Component {
             calendars: {
                 module: CalendarsStore,
                 ...component.calendarStoreConfig
+            },
+            /**
+             * config object for {Neo.calendar.store.ColorsStore}
+             * @member {Object} stores.colors
+             */
+            colors: {
+                module: ColorsStore,
+                ...component.colorStoreConfig
             },
             /**
              * config object for {Neo.calendar.store.Events}

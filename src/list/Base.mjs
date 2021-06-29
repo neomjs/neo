@@ -166,17 +166,15 @@ class Base extends Component {
     afterSetStore(value, oldValue) {
         let me = this;
 
-        if (value) {
-            value.on({
-                filter      : me.onStoreFilter,
-                load        : me.onStoreLoad,
-                recordChange: me.onStoreRecordChange,
-                scope       : me
-            });
+        value?.on({
+            filter      : me.onStoreFilter,
+            load        : me.onStoreLoad,
+            recordChange: me.onStoreRecordChange,
+            scope       : me
+        });
 
-            if (value.getCount() > 0) {
-                me.onStoreLoad();
-            }
+        if (value?.getCount() > 0) {
+            me.onStoreLoad();
         }
     }
 
@@ -235,7 +233,8 @@ class Base extends Component {
             cls            = [me.itemCls],
             itemContent    = me.createItemContent(record, index),
             itemId         = me.getItemId(record[me.getKeyProperty()]),
-            selectionModel = me.selectionModel;
+            selectionModel = me.selectionModel,
+            item;
 
         if (!me.disableSelection && selectionModel) {
             if (selectionModel.isSelected(itemId)) {
@@ -243,14 +242,28 @@ class Base extends Component {
             }
         }
 
-        const item = {
+        item = {
             tag     : me.itemTagName,
             cls     : cls,
             id      : me.getItemId(record[me.getKeyProperty(itemId)]),
             tabIndex: -1
         };
 
-        item[typeof itemContent === 'string' ? 'html' : 'cn'] = itemContent;
+        switch (Neo.typeOf(itemContent)) {
+            case 'Array': {
+                item.cn = itemContent;
+                break;
+            }
+
+            case 'Object': {
+                Object.assign(item, itemContent);
+                break;
+            }
+
+            case 'String': {
+                item.html = itemContent;
+            }
+        }
 
         return item;
     }
@@ -259,7 +272,7 @@ class Base extends Component {
      * Override this method for custom renderers
      * @param {Object} record
      * @param {Number} index
-     * @returns {Object[]|String} Either an vdom cn array or a html string
+     * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
      */
     createItemContent(record, index) {
         let me       = this,

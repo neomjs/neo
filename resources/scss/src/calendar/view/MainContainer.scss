@@ -25,6 +25,11 @@
 }
 
 .neo-event {
+    transition:
+        background-color .15s ease-out,
+        border-color     .15s ease-out,
+        color            .15s ease-out;
+
     &.neo-blue {
         background-color: v(event-blue-background-color);
         border-left     : 2px solid v(event-blue-color);
