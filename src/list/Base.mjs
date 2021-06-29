@@ -340,7 +340,7 @@ class Base extends Component {
      * @returns {String}
      */
     getItemId(id) {
-        return this.id + '__' + id;
+        return `${this.id}__${id}`;
     }
 
     /**
