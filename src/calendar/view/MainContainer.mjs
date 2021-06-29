@@ -1,10 +1,11 @@
-import CalendarsContainer from './calendars/Container.mjs';
-import Container          from '../../container/Base.mjs';
-import DateSelector       from '../../component/DateSelector.mjs';
-import DateUtil           from '../../util/Date.mjs';
-import EditEventContainer from './EditEventContainer.mjs';
-import MainContainerModel from './MainContainerModel.mjs';
-import Toolbar            from '../../container/Toolbar.mjs';
+import CalendarsContainer    from './calendars/Container.mjs';
+import Container             from '../../container/Base.mjs';
+import DateSelector          from '../../component/DateSelector.mjs';
+import DateUtil              from '../../util/Date.mjs';
+import EditCalendarContainer from './calendars/EditContainer.mjs';
+import EditEventContainer    from './EditEventContainer.mjs';
+import MainContainerModel    from './MainContainerModel.mjs';
+import Toolbar               from '../../container/Toolbar.mjs';
 
 const todayDate = new Date();
 
@@ -91,6 +92,15 @@ class MainContainer extends Container {
          * @member {Object|null} dayComponentConfig=null
          */
         dayComponentConfig: null,
+        /**
+         * Read only
+         * @member {Neo.calendar.view.calendars.EditContainer|null} editCalendarContainer_=null
+         */
+        editCalendarContainer_: null,
+        /**
+         * @member {Object|null} editCalendarContainerConfig=null
+         */
+        editCalendarContainerConfig: null,
         /**
          * Read only
          * @member {Neo.calendar.view.EditEventContainer|null} editEventContainer_=null
@@ -363,6 +373,28 @@ class MainContainer extends Container {
             me.items[1]         .removeLast();
             me.items[0].items[1].removeLast();
         }
+    }
+
+    /**
+     * Gets triggered before getting the value of the editCalendarContainer config
+     * @param {Neo.calendar.view.calendars.EditContainer|null} value
+     * @returns {Neo.calendar.view.calendars.EditContainer}
+     */
+    beforeGetEditCalendarContainer(value) {
+        if (!value) {
+            let me = this;
+
+            me._editCalendarContainer = value = Neo.create({
+                module : EditCalendarContainer,
+                appName: me.appName,
+                model  : {parent: me.getModel()},
+                owner  : me,
+                width  : 250,
+                ...me.editEventContainerConfig
+            });
+        }
+
+        return value;
     }
 
     /**

@@ -58,6 +58,11 @@ class Base extends Component {
          */
         itemCls: 'neo-list-item',
         /**
+         * The type of the node / tag for each list item
+         * @member {String} itemTagName='li'
+         */
+        itemTagName: 'li',
+        /**
          * Additional used keys for the selection model
          * @member {Object} keys
          */
@@ -163,9 +168,10 @@ class Base extends Component {
 
         if (value) {
             value.on({
-                filter: me.onStoreFilter,
-                load  : me.onStoreLoad,
-                scope : me
+                filter      : me.onStoreFilter,
+                load        : me.onStoreLoad,
+                recordChange: me.onStoreRecordChange,
+                scope       : me
             });
 
             if (value.getCount() > 0) {
@@ -222,16 +228,25 @@ class Base extends Component {
      * Override this method for custom list items
      * @param {Object} record
      * @param {Number} index
-     * @returns {Object} The list item object
+     * @returns {Object} The list item vdom object
      */
     createItem(record, index) {
-        let me          = this,
-            itemContent = me.createItemContent(record, index);
+        let me             = this,
+            cls            = [me.itemCls],
+            itemContent    = me.createItemContent(record, index),
+            itemId         = me.getItemId(record[me.getKeyProperty()]),
+            selectionModel = me.selectionModel;
+
+        if (!me.disableSelection && selectionModel) {
+            if (selectionModel.isSelected(itemId)) {
+                cls.push(selectionModel.selectedCls);
+            }
+        }
 
         const item = {
-            tag     : 'li',
-            cls     : [me.itemCls],
-            id      : me.getItemId(record[me.getKeyProperty()]),
+            tag     : me.itemTagName,
+            cls     : cls,
+            id      : me.getItemId(record[me.getKeyProperty(itemId)]),
             tabIndex: -1
         };
 
@@ -321,11 +336,11 @@ class Base extends Component {
 
     /**
      *
-     * @param {Number|String} id
+     * @param {Number|String} recordId
      * @returns {String}
      */
-    getItemId(id) {
-        return this.id + '__' + id;
+    getItemId(recordId) {
+        return `${this.id}__${recordId}`;
     }
 
     /**
@@ -441,6 +456,26 @@ class Base extends Component {
         } else {
             me.createItems();
         }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.field
+     * @param {Number} data.index
+     * @param {Neo.data.Model} data.model
+     * @param {*} data.oldValue
+     * @param {Object} data.record
+     * @param {*} data.value
+     *
+     */
+    onStoreRecordChange(data) {
+        let me    = this,
+            index = data.index,
+            vdom  = me.vdom;
+
+        vdom.cn[index] = me.createItem(data.record, index);
+
+        me.vdom = vdom;
     }
 
     /**

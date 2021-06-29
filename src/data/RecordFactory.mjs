@@ -96,7 +96,7 @@ class RecordFactory extends Base {
                                             let me       = this,
                                                 oldValue = me[symbol];
 
-                                            if (instance.hasChanged(value, oldValue)) {
+                                            if (!Neo.isEqual(value, oldValue)) {
                                                 value = instance.parseRecordValue(field, value);
 
                                                 me[symbol] = value;
@@ -136,28 +136,6 @@ class RecordFactory extends Base {
 
             return ns;
         }
-    }
-
-    /**
-     * Checks if the value of a config has changed
-     * todo: we could compare objects & arrays for equality
-     * @param {*} value
-     * @param {*} oldValue
-     * @returns {Boolean}
-     * @private
-     */
-    hasChanged(value, oldValue) {
-        if (Array.isArray(value)) {
-            return true;
-        } else if (Neo.isObject(value)) {
-            if (oldValue instanceof Date && value instanceof Date) {
-                return oldValue.valueOf() !== value.valueOf();
-            }
-
-            return true;
-        }
-
-        return oldValue !== value;
     }
 
     /**

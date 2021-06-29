@@ -49,7 +49,7 @@ class List extends ComponentList {
         let me       = this,
             id       = record[me.store.keyProperty],
             items    = me.items || [],
-            listItem = items[index],
+            checkBox = items[index],
 
         config = {
             checked       : record.active,
@@ -59,10 +59,10 @@ class List extends ComponentList {
             valueLabelText: record.name
         };
 
-        if (listItem) {
-            listItem.set(config);
+        if (checkBox) {
+            checkBox.setSilent(config);
         } else {
-            items[index] = listItem = Neo.create({
+            items[index] = checkBox = Neo.create({
                 appName  : me.appName,
                 listeners: {change: me.onCheckboxChange, scope: me},
                 parentId : me.id,
@@ -73,7 +73,16 @@ class List extends ComponentList {
 
         me.items = items;
 
-        return [listItem.vdom, {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit']}];
+        return [checkBox.vdom, {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit'], id: me.getEditIconId(id)}];
+    }
+
+    /**
+     *
+     * @param {Number|String} recordId
+     * @returns {String}
+     */
+    getEditIconId(recordId) {
+        return `${this.id}__${recordId}`;
     }
 
     /**
@@ -96,9 +105,26 @@ class List extends ComponentList {
         }, 20);
 
         if (data.path[0].cls.includes('neo-edit-icon')) {
-            let record = this.store.get(this.getItemRecordId(data.path[1].id));
+            let me                    = this,
+                listItemRect          = data.path[1].rect,
+                mainContainer         = me.up('calendar-maincontainer'), // todo: add a reference
+                editCalendarContainer = mainContainer.editCalendarContainer,
+                record                = me.store.get(me.getItemRecordId(data.path[1].id)),
+                style                 = editCalendarContainer.style;
 
-            console.log('edit icon click', record.name);
+            Object.assign(style, {
+                left: `${listItemRect.right + 13}px`,
+                top : `${listItemRect.top   - 10}px`,
+            });
+
+            editCalendarContainer.setSilent({
+                currentView: me,
+                parentId   : mainContainer.id,
+                record     : record,
+                style      : style
+            });
+
+            editCalendarContainer.render(true);
         }
     }
 

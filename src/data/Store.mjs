@@ -266,15 +266,18 @@ class Store extends Base {
     /**
      * Gets triggered after changing the value of a record field.
      * E.g. myRecord.foo = 'bar';
-     * @param {Object} opts
-     * @param {String} opts.field The name of the field which got changed
-     * @param {Neo.data.Model} opts.model The model instance of the changed record
-     * @param {*} opts.oldValue
-     * @param {Object} opts.record
-     * @param {*} opts.value
+     * @param {Object} data
+     * @param {String} data.field The name of the field which got changed
+     * @param {Neo.data.Model} data.model The model instance of the changed record
+     * @param {*} data.oldValue
+     * @param {Object} data.record
+     * @param {*} data.value
      */
-    onRecordChange(opts) {
-        this.fire('recordChange', opts);
+    onRecordChange(data) {
+        this.fire('recordChange', {
+            ...data,
+            index: this.indexOf(data.record)
+        });
     }
 
     /**
