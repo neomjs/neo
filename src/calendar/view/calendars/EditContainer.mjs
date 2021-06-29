@@ -1,3 +1,4 @@
+import ColorsList    from './ColorsList.mjs';
 import FormContainer from '../../../form/Container.mjs';
 import TextField     from '../../../form/field/Text.mjs';
 
@@ -97,6 +98,9 @@ class EditContainer extends FormContainer {
                 required            : true,
                 value               : record.name,
                 ...me.nameFieldConfig
+            }, {
+                module: ColorsList,
+                style : {marginTop: '0.5em'}
             }];
 
             super.createItems();
@@ -110,7 +114,7 @@ class EditContainer extends FormContainer {
     onFocusLeave(data) {
         // we need a short delay, since a TimeField picker could be open
         setTimeout(() => {
-            this.unmount();
+            // this.unmount();
         }, 100)
     }
 
