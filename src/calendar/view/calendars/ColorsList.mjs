@@ -77,9 +77,7 @@ class ColorsList extends List {
         let me    = this,
             value = me.value;
 
-        if (value) {
-            me.afterSetValue(value, null);
-        }
+        value && me.afterSetValue(value, null);
     }
 
     /**
