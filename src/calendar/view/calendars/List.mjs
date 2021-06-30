@@ -127,6 +127,8 @@ class List extends ComponentList {
 
             if (!mounted) {
                 editCalendarContainer.render(true);
+            } else {
+                editCalendarContainer.afterSetMounted(true, false);
             }
         }
     }
