@@ -67,11 +67,9 @@ class Base {
     /**
      * Consumes the static getConfig() object
      * Applies the observable mixin if needed, grants remote access if needed
-     * @param {Object} config
+     * @param {Object} config={}
      */
-    constructor(config) {
-        config = config || {};
-
+    constructor(config={}) {
         let me = this;
 
         Object.defineProperties(me, {
