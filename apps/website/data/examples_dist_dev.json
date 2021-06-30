@@ -22,7 +22,7 @@
         "environments": ["Desktop"],
         "id"          : 16,
         "image"       : "devmode/calendar-preview.png",
-        "name"        : "Calendar Sneak Preview",
+        "name"        : "Calendar",
         "sourceUrl"   : "https://github.com/neomjs/neo/tree/dev/src/calendar",
         "url"         : "https://neomjs.github.io/pages/node_modules/neo.mjs/dist/development/examples/calendar/basic/index.html"
     },

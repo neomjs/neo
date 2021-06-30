@@ -30,7 +30,13 @@ class ColorsList extends List {
          * The list gets used as a form field, so we are adjusting the selection based on this config
          * @member {String} value_=null
          */
-        value_: null
+        value_: null,
+        /**
+         * Added a tabIndex to enable tabbing through the form
+         * @member {Object} _vdom={tag:'ul',cn:[]}
+         */
+        _vdom:
+            {tag: 'ul', cn: [], tabIndex: '0'}
     }}
 
     /**

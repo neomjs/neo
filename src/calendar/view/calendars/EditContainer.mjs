@@ -132,7 +132,7 @@ class EditContainer extends FormContainer {
     onFocusLeave(data) {
         // we need a short delay, since a TimeField picker could be open
         setTimeout(() => {
-            this.unmount();
+           this.unmount();
         }, 100)
     }
 
