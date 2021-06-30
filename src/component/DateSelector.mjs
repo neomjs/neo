@@ -218,7 +218,7 @@ class DateSelector extends Component {
         if (value === false) {
             let me = this;
 
-            if (me.cachedUpdate && me.cachedUpdate !== new Date(`${me.value} 00:00:00`)) {
+            if (me.cachedUpdate && me.cachedUpdate !== new Date(`${me.value}T00:00:00`)) {
                 me.afterSetValue(me.value, DateUtil.convertToyyyymmdd(me.cachedUpdate));
             }
 
@@ -328,7 +328,7 @@ class DateSelector extends Component {
         let me = this;
 
         if (!me.isUpdating) {
-            me.currentDate = new Date(`${value} 00:00:00`);
+            me.currentDate = new Date(`${value}T00:00:00`);
 
             me.fire('change', {
                 oldValue: oldValue,
@@ -587,7 +587,7 @@ class DateSelector extends Component {
             currentMonth    = currentDate.getMonth(),
             currentYear     = currentDate.getFullYear(),
             date            = me.currentDate, // cloned
-            valueDate       = new Date(`${me.value} 00:00:00`),
+            valueDate       = new Date(`${me.value}T00:00:00`),
             valueMonth      = valueDate.getMonth(),
             valueYear       = valueDate.getFullYear(),
             daysInMonth     = DateUtil.getDaysInMonth(currentDate),
