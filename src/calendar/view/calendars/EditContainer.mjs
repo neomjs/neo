@@ -156,11 +156,11 @@ class EditContainer extends FormContainer {
     onFocusLeave(data) {
         let me = this;
 
-        // we need a short delay, since a TimeField picker could be open
+        // we need a short delay to get record-changes (clicking on another edit icon)
         me.unMountTimeoutId = setTimeout(() => {
             me.unMountTimeoutId = null;
            this.unmount();
-        }, 200)
+        }, 200);
     }
 
     /**
