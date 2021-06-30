@@ -902,8 +902,8 @@ class Component extends BaseComponent {
                 // we need a short delay to move the event rendering into the next animation frame.
                 // Details: https://github.com/neomjs/neo/issues/2216
                 setTimeout(() => {
-                    me.updateEvents(true, 13, 20);
-                }, 30);
+                    me.updateEvents(false, 14, 21);
+                }, 50);
 
                 scrollValue = -width;
             }
@@ -928,8 +928,8 @@ class Component extends BaseComponent {
                 // we need a short delay to move the event rendering into the next animation frame.
                 // Details: https://github.com/neomjs/neo/issues/2216
                 setTimeout(() => {
-                    me.updateEvents(true, 0, 6);
-                }, 30);
+                    me.updateEvents(false, 0, 7);
+                }, 50);
 
                 scrollValue = width;
             }
