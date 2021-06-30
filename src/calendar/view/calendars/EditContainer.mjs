@@ -130,6 +130,8 @@ class EditContainer extends FormContainer {
      * @param {Object} data
      */
     onFocusLeave(data) {
+        // todo: only unmount if not getting assigned to a new record
+
         // we need a short delay, since a TimeField picker could be open
         setTimeout(() => {
            this.unmount();
