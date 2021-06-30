@@ -33,7 +33,7 @@ class ColorsList extends List {
         value_: null,
         /**
          * Added a tabIndex to enable tabbing through the form
-         * @member {Object} _vdom={tag:'ul',cn:[]}
+         * @member {Object} _vdom={tag:'ul',cn:[],tabIndex:'0'}
          */
         _vdom:
             {tag: 'ul', cn: [], tabIndex: '0'}
