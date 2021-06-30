@@ -41,7 +41,12 @@ class EditContainer extends FormContainer {
         /**
          * @member {Neo.calendar.model.Calendar|null} record_=null
          */
-        record_: null
+        record_: null,
+        /**
+         * @member {Number|null} unMountTimeoutId=null
+         * @protected
+         */
+        unMountTimeoutId: null
     }}
 
     /**
@@ -71,8 +76,8 @@ class EditContainer extends FormContainer {
 
     /**
      * Triggered after the record config got changed
-     * @param {Neo.calendar.model.Event} value
-     * @param {Neo.calendar.model.Event} oldValue
+     * @param {Neo.calendar.model.Calendar} value
+     * @param {Neo.calendar.model.Calendar} oldValue
      * @protected
      */
     afterSetRecord(value, oldValue) {
@@ -87,6 +92,25 @@ class EditContainer extends FormContainer {
         } else if (value) {
             me.createItems();
         }
+    }
+
+    /**
+     * Triggered before the record config gets changed
+     * We need the before method to also get clicks on the same edit icon,
+     * since it does trigger for not changed values.
+     * @param {Neo.calendar.model.Calendar} value
+     * @param {Neo.calendar.model.Calendar} oldValue
+     * @protected
+     */
+    beforeSetRecord(value, oldValue) {
+        let me = this;
+
+        if (me.unMountTimeoutId) {
+            clearTimeout(me.unMountTimeoutId);
+            me.unMountTimeoutId = null;
+        }
+
+        return value;
     }
 
     /**
@@ -130,10 +154,13 @@ class EditContainer extends FormContainer {
      * @param {Object} data
      */
     onFocusLeave(data) {
-        // we need a short delay, since a TimeField picker could be open
-        setTimeout(() => {
+        let me = this;
+
+        // we need a short delay to get record-changes (clicking on another edit icon)
+        me.unMountTimeoutId = setTimeout(() => {
+            me.unMountTimeoutId = null;
            this.unmount();
-        }, 100)
+        }, 200);
     }
 
     /**

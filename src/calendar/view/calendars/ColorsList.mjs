@@ -33,7 +33,7 @@ class ColorsList extends List {
         value_: null,
         /**
          * Added a tabIndex to enable tabbing through the form
-         * @member {Object} _vdom={tag:'ul',cn:[]}
+         * @member {Object} _vdom={tag:'ul',cn:[],tabIndex:'0'}
          */
         _vdom:
             {tag: 'ul', cn: [], tabIndex: '0'}
@@ -77,9 +77,7 @@ class ColorsList extends List {
         let me    = this,
             value = me.value;
 
-        if (value) {
-            me.afterSetValue(value, null);
-        }
+        value && me.afterSetValue(value, null);
     }
 
     /**

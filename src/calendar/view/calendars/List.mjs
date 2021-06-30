@@ -109,6 +109,7 @@ class List extends ComponentList {
                 listItemRect          = data.path[1].rect,
                 mainContainer         = me.up('calendar-maincontainer'), // todo: add a reference
                 editCalendarContainer = mainContainer.editCalendarContainer,
+                mounted               = editCalendarContainer.mounted,
                 record                = me.store.get(me.getItemRecordId(data.path[1].id)),
                 style                 = editCalendarContainer.style;
 
@@ -117,14 +118,18 @@ class List extends ComponentList {
                 top : `${listItemRect.top   - 10}px`,
             });
 
-            editCalendarContainer.setSilent({
+            editCalendarContainer[mounted ? 'set' : 'setSilent']({
                 currentView: me,
                 parentId   : mainContainer.id,
                 record     : record,
                 style      : style
             });
 
-            editCalendarContainer.render(true);
+            if (!mounted) {
+                editCalendarContainer.render(true);
+            } else {
+                editCalendarContainer.afterSetMounted(true, false);
+            }
         }
     }
 

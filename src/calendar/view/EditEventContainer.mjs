@@ -196,7 +196,7 @@ class EditEventContainer extends FormContainer {
         // we need a short delay, since a TimeField picker could be open
         setTimeout(() => {
             this.unmount();
-        }, 100)
+        }, 100);
     }
 
     /**
