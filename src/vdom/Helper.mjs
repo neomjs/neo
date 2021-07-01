@@ -137,7 +137,7 @@ class Helper extends Base {
             oldVnode      = config.oldVnode,
             oldVnodeRoot  = config.oldVnodeRoot || oldVnode,
             parentId      = config.parentId,
-            attributes, delta, value, i, indexDelta, keys, len, movedNode, movedOldNode, styles, add, remove, returnValue, tmp, wrappedNode;
+            attributes, delta, value, i, indexDelta, keys, len, movedNode, movedOldNode, oldLen, styles, add, remove, returnValue, tmp, wrappedNode;
 
         // console.log('createDeltas', newVnode && newVnode.id, oldVnode && oldVnode.id, newVnode, oldVnode);
 
@@ -460,32 +460,54 @@ class Helper extends Base {
                             case 'childNodes':
                                 i          = 0;
                                 indexDelta = 0;
-                                len        = Math.max(value.length, oldVnode.childNodes.length);
+                                oldLen     = oldVnode.childNodes.length;
+                                len        = Math.max(value.length, oldLen);
 
-                                for (; i < len; i++) {
-                                    returnValue = me.createDeltas({
-                                        deltas      : deltas,
-                                        index       : i,
-                                        newVnode    : value[i],
-                                        newVnodeRoot: newVnodeRoot,
-                                        oldVnode    : oldVnode.childNodes[i + indexDelta],
-                                        oldVnodeRoot: oldVnodeRoot,
-                                        parentId    : newVnode.id
+                                if (value.length === 0 && oldVnode.childNodes.length > 0) {
+                                    deltas.push({
+                                        action: 'setTextContent',
+                                        id    : newVnode.id,
+                                        value : ''
                                     });
+                                } else if (value.length > 1 && oldLen === 0) {
+                                    returnValue = '';
 
-                                    if (returnValue && returnValue.indexDelta) {
-                                        indexDelta += returnValue.indexDelta;
+                                    for (; i < len; i++) {
+                                        returnValue += me.createStringFromVnode(value[i]);
                                     }
-                                }
 
-                                if (indexDelta < 0) {
-                                    // this case happens for infinite scrolling upwards:
-                                    // add new nodes at the start, remove nodes at the end
-                                    for (i=value.length + indexDelta; i < oldVnode.childNodes.length; i++) {
-                                        deltas.push({
-                                            action: 'removeNode',
-                                            id    : oldVnode.childNodes[i].id
+                                    deltas.push({
+                                        action   : 'insertNode',
+                                        index    : index,
+                                        outerHTML: returnValue,
+                                        parentId : newVnode.id
+                                    });
+                                } else {
+                                    for (; i < len; i++) {
+                                        returnValue = me.createDeltas({
+                                            deltas      : deltas,
+                                            index       : i,
+                                            newVnode    : value[i],
+                                            newVnodeRoot: newVnodeRoot,
+                                            oldVnode    : oldVnode.childNodes[i + indexDelta],
+                                            oldVnodeRoot: oldVnodeRoot,
+                                            parentId    : newVnode.id
                                         });
+
+                                        if (returnValue && returnValue.indexDelta) {
+                                            indexDelta += returnValue.indexDelta;
+                                        }
+                                    }
+
+                                    if (indexDelta < 0) {
+                                        // this case happens for infinite scrolling upwards:
+                                        // add new nodes at the start, remove nodes at the end
+                                        for (i=value.length + indexDelta; i < oldVnode.childNodes.length; i++) {
+                                            deltas.push({
+                                                action: 'removeNode',
+                                                id    : oldVnode.childNodes[i].id
+                                            });
+                                        }
                                     }
                                 }
 

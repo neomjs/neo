@@ -362,10 +362,8 @@ class Base extends CoreBase {
             vdomRoot = me.getVdomRoot(),
             listenerId;
 
-        if (vdomRoot) {
-            if (me.cls) {
-                vdomRoot.cls = me.cls;
-            }
+        if (vdomRoot && me.cls) {
+            vdomRoot.cls = me.cls;
         }
 
         // It is important to keep the vdom tree stable to ensure that containers do not lose the references to their
