@@ -1,0 +1,8 @@
+{
+    "appPath": "apps/krausest/app.mjs",
+    "basePath": "../../",
+    "environment": "development",
+    "mainPath": "./Main.mjs",
+    "mainThreadAddons": [],
+    "themes": []
+}
