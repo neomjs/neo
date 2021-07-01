@@ -449,7 +449,7 @@ class MainContainerController extends ComponentController {
                         autoMount : true,
                         autoRender: true,
                         cls       : ['neo-dialog-wrapper'],
-                        renderTo  : 'document.body',
+                        parentId  : 'document.body',
                         vdom      : vdom
                     });
 
