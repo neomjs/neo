@@ -25,8 +25,6 @@ class MainComponentController extends ComponentController {
             case 'add'  : table.add();   break;
             case 'clear': table.clear(); break;
         }
-
-        console.log(data.path[0].id);
     }
 }
 

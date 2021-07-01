@@ -38,12 +38,13 @@ class TableComponent extends Base {
      *
       */
     add() {
-        let me   = this,
-            vdom = me.vdom;
+        let me    = this,
+            vdom  = me.vdom,
+            items = me.store.buildData();
 
-        me.store.add(me.store.buildData());
+        me.store.add(items);
 
-        me.store.items.forEach(item => {
+        items.forEach(item => {
             vdom.cn[0].cn.push(me.createTableRow(item));
         });
 

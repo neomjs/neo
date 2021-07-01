@@ -49,18 +49,25 @@ class DeltaUpdates extends Base {
 
         // console.log('insertNode', index, countChildren, delta.parentId);
 
-        for (; i < countChildren; i++) {
-            if (parentNode.childNodes[i].nodeType === 8) { // ignore comments
-                if (i < realIndex) {
-                    realIndex++;
-                }
+        if (countChildren <= 20 && parentNode.nodeName !== 'TBODY') {
+            for (; i < countChildren; i++) {
+                if (parentNode.childNodes[i].nodeType === 8) { // ignore comments
+                    if (i < realIndex) {
+                        realIndex++;
+                    }
 
-                hasComments = true;
+                    hasComments = true;
+                }
             }
         }
 
         if (!hasComments) {
             countChildren = parentNode.children.length;
+
+            if (index > 0 && index >= countChildren) {
+                parentNode.insertAdjacentHTML('beforeend', delta.outerHTML);
+                return;
+            }
 
             if (countChildren > 0 && countChildren > index) {
                 parentNode.children[index].insertAdjacentHTML('beforebegin', delta.outerHTML);
@@ -261,6 +268,8 @@ class DeltaUpdates extends Base {
         deltas = Array.isArray(deltas) ? deltas : [deltas];
         len    = deltas.length;
 
+        let start = performance.now();
+
         if (Neo.config.logDeltaUpdates && len > 0) {
             me.countDeltas += len;
             me.countUpdates++;
@@ -285,6 +294,10 @@ class DeltaUpdates extends Base {
         for (; i < len; i++) {
             (map[deltas[i].action] || map['default']).call(me, deltas[i]);
         }
+
+        let end = performance.now();
+
+        console.log('time', end - start);
 
         Neo.worker.Manager.sendMessage(data.origin || 'app', {
             action : 'reply',
