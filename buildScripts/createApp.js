@@ -115,7 +115,7 @@ inquirer.prompt(questions).then(answers => {
         themes = [themes];
     }
 
-    if (themes.length > 0 && !mainThreadAddons.includes('Stylesheet')) {
+    if (themes.length > 0 && !themes.includes('none') && !mainThreadAddons.includes('Stylesheet')) {
         console.error('ERROR! The Stylesheet mainThreadAddon is mandatory in case you are using themes');
         console.log('Exiting with error.');
         process.exit(1);
