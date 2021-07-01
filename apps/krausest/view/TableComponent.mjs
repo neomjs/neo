@@ -97,6 +97,27 @@ class TableComponent extends Base {
             {tag: 'td', cls: ['col-md-6']}
         ]};
     }
+
+    /**
+     *
+     */
+    runlots() {
+        let me    = this,
+            store = me.store,
+            vdom  = me.vdom,
+            items = store.buildData(10000);
+
+        store.clear();
+        store.add(items);
+
+        vdom.cn[0].cn = [];
+
+        items.forEach(item => {
+            vdom.cn[0].cn.push(me.createTableRow(item));
+        });
+
+        me.vdom = vdom;
+    }
 }
 
 Neo.applyClassConfig(TableComponent);

@@ -22,9 +22,12 @@ class MainComponentController extends ComponentController {
             table = me.getReference('table');
 
         switch (data.path[0].id) {
-            case 'add'  : table.add();   break;
-            case 'clear': table.clear(); break;
+            case 'add'    : table.add();     break;
+            case 'clear'  : table.clear();   break;
+            case 'runlots': table.runlots(); break;
         }
+
+        // console.log(data.path[0].id);
     }
 }
 
