@@ -4,5 +4,7 @@
     "environment": "development",
     "mainPath": "./Main.mjs",
     "mainThreadAddons": [],
-    "themes": []
+    "themes": [],
+    "useFontAwesome": false,
+    "useTouchEvents": false
 }
