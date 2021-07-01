@@ -462,30 +462,38 @@ class Helper extends Base {
                                 indexDelta = 0;
                                 len        = Math.max(value.length, oldVnode.childNodes.length);
 
-                                for (; i < len; i++) {
-                                    returnValue = me.createDeltas({
-                                        deltas      : deltas,
-                                        index       : i,
-                                        newVnode    : value[i],
-                                        newVnodeRoot: newVnodeRoot,
-                                        oldVnode    : oldVnode.childNodes[i + indexDelta],
-                                        oldVnodeRoot: oldVnodeRoot,
-                                        parentId    : newVnode.id
+                                if (value.length === 0 && oldVnode.childNodes.length > 0) {
+                                    deltas.push({
+                                        action: 'setTextContent',
+                                        id    : newVnode.id,
+                                        value : ''
                                     });
-
-                                    if (returnValue && returnValue.indexDelta) {
-                                        indexDelta += returnValue.indexDelta;
-                                    }
-                                }
-
-                                if (indexDelta < 0) {
-                                    // this case happens for infinite scrolling upwards:
-                                    // add new nodes at the start, remove nodes at the end
-                                    for (i=value.length + indexDelta; i < oldVnode.childNodes.length; i++) {
-                                        deltas.push({
-                                            action: 'removeNode',
-                                            id    : oldVnode.childNodes[i].id
+                                } else {
+                                    for (; i < len; i++) {
+                                        returnValue = me.createDeltas({
+                                            deltas      : deltas,
+                                            index       : i,
+                                            newVnode    : value[i],
+                                            newVnodeRoot: newVnodeRoot,
+                                            oldVnode    : oldVnode.childNodes[i + indexDelta],
+                                            oldVnodeRoot: oldVnodeRoot,
+                                            parentId    : newVnode.id
                                         });
+
+                                        if (returnValue && returnValue.indexDelta) {
+                                            indexDelta += returnValue.indexDelta;
+                                        }
+                                    }
+
+                                    if (indexDelta < 0) {
+                                        // this case happens for infinite scrolling upwards:
+                                        // add new nodes at the start, remove nodes at the end
+                                        for (i=value.length + indexDelta; i < oldVnode.childNodes.length; i++) {
+                                            deltas.push({
+                                                action: 'removeNode',
+                                                id    : oldVnode.childNodes[i].id
+                                            });
+                                        }
                                     }
                                 }
 

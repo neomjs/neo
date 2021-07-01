@@ -145,6 +145,19 @@ class DeltaUpdates extends Base {
     /**
      *
      * @param {Object} delta
+     * @param {String} [delta.id]
+     * @param {String} [delta.value
+     */
+    du_setTextContent(delta) {
+        let me   = this,
+            node = me.getElement(delta.id);
+
+        node.textContent = delta.value;
+    }
+
+    /**
+     *
+     * @param {Object} delta
      * @param {Object} [delta.attributes]
      * @param {String} [delta.cls]
      * @param {String} [delta.id]
@@ -259,13 +272,14 @@ class DeltaUpdates extends Base {
         }
 
         const map = {
-            focusNode   : me.du_focusNode,
-            insertNode  : me.du_insertNode,
-            moveNode    : me.du_moveNode,
-            removeNode  : me.du_removeNode,
-            replaceChild: me.du_replaceChild,
-            updateVtext : me.du_updateVtext,
-            default     : me.du_updateNode
+            focusNode     : me.du_focusNode,
+            insertNode    : me.du_insertNode,
+            moveNode      : me.du_moveNode,
+            removeNode    : me.du_removeNode,
+            replaceChild  : me.du_replaceChild,
+            setTextContent: me.du_setTextContent,
+            updateVtext   : me.du_updateVtext,
+            default       : me.du_updateNode
         };
 
         for (; i < len; i++) {
