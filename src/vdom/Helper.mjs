@@ -137,7 +137,7 @@ class Helper extends Base {
             oldVnode      = config.oldVnode,
             oldVnodeRoot  = config.oldVnodeRoot || oldVnode,
             parentId      = config.parentId,
-            attributes, delta, value, i, indexDelta, keys, len, movedNode, movedOldNode, styles, add, remove, returnValue, tmp, wrappedNode;
+            attributes, delta, value, i, indexDelta, keys, len, movedNode, movedOldNode, oldLen, styles, add, remove, returnValue, tmp, wrappedNode;
 
         // console.log('createDeltas', newVnode && newVnode.id, oldVnode && oldVnode.id, newVnode, oldVnode);
 
@@ -460,13 +460,27 @@ class Helper extends Base {
                             case 'childNodes':
                                 i          = 0;
                                 indexDelta = 0;
-                                len        = Math.max(value.length, oldVnode.childNodes.length);
+                                oldLen     = oldVnode.childNodes.length;
+                                len        = Math.max(value.length, oldLen);
 
                                 if (value.length === 0 && oldVnode.childNodes.length > 0) {
                                     deltas.push({
                                         action: 'setTextContent',
                                         id    : newVnode.id,
                                         value : ''
+                                    });
+                                } else if (value.length > 1 && oldLen === 0) {
+                                    returnValue = '';
+
+                                    for (; i < len; i++) {
+                                        returnValue += me.createStringFromVnode(value[i]);
+                                    }
+
+                                    deltas.push({
+                                        action   : 'insertNode',
+                                        index    : index,
+                                        outerHTML: returnValue,
+                                        parentId : newVnode.id
                                     });
                                 } else {
                                     for (; i < len; i++) {
