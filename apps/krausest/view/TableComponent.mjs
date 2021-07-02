@@ -62,16 +62,24 @@ class TableComponent extends Base {
       */
     add() {
         let me    = this,
+            store = me.store,
             vdom  = me.vdom,
-            items = me.store.buildData();
+            items = store.buildData();
 
-        me.store.add(items);
+        store.add(items);
 
-        items.forEach(item => {
+        Neo.main.addon.CloneNode.applyClones({
+            data    : items,
+            id      : me.id,
+            parentId: 'tbody'
+        });
+
+        // this works pretty fast as well
+        /*items.forEach(item => {
             vdom.cn[0].cn.push(me.createTableRow(item));
         });
 
-        me.vdom = vdom;
+        me.vdom = vdom;*/
     }
 
     /**
@@ -133,13 +141,13 @@ class TableComponent extends Base {
             store = me.store,
             items = store.buildData(10000);
 
+        me.clear();
         store.add(items);
 
         Neo.main.addon.CloneNode.applyClones({
             data    : items,
             id      : me.id,
-            parentId: 'tbody',
-            template: 'Hello ${data.label}'
+            parentId: 'tbody'
         });
     }
 }
