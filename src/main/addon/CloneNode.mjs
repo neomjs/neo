@@ -1,7 +1,8 @@
 import Base from '../../core/Base.mjs';
 
 /**
- * Basic Clone DOM nodes and apply them via cloning
+ * Basic helper class to create template DOM nodes and apply them to a target node via cloning.
+ * See: https://github.com/neomjs/neo/blob/dev/apps/krausest/view/TableComponent.mjs
  * @class Neo.main.addon.CloneNode
  * @extends Neo.core.Base
  * @singleton
