@@ -36,6 +36,29 @@ class TableComponent extends Base {
 
     /**
      *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        Neo.main.addon.CloneNode.createNode({
+            id  : this.id,
+            tag : 'tr',
+            html: [
+                '<td class="col-md-1"></td>',
+                '<td class="col-md-4"><a class="lbl"></a></td>',
+                '<td class="col-md-1"><a class="remove"><span class="remove glyphicon glyphicon-remove" aria-hidden="true"></span></a></td>',
+                '<td class="col-md-6"></td>'
+            ].join(''),
+            paths: {
+                id   : '0',
+                label: '1/0'
+            }
+        });
+    }
+
+    /**
+     *
       */
     add() {
         let me    = this,
@@ -67,13 +90,17 @@ class TableComponent extends Base {
      *
      */
     clear() {
-        let me   = this,
-            vdom = me.vdom;
+        let me    = this,
+            store = me.store;
 
-        me.store.clear();
-        vdom.cn[0].cn = [];
-
-        me.vdom = vdom;
+        if (store.getCount() > 0) {
+            store.clear();
+            Neo.applyDeltas(me.appName, {
+                action: 'setTextContent',
+                id    : 'tbody',
+                value : ''
+            });
+        }
     }
 
     /**
@@ -104,19 +131,16 @@ class TableComponent extends Base {
     runlots() {
         let me    = this,
             store = me.store,
-            vdom  = me.vdom,
             items = store.buildData(10000);
 
-        store.clear();
         store.add(items);
 
-        vdom.cn[0].cn = [];
-
-        items.forEach(item => {
-            vdom.cn[0].cn.push(me.createTableRow(item));
+        Neo.main.addon.CloneNode.applyClones({
+            data    : items,
+            id      : me.id,
+            parentId: 'tbody',
+            template: 'Hello ${data.label}'
         });
-
-        me.vdom = vdom;
     }
 }
 

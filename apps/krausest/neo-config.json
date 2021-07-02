@@ -3,7 +3,7 @@
     "basePath": "../../",
     "environment": "development",
     "mainPath": "./Main.mjs",
-    "mainThreadAddons": [],
+    "mainThreadAddons": ["CloneNode"],
     "themes": [],
     "useFontAwesome": false,
     "useTouchEvents": false
