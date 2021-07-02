@@ -268,8 +268,6 @@ class DeltaUpdates extends Base {
         deltas = Array.isArray(deltas) ? deltas : [deltas];
         len    = deltas.length;
 
-        // let start = performance.now();
-
         if (Neo.config.logDeltaUpdates && len > 0) {
             me.countDeltas += len;
             me.countUpdates++;
@@ -294,10 +292,6 @@ class DeltaUpdates extends Base {
         for (; i < len; i++) {
             (map[deltas[i].action] || map['default']).call(me, deltas[i]);
         }
-
-        // let end = performance.now();
-
-        // console.log('time', end - start);
 
         Neo.worker.Manager.sendMessage(data.origin || 'app', {
             action : 'reply',
