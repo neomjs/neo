@@ -7,44 +7,33 @@ import Store     from '../../../src/data/Store.mjs';
  */
 class MainStore extends Store {
     static getConfig() {return {
-        className  : 'Neo.examples.list.menu.MainStore',
-        keyProperty: 'githubId',
-        model      : MainModel,
+        className: 'Neo.examples.list.menu.MainStore',
+        model    : MainModel,
 
         data: [{
-            country  : 'Germany',
-            firstname: 'Tobias',
-            githubId : 'tobiu',
-            lastname : 'Uhlig'
+            iconCls: 'fa fa-user',
+            id     : 1,
+            name   : 'Item 1'
         }, {
-            country  : 'USA',
-            firstname: 'Rich',
-            githubId : 'rwaters',
-            lastname : 'Waters'
+            iconCls: 'fa fa-home',
+            id     : 2,
+            name   : 'Item 2'
         }, {
-            country  : 'Germany',
-            firstname: 'Nils',
-            githubId : 'mrsunshine',
-            lastname : 'Dehl'
+            iconCls: 'fa fa-cog',
+            id     : 3,
+            name   : 'Item 3'
         }, {
-            country  : 'USA',
-            firstname: 'Gerard',
-            githubId : 'camtnbikerrwc',
-            lastname : 'Horan'
+            iconCls: 'fa fa-user',
+            id     : 4,
+            name   : 'Item 4'
         }, {
-            country  : 'Slovakia',
-            firstname: 'Jozef',
-            githubId : 'jsakalos',
-            lastname : 'Sakalos'
-        }, {
-            country  : 'Germany',
-            firstname: 'Bastian',
-            githubId : 'bhaustein',
-            lastname : 'Haustein'
+            iconCls: 'fa fa-user',
+            id     : 5,
+            name   : 'Item 5'
         }],
 
         sorters: [{
-            property : 'firstname',
+            property : 'id',
             direction: 'ASC'
         }]
     }}

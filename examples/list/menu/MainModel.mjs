@@ -7,19 +7,16 @@ import Model  from '../../../src/data/Model.mjs';
 class MainModel extends Model {
     static getConfig() {return {
         className  : 'Neo.examples.list.menu.MainModel',
-        keyProperty: 'githubId',
+        keyProperty: 'id',
 
         fields: [{
-            name: 'country',
+            name: 'iconCls',
             type: 'String'
         }, {
-            name: 'firstname',
-            type: 'String'
+            name: 'id',
+            type: 'Integer'
         }, {
-            name: 'githubId',
-            type: 'String'
-        }, {
-            name: 'lastname',
+            name: 'name',
             type: 'String'
         }]
     }}
