@@ -46,6 +46,15 @@ class Menu extends List {
 
     /**
      *
+     * @param {String} nodeId
+     * @param {Object} record
+     */
+    createSubMenu(nodeId, record) {
+        console.log('createSubMenu', nodeId, record);
+    }
+
+    /**
+     *
      * @param {Number|String} recordId
      * @returns {String}
      */
@@ -77,10 +86,11 @@ class Menu extends List {
      */
     onSelect(items) {
         let me     = this,
-            record = me.store.get(me.getItemRecordId(items[0]));
+            nodeId = items[0],
+            record = me.store.get(me.getItemRecordId(nodeId));
 
         if (me.hasChildren(record)) {
-            console.log(record);
+            me.createSubMenu(nodeId, record);
         }
     }
 }
