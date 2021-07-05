@@ -33,8 +33,8 @@ class Menu extends List {
             id = record[me.store.keyProperty];
 
         return [
-            {tag: 'span', html: record[me.displayField]},
-            {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit'], id: me.getEditIconId(id)}
+            {tag: 'span', cls: ['neo-content'], html: record[me.displayField]},
+            {tag: 'i', cls: ['neo-arrow-icon', 'fas fa-chevron-circle-right'], id: me.getEditIconId(id)}
         ];
     }
 

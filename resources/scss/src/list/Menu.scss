@@ -1,0 +1,16 @@
+.neo-menu {
+    width: fit-content;
+
+    .neo-list-item {
+        align-items: center;
+        display    : flex;
+
+        .neo-arrow-icon {
+            margin-left: 1em;
+        }
+
+        .neo-content {
+            flex: 1;
+        }
+    }
+}
