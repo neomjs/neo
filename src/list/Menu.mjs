@@ -61,6 +61,19 @@ class Menu extends List {
     getIconId(recordId) {
         return `${this.id}__icon__${recordId}`;
     }
+
+    /**
+     *
+     * @param {String[]} items
+     */
+    onSelect(items) {
+        let me     = this,
+            record = me.store.get(me.getItemRecordId(items[0]));
+
+        if (Array.isArray(record.items) && record.items.length > 0) {
+            console.log(record);
+        }
+    }
 }
 
 Neo.applyClassConfig(Menu);
