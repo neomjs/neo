@@ -1,4 +1,3 @@
-import CheckBox              from '../../../src/form/field/CheckBox.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import MainStore             from './MainStore.mjs';
 import MenuList              from '../../../src/list/Menu.mjs';
@@ -21,11 +20,6 @@ class MainContainer extends ConfigurationViewport {
         let me = this;
 
         return [{
-            module   : CheckBox,
-            checked  : me.exampleComponent.disableSelection,
-            labelText: 'disableSelection',
-            listeners: {change: me.onConfigChange.bind(me, 'disableSelection')}
-        }, {
             module    :  NumberField,
             clearable : true,
             labelText : 'height',
