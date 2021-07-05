@@ -30,12 +30,18 @@ class Menu extends List {
      */
     createItemContent(record, index) {
         let me = this,
-            id = record[me.store.keyProperty];
+            id = record[me.store.keyProperty],
 
-        return [
+        vdomCn = [
             {tag: 'span', cls: ['neo-content'], html: record[me.displayField]},
-            {tag: 'i', cls: ['neo-arrow-icon', 'fas fa-chevron-circle-right'], id: me.getEditIconId(id)}
+            {tag: 'i', cls: ['neo-arrow-icon', 'fas fa-chevron-circle-right'], id: me.getArrowIconId(id)}
         ];
+
+        if (record.iconCls && record.iconCls !== '') {
+            vdomCn.unshift({tag: 'i', cls: ['neo-icon', record.iconCls], id: me.getIconId(id)});
+        }
+
+        return vdomCn;
     }
 
     /**
@@ -43,8 +49,17 @@ class Menu extends List {
      * @param {Number|String} recordId
      * @returns {String}
      */
-    getEditIconId(recordId) {
-        return `${this.id}__${recordId}`;
+    getArrowIconId(recordId) {
+        return `${this.id}__arrow_icon__${recordId}`;
+    }
+
+    /**
+     *
+     * @param {Number|String} recordId
+     * @returns {String}
+     */
+    getIconId(recordId) {
+        return `${this.id}__icon__${recordId}`;
     }
 }
 

@@ -23,11 +23,11 @@ class MainStore extends Store {
             id     : 3,
             name   : 'Item 3'
         }, {
-            iconCls: 'fa fa-user',
+            iconCls: 'far fa-calendar',
             id     : 4,
             name   : 'Item 4'
         }, {
-            iconCls: 'fa fa-user',
+            iconCls: 'far fa-clock',
             id     : 5,
             name   : 'Item 5'
         }],
