@@ -16,6 +16,9 @@ class MainModel extends Model {
             name: 'id',
             type: 'Integer'
         }, {
+            name: 'items', // optional
+            type: 'Array'
+        }, {
             name: 'name',
             type: 'String'
         }]

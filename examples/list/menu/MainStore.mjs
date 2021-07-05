@@ -17,24 +17,45 @@ class MainStore extends Store {
         }, {
             iconCls: 'fa fa-home',
             id     : 2,
-            name   : 'Item 2'
+            name   : 'Group 1',
+            items  : [{
+                iconCls: 'fa fa-home',
+                id     : 6,
+                name   : 'Item 1'
+            }, {
+                iconCls: 'fa fa-home',
+                id     : 7,
+                name   : 'Item 2'
+            }, {
+                iconCls: 'fa fa-home',
+                id     : 8,
+                name   : 'Item 3'
+            }]
         }, {
             iconCls: 'fa fa-cog',
             id     : 3,
-            name   : 'Item 3'
+            name   : 'Item 2'
         }, {
             iconCls: 'far fa-calendar',
             id     : 4,
-            name   : 'Item 4'
+            name   : 'Item 3'
         }, {
             iconCls: 'far fa-clock',
             id     : 5,
-            name   : 'Item 5'
-        }],
-
-        sorters: [{
-            property : 'id',
-            direction: 'ASC'
+            name   : 'Group 2',
+            items  : [{
+                iconCls: 'fa fa-clock',
+                id     : 9,
+                name   : 'Item 1'
+            }, {
+                iconCls: 'fa fa-clock',
+                id     : 10,
+                name   : 'Item 2'
+            }, {
+                iconCls: 'fa fa-clock',
+                id     : 11,
+                name   : 'Item 3'
+            }]
         }]
     }}
 }

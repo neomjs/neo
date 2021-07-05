@@ -29,16 +29,16 @@ class Menu extends List {
      * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
      */
     createItemContent(record, index) {
-        let me = this,
-            id = record[me.store.keyProperty],
-
-        vdomCn = [
-            {tag: 'span', cls: ['neo-content'], html: record[me.displayField]},
-            {tag: 'i', cls: ['neo-arrow-icon', 'fas fa-chevron-right'], id: me.getArrowIconId(id)}
-        ];
+        let me     = this,
+            id     = record[me.store.keyProperty],
+            vdomCn = [{tag: 'span', cls: ['neo-content'], html: record[me.displayField]}];
 
         if (record.iconCls && record.iconCls !== '') {
             vdomCn.unshift({tag: 'i', cls: ['neo-icon', record.iconCls], id: me.getIconId(id)});
+        }
+
+        if (Array.isArray(record.items) && record.items.length > 0) {
+            vdomCn.push({tag: 'i', cls: ['neo-arrow-icon', 'fas fa-chevron-right'], id: me.getArrowIconId(id)});
         }
 
         return vdomCn;
