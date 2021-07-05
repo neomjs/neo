@@ -276,7 +276,7 @@ class Base extends Component {
      */
     createItemContent(record, index) {
         let me       = this,
-            itemText = record[this.displayField],
+            itemText = record[me.displayField],
             filter;
 
         if (me.highlightFilterValue) {
