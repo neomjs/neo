@@ -1,11 +1,13 @@
 .neo-menu {
-    width: fit-content;
+    border: 1px solid v(menu-border-color);
+    width : fit-content;
 
     .neo-list-item {
         align-items: center;
         display    : flex;
 
         .neo-arrow-icon {
+            color      : v(menu-icon-color);
             margin-left: 1em;
         }
 
@@ -14,7 +16,8 @@
         }
 
         .neo-icon {
-            margin-right: .3em;
+            color       : v(menu-icon-color);
+            margin-right: .4em;
         }
     }
 }

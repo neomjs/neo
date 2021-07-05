@@ -34,7 +34,7 @@ class Menu extends List {
 
         vdomCn = [
             {tag: 'span', cls: ['neo-content'], html: record[me.displayField]},
-            {tag: 'i', cls: ['neo-arrow-icon', 'fas fa-chevron-circle-right'], id: me.getArrowIconId(id)}
+            {tag: 'i', cls: ['neo-arrow-icon', 'fas fa-chevron-right'], id: me.getArrowIconId(id)}
         ];
 
         if (record.iconCls && record.iconCls !== '') {
