@@ -37,7 +37,7 @@ class Menu extends List {
             vdomCn.unshift({tag: 'i', cls: ['neo-icon', record.iconCls], id: me.getIconId(id)});
         }
 
-        if (Array.isArray(record.items) && record.items.length > 0) {
+        if (me.hasChildren(record)) {
             vdomCn.push({tag: 'i', cls: ['neo-arrow-icon', 'fas fa-chevron-right'], id: me.getArrowIconId(id)});
         }
 
@@ -63,6 +63,15 @@ class Menu extends List {
     }
 
     /**
+     * Checks if a record has items
+     * @param {Object} record
+     * @returns {Boolean}
+     */
+    hasChildren(record) {
+        return Array.isArray(record.items) && record.items.length > 0;
+    }
+
+    /**
      *
      * @param {String[]} items
      */
@@ -70,7 +79,7 @@ class Menu extends List {
         let me     = this,
             record = me.store.get(me.getItemRecordId(items[0]));
 
-        if (Array.isArray(record.items) && record.items.length > 0) {
+        if (me.hasChildren(record)) {
             console.log(record);
         }
     }
