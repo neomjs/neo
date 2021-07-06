@@ -22,11 +22,29 @@ class List extends BaseList {
          */
         cls: ['neo-menu-list', 'neo-list'],
         /**
+         * Optionally pass menu.Store data directly
+         * @member {Object[]|null} items_=null
+         */
+        items_: null,
+        /**
          * Value for the list.Base store_ config
          * @member {Neo.menu.Store} store=Store
          */
         store: Store
     }}
+
+    /**
+     * Triggered after the items config got changed
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
+     * @protected
+     */
+    afterSetItems(value, oldValue) {
+        let store = this.store;
+
+        oldValue && store.remove(oldValue);
+        value    && store.add(value);
+    }
 
     /**
      * Override this method for custom renderers
