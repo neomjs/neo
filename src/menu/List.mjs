@@ -1,4 +1,5 @@
 import BaseList from '../list/Base.mjs';
+import NeoArray from '../util/Array.mjs';
 import Store    from './Store.mjs';
 
 /**
@@ -22,6 +23,11 @@ class List extends BaseList {
          */
         cls: ['neo-menu-list', 'neo-list'],
         /**
+         * True will add 'neo-floating' to the instance cls list.
+         * @member {Boolean} floating_=false
+         */
+        floating_: false,
+        /**
          * Optionally pass menu.Store data directly
          * @member {Object[]|null} items_=null
          */
@@ -32,6 +38,19 @@ class List extends BaseList {
          */
         store: Store
     }}
+
+    /**
+     * Triggered after the floating config got changed
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
+     * @protected
+     */
+    afterSetFloating(value, oldValue) {
+        let cls = this.cls;
+
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-floating');
+        this.cls = cls;
+    }
 
     /**
      * Triggered after the items config got changed
@@ -83,6 +102,7 @@ class List extends BaseList {
             appName   : me.appName,
             autoRender: true,
             autoMount : true,
+            floating  : true,
             items     : record.items
         });
 
