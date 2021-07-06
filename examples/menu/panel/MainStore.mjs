@@ -1,15 +1,19 @@
-import MainModel from './MainModel.mjs';
-import Store     from '../../../src/data/Store.mjs';
+import Store from '../../../src/menu/Store.mjs';
 
 /**
  * @class Neo.examples.menu.panel.MainStore
- * @extends Neo.data.Store
+ * @extends Neo.menu.Store
  */
 class MainStore extends Store {
     static getConfig() {return {
+        /**
+         * @member {String} className='Neo.examples.menu.panel.MainStore'
+         * @protected
+         */
         className: 'Neo.examples.menu.panel.MainStore',
-        model    : MainModel,
-
+        /**
+         * @member {Object[]} data
+         */
         data: [{
             iconCls: 'fa fa-user',
             id     : 1,
