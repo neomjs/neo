@@ -77,19 +77,17 @@ class Panel extends Container {
         };
 
         if (header.text) {
-            config.items = [
-                {
-                    ntype: 'label',
-                    cls  : ['neo-panel-header-text', 'neo-label'],
-                    text : header.text
-                }
-            ];
+            config.items = [{
+                ntype: 'label',
+                cls  : ['neo-panel-header-text', 'neo-label'],
+                text : header.text
+            }];
 
             delete header.text;
         }
 
         // assuming all labels inside a Panel Header are meant to be titles -> look the same way
-        if (Neo.isArray(header.items)) {
+        if (Array.isArray(header.items)) {
             header.items.forEach(item => {
                 if (item.ntype === 'label') {
                     item.cls = ['neo-panel-header-text', 'neo-label'];
