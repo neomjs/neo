@@ -1,0 +1,28 @@
+.neo-menu-list {
+    border: 1px solid v(menu-list-border-color);
+    width : fit-content;
+
+    &.neo-floating {
+        box-shadow: v(menu-list-box-shadow);
+        position  : absolute;
+    }
+
+    .neo-list-item {
+        align-items: center;
+        display    : flex;
+
+        .neo-arrow-icon {
+            color      : v(menu-list-icon-color);
+            margin-left: 1em;
+        }
+
+        .neo-content {
+            flex: 1;
+        }
+
+        .neo-icon {
+            color       : v(menu-list-icon-color);
+            margin-right: .4em;
+        }
+    }
+}

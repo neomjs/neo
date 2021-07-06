@@ -152,9 +152,7 @@ class Base extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        if (this.rendered) {
-            value.register(this);
-        }
+        this.rendered && value.register(this);
     }
 
     /**
@@ -200,10 +198,7 @@ class Base extends Component {
      * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
-
+        oldValue && oldValue.destroy();
         return ClassSystemUtil.beforeSetInstance(value, ListModel);
     }
 
@@ -215,11 +210,8 @@ class Base extends Component {
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
-
-        return ClassSystemUtil.beforeSetInstance(value);
+        oldValue && oldValue.destroy();
+        return ClassSystemUtil.beforeSetInstance(value, Store);
     }
 
     /**
@@ -276,7 +268,7 @@ class Base extends Component {
      */
     createItemContent(record, index) {
         let me       = this,
-            itemText = record[this.displayField],
+            itemText = record[me.displayField],
             filter;
 
         if (me.highlightFilterValue) {

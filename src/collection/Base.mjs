@@ -62,10 +62,9 @@ class Base extends CoreBase {
          */
         filters_: [],
         /**
-         * The unique(!) key property of each collection item
-         * @member {Array} items_=[]
+         * @member {Object[]|null} items_=null
          */
-        items_: [],
+        items_: null,
         /**
          * The unique(!) key property of each collection item
          * @member {string} keyProperty='id'
@@ -109,6 +108,8 @@ class Base extends CoreBase {
 
         let me           = this,
             symbolConfig = {enumerable: false, writable: true};
+
+        me.items = me.items || [];
 
         Object.defineProperties(me, {
             [countMutations]  : {...symbolConfig, value: false},
@@ -163,15 +164,17 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetItems(value, oldValue) {
-        let me          = this,
-            keyProperty = me.keyProperty,
-            i           = 0,
-            len         = value.length,
-            item;
+        if (value) {
+            let me          = this,
+                keyProperty = me.keyProperty,
+                i           = 0,
+                len         = value.length,
+                item;
 
-        for (; i < len; i++) {
-            item = value[i];
-            me.map.set(item[keyProperty], item);
+            for (; i < len; i++) {
+                item = value[i];
+                me.map.set(item[keyProperty], item);
+            }
         }
     }
 
