@@ -173,6 +173,14 @@ class Panel extends Container {
 
         super.createItems();
     }
+
+    /**
+     *
+     * @returns {Boolean}
+     */
+    hasHeaders() {
+        return Array.isArray(this.headers) && this.headers.length > 0;
+    }
 }
 
 Neo.applyClassConfig(Panel);
