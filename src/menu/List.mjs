@@ -217,6 +217,7 @@ class List extends BaseList {
                     appName : me.appName,
                     floating: true,
                     items   : record.items,
+                    parentId: Neo.apps[me.appName].mainView.id,
                     style   : style
                 });
             }
