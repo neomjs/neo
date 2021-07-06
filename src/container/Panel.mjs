@@ -54,8 +54,10 @@ class Panel extends Container {
     constructor(config) {
         super(config);
 
-        if (config?.verticalHeadersFirst === true || this.verticalHeadersFirst === true) {
-            this.layout = {
+        let me = this;
+
+        if (me.hasHeaders() && config?.verticalHeadersFirst === true || me.verticalHeadersFirst === true) {
+            me.layout = {
                 ntype: 'hbox',
                 align: 'stretch'
             };
