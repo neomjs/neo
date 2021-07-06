@@ -1,5 +1,6 @@
-import BasePanel from '../container/Panel.mjs';
-import List      from './List.mjs';
+import BasePanel       from '../container/Panel.mjs';
+import ClassSystemUtil from '../util/ClassSystem.mjs';
+import List            from './List.mjs';
 
 /**
  * @class Neo.menu.Panel
@@ -32,6 +33,17 @@ class Panel extends BasePanel {
          */
         listConfig: null
     }}
+
+    /**
+     * Triggered before the list config gets changed.
+     * @param {Neo.menu.List} value
+     * @param {Neo.menu.List} oldValue
+     * @protected
+     */
+    beforeSetList(value, oldValue) {
+        oldValue && oldValue.destroy();
+        return ClassSystemUtil.beforeSetInstance(value, List, this.listConfig);
+    }
 }
 
 Neo.applyClassConfig(Panel);
