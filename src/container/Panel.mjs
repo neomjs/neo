@@ -102,76 +102,79 @@ class Panel extends Container {
      *
      */
     createItems() {
-        let me                   = this,
-            hf                   = me.verticalHeadersFirst === false,
-            headers              = me.headers || [],
-            bottomHeaders        = headers.filter(header => {return header.dock === (hf ?'bottom': 'right')}),
-            leftHeaders          = headers.filter(header => {return header.dock === (hf ?'left'  : 'top')}),
-            rightHeaders         = headers.filter(header => {return header.dock === (hf ?'right' : 'bottom')}),
-            topHeaders           = headers.filter(header => {return header.dock === (hf ?'top'   : 'left')}),
-            hasHorizontalHeaders = bottomHeaders.length > 0 || topHeaders  .length > 0,
-            hasVerticalHeaders   = leftHeaders  .length > 0 || rightHeaders.length > 0,
-            items                = me.items,
-            horizontalItems      = [],
-            verticalItems        = [],
-            config;
+        let me              = this,
+            containerConfig = me.containerConfig;
 
-        if (headers.length < 1) {
-            Neo.error('Panel without headers, please use a Container instead', me.id);
-        }
-
-        topHeaders.forEach(header => {
-            verticalItems.push(Panel.createHeaderConfig(header));
-        });
-
-        if (hasVerticalHeaders && (hf && hasHorizontalHeaders || !hf && hasHorizontalHeaders)) {
-            leftHeaders.forEach(header => {
-                horizontalItems.push(Panel.createHeaderConfig(header));
-            });
-
-            config = {
-                ntype       : 'container',
-                flex        : 1,
-                items       : items,
-                itemDefaults: me.itemDefaults,
-                ...me.containerConfig
-            };
-
-            horizontalItems.push({...me.headerDefaults, ...config});
-
-            rightHeaders.forEach(header => {
-                horizontalItems.push(Panel.createHeaderConfig(header));
-            });
-
-            verticalItems.push({
-                ntype : 'container',
-                items : horizontalItems,
-                layout: {
-                    ntype: (hf ? 'hbox' : 'vbox'),
-                    align: 'stretch'
-                }
-            });
+        if (!me.hasHeaders()) {
+            containerConfig && me.set(containerConfig);
+            super.createItems();
         } else {
-            config = {
-                ntype       : 'container',
-                flex        : 1,
-                items       : items,
-                itemDefaults: me.itemDefaults,
-                ...me.containerConfig
-            };
+            let hf                   = me.verticalHeadersFirst === false,
+                headers              = me.headers || [],
+                bottomHeaders        = headers.filter(header => {return header.dock === (hf ?'bottom': 'right')}),
+                leftHeaders          = headers.filter(header => {return header.dock === (hf ?'left'  : 'top')}),
+                rightHeaders         = headers.filter(header => {return header.dock === (hf ?'right' : 'bottom')}),
+                topHeaders           = headers.filter(header => {return header.dock === (hf ?'top'   : 'left')}),
+                hasHorizontalHeaders = bottomHeaders.length > 0 || topHeaders  .length > 0,
+                hasVerticalHeaders   = leftHeaders  .length > 0 || rightHeaders.length > 0,
+                items                = me.items,
+                horizontalItems      = [],
+                verticalItems        = [],
+                config;
 
-            verticalItems.push({...me.headerDefaults, ...config});
+            topHeaders.forEach(header => {
+                verticalItems.push(Panel.createHeaderConfig(header));
+            });
+
+            if (hasVerticalHeaders && (hf && hasHorizontalHeaders || !hf && hasHorizontalHeaders)) {
+                leftHeaders.forEach(header => {
+                    horizontalItems.push(Panel.createHeaderConfig(header));
+                });
+
+                config = {
+                    ntype       : 'container',
+                    flex        : 1,
+                    items       : items,
+                    itemDefaults: me.itemDefaults,
+                    ...containerConfig
+                };
+
+                horizontalItems.push({...me.headerDefaults, ...config});
+
+                rightHeaders.forEach(header => {
+                    horizontalItems.push(Panel.createHeaderConfig(header));
+                });
+
+                verticalItems.push({
+                    ntype : 'container',
+                    items : horizontalItems,
+                    layout: {
+                        ntype: (hf ? 'hbox' : 'vbox'),
+                        align: 'stretch'
+                    }
+                });
+            } else {
+                config = {
+                    ntype       : 'container',
+                    flex        : 1,
+                    items       : items,
+                    itemDefaults: me.itemDefaults,
+                    ...containerConfig
+                };
+
+                verticalItems.push({...me.headerDefaults, ...config});
+            }
+
+            bottomHeaders.forEach(header => {
+                verticalItems.push(Panel.createHeaderConfig(header));
+            });
+
+            me.items = verticalItems;
+
+            me.itemDefaults = null;
+
+            super.createItems();
         }
-
-        bottomHeaders.forEach(header => {
-            verticalItems.push(Panel.createHeaderConfig(header));
-        });
-
-        me.items = verticalItems;
-
-        me.itemDefaults = null;
-
-        super.createItems();
     }
 
     /**
