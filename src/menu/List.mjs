@@ -36,7 +36,13 @@ class List extends BaseList {
          * Value for the list.Base store_ config
          * @member {Neo.menu.Store} store=Store
          */
-        store: Store
+        store: Store,
+        /**
+         * The distance in px between a menu and a child menu
+         * See: https://github.com/neomjs/neo/issues/2569
+         * @member {Number} subMenuGap=0
+         */
+        subMenuGap: 0
     }}
 
     /**
@@ -112,7 +118,7 @@ class List extends BaseList {
                 items     : record.items,
 
                 style: {
-                    left: `${rect.right}px`,
+                    left: `${rect.right + me.subMenuGap}px`,
                     top : `${rect.top - 1}px` // minus the border
                 }
             });
