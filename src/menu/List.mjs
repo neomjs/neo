@@ -1,4 +1,5 @@
 import BaseList from '../list/Base.mjs';
+import Store    from './Store.mjs';
 
 /**
  * @class Neo.menu.List
@@ -19,7 +20,12 @@ class List extends BaseList {
         /**
          * @member {String[]} cls=['neo-menu-list','neo-list']
          */
-        cls: ['neo-menu-list', 'neo-list']
+        cls: ['neo-menu-list', 'neo-list'],
+        /**
+         * Value for the list.Base store_ config
+         * @member {Neo.menu.Store} store=Store
+         */
+        store: Store
     }}
 
     /**
