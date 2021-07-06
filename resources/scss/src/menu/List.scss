@@ -22,8 +22,11 @@
         }
 
         .neo-icon {
-            color       : v(menu-list-icon-color);
-            margin-right: .4em;
+            color          : v(menu-list-icon-color);
+            display        : flex;
+            justify-content: center;
+            margin-right   : .4em;
+            width          : 1.2em;
         }
     }
 }
