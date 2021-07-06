@@ -1,12 +1,12 @@
 import Model  from '../../../src/data/Model.mjs';
 
 /**
- * @class Neo.examples.list.menu.MainModel
+ * @class Neo.examples.menu.list.MainModel
  * @extends Neo.data.Model
  */
 class MainModel extends Model {
     static getConfig() {return {
-        className  : 'Neo.examples.list.menu.MainModel',
+        className  : 'Neo.examples.menu.list.MainModel',
         keyProperty: 'id',
 
         fields: [{

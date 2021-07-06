@@ -1,15 +1,15 @@
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import MainStore             from './MainStore.mjs';
-import MenuList              from '../../../src/list/Menu.mjs';
+import MenuList              from '../../../src/menu/List.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
 
 /**
- * @class Neo.examples.list.menu.MainContainer
+ * @class Neo.examples.menu.list.MainContainer
  * @extends Neo.examples.ConfigurationViewport
  */
 class MainContainer extends ConfigurationViewport {
     static getConfig() {return {
-        className           : 'Neo.examples.list.menu.MainContainer',
+        className           : 'Neo.examples.menu.list.MainContainer',
         autoMount           : true,
         configItemLabelWidth: 130,
         configItemWidth     : 230,

@@ -2,7 +2,7 @@ import MainModel from './MainModel.mjs';
 import Store     from '../../../src/data/Store.mjs';
 
 /**
- * @class Neo.examples.list.menu.MainStore
+ * @class Neo.examples.menu.list.MainStore
  * @extends Neo.data.Store
  */
 class MainStore extends Store {
