@@ -36,7 +36,13 @@ class Panel extends BasePanel {
          * Optionally pass menu.Store data directly
          * @member {Object[]|null} listItems_=null
          */
-        listItems_: null
+        listItems_: null,
+        /**
+         * The distance in px between a menu and a child menu
+         * See: https://github.com/neomjs/neo/issues/2569
+         * @member {Number} subMenuGap_=0
+         */
+        subMenuGap_: 0
     }}
 
     /**
@@ -57,6 +63,16 @@ class Panel extends BasePanel {
      */
     afterSetListItems(value, oldValue) {
         this.list.items = value;
+    }
+
+    /**
+     * Triggered after the subMenuGap config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetSubMenuGap(value, oldValue) {
+        this.list.subMenuGap = value;
     }
 
     /**
