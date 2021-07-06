@@ -2,6 +2,7 @@ import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Component       from '../component/Base.mjs';
 import ListModel       from '../selection/ListModel.mjs';
 import NeoArray        from '../util/Array.mjs';
+import Store           from '../data/Store.mjs';
 
 /**
  * @class Neo.list.Base
@@ -210,7 +211,7 @@ class Base extends Component {
      */
     beforeSetStore(value, oldValue) {
         oldValue && oldValue.destroy();
-        return ClassSystemUtil.beforeSetInstance(value);
+        return ClassSystemUtil.beforeSetInstance(value, Store);
     }
 
     /**
