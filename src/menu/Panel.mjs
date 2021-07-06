@@ -31,7 +31,12 @@ class Panel extends BasePanel {
          * Pass config options to the contained Neo.menu.List
          * @member {Object|null} listConfig=null
          */
-        listConfig: null
+        listConfig: null,
+        /**
+         * Optionally pass menu.Store data directly
+         * @member {Object[]|null} menuItems_=null
+         */
+        menuItems_: null
     }}
 
     /**
@@ -42,6 +47,19 @@ class Panel extends BasePanel {
      */
     afterSetList(value, oldValue) {
         this.add(value);
+    }
+
+    /**
+     * Triggered after the menuItems config got changed
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
+     * @protected
+     */
+    afterSetMenuItems(value, oldValue) {
+        let store = this.list.store;
+
+        oldValue && store.remove(oldValue);
+        value    && store.add(value);
     }
 
     /**

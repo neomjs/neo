@@ -1,5 +1,4 @@
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
-import MainStore             from './MainStore.mjs';
 import Menu                  from '../../../src/menu/Panel.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
 
@@ -47,9 +46,56 @@ class MainContainer extends ConfigurationViewport {
             module: Menu,
 
             listConfig: {
-                displayField: 'name',
-                store       : MainStore
-            }
+                displayField: 'name'
+            },
+
+            menuItems: [{
+                iconCls: 'fa fa-user',
+                id     : 1,
+                name   : 'Item 1'
+            }, {
+                iconCls: 'fa fa-home',
+                id     : 2,
+                name   : 'Group 1',
+                items  : [{
+                    iconCls: 'fa fa-home',
+                    id     : 6,
+                    name   : 'Item 1'
+                }, {
+                    iconCls: 'fa fa-home',
+                    id     : 7,
+                    name   : 'Item 2'
+                }, {
+                    iconCls: 'fa fa-home',
+                    id     : 8,
+                    name   : 'Item 3'
+                }]
+            }, {
+                iconCls: 'fa fa-cog',
+                id     : 3,
+                name   : 'Item 2'
+            }, {
+                iconCls: 'far fa-calendar',
+                id     : 4,
+                name   : 'Item 3'
+            }, {
+                iconCls: 'far fa-clock',
+                id     : 5,
+                name   : 'Group 2',
+                items  : [{
+                    iconCls: 'fa fa-clock',
+                    id     : 9,
+                    name   : 'Item 1'
+                }, {
+                    iconCls: 'fa fa-clock',
+                    id     : 10,
+                    name   : 'Item 2'
+                }, {
+                    iconCls: 'fa fa-clock',
+                    id     : 11,
+                    name   : 'Item 3'
+                }]
+            }]
         });
     }
 }
