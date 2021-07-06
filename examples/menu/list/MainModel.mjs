@@ -1,4 +1,4 @@
-import Model  from '../../../src/data/Model.mjs';
+import Model from '../../../src/data/Model.mjs';
 
 /**
  * @class Neo.examples.menu.list.MainModel

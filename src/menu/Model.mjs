@@ -1,12 +1,12 @@
-import Model from '../../../src/data/Model.mjs';
+import BaseModel from '../../src/data/Model.mjs';
 
 /**
- * @class Neo.examples.menu.panel.MainModel
+ * @class Neo.menu.Model
  * @extends Neo.data.Model
  */
-class MainModel extends Model {
+class Model extends BaseModel {
     static getConfig() {return {
-        className  : 'Neo.examples.menu.panel.MainModel',
+        className  : 'Neo.menu.Model',
         keyProperty: 'id',
 
         fields: [{
@@ -25,6 +25,6 @@ class MainModel extends Model {
     }}
 }
 
-Neo.applyClassConfig(MainModel);
+Neo.applyClassConfig(Model);
 
-export {MainModel as default};
+export {Model as default};
