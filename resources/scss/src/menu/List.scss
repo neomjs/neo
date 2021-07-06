@@ -1,6 +1,7 @@
 .neo-menu-list {
-    border: 1px solid v(menu-list-border-color);
-    width : fit-content;
+    border    : 1px solid v(menu-list-border-color);
+    overflow-y: auto;
+    width     : fit-content;
 
     &.neo-floating {
         box-shadow: v(menu-list-box-shadow);
