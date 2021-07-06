@@ -31,6 +31,16 @@ class MainContainer extends ConfigurationViewport {
         }, {
             module    :  NumberField,
             clearable : true,
+            labelText : 'subMenuGap',
+            listeners : {change: me.onConfigChange.bind(me, 'subMenuGap')},
+            maxValue  : 20,
+            minValue  : 0,
+            stepSize  : 1,
+            style     : {marginTop: '10px'},
+            value     : me.exampleComponent.subMenuGap
+        }, {
+            module    :  NumberField,
+            clearable : true,
             labelText : 'width',
             listeners : {change: me.onConfigChange.bind(me, 'width')},
             maxValue  : 800,
