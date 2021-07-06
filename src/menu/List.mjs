@@ -141,8 +141,6 @@ class List extends BaseList {
                 });
             }
 
-            console.log(subMenu);
-
             me.activeSubMenu = subMenu;
             me.subMenuMap    = subMenuMap;
 

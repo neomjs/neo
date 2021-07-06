@@ -93,7 +93,20 @@ class MainContainer extends ConfigurationViewport {
                 }, {
                     iconCls: 'fa fa-clock',
                     id     : 11,
-                    name   : 'Item 3'
+                    name   : 'Group 1',
+                    items  : [{
+                        iconCls: 'far fa-clock',
+                        id     : 12,
+                        name   : 'Item 1'
+                    }, {
+                        iconCls: 'far fa-clock',
+                        id     : 13,
+                        name   : 'Item 2'
+                    }, {
+                        iconCls: 'far fa-clock',
+                        id     : 14,
+                        name   : 'Item 3'
+                    }]
                 }]
             }]
         });
