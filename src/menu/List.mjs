@@ -156,6 +156,9 @@ class List extends BaseList {
             activeSubMenu = me.activeSubMenu,
             subMenuMap    = me.subMenuMap;
 
+        me.store.destroy();
+        me.store = null;
+
         if (activeSubMenu) {
             activeSubMenu.unmount();
             me.activeSubMenu = null;
