@@ -106,50 +106,6 @@ class List extends BaseList {
 
     /**
      *
-     * @param {String} nodeId
-     * @param {Object} record
-     */
-    createSubMenu(nodeId, record) {
-        let me         = this,
-            recordId   = record[me.store.keyProperty],
-            subMenuMap = me.subMenuMap || {},
-            subMenu    = subMenuMap[`menu__${recordId}`], // ids can be Numbers, so we do need a prefix
-            menuStyle, style;
-
-        Neo.main.DomAccess.getBoundingClientRect({
-            appName: me.appName,
-            id     : nodeId
-        }).then(rect => {
-            style = {
-                left: `${rect.right + me.subMenuGap}px`,
-                top : `${rect.top - 1}px` // minus the border
-            };
-
-            if (subMenu) {
-                menuStyle = subMenu.style;
-
-                Object.assign(menuStyle, style);
-
-                subMenu.setSilent({style: menuStyle});
-            } else {
-                subMenuMap[`menu__${recordId}`] = subMenu = Neo.create({
-                    module  : List,
-                    appName : me.appName,
-                    floating: true,
-                    items   : record.items,
-                    style   : style
-                });
-            }
-
-            me.activeSubMenu = subMenu;
-            me.subMenuMap    = subMenuMap;
-
-            subMenu.render(true);
-        });
-    }
-
-    /**
-     *
      */
     destroy(...args) {
         let me            = this,
@@ -222,10 +178,54 @@ class List extends BaseList {
             record = me.store.get(me.getItemRecordId(nodeId));
 
         if (me.hasChildren(record)) {
-            me.createSubMenu(nodeId, record);
+            me.showSubMenu(nodeId, record);
         } else {
             me.hideSubMenu();
         }
+    }
+
+    /**
+     *
+     * @param {String} nodeId
+     * @param {Object} record
+     */
+    showSubMenu(nodeId, record) {
+        let me         = this,
+            recordId   = record[me.store.keyProperty],
+            subMenuMap = me.subMenuMap || {},
+            subMenu    = subMenuMap[`menu__${recordId}`], // ids can be Numbers, so we do need a prefix
+            menuStyle, style;
+
+        Neo.main.DomAccess.getBoundingClientRect({
+            appName: me.appName,
+            id     : nodeId
+        }).then(rect => {
+            style = {
+                left: `${rect.right + me.subMenuGap}px`,
+                top : `${rect.top - 1}px` // minus the border
+            };
+
+            if (subMenu) {
+                menuStyle = subMenu.style;
+
+                Object.assign(menuStyle, style);
+
+                subMenu.setSilent({style: menuStyle});
+            } else {
+                subMenuMap[`menu__${recordId}`] = subMenu = Neo.create({
+                    module  : List,
+                    appName : me.appName,
+                    floating: true,
+                    items   : record.items,
+                    style   : style
+                });
+            }
+
+            me.activeSubMenu = subMenu;
+            me.subMenuMap    = subMenuMap;
+
+            subMenu.render(true);
+        });
     }
 
     /**
