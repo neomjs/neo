@@ -215,6 +215,20 @@ class List extends BaseList {
             me.activeSubMenu = null;
         }
     }
+
+    /**
+     *
+     */
+    unmount() {
+        let me = this;
+
+        if (me.activeSubMenu) {
+            me.activeSubMenu.unmount();
+            me.activeSubMenu = null;
+        }
+
+        super.unmount();
+    }
 }
 
 Neo.applyClassConfig(List);
