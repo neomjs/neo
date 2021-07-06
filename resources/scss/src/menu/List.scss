@@ -3,7 +3,8 @@
     width : fit-content;
 
     &.neo-floating {
-        position: absolute;
+        box-shadow: v(menu-list-box-shadow);
+        position  : absolute;
     }
 
     .neo-list-item {
