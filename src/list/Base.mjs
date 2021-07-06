@@ -2,7 +2,6 @@ import ClassSystemUtil from '../util/ClassSystem.mjs';
 import Component       from '../component/Base.mjs';
 import ListModel       from '../selection/ListModel.mjs';
 import NeoArray        from '../util/Array.mjs';
-import Store           from '../data/Store.mjs';
 
 /**
  * @class Neo.list.Base
@@ -152,9 +151,7 @@ class Base extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        if (this.rendered) {
-            value.register(this);
-        }
+        this.rendered && value.register(this);
     }
 
     /**
@@ -200,10 +197,7 @@ class Base extends Component {
      * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
-
+        oldValue && oldValue.destroy();
         return ClassSystemUtil.beforeSetInstance(value, ListModel);
     }
 
@@ -215,10 +209,7 @@ class Base extends Component {
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
-
+        oldValue && oldValue.destroy();
         return ClassSystemUtil.beforeSetInstance(value);
     }
 
