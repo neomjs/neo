@@ -4,7 +4,7 @@ $neoMap: map-merge($neoMap, (
 ));
 
 @if $useCssVars == true {
-    :root .neo-theme-light { // .neo-menu
+    :root .neo-theme-light { // .neo-menu-list
         --menu-border-color: #{neo(menu-border-color)};
         --menu-icon-color  : #{neo(menu-icon-color)};
     }
