@@ -42,7 +42,13 @@ class List extends BaseList {
          * See: https://github.com/neomjs/neo/issues/2569
          * @member {Number} subMenuGap=0
          */
-        subMenuGap: 0
+        subMenuGap: 0,
+        /**
+         * Storing childMenus by record keyProperty
+         * @member {Object} subMenuMap=null
+         * @protected
+         */
+        subMenuMap: null
     }}
 
     /**
@@ -99,31 +105,39 @@ class List extends BaseList {
      * @param {Object} record
      */
     createSubMenu(nodeId, record) {
-        console.log('createSubMenu', nodeId, record);
-
-        let me = this;
+        let me         = this,
+            recordId   = record[me.store.keyProperty],
+            subMenuMap = me.subMenuMap || {},
+            subMenu    = subMenuMap[recordId],
+            menuStyle, style;
 
         Neo.main.DomAccess.getBoundingClientRect({
             appName: me.appName,
             id     : nodeId
         }).then(rect => {
-            console.log(rect);
+            style = {
+                left: `${rect.right + me.subMenuGap}px`,
+                top : `${rect.top - 1}px` // minus the border
+            };
 
-            let subMenu = Neo.create({
-                module    : List,
-                appName   : me.appName,
-                autoRender: true,
-                autoMount : true,
-                floating  : true,
-                items     : record.items,
+            if (subMenu) {
+                menuStyle = subMenu.style;
 
-                style: {
-                    left: `${rect.right + me.subMenuGap}px`,
-                    top : `${rect.top - 1}px` // minus the border
-                }
-            });
+                Object.assign(menuStyle, style);
+
+                subMenu.setSilent({style: menuStyle});
+            } else {
+                subMenuMap[recordId] = subMenu = Neo.create({
+                    module  : List,
+                    appName : me.appName,
+                    floating: true,
+                    items   : record.items,
+                    style   : style
+                });
+            }
 
             console.log(subMenu);
+            subMenu.render(true);
         });
     }
 
