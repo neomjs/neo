@@ -1,25 +1,25 @@
-import List from './Base.mjs';
+import BaseList from '../list/Base.mjs';
 
 /**
- * @class Neo.list.Menu
+ * @class Neo.menu.List
  * @extends Neo.list.Base
  */
-class Menu extends List {
+class List extends BaseList {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.list.Menu'
+         * @member {String} className='Neo.menu.List'
          * @protected
          */
-        className: 'Neo.list.Menu',
+        className: 'Neo.menu.List',
         /**
-         * @member {String} ntype='menu'
+         * @member {String} ntype='menu-list'
          * @protected
          */
-        ntype: 'menu',
+        ntype: 'menu-list',
         /**
-         * @member {String[]} cls=['neo-menu','neo-list']
+         * @member {String[]} cls=['neo-menu-list','neo-list']
          */
-        cls: ['neo-menu', 'neo-list']
+        cls: ['neo-menu-list', 'neo-list']
     }}
 
     /**
@@ -95,6 +95,6 @@ class Menu extends List {
     }
 }
 
-Neo.applyClassConfig(Menu);
+Neo.applyClassConfig(List);
 
-export {Menu as default};
+export {List as default};
