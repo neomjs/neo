@@ -97,16 +97,28 @@ class List extends BaseList {
 
         let me = this;
 
-        let subMenu = Neo.create({
-            module    : List,
-            appName   : me.appName,
-            autoRender: true,
-            autoMount : true,
-            floating  : true,
-            items     : record.items
-        });
+        Neo.main.DomAccess.getBoundingClientRect({
+            appName: me.appName,
+            id     : nodeId
+        }).then(rect => {
+            console.log(rect);
 
-        console.log(subMenu);
+            let subMenu = Neo.create({
+                module    : List,
+                appName   : me.appName,
+                autoRender: true,
+                autoMount : true,
+                floating  : true,
+                items     : record.items,
+
+                style: {
+                    left: `${rect.right}px`,
+                    top : `${rect.top - 1}px` // minus the border
+                }
+            });
+
+            console.log(subMenu);
+        });
     }
 
     /**
