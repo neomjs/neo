@@ -41,7 +41,7 @@ class Panel extends BasePanel {
      * @protected
      */
     afterSetList(value, oldValue) {
-        console.log('afterSetList', value);
+        this.add(value);
     }
 
     /**
