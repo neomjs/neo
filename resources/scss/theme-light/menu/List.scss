@@ -1,11 +1,11 @@
 $neoMap: map-merge($neoMap, (
-    'menu-border-color': #1c60a0,
-    'menu-icon-color'  : #1c60a0
+    'menu-list-border-color': #1c60a0,
+    'menu-list-icon-color'  : #1c60a0
 ));
 
 @if $useCssVars == true {
     :root .neo-theme-light { // .neo-menu-list
-        --menu-border-color: #{neo(menu-border-color)};
-        --menu-icon-color  : #{neo(menu-icon-color)};
+        --menu-list-border-color: #{neo(menu-list-border-color)};
+        --menu-list-icon-color  : #{neo(menu-list-icon-color)};
     }
 }
