@@ -222,6 +222,8 @@ class List extends BaseList {
     unmount() {
         let me = this;
 
+        me.selectionModel.deselectAll(true); // silent update
+
         if (me.activeSubMenu) {
             me.activeSubMenu.unmount();
             me.activeSubMenu = null;
