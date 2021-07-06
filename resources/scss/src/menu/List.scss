@@ -2,6 +2,10 @@
     border: 1px solid v(menu-list-border-color);
     width : fit-content;
 
+    &.neo-floating {
+        position: absolute;
+    }
+
     .neo-list-item {
         align-items: center;
         display    : flex;
