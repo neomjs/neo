@@ -1,0 +1,24 @@
+import Model     from './Model.mjs';
+import BaseStore from '../../src/data/Store.mjs';
+
+/**
+ * @class Neo.menu.Store
+ * @extends Neo.data.Store
+ */
+class Store extends BaseStore {
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.menu.Store'
+         * @protected
+         */
+        className: 'Neo.menu.Store',
+        /**
+         * @member {Neo.menu.Model} model=Model
+         */
+        model: Model
+    }}
+}
+
+Neo.applyClassConfig(Store);
+
+export {Store as default};
