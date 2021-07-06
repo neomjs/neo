@@ -150,6 +150,27 @@ class List extends BaseList {
 
     /**
      *
+     */
+    destroy(...args) {
+        let me            = this,
+            activeSubMenu = me.activeSubMenu,
+            subMenuMap    = me.subMenuMap;
+
+        if (activeSubMenu) {
+            activeSubMenu.unmount();
+            me.activeSubMenu = null;
+        }
+
+        Object.entries(subMenuMap).forEach(([key, value]) => {
+            value.destroy();
+            subMenuMap[key] = null;
+        });
+
+        super.destroy(...args);
+    }
+
+    /**
+     *
      * @param {Number|String} recordId
      * @returns {String}
      */
