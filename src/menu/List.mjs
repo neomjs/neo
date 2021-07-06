@@ -201,6 +201,19 @@ class List extends BaseList {
 
     /**
      *
+     */
+    hideSubMenu() {
+        let me            = this,
+            activeSubMenu = me.activeSubMenu;
+
+        if (activeSubMenu) {
+            activeSubMenu.unmount();
+            me.activeSubMenu = null;
+        }
+    }
+
+    /**
+     *
      * @param {String[]} items
      */
     onSelect(items) {
@@ -210,9 +223,8 @@ class List extends BaseList {
 
         if (me.hasChildren(record)) {
             me.createSubMenu(nodeId, record);
-        } else if (me.activeSubMenu) {
-            me.activeSubMenu.unmount();
-            me.activeSubMenu = null;
+        } else {
+            me.hideSubMenu();
         }
     }
 
@@ -220,14 +232,8 @@ class List extends BaseList {
      *
      */
     unmount() {
-        let me = this;
-
-        me.selectionModel.deselectAll(true); // silent update
-
-        if (me.activeSubMenu) {
-            me.activeSubMenu.unmount();
-            me.activeSubMenu = null;
-        }
+        this.selectionModel.deselectAll(true); // silent update
+        this.hideSubMenu();
 
         super.unmount();
     }
