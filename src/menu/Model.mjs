@@ -6,9 +6,18 @@ import BaseModel from '../../src/data/Model.mjs';
  */
 class Model extends BaseModel {
     static getConfig() {return {
-        className  : 'Neo.menu.Model',
+        /**
+         * @member {String} className='Neo.menu.Model'
+         * @protected
+         */
+        className: 'Neo.menu.Model',
+        /**
+         * @member {String} keyProperty='id'
+         */
         keyProperty: 'id',
-
+        /**
+         * @member {Object[]} fields
+         */
         fields: [{
             name: 'iconCls',
             type: 'String'
