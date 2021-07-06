@@ -35,6 +35,16 @@ class Panel extends BasePanel {
     }}
 
     /**
+     * Triggered after the list config got changed
+     * @param {Neo.menu.List} value
+     * @param {Neo.menu.List} oldValue
+     * @protected
+     */
+    afterSetList(value, oldValue) {
+        console.log('afterSetList', value);
+    }
+
+    /**
      * Triggered before the list config gets changed.
      * @param {Neo.menu.List} value
      * @param {Neo.menu.List} oldValue
