@@ -34,9 +34,9 @@ class Panel extends BasePanel {
         listConfig: null,
         /**
          * Optionally pass menu.Store data directly
-         * @member {Object[]|null} menuItems_=null
+         * @member {Object[]|null} listItems_=null
          */
-        menuItems_: null
+        listItems_: null
     }}
 
     /**
@@ -50,16 +50,13 @@ class Panel extends BasePanel {
     }
 
     /**
-     * Triggered after the menuItems config got changed
+     * Triggered after the listItems config got changed
      * @param {Object[]} value
      * @param {Object[]} oldValue
      * @protected
      */
-    afterSetMenuItems(value, oldValue) {
-        let store = this.list.store;
-
-        oldValue && store.remove(oldValue);
-        value    && store.add(value);
+    afterSetListItems(value, oldValue) {
+        this.list.items = value;
     }
 
     /**

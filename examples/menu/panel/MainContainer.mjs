@@ -49,7 +49,7 @@ class MainContainer extends ConfigurationViewport {
                 displayField: 'name'
             },
 
-            menuItems: [{
+            listItems: [{
                 iconCls: 'fa fa-user',
                 id     : 1,
                 name   : 'Item 1'
