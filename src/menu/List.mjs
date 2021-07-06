@@ -75,6 +75,18 @@ class List extends BaseList {
      */
     createSubMenu(nodeId, record) {
         console.log('createSubMenu', nodeId, record);
+
+        let me = this;
+
+        let subMenu = Neo.create({
+            module    : List,
+            appName   : me.appName,
+            autoRender: true,
+            autoMount : true,
+            items     : record.items
+        });
+
+        console.log(subMenu);
     }
 
     /**
