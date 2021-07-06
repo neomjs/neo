@@ -2,12 +2,12 @@ import MainModel from './MainModel.mjs';
 import Store     from '../../../src/data/Store.mjs';
 
 /**
- * @class Neo.examples.menu.list.MainStore
+ * @class Neo.examples.menu.panel.MainStore
  * @extends Neo.data.Store
  */
 class MainStore extends Store {
     static getConfig() {return {
-        className: 'Neo.examples.menu.list.MainStore',
+        className: 'Neo.examples.menu.panel.MainStore',
         model    : MainModel,
 
         data: [{
