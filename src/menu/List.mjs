@@ -19,6 +19,11 @@ class List extends BaseList {
          */
         ntype: 'menu-list',
         /**
+         * Read only. We are storing the currently visible subMenu instance.
+         * @member {Neo.menu.List|Neo.menu.Panel|null} activeSubMenu=null
+         */
+        activeSubMenu: null,
+        /**
          * @member {String[]} cls=['neo-menu-list','neo-list']
          */
         cls: ['neo-menu-list', 'neo-list'],
@@ -108,7 +113,7 @@ class List extends BaseList {
         let me         = this,
             recordId   = record[me.store.keyProperty],
             subMenuMap = me.subMenuMap || {},
-            subMenu    = subMenuMap[recordId],
+            subMenu    = subMenuMap[`menu__${recordId}`], // ids can be Numbers, so we do need a prefix
             menuStyle, style;
 
         Neo.main.DomAccess.getBoundingClientRect({
@@ -127,7 +132,7 @@ class List extends BaseList {
 
                 subMenu.setSilent({style: menuStyle});
             } else {
-                subMenuMap[recordId] = subMenu = Neo.create({
+                subMenuMap[`menu__${recordId}`] = subMenu = Neo.create({
                     module  : List,
                     appName : me.appName,
                     floating: true,
@@ -137,6 +142,10 @@ class List extends BaseList {
             }
 
             console.log(subMenu);
+
+            me.activeSubMenu = subMenu;
+            me.subMenuMap    = subMenuMap;
+
             subMenu.render(true);
         });
     }
@@ -179,6 +188,9 @@ class List extends BaseList {
 
         if (me.hasChildren(record)) {
             me.createSubMenu(nodeId, record);
+        } else if (me.activeSubMenu) {
+            me.activeSubMenu.unmount();
+            me.activeSubMenu = null;
         }
     }
 }
