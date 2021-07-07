@@ -165,6 +165,15 @@ class List extends BaseList {
     }
 
     /**
+     * recordIds can be Numbers, so we do need a prefix
+     * @param {Number|String} recordId
+     * @returns {String}
+     */
+    getMenuMapId(recordId) {
+        return `menu__${recordId}`;
+    }
+
+    /**
      * Checks if a record has items
      * @param {Object} record
      * @returns {Boolean}
@@ -191,14 +200,17 @@ class List extends BaseList {
      * @param {String[]} items
      */
     onSelect(items) {
-        let me     = this,
-            nodeId = items[0],
-            record = me.store.get(me.getItemRecordId(nodeId));
+        let me       = this,
+            nodeId   = items[0],
+            recordId = me.getItemRecordId(nodeId),
+            record   = me.store.get(recordId);
 
-        if (me.hasChildren(record)) {
-            me.showSubMenu(nodeId, record);
-        } else {
+        if (me.activeSubMenu !== me.subMenuMap?.[me.getMenuMapId(recordId)]) {
             me.hideSubMenu();
+
+            if (me.hasChildren(record)) {
+                me.showSubMenu(nodeId, record);
+            }
         }
     }
 
@@ -208,50 +220,47 @@ class List extends BaseList {
      * @param {Object} record
      */
     showSubMenu(nodeId, record) {
-        let me         = this,
-            store      = me.store,
-            recordId   = record[store.keyProperty],
-            subMenuMap = me.subMenuMap || {},
-            subMenu    = subMenuMap[`menu__${recordId}`], // ids can be Numbers, so we do need a prefix
+        let me           = this,
+            store        = me.store,
+            recordId     = record[store.keyProperty],
+            subMenuMap   = me.subMenuMap || {},
+            subMenuMapId = me.getMenuMapId(recordId),
+            subMenu      = subMenuMap[subMenuMapId],
             menuStyle, style;
 
-        // We need to check if the subMenu is already mounted, since this method gets triggered
-        // when navigating out of it (arrow left key)
-        if (!(subMenu?.mounted)) {
-            Neo.main.DomAccess.getBoundingClientRect({
-                appName: me.appName,
-                id     : nodeId
-            }).then(rect => {
-                style = {
-                    left: `${rect.right + me.subMenuGap}px`,
-                    top : `${rect.top - 1}px` // minus the border
-                };
+        Neo.main.DomAccess.getBoundingClientRect({
+            appName: me.appName,
+            id     : nodeId
+        }).then(rect => {
+            style = {
+                left: `${rect.right + me.subMenuGap}px`,
+                top : `${rect.top - 1}px` // minus the border
+            };
 
-                if (subMenu) {
-                    menuStyle = subMenu.style;
+            if (subMenu) {
+                menuStyle = subMenu.style;
 
-                    Object.assign(menuStyle, style);
+                Object.assign(menuStyle, style);
 
-                    subMenu.setSilent({style: menuStyle});
-                } else {
-                    subMenuMap[`menu__${recordId}`] = subMenu = Neo.create({
-                        module     : List,
-                        appName    : me.appName,
-                        floating   : true,
-                        items      : record.items,
-                        parentId   : Neo.apps[me.appName].mainView.id,
-                        parentIndex: store.indexOf(record),
-                        parentMenu : me,
-                        style      : style
-                    });
-                }
+                subMenu.setSilent({style: menuStyle});
+            } else {
+                subMenuMap[subMenuMapId] = subMenu = Neo.create({
+                    module     : List,
+                    appName    : me.appName,
+                    floating   : true,
+                    items      : record.items,
+                    parentId   : Neo.apps[me.appName].mainView.id,
+                    parentIndex: store.indexOf(record),
+                    parentMenu : me,
+                    style      : style
+                });
+            }
 
-                me.activeSubMenu = subMenu;
-                me.subMenuMap    = subMenuMap;
+            me.activeSubMenu = subMenu;
+            me.subMenuMap    = subMenuMap;
 
-                subMenu.render(true);
-            });
-        }
+            subMenu.render(true);
+        });
     }
 
     /**
