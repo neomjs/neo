@@ -283,6 +283,7 @@ class List extends BaseList {
                     appName    : me.appName,
                     floating   : true,
                     items      : record.items,
+                    isRoot     : false,
                     parentId   : Neo.apps[me.appName].mainView.id,
                     parentIndex: store.indexOf(record),
                     parentMenu : me,
