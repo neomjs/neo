@@ -17,6 +17,18 @@ class ListModel extends BaseListModel {
          */
         ntype: 'selection-menu-listmodel',
     }}
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onKeyDownRight(data) {
+        let activeSubMenu = this.view.activeSubMenu;
+
+        if (activeSubMenu) {
+            activeSubMenu.selectionModel.selectAt(0);
+        }
+    }
 }
 
 Neo.applyClassConfig(ListModel);
