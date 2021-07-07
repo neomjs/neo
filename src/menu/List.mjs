@@ -247,7 +247,6 @@ class List extends BaseList {
      * @param {Object[]} data.path
      */
     onFocusEnter(data) {
-        console.log('onFocusEnter', this.id);
         this.menuFocus = true;
     }
 
@@ -257,7 +256,6 @@ class List extends BaseList {
      * @param {Object[]} data.oldPath
      */
     onFocusLeave(data) {
-        console.log('onFocusLeave', this.id);
         this.menuFocus = false;
     }
 
