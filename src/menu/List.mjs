@@ -158,7 +158,7 @@ class List extends BaseList {
             vdomCn = [{tag: 'span', cls: ['neo-content'], html: record[me.displayField]}];
 
         if (record.iconCls && record.iconCls !== '') {
-            vdomCn.unshift({tag: 'i', cls: ['neo-icon', record.iconCls], id: me.getIconId(id)});
+            vdomCn.unshift({tag: 'i', cls: ['neo-menu-icon', 'neo-icon', record.iconCls], id: me.getIconId(id)});
         }
 
         if (me.hasChildren(record)) {
