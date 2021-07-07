@@ -112,8 +112,8 @@ class Focus extends CoreBase {
             focusMove        = NeoArray.intersection(newComponentPath, oldComponentPath),
             component, data;
 
-        me.setComponentFocus({componentPath: focusEnter, data: opts.data}, true);
         me.setComponentFocus({componentPath: focusLeave, data: opts.data}, false);
+        me.setComponentFocus({componentPath: focusEnter, data: opts.data}, true);
 
         focusMove.forEach(id => {
             component = Neo.getComponent(id);
