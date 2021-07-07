@@ -22,6 +22,14 @@ class ListModel extends BaseListModel {
      *
      * @param {Object} data
      */
+    onKeyDownLeft(data) {
+        console.log('onKeyDownLeft');
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onKeyDownRight(data) {
         let activeSubMenu = this.view.activeSubMenu;
 

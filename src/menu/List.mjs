@@ -39,6 +39,18 @@ class List extends BaseList {
          */
         items_: null,
         /**
+         * Storing the list item index of the parent menu in case it exists.
+         * @member {Number} parentIndex=0
+         * @protected
+         */
+        parentIndex: 0,
+        /**
+         * Storing a reference to the parent menu in case it exists.
+         * @member {Neo.menu.List|Neo.menu.Panel|null} parentMenu=null
+         * @protected
+         */
+        parentMenu: null,
+        /**
          * Value for the list.Base selectionModel_ config
          * @member {Neo.selection.menu.ListModel} selectionModel=ListModel
          */
@@ -197,7 +209,8 @@ class List extends BaseList {
      */
     showSubMenu(nodeId, record) {
         let me         = this,
-            recordId   = record[me.store.keyProperty],
+            store      = me.store,
+            recordId   = record[store.keyProperty],
             subMenuMap = me.subMenuMap || {},
             subMenu    = subMenuMap[`menu__${recordId}`], // ids can be Numbers, so we do need a prefix
             menuStyle, style;
@@ -219,12 +232,14 @@ class List extends BaseList {
                 subMenu.setSilent({style: menuStyle});
             } else {
                 subMenuMap[`menu__${recordId}`] = subMenu = Neo.create({
-                    module  : List,
-                    appName : me.appName,
-                    floating: true,
-                    items   : record.items,
-                    parentId: Neo.apps[me.appName].mainView.id,
-                    style   : style
+                    module     : List,
+                    appName    : me.appName,
+                    floating   : true,
+                    items      : record.items,
+                    parentId   : Neo.apps[me.appName].mainView.id,
+                    parentIndex: store.indexOf(record),
+                    parentMenu : me,
+                    style      : style
                 });
             }
 
