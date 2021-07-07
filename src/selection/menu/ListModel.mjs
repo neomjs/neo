@@ -15,7 +15,7 @@ class ListModel extends BaseListModel {
          * @member {String} ntype='selection-menu-listmodel'
          * @protected
          */
-        ntype: 'selection-menu-listmodel',
+        ntype: 'selection-menu-listmodel'
     }}
 
     /**
