@@ -34,10 +34,30 @@ class List extends BaseList {
          */
         floating_: false,
         /**
+         * setTimeout() id after a focus-leave event.
+         * @member {Number|null} focusTimeoutId=null
+         * @protected
+         */
+        focusTimeoutId: null,
+        /**
          * Optionally pass menu.Store data directly
          * @member {Object[]|null} items_=null
          */
         items_: null,
+        /**
+         * Internal flag.
+         * Sub-menus will bubble of focus changes to the top level.
+         * @member {Boolean} menuFocus_=false
+         * @protected
+         */
+        menuFocus_: false,
+        /**
+         * Internal flag.
+         * True for a top level menu, false for sub-menus.
+         * @member {Boolean} isRoot=true
+         * @protected
+         */
+        isRoot: true,
         /**
          * Storing the list item index of the parent menu in case it exists.
          * @member {Number} parentIndex=0
@@ -101,6 +121,32 @@ class List extends BaseList {
     }
 
     /**
+     * Triggered after the menuFocus config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMenuFocus(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            if (me.isRoot) {
+                if (!value) {
+                    me.focusTimeoutId = setTimeout(() => {
+                        me[me.floating ? 'unmount' : 'hideSubMenu']();
+                    }, 20);
+                } else {
+                    clearTimeout(me.focusTimeoutId);
+                    me.focusTimeoutId = null;
+                }
+            } else {
+                // bubble the focus change upwards
+                me.parentMenu.menuFocus = value;
+            }
+        }
+    }
+
+    /**
      * Override this method for custom renderers
      * @param {Object} record
      * @param {Number} index
@@ -112,7 +158,7 @@ class List extends BaseList {
             vdomCn = [{tag: 'span', cls: ['neo-content'], html: record[me.displayField]}];
 
         if (record.iconCls && record.iconCls !== '') {
-            vdomCn.unshift({tag: 'i', cls: ['neo-icon', record.iconCls], id: me.getIconId(id)});
+            vdomCn.unshift({tag: 'i', cls: ['neo-menu-icon', 'neo-icon', record.iconCls], id: me.getIconId(id)});
         }
 
         if (me.hasChildren(record)) {
@@ -165,6 +211,15 @@ class List extends BaseList {
     }
 
     /**
+     * recordIds can be Numbers, so we do need a prefix
+     * @param {Number|String} recordId
+     * @returns {String}
+     */
+    getMenuMapId(recordId) {
+        return `menu__${recordId}`;
+    }
+
+    /**
      * Checks if a record has items
      * @param {Object} record
      * @returns {Boolean}
@@ -188,17 +243,38 @@ class List extends BaseList {
 
     /**
      *
+     * @param {Object} data
+     * @param {Object[]} data.path
+     */
+    onFocusEnter(data) {
+        this.menuFocus = true;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Object[]} data.oldPath
+     */
+    onFocusLeave(data) {
+        this.menuFocus = false;
+    }
+
+    /**
+     *
      * @param {String[]} items
      */
     onSelect(items) {
-        let me     = this,
-            nodeId = items[0],
-            record = me.store.get(me.getItemRecordId(nodeId));
+        let me       = this,
+            nodeId   = items[0],
+            recordId = me.getItemRecordId(nodeId),
+            record   = me.store.get(recordId);
 
-        if (me.hasChildren(record)) {
-            me.showSubMenu(nodeId, record);
-        } else {
+        if (me.activeSubMenu !== me.subMenuMap?.[me.getMenuMapId(recordId)]) {
             me.hideSubMenu();
+
+            if (me.hasChildren(record)) {
+                me.showSubMenu(nodeId, record);
+            }
         }
     }
 
@@ -208,50 +284,48 @@ class List extends BaseList {
      * @param {Object} record
      */
     showSubMenu(nodeId, record) {
-        let me         = this,
-            store      = me.store,
-            recordId   = record[store.keyProperty],
-            subMenuMap = me.subMenuMap || {},
-            subMenu    = subMenuMap[`menu__${recordId}`], // ids can be Numbers, so we do need a prefix
+        let me           = this,
+            store        = me.store,
+            recordId     = record[store.keyProperty],
+            subMenuMap   = me.subMenuMap || {},
+            subMenuMapId = me.getMenuMapId(recordId),
+            subMenu      = subMenuMap[subMenuMapId],
             menuStyle, style;
 
-        // We need to check if the subMenu is already mounted, since this method gets triggered
-        // when navigating out of it (arrow left key)
-        if (!(subMenu?.mounted)) {
-            Neo.main.DomAccess.getBoundingClientRect({
-                appName: me.appName,
-                id     : nodeId
-            }).then(rect => {
-                style = {
-                    left: `${rect.right + me.subMenuGap}px`,
-                    top : `${rect.top - 1}px` // minus the border
-                };
+        Neo.main.DomAccess.getBoundingClientRect({
+            appName: me.appName,
+            id     : nodeId
+        }).then(rect => {
+            style = {
+                left: `${rect.right + me.subMenuGap}px`,
+                top : `${rect.top - 1}px` // minus the border
+            };
 
-                if (subMenu) {
-                    menuStyle = subMenu.style;
+            if (subMenu) {
+                menuStyle = subMenu.style;
 
-                    Object.assign(menuStyle, style);
+                Object.assign(menuStyle, style);
 
-                    subMenu.setSilent({style: menuStyle});
-                } else {
-                    subMenuMap[`menu__${recordId}`] = subMenu = Neo.create({
-                        module     : List,
-                        appName    : me.appName,
-                        floating   : true,
-                        items      : record.items,
-                        parentId   : Neo.apps[me.appName].mainView.id,
-                        parentIndex: store.indexOf(record),
-                        parentMenu : me,
-                        style      : style
-                    });
-                }
+                subMenu.setSilent({style: menuStyle});
+            } else {
+                subMenuMap[subMenuMapId] = subMenu = Neo.create({
+                    module     : List,
+                    appName    : me.appName,
+                    floating   : true,
+                    items      : record.items,
+                    isRoot     : false,
+                    parentId   : Neo.apps[me.appName].mainView.id,
+                    parentIndex: store.indexOf(record),
+                    parentMenu : me,
+                    style      : style
+                });
+            }
 
-                me.activeSubMenu = subMenu;
-                me.subMenuMap    = subMenuMap;
+            me.activeSubMenu = subMenu;
+            me.subMenuMap    = subMenuMap;
 
-                subMenu.render(true);
-            });
-        }
+            subMenu.render(true);
+        });
     }
 
     /**

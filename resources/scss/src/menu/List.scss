@@ -31,8 +31,11 @@
             color          : v(menu-list-icon-color);
             display        : flex;
             justify-content: center;
-            margin-right   : .4em;
-            width          : 1.2em;
+        }
+
+        .neo-menu-icon {
+            margin-right: .4em;
+            width       : 1.2em;
         }
     }
 }

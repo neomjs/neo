@@ -112,8 +112,8 @@ class Focus extends CoreBase {
             focusMove        = NeoArray.intersection(newComponentPath, oldComponentPath),
             component, data;
 
-        me.setComponentFocus({componentPath: focusEnter, data: opts.data}, true);
         me.setComponentFocus({componentPath: focusLeave, data: opts.data}, false);
+        me.setComponentFocus({componentPath: focusEnter, data: opts.data}, true);
 
         focusMove.forEach(id => {
             component = Neo.getComponent(id);
@@ -189,14 +189,17 @@ class Focus extends CoreBase {
      */
     setComponentFocus(opts, containsFocus) {
         let data = {},
-            component, handler;
+            components = opts.componentPath.map(id => Neo.getComponent(id)),
+            handler;
 
-        opts.componentPath.forEach(id => {
-            component = Neo.getComponent(id);
-
+        components.forEach(component => {
             if (component) {
                 component.containsFocus = containsFocus;
+            }
+        });
 
+        components.forEach(component => {
+            if (component) {
                 data[containsFocus ? 'path' : 'oldPath'] = opts.data.path
 
                 handler = containsFocus ? 'onFocusEnter' : 'onFocusLeave';
