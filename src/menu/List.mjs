@@ -1,6 +1,7 @@
-import BaseList from '../list/Base.mjs';
-import NeoArray from '../util/Array.mjs';
-import Store    from './Store.mjs';
+import BaseList  from '../list/Base.mjs';
+import ListModel from '../selection/menu/ListModel.mjs';
+import NeoArray  from '../util/Array.mjs';
+import Store     from './Store.mjs';
 
 /**
  * @class Neo.menu.List
@@ -37,6 +38,11 @@ class List extends BaseList {
          * @member {Object[]|null} items_=null
          */
         items_: null,
+        /**
+         * Value for the list.Base selectionModel_ config
+         * @member {Neo.selection.menu.ListModel} selectionModel=ListModel
+         */
+        selectionModel: ListModel,
         /**
          * Value for the list.Base store_ config
          * @member {Neo.menu.Store} store=Store
