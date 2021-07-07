@@ -46,6 +46,13 @@ class List extends BaseList {
          */
         menuFocus_: false,
         /**
+         * Internal flag.
+         * True for a top level menu, false for sub-menus.
+         * @member {Boolean} isRoot=true
+         * @protected
+         */
+        isRoot: true,
+        /**
          * Storing the list item index of the parent menu in case it exists.
          * @member {Number} parentIndex=0
          * @protected
