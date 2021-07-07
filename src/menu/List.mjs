@@ -116,7 +116,7 @@ class List extends BaseList {
         }
 
         if (me.hasChildren(record)) {
-            vdomCn.push({tag: 'i', cls: ['neo-arrow-icon', 'fas fa-chevron-right'], id: me.getArrowIconId(id)});
+            vdomCn.push({tag: 'i', cls: ['neo-arrow-icon', 'neo-icon', 'fas fa-chevron-right'], id: me.getArrowIconId(id)});
         }
 
         return vdomCn;

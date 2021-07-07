@@ -12,6 +12,12 @@
         align-items: center;
         display    : flex;
 
+        &.neo-selected {
+            .neo-icon {
+                color: v(menu-list-icon-color-selected);
+            }
+        }
+
         .neo-arrow-icon {
             color      : v(menu-list-icon-color);
             margin-left: 1em;
