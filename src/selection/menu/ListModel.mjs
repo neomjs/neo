@@ -23,7 +23,12 @@ class ListModel extends BaseListModel {
      * @param {Object} data
      */
     onKeyDownLeft(data) {
-        console.log('onKeyDownLeft');
+        let view       = this.view,
+            parentMenu = view.parentMenu;
+
+        if (parentMenu) {
+            parentMenu.selectionModel.selectAt(view.parentIndex);
+        }
     }
 
     /**
