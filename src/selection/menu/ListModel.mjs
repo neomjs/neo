@@ -27,6 +27,7 @@ class ListModel extends BaseListModel {
             parentMenu = view.parentMenu;
 
         if (parentMenu) {
+            view.selectionModel.deselectAll();
             parentMenu.selectionModel.selectAt(view.parentIndex);
         }
     }
