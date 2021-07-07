@@ -34,6 +34,12 @@ class List extends BaseList {
          */
         floating_: false,
         /**
+         * setTimeout() id after a focus-leave event.
+         * @member {Number|null} focusTimeoutId=null
+         * @protected
+         */
+        focusTimeoutId: null,
+        /**
          * Optionally pass menu.Store data directly
          * @member {Object[]|null} items_=null
          */
@@ -112,6 +118,32 @@ class List extends BaseList {
 
         oldValue && store.remove(oldValue);
         value    && store.add(value);
+    }
+
+    /**
+     * Triggered after the menuFocus config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMenuFocus(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me = this;
+
+            if (me.isRoot) {
+                if (!value) {
+                    me.focusTimeoutId = setTimeout(() => {
+                        me[me.floating ? 'unmount' : 'hideSubMenu']();
+                    }, 20);
+                } else {
+                    clearTimeout(me.focusTimeoutId);
+                    me.focusTimeoutId = null;
+                }
+            } else {
+                // bubble the focus change upwards
+                me.parentMenu.menuFocus = value;
+            }
+        }
     }
 
     /**
