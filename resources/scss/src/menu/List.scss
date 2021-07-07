@@ -1,6 +1,7 @@
 .neo-menu-list {
-    border: 1px solid v(menu-list-border-color);
-    width : fit-content;
+    border    : 1px solid v(menu-list-border-color);
+    overflow-y: auto;
+    width     : fit-content;
 
     &.neo-floating {
         box-shadow: v(menu-list-box-shadow);
@@ -10,6 +11,12 @@
     .neo-list-item {
         align-items: center;
         display    : flex;
+
+        &.neo-selected {
+            .neo-icon {
+                color: v(menu-list-icon-color-selected);
+            }
+        }
 
         .neo-arrow-icon {
             color      : v(menu-list-icon-color);
@@ -21,8 +28,11 @@
         }
 
         .neo-icon {
-            color       : v(menu-list-icon-color);
-            margin-right: .4em;
+            color          : v(menu-list-icon-color);
+            display        : flex;
+            justify-content: center;
+            margin-right   : .4em;
+            width          : 1.2em;
         }
     }
 }

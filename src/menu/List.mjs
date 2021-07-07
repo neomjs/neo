@@ -1,6 +1,7 @@
-import BaseList from '../list/Base.mjs';
-import NeoArray from '../util/Array.mjs';
-import Store    from './Store.mjs';
+import BaseList  from '../list/Base.mjs';
+import ListModel from '../selection/menu/ListModel.mjs';
+import NeoArray  from '../util/Array.mjs';
+import Store     from './Store.mjs';
 
 /**
  * @class Neo.menu.List
@@ -19,6 +20,11 @@ class List extends BaseList {
          */
         ntype: 'menu-list',
         /**
+         * Read only. We are storing the currently visible subMenu instance.
+         * @member {Neo.menu.List|Neo.menu.Panel|null} activeSubMenu=null
+         */
+        activeSubMenu: null,
+        /**
          * @member {String[]} cls=['neo-menu-list','neo-list']
          */
         cls: ['neo-menu-list', 'neo-list'],
@@ -33,10 +39,39 @@ class List extends BaseList {
          */
         items_: null,
         /**
+         * Storing the list item index of the parent menu in case it exists.
+         * @member {Number} parentIndex=0
+         * @protected
+         */
+        parentIndex: 0,
+        /**
+         * Storing a reference to the parent menu in case it exists.
+         * @member {Neo.menu.List|Neo.menu.Panel|null} parentMenu=null
+         * @protected
+         */
+        parentMenu: null,
+        /**
+         * Value for the list.Base selectionModel_ config
+         * @member {Neo.selection.menu.ListModel} selectionModel=ListModel
+         */
+        selectionModel: ListModel,
+        /**
          * Value for the list.Base store_ config
          * @member {Neo.menu.Store} store=Store
          */
-        store: Store
+        store: Store,
+        /**
+         * The distance in px between a menu and a child menu
+         * See: https://github.com/neomjs/neo/issues/2569
+         * @member {Number} subMenuGap=0
+         */
+        subMenuGap: 0,
+        /**
+         * Storing childMenus by record keyProperty
+         * @member {Object} subMenuMap=null
+         * @protected
+         */
+        subMenuMap: null
     }}
 
     /**
@@ -81,7 +116,7 @@ class List extends BaseList {
         }
 
         if (me.hasChildren(record)) {
-            vdomCn.push({tag: 'i', cls: ['neo-arrow-icon', 'fas fa-chevron-right'], id: me.getArrowIconId(id)});
+            vdomCn.push({tag: 'i', cls: ['neo-arrow-icon', 'neo-icon', 'fas fa-chevron-right'], id: me.getArrowIconId(id)});
         }
 
         return vdomCn;
@@ -89,36 +124,26 @@ class List extends BaseList {
 
     /**
      *
-     * @param {String} nodeId
-     * @param {Object} record
      */
-    createSubMenu(nodeId, record) {
-        console.log('createSubMenu', nodeId, record);
+    destroy(...args) {
+        let me            = this,
+            activeSubMenu = me.activeSubMenu,
+            subMenuMap    = me.subMenuMap;
 
-        let me = this;
+        me.store.destroy();
+        me.store = null;
 
-        Neo.main.DomAccess.getBoundingClientRect({
-            appName: me.appName,
-            id     : nodeId
-        }).then(rect => {
-            console.log(rect);
+        if (activeSubMenu) {
+            activeSubMenu.unmount();
+            me.activeSubMenu = null;
+        }
 
-            let subMenu = Neo.create({
-                module    : List,
-                appName   : me.appName,
-                autoRender: true,
-                autoMount : true,
-                floating  : true,
-                items     : record.items,
-
-                style: {
-                    left: `${rect.right}px`,
-                    top : `${rect.top - 1}px` // minus the border
-                }
-            });
-
-            console.log(subMenu);
+        Object.entries(subMenuMap).forEach(([key, value]) => {
+            value.destroy();
+            subMenuMap[key] = null;
         });
+
+        super.destroy(...args);
     }
 
     /**
@@ -150,6 +175,19 @@ class List extends BaseList {
 
     /**
      *
+     */
+    hideSubMenu() {
+        let me            = this,
+            activeSubMenu = me.activeSubMenu;
+
+        if (activeSubMenu) {
+            activeSubMenu.unmount();
+            me.activeSubMenu = null;
+        }
+    }
+
+    /**
+     *
      * @param {String[]} items
      */
     onSelect(items) {
@@ -158,8 +196,72 @@ class List extends BaseList {
             record = me.store.get(me.getItemRecordId(nodeId));
 
         if (me.hasChildren(record)) {
-            me.createSubMenu(nodeId, record);
+            me.showSubMenu(nodeId, record);
+        } else {
+            me.hideSubMenu();
         }
+    }
+
+    /**
+     *
+     * @param {String} nodeId
+     * @param {Object} record
+     */
+    showSubMenu(nodeId, record) {
+        let me         = this,
+            store      = me.store,
+            recordId   = record[store.keyProperty],
+            subMenuMap = me.subMenuMap || {},
+            subMenu    = subMenuMap[`menu__${recordId}`], // ids can be Numbers, so we do need a prefix
+            menuStyle, style;
+
+        // We need to check if the subMenu is already mounted, since this method gets triggered
+        // when navigating out of it (arrow left key)
+        if (!(subMenu?.mounted)) {
+            Neo.main.DomAccess.getBoundingClientRect({
+                appName: me.appName,
+                id     : nodeId
+            }).then(rect => {
+                style = {
+                    left: `${rect.right + me.subMenuGap}px`,
+                    top : `${rect.top - 1}px` // minus the border
+                };
+
+                if (subMenu) {
+                    menuStyle = subMenu.style;
+
+                    Object.assign(menuStyle, style);
+
+                    subMenu.setSilent({style: menuStyle});
+                } else {
+                    subMenuMap[`menu__${recordId}`] = subMenu = Neo.create({
+                        module     : List,
+                        appName    : me.appName,
+                        floating   : true,
+                        items      : record.items,
+                        parentId   : Neo.apps[me.appName].mainView.id,
+                        parentIndex: store.indexOf(record),
+                        parentMenu : me,
+                        style      : style
+                    });
+                }
+
+                me.activeSubMenu = subMenu;
+                me.subMenuMap    = subMenuMap;
+
+                subMenu.render(true);
+            });
+        }
+    }
+
+    /**
+     *
+     */
+    unmount() {
+        this.selectionModel.deselectAll(true); // silent update
+        this.hideSubMenu();
+
+        super.unmount();
     }
 }
 

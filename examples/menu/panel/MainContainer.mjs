@@ -31,6 +31,16 @@ class MainContainer extends ConfigurationViewport {
         }, {
             module    :  NumberField,
             clearable : true,
+            labelText : 'subMenuGap',
+            listeners : {change: me.onConfigChange.bind(me, 'subMenuGap')},
+            maxValue  : 20,
+            minValue  : 0,
+            stepSize  : 1,
+            style     : {marginTop: '10px'},
+            value     : me.exampleComponent.subMenuGap
+        }, {
+            module    :  NumberField,
+            clearable : true,
             labelText : 'width',
             listeners : {change: me.onConfigChange.bind(me, 'width')},
             maxValue  : 800,
@@ -93,7 +103,20 @@ class MainContainer extends ConfigurationViewport {
                 }, {
                     iconCls: 'fa fa-clock',
                     id     : 11,
-                    name   : 'Item 3'
+                    name   : 'Group 1',
+                    items  : [{
+                        iconCls: 'far fa-clock',
+                        id     : 12,
+                        name   : 'Item 1'
+                    }, {
+                        iconCls: 'far fa-clock',
+                        id     : 13,
+                        name   : 'Item 2'
+                    }, {
+                        iconCls: 'far fa-clock',
+                        id     : 14,
+                        name   : 'Item 3'
+                    }]
                 }]
             }]
         });

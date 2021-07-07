@@ -1,13 +1,15 @@
 $neoMap: map-merge($neoMap, (
-    'menu-list-border-color': #1c60a0,
-    'menu-list-box-shadow'  : 0 5px 10px rgba(0,0,0,.4),
-    'menu-list-icon-color'  : #1c60a0
+    'menu-list-border-color'       : #1c60a0,
+    'menu-list-box-shadow'         : 0 5px 10px rgba(0,0,0,.4),
+    'menu-list-icon-color'         : #1c60a0,
+    'menu-list-icon-color-selected': #1c60a0
 ));
 
 @if $useCssVars == true {
     :root .neo-theme-light { // .neo-menu-list
-        --menu-list-border-color: #{neo(menu-list-border-color)};
-        --menu-list-box-shadow  : #{neo(menu-list-box-shadow)};
-        --menu-list-icon-color  : #{neo(menu-list-icon-color)};
+        --menu-list-border-color       : #{neo(menu-list-border-color)};
+        --menu-list-box-shadow         : #{neo(menu-list-box-shadow)};
+        --menu-list-icon-color         : #{neo(menu-list-icon-color)};
+        --menu-list-icon-color-selected: #{neo(menu-list-icon-color-selected)};
     }
 }
