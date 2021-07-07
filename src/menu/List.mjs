@@ -39,6 +39,13 @@ class List extends BaseList {
          */
         items_: null,
         /**
+         * Internal flag.
+         * Sub-menus will bubble of focus changes to the top level.
+         * @member {Boolean} menuFocus_=false
+         * @protected
+         */
+        menuFocus_: false,
+        /**
          * Storing the list item index of the parent menu in case it exists.
          * @member {Number} parentIndex=0
          * @protected
