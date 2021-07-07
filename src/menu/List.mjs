@@ -215,39 +215,43 @@ class List extends BaseList {
             subMenu    = subMenuMap[`menu__${recordId}`], // ids can be Numbers, so we do need a prefix
             menuStyle, style;
 
-        Neo.main.DomAccess.getBoundingClientRect({
-            appName: me.appName,
-            id     : nodeId
-        }).then(rect => {
-            style = {
-                left: `${rect.right + me.subMenuGap}px`,
-                top : `${rect.top - 1}px` // minus the border
-            };
+        // We need to check if the subMenu is already mounted, since this method gets triggered
+        // when navigating out of it (arrow left key)
+        if (!(subMenu?.mounted)) {
+            Neo.main.DomAccess.getBoundingClientRect({
+                appName: me.appName,
+                id     : nodeId
+            }).then(rect => {
+                style = {
+                    left: `${rect.right + me.subMenuGap}px`,
+                    top : `${rect.top - 1}px` // minus the border
+                };
 
-            if (subMenu) {
-                menuStyle = subMenu.style;
+                if (subMenu) {
+                    menuStyle = subMenu.style;
 
-                Object.assign(menuStyle, style);
+                    Object.assign(menuStyle, style);
 
-                subMenu.setSilent({style: menuStyle});
-            } else {
-                subMenuMap[`menu__${recordId}`] = subMenu = Neo.create({
-                    module     : List,
-                    appName    : me.appName,
-                    floating   : true,
-                    items      : record.items,
-                    parentId   : Neo.apps[me.appName].mainView.id,
-                    parentIndex: store.indexOf(record),
-                    parentMenu : me,
-                    style      : style
-                });
-            }
+                    subMenu.setSilent({style: menuStyle});
+                } else {
+                    subMenuMap[`menu__${recordId}`] = subMenu = Neo.create({
+                        module     : List,
+                        appName    : me.appName,
+                        floating   : true,
+                        items      : record.items,
+                        parentId   : Neo.apps[me.appName].mainView.id,
+                        parentIndex: store.indexOf(record),
+                        parentMenu : me,
+                        style      : style
+                    });
+                }
 
-            me.activeSubMenu = subMenu;
-            me.subMenuMap    = subMenuMap;
+                me.activeSubMenu = subMenu;
+                me.subMenuMap    = subMenuMap;
 
-            subMenu.render(true);
-        });
+                subMenu.render(true);
+            });
+        }
     }
 
     /**
