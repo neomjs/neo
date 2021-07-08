@@ -1,8 +1,8 @@
 import Button             from '../../../src/button/Base.mjs';
-import WeekView           from '../../../src/calendar/view/week/Component.mjs';
 import MainContainerModel from '../../../src/calendar/view/MainContainerModel.mjs';
 import Toolbar            from '../../../src/container/Toolbar.mjs';
 import Viewport           from '../../../src/container/Viewport.mjs';
+import WeekComponent      from '../../../src/calendar/view/week/Component.mjs';
 
 /**
  * @class Neo.examples.calendar.weekview.MainContainer
@@ -27,7 +27,7 @@ class MainContainer extends Viewport {
         },
 
         items: [{
-            module     : WeekView,
+            module     : WeekComponent,
             currentDate: new Date('2021-07-20'),
             flex       : 1,
             reference  : 'calendar'
