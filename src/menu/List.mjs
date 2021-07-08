@@ -91,7 +91,12 @@ class List extends BaseList {
          * @member {Object} subMenuMap=null
          * @protected
          */
-        subMenuMap: null
+        subMenuMap: null,
+        /**
+         * We are applying a z-index style which is 1 number higher to each sub-menu
+         * @member {Number} zIndex_=100
+         */
+        zIndex_: 100
     }}
 
     /**
@@ -144,6 +149,16 @@ class List extends BaseList {
                 me.parentMenu.menuFocus = value;
             }
         }
+    }
+
+    /**
+     * Triggered after the zIndex config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetZIndex(value, oldValue) {
+        this.style = {...this.style, zIndex: value};
     }
 
     /**
@@ -315,7 +330,8 @@ class List extends BaseList {
                     parentId   : Neo.apps[me.appName].mainView.id,
                     parentIndex: store.indexOf(record),
                     parentMenu : me,
-                    style      : style
+                    style      : style,
+                    zIndex     : me.zIndex + 1
                 });
             }
 
