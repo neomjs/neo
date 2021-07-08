@@ -1,8 +1,8 @@
-import Button                  from '../../../src/button/Base.mjs';
-import WeekView                from '../../../src/calendar/view/week/Component.mjs';
-import MainContainerModel      from '../../../src/calendar/view/MainContainerModel.mjs';
-import Toolbar                 from '../../../src/container/Toolbar.mjs';
-import Viewport                from '../../../src/container/Viewport.mjs';
+import Button             from '../../../src/button/Base.mjs';
+import WeekView           from '../../../src/calendar/view/week/Component.mjs';
+import MainContainerModel from '../../../src/calendar/view/MainContainerModel.mjs';
+import Toolbar            from '../../../src/container/Toolbar.mjs';
+import Viewport           from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.calendar.weekview.MainContainer
