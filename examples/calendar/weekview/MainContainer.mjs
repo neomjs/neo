@@ -1,6 +1,4 @@
-import Button             from '../../../src/button/Base.mjs';
 import MainContainerModel from '../../../src/calendar/view/MainContainerModel.mjs';
-import Toolbar            from '../../../src/container/Toolbar.mjs';
 import Viewport           from '../../../src/container/Viewport.mjs';
 import WeekComponent      from '../../../src/calendar/view/week/Component.mjs';
 
