@@ -10,11 +10,11 @@ import Viewport                from '../../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className : 'Neo.examples.calendar.weekview.MainContainer',
-        autoMount : true,
-        cls       : ['neo-examples-calendar-maincontainer', 'neo-viewport'],
-        layout    : {ntype: 'fit'},
-        model     : MainContainerModel,
+        className: 'Neo.examples.calendar.weekview.MainContainer',
+        autoMount: true,
+        cls      : ['neo-examples-calendar-maincontainer', 'neo-viewport'],
+        layout   : {ntype: 'fit'},
+        model    : MainContainerModel,
 
         calendarStoreConfig_: {
             autoLoad: true,
