@@ -159,13 +159,16 @@
 
             .neo-month-text {
                 color      : v(dateselector-header-month-text-color);
+                flex       : 1;
                 font-weight: bold;
-                width      : 33px;
+                text-align : end;
             }
 
             .neo-year-text {
-                color : v(dateselector-header-year-text-color);
-                height: 1em;
+                color      : v(dateselector-header-year-text-color);
+                flex       : 1;
+                height     : 1em;
+                margin-left: .25em;
             }
         }
 

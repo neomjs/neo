@@ -177,11 +177,9 @@ class List extends BaseList {
             subMenuMap    = me.subMenuMap;
 
         me.store.destroy();
-        me.store = null;
 
         if (activeSubMenu) {
             activeSubMenu.unmount();
-            me.activeSubMenu = null;
         }
 
         Object.entries(subMenuMap).forEach(([key, value]) => {

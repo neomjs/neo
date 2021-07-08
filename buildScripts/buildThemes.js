@@ -342,7 +342,7 @@ inquirer.prompt(questions).then(answers => {
                     plugins.push(cssnano);
                 }
 
-                map = result.map && result.map.toString();
+                map = result.map?.toString();
 
                 if (map) {
                     // https://github.com/neomjs/neo/issues/1970
