@@ -52,7 +52,6 @@ class MainContainer extends Viewport {
         },
         /**
          * Value for the container.Base items_ config
-         * The calendar view model relies on it.
          * @member {Object[]} items
          */
         items: [{
