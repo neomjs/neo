@@ -27,8 +27,7 @@ class MainContainer extends Viewport {
         items: [{
             module     : WeekComponent,
             currentDate: new Date('2021-07-20'),
-            flex       : 1,
-            reference  : 'calendar'
+            flex       : 1
         }]
     }}
 
