@@ -284,6 +284,10 @@ class MainContainerController extends ComponentController {
             return;
         }
 
+        me.getModel().setData({
+            country: country || null
+        });
+
         ntype = activeView.ntype;
 
         // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
