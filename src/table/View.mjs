@@ -68,11 +68,7 @@ class View extends Component {
         }
 
         for (; i < amountRows; i++) {
-            if (me.useRowRecordIds) {
-                id = me.id + '-tr-' + inputData[i][me.store.keyProperty];
-            } else {
-                id = vdom.cn[i]?.id || Neo.getId('tr');
-            }
+            id = me.getRowId(inputData[i], i);
 
             me.recordVnodeMap[id] = i;
 
@@ -190,6 +186,24 @@ class View extends Component {
      */
     getCellId(record, dataField) {
         return this.id + '__' + record[this.store.keyProperty] + '__' + dataField;
+    }
+
+    /**
+     *
+     * @param {Object} record
+     * @param {Number} [index]
+     * @returns {String}
+     */
+    getRowId(record, index) {
+        let me    = this,
+            store = me.store;
+
+        if (me.useRowRecordIds) {
+            return `${me.id}__tr__${record[store.keyProperty]}`;
+        } else {
+            index = Neo.isNumber(index) ? index : store.indexOf(record);
+            return me.vdom.cn[index]?.id || Neo.getId('tr');
+        }
     }
 
     /**
