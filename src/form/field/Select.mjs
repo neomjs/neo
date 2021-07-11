@@ -85,7 +85,9 @@ class Select extends Picker {
 
         me.list = Neo.create({
             module        : List,
+            appName       : me.appName,
             displayField  : me.displayField,
+            parentId      : me.id,
             selectionModel: {stayInList: false},
             silentSelect  : true,
             store         : me.store,
