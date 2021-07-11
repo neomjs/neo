@@ -14,9 +14,19 @@ class CountryGallery extends Gallery {
          */
         className: 'Covid.view.country.Gallery',
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            country: {twoWay: true, value: data => data.country}
+        },
+        /**
          * @member {String[]} cls=['covid-country-gallery', 'neo-gallery', 'page', 'view']
          */
         cls: ['covid-country-gallery', 'neo-gallery', 'page', 'view'],
+        /**
+         * @member {String|null} country_=null
+         */
+        country_: null,
         /**
          * The image height of the gallery
          * @member {Number} imageHeight=240
@@ -79,6 +89,18 @@ class CountryGallery extends Gallery {
          */
         store: CountryStore
     }}
+
+    /**
+     * Triggered after the country config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetCountry(value, oldValue) {
+        if (oldValue !== undefined) {
+            console.log('afterSetCountry', value);
+        }
+    }
 
     /**
      * Override this method to get different item-markups
