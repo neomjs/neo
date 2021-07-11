@@ -265,7 +265,7 @@ class HelixModel extends Model {
 
         // console.log('select', itemId, isSelected, items);
 
-        Neo.currentWorker.promiseMessage('main', {
+        view.mounted && Neo.currentWorker.promiseMessage('main', {
             action : 'updateDom',
             appName: view.appName,
             deltas : deltas
