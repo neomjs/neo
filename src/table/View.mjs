@@ -190,6 +190,15 @@ class View extends Component {
 
     /**
      *
+     * @param {String} rowId
+     * @returns {Object}
+     */
+    getRecordByRowId(rowId) {
+        return this.store.getAt(this.recordVnodeMap[rowId]);
+    }
+
+    /**
+     *
      * @param {Object} record
      * @param {Number} [index]
      * @returns {String}
