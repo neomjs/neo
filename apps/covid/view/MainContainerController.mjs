@@ -267,7 +267,6 @@ class MainContainerController extends ComponentController {
             activeIndex    = me.getTabIndex(value.hash),
             activeView     = me.getView(activeIndex),
             country        = value.hash?.country,
-            countryField   = me.getReference('country-field'),
             tabContainer   = me.getReference('tab-container'),
             delaySelection = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
             listeners      = me.mainTabsListeners,
@@ -330,12 +329,6 @@ class MainContainerController extends ComponentController {
             setTimeout(() => {
                 if (me.data) {
                     selectionModel = activeView.selectionModel;
-
-                    if (country) {
-                        countryField.value = country;
-                    } else {
-                        value.country = 'all';
-                    }
 
                     switch(ntype) {
                         case 'table-container': {
