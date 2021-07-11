@@ -258,15 +258,14 @@ class MainContainerController extends ComponentController {
      * @param {Object} oldValue
      */
     onHashChange(value, oldValue) {
-        let me           = this,
-            activeIndex  = me.getTabIndex(value.hash),
-            activeView   = me.getView(activeIndex),
-            country      = value.hash?.country,
-            tabContainer = me.getReference('tab-container'),
+        let me          = this,
+            activeIndex = me.getTabIndex(value.hash),
+            activeView  = me.getView(activeIndex),
+            country     = value.hash?.country,
             ntype;
 
-        tabContainer.activeIndex = activeIndex;
-        me.activeMainTabIndex    = activeIndex;
+        me.getReference('tab-container').activeIndex = activeIndex;
+        me.activeMainTabIndex = activeIndex;
 
         if (!activeView) {
             setTimeout(() => {
@@ -283,7 +282,6 @@ class MainContainerController extends ComponentController {
         ntype = activeView.ntype;
 
         // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
-
         if (me.data && activeView.store?.getCount() < 1) {
             activeView.store.data = me.data;
         }
