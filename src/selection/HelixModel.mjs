@@ -233,11 +233,12 @@ class HelixModel extends Model {
         let me         = this,
             view       = me.view,
             isSelected = toggleSelection === false ? false : me.items.includes(itemId),
-            oldItems   = [...me.items],
+            items      = me.items,
+            oldItems   = [...items],
             deltas     = [];
 
         if (me.singleSelect) {
-            me.items.forEach(item => {
+            items.forEach(item => {
                 if (item.id !== itemId) {
                     deltas.push({
                         id : view.getItemVnodeId(item),
@@ -249,7 +250,7 @@ class HelixModel extends Model {
                 }
             });
 
-            me.items.splice(0, me.items.length);
+            items.splice(0, items.length);
         }
 
         deltas.push({
@@ -260,16 +261,17 @@ class HelixModel extends Model {
             }
         });
 
-        NeoArray[isSelected ? 'remove' : 'add'](me.items, itemId);
+        NeoArray[isSelected ? 'remove' : 'add'](items, itemId);
 
-        // console.log('select', itemId, isSelected, me.items);
+        // console.log('select', itemId, isSelected, items);
 
         Neo.currentWorker.promiseMessage('main', {
             action : 'updateDom',
             appName: view.appName,
             deltas : deltas
         }).then(() => {
-            me.fire('selectionChange', me.items, oldItems);
+            view.onSelect?.(items);
+            me.fire('selectionChange', items, oldItems);
         });
     }
 

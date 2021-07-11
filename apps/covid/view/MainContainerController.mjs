@@ -338,20 +338,6 @@ class MainContainerController extends ComponentController {
                     }
 
                     switch(ntype) {
-                        case 'helix': {
-                            if (!listeners.includes('helix')) {
-                                listeners.push('helix');
-                                me.getReference('helix').on('select', me.updateCountryField, me);
-                            }
-
-                            activeView.getOffsetValues();
-
-                            if (country && !selectionModel.isSelected(country)) {
-                                selectionModel.select(country, false);
-                                activeView.onKeyDownSpace(null);
-                            }
-                            break;
-                        }
                         case 'table-container': {
                             if (!listeners.includes('table')) {
                                 listeners.push('table');
