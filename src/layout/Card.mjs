@@ -125,7 +125,7 @@ class Card extends Base {
 
                         if (isActiveIndex) {
                             delete item.vdom.removeDom;
-                            Neo.isFunction(item.activate) && item.activate();
+                            item.activate?.();
                         } else {
                             item.mounted = false;
                             item.vdom.removeDom = true;

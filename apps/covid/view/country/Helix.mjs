@@ -116,8 +116,6 @@ class CountryHelix extends Helix {
             let me             = this,
                 selectionModel = me.selectionModel;
 
-            me.mounted && me.getOffsetValues();
-
             if (value && !selectionModel.isSelected(value)) {
                 selectionModel.select(value, false);
                 me.onKeyDownSpace(null);
