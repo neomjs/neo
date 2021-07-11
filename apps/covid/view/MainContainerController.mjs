@@ -332,25 +332,7 @@ class MainContainerController extends ComponentController {
 
                     switch(ntype) {
                         case 'table-container': {
-                            if (!listeners.includes('table')) {
-                                listeners.push('table');
-
-                                me.getReference('table').on({
-                                    deselect: me.clearCountryField,
-                                    select  : me.updateCountryField,
-                                    scope   : me
-                                });
-                            }
-
-                            id = selectionModel.getRowId(activeView.store.indexOf(country));
-
                             me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(country)});
-
-                            if (country && !selectionModel.isSelected(id)) {
-                                selectionModel.select(id);
-                                Neo.main.DomAccess.scrollToTableRow({id: id});
-                            }
-                            break;
                         }
                     }
                 }
