@@ -98,7 +98,11 @@ class CountryGallery extends Gallery {
      */
     afterSetCountry(value, oldValue) {
         if (oldValue !== undefined) {
-            console.log('afterSetCountry', value);
+            let selectionModel = this.selectionModel;
+
+            if (value && !selectionModel.isSelected(value)) {
+                selectionModel.select(value, false);
+            }
         }
     }
 
@@ -143,6 +147,16 @@ class CountryGallery extends Gallery {
      */
     getItemId(vnodeId) {
         return vnodeId.split('__')[1];
+    }
+
+    /**
+     * Gets triggered from selection.Model: select()
+     * @param {String[]} items
+     */
+    onSelect(items) {
+        this.getModel().setData({
+            country: items[0] || null
+        });
     }
 
     /**

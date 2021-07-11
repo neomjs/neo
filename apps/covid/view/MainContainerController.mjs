@@ -338,17 +338,6 @@ class MainContainerController extends ComponentController {
                     }
 
                     switch(ntype) {
-                        case 'gallery': {
-                            if (!listeners.includes('gallery')) {
-                                listeners.push('gallery');
-                                me.getReference('gallery').on('select', me.updateCountryField, me);
-                            }
-
-                            if (country && !selectionModel.isSelected(country)) {
-                                selectionModel.select(country, false);
-                            }
-                            break;
-                        }
                         case 'helix': {
                             if (!listeners.includes('helix')) {
                                 listeners.push('helix');
