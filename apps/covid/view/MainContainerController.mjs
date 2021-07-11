@@ -44,11 +44,6 @@ class MainContainerController extends ComponentController {
          */
         mainTabs: ['table', 'mapboxglmap', 'worldmap', 'gallery', 'helix', 'attribution'],
         /**
-         * @member {String[]} mainTabsListeners=[]
-         * @protected
-         */
-        mainTabsListeners: [],
-        /**
          * Flag to only load the map once onHashChange, but always on reload button click
          * @member {Boolean} mapboxglMapHasData=false
          * @protected
@@ -263,14 +258,12 @@ class MainContainerController extends ComponentController {
      * @param {Object} oldValue
      */
     onHashChange(value, oldValue) {
-        let me             = this,
-            activeIndex    = me.getTabIndex(value.hash),
-            activeView     = me.getView(activeIndex),
-            country        = value.hash?.country,
-            tabContainer   = me.getReference('tab-container'),
-            delaySelection = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
-            listeners      = me.mainTabsListeners,
-            id, ntype, selectionModel;
+        let me           = this,
+            activeIndex  = me.getTabIndex(value.hash),
+            activeView   = me.getView(activeIndex),
+            country      = value.hash?.country,
+            tabContainer = me.getReference('tab-container'),
+            ntype;
 
         tabContainer.activeIndex = activeIndex;
         me.activeMainTabIndex    = activeIndex;
@@ -293,14 +286,6 @@ class MainContainerController extends ComponentController {
 
         if (me.data && activeView.store?.getCount() < 1) {
             activeView.store.data = me.data;
-            delaySelection = 500;
-        }
-
-        // todo: https://github.com/neomjs/neo/issues/483
-        // quick hack. selectionModels update the vdom of the table.Container.
-        // if table.View is vdom updating, this can result in a 2x rendering of all rows.
-        if (delaySelection === 1000 && ntype === 'table-container') {
-            delaySelection = 2000;
         }
 
         if (ntype === 'mapboxgl' && me.data) {
@@ -324,19 +309,6 @@ class MainContainerController extends ComponentController {
                 activeView.loadData(me.data);
                 me.worldMapHasData = true;
             }
-        } else {
-            // todo: instead of a timeout this should add a store load listener (single: true)
-            setTimeout(() => {
-                if (me.data) {
-                    selectionModel = activeView.selectionModel;
-
-                    switch(ntype) {
-                        case 'table-container': {
-                            me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(country)});
-                        }
-                    }
-                }
-            }, delaySelection);
         }
     }
 
@@ -469,8 +441,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onTabMove(data) {
-        NeoArray.move(this.mainTabs,          data.fromIndex, data.toIndex);
-        NeoArray.move(this.mainTabsListeners, data.fromIndex, data.toIndex);
+        NeoArray.move(this.mainTabs, data.fromIndex, data.toIndex);
     }
 
     /**
