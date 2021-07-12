@@ -23,16 +23,16 @@ class TableContainer extends Container {
          * @member {Object} bind
          */
         bind: {
-            country: {twoWay: true, value: data => data.country}
+            countryRecord: data => data.countryRecord
         },
         /**
          * @member {Neo.controller.Component|null} controller=TableContainerController
          */
         controller: TableContainerController,
         /**
-         * @member {String|null} country_=null
+         * @member {Object} countryRecord_=null
          */
-        country_: null,
+        countryRecord_: null,
         /**
          * @member {Number} historyPanelWidth=520
          * @protected
@@ -164,39 +164,24 @@ class TableContainer extends Container {
         me.table = Neo.create({
             module   : Table,
             appName  : me.appName,
-            listeners: {select: me.onRowSelect, scope: me},
             parentId : me.id,
             reference: 'table',
             ...me.tableConfig,
         });
 
         me.items[0].items.push(me.table);
-
-        console.log(this.isConstructed);
     }
 
     /**
-     * Triggered after the country config got changed
+     * Triggered after the countryRecord config got changed
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
      */
-    afterSetCountry(value, oldValue) {
-        // we need an initial deselect event in case the VM country property does not have a value
-        if (!value) {
-            setTimeout(() => {
-                this.controller.onTableSelect({});
-            }, 50);
-        }
-    }
-
-    /**
-     *
-     * @param {Object} data
-     * @param {Object} data.record
-     */
-    onRowSelect(data) {
-        this.controller.onTableSelect(data);
+    afterSetCountryRecord(value, oldValue) {
+        setTimeout(() => {
+            this.controller.onCountryChange(value);
+        }, 50);
     }
 }
 

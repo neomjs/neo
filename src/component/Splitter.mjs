@@ -137,7 +137,7 @@ class Splitter extends Component {
      * @protected
      * @returns {String}
      */
-    beforeSetResizeTarget(value, oldValue) {console.log('beforeSetResizeTarget', value, oldValue);
+    beforeSetResizeTarget(value, oldValue) {
         return this.beforeSetEnumValue(value, oldValue, 'resizeTarget');
     }
 

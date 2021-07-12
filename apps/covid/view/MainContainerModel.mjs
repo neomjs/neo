@@ -36,10 +36,12 @@ class MainContainerModel extends Component {
     onDataPropertyChange(key, value, oldValue) {
         super.onDataPropertyChange(key, value, oldValue);
 
-        if (key === 'country') {
-            Neo.Main.editRoute({
-                country: value
-            });
+        if (oldValue !== undefined) {
+            if (key === 'country') {
+                Neo.Main.editRoute({
+                    country: value
+                });
+            }
         }
     }
 }
