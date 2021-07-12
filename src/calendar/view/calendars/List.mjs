@@ -82,7 +82,7 @@ class List extends ComponentList {
      * @returns {String}
      */
     getEditIconId(recordId) {
-        return `${this.id}__${recordId}`;
+        return `${this.id}__${recordId}__edit-icon`;
     }
 
     /**
