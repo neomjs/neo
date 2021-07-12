@@ -448,11 +448,8 @@ class Base extends CoreBase {
      */
     afterSetConfig(key, value, oldValue) {
         if (Neo.currentWorker.isUsingViewModels) {
-            let me   = this,
-                bind = me.bind;
-
-            if (bind?.[key]?.twoWay) {
-                me.getModel().setData(key, value);
+            if (this.bind?.[key]?.twoWay) {
+                this.getModel().setData(key, value);
             }
         }
     }
@@ -952,7 +949,7 @@ class Base extends CoreBase {
         }
 
         if (me.parentId) {
-            parentComponent = Neo.getComponent(me.parentId);
+            parentComponent = Neo.getComponent(me.parentId) || Neo.get(me.parentId);
 
             if (parentComponent) {
                 return parentComponent.getConfigInstanceByNtype(configName, ntype);

@@ -216,27 +216,31 @@ class Model extends Base {
             vdom = view.vdom,
             cls;
 
-        if (me.singleSelect) {
-            me.deselectAll(true);
+        itemCollection = itemCollection || me.items;
+
+        if (!Neo.isEqual(itemCollection, items)) {
+            if (me.singleSelect) {
+                me.deselectAll(true);
+            }
+
+            items.forEach(node => {
+                if (typeof node === 'string') {
+                    node = view.getVdomChild(node);
+                }
+
+                if (node) {
+                    cls = node.cls || [];
+                    NeoArray.add(cls, selectedCls || me.selectedCls);
+                    node.cls = cls;
+                }
+            });
+
+            NeoArray.add(itemCollection, items);
+
+            view[view.hasOwnProperty('silentSelect') && view.silentSelect === true ? '_vdom' : 'vdom'] = vdom;
+
+            view.onSelect?.(items);
         }
-
-        items.forEach(node => {
-            if (typeof node === 'string') {
-                node = view.getVdomChild(node);
-            }
-
-            if (node) {
-                cls = node.cls || [];
-                NeoArray.add(cls, selectedCls || me.selectedCls);
-                node.cls = cls;
-            }
-        });
-
-        NeoArray.add(itemCollection || me.items, items);
-
-        view[view.hasOwnProperty('silentSelect') && view.silentSelect === true ? '_vdom' : 'vdom'] = vdom;
-
-        view.onSelect?.(items);
     }
 
     /**

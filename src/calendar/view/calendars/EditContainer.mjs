@@ -1,3 +1,4 @@
+import Button        from '../../../button/Base.mjs';
 import ColorsList    from './ColorsList.mjs';
 import FormContainer from '../../../form/Container.mjs';
 import TextField     from '../../../form/field/Text.mjs';
@@ -31,11 +32,15 @@ class EditContainer extends FormContainer {
          */
         colorsListConfig: null,
         /**
+         * @member {Neo.component.Base|null} currentView=null
+         */
+        currentView: null,
+        /**
          * @member {Object|null} nameFieldConfig=null
          */
         nameFieldConfig: null,
         /**
-         * @member {Neo.calendar.view.week.Component|null} owner=null
+         * @member {Neo.calendar.view.MainContainer|null} owner=null
          */
         owner: null,
         /**
@@ -143,24 +148,16 @@ class EditContainer extends FormContainer {
                 value               : record.name,
                 ...me.nameFieldConfig
             },
-            me.colorsList];
+            me.colorsList, {
+                module : Button,
+                handler: me.onDeleteButtonClick.bind(me),
+                iconCls: 'fas fa-trash-alt',
+                style  : {marginTop: '3em'},
+                text   : 'Delete'
+            }];
 
             super.createItems();
         }
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onFocusLeave(data) {
-        let me = this;
-
-        // we need a short delay to get record-changes (clicking on another edit icon)
-        me.unMountTimeoutId = setTimeout(() => {
-            me.unMountTimeoutId = null;
-           this.unmount();
-        }, 200);
     }
 
     /**
@@ -170,6 +167,33 @@ class EditContainer extends FormContainer {
      */
     onColorChange(data) {
         this.record.color = data.record.name;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDeleteButtonClick(data) {
+        let me = this;
+
+        // todo: we could add a confirm dialog
+
+        me.getModel().getStore('calendars').remove(me.record);
+        me.unmount();
+    }
+
+    /**
+     *
+     * @param {Object} [data]
+     */
+    onFocusLeave(data) {
+        let me = this;
+
+        // we need a short delay to get record-changes (clicking on another edit icon)
+        me.unMountTimeoutId = setTimeout(() => {
+            me.unMountTimeoutId = null;
+            me.mounted && me.unmount();
+        }, 200);
     }
 
     /**

@@ -57,7 +57,8 @@ class View extends Component {
             data       = [],
             i          = 0,
             vdom       = me.vdom,
-            cellCls, cellId, config, column, dockLeftMargin, dockRightMargin, id, index, j, rendererOutput, rendererValue, selectedRows, trCls;
+            cellCls, cellId, config, column, dockLeftMargin, dockRightMargin, id, index, j, rendererOutput,
+            record, rendererValue, selectedRows, trCls;
 
         me.recordVnodeMap = {}; // remove old data
 
@@ -68,18 +69,19 @@ class View extends Component {
         }
 
         for (; i < amountRows; i++) {
-            if (me.useRowRecordIds) {
-                id = me.id + '-tr-' + inputData[i][me.store.keyProperty];
-            } else {
-                id = vdom.cn[i]?.id || Neo.getId('tr');
-            }
+            record = inputData[i];
+            id = me.getRowId(record, i);
 
             me.recordVnodeMap[id] = i;
 
-            trCls = me.getTrClass(inputData[i], i);
+            trCls = me.getTrClass(record, i);
 
             if (selectedRows?.includes(id)) {
                 trCls.push('neo-selected');
+
+                Neo.getComponent(me.containerId).fire('select', {
+                    record: record
+                });
             }
 
             data.push({
@@ -97,7 +99,7 @@ class View extends Component {
 
             for (; j < colCount; j++) {
                 column         = columns[j];
-                rendererValue  = inputData[i][column.dataField];
+                rendererValue  = record[column.dataField];
 
                 if (rendererValue === undefined) {
                     rendererValue = '';
@@ -106,7 +108,7 @@ class View extends Component {
                 rendererOutput = column.renderer.call(column.rendererScope || container, {
                     dataField: column.dataField,
                     index    : i,
-                    record   : inputData[i],
+                    record   : record,
                     value    : rendererValue
                 });
 
@@ -125,7 +127,7 @@ class View extends Component {
 
                 // todo: remove the if part as soon as all tables use stores (examples table)
                 if (hasStore) {
-                    cellId = me.getCellId(inputData[i], column.dataField);
+                    cellId = me.getCellId(record, column.dataField);
                 } else {
                     cellId = vdom.cn[i]?.cn[j]?.id || Neo.getId('td');
                 }
@@ -169,7 +171,12 @@ class View extends Component {
         container.dockLeftMargin  = dockLeftMargin;
         container.dockRightMargin = dockRightMargin;
 
-        me.vdom = vdom;
+        me.promiseVdomUpdate().then(() => {
+            if (selectedRows?.length > 0) {
+                // this logic only works for selection.table.RowModel
+                Neo.main.DomAccess.scrollToTableRow({id: selectedRows[0]});
+            }
+        });
     }
 
     /**
@@ -190,6 +197,33 @@ class View extends Component {
      */
     getCellId(record, dataField) {
         return this.id + '__' + record[this.store.keyProperty] + '__' + dataField;
+    }
+
+    /**
+     *
+     * @param {String} rowId
+     * @returns {Object}
+     */
+    getRecordByRowId(rowId) {
+        return this.store.getAt(this.recordVnodeMap[rowId]);
+    }
+
+    /**
+     *
+     * @param {Object} record
+     * @param {Number} [index]
+     * @returns {String}
+     */
+    getRowId(record, index) {
+        let me    = this,
+            store = me.store;
+
+        if (me.useRowRecordIds) {
+            return `${me.id}__tr__${record[store.keyProperty]}`;
+        } else {
+            index = Neo.isNumber(index) ? index : store.indexOf(record);
+            return me.vdom.cn[index]?.id || Neo.getId('tr');
+        }
     }
 
     /**

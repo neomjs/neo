@@ -20,10 +20,6 @@ class TableContainer extends Container {
          */
         className: 'Covid.view.TableContainer',
         /**
-         * @member {Boolean} autoMount=true
-         */
-        autoMount: true,
-        /**
          * @member {Neo.controller.Component|null} controller=TableContainerController
          */
         controller: TableContainerController,
@@ -141,6 +137,8 @@ class TableContainer extends Container {
 
         me.historicalDataTable = Neo.create({
             module   : HistoricalDataTable,
+            appName  : me.appName,
+            parentId : me.id,
             reference: 'historical-data-table',
 
             tabButtonConfig: {
@@ -155,11 +153,23 @@ class TableContainer extends Container {
 
         me.table = Neo.create({
             module   : Table,
+            appName  : me.appName,
+            listeners: {select: me.onRowSelect, scope: me},
+            parentId : me.id,
             reference: 'table',
-            ...me.tableConfig
+            ...me.tableConfig,
         });
 
         me.items[0].items.push(me.table);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Object} data.record
+     */
+    onRowSelect(data) {
+        this.controller.onTableSelect(data);
     }
 }
 

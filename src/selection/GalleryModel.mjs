@@ -235,7 +235,8 @@ class GalleryModel extends Model {
     select(itemId) {
         let me       = this,
             view     = me.view,
-            oldItems = [...me.items],
+            items    = me.items,
+            oldItems = [...items],
             deltas   = [],
             vnodeId  = view.getItemVnodeId(itemId);
 
@@ -252,7 +253,7 @@ class GalleryModel extends Model {
                 }
             });
 
-            me.items.splice(0, me.items.length);
+            items.splice(0, items.length);
         }
 
         deltas.push({
@@ -262,7 +263,7 @@ class GalleryModel extends Model {
             }
         });
 
-        NeoArray['add'](me.items, itemId);
+        NeoArray['add'](items, itemId);
 
         if (deltas.length > 0 && view.mounted) {
             Neo.currentWorker.promiseMessage('main', {
@@ -270,10 +271,12 @@ class GalleryModel extends Model {
                 appName: view.appName,
                 deltas : deltas
             }).then(() => {
-                me.fire('selectionChange', me.items, oldItems);
+                view.onSelect?.(items);
+                me.fire('selectionChange', items, oldItems);
             });
         } else if (view.mounted) {
-            me.fire('selectionChange', me.items, oldItems);
+            view.onSelect?.(items);
+            me.fire('selectionChange', items, oldItems);
         }
     }
 

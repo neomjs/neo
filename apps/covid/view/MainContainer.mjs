@@ -1,6 +1,7 @@
 import FooterContainer         from './FooterContainer.mjs';
 import HeaderContainer         from './HeaderContainer.mjs';
 import MainContainerController from './MainContainerController.mjs';
+import MainContainerModel      from './MainContainerModel.mjs';
 import TabContainer            from '../../../src/tab/Container.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
 
@@ -87,7 +88,11 @@ class MainContainer extends Viewport {
         /**
          * @member {Object} layout={ntype: 'vbox', align: 'stretch'}
          */
-        layout: {ntype: 'vbox', align: 'stretch'}
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * @member {Covid.view.MainContainerModel} model=MainContainerModel
+         */
+        model: MainContainerModel
     }}
 }
 

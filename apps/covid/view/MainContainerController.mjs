@@ -44,11 +44,6 @@ class MainContainerController extends ComponentController {
          */
         mainTabs: ['table', 'mapboxglmap', 'worldmap', 'gallery', 'helix', 'attribution'],
         /**
-         * @member {String[]} mainTabsListeners=[]
-         * @protected
-         */
-        mainTabsListeners: [],
-        /**
          * Flag to only load the map once onHashChange, but always on reload button click
          * @member {Boolean} mapboxglMapHasData=false
          * @protected
@@ -146,14 +141,6 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @param {Object} record
-     */
-    clearCountryField(record) {
-        this.getReference('country-field').clear();
-    }
-
-    /**
-     *
      * @param {Object} hashObject
      * @param {String} hashObject.mainview
      * @returns {Number}
@@ -239,10 +226,6 @@ class MainContainerController extends ComponentController {
      */
     onCountryFieldClear() {
         this.countryRecord = null;
-
-        Neo.Main.editRoute({
-            country: null
-        });
     }
 
     /**
@@ -251,10 +234,6 @@ class MainContainerController extends ComponentController {
      */
     onCountryFieldSelect(data) {
         this.countryRecord = data.record;
-
-        Neo.Main.editRoute({
-            country: data.value
-        });
     }
 
     /**
@@ -263,18 +242,14 @@ class MainContainerController extends ComponentController {
      * @param {Object} oldValue
      */
     onHashChange(value, oldValue) {
-        let me             = this,
-            activeIndex    = me.getTabIndex(value.hash),
-            activeView     = me.getView(activeIndex),
-            country        = value.hash?.country,
-            countryField   = me.getReference('country-field'),
-            tabContainer   = me.getReference('tab-container'),
-            delaySelection = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
-            listeners      = me.mainTabsListeners,
-            id, ntype, selectionModel;
+        let me          = this,
+            activeIndex = me.getTabIndex(value.hash),
+            activeView  = me.getView(activeIndex),
+            country     = value.hash?.country,
+            ntype;
 
-        tabContainer.activeIndex = activeIndex;
-        me.activeMainTabIndex    = activeIndex;
+        me.getReference('tab-container').activeIndex = activeIndex;
+        me.activeMainTabIndex = activeIndex;
 
         if (!activeView) {
             setTimeout(() => {
@@ -284,20 +259,15 @@ class MainContainerController extends ComponentController {
             return;
         }
 
+        me.getModel().setData({
+            country: country || null
+        });
+
         ntype = activeView.ntype;
 
         // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
-
         if (me.data && activeView.store?.getCount() < 1) {
             activeView.store.data = me.data;
-            delaySelection = 500;
-        }
-
-        // todo: https://github.com/neomjs/neo/issues/483
-        // quick hack. selectionModels update the vdom of the table.Container.
-        // if table.View is vdom updating, this can result in a 2x rendering of all rows.
-        if (delaySelection === 1000 && ntype === 'table-container') {
-            delaySelection = 2000;
         }
 
         if (ntype === 'mapboxgl' && me.data) {
@@ -321,68 +291,6 @@ class MainContainerController extends ComponentController {
                 activeView.loadData(me.data);
                 me.worldMapHasData = true;
             }
-        } else {
-            // todo: instead of a timeout this should add a store load listener (single: true)
-            setTimeout(() => {
-                if (me.data) {
-                    selectionModel = activeView.selectionModel;
-
-                    if (country) {
-                        countryField.value = country;
-                    } else {
-                        value.country = 'all';
-                    }
-
-                    switch(ntype) {
-                        case 'gallery': {
-                            if (!listeners.includes('gallery')) {
-                                listeners.push('gallery');
-                                me.getReference('gallery').on('select', me.updateCountryField, me);
-                            }
-
-                            if (country && !selectionModel.isSelected(country)) {
-                                selectionModel.select(country, false);
-                            }
-                            break;
-                        }
-                        case 'helix': {
-                            if (!listeners.includes('helix')) {
-                                listeners.push('helix');
-                                me.getReference('helix').on('select', me.updateCountryField, me);
-                            }
-
-                            activeView.getOffsetValues();
-
-                            if (country && !selectionModel.isSelected(country)) {
-                                selectionModel.select(country, false);
-                                activeView.onKeyDownSpace(null);
-                            }
-                            break;
-                        }
-                        case 'table-container': {
-                            if (!listeners.includes('table')) {
-                                listeners.push('table');
-
-                                me.getReference('table').on({
-                                    deselect: me.clearCountryField,
-                                    select  : me.updateCountryField,
-                                    scope   : me
-                                });
-                            }
-
-                            id = selectionModel.getRowId(activeView.store.indexOf(country));
-
-                            me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(country)});
-
-                            if (country && !selectionModel.isSelected(id)) {
-                                selectionModel.select(id);
-                                Neo.main.DomAccess.scrollToTableRow({id: id});
-                            }
-                            break;
-                        }
-                    }
-                }
-            }, delaySelection);
         }
     }
 
@@ -515,8 +423,7 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onTabMove(data) {
-        NeoArray.move(this.mainTabs,          data.fromIndex, data.toIndex);
-        NeoArray.move(this.mainTabsListeners, data.fromIndex, data.toIndex);
+        NeoArray.move(this.mainTabs, data.fromIndex, data.toIndex);
     }
 
     /**
@@ -544,17 +451,6 @@ class MainContainerController extends ComponentController {
         });
 
         view.zoom = 5; // todo: we could use a different value for big countries (Russia, USA,...)
-    }
-
-    /**
-     *
-     * @param {Object} data
-     * @param {Object} data.record
-     */
-    updateCountryField(data) {
-        Neo.Main.editRoute({
-            country: data.record.country
-        });
     }
 }
 

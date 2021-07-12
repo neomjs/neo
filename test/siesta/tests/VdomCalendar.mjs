@@ -232,5 +232,57 @@ StartTest(t => {
         output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
 
         console.log(deltas);
+
+        // todo: verify the deltas
+
+        t.diag("Remove the first item inside the calendars list");
+
+        vdom =
+        {tag: 'ul', id: 'neo-calendar-calendars-list-1', cn: [
+            {tag: 'li', id: 'neo-calendar-calendars-list-1__1', cn: [
+                {id: 'neo-calendar-calendars-list-1__component__1', cn: [
+                    {tag: 'label', id: 'neo-calendar-calendars-list-1__component__1-label'},
+                    {id : 'neo-calendar-calendars-list-1__component__1-input'}
+                ]}
+            ]},
+            {tag: 'li', id: 'neo-calendar-calendars-list-1__2', cn: [
+                {id: 'neo-calendar-calendars-list-1__component__2', cn: [
+                    {tag: 'label', id: 'neo-calendar-calendars-list-1__component__2-label'},
+                    {id : 'neo-calendar-calendars-list-1__component__2-input'}
+                ]}
+            ]},
+            {tag: 'li', id: 'neo-calendar-calendars-list-1__3', cn: [
+                {id: 'neo-calendar-calendars-list-1__component__3', cn: [
+                    {tag: 'label', id: 'neo-calendar-calendars-list-1__component__3-label'},
+                    {id : 'neo-calendar-calendars-list-1__component__3-input'}
+                ]}
+            ]}
+        ]};
+
+        vnode = VdomHelper.create(vdom);
+
+
+        vdom =
+        {tag: 'ul', id: 'neo-calendar-calendars-list-1', cn: [
+            {tag: 'li', id: 'neo-calendar-calendars-list-1__2', cn: [
+                {id: 'neo-calendar-calendars-list-1__component__2', cn: [
+                    {tag: 'label', id: 'neo-calendar-calendars-list-1__component__2-label'},
+                    {id : 'neo-calendar-calendars-list-1__component__2-input'}
+                ]}
+            ]},
+            {tag: 'li', id: 'neo-calendar-calendars-list-1__3', cn: [
+                {id: 'neo-calendar-calendars-list-1__component__3', cn: [
+                    {tag: 'label', id: 'neo-calendar-calendars-list-1__component__3-label'},
+                    {id : 'neo-calendar-calendars-list-1__component__3-input'}
+                ]}
+            ]}
+        ]};
+
+        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+        console.log(deltas);
+
+        t.isDeeplyStrict(deltas, [
+            {action: 'removeNode', id: 'neo-calendar-calendars-list-1__1', parentId: 'neo-calendar-calendars-list-1'}
+        ], 'deltas got created successfully');
     });
 });

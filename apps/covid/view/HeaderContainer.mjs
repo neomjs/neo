@@ -135,6 +135,10 @@ class HeaderContainer extends Container {
                     style        : {marginTop: '15px'},
                     width        : 200,
 
+                    bind: {
+                        value: {twoWay: true, value: data => data.country}
+                    },
+
                     listeners: {
                         clear : 'onCountryFieldClear',
                         select: 'onCountryFieldSelect'

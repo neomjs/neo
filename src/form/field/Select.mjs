@@ -85,7 +85,9 @@ class Select extends Picker {
 
         me.list = Neo.create({
             module        : List,
+            appName       : me.appName,
             displayField  : me.displayField,
+            parentId      : me.id,
             selectionModel: {stayInList: false},
             silentSelect  : true,
             store         : me.store,
@@ -154,7 +156,7 @@ class Select extends Picker {
      * @param {Boolean} [preventFilter=false]
      * @protected
      */
-    afterSetValue(value, oldValue, preventFilter=false) {console.log('afterSetValue', value);
+    afterSetValue(value, oldValue, preventFilter=false) {
         super.afterSetValue(value, oldValue);
 
         if (!preventFilter) {

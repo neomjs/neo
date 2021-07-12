@@ -36,11 +36,11 @@ class DateUtil extends Base {
 
     /**
      * Clones a Date instance using the same value
-     * @param {Date} date
-     * @returns {Date} the cloned date object
+     * @param {Date|null} date
+     * @returns {Date|null} the cloned date object
      */
     static clone(date) {
-        return new Date(date.valueOf());
+        return date && new Date(date.valueOf()) || null;
     }
 
     /**

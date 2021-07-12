@@ -361,6 +361,14 @@ class Container extends BaseContainer {
     }
 
     /**
+     *
+     * @returns {Neo.table.View}
+     */
+    getView() {
+        return Neo.getComponent(this.viewId) || Neo.get(this.viewId);
+    }
+
+    /**
      * @override
      * @returns {Neo.vdom.VNode}
      */
