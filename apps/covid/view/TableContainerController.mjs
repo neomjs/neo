@@ -43,15 +43,6 @@ class TableContainerController extends ComponentController {
 
     /**
      *
-     */
-    onConstructed() {
-        super.onConstructed();
-        let me = this;
-        me.component.on('countrySelect', me.onTableSelect, me);
-    }
-
-    /**
-     *
      * @param {Object} data
      */
     addStoreItems(data) {

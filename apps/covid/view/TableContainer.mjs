@@ -154,13 +154,28 @@ class TableContainer extends Container {
         me.table = Neo.create({
             module   : Table,
             appName  : me.appName,
-            listeners: {select: me.onRowSelect, scope: me},
             parentId : me.id,
             reference: 'table',
+
+            listeners: {
+                deselect: me.onRowDeselect,
+                select  : me.onRowSelect,
+                scope   : me
+            },
+
             ...me.tableConfig,
         });
 
         me.items[0].items.push(me.table);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Object} data.record
+     */
+    onRowDeselect(data) {
+        this.controller.onTableSelect({});
     }
 
     /**
