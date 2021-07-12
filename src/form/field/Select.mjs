@@ -156,7 +156,7 @@ class Select extends Picker {
      * @param {Boolean} [preventFilter=false]
      * @protected
      */
-    afterSetValue(value, oldValue, preventFilter=false) {console.log('afterSetValue', value);
+    afterSetValue(value, oldValue, preventFilter=false) {
         super.afterSetValue(value, oldValue);
 
         if (!preventFilter) {
