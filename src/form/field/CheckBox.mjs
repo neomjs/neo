@@ -77,13 +77,7 @@ class CheckBox extends Base {
         super(config);
 
         let me           = this,
-            domListeners = me.domListeners,
-            vdom         = me.vdom;
-
-        vdom.cn[0].id = me.getLabelId();
-        vdom.cn[1].id = me.getInputElId();
-        vdom.cn[2].id = me.getValueLabelId();
-        me.vdom = vdom;
+            domListeners = me.domListeners;
 
         domListeners.push(
             {change: me.onInputValueChange, scope: me}
@@ -158,6 +152,24 @@ class CheckBox extends Base {
 
         vdom.cn[2].removeDom = value;
         this.vdom = vdom;
+    }
+
+    /**
+     * Triggered after the id config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetId(value, oldValue) {
+        let me   = this,
+            vdom = me.vdom;
+
+        vdom.cn[0].id = me.getLabelId();
+        vdom.cn[1].id = me.getInputElId();
+        vdom.cn[2].id = me.getValueLabelId();
+
+        // silent vdom update, the super call will trigger the engine
+        super.afterSetId(value, oldValue);
     }
 
     /**
