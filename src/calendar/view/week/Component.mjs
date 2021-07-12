@@ -136,6 +136,12 @@ class Component extends BaseComponent {
          */
         minimumEventDuration: 30,
         /**
+         * Internal flag to store if updateEvents() got called while not being mounted
+         * @member {Boolean} needsEventUpdate=false
+         * @protected
+         */
+        needsEventUpdate: false,
+        /**
          * @member {Neo.calendar.view.MainContainer|null} owner=null
          * @protected
          */
@@ -196,11 +202,12 @@ class Component extends BaseComponent {
     constructor(config) {
         super(config);
 
-        let me           = this,
-            domListeners = me.domListeners,
-            columnOpts   = {scope: me, delegate: '.neo-c-w-column'},
-            eventOpts    = {scope: me, delegate: '.neo-event'},
-            plugins      = me.plugins || [];
+        let me               = this,
+            domListeners     = me.domListeners,
+            columnOpts       = {scope: me, delegate: '.neo-c-w-column'},
+            eventOpts        = {scope: me, delegate: '.neo-event'},
+            needsEventUpdate = false,
+            plugins          = me.plugins || [];
 
         domListeners.push(
             {dblclick    : me.onEventDoubleClick, ...eventOpts},
@@ -238,11 +245,13 @@ class Component extends BaseComponent {
 
         me.getColumnTimeAxisContainer().cn[me.timeAxisPosition === 'start' ? 'unshift' : 'push'](me.timeAxis.vdom);
 
-        if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {
-            me.updateEvents(true); // silent update
+        if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {console.log('mehhhhh');
+            needsEventUpdate = true
         }
 
-        me.updateHeader(true);
+        me.updateHeader(true, needsEventUpdate);
+
+        needsEventUpdate && me.updateEvents(false);
 
         me.headerCreated = true;
     }
@@ -401,10 +410,14 @@ class Component extends BaseComponent {
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
 
+        let me = this;
+
+        if (me.needsEventUpdate) {
+            me.updateEvents();
+        }
+
         if (value) {
             setTimeout(() => {
-                let me = this;
-
                 Neo.main.DomAccess.getBoundingClientRect({
                     id: me.getColumnContainer().id
                 }).then(data => {
@@ -971,6 +984,8 @@ class Component extends BaseComponent {
             showEventEndTime  = me.showEventEndTime,
             calendarRecord, column, dayRecords, duration, endDate, eventCls, eventIntervals, hasOverflow, height, i,
             len, record, recordKey, startDate, startHours, top;
+
+        me.needsEventUpdate = !me.mounted;
 
         date.setDate(date.getDate() + startIndex);
 
