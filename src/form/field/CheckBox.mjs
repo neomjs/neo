@@ -80,7 +80,9 @@ class CheckBox extends Base {
             domListeners = me.domListeners,
             vdom         = me.vdom;
 
+        vdom.cn[0].id = me.getLabelId();
         vdom.cn[1].id = me.getInputElId();
+        vdom.cn[2].id = me.getValueLabelId();
         me.vdom = vdom;
 
         domListeners.push(
@@ -246,8 +248,28 @@ class CheckBox extends Base {
         }
     }
 
+    /**
+     *
+     * @returns {String}
+     */
     getInputElId() {
-        return `${this.id}-input`;
+        return `${this.id}__input`;
+    }
+
+    /**
+     *
+     * @returns {String}
+     */
+    getLabelId() {
+        return `${this.id}__label`;
+    }
+
+    /**
+     *
+     * @returns {String}
+     */
+    getValueLabelId() {
+        return `${this.id}__value-label`;
     }
 
     /**
