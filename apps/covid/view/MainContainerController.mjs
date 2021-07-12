@@ -228,7 +228,8 @@ class MainContainerController extends ComponentController {
         this.countryRecord = null;
 
         this.getModel().setData({
-            country: null
+            country      : null,
+            countryRecord: null
         });
     }
 
@@ -240,7 +241,8 @@ class MainContainerController extends ComponentController {
         this.countryRecord = data.record;
 
         this.getModel().setData({
-            country: data.record.country
+            country      : data.record.country,
+            countryRecord: data.record
         });
     }
 

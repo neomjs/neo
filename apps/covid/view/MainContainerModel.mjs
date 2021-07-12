@@ -20,6 +20,7 @@ class MainContainerModel extends Component {
              */
             country: null,
             /**
+             * We are storing the currently selected record of the Covid.view.HeaderContainer SelectField
              * @member {Object} data.countryRecord=null
              */
             countryRecord: null
