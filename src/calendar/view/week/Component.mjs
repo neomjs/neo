@@ -245,7 +245,7 @@ class Component extends BaseComponent {
 
         me.getColumnTimeAxisContainer().cn[me.timeAxisPosition === 'start' ? 'unshift' : 'push'](me.timeAxis.vdom);
 
-        if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {console.log('mehhhhh');
+        if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {
             needsEventUpdate = true
         }
 
