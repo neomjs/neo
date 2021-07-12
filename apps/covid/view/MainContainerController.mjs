@@ -141,14 +141,6 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     * @param {Object} record
-     */
-    clearCountryField(record) {
-        this.getReference('country-field').clear();
-    }
-
-    /**
-     *
      * @param {Object} hashObject
      * @param {String} hashObject.mainview
      * @returns {Number}
