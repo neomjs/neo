@@ -226,6 +226,10 @@ class MainContainerController extends ComponentController {
      */
     onCountryFieldClear() {
         this.countryRecord = null;
+
+        this.getModel().setData({
+            country: null
+        });
     }
 
     /**
@@ -234,6 +238,10 @@ class MainContainerController extends ComponentController {
      */
     onCountryFieldSelect(data) {
         this.countryRecord = data.record;
+
+        this.getModel().setData({
+            country: data.record.country
+        });
     }
 
     /**
