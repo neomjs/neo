@@ -234,10 +234,6 @@ class MainContainerController extends ComponentController {
      */
     onCountryFieldClear() {
         this.countryRecord = null;
-
-        Neo.Main.editRoute({
-            country: null
-        });
     }
 
     /**
@@ -246,10 +242,6 @@ class MainContainerController extends ComponentController {
      */
     onCountryFieldSelect(data) {
         this.countryRecord = data.record;
-
-        Neo.Main.editRoute({
-            country: data.value
-        });
     }
 
     /**
@@ -467,17 +459,6 @@ class MainContainerController extends ComponentController {
         });
 
         view.zoom = 5; // todo: we could use a different value for big countries (Russia, USA,...)
-    }
-
-    /**
-     *
-     * @param {Object} data
-     * @param {Object} data.record
-     */
-    updateCountryField(data) {
-        Neo.Main.editRoute({
-            country: data.record.country
-        });
     }
 }
 

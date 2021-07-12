@@ -21,6 +21,22 @@ class MainContainerModel extends Component {
             country: null
         }
     }}
+
+    /**
+     *
+     * @param {String} key
+     * @param {*} value
+     * @param {*} oldValue
+     */
+    onDataPropertyChange(key, value, oldValue) {
+        super.onDataPropertyChange(key, value, oldValue);
+
+        if (key === 'country') {
+            Neo.Main.editRoute({
+                country: value
+            });
+        }
+    }
 }
 
 Neo.applyClassConfig(MainContainerModel);
