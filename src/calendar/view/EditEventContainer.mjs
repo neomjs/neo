@@ -1,3 +1,4 @@
+import Button        from '../../button/Base.mjs';
 import FormContainer from '../../form/Container.mjs';
 import TextField     from '../../form/field/Text.mjs';
 import TimeField     from '../../form/field/Time.mjs';
@@ -156,6 +157,12 @@ class EditEventContainer extends FormContainer {
                 value    : timeFormat.format(record.endDate),
                 ...timeFieldDefaults,
                 ...me.endTimeFieldConfig
+            }, {
+                module : Button,
+                handler: me.onDeleteButtonClick.bind(me),
+                iconCls: 'fas fa-trash-alt',
+                style  : {marginTop: '3em'},
+                text   : 'Delete'
             }];
 
             super.createItems();
@@ -192,10 +199,25 @@ class EditEventContainer extends FormContainer {
      *
      * @param {Object} data
      */
+    onDeleteButtonClick(data) {
+        let me = this;
+
+        // todo: we could add a confirm dialog
+
+        me.getModel().getStore('events').remove(me.record);
+        me.unmount();
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
     onFocusLeave(data) {
+        let me = this;
+
         // we need a short delay, since a TimeField picker could be open
         setTimeout(() => {
-            this.unmount();
+            me.mounted && me.unmount();
         }, 100);
     }
 
