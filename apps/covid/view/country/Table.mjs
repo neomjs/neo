@@ -155,10 +155,13 @@ class Table extends Container {
 
         if (me.store.getCount() > 0) {
             if (item) {
-                item = me.getView().getRecordByRowId(item).country;
+                item = me.getView().getRecordByRowId(item)?.country;
             }
 
-            me.country = item;
+            // in case getRecordByRowId() has no match, the initial row creation will include the selection
+            if (item) {
+                me.country = item;
+            }
         }
     }
 }
