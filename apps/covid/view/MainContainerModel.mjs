@@ -18,7 +18,11 @@ class MainContainerModel extends Component {
             /**
              * @member {String|null} data.country=null
              */
-            country: null
+            country: null,
+            /**
+             * @member {Object} data.countryRecord=null
+             */
+            countryRecord: null
         }
     }}
 
