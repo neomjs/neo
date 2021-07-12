@@ -60,7 +60,7 @@ class Component extends Base {
      * @returns {String}
      */
     getComponentId(id) {
-        return `${this.id}__component__${id}`;
+        return `${this.id}__${id}__component`;
     }
 }
 
