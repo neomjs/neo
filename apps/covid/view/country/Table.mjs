@@ -133,6 +133,8 @@ class Table extends Container {
                         Neo.main.DomAccess.scrollToTableRow({id: id});
                     }
                 }
+            } else {
+                selectionModel.deselectAll();
             }
         }
     }

@@ -129,13 +129,19 @@ class RowModel extends Model {
         let me   = this,
             node = RowModel.getRowNode(data.path),
             id   = node && node.id,
-            view = me.view;
+            view = me.view,
+            isSelected, record;
 
         if (id) {
             me.toggleSelection(id);
 
-            view.fire(me.isSelected(id) ? 'select' : 'deselect', {
-                record: view.store.getAt(VDomUtil.findVdomChild(view.vdom, id).index)
+            isSelected = me.isSelected(id);
+            record     = view.store.getAt(VDomUtil.findVdomChild(view.vdom, id).index);
+
+            !isSelected && view.onDeselect?.(record);
+
+            view.fire(isSelected ? 'select' : 'deselect', {
+                record: record
             });
         }
     }
