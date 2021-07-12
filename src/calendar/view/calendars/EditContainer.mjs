@@ -170,7 +170,12 @@ class EditContainer extends FormContainer {
      * @param {Object} data
      */
     onDeleteButtonClick(data) {
-        console.log('onDeleteButtonClick');
+        let me = this;
+
+        // todo: we could add a confirm dialog
+
+        me.getModel().getStore('calendars').remove(me.record);
+        me.unmount();
     }
 
     /**

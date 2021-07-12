@@ -986,7 +986,7 @@ class Component extends BaseComponent {
                 record         = dayRecords[i];
                 calendarRecord = calendarStore.get(record.calendarId);
 
-                if (calendarRecord.active) {
+                if (calendarRecord?.active) {
                     endDate   = DateUtil.clone(record.endDate);
                     startDate = DateUtil.clone(record.startDate);
 
