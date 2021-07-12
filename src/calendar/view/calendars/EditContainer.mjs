@@ -32,11 +32,15 @@ class EditContainer extends FormContainer {
          */
         colorsListConfig: null,
         /**
+         * @member {Neo.component.Base|null} currentView=null
+         */
+        currentView: null,
+        /**
          * @member {Object|null} nameFieldConfig=null
          */
         nameFieldConfig: null,
         /**
-         * @member {Neo.calendar.view.week.Component|null} owner=null
+         * @member {Neo.calendar.view.MainContainer|null} owner=null
          */
         owner: null,
         /**
@@ -180,7 +184,7 @@ class EditContainer extends FormContainer {
 
     /**
      *
-     * @param {Object} data
+     * @param {Object} [data]
      */
     onFocusLeave(data) {
         let me = this;
@@ -188,7 +192,7 @@ class EditContainer extends FormContainer {
         // we need a short delay to get record-changes (clicking on another edit icon)
         me.unMountTimeoutId = setTimeout(() => {
             me.unMountTimeoutId = null;
-            this.unmount();
+            me.mounted && me.unmount();
         }, 200);
     }
 
