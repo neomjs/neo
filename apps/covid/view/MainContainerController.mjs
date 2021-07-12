@@ -298,13 +298,13 @@ class MainContainerController extends ComponentController {
      *
      */
     onLoadSummaryDataFail() {
-        const table = this.getReference('table'),
-              vdom = table.vdom;
+        let table = this.getReference('table'),
+            vdom  = table.vdom;
 
         vdom.cn[0].cn[1].cn.push({
-            tag  : 'div',
-            cls  : ['neo-box-label', 'neo-label'],
-            html : [
+            tag : 'div',
+            cls : ['neo-box-label', 'neo-label'],
+            html: [
                 'Summary data did not arrive after 2s.</br>',
                 'Please double-check if the API is offline:</br></br>',
                 '<a target="_blank" href="https://disease.sh/all">NovelCOVID/API all endpoint</a></br></br>',
