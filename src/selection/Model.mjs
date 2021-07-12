@@ -114,6 +114,8 @@ class Model extends Base {
         if (!silent) {
             view.vdom = vdom;
         }
+
+        view.onDeselect?.(item);
     }
 
     /**

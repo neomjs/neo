@@ -138,6 +138,14 @@ class Table extends Container {
     }
 
     /**
+     * Gets triggered from selection.Model: deselect()
+     * @param {String[]} items
+     */
+    onDeselect(items) {
+        this.country = null;
+    }
+
+    /**
      * Gets triggered from selection.Model: select()
      * @param {String[]} items
      */
@@ -150,9 +158,7 @@ class Table extends Container {
                 item = me.getView().getRecordByRowId(item).country;
             }
 
-            me.getModel().setData({
-                country: item
-            });
+            me.country = item;
         }
     }
 }
