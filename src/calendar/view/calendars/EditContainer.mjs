@@ -1,3 +1,4 @@
+import Button        from '../../../button/Base.mjs';
 import ColorsList    from './ColorsList.mjs';
 import FormContainer from '../../../form/Container.mjs';
 import TextField     from '../../../form/field/Text.mjs';
@@ -143,10 +144,33 @@ class EditContainer extends FormContainer {
                 value               : record.name,
                 ...me.nameFieldConfig
             },
-            me.colorsList];
+            me.colorsList, {
+                module : Button,
+                handler: me.onDeleteButtonClick.bind(me),
+                iconCls: 'fas fa-trash-alt',
+                style  : {marginTop: '3em'},
+                text   : 'Delete'
+            }];
 
             super.createItems();
         }
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Object} data.record
+     */
+    onColorChange(data) {
+        this.record.color = data.record.name;
+    }
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onDeleteButtonClick(data) {
+        console.log('onDeleteButtonClick');
     }
 
     /**
@@ -159,17 +183,8 @@ class EditContainer extends FormContainer {
         // we need a short delay to get record-changes (clicking on another edit icon)
         me.unMountTimeoutId = setTimeout(() => {
             me.unMountTimeoutId = null;
-           this.unmount();
+            this.unmount();
         }, 200);
-    }
-
-    /**
-     *
-     * @param {Object} data
-     * @param {Object} data.record
-     */
-    onColorChange(data) {
-        this.record.color = data.record.name;
     }
 
     /**
