@@ -128,14 +128,7 @@ class Text extends Base {
         super(config);
 
         let me           = this,
-            domListeners = me.domListeners,
-            vdom         = me.vdom,
-            inputEl      = me.getInputEl(),
-            labelEl      = me.getLabelEl();
-
-        inputEl.id = labelEl.for = me.id + '-input';
-
-        me.vdom = vdom;
+            domListeners = me.domListeners;
 
         domListeners.push(
             {input: me.onInputValueChange, scope: me}
@@ -228,6 +221,26 @@ class Text extends Base {
         me._vdom = vdom; // silent update
 
         me.updateInputWidth();
+    }
+
+    /**
+     * Triggered after the id config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetId(value, oldValue) {
+        let me        = this,
+            inputEl   = me.getInputEl(),
+            inputElId = me.getInputElId(),
+            labelEl   = me.getLabelEl();
+
+        inputEl.id  = inputElId;
+        labelEl.id  = me.getLabelId();
+        labelEl.for = inputElId;
+
+        // silent vdom update, the super call will trigger the engine
+        super.afterSetId(value, oldValue);
     }
 
     /**
@@ -645,13 +658,12 @@ class Text extends Base {
         let el = VDomUtil.findVdomChild(this.vdom, {flag: 'neo-real-input'});
         return el?.vdom;
     }
-
     /**
      *
      * @returns {String}
      */
     getInputElId() {
-        return this.id + '-input';
+        return `${this.id}__input`;
     }
 
     /**
@@ -680,6 +692,14 @@ class Text extends Base {
     getLabelEl() {
         let el = VDomUtil.findVdomChild(this.vdom, {tag: 'label'});
         return el?.vdom;
+    }
+
+    /**
+     *
+     * @returns {String}
+     */
+    getLabelId() {
+        return `${this.id}__label`;
     }
 
     /**

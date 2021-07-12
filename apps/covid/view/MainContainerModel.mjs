@@ -18,7 +18,12 @@ class MainContainerModel extends Component {
             /**
              * @member {String|null} data.country=null
              */
-            country: null
+            country: null,
+            /**
+             * We are storing the currently selected record of the Covid.view.HeaderContainer SelectField
+             * @member {Object} data.countryRecord=null
+             */
+            countryRecord: null
         }
     }}
 
@@ -31,10 +36,12 @@ class MainContainerModel extends Component {
     onDataPropertyChange(key, value, oldValue) {
         super.onDataPropertyChange(key, value, oldValue);
 
-        if (key === 'country') {
-            Neo.Main.editRoute({
-                country: value
-            });
+        if (oldValue !== undefined) {
+            if (key === 'country') {
+                Neo.Main.editRoute({
+                    country: value
+                });
+            }
         }
     }
 }

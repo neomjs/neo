@@ -54,36 +54,28 @@ class HeaderContainer extends Container {
 
                 items: [{
                     cls : ['covid-numberbox'],
-                    vdom: {
-                        cn: [
-                            {cls: ['covid-numberbox-title',  'cases'],  html:'Cases'},
-                            {cls: ['covid-numberbox-number', 'cases']}
-                        ]
-                    }
+                    vdom: {cn: [
+                        {cls: ['covid-numberbox-title',  'cases'],  html:'Cases'},
+                        {cls: ['covid-numberbox-number', 'cases']}
+                    ]}
                 }, {
                     cls : ['covid-numberbox'],
-                    vdom: {
-                        cn: [
-                            {cls: ['covid-numberbox-title',  'active'], html:'Active'},
-                            {cls: ['covid-numberbox-number', 'active']}
-                        ]
-                    }
+                    vdom: {cn: [
+                        {cls: ['covid-numberbox-title',  'active'], html:'Active'},
+                        {cls: ['covid-numberbox-number', 'active']}
+                    ]}
                 }, {
                     cls : ['covid-numberbox'],
-                    vdom: {
-                        cn: [
-                            {cls: ['covid-numberbox-title',  'recovered'], html:'Recovered'},
-                            {cls: ['covid-numberbox-number', 'recovered']}
-                        ]
-                    }
+                    vdom: {cn: [
+                        {cls: ['covid-numberbox-title',  'recovered'], html:'Recovered'},
+                        {cls: ['covid-numberbox-number', 'recovered']}
+                    ]}
                 }, {
                     cls : ['covid-numberbox'],
-                    vdom: {
-                        cn: [
-                            {cls: ['covid-numberbox-title',  'deaths'], html:'Deaths'},
-                            {cls: ['covid-numberbox-number', 'deaths']}
-                        ]
-                    }
+                    vdom: {cn: [
+                        {cls: ['covid-numberbox-title',  'deaths'], html:'Deaths'},
+                        {cls: ['covid-numberbox-number', 'deaths']}
+                    ]}
                 }, {
                     flex: 1
                 }, {
@@ -136,10 +128,11 @@ class HeaderContainer extends Container {
                     width        : 200,
 
                     bind: {
-                        value: {twoWay: true, value: data => data.country}
+                        value: data => data.country
                     },
 
                     listeners: {
+                        change: 'onCountryFieldChange',
                         clear : 'onCountryFieldClear',
                         select: 'onCountryFieldSelect'
                     },

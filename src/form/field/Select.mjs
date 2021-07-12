@@ -400,7 +400,7 @@ class Select extends Picker {
      */
     updateTypeAhead(silent=false) {
         let me      = this,
-            inputEl = VDomUtil.findVdomChild(me.vdom, me.id + '-input'),
+            inputEl = VDomUtil.findVdomChild(me.vdom, {flag: 'neo-real-input'}),
             vdom    = me.vdom;
 
         if (me.typeAhead) {

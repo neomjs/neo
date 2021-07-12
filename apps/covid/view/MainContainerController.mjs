@@ -85,6 +85,11 @@ class MainContainerController extends ComponentController {
 
         if (countryStore.getCount() < 1) {
             countryStore.data = data;
+
+            me.onCountryFieldChange({
+                component: countryField,
+                value    : countryField.value
+            });
         }
 
         if (['gallery', 'helix', 'table'].includes(reference)) {
@@ -221,6 +226,25 @@ class MainContainerController extends ComponentController {
         me.component.on('mounted', me.onMainViewMounted, me);
     }
 
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onCountryFieldChange(data) {
+        let component  = data.component,
+            store      = component.store,
+            value      = data.value,
+            record     = value && store.find('country', value)?.[0];
+
+        if (store.getCount() > 0) {
+            this.getModel().setData({
+                country      : value,
+                countryRecord: record || null
+            });
+        }
+    }
+
     /**
      *
      */
@@ -298,13 +322,13 @@ class MainContainerController extends ComponentController {
      *
      */
     onLoadSummaryDataFail() {
-        const table = this.getReference('table'),
-              vdom = table.vdom;
+        let table = this.getReference('table'),
+            vdom  = table.vdom;
 
         vdom.cn[0].cn[1].cn.push({
-            tag  : 'div',
-            cls  : ['neo-box-label', 'neo-label'],
-            html : [
+            tag : 'div',
+            cls : ['neo-box-label', 'neo-label'],
+            html: [
                 'Summary data did not arrive after 2s.</br>',
                 'Please double-check if the API is offline:</br></br>',
                 '<a target="_blank" href="https://disease.sh/all">NovelCOVID/API all endpoint</a></br></br>',

@@ -43,15 +43,6 @@ class TableContainerController extends ComponentController {
 
     /**
      *
-     */
-    onConstructed() {
-        super.onConstructed();
-        let me = this;
-        me.component.on('countrySelect', me.onTableSelect, me);
-    }
-
-    /**
-     *
      * @param {Object} data
      */
     addStoreItems(data) {
@@ -200,6 +191,24 @@ class TableContainerController extends ComponentController {
     }
 
     /**
+     * {Object} record
+     */
+    onCountryChange(record) {
+        const me = this;
+
+        if (record) {
+            me.selectedRecord = {...record};
+        } else {
+            me.selectedRecord = null;
+        }
+
+        // removed optional chaining for now, see: https://github.com/neomjs/neo/issues/467
+        me.loadHistoricalData(record?.countryInfo?.iso2 || 'all');
+
+        me.getReference('historical-data-label').html = 'Historical Data (' + (record?.country || 'World') + ')';
+    }
+
+    /**
      * {Object} data
      */
     onDailyValuesChange(data) {
@@ -241,26 +250,6 @@ class TableContainerController extends ComponentController {
             path : 'yAxes.values.0.logarithmic',
             value: data.value
         });
-    }
-
-    /**
-     * {Object} data
-     * {Object} data.record
-     */
-    onTableSelect(data) {
-        const me      = this,
-              record  = data.record;
-
-        if (data.record) {
-            me.selectedRecord = {...record};
-        } else {
-            me.selectedRecord = null;
-        }
-
-        // removed optional chaining for now, see: https://github.com/neomjs/neo/issues/467
-        me.loadHistoricalData(record?.countryInfo?.iso2 || 'all');
-
-        me.getReference('historical-data-label').html = 'Historical Data (' + (record?.country || 'World') + ')';
     }
 
     /**

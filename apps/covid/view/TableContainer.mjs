@@ -20,9 +20,19 @@ class TableContainer extends Container {
          */
         className: 'Covid.view.TableContainer',
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            countryRecord: data => data.countryRecord
+        },
+        /**
          * @member {Neo.controller.Component|null} controller=TableContainerController
          */
         controller: TableContainerController,
+        /**
+         * @member {Object} countryRecord_=null
+         */
+        countryRecord_: null,
         /**
          * @member {Number} historyPanelWidth=520
          * @protected
@@ -154,7 +164,6 @@ class TableContainer extends Container {
         me.table = Neo.create({
             module   : Table,
             appName  : me.appName,
-            listeners: {select: me.onRowSelect, scope: me},
             parentId : me.id,
             reference: 'table',
             ...me.tableConfig,
@@ -164,12 +173,15 @@ class TableContainer extends Container {
     }
 
     /**
-     *
-     * @param {Object} data
-     * @param {Object} data.record
+     * Triggered after the countryRecord config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
      */
-    onRowSelect(data) {
-        this.controller.onTableSelect(data);
+    afterSetCountryRecord(value, oldValue) {
+        setTimeout(() => {
+            this.controller.onCountryChange(value);
+        }, this.isConstructed ? 0 : 50);
     }
 }
 

@@ -154,9 +154,7 @@ class CountryGallery extends Gallery {
      * @param {String[]} items
      */
     onSelect(items) {
-        this.getModel().setData({
-            country: items[0] || null
-        });
+        this.country = items[0] || null;
     }
 
     /**
