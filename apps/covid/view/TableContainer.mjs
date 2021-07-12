@@ -181,7 +181,7 @@ class TableContainer extends Container {
     afterSetCountryRecord(value, oldValue) {
         setTimeout(() => {
             this.controller.onCountryChange(value);
-        }, 50);
+        }, this.isConstructed ? 0 : 50);
     }
 }
 
