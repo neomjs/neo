@@ -159,6 +159,7 @@ class EditEventContainer extends FormContainer {
                 ...me.endTimeFieldConfig
             }, {
                 module : Button,
+                cls    : ['neo-button', 'neo-red'],
                 handler: me.onDeleteButtonClick.bind(me),
                 iconCls: 'fas fa-trash-alt',
                 style  : {marginTop: '3em'},

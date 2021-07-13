@@ -24,6 +24,22 @@
     }
 }
 
+.neo-button {
+    &.neo-red {
+        &:hover {
+            border-color: red;
+        }
+
+        .neo-button-glyph {
+            color: red;
+        }
+
+        .neo-button-text {
+            color: red;
+        }
+    }
+}
+
 .neo-event {
     transition:
         background-color .15s ease-out,
