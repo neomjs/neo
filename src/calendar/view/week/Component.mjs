@@ -662,7 +662,10 @@ class Component extends BaseComponent {
      * @param {Object[]} data
      */
     onCalendarStoreLoad(data) {
-        this.eventStore.getCount() > 0 && this.updateEvents();
+        let me = this;
+
+        me.needsEventUpdate = true;
+        me.eventStore.getCount() > 0 && me.updateEvents();
     }
 
     /**
@@ -670,6 +673,7 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onCalendarStoreRecordChange(data) {
+        this.needsEventUpdate = true;
         this.updateEvents();
     }
 
@@ -835,7 +839,10 @@ class Component extends BaseComponent {
      * @param {Object[]} data
      */
     onEventStoreLoad(data) {
-        this.calendarStore.getCount() > 0 && this.updateEvents();
+        let me = this;
+
+        me.needsEventUpdate = true;
+        me.calendarStore.getCount() > 0 && me.updateEvents();
     }
 
     /**
@@ -843,6 +850,7 @@ class Component extends BaseComponent {
      * @param {Object[]} data
      */
     onEventStoreRecordChange(data) {
+        this.needsEventUpdate = true;
         this.updateEvents();
     }
 
@@ -983,7 +991,9 @@ class Component extends BaseComponent {
 
         if (!me.mounted) {
             me.needsEventUpdate = true;
-        } else {
+        } else if (me.needsEventUpdate) {
+            me.needsEventUpdate = false;
+
             let calendarStore     = me.calendarStore,
                 eventStore        = me.eventStore,
                 timeAxis          = me.timeAxis,
