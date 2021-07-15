@@ -202,12 +202,11 @@ class Component extends BaseComponent {
     constructor(config) {
         super(config);
 
-        let me               = this,
-            domListeners     = me.domListeners,
-            columnOpts       = {scope: me, delegate: '.neo-c-w-column'},
-            eventOpts        = {scope: me, delegate: '.neo-event'},
-            needsEventUpdate = false,
-            plugins          = me.plugins || [];
+        let me           = this,
+            domListeners = me.domListeners,
+            columnOpts   = {scope: me, delegate: '.neo-c-w-column'},
+            eventOpts    = {scope: me, delegate: '.neo-event'},
+            plugins      = me.plugins || [];
 
         domListeners.push(
             {dblclick    : me.onEventDoubleClick, ...eventOpts},
@@ -246,12 +245,12 @@ class Component extends BaseComponent {
         me.getColumnTimeAxisContainer().cn[me.timeAxisPosition === 'start' ? 'unshift' : 'push'](me.timeAxis.vdom);
 
         if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {
-            needsEventUpdate = true
+            me.needsEventUpdate = true
         }
 
-        me.updateHeader(true, needsEventUpdate);
+        me.updateHeader(true, me.needsEventUpdate);
 
-        needsEventUpdate && me.updateEvents(false);
+        me.needsEventUpdate && me.updateEvents(false);
 
         me.headerCreated = true;
     }
