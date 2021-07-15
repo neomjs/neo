@@ -318,6 +318,7 @@ class Component extends BaseComponent {
         if (value) {
             if (me.needsEventUpdate) {
                 me.createContent();
+                me.needsEventUpdate = false;
             }
 
             setTimeout(() => {
