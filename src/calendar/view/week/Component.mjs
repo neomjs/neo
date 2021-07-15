@@ -245,7 +245,7 @@ class Component extends BaseComponent {
         me.getColumnTimeAxisContainer().cn[me.timeAxisPosition === 'start' ? 'unshift' : 'push'](me.timeAxis.vdom);
 
         if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {
-            me.needsEventUpdate = true
+            me.needsEventUpdate = true;
         }
 
         me.updateHeader(true, me.needsEventUpdate);
@@ -414,11 +414,11 @@ class Component extends BaseComponent {
 
         let me = this;
 
-        if (me.needsEventUpdate) {
-            me.updateEvents();
-        }
-
         if (value) {
+            if (me.needsEventUpdate) {
+                me.updateEvents();
+            }
+
             setTimeout(() => {
                 Neo.main.DomAccess.getBoundingClientRect({
                     id: me.getColumnContainer().id
