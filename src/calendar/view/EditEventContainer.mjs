@@ -254,7 +254,6 @@ class EditEventContainer extends FormContainer {
     onTitleFieldChange(data) {
         if (!Neo.isEmpty(data.value)) {
             this.record.title = data.value;
-            this.currentView.updateEvents();
         }
     }
 }
