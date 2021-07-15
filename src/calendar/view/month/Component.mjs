@@ -251,10 +251,16 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetEventStore(value, oldValue) {
-        let me = this;
+        let me = this,
 
-        oldValue?.un('load', me.onEventStoreLoad, me);
-        value   ?.on('load', me.onEventStoreLoad, me);
+        listeners = {
+            load        : me.onEventStoreLoad,
+            recordChange: me.onEventStoreRecordChange,
+            scope       : me
+        };
+
+        oldValue?.un(listeners);
+        value   ?.on(listeners);
     }
 
     /**
@@ -602,6 +608,14 @@ class Component extends BaseComponent {
 
     /**
      *
+     * @param {Object[]} data
+     */
+    onEventStoreRecordChange(data) {
+        this.createContent();
+    }
+
+    /**
+     *
      * @param {Object} data
      * @param {Object[]} data.oldPath
      * @param {Object[]} data.path
@@ -746,13 +760,6 @@ class Component extends BaseComponent {
         me.vdom = vdom;
 
         // todo: #990 => scroll the view to the closest row
-    }
-
-    /**
-     * Neo.calendar.view.EditEventContainer expects this method to exist
-     */
-    updateEvents() {
-       this.createContent();
     }
 
     /**
