@@ -847,7 +847,7 @@ class Component extends BaseComponent {
      * @param {Object[]} data
      */
     onEventStoreRecordChange(data) {
-        console.log('onEventStoreRecordChange', data);
+        this.updateEvents();
     }
 
     /**
