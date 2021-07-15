@@ -32,10 +32,6 @@ class EditEventContainer extends FormContainer {
          */
         cls: ['neo-calendar-edit-event-container'],
         /**
-         * @member {Neo.component.Base|null} currentView=null
-         */
-        currentView: null,
-        /**
          * @member {Object|null} endTimeFieldConfig=null
          */
         endTimeFieldConfig: null,

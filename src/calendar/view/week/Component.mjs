@@ -726,10 +726,9 @@ class Component extends BaseComponent {
             });
 
             editEventContainer.setSilent({
-                currentView: me,
-                parentId   : data.path[1].id,
-                record     : record,
-                style      : style
+                parentId: data.path[1].id,
+                record  : record,
+                style   : style
             });
 
             editEventContainer.render(true);

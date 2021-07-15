@@ -32,10 +32,6 @@ class EditContainer extends FormContainer {
          */
         colorsListConfig: null,
         /**
-         * @member {Neo.component.Base|null} currentView=null
-         */
-        currentView: null,
-        /**
          * @member {Object|null} nameFieldConfig=null
          */
         nameFieldConfig: null,
