@@ -378,19 +378,16 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetEventStore(value, oldValue) {
-        let me = this;
+        let me = this,
 
-        oldValue?.un({
+        listeners = {
             load        : me.onEventStoreLoad,
             recordChange: me.onEventStoreRecordChange,
             scope       : me
-        });
+        };
 
-        value?.on({
-            load        : me.onEventStoreLoad,
-            recordChange: me.onEventStoreRecordChange,
-            scope       : me
-        });
+        oldValue?.un(listeners);
+        value   ?.on(listeners);
     }
 
     /**
