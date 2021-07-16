@@ -79,7 +79,7 @@ class RecordFactory extends Base {
                         if (Array.isArray(model.fields)) {
                             model.fields.forEach(field => {
                                 let parsedValue = instance.parseRecordValue(field, config[field.name]),
-                                    symbol      = Symbol(field.name);
+                                    symbol      = Symbol.for(field.name);
 
                                 properties = {
                                     [symbol]: {
@@ -105,11 +105,9 @@ class RecordFactory extends Base {
                                                 me._isModified = instance.isModified(me, model.trackModifiedFields);
 
                                                 instance.onRecordChange({
-                                                    field   : field.name,
-                                                    model   : model,
-                                                    oldValue: oldValue,
-                                                    record  : me,
-                                                    value   : value
+                                                    fields: [{name: field.name, oldValue, value}],
+                                                    model,
+                                                    record: me
                                                 });
                                             }
                                         }
@@ -126,6 +124,14 @@ class RecordFactory extends Base {
                                 Object.defineProperties(me, properties);
                             });
                         }
+                    }
+
+                    /**
+                     * Bulk-update multiple record fields at once
+                     * @param {Object} fields
+                     */
+                    set(fields) {
+                        instance.setRecordFields(model, this, fields);
                     }
                 };
 
@@ -196,11 +202,9 @@ class RecordFactory extends Base {
      * Gets triggered after changing the value of a record field.
      * E.g. myRecord.foo = 'bar';
      * @param {Object} opts
-     * @param {String} opts.field The name of the field which got changed
+     * @param {Object[]} opts.fields Each field object contains the keys: name, oldValue, value
      * @param {Neo.data.Model} opts.model The model instance of the changed record
-     * @param {*} opts.oldValue
      * @param {Object} opts.record
-     * @param {*} opts.value
      */
     onRecordChange(opts) {
         let store = Neo.get(opts.model.storeId);
@@ -224,6 +228,43 @@ class RecordFactory extends Base {
         }
 
         return value;
+    }
+
+    /**
+     *
+     * @param {Neo.data.Model} model
+     * @param {Object} record
+     * @param {Object} fields
+     */
+    setRecordFields(model, record, fields) {
+        let changedFields = [],
+            oldValue, store;
+
+        Object.entries(fields).forEach(([key, value]) => {
+            oldValue = record[key];
+
+            if (!Neo.isEqual(oldValue, value)) {
+                record[Symbol.for(key)] = value; // silent update
+
+                changedFields.push({
+                    name: key,
+                    oldValue,
+                    value
+                });
+            }
+        });
+
+        if (Object.keys(changedFields).length > 0) {
+            store = Neo.get(model.storeId);
+
+            if(store) {
+                store.onRecordChange({
+                    fields: changedFields,
+                    model,
+                    record
+                });
+            }
+        }
     }
 }
 

@@ -240,26 +240,28 @@ class View extends Component {
      * Gets triggered after changing the value of a record field.
      * E.g. myRecord.foo = 'bar';
      * @param {Object} opts
-     * @param {String} opts.field The name of the field which got changed
+     * @param {Object[]} opts.fields Each field object contains the keys: name, oldValue, value
      * @param {Neo.data.Model} opts.model The model instance of the changed record
-     * @param {*} opts.oldValue
      * @param {Object} opts.record
-     * @param {*} opts.value
      */
     onStoreRecordChange(opts) {
-        let me       = this,
-            cellId   = me.getCellId(opts.record, opts.field),
+        let me     = this,
+            deltas = [],
+            cellId, cellNode;
+
+        opts.fields.forEach(field => {
+            cellId   = me.getCellId(opts.record, field.name);
             cellNode = me.getVdomChild(cellId);
 
-        cellNode.innerHTML = opts.value; // keep the vdom in sync
+            cellNode.innerHTML = field.value; // keep the vdom in sync
 
-        Neo.currentWorker.promiseMessage('main', {
-            action: 'updateDom',
-            deltas: [{
+            deltas.push({
                 id       : cellId,
-                innerHTML: opts.value
-            }]
+                innerHTML: field.value
+            })
         });
+
+        deltas.length > 0 && Neo.applyDeltas(me.appName, deltas);
     }
 }
 

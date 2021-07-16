@@ -239,8 +239,10 @@ class EventDragZone extends DragZone {
 
         endDate = me.adjustEndDate(endDate);
 
-        record.endDate   = endDate;
-        record.startDate = startDate;
+        record.set({
+            endDate,
+            startDate
+        });
 
         Object.assign(me, {
             hasOverflow  : false,
