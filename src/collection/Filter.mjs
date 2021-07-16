@@ -105,9 +105,7 @@ class Filter extends Base {
     }
 
     afterSetIsUpdating(value, oldValue) {
-        if (value === false) {
-            this.fireChangeEvent(value, oldValue);
-        }
+        value === false && this.fireChangeEvent(value, oldValue);
     }
 
     afterSetOperator(...args) {
