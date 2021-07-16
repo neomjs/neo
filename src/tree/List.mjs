@@ -69,10 +69,7 @@ class Tree extends Base {
             if (me.sortable) {
                 console.error('tree.List can be either draggable or sortable, not both.', me.id);
             } else if (!me.dragZone) {
-                import(
-                    /* webpackChunkName: 'src/draggable/tree/DragZone-mjs.js' */
-                    '../draggable/tree/DragZone.mjs'
-                    ).then(module => {
+                import('../draggable/tree/DragZone.mjs').then(module => {
                     me.dragZone = Neo.create({
                         module : module.default,
                         appName: me.appName,
@@ -97,10 +94,7 @@ class Tree extends Base {
             if (me.draggable) {
                 console.error('tree.List can be either draggable or sortable, not both.', me.id);
             } else if (!me.sortZone) {
-                import(
-                    /* webpackChunkName: 'src/draggable/tree/SortZone-mjs.js' */
-                    '../draggable/tree/SortZone.mjs'
-                    ).then(module => {
+                import('../draggable/tree/SortZone.mjs').then(module => {
                     me.sortZone = Neo.create({
                         module             : module.default,
                         appName            : me.appName,
@@ -205,7 +199,7 @@ class Tree extends Base {
 
                 tmpRoot.cn.push({
                     tag: 'li',
-                    cls: cls,
+                    cls,
                     id : me.getItemId(item.id),
                     cn : [{
                         tag      : 'span',
