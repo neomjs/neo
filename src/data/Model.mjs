@@ -17,13 +17,11 @@ class Model extends Base {
          */
         ntype: 'model',
         /**
-         * @member {Array} fields_=[]
-         * @protected
+         * @member {Array|null} fields=null
          */
-        fields_: [],
+        fields: null,
         /**
          * @member {String} keyProperty_='id'
-         * @protected
          */
         keyProperty_: 'id',
         /**
@@ -41,27 +39,17 @@ class Model extends Base {
     }}
 
     /**
-     *
-     * @param {Array} value
-     * @param {Array} oldValue
-     */
-    afterSetFields(value, oldValue) {
-        // todo
-        // console.log('afterSetFields', value, oldValue);
-    }
-
-    /**
      * Finds a field config by a given field name
-     * @param {String} key
+     * @param {String} name
      * @returns {Object|null} The field config object or null if no match was found
      */
-    getField(key) {
+    getField(name) {
         let me  = this,
             i   = 0,
-            len = me.fields.length;
+            len = me.fields?.length || 0;
 
         for (; i < len; i++) {
-            if (me.fields[i].name === key) {
+            if (me.fields[i].name === name) {
                 return me.fields[i];
             }
         }
