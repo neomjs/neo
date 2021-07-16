@@ -160,7 +160,7 @@ class RecordFactory extends Base {
             for (; i < len; i++) {
                 field = fields[i];
 
-                if (record[field] !== record[this.ovPrefix + field]) {
+                if (!Neo.isEqual(record[field], record[this.ovPrefix + field])) {
                     return true;
                 }
             }
