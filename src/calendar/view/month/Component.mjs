@@ -211,9 +211,9 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetCurrentDate(value, oldValue) {
-        if (this.isConstructed) {
-            let me = this;
+        let me = this;
 
+        if (me.isConstructed) {
             me.createContent(true);
             me.updateHeader();
             me.afterSetMounted(true, false); // todo: extract the logic into a new method
@@ -608,8 +608,8 @@ class Component extends BaseComponent {
 
             editEventContainer.setSilent({
                 parentId: data.path[1].id,
-                record  : record,
-                style   : style
+                record,
+                style
             });
 
             editEventContainer.render(true);
