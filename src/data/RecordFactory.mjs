@@ -209,11 +209,7 @@ class RecordFactory extends Base {
      * @param {Object} opts.record
      */
     onRecordChange(opts) {
-        let store = Neo.get(opts.model.storeId);
-
-        if (store) {
-            store.onRecordChange(opts);
-        }
+        Neo.get(opts.model.storeId)?.onRecordChange(opts);
     }
 
     /**
@@ -240,7 +236,7 @@ class RecordFactory extends Base {
      */
     setRecordFields(model, record, fields) {
         let changedFields = [],
-            oldValue, store;
+            oldValue;
 
         Object.entries(fields).forEach(([key, value]) => {
             oldValue = record[key];
@@ -257,15 +253,11 @@ class RecordFactory extends Base {
         });
 
         if (Object.keys(changedFields).length > 0) {
-            store = Neo.get(model.storeId);
-
-            if(store) {
-                store.onRecordChange({
-                    fields: changedFields,
-                    model,
-                    record
-                });
-            }
+            Neo.get(model.storeId)?.onRecordChange({
+                fields: changedFields,
+                model,
+                record
+            });
         }
     }
 }
