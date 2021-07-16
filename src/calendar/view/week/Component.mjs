@@ -330,9 +330,11 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetCurrentDate(value, oldValue) {
-        if (this.isConstructed) {
-            this.updateHeader(false, true);
-            this.updateEvents();
+        let me = this;
+
+        if (me.isConstructed) {
+            me.updateHeader(false, true);
+            me.updateEvents();
         }
     }
 
@@ -347,9 +349,7 @@ class Component extends BaseComponent {
 
         me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
 
-        if (oldValue) {
-            me.updateHeader();
-        }
+        oldValue && me.updateHeader();
     }
 
     /**
@@ -571,10 +571,7 @@ class Component extends BaseComponent {
             {cls: dateCls,     html: currentDate}
         ]};
 
-        return {
-            column: column,
-            header: header
-        };
+        return {column, header};
     }
 
     /**
@@ -728,8 +725,8 @@ class Component extends BaseComponent {
 
             editEventContainer.setSilent({
                 parentId: data.path[1].id,
-                record  : record,
-                style   : style
+                record,
+                style
             });
 
             editEventContainer.render(true);
@@ -796,7 +793,7 @@ class Component extends BaseComponent {
             const config = {
                 axisEndTime                     : timeAxis.getTime(me.endTime),
                 axisStartTime                   : timeAxis.getTime(me.startTime),
-                dragElement                     : dragElement,
+                dragElement,
                 enableResizingAcrossOppositeEdge: me.data.events.enableResizingAcrossOppositeEdge,
                 eventRecord                     : me.eventStore.get(dragElement.flag),
                 proxyParentId                   : data.path[1].id
@@ -883,9 +880,7 @@ class Component extends BaseComponent {
 
         me.adjustTotalHeight(data, me.headerCreated);
 
-        if (me.headerCreated) {
-            me.updateEvents();
-        }
+        me.headerCreated && me.updateEvents();
     }
 
     /**
@@ -1140,13 +1135,13 @@ class Component extends BaseComponent {
                     cls      : columnCls,
                     flag     : DateUtil.convertToyyyymmdd(date),
                     id       : me.getColumnId(date),
-                    removeDom: removeDom
+                    removeDom
                 });
 
                 header.cn.push({
-                    cls      : ['neo-header-row-item'],
-                    id       : headerId,
-                    removeDom: removeDom,
+                    cls: ['neo-header-row-item'],
+                    id : headerId,
+                    removeDom,
 
                     cn: [{
                         cls : ['neo-day'],
@@ -1167,8 +1162,8 @@ class Component extends BaseComponent {
                 });
 
                 Object.assign(header.cn[i], {
-                    id       : headerId,
-                    removeDom: removeDom
+                    id: headerId,
+                    removeDom
                 });
 
                 Object.assign(header.cn[i].cn[0], {
