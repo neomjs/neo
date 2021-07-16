@@ -14,11 +14,6 @@ class Instance extends Base {
          */
         className: 'Neo.manager.Instance',
         /**
-         * @member {String} ntype='instance-manager'
-         * @protected
-         */
-        ntype: 'instance-manager',
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */
