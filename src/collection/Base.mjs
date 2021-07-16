@@ -152,9 +152,7 @@ class Base extends CoreBase {
             }
         });
 
-        if (oldValue) {
-            me.filter();
-        }
+        oldValue && me.filter();
     }
 
     /**
@@ -196,9 +194,7 @@ class Base extends CoreBase {
             }
         });
 
-        if (oldValue && me.autoSort) {
-            me.doSort();
-        }
+        oldValue && me.autoSort && me.doSort();
     }
 
     /**
@@ -737,13 +733,11 @@ class Base extends CoreBase {
      * @param {Number} [end=this.getCount()] The end index (up to, last value excluded)
      * @returns {Array} Returns an empty Array in case no items are found
      */
-    findBy(fn, scope, start, end) {
+    findBy(fn, scope=this, start, end) {
         let me    = this,
             items = [],
             i     = start || 0,
             len   = end   || me.getCount();
-
-        scope = scope || me;
 
         for (; i < len; i++) {
             if (fn.call(scope, me.items[i])) {
@@ -1152,8 +1146,8 @@ class Base extends CoreBase {
 
         } else if (!me[silentUpdateMode]) {
             me.cacheUpdate({
-                addedItems  : addedItems,
-                removedItems: removedItems
+                addedItems,
+                removedItems
             });
         }
 
@@ -1162,8 +1156,8 @@ class Base extends CoreBase {
         }
 
         return {
-            addedItems  : addedItems,
-            removedItems: removedItems
+            addedItems,
+            removedItems
         };
     }
 
