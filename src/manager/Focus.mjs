@@ -26,13 +26,13 @@ class Focus extends CoreBase {
          */
         history: [],
         /**
-         * The Date object when the last focusin event has occured
+         * The Date object when the last focusin event has occurred
          * @member {Date|null} lastFocusInDate=null
          * @protected
          */
         lastFocusInDate: null,
         /**
-         * The Date object when the last focusout event has occured
+         * The Date object when the last focusout event has occurred
          * @member {Date|null} lastFocusInDate=null
          * @protected
          */
