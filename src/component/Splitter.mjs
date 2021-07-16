@@ -103,7 +103,7 @@ class Splitter extends Component {
         }
 
         me.set({
-            cls   : cls,
+            cls,
             height: value === 'vertical' ? null : me.size,
             width : value !== 'vertical' ? null : me.size
         });

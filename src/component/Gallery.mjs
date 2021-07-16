@@ -379,9 +379,7 @@ class Gallery extends Component {
      * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
+        oldValue?.destroy();
 
         return ClassSystemUtil.beforeSetInstance(value, GalleryModel, {
             listeners: {
@@ -586,9 +584,7 @@ class Gallery extends Component {
 
         let me = this;
 
-        if (me.selectionModel) {
-            me.selectionModel.register(me);
-        }
+        me.selectionModel?.register(me);
 
         // load data for the example collection
         if (!(me.store instanceof Store)) {

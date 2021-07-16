@@ -309,10 +309,7 @@ class Helix extends Component {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-
-        if (value) {
-            this.getOffsetValues();
-        }
+        value && this.getOffsetValues();
     }
 
     /**
@@ -347,9 +344,7 @@ class Helix extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        if (this.rendered) {
-            value.register(this);
-        }
+        this.rendered && value.register(this);
     }
 
     /**
@@ -435,9 +430,7 @@ class Helix extends Component {
      * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
+        oldValue?.destroy();
 
         return ClassSystemUtil.beforeSetInstance(value, HelixModel, {
             listeners: {
@@ -456,9 +449,7 @@ class Helix extends Component {
     beforeSetStore(value, oldValue) {
         let me = this;
 
-        if (oldValue) {
-            oldValue.destroy();
-        }
+        oldValue?.destroy();
 
         // todo: remove the if check once all demos use stores (instead of collections)
         if (value) {
@@ -746,7 +737,7 @@ class Helix extends Component {
             translateY = (me.offsetHeight - 1320) / 3,
             translateZ = 100700 + me.perspective / 1.5;
 
-        return 'matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,'+translateX+','+translateY+','+translateZ+',1)';
+        return `matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,${translateX},${translateY},${translateZ},1`;
     }
 
     /**
@@ -806,11 +797,11 @@ class Helix extends Component {
         Neo.Xhr.promiseJson({
             insideNeo: true,
             url      : me.url
+        }).catch(err => {
+            console.log('Error for Neo.Xhr.request', err, me.id);
         }).then(data => {
             me.store.items = data.json.data;
             me.createItems();
-        }).catch(err => {
-            console.log('Error for Neo.Xhr.request', err, me.id);
         });
     }
 
@@ -839,9 +830,7 @@ class Helix extends Component {
 
         let me = this;
 
-        if (me.selectionModel) {
-            me.selectionModel.register(me);
-        }
+        me.selectionModel?.register(me);
 
         // load data for the example collection
         if (!(me.store instanceof Store)) {
@@ -855,10 +844,7 @@ class Helix extends Component {
      */
     onKeyDownEnter(data) {
         let item = this.selectionModel.items[0];
-
-        if (item) {
-            this.expandItem(item);
-        }
+        item && this.expandItem(item);
     }
 
     /**
@@ -908,7 +894,7 @@ class Helix extends Component {
      * @protected
      */
     onSort() {
-        const me = this;
+        let me = this;
 
         if (me[itemsMounted] === true) {console.log('sort');
             me.applyItemTransitions(me.sortItems, 1000);
@@ -985,42 +971,36 @@ class Helix extends Component {
             matrix.destroy();
 
             Object.assign(item, {
-                rotationAngle : angle,
-                transformStyle: transformStyle
+                rotationAngle: angle,
+                transformStyle
             });
 
             opacity = me.calculateOpacity(item);
             item.opacity = opacity;
 
             Object.assign(item, {
-                opacity       : opacity,
-                rotationAngle : angle,
-                transformStyle: transformStyle
+                opacity,
+                rotationAngle: angle,
+                transformStyle
             });
 
             deltas.push({
                 id   : me.getItemVnodeId(item[me.keyProperty]),
                 style: {
-                    opacity  : opacity,
+                    opacity,
                     transform: transformStyle
                 }
             });
         }
 
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'updateDom',
-            appName: me.appName,
-            deltas : deltas
-        });
+        Neo.applyDeltas(me.appName, deltas);
     }
 
     /**
      * @protected
      */
     refreshIfMounted() {
-        if (this.mounted) {
-            this.refresh();
-        }
+        this.mounted && this.refresh();
     }
 
     /**
@@ -1035,18 +1015,14 @@ class Helix extends Component {
 
         for (; i < len; i++) {
             deltas.push({
-                action  : 'moveNode',
-                id      : me.getItemVnodeId(me.store.items[i][me.keyProperty]),
-                index   : i,
-                parentId: parentId
+                action: 'moveNode',
+                id    : me.getItemVnodeId(me.store.items[i][me.keyProperty]),
+                index : i,
+                parentId
             });
         }
 
-        Neo.currentWorker.promiseMessage('main', {
-            action : 'updateDom',
-            appName: me.appName,
-            deltas : deltas
-        }).then(() => {
+        Neo.applyDeltas(me.appName, deltas).then(() => {
             me.refresh();
         });
     }
@@ -1088,19 +1064,10 @@ class Helix extends Component {
                 });
             });
 
-            Neo.currentWorker.promiseMessage('main', {
-                action : 'updateDom',
-                appName: me.appName,
-                deltas : deltas
-            }).then(() => {
+            Neo.applyDeltas(me.appName, deltas).then(() => {
                 timeoutId = setTimeout(() => {
                     NeoArray.remove(me.transitionTimeouts, timeoutId);
-
-                    Neo.currentWorker.promiseMessage('main', {
-                        action : 'updateDom',
-                        appName: me.appName,
-                        deltas : afterDeltas
-                    });
+                    Neo.applyDeltas(me.appName, afterDeltas);
                 }, 200);
 
                 me.transitionTimeouts.push(timeoutId);

@@ -267,9 +267,7 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetShowDisabledDays(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.recreateDayViewContent();
-        }
+        oldValue !== undefined && this.recreateDayViewContent();
     }
 
     /**
@@ -313,9 +311,7 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        if (oldValue !== undefined) {
-            value.register(this);
-        }
+        oldValue !== undefined && value.register(this);
     }
 
     /**
@@ -346,9 +342,7 @@ class DateSelector extends Component {
      * @protected
      */
     afterSetWeekStartDay(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.recreateDayViewContent(false, false);
-        }
+        oldValue !== undefined && this.recreateDayViewContent(false, false);
     }
 
     /**
@@ -368,9 +362,7 @@ class DateSelector extends Component {
      * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
+        oldValue && oldValue.destroy();
 
         return ClassSystemUtil.beforeSetInstance(value, DateSelectorModel);
     }
@@ -775,12 +767,7 @@ class DateSelector extends Component {
      */
     onConstructed() {
         super.onConstructed();
-
-        let me = this;
-
-        if (me.selectionModel) {
-            me.selectionModel.register(me);
-        }
+        this.selectionModel?.register(this);
     }
 
     /**
@@ -795,13 +782,8 @@ class DateSelector extends Component {
 
         me.recreateDayViewContent(true);
 
-        if (monthIncrement !== 0) {
-            me.updateHeaderMonth(monthIncrement, yearIncrement, true);
-        }
-
-        if (yearIncrement !== 0) {
-            me.updateHeaderYear(yearIncrement, true);
-        }
+        monthIncrement !== 0 && me.updateHeaderMonth(monthIncrement, yearIncrement, true);
+        yearIncrement  !== 0 && me.updateHeaderYear(yearIncrement, true);
 
         me.triggerVdomUpdate(silent);
     }
@@ -936,10 +918,10 @@ class DateSelector extends Component {
             me[silent ? '_vdom' : 'vdom'] = vdom;
 
             return {
-                data          : monthElDomRect,
-                headerCenterEl: headerCenterEl,
-                increment     : increment,
-                yearIncrement : yearIncrement
+                data: monthElDomRect,
+                headerCenterEl,
+                increment,
+                yearIncrement
             };
         }
     }
