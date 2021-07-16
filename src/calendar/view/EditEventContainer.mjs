@@ -1,4 +1,5 @@
 import Button        from '../../button/Base.mjs';
+import DateUtil      from '../../util/Date.mjs';
 import FormContainer from '../../form/Container.mjs';
 import TextField     from '../../form/field/Text.mjs';
 import TimeField     from '../../form/field/Time.mjs';
@@ -30,10 +31,6 @@ class EditEventContainer extends FormContainer {
          * @member {String[]} cls=['neo-calendar-edit-event-container']
          */
         cls: ['neo-calendar-edit-event-container'],
-        /**
-         * @member {Neo.component.Base|null} currentView=null
-         */
-        currentView: null,
         /**
          * @member {Object|null} endTimeFieldConfig=null
          */
@@ -159,6 +156,7 @@ class EditEventContainer extends FormContainer {
                 ...me.endTimeFieldConfig
             }, {
                 module : Button,
+                cls    : ['neo-button', 'neo-red'],
                 handler: me.onDeleteButtonClick.bind(me),
                 iconCls: 'fas fa-trash-alt',
                 style  : {marginTop: '3em'},
@@ -228,14 +226,15 @@ class EditEventContainer extends FormContainer {
     onTimeFieldChange(data) {
         let me     = this,
             name   = data.component.name,
+            field  = name === 'endTime' ? 'endDate' : 'startDate',
             record = me.record,
-            date   = me.record[name === 'endTime' ? 'endDate' : 'startDate'],
+            date   = DateUtil.clone(me.record[field]),
             value  = data.value.split(':').map(e => Number(e));
 
         date.setHours(value[0]);
         date.setMinutes(value[1]);
 
-        me.currentView.updateEvents();
+        record[field] = date;
 
         if (name === 'endTime') {
             me.getField('startTime').maxValue = me.getStartTimeMaxValue(record);
@@ -251,7 +250,6 @@ class EditEventContainer extends FormContainer {
     onTitleFieldChange(data) {
         if (!Neo.isEmpty(data.value)) {
             this.record.title = data.value;
-            this.currentView.updateEvents();
         }
     }
 }

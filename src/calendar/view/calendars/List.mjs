@@ -119,10 +119,9 @@ class List extends ComponentList {
             });
 
             editCalendarContainer[mounted ? 'set' : 'setSilent']({
-                currentView: me,
-                parentId   : mainContainer.id,
-                record     : record,
-                style      : style
+                parentId: mainContainer.id,
+                record  : record,
+                style   : style
             });
 
             if (!mounted) {

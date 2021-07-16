@@ -32,10 +32,6 @@ class EditContainer extends FormContainer {
          */
         colorsListConfig: null,
         /**
-         * @member {Neo.component.Base|null} currentView=null
-         */
-        currentView: null,
-        /**
          * @member {Object|null} nameFieldConfig=null
          */
         nameFieldConfig: null,
@@ -150,6 +146,7 @@ class EditContainer extends FormContainer {
             },
             me.colorsList, {
                 module : Button,
+                cls    : ['neo-button', 'neo-red'],
                 handler: me.onDeleteButtonClick.bind(me),
                 iconCls: 'fas fa-trash-alt',
                 style  : {marginTop: '3em'},

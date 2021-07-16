@@ -109,6 +109,12 @@ class Component extends BaseComponent {
          */
         monthNameFormat_: 'short',
         /**
+         * Internal flag to store if createContent() got called while not being mounted
+         * @member {Boolean} needsEventUpdate=false
+         * @protected
+         */
+        needsEventUpdate: false,
+        /**
          * @member {Neo.calendar.view.MainContainer|null} owner=null
          * @protected
          */
@@ -171,8 +177,10 @@ class Component extends BaseComponent {
         me.domListeners = domListeners;
 
         if (me.calendarStore.getCount() > 0 && me.eventStore.getCount() > 0) {
-            me.createContent(true); // silent update
+            me.needsEventUpdate = true;
         }
+
+        me.needsEventUpdate && me.createContent(true);
 
         me.updateHeader(true);
     }
@@ -184,19 +192,16 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetCalendarStore(value, oldValue) {
-        let me = this;
+        let me = this,
 
-        oldValue?.un({
+        listeners = {
             load        : me.onCalendarStoreLoad,
             recordChange: me.onCalendarStoreRecordChange,
             scope       : me
-        });
+        };
 
-        value?.on({
-            load        : me.onCalendarStoreLoad,
-            recordChange: me.onCalendarStoreRecordChange,
-            scope       : me
-        });
+        oldValue?.un(listeners);
+        value   ?.on(listeners);
     }
 
     /**
@@ -254,10 +259,16 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetEventStore(value, oldValue) {
-        let me = this;
+        let me = this,
 
-        oldValue?.un('load', me.onEventStoreLoad, me);
-        value   ?.on('load', me.onEventStoreLoad, me);
+        listeners = {
+            load        : me.onEventStoreLoad,
+            recordChange: me.onEventStoreRecordChange,
+            scope       : me
+        };
+
+        oldValue?.un(listeners);
+        value   ?.on(listeners);
     }
 
     /**
@@ -302,10 +313,15 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetMounted(value, oldValue) {
-        if (value) {
-            setTimeout(() => {
-                let me = this;
+        let me = this;
 
+        if (value) {
+            if (me.needsEventUpdate) {
+                me.createContent();
+                me.needsEventUpdate = false;
+            }
+
+            setTimeout(() => {
                 Neo.main.DomAccess.getBoundingClientRect({
                     id: [me.vdom.cn[1].id, me.vdom.cn[0].id]
                 }).then(data => {
@@ -317,7 +333,7 @@ class Component extends BaseComponent {
                         value    : data[0].height - data[1].height
                     });
                 });
-            }, 20);
+            }, 100);
         }
     }
 
@@ -416,33 +432,38 @@ class Component extends BaseComponent {
      * @param {Boolean} [silent=false]
      */
     createContent(silent=false) {
-        let me   = this,
-            date = me.currentDate, // cloned
-            vdom = me.vdom,
-            i    = 0,
-            firstDayOffset, row;
+        let me = this;
 
-        vdom.cn[1].cn = [];
+        if (!me.mounted) {
+            me.needsEventUpdate = true;
+        } else {
+            let date = me.currentDate, // cloned
+                vdom = me.vdom,
+                i    = 0,
+                firstDayOffset, row;
 
-        firstDayOffset = DateUtil.getFirstDayOffset(date, me.weekStartDay);
+            vdom.cn[1].cn = [];
 
-        date.setDate(1 - firstDayOffset);
+            firstDayOffset = DateUtil.getFirstDayOffset(date, me.weekStartDay);
 
-        date.setDate(date.getDate() - 6 * 7);
+            date.setDate(1 - firstDayOffset);
 
-        for (; i < 18; i++) {
-            row = me.createWeek(DateUtil.clone(date));
+            date.setDate(date.getDate() - 6 * 7);
 
-            if (row.header) {
-                vdom.cn[1].cn.push(row.header);
+            for (; i < 18; i++) {
+                row = me.createWeek(DateUtil.clone(date));
+
+                if (row.header) {
+                    vdom.cn[1].cn.push(row.header);
+                }
+
+                vdom.cn[1].cn.push(row.row);
+
+                date.setDate(date.getDate() + 7);
             }
 
-            vdom.cn[1].cn.push(row.row);
-
-            date.setDate(date.getDate() + 7);
+            me[silent ? '_vdom' : 'vdom'] = vdom;
         }
-
-        me[silent ? '_vdom' : 'vdom'] = vdom;
     }
 
     /**
@@ -586,10 +607,9 @@ class Component extends BaseComponent {
             });
 
             editEventContainer.setSilent({
-                currentView: me,
-                parentId   : data.path[1].id,
-                record     : record,
-                style      : style
+                parentId: data.path[1].id,
+                record  : record,
+                style   : style
             });
 
             editEventContainer.render(true);
@@ -602,6 +622,14 @@ class Component extends BaseComponent {
      */
     onEventStoreLoad(data) {
         this.calendarStore.getCount() > 0 && this.createContent();
+    }
+
+    /**
+     *
+     * @param {Object[]} data
+     */
+    onEventStoreRecordChange(data) {
+        this.createContent();
     }
 
     /**
@@ -750,13 +778,6 @@ class Component extends BaseComponent {
         me.vdom = vdom;
 
         // todo: #990 => scroll the view to the closest row
-    }
-
-    /**
-     * Neo.calendar.view.EditEventContainer expects this method to exist
-     */
-    updateEvents() {
-       this.createContent();
     }
 
     /**

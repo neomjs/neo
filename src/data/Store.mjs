@@ -267,11 +267,9 @@ class Store extends Base {
      * Gets triggered after changing the value of a record field.
      * E.g. myRecord.foo = 'bar';
      * @param {Object} data
-     * @param {String} data.field The name of the field which got changed
+     * @param {Object[]} data.fields Each field object contains the keys: name, oldValue, value
      * @param {Neo.data.Model} data.model The model instance of the changed record
-     * @param {*} data.oldValue
      * @param {Object} data.record
-     * @param {*} data.value
      */
     onRecordChange(data) {
         this.fire('recordChange', {
