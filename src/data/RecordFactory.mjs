@@ -243,21 +243,12 @@ class RecordFactory extends Base {
 
             if (!Neo.isEqual(oldValue, value)) {
                 record[Symbol.for(key)] = value; // silent update
-
-                changedFields.push({
-                    name: key,
-                    oldValue,
-                    value
-                });
+                changedFields.push({name: key, oldValue, value});
             }
         });
 
         if (Object.keys(changedFields).length > 0) {
-            Neo.get(model.storeId)?.onRecordChange({
-                fields: changedFields,
-                model,
-                record
-            });
+            Neo.get(model.storeId)?.onRecordChange({fields: changedFields, model, record});
         }
     }
 }
