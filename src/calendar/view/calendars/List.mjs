@@ -120,8 +120,8 @@ class List extends ComponentList {
 
             editCalendarContainer[mounted ? 'set' : 'setSilent']({
                 parentId: mainContainer.id,
-                record  : record,
-                style   : style
+                record,
+                style
             });
 
             if (!mounted) {
