@@ -14,11 +14,6 @@ class Focus extends CoreBase {
          */
         className: 'Neo.manager.Focus',
         /**
-         * @member {String} ntype='focus-manager'
-         * @protected
-         */
-        ntype: 'focus-manager',
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -66,10 +61,7 @@ class Focus extends CoreBase {
         let history = this.history;
 
         history.unshift(opts);
-
-        if (history.length >= this.maxHistoryLength) {
-            history.pop();
-        }
+        history.length >= this.maxHistoryLength && history.pop();
     }
 
     /**
@@ -124,16 +116,10 @@ class Focus extends CoreBase {
                     oldPath: history[0].data.path
                 };
 
-                if (Neo.isFunction(component.onFocusMove)) {
-                    component.onFocusMove(data);
-                }
-
+                component.onFocusMove?.(data);
                 component.fire('focusMove', data);
 
-                if (Neo.isFunction(component.onFocusChange)) {
-                    component.onFocusChange(data);
-                }
-
+                component.onFocusChange?.(data);
                 component.fire('focusChange', data);
             }
         });
@@ -203,17 +189,11 @@ class Focus extends CoreBase {
                 data[containsFocus ? 'path' : 'oldPath'] = opts.data.path
 
                 handler = containsFocus ? 'onFocusEnter' : 'onFocusLeave';
-
-                if (Neo.isFunction(component[handler])) {
-                    component[handler](data);
-                }
+                component[handler]?.(data);
 
                 component.fire(containsFocus ? 'focusEnter' : 'focusLeave', data);
 
-                if (Neo.isFunction(component.onFocusChange)) {
-                    component.onFocusChange(data);
-                }
-
+                component.onFocusChange?.(data);
                 component.fire('focusChange', data);
             }
         });
