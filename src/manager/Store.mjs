@@ -14,11 +14,6 @@ class Store extends Base {
          */
         className: 'Neo.manager.Store',
         /**
-         * @member {String} ntype='store-manager'
-         * @protected
-         */
-        ntype: 'store-manager',
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */
