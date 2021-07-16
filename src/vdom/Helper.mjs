@@ -100,10 +100,12 @@ class Helper extends Base {
         node.outerHTML = me.createStringFromVnode(node);
 
         if (autoMount) {
-            node.appName     = appName;
-            node.autoMount   = true;
-            node.parentId    = parentId;
-            node.parentIndex = parentIndex;
+            Object.assign(node, {
+                appName,
+                autoMount: true,
+                parentId,
+                parentIndex
+            });
         }
 
         return node;
@@ -152,9 +154,9 @@ class Helper extends Base {
                 deltas.push({
                     action   : 'insertNode',
                     id       : newVnode.id,
-                    index    : index,
+                    index,
                     outerHTML: me.createStringFromVnode(newVnode),
-                    parentId : parentId
+                    parentId
                 });
             }
         } else if (!newVnode && oldVnode) {
@@ -178,12 +180,12 @@ class Helper extends Base {
                 movedOldNode = me.findVnode(oldVnodeRoot, movedNode.parentNode.id);
 
                 me.createDeltas({
-                    deltas      : deltas,
-                    newVnode    : movedNode.vnode,
-                    newVnodeRoot: newVnodeRoot,
-                    oldVnode    : oldVnode,
-                    oldVnodeRoot: oldVnodeRoot,
-                    parentId    : movedNode.parentNode.id
+                    deltas,
+                    newVnode: movedNode.vnode,
+                    newVnodeRoot,
+                    oldVnode,
+                    oldVnodeRoot,
+                    parentId: movedNode.parentNode.id
                 });
 
                 movedOldNode.vnode.childNodes.splice(movedNode.index, 0, movedNode.vnode);
@@ -214,9 +216,9 @@ class Helper extends Base {
                     deltas.push({
                         action   : 'insertNode',
                         id       : newVnode.id,
-                        index    : index,
+                        index,
                         outerHTML: me.createStringFromVnode(newVnode),
-                        parentId : parentId
+                        parentId
                     });
 
                     return {
@@ -228,18 +230,18 @@ class Helper extends Base {
                 else if (movedNode && movedOldNode && movedNode.parentNode.id === movedOldNode.parentNode.id) {
                     deltas.push({
                         action: 'moveNode',
-                        id      : movedOldNode.vnode.id,
-                        index   : index,
-                        parentId: parentId
+                        id    : movedOldNode.vnode.id,
+                        index,
+                        parentId
                     });
 
                     me.createDeltas({
-                        deltas      : deltas,
-                        newVnode    : newVnode,
-                        newVnodeRoot: newVnodeRoot,
-                        oldVnode    : movedOldNode.vnode,
-                        oldVnodeRoot: oldVnodeRoot,
-                        parentId    : movedNode.parentNode.id
+                        deltas,
+                        newVnode,
+                        newVnodeRoot,
+                        oldVnode: movedOldNode.vnode,
+                        oldVnodeRoot,
+                        parentId: movedNode.parentNode.id
                     });
                 } else if (!movedNode && movedOldNode) {
                     if (newVnode.id === movedOldNode.vnode.id) {
@@ -250,10 +252,10 @@ class Helper extends Base {
                             // e.g.: vdom.cn[1] = vdom.cn[1].cn[0];
 
                             deltas.push({
-                                action  : 'replaceChild',
-                                fromId  : oldVnode.id,
-                                parentId: parentId,
-                                toId    : newVnode.id
+                                action: 'replaceChild',
+                                fromId: oldVnode.id,
+                                parentId,
+                                toId  : newVnode.id
                             });
                         } else {
                             // the old vnode got moved into a different higher level branch
@@ -295,9 +297,9 @@ class Helper extends Base {
                                 if (movedOldNodeDetails.index !== targetIndex) {
                                     deltas.push({
                                         action: 'moveNode',
-                                        id      : movedOldNode.vnode.id,
-                                        index   : index,
-                                        parentId: parentId
+                                        id    : movedOldNode.vnode.id,
+                                        index,
+                                        parentId
                                     });
                                 }
 
@@ -307,24 +309,22 @@ class Helper extends Base {
                             }
 
                             deltas.push({
-                                action  : 'removeNode',
-                                id      : oldVnode.id,
-                                parentId: parentId
+                                action: 'removeNode',
+                                id    : oldVnode.id,
+                                parentId
                             });
                         }
 
                         me.createDeltas({
-                            deltas      : deltas,
-                            newVnode    : newVnode,
-                            newVnodeRoot: newVnodeRoot,
-                            oldVnode    : movedOldNode.vnode,
-                            oldVnodeRoot: oldVnodeRoot,
-                            parentId    : parentId
+                            deltas,
+                            newVnode,
+                            newVnodeRoot,
+                            oldVnode: movedOldNode.vnode,
+                            oldVnodeRoot,
+                            parentId
                         });
 
-                        return {
-                            indexDelta: indexDelta
-                        };
+                        return {indexDelta};
                     } else {
                         // console.log('removed node', oldVnode.id, '('+newVnode.id+')');
 
@@ -358,9 +358,9 @@ class Helper extends Base {
                     deltas.push({
                         action   : 'insertNode',
                         id       : newVnode.id,
-                        index    : index,
+                        index,
                         outerHTML: me.createStringFromVnode(newVnode),
-                        parentId : parentId
+                        parentId
                     });
 
                     return {
@@ -392,12 +392,12 @@ class Helper extends Base {
                     }
 
                     me.createDeltas({
-                        deltas      : deltas,
-                        newVnode    : movedNode.vnode,
-                        newVnodeRoot: newVnodeRoot,
-                        oldVnode    : oldVnode,
-                        oldVnodeRoot: oldVnodeRoot,
-                        parentId    : movedNode.parentNode.id
+                        deltas,
+                        newVnode: movedNode.vnode,
+                        newVnodeRoot,
+                        oldVnode,
+                        oldVnodeRoot,
+                        parentId: movedNode.parentNode.id
                     });
 
                     return {
@@ -464,13 +464,13 @@ class Helper extends Base {
 
                                 for (; i < len; i++) {
                                     returnValue = me.createDeltas({
-                                        deltas      : deltas,
-                                        index       : i,
-                                        newVnode    : value[i],
-                                        newVnodeRoot: newVnodeRoot,
-                                        oldVnode    : oldVnode.childNodes[i + indexDelta],
-                                        oldVnodeRoot: oldVnodeRoot,
-                                        parentId    : newVnode.id
+                                        deltas,
+                                        index   : i,
+                                        newVnode: value[i],
+                                        newVnodeRoot,
+                                        oldVnode: oldVnode.childNodes[i + indexDelta],
+                                        oldVnodeRoot,
+                                        parentId: newVnode.id
                                     });
 
                                     if (returnValue && returnValue.indexDelta) {
@@ -512,10 +512,7 @@ class Helper extends Base {
                                 }
 
                                 if (add.length > 0 || remove.length > 0) {
-                                    delta.cls = {
-                                        add   : add,
-                                        remove: remove
-                                    };
+                                    delta.cls = {add, remove};
                                 }
                                 break;
                         }
@@ -647,11 +644,7 @@ class Helper extends Base {
             children, childValue, i, len;
 
         if (vnode.id === id) {
-            returnValue = {
-                index     : index,
-                parentNode: parentNode,
-                vnode     : vnode
-            };
+            returnValue = {index, parentNode, vnode};
         } else if (vnode.vtype !== 'text') {
             children = vnode.childNodes;
             i        = 0;
@@ -797,7 +790,7 @@ class Helper extends Base {
             });
 
         return {
-            deltas    : deltas,
+            deltas,
             updateVdom: true,
             vnode     : node
         };
