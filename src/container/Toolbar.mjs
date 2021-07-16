@@ -74,7 +74,9 @@ class Toolbar extends Container {
     afterSetAppName(value, oldValue) {
         super.afterSetAppName(value, oldValue);
 
-        this.sortZone?.appName = value;
+        if (this.sortZone) {
+            this.sortZone.appName = value;
+        }
     }
 
     /**
