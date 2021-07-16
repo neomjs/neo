@@ -105,11 +105,7 @@ class VDom extends Base {
         });
 
         if (matchArray.length === optsLength) {
-            return {
-                index     : index,
-                parentNode: parentNode,
-                vdom      : vdom
-            };
+            return {index, parentNode, vdom};
         }
 
         if (vdom.cn) {
