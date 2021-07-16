@@ -39,7 +39,7 @@ class Focus extends CoreBase {
         lastFocusOutDate: null,
         /**
          * The amount of time for a focusIn to occur after the last focusOut
-         * to be threated as a focusmove
+         * to get combined into a focusmove event.
          * @member {Number} maxFocusInOutGap=10
          */
         maxFocusInOutGap: 10,
