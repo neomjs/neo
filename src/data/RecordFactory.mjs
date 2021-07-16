@@ -182,8 +182,10 @@ class RecordFactory extends Base {
             Logger.logError('The record does not contain the field', fieldName, record);
         }
 
-        if (record.hasOwnProperty(this.ovPrefix + fieldName)) {
-            return record[fieldName] !== record[this.ovPrefix + fieldName];
+        let modifiedField = this.ovPrefix + fieldName;
+
+        if (record.hasOwnProperty(modifiedField)) {
+            return !Neo.isEqual(record[fieldName], record[modifiedField]);
         }
 
         return null;
