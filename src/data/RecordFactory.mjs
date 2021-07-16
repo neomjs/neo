@@ -82,6 +82,9 @@ class RecordFactory extends Base {
                                     symbol      = Symbol.for(field.name);
 
                                 properties = {
+                                    [Symbol.for('isRecord')]: {
+                                        value: true
+                                    },
                                     [symbol]: {
                                         value   : parsedValue,
                                         writable: true
@@ -193,11 +196,11 @@ class RecordFactory extends Base {
 
     /**
      * Tests if a given object is an instance of a class created by this factory
-     * @param {Object} obj
+     * @param {Object} record
      * @returns {Boolean}
      */
-    isRecord(obj) {
-        return obj?.constructor.name === 'Record';
+    isRecord(record) {
+        return record?.[Symbol.for('isRecord')] || false;
     }
 
     /**
