@@ -93,7 +93,7 @@ class Base extends Component {
          * @member {Object} _vdom
          */
         _vdom:
-        {tag: 'button', cn: [
+        {tag: 'button', type: 'button', cn: [
             {tag: 'span', cls: ['neo-button-glyph']},
             {tag: 'span', cls: ['neo-button-text']}
         ]}
