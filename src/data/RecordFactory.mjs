@@ -136,6 +136,14 @@ class RecordFactory extends Base {
                     set(fields) {
                         instance.setRecordFields(model, this, fields);
                     }
+
+                    /**
+                     * Bulk-update multiple record fields at once without triggering a change event
+                     * @param {Object} fields
+                     */
+                    setSilent(fields) {
+                        instance.setRecordFields(model, this, fields, true);
+                    }
                 };
 
                 ns[key].isClass = true;
@@ -236,8 +244,9 @@ class RecordFactory extends Base {
      * @param {Neo.data.Model} model
      * @param {Object} record
      * @param {Object} fields
+     * @param {Boolean} silent=false
      */
-    setRecordFields(model, record, fields) {
+    setRecordFields(model, record, fields, silent=false) {
         let changedFields = [],
             oldValue;
 
