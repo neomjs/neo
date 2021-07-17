@@ -120,8 +120,8 @@ class List extends ComponentList {
 
             editCalendarContainer[mounted ? 'set' : 'setSilent']({
                 parentId: mainContainer.id,
-                record  : record,
-                style   : style
+                record,
+                style
             });
 
             if (!mounted) {
@@ -142,6 +142,14 @@ class List extends ComponentList {
             checkBox = me.items[me.store.indexOf(recordId)];
 
         checkBox.checked = !checkBox.checked;
+    }
+
+    /**
+     *
+     * @param {String[]} items
+     */
+    onSelect(items) {
+        this.getModel().setData('activeCalendarId', this.getItemRecordId(items[0]));
     }
 }
 

@@ -261,9 +261,7 @@ class Circle extends Component {
      * @protected
      */
     afterSetRotateX(value, oldValue) {
-        if (oldValue && this.rendered) {
-            this.rotate();
-        }
+        oldValue && this.rendered && this.rotate();
     }
 
     /**
@@ -273,9 +271,7 @@ class Circle extends Component {
      * @protected
      */
     afterSetRotateY(value, oldValue) {
-        if (oldValue && this.rendered) {
-            this.rotate();
-        }
+        oldValue && this.rendered && this.rotate();
     }
 
     /**
@@ -285,9 +281,7 @@ class Circle extends Component {
      * @protected
      */
     afterSetRotateZ(value, oldValue) {
-        if (oldValue && this.rendered) {
-            this.rotate();
-        }
+        oldValue && this.rendered && this.rotate();
     }
 
     /**
@@ -297,9 +291,7 @@ class Circle extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        if (this.rendered) {
-            value.register(this);
-        }
+        this.rendered && value.register(this);
     }
 
     /**
@@ -309,9 +301,7 @@ class Circle extends Component {
      * @protected
      */
     afterSetTitle(value, oldValue) {
-        if (oldValue) {
-            this.updateTitle();
-        }
+        oldValue && this.updateTitle();
     }
 
     /**
@@ -321,13 +311,9 @@ class Circle extends Component {
      * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
+        oldValue && oldValue.destroy();
 
-        value = ClassSystemUtil.beforeSetInstance(value, CircleModel);
-
-        return value;
+        return ClassSystemUtil.beforeSetInstance(value, CircleModel);
     }
 
     /**

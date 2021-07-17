@@ -46,11 +46,6 @@ class DomEvent extends Base {
          */
         className: 'Neo.manager.DomEvent',
         /**
-         * @member {String} ntype='dom-event-manager'
-         * @protected
-         */
-        ntype: 'dom-event-manager',
-        /**
          * @member {Object} items={}
          * @protected
          */
@@ -202,9 +197,7 @@ class DomEvent extends Base {
         if (listeners?.[config.id]) {
             event = listeners[config.id][config.eventName];
 
-            if (event) {
-                console.log(event);
-            }
+            return event || null;
         }
     }
 

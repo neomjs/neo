@@ -38,7 +38,7 @@ No need to take care of a workers setup, and the cross channel communication on 
 14. <a href="#slack-channel">Slack Channel for questions & feedback</a>
 
 </br></br>
-<h2 id="sponsors">1. neo.mjs is in need for more sponsors!</h2>
+<h2 id="sponsors">1. neo.mjs is in need for sponsors!</h2>
 
 neo.mjs is an MIT-licensed open source project with an ongoing development.</br>
 So far the development was made possible with burning all of my (tobiu's) personal savings.</br>
@@ -50,25 +50,6 @@ The benefit of doing so is getting results delivered faster.
 
 More infos: <a href="./BACKERS.md">Sponsors & Backers</a>
 
-<h3 align="center">Bronze Sponsors</h3>
-<!--bronze start-->
-<table>
-  <tbody>
-    <tr>
-      <td align="center" valign="middle">
-        <a href="http://www.stream4.tech/">
-          <img width="150px" src="https://raw.githubusercontent.com/neomjs/pages/master/sponsors/bronze/stream4tech.png">
-        </a>
-      </td>
-      <td align="center" valign="middle">
-        <a href="https://github.com/sponsors/tobiu">
-          <img width="150px" src="https://raw.githubusercontent.com/neomjs/pages/master/sponsors/sponsor_you.jpg">
-        </a>
-      </td>
-    </tr>
-  </tbody>
-</table>
-<!--bronze end-->
 Logo contributed by <a href="https://www.linkedin.com/in/dinkheller/">Torsten Dinkheller</a>.
 
 </br></br>

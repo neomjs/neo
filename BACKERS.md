@@ -21,21 +21,6 @@ to an entire new level.
 
 This is something I would love to share with you!
 
-<h3 align="center">Bronze Sponsors</h3>
-<!--bronze start-->
-<table>
-  <tbody>
-    <tr>
-      <td align="center" valign="middle">
-        <a href="http://www.stream4.tech/">
-          <img width="150px" src="https://raw.githubusercontent.com/neomjs/pages/master/sponsors/bronze/stream4tech.png">
-        </a>
-      </td>
-    </tr>
-  </tbody>
-</table>
-<!--bronze end-->
-
 <h3 align="center">Generous Backers</h3>
 <!--generous backers start-->
 <table>

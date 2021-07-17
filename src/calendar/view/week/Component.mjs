@@ -330,9 +330,11 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetCurrentDate(value, oldValue) {
-        if (this.isConstructed) {
-            this.updateHeader(false, true);
-            this.updateEvents();
+        let me = this;
+
+        if (me.isConstructed) {
+            me.updateHeader(false, true);
+            me.updateEvents();
         }
     }
 
@@ -347,9 +349,7 @@ class Component extends BaseComponent {
 
         me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
 
-        if (oldValue) {
-            me.updateHeader();
-        }
+        oldValue && me.updateHeader();
     }
 
     /**
@@ -571,10 +571,7 @@ class Component extends BaseComponent {
             {cls: dateCls,     html: currentDate}
         ]};
 
-        return {
-            column: column,
-            header: header
-        };
+        return {column, header};
     }
 
     /**
@@ -620,6 +617,60 @@ class Component extends BaseComponent {
 
     /**
      *
+     * @param {Object} opts
+     * @param {Object} opts.dragElement
+     * @param {Boolean} opts.enableResizingAcrossOppositeEdge
+     * @param {Object} opts.eventRecord
+     * @param {String} opts.proxyParentId
+     * @returns {Neo.calendar.view.week.EventDragZone}
+     */
+    getEventDragZone(opts) {
+        let me            = this,
+            eventDragZone = me.eventDragZone,
+            timeAxis      = me.timeAxis,
+
+        config = {
+            axisEndTime                     : timeAxis.getTime(me.endTime),
+            axisStartTime                   : timeAxis.getTime(me.startTime),
+            dragElement                     : opts.dragElement,
+            enableResizingAcrossOppositeEdge: opts.enableResizingAcrossOppositeEdge,
+            eventRecord                     : opts.eventRecord,
+            proxyParentId                   : opts.proxyParentId
+        };
+
+        if (!eventDragZone) {
+            me.eventDragZone = eventDragZone = Neo.create({
+                module           : EventDragZone,
+                appName          : me.appName,
+                owner            : me,
+                scrollContainerId: me.getScrollContainer().id,
+                ...config,
+
+                dragProxyConfig: {
+                    style: {
+                        transition: 'none',
+                        willChange: 'height'
+                    }
+                }
+            });
+        } else {
+            eventDragZone.set(config);
+        }
+
+        return eventDragZone;
+    }
+
+    /**
+     *
+     * @param {Number|String} recordId
+     * @returns {String}
+     */
+    getEventId(recordId) {
+        return `${this.id}__${recordId}`;
+    }
+
+    /**
+     *
      */
     getHeaderContainer() {
         return VDomUtil.getByFlag(this.vdom, 'neo-header-row');
@@ -642,11 +693,11 @@ class Component extends BaseComponent {
 
     /**
      *
-     * @param {Object} eventData
+     * @param {Object} path
      * @returns {Boolean}
      */
-    isTopLevelColumn(eventData) {
-        return eventData.path[0].cls.includes('neo-c-w-column');
+    isTopLevelColumn(path) {
+        return path[0].cls.includes('neo-c-w-column');
     }
 
     /**
@@ -679,8 +730,22 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onColumnDragEnd(data) {
-        if (this.isTopLevelColumn(data)) {
-            console.log('onColumnDragEnd', data);
+        let me           = this,
+            recordSymbol = Symbol.for('addedRecord'),
+            record       = me[recordSymbol];
+
+        if (record && me.isTopLevelColumn(data.path)) {
+            delete me[recordSymbol];
+
+            Neo.applyDeltas(me.appName, {
+                id   : me.getEventId(record.id),
+                style: {opacity: 1}
+            }).then(() => {
+                me.eventDragZone.dragEnd();
+                me.getPlugin({flag:'resizable'}).onDragEnd(data);
+
+                me.isDragging = false;
+            });
         }
     }
 
@@ -689,8 +754,8 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onColumnDragMove(data) {
-        if (this.isTopLevelColumn(data)) {
-            console.log('onColumnDragMove', data);
+        if (this.isTopLevelColumn(data.path)) {
+            this.eventDragZone?.dragMove(data);
         }
     }
 
@@ -699,8 +764,61 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onColumnDragStart(data) {
-        if (this.isTopLevelColumn(data)) {
-            console.log('onColumnDragStart', data);
+        let me = this;
+
+        if (me.isTopLevelColumn(data.targetPath)) {
+            let axisStartTime   = me.timeAxis.getTime(me.startTime),
+                calendarStore   = me.calendarStore,
+                columnRect      = data.path[0].rect,
+                intervalSize    = 15,
+                intervals       = (me.timeAxis.getTime(me.endTime) - axisStartTime) * 60 / intervalSize,
+                intervalHeight  = columnRect.height / intervals,
+                position        = Math.min(columnRect.height, data.clientY - columnRect.top),
+                currentInterval = Math.floor(position / intervalHeight),
+                startDate       = new Date(VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom.flag + 'T00:00:00'),
+                dragElement, endDate, eventDragZone, eventId, record;
+
+            me.isDragging = true;
+
+            startDate.setHours(axisStartTime);
+            startDate.setMinutes(currentInterval * intervalSize);
+
+            endDate = DateUtil.clone(startDate);
+
+            endDate.setMinutes(endDate.getMinutes() + me.minimumEventDuration);
+
+            record = me.eventStore.add({
+                calendarId: me.data.activeCalendarId || calendarStore.getAt(0)[calendarStore.keyProperty],
+                endDate,
+                startDate,
+                title     : 'New Event'
+            })[0];
+
+            // we need to cache a reference to make the record accessible for onColumnDragEnd()
+            me[Symbol.for('addedRecord')] = record;
+
+            // wait until the new event got mounted
+            setTimeout(() => {
+                eventId     = me.getEventId(record.id);
+                dragElement = VDomUtil.findVdomChild(me.vdom, eventId).vdom;
+
+                eventDragZone = me.getEventDragZone({
+                    dragElement,
+                    enableResizingAcrossOppositeEdge: true,
+                    eventRecord                     : record,
+                    proxyParentId                   : data.path[0].id
+                });
+
+                me.getPlugin({flag:'resizable'}).onDragStart(data);
+                eventDragZone.dragStart(data);
+
+                setTimeout(() => {
+                    Neo.applyDeltas(me.appName, {
+                        id   : eventId,
+                        style: {opacity: 0}
+                    });
+                }, 50);
+            }, 50);
         }
     }
 
@@ -728,8 +846,8 @@ class Component extends BaseComponent {
 
             editEventContainer.setSilent({
                 parentId: data.path[1].id,
-                record  : record,
-                style   : style
+                record,
+                style
             });
 
             editEventContainer.render(true);
@@ -778,48 +896,27 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDragStart(data) {
-        if (this.data.events.enableDrag) {
-            let me              = this,
-                eventDragZone   = me.eventDragZone,
-                isTopLevelEvent = me.isTopLevelEvent(data),
-                dragElement, timeAxis;
+        let me        = this,
+            modelData = me.data;
+
+        if (modelData.events.enableDrag) {
+            let isTopLevelEvent = me.isTopLevelEvent(data),
+                dragElement, eventDragZone;
 
             if (!isTopLevelEvent) {
                 data = me.adjustResizeEvent(data);
             }
 
-            dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom;
-            timeAxis    = me.timeAxis;
-
             me.isDragging = true;
 
-            const config = {
-                axisEndTime                     : timeAxis.getTime(me.endTime),
-                axisStartTime                   : timeAxis.getTime(me.startTime),
-                dragElement                     : dragElement,
-                enableResizingAcrossOppositeEdge: me.data.events.enableResizingAcrossOppositeEdge,
+            dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom;
+
+            eventDragZone = me.getEventDragZone({
+                dragElement,
+                enableResizingAcrossOppositeEdge: modelData.events.enableResizingAcrossOppositeEdge,
                 eventRecord                     : me.eventStore.get(dragElement.flag),
                 proxyParentId                   : data.path[1].id
-            };
-
-            if (!eventDragZone) {
-                me.eventDragZone = eventDragZone = Neo.create({
-                    module           : EventDragZone,
-                    appName          : me.appName,
-                    owner            : me,
-                    scrollContainerId: me.getScrollContainer().id,
-                    ...config,
-
-                    dragProxyConfig: {
-                        style: {
-                            transition: 'none',
-                            willChange: 'height'
-                        }
-                    }
-                });
-            } else {
-                eventDragZone.set(config);
-            }
+            });
 
             if (isTopLevelEvent) {
                 eventDragZone.addBodyCursorCls();
@@ -883,9 +980,7 @@ class Component extends BaseComponent {
 
         me.adjustTotalHeight(data, me.headerCreated);
 
-        if (me.headerCreated) {
-            me.updateEvents();
-        }
+        me.headerCreated && me.updateEvents();
     }
 
     /**
@@ -1059,21 +1154,21 @@ class Component extends BaseComponent {
                         column.cn.push({
                             cls     : eventCls,
                             flag    : recordKey,
-                            id      : me.id + '__' + recordKey,
+                            id      : me.getEventId(recordKey),
                             tabIndex: -1,
 
                             cn: [{
                                 cls : ['neo-event-time'],
                                 html: me.intlFormat_time.format(record.startDate),
-                                id  : me.id + '__time__' + recordKey
+                                id  : `${me.id}__time__${recordKey}`
                             }, {
                                 cls : ['neo-event-title'],
                                 html: record.title,
-                                id  : me.id + '__title__' + recordKey
+                                id  : `${me.id}__title__${recordKey}`
                             }, {
                                 cls      : ['neo-event-time', 'neo-event-end-time'],
                                 html     : me.intlFormat_time.format(record.endDate),
-                                id       : me.id + '__enddate__' + recordKey,
+                                id       : `${me.id}__enddate__${recordKey}`,
                                 removeDom: !showEventEndTime
                             }],
 
@@ -1140,13 +1235,13 @@ class Component extends BaseComponent {
                     cls      : columnCls,
                     flag     : DateUtil.convertToyyyymmdd(date),
                     id       : me.getColumnId(date),
-                    removeDom: removeDom
+                    removeDom
                 });
 
                 header.cn.push({
-                    cls      : ['neo-header-row-item'],
-                    id       : headerId,
-                    removeDom: removeDom,
+                    cls: ['neo-header-row-item'],
+                    id : headerId,
+                    removeDom,
 
                     cn: [{
                         cls : ['neo-day'],
@@ -1167,8 +1262,8 @@ class Component extends BaseComponent {
                 });
 
                 Object.assign(header.cn[i], {
-                    id       : headerId,
-                    removeDom: removeDom
+                    id: headerId,
+                    removeDom
                 });
 
                 Object.assign(header.cn[i].cn[0], {

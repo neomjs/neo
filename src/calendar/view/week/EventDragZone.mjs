@@ -16,11 +16,6 @@ class EventDragZone extends DragZone {
          */
         className: 'Neo.calendar.view.week.EventDragZone',
         /**
-         * @member {String} ntype='calendar-week-event-dragzone'
-         * @protected
-         */
-        ntype: 'calendar-week-event-dragzone',
-        /**
          * @member {Boolean} addDragProxyCls=false
          */
         addDragProxyCls: false,
@@ -526,8 +521,8 @@ class EventDragZone extends DragZone {
                 columnTop      : rects[1].top,
                 dragElementRect: rects[0],
                 eventDuration  : Math.round(eventDuration / me.intervalSize) * me.intervalSize,
-                offsetX        : offsetX,
-                offsetY        : offsetY
+                offsetX,
+                offsetY
             });
 
             me.createDragProxy(rects[0]);
@@ -535,8 +530,8 @@ class EventDragZone extends DragZone {
             me.fire('dragStart', {
                 dragElementRect: rects[0],
                 id             : me.id,
-                offsetX        : offsetX,
-                offsetY        : offsetY
+                offsetX,
+                offsetY
             });
 
             me.dragMove(data);

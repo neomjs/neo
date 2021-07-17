@@ -14,11 +14,6 @@ class Component extends Base {
          */
         className: 'Neo.manager.Component',
         /**
-         * @member {String} ntype='component-manager'
-         * @protected
-         */
-        ntype: 'component-manager',
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */

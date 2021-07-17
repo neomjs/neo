@@ -156,10 +156,10 @@ class TimeAxisComponent extends Component {
             me._vdom = vdom;
 
             me.fire('change', {
-                component  : me,
-                rowHeight  : rowHeight,
-                rowsPerItem: rowsPerItem,
-                totalHeight: totalHeight
+                component: me,
+                rowHeight,
+                rowsPerItem,
+                totalHeight
             });
         }
     }

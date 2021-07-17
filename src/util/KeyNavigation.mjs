@@ -103,7 +103,7 @@ class KeyNavigation extends Base {
                 Object.entries(value).forEach(([key, value]) => {
                     keyArray.push({
                         fn   : value,
-                        key  : key,
+                        key,
                         scope: componentId // todo: support VCs later on
                     })
                 });

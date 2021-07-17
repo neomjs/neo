@@ -21,6 +21,11 @@ class MainContainerModel extends Component {
          */
         data: {
             /**
+             * Selecting a calendar inside Neo.calendar.view.calendars.List will store the id (keyProperty) here.
+             * @member {Number|String|null} activeCalendarId=null
+             */
+            activeCalendarId: null,
+            /**
              * The currently active date inside all views
              * @member {Date} currentDate=new Date()
              */

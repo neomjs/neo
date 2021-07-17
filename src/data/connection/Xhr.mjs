@@ -114,9 +114,7 @@ class Xhr extends Base {
                     try {
                         json = JSON.parse(data.response);
 
-                        resolve(Object.assign(data, {
-                            json: json
-                        }));
+                        resolve(Object.assign(data, { json }));
                     } catch(err) {
                         reject({
                             reject : true,
@@ -191,7 +189,7 @@ class Xhr extends Base {
             me.requests[id] = {
                 callback: typeof opts.callback === 'function' && opts.callback,
                 scope   : opts.scope,
-                xhr     : xhr
+                xhr
             };
 
             xhr.responseType = opts.responseType || 'text';

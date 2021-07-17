@@ -1,5 +1,4 @@
 import Container from '../container/Base.mjs';
-import Floating  from '../util/Floating.mjs';
 import Label     from '../component/Label.mjs';
 
 /**
@@ -56,11 +55,6 @@ class Base extends Container {
          * @protected
          */
         hideDelayTaskId: null,
-        /**
-         * @member {Array} mixins
-         * @protected
-         */
-        mixins: [Floating],
         /**
          * The delay in ms before the tooltip gets shown
          * @member {Number|null} showDelay=200
@@ -193,10 +187,7 @@ class Base extends Container {
         let me = this;
 
         me.clearTimeout(['dismiss', 'hide', 'show']);
-
-        if (me.mounted) {
-            me.unmount();
-        }
+        me.mounted && me.unmount();
     }
 
     /**
@@ -222,9 +213,7 @@ class Base extends Container {
             targetId = data.path[0].id;
 
         // only use path[0] based events to ignore mouseenter & leave for child nodes
-        if (me.id === targetId) {
-            me.clearTimeout(['dismiss', 'hide']);
-        }
+        me.id === targetId && me.clearTimeout(['dismiss', 'hide']);
     }
 
     /**
@@ -236,9 +225,7 @@ class Base extends Container {
             targetId = data.path[0].id;
 
         // only use path[0] based events to ignore mouseenter & leave for child nodes
-        if (me.id === targetId) {
-            me.hideDelayed(null);
-        }
+        me.id === targetId && me.hideDelayed(null);
     }
 
     /**
@@ -256,9 +243,7 @@ class Base extends Container {
             me.dismissDelayTaskId = setTimeout(me.hide.bind(me), me.dismissDelay, data);
         }
 
-        if (!me.mounted) {
-            me.mount();
-        }
+        !me.mounted && me.mount();
     }
 
     /**

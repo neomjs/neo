@@ -155,7 +155,7 @@ class Chip extends Component {
      * @param {Object} data
      */
     onCloseButtonClick(data) {
-        console.log('onCloseButtonClick', data);
+
     }
 }
 

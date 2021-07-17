@@ -67,9 +67,15 @@ class Base extends CoreBase {
         items_: null,
         /**
          * The unique(!) key property of each collection item
-         * @member {string} keyProperty='id'
+         * @member {String} keyProperty='id'
          */
         keyProperty: 'id',
+        /**
+         * Adding new items without an id (keyProperty) will use a negative index, which will decrease by -1
+         * for each new item
+         * @member {Number} keyPropertyIndex=-1
+         */
+        keyPropertyIndex: -1,
         /**
          * A map containing the key & reference of each collection item for faster access
          * @member {Map} map_=null
@@ -129,11 +135,10 @@ class Base extends CoreBase {
     /**
      * Adds one or more items to the end of the collection and returns the new length of the collection.
      * @param {Array|Object} item The item(s) to add
-     * @returns {Number} the collection count
+     * @returns {Object[]} an array containing all added items
      */
     add(item) {
-        this.splice(0, null, item);
-        return this.getCount();
+        return this.splice(0, null, item).addedItems;
     }
 
     /**
@@ -152,9 +157,7 @@ class Base extends CoreBase {
             }
         });
 
-        if (oldValue) {
-            me.filter();
-        }
+        oldValue && me.filter();
     }
 
     /**
@@ -196,9 +199,7 @@ class Base extends CoreBase {
             }
         });
 
-        if (oldValue && me.autoSort) {
-            me.doSort();
-        }
+        oldValue && me.autoSort && me.doSort();
     }
 
     /**
@@ -737,13 +738,11 @@ class Base extends CoreBase {
      * @param {Number} [end=this.getCount()] The end index (up to, last value excluded)
      * @returns {Array} Returns an empty Array in case no items are found
      */
-    findBy(fn, scope, start, end) {
+    findBy(fn, scope=this, start, end) {
         let me    = this,
             items = [],
             i     = start || 0,
             len   = end   || me.getCount();
-
-        scope = scope || me;
 
         for (; i < len; i++) {
             if (fn.call(scope, me.items[i])) {
@@ -894,11 +893,10 @@ class Base extends CoreBase {
      * Inserts an item or an array of items at the specified index
      * @param {Number} index
      * @param {Array|Object} item
-     * @returns {Number} the collection count
+     * @returns {Object[]} an array containing all added items
      */
     insert(index, item) {
-        this.splice(index, 0, item);
-        return this.getCount();
+        return this.splice(index, 0, item).addedItems;
     }
 
     /**
@@ -1088,7 +1086,7 @@ class Base extends CoreBase {
 
             for (i=0; i < len; i++) {
                 item = toRemoveArray[i];
-                key  = Util.isObject(item) ? item[keyProperty] : item;
+                key  = item[keyProperty];
 
                 if (map.has(key)) {
                     if (!toAddMap || (toAddMap && toAddMap.indexOf(key) < 0)) {
@@ -1107,7 +1105,12 @@ class Base extends CoreBase {
         if (toAddArray && (len = toAddArray.length) > 0) {
             for (i=0; i < len; i++) {
                 item = toAddArray[i];
-                key  = Util.isObject(item) ? item[keyProperty] : item;
+                key  = item[keyProperty];
+
+                if (!key) {
+                    item[keyProperty] = key = me.keyPropertyIndex;
+                    me.keyPropertyIndex--;
+                }
 
                 if (!map.has(key) && !me.isFilteredItem(item)) {
                     addedItems.push(item);
@@ -1152,8 +1155,8 @@ class Base extends CoreBase {
 
         } else if (!me[silentUpdateMode]) {
             me.cacheUpdate({
-                addedItems  : addedItems,
-                removedItems: removedItems
+                addedItems,
+                removedItems
             });
         }
 
@@ -1162,8 +1165,8 @@ class Base extends CoreBase {
         }
 
         return {
-            addedItems  : addedItems,
-            removedItems: removedItems
+            addedItems,
+            removedItems
         };
     }
 

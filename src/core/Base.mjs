@@ -141,10 +141,7 @@ class Base {
         if (Base.instanceManagerAvailable === true) {
             Neo.manager.Instance.register(me);
         } else {
-            if (!Neo.idMap) {
-                Neo.idMap = {};
-            }
-
+            Neo.idMap = Neo.idMap || {};
             Neo.idMap[me.id] = me;
         }
     }

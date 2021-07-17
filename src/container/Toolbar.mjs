@@ -108,10 +108,7 @@ class Toolbar extends Container {
         let me = this;
 
         if (value && !me.sortZone) {
-            import(
-                /* webpackChunkName: 'src/draggable/toolbar/SortZone-mjs.js' */
-                '../draggable/toolbar/SortZone.mjs'
-                ).then(module => {
+            import('../draggable/toolbar/SortZone.mjs').then(module => {
                 me.sortZone = Neo.create({
                     module             : module.default,
                     appName            : me.appName,
@@ -138,7 +135,7 @@ class Toolbar extends Container {
      *
      */
     createItems() {
-        const items = this._items;
+        let items = this._items;
 
         if (Array.isArray(items)) {
             items.forEach((item, index) => {

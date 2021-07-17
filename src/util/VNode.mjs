@@ -91,11 +91,7 @@ class VNode extends Base {
         });
 
         if (matchArray.length === optsLength) {
-            return {
-                index     : index,
-                parentNode: parentNode,
-                vnode     : vnode
-            };
+            return {index, parentNode, vnode};
         }
 
         for (; i < len; i++) {

@@ -49,9 +49,9 @@ class Rectangle extends Base {
             height = Math.max(0, Math.min(rect1.bottom, rect2.bottom) - Math.max(rect1.top,  rect2.top));
 
         return {
-            area  : height * width,
-            height: height,
-            width : width
+            area: height * width,
+            height,
+            width
         };
     }
 

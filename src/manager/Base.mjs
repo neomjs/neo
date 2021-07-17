@@ -11,12 +11,7 @@ class Base extends CollectionBase{
          * @member {String} className='Neo.manager.Base'
          * @protected
          */
-        className: 'Neo.manager.Base',
-        /**
-         * @member {String} ntype='base-manager'
-         * @protected
-         */
-        ntype: 'base-manager'
+        className: 'Neo.manager.Base'
     }}
 
     /**
