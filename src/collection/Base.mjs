@@ -135,11 +135,10 @@ class Base extends CoreBase {
     /**
      * Adds one or more items to the end of the collection and returns the new length of the collection.
      * @param {Array|Object} item The item(s) to add
-     * @returns {Number} the collection count
+     * @returns {Object[]} an array containing all added items
      */
     add(item) {
-        this.splice(0, null, item);
-        return this.getCount();
+        return this.splice(0, null, item).addedItems;
     }
 
     /**
@@ -894,11 +893,10 @@ class Base extends CoreBase {
      * Inserts an item or an array of items at the specified index
      * @param {Number} index
      * @param {Array|Object} item
-     * @returns {Number} the collection count
+     * @returns {Object[]} an array containing all added items
      */
     insert(index, item) {
-        this.splice(index, 0, item);
-        return this.getCount();
+        return this.splice(index, 0, item).addedItems;
     }
 
     /**

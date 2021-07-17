@@ -766,8 +766,7 @@ class Component extends BaseComponent {
                 position        = Math.min(columnRect.height, data.clientY - columnRect.top),
                 currentInterval = Math.floor(position / intervalHeight),
                 startDate       = new Date(VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom.flag + 'T00:00:00'),
-                recordId        = -1, // todo
-                dragElement, endDate, eventDragZone, eventId;
+                dragElement, endDate, eventDragZone, eventId, record;
 
             me.isDragging = true;
 
@@ -778,22 +777,22 @@ class Component extends BaseComponent {
 
             endDate.setMinutes(endDate.getMinutes() + me.minimumEventDuration);
 
-            me.eventStore.add({
+            record = me.eventStore.add({
                 calendarId: me.calendarStore.getAt(0).id,
                 endDate,
                 startDate,
                 title     : 'New Event'
-            });
+            })[0];
 
             // wait until the new event got mounted
             setTimeout(() => {
-                eventId     = me.getEventId(recordId);
+                eventId     = me.getEventId(record.id);
                 dragElement = VDomUtil.findVdomChild(me.vdom, eventId).vdom;
 
                 eventDragZone = me.getEventDragZone({
                     dragElement,
                     enableResizingAcrossOppositeEdge: true,
-                    eventRecord                     : me.eventStore.get(recordId),
+                    eventRecord                     : record,
                     proxyParentId                   : data.path[0].id
                 });
 
