@@ -1149,15 +1149,15 @@ class Component extends BaseComponent {
                             cn: [{
                                 cls : ['neo-event-time'],
                                 html: me.intlFormat_time.format(record.startDate),
-                                id  : me.id + '__time__' + recordKey
+                                id  : `${me.id}__time__${recordKey}`
                             }, {
                                 cls : ['neo-event-title'],
                                 html: record.title,
-                                id  : me.id + '__title__' + recordKey
+                                id  : `${me.id}__title__${recordKey}`
                             }, {
                                 cls      : ['neo-event-time', 'neo-event-end-time'],
                                 html     : me.intlFormat_time.format(record.endDate),
-                                id       : me.id + '__enddate__' + recordKey,
+                                id       : `${me.id}__enddate__${recordKey}`,
                                 removeDom: !showEventEndTime
                             }],
 
