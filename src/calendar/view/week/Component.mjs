@@ -617,6 +617,51 @@ class Component extends BaseComponent {
 
     /**
      *
+     * @param {Object} opts
+     * @param {Object} opts.dragElement
+     * @param {Boolean} opts.enableResizingAcrossOppositeEdge
+     * @param {Object} opts.eventRecord
+     * @param {String} opts.proxyParentId
+     * @returns {Neo.calendar.view.week.EventDragZone}
+     */
+    getEventDragZone(opts) {
+        let me            = this,
+            eventDragZone = me.eventDragZone,
+            timeAxis      = me.timeAxis,
+
+        config = {
+            axisEndTime                     : timeAxis.getTime(me.endTime),
+            axisStartTime                   : timeAxis.getTime(me.startTime),
+            dragElement                     : opts.dragElement,
+            enableResizingAcrossOppositeEdge: opts.enableResizingAcrossOppositeEdge,
+            eventRecord                     : opts.eventRecord,
+            proxyParentId                   : opts.proxyParentId
+        };
+
+        if (!eventDragZone) {
+            me.eventDragZone = eventDragZone = Neo.create({
+                module           : EventDragZone,
+                appName          : me.appName,
+                owner            : me,
+                scrollContainerId: me.getScrollContainer().id,
+                ...config,
+
+                dragProxyConfig: {
+                    style: {
+                        transition: 'none',
+                        willChange: 'height'
+                    }
+                }
+            });
+        } else {
+            eventDragZone.set(config);
+        }
+
+        return eventDragZone;
+    }
+
+    /**
+     *
      */
     getHeaderContainer() {
         return VDomUtil.getByFlag(this.vdom, 'neo-header-row');
@@ -779,46 +824,23 @@ class Component extends BaseComponent {
             modelData = me.data;
 
         if (modelData.events.enableDrag) {
-            let eventDragZone   = me.eventDragZone,
-                isTopLevelEvent = me.isTopLevelEvent(data),
-                dragElement, timeAxis;
+            let isTopLevelEvent = me.isTopLevelEvent(data),
+                dragElement, eventDragZone;
 
             if (!isTopLevelEvent) {
                 data = me.adjustResizeEvent(data);
             }
 
-            dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom;
-            timeAxis    = me.timeAxis;
-
             me.isDragging = true;
 
-            const config = {
-                axisEndTime                     : timeAxis.getTime(me.endTime),
-                axisStartTime                   : timeAxis.getTime(me.startTime),
+            dragElement = VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom;
+
+            eventDragZone = me.getEventDragZone({
                 dragElement,
                 enableResizingAcrossOppositeEdge: modelData.events.enableResizingAcrossOppositeEdge,
                 eventRecord                     : me.eventStore.get(dragElement.flag),
                 proxyParentId                   : data.path[1].id
-            };
-
-            if (!eventDragZone) {
-                me.eventDragZone = eventDragZone = Neo.create({
-                    module           : EventDragZone,
-                    appName          : me.appName,
-                    owner            : me,
-                    scrollContainerId: me.getScrollContainer().id,
-                    ...config,
-
-                    dragProxyConfig: {
-                        style: {
-                            transition: 'none',
-                            willChange: 'height'
-                        }
-                    }
-                });
-            } else {
-                eventDragZone.set(config);
-            }
+            });
 
             if (isTopLevelEvent) {
                 eventDragZone.addBodyCursorCls();
