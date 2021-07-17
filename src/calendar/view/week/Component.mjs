@@ -730,13 +730,22 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onColumnDragEnd(data) {
-        let me = this;
+        let me           = this,
+            recordSymbol = Symbol.for('addedRecord'),
+            record       = me[recordSymbol];
 
-        if (me.isTopLevelColumn(data)) {
-            me.eventDragZone.dragEnd();
-            me.getPlugin({flag:'resizable'}).onDragEnd(data);
+        if (record && me.isTopLevelColumn(data)) {
+            delete me[recordSymbol];
 
-            me.isDragging = false;
+            Neo.applyDeltas(me.appName, {
+                id   : me.getEventId(record.id),
+                style: {opacity: 1}
+            }).then(() => {
+                me.eventDragZone.dragEnd();
+                me.getPlugin({flag:'resizable'}).onDragEnd(data);
+
+                me.isDragging = false;
+            });
         }
     }
 
@@ -783,6 +792,9 @@ class Component extends BaseComponent {
                 startDate,
                 title     : 'New Event'
             })[0];
+
+            // we need to cache a reference to make the record accessible for onColumnDragEnd()
+            me[Symbol.for('addedRecord')] = record;
 
             // wait until the new event got mounted
             setTimeout(() => {
