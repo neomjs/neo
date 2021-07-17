@@ -781,7 +781,6 @@ class Component extends BaseComponent {
             me.eventStore.add({
                 calendarId: me.calendarStore.getAt(0).id,
                 endDate,
-                id        : recordId,
                 startDate,
                 title     : 'New Event'
             });

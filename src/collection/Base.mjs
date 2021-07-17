@@ -67,9 +67,15 @@ class Base extends CoreBase {
         items_: null,
         /**
          * The unique(!) key property of each collection item
-         * @member {string} keyProperty='id'
+         * @member {String} keyProperty='id'
          */
         keyProperty: 'id',
+        /**
+         * Adding new items without an id (keyProperty) will use a negative index, which will decrease by -1
+         * for each new item
+         * @member {Number} keyPropertyIndex=-1
+         */
+        keyPropertyIndex: -1,
         /**
          * A map containing the key & reference of each collection item for faster access
          * @member {Map} map_=null
@@ -1082,7 +1088,7 @@ class Base extends CoreBase {
 
             for (i=0; i < len; i++) {
                 item = toRemoveArray[i];
-                key  = Util.isObject(item) ? item[keyProperty] : item;
+                key  = item[keyProperty];
 
                 if (map.has(key)) {
                     if (!toAddMap || (toAddMap && toAddMap.indexOf(key) < 0)) {
@@ -1101,7 +1107,12 @@ class Base extends CoreBase {
         if (toAddArray && (len = toAddArray.length) > 0) {
             for (i=0; i < len; i++) {
                 item = toAddArray[i];
-                key  = Util.isObject(item) ? item[keyProperty] : item;
+                key  = item[keyProperty];
+
+                if (!key) {
+                    item[keyProperty] = key = me.keyPropertyIndex;
+                    me.keyPropertyIndex--;
+                }
 
                 if (!map.has(key) && !me.isFilteredItem(item)) {
                     addedItems.push(item);
