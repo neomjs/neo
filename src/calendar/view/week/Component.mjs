@@ -693,11 +693,11 @@ class Component extends BaseComponent {
 
     /**
      *
-     * @param {Object} eventData
+     * @param {Object} path
      * @returns {Boolean}
      */
-    isTopLevelColumn(eventData) {
-        return eventData.path[0].cls.includes('neo-c-w-column');
+    isTopLevelColumn(path) {
+        return path[0].cls.includes('neo-c-w-column');
     }
 
     /**
@@ -734,7 +734,7 @@ class Component extends BaseComponent {
             recordSymbol = Symbol.for('addedRecord'),
             record       = me[recordSymbol];
 
-        if (record && me.isTopLevelColumn(data)) {
+        if (record && me.isTopLevelColumn(data.path)) {
             delete me[recordSymbol];
 
             Neo.applyDeltas(me.appName, {
@@ -754,7 +754,7 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onColumnDragMove(data) {
-        if (this.isTopLevelColumn(data)) {
+        if (this.isTopLevelColumn(data.path)) {
             this.eventDragZone?.dragMove(data);
         }
     }
@@ -766,7 +766,7 @@ class Component extends BaseComponent {
     onColumnDragStart(data) {
         let me = this;
 
-        if (me.isTopLevelColumn(data)) {
+        if (me.isTopLevelColumn(data.targetPath)) {
             let axisStartTime   = me.timeAxis.getTime(me.startTime),
                 columnRect      = data.path[0].rect,
                 intervalSize    = 15,
