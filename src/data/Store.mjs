@@ -94,6 +94,15 @@ class Store extends Base {
     }
 
     /**
+     * Overrides collection.Base: add() to convert items into records if needed
+     * @param {Array|Object} item The item(s) to add
+     * @returns {Number} the collection count
+     */
+    add(item) {
+        return super.add(this.beforeSetData(item));
+    }
+
+    /**
      *
      * @param value
      * @param oldValue
