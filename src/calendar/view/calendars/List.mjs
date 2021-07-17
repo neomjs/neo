@@ -143,6 +143,14 @@ class List extends ComponentList {
 
         checkBox.checked = !checkBox.checked;
     }
+
+    /**
+     *
+     * @param {String[]} items
+     */
+    onSelect(items) {
+        this.getModel().setData('activeCalendarId', this.getItemRecordId(items[0]));
+    }
 }
 
 Neo.applyClassConfig(List);

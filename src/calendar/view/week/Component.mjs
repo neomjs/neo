@@ -768,6 +768,7 @@ class Component extends BaseComponent {
 
         if (me.isTopLevelColumn(data.targetPath)) {
             let axisStartTime   = me.timeAxis.getTime(me.startTime),
+                calendarStore   = me.calendarStore,
                 columnRect      = data.path[0].rect,
                 intervalSize    = 15,
                 intervals       = (me.timeAxis.getTime(me.endTime) - axisStartTime) * 60 / intervalSize,
@@ -787,7 +788,7 @@ class Component extends BaseComponent {
             endDate.setMinutes(endDate.getMinutes() + me.minimumEventDuration);
 
             record = me.eventStore.add({
-                calendarId: me.calendarStore.getAt(0).id,
+                calendarId: me.data.activeCalendarId || calendarStore.getAt(0)[calendarStore.keyProperty],
                 endDate,
                 startDate,
                 title     : 'New Event'
