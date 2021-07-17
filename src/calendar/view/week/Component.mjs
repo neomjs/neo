@@ -662,6 +662,15 @@ class Component extends BaseComponent {
 
     /**
      *
+     * @param {Number|String} recordId
+     * @returns {String}
+     */
+    getEventId(recordId) {
+        return `${this.id}__${recordId}`;
+    }
+
+    /**
+     *
      */
     getHeaderContainer() {
         return VDomUtil.getByFlag(this.vdom, 'neo-header-row');
@@ -779,7 +788,7 @@ class Component extends BaseComponent {
 
             // wait until the new event got mounted
             setTimeout(() => {
-                eventId     = `${me.id}__${recordId}`;
+                eventId     = me.getEventId(recordId);
                 dragElement = VDomUtil.findVdomChild(me.vdom, eventId).vdom;
 
                 eventDragZone = me.getEventDragZone({
@@ -1134,7 +1143,7 @@ class Component extends BaseComponent {
                         column.cn.push({
                             cls     : eventCls,
                             flag    : recordKey,
-                            id      : me.id + '__' + recordKey,
+                            id      : me.getEventId(recordKey),
                             tabIndex: -1,
 
                             cn: [{
