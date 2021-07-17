@@ -775,9 +775,11 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onEventDragStart(data) {
-        if (this.data.events.enableDrag) {
-            let me              = this,
-                eventDragZone   = me.eventDragZone,
+        let me        = this,
+            modelData = me.data;
+
+        if (modelData.events.enableDrag) {
+            let eventDragZone   = me.eventDragZone,
                 isTopLevelEvent = me.isTopLevelEvent(data),
                 dragElement, timeAxis;
 
@@ -794,7 +796,7 @@ class Component extends BaseComponent {
                 axisEndTime                     : timeAxis.getTime(me.endTime),
                 axisStartTime                   : timeAxis.getTime(me.startTime),
                 dragElement,
-                enableResizingAcrossOppositeEdge: me.data.events.enableResizingAcrossOppositeEdge,
+                enableResizingAcrossOppositeEdge: modelData.events.enableResizingAcrossOppositeEdge,
                 eventRecord                     : me.eventStore.get(dragElement.flag),
                 proxyParentId                   : data.path[1].id
             };
