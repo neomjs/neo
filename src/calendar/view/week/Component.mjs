@@ -721,8 +721,13 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onColumnDragEnd(data) {
-        if (this.isTopLevelColumn(data)) {
-            console.log('onColumnDragEnd', data);
+        let me = this;
+
+        if (me.isTopLevelColumn(data)) {
+            me.eventDragZone.dragEnd();
+            me.getPlugin({flag:'resizable'}).onDragEnd(data);
+
+            me.isDragging = false;
         }
     }
 
@@ -732,7 +737,7 @@ class Component extends BaseComponent {
      */
     onColumnDragMove(data) {
         if (this.isTopLevelColumn(data)) {
-            console.log('onColumnDragMove', data);
+            this.eventDragZone?.dragMove(data);
         }
     }
 
@@ -741,8 +746,59 @@ class Component extends BaseComponent {
      * @param {Object} data
      */
     onColumnDragStart(data) {
-        if (this.isTopLevelColumn(data)) {
-            console.log('onColumnDragStart', data);
+        let me = this;
+
+        if (me.isTopLevelColumn(data)) {
+            let axisStartTime   = me.timeAxis.getTime(me.startTime),
+                columnRect      = data.path[0].rect,
+                intervalSize    = 15,
+                intervals       = (me.timeAxis.getTime(me.endTime) - axisStartTime) * 60 / intervalSize,
+                intervalHeight  = columnRect.height / intervals,
+                position        = Math.min(columnRect.height, data.clientY - columnRect.top),
+                currentInterval = Math.floor(position / intervalHeight),
+                startDate       = new Date(VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom.flag + 'T00:00:00'),
+                recordId        = -1, // todo
+                dragElement, endDate, eventDragZone, eventId;
+
+            me.isDragging = true;
+
+            startDate.setHours(axisStartTime);
+            startDate.setMinutes(currentInterval * intervalSize);
+
+            endDate = DateUtil.clone(startDate);
+
+            endDate.setMinutes(endDate.getMinutes() + me.minimumEventDuration);
+
+            me.eventStore.add({
+                calendarId: me.calendarStore.getAt(0).id,
+                endDate,
+                id        : recordId,
+                startDate,
+                title     : 'New Event'
+            });
+
+            // wait until the new event got mounted
+            setTimeout(() => {
+                eventId     = `${me.id}__${recordId}`;
+                dragElement = VDomUtil.findVdomChild(me.vdom, eventId).vdom;
+
+                eventDragZone = me.getEventDragZone({
+                    dragElement,
+                    enableResizingAcrossOppositeEdge: true,
+                    eventRecord                     : me.eventStore.get(recordId),
+                    proxyParentId                   : data.path[0].id
+                });
+
+                me.getPlugin({flag:'resizable'}).onDragStart(data);
+                eventDragZone.dragStart(data);
+
+                setTimeout(() => {
+                    Neo.applyDeltas(me.appName, {
+                        id   : eventId,
+                        style: {opacity: 0}
+                    });
+                }, 50);
+            }, 50);
         }
     }
 
