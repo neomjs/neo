@@ -1086,7 +1086,7 @@ class Base extends CoreBase {
 
             for (i=0; i < len; i++) {
                 item = toRemoveArray[i];
-                key  = item[keyProperty];
+                key  = Util.isObject(item) ? item[keyProperty] : item;
 
                 if (map.has(key)) {
                     if (!toAddMap || (toAddMap && toAddMap.indexOf(key) < 0)) {
