@@ -234,7 +234,7 @@ class EventDragZone extends DragZone {
 
         endDate = me.adjustEndDate(endDate);
 
-        record.set({
+        record.setSilent({
             endDate,
             startDate
         });
