@@ -8,6 +8,70 @@ import VDomUtil   from '../../../src/util/VDom.mjs';
 let deltas, output, vdom, vnode;
 
 StartTest(t => {
+    t.it('Drag an event to the top inside the same column', t => {
+        vdom =
+        {id: 'neo-calendar-week', cn: [
+            {id: 'neo-column-1', cn : [
+                {id: 'neo-event-1', cn: [
+                    {id: 'neo-event-1__time',  html: '08:00'},
+                    {id: 'neo-event-1__title', html: 'Event 1'}
+                ]},
+                {id: 'neo-event-2', cn: [
+                    {id: 'neo-event-2__time',  html: '10:00'},
+                    {id: 'neo-event-2__title', html: 'Event 2'}
+                ]}
+            ]}
+        ]};
+
+        vnode = VdomHelper.create(vdom);
+
+        vdom =
+        {id: 'neo-calendar-week', cn: [
+            {id: 'neo-column-1', cn : [
+                {id: 'neo-event-2', cn: [
+                    {id: 'neo-event-2__time',  html: '06:00'},
+                    {id: 'neo-event-2__title', html: 'Event 2'}
+                ]},
+                {id: 'neo-event-1', cn: [
+                    {id: 'neo-event-1__time', html: '08:00'},
+                    {id: 'neo-event-1__title', html: 'Event 1'}
+                ]}
+            ]}
+        ]};
+
+        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+
+        t.isDeeplyStrict(deltas, [
+            {action: 'moveNode', id: 'neo-event-2', index: 0, parentId: 'neo-column-1'},
+            {innerHTML: '06:00', id: 'neo-event-2__time'},
+            {action: 'moveNode', id: 'neo-event-1', index: 1, parentId: 'neo-column-1'} // todo: does not hurt, but not needed
+        ], 'deltas got created successfully');
+
+        t.diag("Revert operation");
+
+        vdom =
+        {id: 'neo-calendar-week', cn: [
+            {id: 'neo-column-1', cn : [
+                {id: 'neo-event-1', cn: [
+                    {id: 'neo-event-1__time',  html: '08:00'},
+                    {id: 'neo-event-1__title', html: 'Event 1'}
+                ]},
+                {id: 'neo-event-2', cn: [
+                    {id: 'neo-event-2__time',  html: '10:00'},
+                    {id: 'neo-event-2__title', html: 'Event 2'}
+                ]}
+            ]}
+        ]};
+
+        output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
+
+        t.isDeeplyStrict(deltas, [
+            {action: 'moveNode', id: 'neo-event-1', index: 0, parentId: 'neo-column-1'},
+            {action: 'moveNode', id: 'neo-event-2', index: 1, parentId: 'neo-column-1'}, // todo: does not hurt, but not needed
+            {innerHTML: '10:00', id: 'neo-event-2__time'}
+        ], 'deltas got created successfully');
+    });
+
     t.it('Event moving to the right', t => {
         t.diag("Insert event into a column on the right");
 
