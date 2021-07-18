@@ -33,7 +33,7 @@ StartTest(t => {
                     {id: 'neo-event-2__title', html: 'Event 2'}
                 ]},
                 {id: 'neo-event-1', cn: [
-                    {id: 'neo-event-1__time', html: '08:00'},
+                    {id: 'neo-event-1__time',  html: '08:00'},
                     {id: 'neo-event-1__title', html: 'Event 1'}
                 ]}
             ]}
