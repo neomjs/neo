@@ -229,7 +229,8 @@ StartTest(t => {
 
         t.diag("Revert operation");
 
-        vdom = {id: 'neo-calendar-week', cn: [
+        vdom =
+        {id: 'neo-calendar-week', cn: [
             {id: 'neo-column-1'},
             {id: 'neo-column-2'},
             {id: 'neo-column-3'}
@@ -259,7 +260,6 @@ StartTest(t => {
 
         // see: https://github.com/neomjs/neo/issues/2390
         t.diag("Move an event with a higher index sibling into a non empty column");
-        console.log('#########');
 
         vdom =
         {id: 'neo-calendar-week', cn: [
@@ -287,9 +287,10 @@ StartTest(t => {
 
         output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
 
-        console.log(deltas);
-
-        // todo: verify the deltas
+        t.isDeeplyStrict(deltas, [
+            {action: 'moveNode', id: 'neo-event-2', index: 1, parentId: 'neo-column-1'},
+            {action: 'moveNode', id: 'neo-event-3', index: 0, parentId: 'neo-column-2'}  // todo: does not hurt, but not needed
+        ], 'deltas got created successfully');
 
         t.diag("Remove the first item inside the calendars list");
 
@@ -317,7 +318,6 @@ StartTest(t => {
 
         vnode = VdomHelper.create(vdom);
 
-
         vdom =
         {tag: 'ul', id: 'neo-calendar-calendars-list-1', cn: [
             {tag: 'li', id: 'neo-calendar-calendars-list-1__2', cn: [
@@ -335,7 +335,6 @@ StartTest(t => {
         ]};
 
         output = VdomHelper.update({vdom: vdom, vnode: vnode}); deltas = output.deltas; vnode = output.vnode;
-        console.log(deltas);
 
         t.isDeeplyStrict(deltas, [
             {action: 'removeNode', id: 'neo-calendar-calendars-list-1__1', parentId: 'neo-calendar-calendars-list-1'}
