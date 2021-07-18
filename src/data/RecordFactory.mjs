@@ -259,7 +259,7 @@ class RecordFactory extends Base {
             }
         });
 
-        if (Object.keys(changedFields).length > 0) {
+        if (!silent && Object.keys(changedFields).length > 0) {
             Neo.get(model.storeId)?.onRecordChange({fields: changedFields, model, record});
         }
     }
