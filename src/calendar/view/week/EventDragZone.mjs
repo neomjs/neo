@@ -276,7 +276,7 @@ class EventDragZone extends DragZone {
             record          = me.eventRecord,
             switchDirection = false,
             timeAxis        = owner.timeAxis,
-            axisStartDate, currentInterval, deltas, duration, endDate, eventIntervals, hasOverflow, height, intervalHeight,
+            axisStartDate, currentInterval, deltas, duration, endDate, eventIntervals, height, intervalHeight,
             intervals, limitInterval, minimumEventIntervals, position, startDate, startInterval;
 
         if (me.dragProxy) {
@@ -471,17 +471,13 @@ class EventDragZone extends DragZone {
                     eventIntervals = (duration && duration * 60 || eventDuration) / timeAxis.interval;
 
                     if (eventIntervals <= 2) {
-                        hasOverflow = timeAxis.rowHeight / eventIntervals < 25;
+                        if (timeAxis.rowHeight / eventIntervals < 25 && !me.hasOverflow) {
+                            deltas.push({
+                                id : me.dragProxy.id,
+                                cls: {add: ['neo-overflow']}
+                            });
 
-                        if (hasOverflow) {
-                            if (!me.hasOverflow) {
-                                deltas.push({
-                                    id : me.dragProxy.id,
-                                    cls: {add: ['neo-overflow']}
-                                });
-
-                                me.hasOverflow = true;
-                            }
+                            me.hasOverflow = true;
                         }
                     } else {
                         if (me.hasOverflow) {
