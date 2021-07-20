@@ -38,6 +38,7 @@ class Container extends BaseContainer {
             module: List
         }, {
             ntype       : 'button',
+            cls         : ['neo-add-calendar-button', 'neo-button'],
             flex        : 'none',
             handler     : 'onAddCalendarButtonClick',
             handlerScope: 'this',

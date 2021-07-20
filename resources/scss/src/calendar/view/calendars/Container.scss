@@ -1,3 +1,14 @@
 .neo-calendar-calendarscontainer {
-    margin: 10px;
+    margin: .6em;
+
+    &:hover {
+        .neo-add-calendar-button {
+            opacity: 1;
+        }
+    }
+
+    .neo-add-calendar-button {
+        opacity   : 0;
+        transition: opacity .2s ease-out;
+    }
 }
