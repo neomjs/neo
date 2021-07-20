@@ -46,6 +46,7 @@ class Component extends BaseComponent {
         bind: {
             calendarStore       : 'stores.calendars',
             currentDate         : data => data.currentDate,
+            enableDrag          : data => data.events.enableDrag,
             endTime             : data => data.endTime,
             eventBorder         : data => data.events.border,
             eventStore          : 'stores.events',
@@ -77,6 +78,12 @@ class Component extends BaseComponent {
          * @member {String} dayNameFormat_='short'
          */
         dayNameFormat_: 'short',
+        /**
+         * Bound to the view model.
+         * @member {Boolean} enableDrag_=true
+         * @protected
+         */
+        enableDrag_: true,
         /**
          * Bound to the view model
          * @member {String|null} eventBorder_=null
@@ -350,6 +357,30 @@ class Component extends BaseComponent {
         me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
 
         oldValue && me.updateHeader();
+    }
+
+    /**
+     * Triggered after the enableDrag config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetEnableDrag(value, oldValue) {
+        if (value) {
+            import('./plugin/DragDrop.mjs').then(module => {
+                let me      = this,
+                    plugins = me.plugins;
+
+                plugins.push({
+                    module : module.default,
+                    appName: me.appName,
+                    flag   : 'dragdrop',
+                    owner  : me
+                });
+
+                me.plugins = plugins;
+            });
+        }
     }
 
     /**
