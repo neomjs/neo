@@ -854,35 +854,23 @@ class Base extends CoreBase {
         let me          = this,
             parent      = Neo.getComponent(me.parentId),
             parentModel = parent?.getModel(),
-            parentController, parentVdom;
+            parentVdom;
 
         me.domListeners = [];
 
-        if (me.controller) {
-            me.controller.destroy();
-        } else if (me.reference) {
-            parentController = me.getController();
+        me.controller?.destroy();
+        me.controller = null;
 
-            if (parentController) {
-                parentController.removeReference(me);
-            }
-        }
+        me.reference && me.getController()?.removeReference(me);
 
-        if (me.model) {
-            me.model.destroy();
-        }
+        me.model?.destroy();
+        me.model = null;
 
-        if (me.bind && parentModel) {
-            parentModel.removeBindings(me.id);
-        }
+        me.bind && parentModel && parentModel.removeBindings(me.id);
 
         if (updateParentVdom && me.parentId) {
             if (me.parentId === 'document.body') {
-                Neo.currentWorker.promiseMessage('main', {
-                    action : 'updateDom',
-                    appName: me.appName,
-                    deltas : [{action: 'removeNode', id: me.vdom.id}]
-                });
+                Neo.applyDeltas(me.appName, {action: 'removeNode', id: me.vdom.id});
             } else {
                 parentVdom = parent.vdom;
 
