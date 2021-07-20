@@ -868,6 +868,10 @@ class Base extends CoreBase {
 
         me.bind && parentModel && parentModel.removeBindings(me.id);
 
+        me.plugins?.forEach(plugin => {
+            plugin.destroy();
+        });
+
         if (updateParentVdom && me.parentId) {
             if (me.parentId === 'document.body') {
                 Neo.applyDeltas(me.appName, {action: 'removeNode', id: me.vdom.id});
