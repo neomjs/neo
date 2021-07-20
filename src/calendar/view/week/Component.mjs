@@ -394,7 +394,6 @@ class Component extends BaseComponent {
             let me = this;
 
             me.intlFormat_day  = new Intl.DateTimeFormat(value, {weekday: me.dayNameFormat});
-
             me.updateHeader();
         }
     }
@@ -653,9 +652,7 @@ class Component extends BaseComponent {
      */
     onEventDoubleClick(data) {
         if (this.data.events.enableEdit) {
-            if (!data.path[0].cls.includes('neo-event')) {
-                data.path.shift();
-            }
+            !data.path[0].cls.includes('neo-event') && data.path.shift();
 
             let me                 = this,
                 editEventContainer = me.owner.editEventContainer,
@@ -696,13 +693,8 @@ class Component extends BaseComponent {
         let oldPath = data.oldPath,
             path    = data.path;
 
-        if (oldPath?.[0]?.cls.includes('neo-event')) {
-            Neo.applyDeltas(this.appName, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
-        }
-
-        if (path?.[0]?.cls.includes('neo-event')) {
-            Neo.applyDeltas(this.appName, {id: path[0].id, cls: {add: ['neo-focus']}});
-        }
+        oldPath?.[0]?.cls.includes('neo-event') && Neo.applyDeltas(this.appName, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
+        path   ?.[0]?.cls.includes('neo-event') && Neo.applyDeltas(this.appName, {id: path[0]   .id, cls: {add:    ['neo-focus']}});
     }
 
     /**
