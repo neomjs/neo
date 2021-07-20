@@ -213,7 +213,7 @@ class DragDrop extends Base {
                 eventDragZone.dragStart(data);
 
                 setTimeout(() => {
-                    Neo.applyDeltas(me.appName, {
+                    me.isDragging && Neo.applyDeltas(me.appName, {
                         id   : eventId,
                         style: {opacity: 0}
                     });
