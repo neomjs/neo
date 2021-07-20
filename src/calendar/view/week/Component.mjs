@@ -142,9 +142,15 @@ class Component extends BaseComponent {
          */
         owner: null,
         /**
-         * @member {Object} resizablePluginConfig=null
+         * config values for Neo.calendar.view.week.plugin.DragDrop
+         * @member {Object} pluginDragDropConfig=null
          */
-        resizablePluginConfig: null,
+        pluginDragDropConfig: null,
+        /**
+         * config values for Neo.calendar.view.week.plugin.EventResizable
+         * @member {Object} pluginResizableConfig=null
+         */
+        pluginEventResizableConfig: null,
         /**
          * @member {Boolean} showEventEndTime_=false
          */
@@ -333,14 +339,15 @@ class Component extends BaseComponent {
                 plugins.push({
                     module : modules[0].default,
                     appName: me.appName,
-                    flag   : 'dragdrop'
+                    flag   : 'dragdrop',
+                    ...me.pluginDragDropConfig
                 }, {
                     module       : modules[1].default,
                     appName      : me.appName,
                     delegationCls: 'neo-event',
                     directions   : ['b', 't'],
                     flag         : 'resizable',
-                    ...me.resizablePluginConfig
+                    ...me.pluginEventResizableConfig
                 });
 
                 me.plugins = plugins;
