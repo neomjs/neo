@@ -780,8 +780,8 @@ class Base extends CoreBase {
 
     /**
      * Triggered before the plugins config gets changed.
-     * @param {Array} value
-     * @param {Array} oldValue
+     * @param {Object[]} value
+     * @param {Object[]} oldValue
      * @protected
      */
     beforeSetPlugins(value, oldValue) {

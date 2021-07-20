@@ -1,16 +1,16 @@
-import Resizable from '../../../plugin/Resizable.mjs';
+import Resizable from '../../../../plugin/Resizable.mjs';
 
 /**
- * @class Neo.calendar.view.week.EventResizable
- * @extends Neo.container.Base
+ * @class Neo.calendar.view.week.plugin.EventResizable
+ * @extends Neo.plugin.Resizable
  */
 class EventResizable extends Resizable {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.calendar.view.week.EventResizable'
+         * @member {String} className='Neo.calendar.view.week.plugin.EventResizable'
          * @protected
          */
-        className: 'Neo.calendar.view.week.EventResizable'
+        className: 'Neo.calendar.view.week.plugin.EventResizable'
     }}
 
     /**
