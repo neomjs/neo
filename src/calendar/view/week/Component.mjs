@@ -89,6 +89,10 @@ class Component extends BaseComponent {
          */
         eventBorder_: null,
         /**
+         * @member {Neo.calendar.view.week.EventDragZone|null} eventDragZone=null
+         */
+        eventDragZone: null,
+        /**
          * Bound to the view model
          * @member {Neo.calendar.store.Events|null} eventStore_=null
          */
@@ -116,11 +120,6 @@ class Component extends BaseComponent {
          * @protected
          */
         intlFormat_time_: null,
-        /**
-         * @member {Boolean} isDragging=false
-         * @protected
-         */
-        isDragging: false,
         /**
          * @member {Boolean} isUpdating=false
          * @protected

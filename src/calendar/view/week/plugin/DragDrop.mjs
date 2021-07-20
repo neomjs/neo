@@ -15,9 +15,10 @@ class DragDrop extends Base {
          */
         className: 'Neo.calendar.view.week.plugin.DragDrop',
         /**
-         * @member {Neo.calendar.view.week.EventDragZone|null} eventDragZone=null
+         * @member {Boolean} isDragging=false
+         * @protected
          */
-        eventDragZone: null
+        isDragging: false
     }}
 
     /**
@@ -69,8 +70,8 @@ class DragDrop extends Base {
      */
     getEventDragZone(opts) {
         let me            = this,
-            eventDragZone = me.eventDragZone,
             owner         = me.owner,
+            eventDragZone = owner.eventDragZone,
             timeAxis      = owner.timeAxis,
 
             config = {
@@ -83,7 +84,7 @@ class DragDrop extends Base {
             };
 
         if (!eventDragZone) {
-            me.eventDragZone = eventDragZone = Neo.create({
+            owner.eventDragZone = eventDragZone = Neo.create({
                 module           : EventDragZone,
                 appName          : me.appName,
                 owner            : owner,
@@ -128,6 +129,7 @@ class DragDrop extends Base {
      */
     onColumnDragEnd(data) {
         let me           = this,
+            owner        = me.owner,
             recordSymbol = Symbol.for('addedRecord'),
             record       = me[recordSymbol];
 
@@ -135,11 +137,11 @@ class DragDrop extends Base {
             delete me[recordSymbol];
 
             Neo.applyDeltas(me.appName, {
-                id   : me.getEventId(record.id),
+                id   : owner.getEventId(record.id),
                 style: {opacity: 1}
             }).then(() => {
-                me.eventDragZone.dragEnd();
-                me.getPlugin({flag:'resizable'}).onDragEnd(data);
+                owner.eventDragZone.dragEnd();
+                owner.getPlugin({flag:'resizable'}).onDragEnd(data);
 
                 me.isDragging = false;
             });
@@ -152,7 +154,7 @@ class DragDrop extends Base {
      */
     onColumnDragMove(data) {
         if (this.isTopLevelColumn(data.path)) {
-            this.eventDragZone?.dragMove(data);
+            this.owner.eventDragZone?.dragMove(data);
         }
     }
 
@@ -164,15 +166,16 @@ class DragDrop extends Base {
         let me = this;
 
         if (me.isTopLevelColumn(data.targetPath)) {
-            let axisStartTime   = me.timeAxis.getTime(me.startTime),
-                calendarStore   = me.calendarStore,
+            let owner           = me.owner,
+                axisStartTime   = owner.timeAxis.getTime(owner.startTime),
+                calendarStore   = owner.calendarStore,
                 columnRect      = data.path[0].rect,
                 intervalSize    = 15,
-                intervals       = (me.timeAxis.getTime(me.endTime) - axisStartTime) * 60 / intervalSize,
+                intervals       = (owner.timeAxis.getTime(owner.endTime) - axisStartTime) * 60 / intervalSize,
                 intervalHeight  = columnRect.height / intervals,
                 position        = Math.min(columnRect.height, data.clientY - columnRect.top),
                 currentInterval = Math.floor(position / intervalHeight),
-                startDate       = new Date(VDomUtil.findVdomChild(me.vdom, data.path[0].id).vdom.flag + 'T00:00:00'),
+                startDate       = new Date(VDomUtil.findVdomChild(owner.vdom, data.path[0].id).vdom.flag + 'T00:00:00'),
                 dragElement, endDate, eventDragZone, eventId, record;
 
             me.isDragging = true;
@@ -182,10 +185,10 @@ class DragDrop extends Base {
 
             endDate = DateUtil.clone(startDate);
 
-            endDate.setMinutes(endDate.getMinutes() + me.minimumEventDuration);
+            endDate.setMinutes(endDate.getMinutes() + owner.minimumEventDuration);
 
-            record = me.eventStore.add({
-                calendarId: me.data.activeCalendarId || calendarStore.getAt(0)[calendarStore.keyProperty],
+            record = owner.eventStore.add({
+                calendarId: owner.data.activeCalendarId || calendarStore.getAt(0)[calendarStore.keyProperty],
                 endDate,
                 startDate,
                 title     : 'New Event'
@@ -196,8 +199,8 @@ class DragDrop extends Base {
 
             // wait until the new event got mounted
             setTimeout(() => {
-                eventId     = me.getEventId(record.id);
-                dragElement = VDomUtil.findVdomChild(me.vdom, eventId).vdom;
+                eventId     = owner.getEventId(record.id);
+                dragElement = VDomUtil.findVdomChild(owner.vdom, eventId).vdom;
 
                 eventDragZone = me.getEventDragZone({
                     dragElement,
@@ -206,7 +209,7 @@ class DragDrop extends Base {
                     proxyParentId                   : data.path[0].id
                 });
 
-                me.getPlugin({flag:'resizable'}).onDragStart(data);
+                owner.getPlugin({flag:'resizable'}).onDragStart(data);
                 eventDragZone.dragStart(data);
 
                 setTimeout(() => {
@@ -228,13 +231,13 @@ class DragDrop extends Base {
             owner = me.owner;
 
         if (owner.enableDrag) {
-            me.eventDragZone.dragEnd();
+            owner.eventDragZone.dragEnd();
 
             if (!me.isTopLevelEvent(data)) {
                 data = me.adjustResizeEvent(data);
                 owner.getPlugin({flag:'resizable'}).onDragEnd(data);
             } else {
-                me.eventDragZone.removeBodyCursorCls();
+                owner.eventDragZone.removeBodyCursorCls();
             }
 
             me.isDragging = false;
@@ -246,14 +249,15 @@ class DragDrop extends Base {
      * @param {Object} data
      */
     onEventDragMove(data) {
-        let me = this;
+        let me    = this,
+            owner = me.owner;
 
-        if (me.owner.enableDrag) {
+        if (owner.enableDrag) {
             if (!me.isTopLevelEvent(data)) {
                 data = me.adjustResizeEvent(data);
             }
 
-            me.eventDragZone.dragMove(data);
+            owner.eventDragZone.dragMove(data);
         }
     }
 
