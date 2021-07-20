@@ -632,7 +632,7 @@ class MainContainer extends Container {
                 ...defaultConfig,
                 ...me.yearComponentConfig
             }
-        }
+        };
 
         me.views.forEach(view => {
             me[`${view}Component`] = cmp = map[view];
