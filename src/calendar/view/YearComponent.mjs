@@ -110,6 +110,12 @@ class YearComponent extends Component {
          */
         monthNameFormat_: 'long',
         /**
+         * Internal flag to store if createMonths() got called while not being mounted
+         * @member {Boolean} needsEventUpdate=false
+         * @protected
+         */
+        needsEventUpdate: false,
+        /**
          * @member {Neo.calendar.view.MainContainer|null} owner=null
          * @protected
          */
@@ -322,6 +328,23 @@ class YearComponent extends Component {
      */
     afterSetMonthNameFormat(value, oldValue) {
         this.updateMonthNameFormat(value, oldValue);
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        let me = this;
+
+        if (value && me.needsEventUpdate) {
+            me.createMonths();
+            me.needsEventUpdate = false;
+        }
     }
 
     /**
@@ -664,31 +687,36 @@ class YearComponent extends Component {
      * @param {Object} [containerEl]
      */
     createMonths(silent=false, containerEl) {
-        let me             = this,
-            currentDate    = me.currentDate, // cloned
-            vdom           = me.vdom,
-            monthContainer = containerEl || vdom.cn[0].cn[1],
-            i              = 0,
-            monthVdom;
+        let me = this;
 
-        monthContainer.cn = [];
+        if (!me.mounted) {
+            me.needsEventUpdate = true;
+        } else {
+            let currentDate    = me.currentDate, // cloned
+                vdom           = me.vdom,
+                monthContainer = containerEl || vdom.cn[0].cn[1],
+                i              = 0,
+                monthVdom;
 
-        for (; i < 12; i++) {
-            currentDate.setMonth(i);
-            currentDate.setDate(1);
+            monthContainer.cn = [];
 
-            monthVdom =
-            {cls: ['neo-month'], cn: [
-                {cls: ['neo-month-name'], html: me.intlFormat_month.format(currentDate)},
-                me.createDayNamesRow()
-            ]};
+            for (; i < 12; i++) {
+                currentDate.setMonth(i);
+                currentDate.setDate(1);
 
-            monthVdom = me.createMonthContent(monthVdom, DateUtil.clone(currentDate));
+                monthVdom =
+                    {cls: ['neo-month'], cn: [
+                            {cls: ['neo-month-name'], html: me.intlFormat_month.format(currentDate)},
+                            me.createDayNamesRow()
+                        ]};
 
-            monthContainer.cn.push(monthVdom);
+                monthVdom = me.createMonthContent(monthVdom, DateUtil.clone(currentDate));
+
+                monthContainer.cn.push(monthVdom);
+            }
+
+            me[silent ? '_vdom' : 'vdom'] = vdom;
         }
-
-        me[silent ? '_vdom' : 'vdom'] = vdom;
     }
 
     /**
