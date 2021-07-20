@@ -181,7 +181,7 @@ class DragDrop extends Base {
             me.isDragging = true;
 
             startDate.setHours(axisStartTime);
-            startDate.setMinutes(currentInterval * intervalSize);
+            startDate.setMinutes(Math.min(currentInterval * intervalSize, intervals * intervalSize - owner.minimumEventDuration));
 
             endDate = DateUtil.clone(startDate);
 
