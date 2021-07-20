@@ -315,7 +315,6 @@ class Component extends BaseComponent {
         let me = this;
 
         me.intlFormat_day = new Intl.DateTimeFormat(me.locale, {weekday: value});
-
         oldValue && me.updateHeader();
     }
 
@@ -443,9 +442,7 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetShowEventEndTime(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.updateEvents();
-        }
+        oldValue !== undefined && this.updateEvents();
     }
 
     /**
@@ -486,7 +483,7 @@ class Component extends BaseComponent {
             timeAxisContainer.cn.unshift(timeAxisContainer.cn.pop()); // switch the order of the 2 items
         }
 
-        me._cls = cls;
+        me._cls = cls; // silent update
         me.vdom = vdom;
     }
 
@@ -549,23 +546,14 @@ class Component extends BaseComponent {
 
         if (currentDay === 0 || currentDay === 6) {
             columnCls.push('neo-weekend');
-
-            if (!me.showWeekends) {
-                removeDom = true;
-            }
+            !me.showWeekends && (removeDom = true);
         }
 
-        if (currentDate        === today.day   &&
-            date.getMonth()    === today.month &&
-            date.getFullYear() === today.year) {
+        if (currentDate === today.day && date.getMonth() === today.month && date.getFullYear() === today.year) {
             dateCls.push('neo-today');
         }
 
-        column = {
-            cls      : columnCls,
-            flag     : DateUtil.convertToyyyymmdd(date),
-            removeDom: removeDom
-        };
+        column = {cls: columnCls, flag: DateUtil.convertToyyyymmdd(date), removeDom};
 
         header =
         {cls: ['neo-header-row-item'], removeDom: removeDom, cn: [
@@ -681,17 +669,8 @@ class Component extends BaseComponent {
                 record             = me.eventStore.get(eventVdom.flag),
                 style              = editEventContainer.style;
 
-            Object.assign(style, {
-                left: `${eventNode.rect.width + 15}px`,
-                top : eventVdom.style.top
-            });
-
-            editEventContainer.setSilent({
-                parentId: data.path[1].id,
-                record,
-                style
-            });
-
+            Object.assign(style, {left: `${eventNode.rect.width + 15}px`, top: eventVdom.style.top});
+            editEventContainer.setSilent({parentId: data.path[1].id, record, style});
             editEventContainer.render(true);
         }
     }
@@ -722,16 +701,12 @@ class Component extends BaseComponent {
         let oldPath = data.oldPath,
             path    = data.path;
 
-        if (oldPath) {
-            if (oldPath[0]?.cls.includes('neo-event')) {
-                Neo.applyDeltas(this.appName, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
-            }
+        if (oldPath?.[0]?.cls.includes('neo-event')) {
+            Neo.applyDeltas(this.appName, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
         }
 
-        if (path) {
-            if (path[0]?.cls.includes('neo-event')) {
-                Neo.applyDeltas(this.appName, {id: path[0].id, cls: {add: ['neo-focus']}});
-            }
+        if (path?.[0]?.cls.includes('neo-event')) {
+            Neo.applyDeltas(this.appName, {id: path[0].id, cls: {add: ['neo-focus']}});
         }
     }
 
@@ -747,7 +722,6 @@ class Component extends BaseComponent {
         let me = this;
 
         me.adjustTotalHeight(data, me.headerCreated);
-
         me.headerCreated && me.updateEvents();
     }
 
@@ -787,9 +761,7 @@ class Component extends BaseComponent {
 
                 // we need a short delay to move the event rendering into the next animation frame.
                 // Details: https://github.com/neomjs/neo/issues/2216
-                setTimeout(() => {
-                    me.updateEvents(false, 14, 21);
-                }, 50);
+                setTimeout(() => {me.updateEvents(false, 14, 21)}, 50);
 
                 scrollValue = -width;
             }
@@ -813,9 +785,7 @@ class Component extends BaseComponent {
 
                 // we need a short delay to move the event rendering into the next animation frame.
                 // Details: https://github.com/neomjs/neo/issues/2216
-                setTimeout(() => {
-                    me.updateEvents(false, 0, 7);
-                }, 50);
+                setTimeout(() => {me.updateEvents(false, 0, 7)}, 50);
 
                 scrollValue = width;
             }
@@ -880,11 +850,7 @@ class Component extends BaseComponent {
                         endDate   = DateUtil.clone(record.endDate);
                         startDate = DateUtil.clone(record.startDate);
 
-                        if (endTime <= startDate.getHours()) {
-                            continue;
-                        }
-
-                        if (startTime >= endDate.getHours()) {
+                        if (endTime <= startDate.getHours() || startTime >= endDate.getHours()) {
                             continue;
                         }
 
@@ -984,66 +950,34 @@ class Component extends BaseComponent {
 
             if (currentDay === 0 || currentDay === 6) {
                 columnCls.push('neo-weekend');
-
-                if (!showWeekends) {
-                    removeDom = true;
-                }
+                !showWeekends && (removeDom = true);
             }
 
-            if (currentDate        === today.day   &&
-                date.getMonth()    === today.month &&
-                date.getFullYear() === today.year) {
+            if (currentDate === today.day && date.getMonth() === today.month && date.getFullYear() === today.year) {
                 dateCls.push('neo-today');
             }
 
             headerId = me.getColumnHeaderId(date);
 
             if (create) {
-                content.cn.push({
-                    cls      : columnCls,
-                    flag     : DateUtil.convertToyyyymmdd(date),
-                    id       : me.getColumnId(date),
-                    removeDom
-                });
+                content.cn.push({cls: columnCls, flag: DateUtil.convertToyyyymmdd(date), id: me.getColumnId(date), removeDom});
 
-                header.cn.push({
-                    cls: ['neo-header-row-item'],
-                    id : headerId,
-                    removeDom,
-
-                    cn: [{
-                        cls : ['neo-day'],
-                        html: me.intlFormat_day.format(date),
-                        id  : `${headerId}_day`
-                    }, {
-                        cls : dateCls,
-                        html: currentDate,
-                        id  : `${headerId}_date`
-                    }]
-                });
+                header.cn.push(
+                {cls: ['neo-header-row-item'], id: headerId, removeDom, cn: [
+                    {cls: ['neo-day'], html: me.intlFormat_day.format(date), id: `${headerId}_day`},
+                    {cls : dateCls,    html: currentDate,                    id: `${headerId}_date`}
+                ]});
             } else {
                 Object.assign(content.cn[i], {
-                    cls      : columnCls,
-                    flag     : DateUtil.convertToyyyymmdd(date),
-                    id       : me.getColumnId(date),
-                    removeDom: removeDom
-                });
-
-                Object.assign(header.cn[i], {
-                    id: headerId,
+                    cls : columnCls,
+                    flag: DateUtil.convertToyyyymmdd(date),
+                    id  : me.getColumnId(date),
                     removeDom
                 });
 
-                Object.assign(header.cn[i].cn[0], {
-                    html: me.intlFormat_day.format(date),
-                    id  : `${headerId}_day`
-                });
-
-                Object.assign(header.cn[i].cn[1], {
-                    cls : dateCls,
-                    html: currentDate,
-                    id  : `${headerId}_date`
-                });
+                Object.assign(header.cn[i], {id: headerId, removeDom});
+                Object.assign(header.cn[i].cn[0], {html: me.intlFormat_day.format(date), id: `${headerId}_day`});
+                Object.assign(header.cn[i].cn[1], {cls: dateCls, html: currentDate, id: `${headerId}_date`});
             }
 
             date.setDate(date.getDate() + 1);
