@@ -134,6 +134,8 @@ class DragDrop extends Base {
             record       = me[recordSymbol];
 
         if (record && me.isTopLevelColumn(data.path)) {
+            me.isDragging = false;
+
             delete me[recordSymbol];
 
             Neo.applyDeltas(me.appName, {
@@ -142,8 +144,6 @@ class DragDrop extends Base {
             }).then(() => {
                 owner.eventDragZone.dragEnd();
                 owner.getPlugin({flag:'resizable'}).onDragEnd(data);
-
-                me.isDragging = false;
             });
         }
     }
