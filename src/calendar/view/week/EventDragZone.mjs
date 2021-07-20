@@ -240,12 +240,13 @@ class EventDragZone extends DragZone {
         });
 
         Object.assign(me, {
-            hasOverflow  : false,
-            keepEndDate  : false,
-            keepStartDate: false,
-            newEndDate   : null,
-            newStartDate : null,
-            proxyParentId: null
+            currentInterval: 0,
+            hasOverflow    : false,
+            keepEndDate    : false,
+            keepStartDate  : false,
+            newEndDate     : null,
+            newStartDate   : null,
+            proxyParentId  : null
         });
 
         // todo: updating a record field which is included inside a sorter should trigger collection.doSort()
