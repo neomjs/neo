@@ -389,7 +389,7 @@ class MainContainer extends Container {
                 model  : {parent: me.getModel()},
                 owner  : me,
                 width  : 250,
-                ...me.editEventContainerConfig
+                ...me.editCalendarContainerConfig
             });
         }
 
