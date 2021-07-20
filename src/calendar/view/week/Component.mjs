@@ -1,6 +1,5 @@
 import BaseComponent     from '../../../component/Base.mjs';
 import DateUtil          from '../../../util/Date.mjs';
-import EventResizable    from './plugin/EventResizable.mjs';
 import NeoArray          from '../../../util/Array.mjs';
 import TimeAxisComponent from './TimeAxisComponent.mjs';
 import VDomUtil          from '../../../util/VDom.mjs';
@@ -204,8 +203,7 @@ class Component extends BaseComponent {
         super(config);
 
         let me           = this,
-            domListeners = me.domListeners,
-            plugins      = me.plugins || [];
+            domListeners = me.domListeners;
 
         domListeners.push(
             {dblclick: me.onEventDoubleClick, scope: me, delegate: '.neo-event'},
@@ -213,17 +211,6 @@ class Component extends BaseComponent {
         );
 
         me.domListeners = domListeners;
-
-        plugins.push({
-            module       : EventResizable,
-            appName      : me.appName,
-            delegationCls: 'neo-event',
-            directions   : ['b', 't'],
-            flag         : 'resizable',
-            ...me.resizablePluginConfig
-        });
-
-        me.plugins = plugins;
 
         me.timeAxis = Neo.create(TimeAxisComponent, {
             appName  : me.appName,
@@ -334,20 +321,32 @@ class Component extends BaseComponent {
 
     /**
      * Triggered after the enableDrag config got changed
-     * @param {String} value
-     * @param {String} oldValue
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
      * @protected
      */
     afterSetEnableDrag(value, oldValue) {
-        if (value) {
-            import('./plugin/DragDrop.mjs').then(module => {
+        let me = this;
+
+        if (value && !me.getPlugin({flag: 'dragdrop'})) {
+            Promise.all([
+                import('./plugin/DragDrop.mjs'),
+                import('./plugin/EventResizable.mjs')
+            ]).then(modules => {
                 let me      = this,
-                    plugins = me.plugins;
+                    plugins = me.plugins || [];
 
                 plugins.push({
-                    module : module.default,
+                    module : modules[0].default,
                     appName: me.appName,
                     flag   : 'dragdrop'
+                }, {
+                    module       : modules[1].default,
+                    appName      : me.appName,
+                    delegationCls: 'neo-event',
+                    directions   : ['b', 't'],
+                    flag         : 'resizable',
+                    ...me.resizablePluginConfig
                 });
 
                 me.plugins = plugins;
