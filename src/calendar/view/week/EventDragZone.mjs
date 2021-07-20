@@ -479,15 +479,13 @@ class EventDragZone extends DragZone {
 
                             me.hasOverflow = true;
                         }
-                    } else {
-                        if (me.hasOverflow) {
-                            deltas.push({
-                                id : me.dragProxy.id,
-                                cls: {remove: ['neo-overflow']}
-                            });
+                    } else if (me.hasOverflow) {
+                        deltas.push({
+                            id : me.dragProxy.id,
+                            cls: {remove: ['neo-overflow']}
+                        });
 
-                            me.hasOverflow = false;
-                        }
+                        me.hasOverflow = false;
                     }
 
                     Neo.applyDeltas(me.appName, deltas);
