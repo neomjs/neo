@@ -677,25 +677,18 @@ class YearComponent extends Component {
             currentDate.setMonth(i);
             currentDate.setDate(1);
 
-            monthVdom = {
-                cls: ['neo-month'],
-                cn : [
-                    {
-                        cls : ['neo-month-name'],
-                        html: me.intlFormat_month.format(currentDate)
-                    },
-                    me.createDayNamesRow()
-                ]
-            };
+            monthVdom =
+            {cls: ['neo-month'], cn: [
+                {cls: ['neo-month-name'], html: me.intlFormat_month.format(currentDate)},
+                me.createDayNamesRow()
+            ]};
 
             monthVdom = me.createMonthContent(monthVdom, DateUtil.clone(currentDate));
 
             monthContainer.cn.push(monthVdom);
         }
 
-        if (!silent) {
-            me.vdom = vdom;
-        }
+        me[silent ? '_vdom' : 'vdom'] = vdom;
     }
 
     /**
