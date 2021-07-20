@@ -1,6 +1,6 @@
 import BaseComponent     from '../../../component/Base.mjs';
 import DateUtil          from '../../../util/Date.mjs';
-import EventResizable    from './EventResizable.mjs';
+import EventResizable    from './plugin/EventResizable.mjs';
 import NeoArray          from '../../../util/Array.mjs';
 import TimeAxisComponent from './TimeAxisComponent.mjs';
 import VDomUtil          from '../../../util/VDom.mjs';
