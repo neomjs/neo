@@ -852,7 +852,8 @@ class Base extends CoreBase {
      */
     destroy(updateParentVdom=false, silent=false) {
         let me          = this,
-            parent      = Neo.getComponent(me.parentId),
+            parentId    = me.parentId,
+            parent      = Neo.getComponent(parentId),
             parentModel = parent?.getModel(),
             parentVdom;
 
@@ -861,19 +862,18 @@ class Base extends CoreBase {
         me.controller?.destroy();
         me.controller = null;
 
-        me.reference && me.getController()?.removeReference(me);
+        me.reference && me.getController()?.removeReference(me); // remove own reference from parent controllers
 
         me.model?.destroy();
-        me.model = null;
 
-        me.bind && parentModel && parentModel.removeBindings(me.id);
+        me.bind && parentModel?.removeBindings(me.id);
 
         me.plugins?.forEach(plugin => {
             plugin.destroy();
         });
 
-        if (updateParentVdom && me.parentId) {
-            if (me.parentId === 'document.body') {
+        if (updateParentVdom && parentId) {
+            if (parentId === 'document.body') {
                 Neo.applyDeltas(me.appName, {action: 'removeNode', id: me.vdom.id});
             } else {
                 parentVdom = parent.vdom;
