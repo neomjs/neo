@@ -187,6 +187,9 @@ class DragDrop extends Base {
 
             endDate.setMinutes(endDate.getMinutes() + owner.minimumEventDuration);
 
+            // 24:00 fix
+            endDate.getHours() === 0 && endDate.getMinutes() === 0 && endDate.setMinutes(endDate.getMinutes() - 1);
+
             record = owner.eventStore.add({
                 calendarId: owner.data.activeCalendarId || calendarStore.getAt(0)[calendarStore.keyProperty],
                 endDate,
