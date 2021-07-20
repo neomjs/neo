@@ -287,10 +287,16 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetEventStore(value, oldValue) {
-        let me = this;
+        let me = this,
 
-        oldValue?.un('load', me.onEventStoreLoad, me);
-        value   ?.on('load', me.onEventStoreLoad, me);
+        listeners = {
+            load        : me.onEventStoreLoad,
+            recordChange: me.onEventStoreRecordChange,
+            scope       : me
+        };
+
+        oldValue?.un(listeners);
+        value   ?.on(listeners);
     }
 
     /**
@@ -736,6 +742,14 @@ class YearComponent extends Component {
      */
     onEventStoreLoad(data) {
         this.calendarStore.getCount() > 0 && this.createMonths();
+    }
+
+    /**
+     *
+     * @param {Object[]} data
+     */
+    onEventStoreRecordChange(data) {
+        this.createMonths();
     }
 
     /**
