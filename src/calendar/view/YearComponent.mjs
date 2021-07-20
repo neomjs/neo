@@ -257,9 +257,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetEventIndicatorHigh(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.createMonths();
-        }
+        oldValue !== undefined && this.createMonths();
     }
 
     /**
@@ -269,9 +267,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetEventIndicatorLow(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.createMonths();
-        }
+        oldValue !== undefined && this.createMonths();
     }
 
     /**
@@ -281,9 +277,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetEventIndicatorMedium(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.createMonths();
-        }
+        oldValue !== undefined && this.createMonths();
     }
 
     /**
@@ -455,9 +449,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetWeekStartDay(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.createMonths();
-        }
+        oldValue !== undefined && this.createMonths();
     }
 
     /**
@@ -705,10 +697,10 @@ class YearComponent extends Component {
                 currentDate.setDate(1);
 
                 monthVdom =
-                    {cls: ['neo-month'], cn: [
-                            {cls: ['neo-month-name'], html: me.intlFormat_month.format(currentDate)},
-                            me.createDayNamesRow()
-                        ]};
+                {cls: ['neo-month'], cn: [
+                    {cls: ['neo-month-name'], html: me.intlFormat_month.format(currentDate)},
+                    me.createDayNamesRow()
+                ]};
 
                 monthVdom = me.createMonthContent(monthVdom, DateUtil.clone(currentDate));
 
