@@ -72,6 +72,8 @@ class SettingsContainer extends Container {
                 vdom = me.vdom;
                 vdom.removeDom = true;
                 me.vdom = vdom;
+
+                me.mounted = false;
             }, 400);
         });
     }

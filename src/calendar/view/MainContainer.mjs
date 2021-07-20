@@ -341,6 +341,8 @@ class MainContainer extends Container {
                         vdom = sideBar.vdom;
                         vdom.removeDom = true;
                         sideBar.vdom = vdom;
+
+                        sideBar.mounted = false;
                     }, 400);
                 });
             }
