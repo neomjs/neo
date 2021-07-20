@@ -574,13 +574,8 @@ function autoGenerateGetSet(proto, key) {
                 }
 
                 if (!Neo.isEqual(value, oldValue)) {
-                    if (typeof me[afterSet] === 'function') {
-                        me[afterSet](value, oldValue);
-                    }
-
-                    if (typeof me.afterSetConfig === 'function') {
-                        me.afterSetConfig(key, value, oldValue);
-                    }
+                    me[afterSet]?.(value, oldValue);
+                    me.afterSetConfig?.(key, value, oldValue);
                 }
             }
         };
