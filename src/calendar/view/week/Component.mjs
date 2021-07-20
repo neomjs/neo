@@ -34,11 +34,6 @@ class Component extends BaseComponent {
          */
         className: 'Neo.calendar.view.week.Component',
         /**
-         * @member {String} ntype='calendar-view-weekcomponent'
-         * @protected
-         */
-        ntype: 'calendar-view-weekcomponent',
-        /**
          * @member {Object} bind
          */
         bind: {
