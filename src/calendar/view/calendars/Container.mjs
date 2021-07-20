@@ -32,10 +32,17 @@ class Container extends BaseContainer {
          */
         cls: ['neo-calendar-calendarscontainer', 'neo-container'],
         /**
-         * @member {Array} items
+         * @member {Object[]} items
          */
         items: [{
             module: List
+        }, {
+            ntype       : 'button',
+            flex        : 'none',
+            handler     : 'onAddCalendarButtonClick',
+            handlerScope: 'this',
+            style       : {marginTop: 'auto'},
+            text        : 'Add Calendar'
         }],
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
@@ -43,6 +50,14 @@ class Container extends BaseContainer {
          */
         layout: {ntype: 'vbox', align: 'stretch'}
     }}
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onAddCalendarButtonClick(data) {
+        console.log('onAddCalendarButtonClick', data);
+    }
 }
 
 Neo.applyClassConfig(Container);
