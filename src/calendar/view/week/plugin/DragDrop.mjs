@@ -35,12 +35,12 @@ class DragDrop extends Base {
             domListeners = owner.domListeners;
 
         domListeners.push(
-            {'drag:end'  : me.onColumnDragEnd,    ...columnOpts},
-            {'drag:end'  : me.onEventDragEnd,     ...eventOpts},
-            {'drag:move' : me.onColumnDragMove,   ...columnOpts},
-            {'drag:move' : me.onEventDragMove,    ...eventOpts},
-            {'drag:start': me.onColumnDragStart,  ...columnOpts},
-            {'drag:start': me.onEventDragStart,   ...eventOpts}
+            {'drag:end'  : me.onColumnDragEnd,   ...columnOpts},
+            {'drag:end'  : me.onEventDragEnd,    ...eventOpts},
+            {'drag:move' : me.onColumnDragMove,  ...columnOpts},
+            {'drag:move' : me.onEventDragMove,   ...eventOpts},
+            {'drag:start': me.onColumnDragStart, ...columnOpts},
+            {'drag:start': me.onEventDragStart,  ...eventOpts}
         );
 
         owner.domListeners = domListeners;
