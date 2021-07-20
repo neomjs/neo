@@ -15,11 +15,6 @@ class EditContainer extends FormContainer {
          */
         className: 'Neo.calendar.view.calendars.EditContainer',
         /**
-         * @member {String} ntype='calendar-edit-container'
-         * @protected
-         */
-        ntype: 'calendar-edit-container',
-        /**
          * @member {String[]} cls=['neo-calendar-edit-container']
          */
         cls: ['neo-calendar-edit-container'],

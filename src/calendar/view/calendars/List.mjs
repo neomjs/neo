@@ -13,11 +13,6 @@ class List extends ComponentList {
          */
         className: 'Neo.calendar.view.calendars.List',
         /**
-         * @member {String} ntype='calendar-calendars-list'
-         * @protected
-         */
-        ntype: 'calendar-calendars-list',
-        /**
          * @member {Object} bind
          */
         bind: {

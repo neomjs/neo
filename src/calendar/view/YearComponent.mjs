@@ -22,11 +22,6 @@ class YearComponent extends Component {
          */
         className: 'Neo.calendar.view.YearComponent',
         /**
-         * @member {String} ntype='calendar-view-yearcomponent'
-         * @protected
-         */
-        ntype: 'calendar-view-yearcomponent',
-        /**
          * @member {Object} bind
          */
         bind: {

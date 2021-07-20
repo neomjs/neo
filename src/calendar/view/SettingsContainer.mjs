@@ -13,11 +13,6 @@ class SettingsContainer extends Container {
          */
         className: 'Neo.calendar.view.SettingsContainer',
         /**
-         * @member {String} ntype='calendar-settingscontainer'
-         * @protected
-         */
-        ntype: 'calendar-settingscontainer',
-        /**
          * @member {String[]} cls=['neo-calendar-settingscontainer', 'neo-container']
          */
         cls: ['neo-calendar-settingscontainer', 'neo-container'],

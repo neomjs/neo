@@ -13,11 +13,6 @@ class Container extends BaseContainer {
          */
         className: 'Neo.calendar.view.calendars.Container',
         /**
-         * @member {String} ntype='calendar-calendars-container'
-         * @protected
-         */
-        ntype: 'calendar-calendars-container',
-        /**
          * @member {Object} bind
          */
         bind: {

@@ -12,11 +12,6 @@ class ColorsList extends List {
          */
         className: 'Neo.calendar.view.calendars.ColorsList',
         /**
-         * @member {String} ntype='calendar-colors-list'
-         * @protected
-         */
-        ntype: 'calendar-colors-list',
-        /**
          * @member {Object} bind
          */
         bind: {
