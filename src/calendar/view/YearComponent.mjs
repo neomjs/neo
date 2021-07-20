@@ -202,19 +202,16 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetCalendarStore(value, oldValue) {
-        let me = this;
+        let me = this,
 
-        oldValue?.un({
+        listeners = {
             load        : me.onCalendarStoreLoad,
             recordChange: me.onCalendarStoreRecordChange,
             scope       : me
-        });
+        };
 
-        value?.on({
-            load        : me.onCalendarStoreLoad,
-            recordChange: me.onCalendarStoreRecordChange,
-            scope       : me
-        });
+        oldValue?.un(listeners);
+        value   ?.on(listeners);
     }
 
     /**
