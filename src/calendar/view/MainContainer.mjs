@@ -236,10 +236,7 @@ class MainContainer extends Container {
         let me = this;
 
         me.createItemsContent();
-
-        if (!me.sideBarExpanded) {
-            me.afterSetSideBarExpanded(false, true);
-        }
+        !me.sideBarExpanded && me.afterSetSideBarExpanded(false, true);
     }
 
     /**
@@ -360,9 +357,7 @@ class MainContainer extends Container {
         let me = this;
 
         if (value) {
-            if (me.settingsExpanded) {
-                me.createSettingsContainer(false);
-            }
+            me.settingsExpanded && me.createSettingsContainer(false);
 
             // we need a short delay to ensure the items already got created
             setTimeout(() => {
@@ -605,15 +600,15 @@ class MainContainer extends Container {
     createViews() {
         let me    = this,
             cards = [],
-            cmp;
+            cmp,
 
-        const defaultConfig = {
+        defaultConfig = {
             appName : me.appName,
             owner   : me,
             parentId: me.id
-        };
+        },
 
-        const map = {
+        map = {
             day: {
                 module: () => import('./DayComponent.mjs'),
                 flag  : 'day',
@@ -652,23 +647,6 @@ class MainContainer extends Container {
 
     /**
      *
-     */
-    destroy(...args) {
-        let me = this;
-
-        // remove references, the super call will remove component tree based instances
-        me.calendarsContainer = null;
-        me.dateSelector       = null;
-        me.dayComponent       = null;
-        me.monthComponent     = null;
-        me.weekComponent      = null;
-        me.yearComponent      = null;
-
-        super.destroy(...args);
-    }
-
-    /**
-     *
      * @param data
      */
     onCardLoaded(data) {
@@ -680,14 +658,12 @@ class MainContainer extends Container {
 
     /**
      *
-     * @param {Object} opts
-     * @param {String} opts.oldValue
-     * @param {String} opts.value
+     * @param {Object} data
+     * @param {String} data.oldValue
+     * @param {String} data.value
      */
-    onDateSelectorChange(opts) {
-        if (opts.oldValue !== undefined) {
-            this.getModel().setData('currentDate', new Date(`${opts.value}T00:00:00`));
-        }
+    onDateSelectorChange(data) {
+        data.oldValue !== undefined && this.getModel().setData('currentDate', new Date(`${data.value}T00:00:00`));
     }
 
     /**
@@ -736,9 +712,9 @@ class MainContainer extends Container {
      */
     switchInterval(multiplier) {
         let me          = this,
-            currentDate = me.currentDate; // cloned
+            currentDate = me.currentDate, // cloned
 
-        const map = {
+        map = {
             day  : () => {currentDate.setDate(    currentDate.getDate()     + multiplier)},
             month: () => {currentDate.setMonth(   currentDate.getMonth()    + multiplier)},
             week : () => {currentDate.setDate(    currentDate.getDate() + 7 * multiplier)},
