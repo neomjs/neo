@@ -154,11 +154,6 @@ class Base extends CoreBase {
          */
         html_: null,
         /**
-         * The unique component id
-         * @member {String|null} id_=null
-         */
-        id_: null,
-        /**
          * Internal flag which will get set to true while an update request (worker messages) is in progress
          * @member {Boolean} isVdomUpdating=false
          * @protected
@@ -548,6 +543,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetId(value, oldValue) {
+        super.afterSetId(value, oldValue);
         this.changeVdomRootKey('id', value);
     }
 

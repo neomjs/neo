@@ -30,7 +30,7 @@ class Base extends CollectionBase{
     register(item) {
         let me = this;
 
-        if (me.get(item.id)) {
+        if (me.get(item.id)) {console.log(this);
             Neo.logError('Trying to create an item with an already existing id', item, me.get(item.id));
         } else {
             me.push(item);
@@ -38,8 +38,8 @@ class Base extends CollectionBase{
     }
 
     /**
-     *
-     * @param {Object} item
+     * Removes a collection item passed by reference or key
+     * @param {Object|String} item
      */
     unregister(item) {
         this.remove(item);
