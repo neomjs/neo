@@ -131,6 +131,15 @@ const DefaultConfig = {
      */
     useCssVars: true,
     /**
+     * Flag if vdom ids should get mapped into DOM element ids.
+     * false will convert them into a "data-neo-id" attribute.
+     * @default true
+     * @memberOf! module:Neo
+     * @name config.useDomIds
+     * @type Boolean
+     */
+    useDomIds: true,
+    /**
      * True will automatically include the stylesheet
      * @default true
      * @memberOf! module:Neo

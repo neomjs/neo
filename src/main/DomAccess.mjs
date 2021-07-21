@@ -243,7 +243,11 @@ class DomAccess extends Base {
      * @protected
      */
     getElement(nodeId) {
-        return document.getElementById(nodeId);
+        if (Neo.config.useDomIds) {
+            return document.getElementById(nodeId);
+        }
+
+        return document.querySelector(`[data-neo-id='${nodeId}']`);
     }
 
     /**

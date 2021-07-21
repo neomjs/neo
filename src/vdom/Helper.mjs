@@ -543,7 +543,7 @@ class Helper extends Base {
             style = Neo.createStyles(vnode.style);
 
             if (style !== '') {
-                string += ' style="' + style + '"';
+                string += ` style="${style}"`;
             }
         }
 
@@ -553,21 +553,25 @@ class Helper extends Base {
             }
 
             if (cls !== '') {
-                string += ' class="' + cls + '"';
+                string += ` class="${cls}"`;
             }
         }
 
         if (vnode.id) {
-            string += ' id="' + vnode.id + '"';
+            if (Neo.config.useDomIds) {
+                string += ` id="${vnode.id}"`;
+            } else {
+                string += ` data-neo-id="${vnode.id}"`;
+            }
         }
 
         Object.entries(attributes).forEach(([key, value]) => {
             if (this.voidAttributes.includes(key)) {
                 if (value === 'true') { // vnode attribute values get converted into strings
-                    string += (' ' + key);
+                    string += ` ${key}`;
                 }
             } else if (key !== 'removeDom') {
-                string += (' ' + key + '="' + value + '"');
+                string += ` ${key}="${value}"`;
             }
         });
 

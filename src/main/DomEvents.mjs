@@ -145,8 +145,10 @@ class DomEvents extends Base {
 
             if (id === 'document.body') {
                 targetNode = document.body;
-            } else {
+            } else if (Neo.config.useDomIds) {
                 targetNode = document.getElementById(id);
+            } else {
+                targetNode = document.querySelector(`[data-neo-id='${id}']`);
             }
 
             targetNode.addEventListener(event.name, me[event.handler].bind(me));
@@ -360,7 +362,7 @@ class DomEvents extends Base {
             data             : {...node.dataset},
             draggable        : node.draggable,
             hidden           : node.hidden,
-            id               : node.id,
+            id               : Neo.config.useDomIds ? node.id : node.dataset?.['neoId'],
             inert            : node.inert,
             isConnected      : node.isConnected,
             isContentEditable: node.isContentEditable,
