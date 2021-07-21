@@ -34,11 +34,9 @@ class Component extends Base {
 
         super.afterSetAppName(value, oldValue);
 
-        if (value && me.items) {
-            me.items.forEach(item => {
-                item.appName = value;
-            });
-        }
+        value && me.items?.forEach(item => {
+            item.appName = value;
+        });
     }
 
     /**
@@ -56,11 +54,32 @@ class Component extends Base {
 
     /**
      *
-     * @param {Number|String} id
+     * @param {Number} index
      * @returns {String}
      */
-    getComponentId(id) {
-        return `${this.id}__${id}__component`;
+    getComponentId(index) {
+        return `${this.id}__${index}__component`;
+    }
+
+    /**
+     *
+     * @param {Number|String} recordId
+     * @returns {String}
+     */
+    getItemId(recordId) {
+        return `${this.id}__${this.store.indexOf(recordId)}`;
+    }
+
+    /**
+     *
+     * @param {String} vnodeId
+     * @returns {String|Number} itemId
+     */
+    getItemRecordId(vnodeId) {
+        let itemId = vnodeId.split('__')[1],
+            store  = this.store;
+
+        return store.getAt(parseInt(itemId))[store.model.keyProperty];
     }
 }
 

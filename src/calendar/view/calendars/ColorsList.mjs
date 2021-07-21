@@ -31,7 +31,7 @@ class ColorsList extends List {
          * @member {Object} _vdom={tag:'ul',cn:[],tabIndex:'0'}
          */
         _vdom:
-            {tag: 'ul', cn: [], tabIndex: '0'}
+        {tag: 'ul', cn: [], tabIndex: '0'}
     }}
 
     /**

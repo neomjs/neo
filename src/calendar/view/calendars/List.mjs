@@ -55,7 +55,7 @@ class List extends ComponentList {
             checked       : record.active,
             cls           : ['neo-checkboxfield', `neo-color-${record.color}`],
             fieldValue    : id,
-            id            : me.getComponentId(id),
+            id            : me.getComponentId(index),
             valueLabelText: record.name
         };
 
@@ -73,16 +73,16 @@ class List extends ComponentList {
 
         me.items = items;
 
-        return [checkBox.vdom, {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit'], id: me.getEditIconId(id)}];
+        return [checkBox.vdom, {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit'], id: me.getEditIconId(index)}];
     }
 
     /**
      *
-     * @param {Number|String} recordId
+     * @param {Number} index
      * @returns {String}
      */
-    getEditIconId(recordId) {
-        return `${this.id}__${recordId}__edit-icon`;
+    getEditIconId(index) {
+        return `${this.id}__${index}__edit-icon`;
     }
 
     /**
