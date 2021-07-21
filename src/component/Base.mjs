@@ -398,15 +398,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
-     * @param {Object} config
-     */
-    constructor(config) {
-        super(config);
-        ComponentManager.register(this);
-    }
-
-    /**
      * Either a string like 'color: red; background-color: blue;'
      * or an object containing style attributes
      * @param {String|Object} value
@@ -545,6 +536,9 @@ class Base extends CoreBase {
     afterSetId(value, oldValue) {
         super.afterSetId(value, oldValue);
         this.changeVdomRootKey('id', value);
+
+        oldValue && ComponentManager.unregister(oldValue);
+        ComponentManager.register(this);
     }
 
     /**
