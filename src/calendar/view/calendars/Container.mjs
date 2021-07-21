@@ -58,7 +58,11 @@ class Container extends BaseContainer {
      * @param {Object} data
      */
     onAddCalendarButtonClick(data) {
-        console.log('onAddCalendarButtonClick', data);
+        this.calendarStore.add({
+            active: true,
+            color : 'red',
+            name  : 'New Calendar'
+        });
     }
 }
 
