@@ -30,7 +30,8 @@ class Container extends BaseContainer {
          * @member {Object[]} items
          */
         items: [{
-            module: List
+            module: List,
+            owner : '@config:owner' // passing the owner config downwards
         }, {
             ntype       : 'button',
             cls         : ['neo-add-calendar-button', 'neo-button'],

@@ -31,7 +31,12 @@ class List extends ComponentList {
             flex             : 'none',
             hideLabel        : true,
             hideValueLabel   : false
-        }
+        },
+        /**
+         * @member {Neo.calendar.view.MainContainer|null} owner=null
+         * @protected
+         */
+        owner: null
     }}
 
     /**
@@ -102,7 +107,7 @@ class List extends ComponentList {
         if (data.path[0].cls.includes('neo-edit-icon')) {
             let me                    = this,
                 listItemRect          = data.path[1].rect,
-                mainContainer         = me.up('calendar-maincontainer'), // todo: add a reference
+                mainContainer         = me.owner,
                 editCalendarContainer = mainContainer.editCalendarContainer,
                 mounted               = editCalendarContainer.mounted,
                 record                = me.store.get(me.getItemRecordId(data.path[1].id)),
