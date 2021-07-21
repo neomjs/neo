@@ -495,7 +495,8 @@ class MainContainer extends Container {
         me.calendarsContainer = Neo.create({
             module  : CalendarsContainer,
             flex    : 1,
-            parentId: me.id // we need the parentId to access the model inside the ctor
+            parentId: me.id, // we need the parentId to access the model inside the ctor
+            owner   : me
         });
 
         me.dateSelector = Neo.create({
