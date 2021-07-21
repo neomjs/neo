@@ -451,10 +451,11 @@ class Base extends Component {
      *
      */
     onStoreLoad() {
-        let me = this;
+        let me = this,
+            listenerId;
 
         if (!me.mounted && me.rendering) {
-            const listenerId = me.on('rendered', () => {
+            listenerId = me.on('rendered', () => {
                 me.un('rendered', listenerId);
                 me.createItems();
             });
