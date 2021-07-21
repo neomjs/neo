@@ -37,7 +37,7 @@ In case you want to create a neo.mjs App, you have 3 different options:
    
 6. Optional: `npm run create-app`
 
-#### You can run the examples & docs app **without** any JS build directly in Google Chrome (v80+):  
+#### You can run the examples & docs app **without** any JS build directly in Chromium (Chrome, Edge) or Safari Tech Preview:  
 > localhost/neo/docs/
 >
 > localhost/neo/examples/component/helix/
