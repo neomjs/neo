@@ -30,11 +30,6 @@ class MainContainer extends Container {
          */
         className: 'Neo.calendar.view.MainContainer',
         /**
-         * @member {String} ntype='calendar-maincontainer'
-         * @protected
-         */
-        ntype: 'calendar-maincontainer',
-        /**
          * The currently active view. Must be a value included inside the views config.
          * valid values: 'day', 'week', 'month', 'year'
          * @member {String} activeView_='week'
@@ -236,10 +231,7 @@ class MainContainer extends Container {
         let me = this;
 
         me.createItemsContent();
-
-        if (!me.sideBarExpanded) {
-            me.afterSetSideBarExpanded(false, true);
-        }
+        !me.sideBarExpanded && me.afterSetSideBarExpanded(false, true);
     }
 
     /**
@@ -344,6 +336,8 @@ class MainContainer extends Container {
                         vdom = sideBar.vdom;
                         vdom.removeDom = true;
                         sideBar.vdom = vdom;
+
+                        sideBar.mounted = false;
                     }, 400);
                 });
             }
@@ -360,9 +354,7 @@ class MainContainer extends Container {
         let me = this;
 
         if (value) {
-            if (me.settingsExpanded) {
-                me.createSettingsContainer(false);
-            }
+            me.settingsExpanded && me.createSettingsContainer(false);
 
             // we need a short delay to ensure the items already got created
             setTimeout(() => {
@@ -394,7 +386,7 @@ class MainContainer extends Container {
                 model  : {parent: me.getModel()},
                 owner  : me,
                 width  : 250,
-                ...me.editEventContainerConfig
+                ...me.editCalendarContainerConfig
             });
         }
 
@@ -503,7 +495,8 @@ class MainContainer extends Container {
         me.calendarsContainer = Neo.create({
             module  : CalendarsContainer,
             flex    : 1,
-            parentId: me.id // we need the parentId to access the model inside the ctor
+            parentId: me.id, // we need the parentId to access the model inside the ctor
+            owner   : me
         });
 
         me.dateSelector = Neo.create({
@@ -605,15 +598,15 @@ class MainContainer extends Container {
     createViews() {
         let me    = this,
             cards = [],
-            cmp;
+            cmp,
 
-        const defaultConfig = {
+        defaultConfig = {
             appName : me.appName,
             owner   : me,
             parentId: me.id
-        };
+        },
 
-        const map = {
+        map = {
             day: {
                 module: () => import('./DayComponent.mjs'),
                 flag  : 'day',
@@ -640,7 +633,7 @@ class MainContainer extends Container {
                 ...defaultConfig,
                 ...me.yearComponentConfig
             }
-        }
+        };
 
         me.views.forEach(view => {
             me[`${view}Component`] = cmp = map[view];
@@ -648,23 +641,6 @@ class MainContainer extends Container {
         });
 
         return cards;
-    }
-
-    /**
-     *
-     */
-    destroy(...args) {
-        let me = this;
-
-        // remove references, the super call will remove component tree based instances
-        me.calendarsContainer = null;
-        me.dateSelector       = null;
-        me.dayComponent       = null;
-        me.monthComponent     = null;
-        me.weekComponent      = null;
-        me.yearComponent      = null;
-
-        super.destroy(...args);
     }
 
     /**
@@ -680,14 +656,12 @@ class MainContainer extends Container {
 
     /**
      *
-     * @param {Object} opts
-     * @param {String} opts.oldValue
-     * @param {String} opts.value
+     * @param {Object} data
+     * @param {String} data.oldValue
+     * @param {String} data.value
      */
-    onDateSelectorChange(opts) {
-        if (opts.oldValue !== undefined) {
-            this.getModel().setData('currentDate', new Date(`${opts.value}T00:00:00`));
-        }
+    onDateSelectorChange(data) {
+        data.oldValue !== undefined && this.getModel().setData('currentDate', new Date(`${data.value}T00:00:00`));
     }
 
     /**
@@ -736,9 +710,9 @@ class MainContainer extends Container {
      */
     switchInterval(multiplier) {
         let me          = this,
-            currentDate = me.currentDate; // cloned
+            currentDate = me.currentDate, // cloned
 
-        const map = {
+        map = {
             day  : () => {currentDate.setDate(    currentDate.getDate()     + multiplier)},
             month: () => {currentDate.setMonth(   currentDate.getMonth()    + multiplier)},
             week : () => {currentDate.setDate(    currentDate.getDate() + 7 * multiplier)},

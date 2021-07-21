@@ -13,11 +13,6 @@ class SettingsContainer extends Container {
          */
         className: 'Neo.calendar.view.SettingsContainer',
         /**
-         * @member {String} ntype='calendar-settingscontainer'
-         * @protected
-         */
-        ntype: 'calendar-settingscontainer',
-        /**
          * @member {String[]} cls=['neo-calendar-settingscontainer', 'neo-container']
          */
         cls: ['neo-calendar-settingscontainer', 'neo-container'],
@@ -72,6 +67,8 @@ class SettingsContainer extends Container {
                 vdom = me.vdom;
                 vdom.removeDom = true;
                 me.vdom = vdom;
+
+                me.mounted = false;
             }, 400);
         });
     }

@@ -13,11 +13,6 @@ class List extends ComponentList {
          */
         className: 'Neo.calendar.view.calendars.List',
         /**
-         * @member {String} ntype='calendar-calendars-list'
-         * @protected
-         */
-        ntype: 'calendar-calendars-list',
-        /**
          * @member {Object} bind
          */
         bind: {
@@ -36,7 +31,12 @@ class List extends ComponentList {
             flex             : 'none',
             hideLabel        : true,
             hideValueLabel   : false
-        }
+        },
+        /**
+         * @member {Neo.calendar.view.MainContainer|null} owner=null
+         * @protected
+         */
+        owner: null
     }}
 
     /**
@@ -55,7 +55,7 @@ class List extends ComponentList {
             checked       : record.active,
             cls           : ['neo-checkboxfield', `neo-color-${record.color}`],
             fieldValue    : id,
-            id            : me.getComponentId(id),
+            id            : me.getComponentId(index),
             valueLabelText: record.name
         };
 
@@ -73,16 +73,16 @@ class List extends ComponentList {
 
         me.items = items;
 
-        return [checkBox.vdom, {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit'], id: me.getEditIconId(id)}];
+        return [checkBox.vdom, {tag: 'i', cls: ['neo-edit-icon', 'fas fa-edit'], id: me.getEditIconId(index)}];
     }
 
     /**
      *
-     * @param {Number|String} recordId
+     * @param {Number} index
      * @returns {String}
      */
-    getEditIconId(recordId) {
-        return `${this.id}__${recordId}__edit-icon`;
+    getEditIconId(index) {
+        return `${this.id}__${index}__edit-icon`;
     }
 
     /**
@@ -107,7 +107,7 @@ class List extends ComponentList {
         if (data.path[0].cls.includes('neo-edit-icon')) {
             let me                    = this,
                 listItemRect          = data.path[1].rect,
-                mainContainer         = me.up('calendar-maincontainer'), // todo: add a reference
+                mainContainer         = me.owner,
                 editCalendarContainer = mainContainer.editCalendarContainer,
                 mounted               = editCalendarContainer.mounted,
                 record                = me.store.get(me.getItemRecordId(data.path[1].id)),

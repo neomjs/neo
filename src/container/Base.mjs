@@ -182,82 +182,94 @@ class Base extends Component {
 
     /**
      *
+     * @param {*} item
+     * @param {Number} index
+     * @returns {Neo.component.Base|Object} Object for lazy loaded items
+     */
+    createItem(item, index) {
+        let me       = this,
+            config   = {appName: me.appName, parentId: me.id, parentIndex: index},
+            defaults = me.itemDefaults,
+            lazyLoadItem, module;
+
+        switch (Neo.typeOf(item)) {
+            case 'NeoClass': {
+                item = Neo.create({
+                    ...defaults,
+                    module: item,
+                    ...config
+                });
+                break;
+            }
+
+            case 'NeoInstance': {
+                item.set(config);
+                break;
+            }
+
+            case 'Object': {
+                if (defaults) {
+                    Neo.assignDefaults(item, defaults);
+                }
+
+                module = item.module;
+
+                lazyLoadItem = module && !module.isClass && Neo.isFunction(module);
+
+                if (module && !lazyLoadItem) {
+                    item.className = module.prototype.className;
+                }
+
+                if (item.handlerScope === 'this') {
+                    item.handlerScope = me;
+
+                    if (Neo.typeOf(item.handler) === 'String' && Neo.typeOf(me[item.handler]) === 'Function') {
+                        item.handler = me[item.handler];
+                    }
+                }
+
+                Object.assign(item, config);
+
+                if (!lazyLoadItem) {
+                    item = Neo[item.className ? 'create' : 'ntype'](item);
+                } else {
+                    item.vdom = Object.assign(item.vdom || {}, {removeDom: true});
+                }
+
+                break;
+            }
+
+            case 'String': {
+                item = Neo.create({
+                    module: Component,
+                    vdom  : {innerHTML: item},
+                    ...config
+                });
+
+                break;
+            }
+        }
+
+        return item
+    }
+
+    /**
+     *
      * @protected
      */
     createItems() {
         let me       = this,
             items    = me._items,
-            defaults = me.itemDefaults,
             layout   = me.layout,
             vdom     = me.vdom,
-            vdomRoot = me.getVdomRoot(),
-            lazyLoadItem, module, type;
+            vdomRoot = me.getVdomRoot();
 
         vdomRoot.cn = [];
 
         items.forEach((item, index) => {
-            type = Neo.typeOf(item);
+            items[index] = item = me.createItem(item, index);
 
-            switch (type) {
-                case 'NeoClass': {
-                    item = Neo.create(item, {
-                        appName : me.appName,
-                        parentId: me.id
-                    });
-
-                    break;
-                }
-
-                case 'NeoInstance': {
-                    Object.assign(item, {
-                        appName : me.appName,
-                        parentId: me.id
-                    });
-
-                    break;
-                }
-
-                case 'String': {
-                    item = Neo.create({
-                        module  : Component,
-                        appName : me.appName,
-                        parentId: me.id,
-                        vdom    : {innerHTML: item}
-                    });
-
-                    break;
-                }
-
-                default: { // Object
-                    if (defaults) {
-                        Neo.assignDefaults(item, defaults);
-                    }
-
-                    module = item.module;
-
-                    lazyLoadItem = module && !module.isClass && Neo.isFunction(module);
-
-                    if (module && !lazyLoadItem) {
-                        item.className = module.prototype.className;
-                    }
-
-                    Object.assign(item, {
-                        appName : me.appName,
-                        parentId: me.id,
-                        style   : item.style || {}
-                    });
-
-                    if (!lazyLoadItem) {
-                        item = Neo[item.className ? 'create' : 'ntype'](item);
-                    } else {
-                        item.vdom = {removeDom: true};
-                    }
-                }
-            }
-
-            items[index] = item;
-
-            if (!lazyLoadItem) {
+            if (item instanceof Neo.core.Base) {
                 layout.applyChildAttributes(item, index);
             }
 
@@ -343,56 +355,25 @@ class Base extends Component {
      * @returns {Neo.component.Base|Neo.component.Base[]}
      */
     insert(index, item, silent=false) {
-        let me          = this,
-            config      = {appName: me.appName, parentId: me.id, parentIndex: index},
-            items       = me.items,
-            returnArray = [],
-            type        = Neo.typeOf(item),
-            vdom        = me.vdom,
-            i, len;
+        let me    = this,
+            items = me.items,
+            vdom  = me.vdom,
+            i, len, returnArray;
 
-        switch (type) {
-            case 'Array': {
-                i   = 0;
-                len = item.length;
+        if (Neo.typeOf(item) === 'Array') {
+            i           = 0;
+            len         = item.length;
+            returnArray = [];
 
-                for (; i < len; i++) {
-                    // insert the array backwards
-                    returnArray.unshift(me.insert(index, item[len - 1 - i], true));
-                }
-
-                item = returnArray;
-                break;
+            for (; i < len; i++) {
+                // insert the array backwards
+                returnArray.unshift(me.insert(index, item[len - 1 - i], true));
             }
 
-            case 'NeoClass': {
-                item = Neo.create({
-                    ...me.itemDefaults,
-                    module: item,
-                    ...config
-                });
-                break;
-            }
+            item = returnArray;
+        } else {
+            item = me.createItem(item, index);
 
-            case 'NeoInstance': {
-                item.set(config);
-                break;
-            }
-
-            case 'Object': {
-                if (item.module) {
-                    item.className = item.module.prototype.className;
-                }
-
-                item = Neo[item.className ? 'create' : 'ntype']({
-                    ...me.itemDefaults,
-                    ...config,
-                    ...item
-                });
-            }
-        }
-
-        if (type !== 'Array') {
             // added the true param => for card layouts, we do not want a dynamically inserted cmp to get removed right away
             // since it will most likely get activated right away
             me.layout.applyChildAttributes(item, index, true);

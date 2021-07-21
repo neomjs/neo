@@ -13,11 +13,6 @@ class Container extends BaseContainer {
          */
         className: 'Neo.calendar.view.calendars.Container',
         /**
-         * @member {String} ntype='calendar-calendars-container'
-         * @protected
-         */
-        ntype: 'calendar-calendars-container',
-        /**
          * @member {Object} bind
          */
         bind: {
@@ -32,17 +27,43 @@ class Container extends BaseContainer {
          */
         cls: ['neo-calendar-calendarscontainer', 'neo-container'],
         /**
-         * @member {Array} items
+         * @member {Object[]} items
          */
         items: [{
-            module: List
+            module: List,
+            owner : '@config:owner' // passing the owner config downwards
+        }, {
+            ntype       : 'button',
+            cls         : ['neo-add-calendar-button', 'neo-button'],
+            flex        : 'none',
+            handler     : 'onAddCalendarButtonClick',
+            handlerScope: 'this',
+            style       : {marginTop: 'auto'},
+            text        : 'Add Calendar'
         }],
         /**
          * @member {Object} layout={ntype:'vbox',align:'stretch'}
          * @protected
          */
-        layout: {ntype: 'vbox', align: 'stretch'}
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * @member {Neo.calendar.view.MainContainer|null} owner=null
+         * @protected
+         */
+        owner: null
     }}
+
+    /**
+     *
+     * @param {Object} data
+     */
+    onAddCalendarButtonClick(data) {
+        this.calendarStore.add({
+            active: true,
+            color : 'red',
+            name  : 'New Calendar'
+        });
+    }
 }
 
 Neo.applyClassConfig(Container);

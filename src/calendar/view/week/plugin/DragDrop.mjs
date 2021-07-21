@@ -35,12 +35,12 @@ class DragDrop extends Base {
             domListeners = owner.domListeners;
 
         domListeners.push(
-            {'drag:end'  : me.onColumnDragEnd,    ...columnOpts},
-            {'drag:end'  : me.onEventDragEnd,     ...eventOpts},
-            {'drag:move' : me.onColumnDragMove,   ...columnOpts},
-            {'drag:move' : me.onEventDragMove,    ...eventOpts},
-            {'drag:start': me.onColumnDragStart,  ...columnOpts},
-            {'drag:start': me.onEventDragStart,   ...eventOpts}
+            {'drag:end'  : me.onColumnDragEnd,   ...columnOpts},
+            {'drag:end'  : me.onEventDragEnd,    ...eventOpts},
+            {'drag:move' : me.onColumnDragMove,  ...columnOpts},
+            {'drag:move' : me.onEventDragMove,   ...eventOpts},
+            {'drag:start': me.onColumnDragStart, ...columnOpts},
+            {'drag:start': me.onEventDragStart,  ...eventOpts}
         );
 
         owner.domListeners = domListeners;
@@ -134,6 +134,8 @@ class DragDrop extends Base {
             record       = me[recordSymbol];
 
         if (record && me.isTopLevelColumn(data.path)) {
+            me.isDragging = false;
+
             delete me[recordSymbol];
 
             Neo.applyDeltas(me.appName, {
@@ -142,8 +144,6 @@ class DragDrop extends Base {
             }).then(() => {
                 owner.eventDragZone.dragEnd();
                 owner.getPlugin({flag:'resizable'}).onDragEnd(data);
-
-                me.isDragging = false;
             });
         }
     }
@@ -181,11 +181,14 @@ class DragDrop extends Base {
             me.isDragging = true;
 
             startDate.setHours(axisStartTime);
-            startDate.setMinutes(currentInterval * intervalSize);
+            startDate.setMinutes(Math.min(currentInterval * intervalSize, intervals * intervalSize - owner.minimumEventDuration));
 
             endDate = DateUtil.clone(startDate);
 
             endDate.setMinutes(endDate.getMinutes() + owner.minimumEventDuration);
+
+            // 24:00 fix
+            endDate.getHours() === 0 && endDate.getMinutes() === 0 && endDate.setMinutes(endDate.getMinutes() - 1);
 
             record = owner.eventStore.add({
                 calendarId: owner.data.activeCalendarId || calendarStore.getAt(0)[calendarStore.keyProperty],
@@ -213,7 +216,7 @@ class DragDrop extends Base {
                 eventDragZone.dragStart(data);
 
                 setTimeout(() => {
-                    Neo.applyDeltas(me.appName, {
+                    me.isDragging && Neo.applyDeltas(me.appName, {
                         id   : eventId,
                         style: {opacity: 0}
                     });

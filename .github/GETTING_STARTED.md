@@ -27,7 +27,7 @@ In case you want to create a neo.mjs App, you have 3 different options:
    npm run build-all
    ```
 
-   (See the <a href="../docs/tutorials/10_BuildScripts.md">Build Scripts Guide</a> for further details.)
+(See the <a href="https://github.com/neomjs/neo/blob/dev/buildScripts/README.md">Command-Line Interface</a> for further details.)
 
 5. Make sure to use a local WebServer!
    * Use a local webserver of your choice (E.g. Webstorm)
@@ -39,7 +39,7 @@ In case you want to create a neo.mjs App, you have 3 different options:
    
 6. Optional: `npm run create-app`
 
-#### You can run the examples & docs app **without** any JS build directly in Google Chrome (v80+):  
+#### You can run the examples & docs app **without** any JS build directly in Chromium (Chrome, Edge) or Safari Tech Preview:  
 > localhost/neo/docs/
 >
 > localhost/neo/examples/component/helix/

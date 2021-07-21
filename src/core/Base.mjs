@@ -46,6 +46,11 @@ class Base {
          */
         ntype: 'base',
         /**
+         * The unique component id
+         * @member {String|null} id_=null
+         */
+        id_: null,
+        /**
          * Neo.create() will change this flag to true after the onConstructed() chain is done.
          * @member {Boolean} isConstructed=false
          * @protected
@@ -109,6 +114,31 @@ class Base {
     }
 
     /**
+     * Triggered after the id config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetId(value, oldValue) {
+        let me = this;
+
+        if (oldValue) {
+            if (Base.instanceManagerAvailable === true) {
+                Neo.manager.Instance.unregister(oldValue);
+            } else {
+                delete Neo.idMap[oldValue];
+            }
+        }
+
+        if (Base.instanceManagerAvailable === true) {
+            Neo.manager.Instance.register(me);
+        } else {
+            Neo.idMap = Neo.idMap || {};
+            Neo.idMap[me.id] = me;
+        }
+    }
+
+    /**
      * Convenience method for beforeSet functions which test if a given value is inside a static array
      * @param {String|Number} value
      * @param {String|Number} oldValue
@@ -134,16 +164,7 @@ class Base {
      * @param {String} id
      */
     createId(id) {
-        let me = this;
-
-        me.id = id || IdGenerator.getId(me.getIdKey());
-
-        if (Base.instanceManagerAvailable === true) {
-            Neo.manager.Instance.register(me);
-        } else {
-            Neo.idMap = Neo.idMap || {};
-            Neo.idMap[me.id] = me;
-        }
+        this.id = id || IdGenerator.getId(this.getIdKey());
     }
 
     /**

@@ -20,11 +20,6 @@ class DayComponent extends Component {
          */
         className: 'Neo.calendar.view.DayComponent',
         /**
-         * @member {String} ntype='calendar-view-daycomponent'
-         * @protected
-         */
-        ntype: 'calendar-view-daycomponent',
-        /**
          * @member {String[]} cls=['neo-calendar-daycomponent']
          */
         cls: ['neo-calendar-daycomponent'],

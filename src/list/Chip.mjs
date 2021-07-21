@@ -76,7 +76,7 @@ class Chip extends ComponentList {
 
             config = {
                 display: me.stacked ? 'flex' : 'inline-flex',
-                id     : me.getComponentId(id),
+                id     : me.getComponentId(index),
                 text   : record[me.displayField]
             };
 

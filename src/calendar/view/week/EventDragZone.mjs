@@ -240,12 +240,13 @@ class EventDragZone extends DragZone {
         });
 
         Object.assign(me, {
-            hasOverflow  : false,
-            keepEndDate  : false,
-            keepStartDate: false,
-            newEndDate   : null,
-            newStartDate : null,
-            proxyParentId: null
+            currentInterval: 0,
+            hasOverflow    : false,
+            keepEndDate    : false,
+            keepStartDate  : false,
+            newEndDate     : null,
+            newStartDate   : null,
+            proxyParentId  : null
         });
 
         // todo: updating a record field which is included inside a sorter should trigger collection.doSort()
@@ -275,7 +276,7 @@ class EventDragZone extends DragZone {
             record          = me.eventRecord,
             switchDirection = false,
             timeAxis        = owner.timeAxis,
-            axisStartDate, currentInterval, deltas, duration, endDate, eventIntervals, hasOverflow, height, intervalHeight,
+            axisStartDate, currentInterval, deltas, duration, endDate, eventIntervals, height, intervalHeight,
             intervals, limitInterval, minimumEventIntervals, position, startDate, startInterval;
 
         if (me.dragProxy) {
@@ -470,27 +471,21 @@ class EventDragZone extends DragZone {
                     eventIntervals = (duration && duration * 60 || eventDuration) / timeAxis.interval;
 
                     if (eventIntervals <= 2) {
-                        hasOverflow = timeAxis.rowHeight / eventIntervals < 25;
-
-                        if (hasOverflow) {
-                            if (!me.hasOverflow) {
-                                deltas.push({
-                                    id : me.dragProxy.id,
-                                    cls: {add: ['neo-overflow']}
-                                });
-
-                                me.hasOverflow = true;
-                            }
-                        }
-                    } else {
-                        if (me.hasOverflow) {
+                        if (timeAxis.rowHeight / eventIntervals < 25 && !me.hasOverflow) {
                             deltas.push({
                                 id : me.dragProxy.id,
-                                cls: {remove: ['neo-overflow']}
+                                cls: {add: ['neo-overflow']}
                             });
 
-                            me.hasOverflow = false;
+                            me.hasOverflow = true;
                         }
+                    } else if (me.hasOverflow) {
+                        deltas.push({
+                            id : me.dragProxy.id,
+                            cls: {remove: ['neo-overflow']}
+                        });
+
+                        me.hasOverflow = false;
                     }
 
                     Neo.applyDeltas(me.appName, deltas);

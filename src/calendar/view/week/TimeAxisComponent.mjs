@@ -22,11 +22,6 @@ class TimeAxisComponent extends Component {
          */
         className: 'Neo.calendar.view.week.TimeAxisComponent',
         /**
-         * @member {String} ntype='calendar-timeaxis'
-         * @protected
-         */
-        ntype: 'calendar-timeaxis',
-        /**
          * @member {Object} bind
          */
         bind: {

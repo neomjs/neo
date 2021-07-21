@@ -23,11 +23,6 @@ class Component extends BaseComponent {
          */
         className: 'Neo.calendar.view.month.Component',
         /**
-         * @member {String} ntype='calendar-view-monthcomponent'
-         * @protected
-         */
-        ntype: 'calendar-view-monthcomponent',
-        /**
          * @member {Object} bind
          */
         bind: {

@@ -12,11 +12,6 @@ class ColorsList extends List {
          */
         className: 'Neo.calendar.view.calendars.ColorsList',
         /**
-         * @member {String} ntype='calendar-colors-list'
-         * @protected
-         */
-        ntype: 'calendar-colors-list',
-        /**
          * @member {Object} bind
          */
         bind: {
@@ -36,7 +31,7 @@ class ColorsList extends List {
          * @member {Object} _vdom={tag:'ul',cn:[],tabIndex:'0'}
          */
         _vdom:
-            {tag: 'ul', cn: [], tabIndex: '0'}
+        {tag: 'ul', cn: [], tabIndex: '0'}
     }}
 
     /**

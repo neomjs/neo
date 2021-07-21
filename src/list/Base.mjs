@@ -451,10 +451,11 @@ class Base extends Component {
      *
      */
     onStoreLoad() {
-        let me = this;
+        let me = this,
+            listenerId;
 
         if (!me.mounted && me.rendering) {
-            const listenerId = me.on('rendered', () => {
+            listenerId = me.on('rendered', () => {
                 me.un('rendered', listenerId);
                 me.createItems();
             });
@@ -476,9 +477,11 @@ class Base extends Component {
             index = data.index,
             vdom  = me.vdom;
 
-        vdom.cn[index] = me.createItem(data.record, index);
-
-        me.vdom = vdom;
+        // ignore changes for records which have not been added to the list yet
+        if (index > -1) {
+            vdom.cn[index] = me.createItem(data.record, index);
+            me.vdom = vdom;
+        }
     }
 
     /**

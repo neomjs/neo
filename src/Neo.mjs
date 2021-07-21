@@ -516,7 +516,7 @@ function autoGenerateGetSet(proto, key) {
         Neo[getSetCache][key] = {
             get() {
                 let me        = this,
-                    beforeGet = 'beforeGet' + Neo.capitalize(key),
+                    beforeGet = `beforeGet${key[0].toUpperCase() + key.slice(1)}`,
                     hasNewKey = me[configSymbol].hasOwnProperty(key),
                     newKey    = me[configSymbol][key],
                     value     = hasNewKey ? newKey : me['_' + key];
@@ -545,7 +545,7 @@ function autoGenerateGetSet(proto, key) {
             set(value) {
                 let me        = this,
                     _key      = '_' + key,
-                    uKey      = Neo.capitalize(key),
+                    uKey = key[0].toUpperCase() + key.slice(1),
                     beforeSet = 'beforeSet' + uKey,
                     afterSet  = 'afterSet'  + uKey,
                     oldValue  = me[_key];
@@ -574,13 +574,8 @@ function autoGenerateGetSet(proto, key) {
                 }
 
                 if (!Neo.isEqual(value, oldValue)) {
-                    if (typeof me[afterSet] === 'function') {
-                        me[afterSet](value, oldValue);
-                    }
-
-                    if (typeof me.afterSetConfig === 'function') {
-                        me.afterSetConfig(key, value, oldValue);
-                    }
+                    me[afterSet]?.(value, oldValue);
+                    me.afterSetConfig?.(key, value, oldValue);
                 }
             }
         };

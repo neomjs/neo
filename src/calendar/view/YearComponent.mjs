@@ -22,11 +22,6 @@ class YearComponent extends Component {
          */
         className: 'Neo.calendar.view.YearComponent',
         /**
-         * @member {String} ntype='calendar-view-yearcomponent'
-         * @protected
-         */
-        ntype: 'calendar-view-yearcomponent',
-        /**
          * @member {Object} bind
          */
         bind: {
@@ -109,6 +104,12 @@ class YearComponent extends Component {
          * @member {String} monthNameFormat_='long'
          */
         monthNameFormat_: 'long',
+        /**
+         * Internal flag to store if createMonths() got called while not being mounted
+         * @member {Boolean} needsEventUpdate=false
+         * @protected
+         */
+        needsEventUpdate: false,
         /**
          * @member {Neo.calendar.view.MainContainer|null} owner=null
          * @protected
@@ -202,19 +203,16 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetCalendarStore(value, oldValue) {
-        let me = this;
+        let me = this,
 
-        oldValue?.un({
+        listeners = {
             load        : me.onCalendarStoreLoad,
             recordChange: me.onCalendarStoreRecordChange,
             scope       : me
-        });
+        };
 
-        value?.on({
-            load        : me.onCalendarStoreLoad,
-            recordChange: me.onCalendarStoreRecordChange,
-            scope       : me
-        });
+        oldValue?.un(listeners);
+        value   ?.on(listeners);
     }
 
     /**
@@ -254,9 +252,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetEventIndicatorHigh(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.createMonths();
-        }
+        oldValue !== undefined && this.createMonths();
     }
 
     /**
@@ -266,9 +262,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetEventIndicatorLow(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.createMonths();
-        }
+        oldValue !== undefined && this.createMonths();
     }
 
     /**
@@ -278,9 +272,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetEventIndicatorMedium(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.createMonths();
-        }
+        oldValue !== undefined && this.createMonths();
     }
 
     /**
@@ -290,10 +282,16 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetEventStore(value, oldValue) {
-        let me = this;
+        let me = this,
 
-        oldValue?.un('load', me.onEventStoreLoad, me);
-        value   ?.on('load', me.onEventStoreLoad, me);
+        listeners = {
+            load        : me.onEventStoreLoad,
+            recordChange: me.onEventStoreRecordChange,
+            scope       : me
+        };
+
+        oldValue?.un(listeners);
+        value   ?.on(listeners);
     }
 
     /**
@@ -319,6 +317,23 @@ class YearComponent extends Component {
      */
     afterSetMonthNameFormat(value, oldValue) {
         this.updateMonthNameFormat(value, oldValue);
+    }
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
+        let me = this;
+
+        if (value && me.needsEventUpdate) {
+            me.createMonths();
+            me.needsEventUpdate = false;
+        }
     }
 
     /**
@@ -429,9 +444,7 @@ class YearComponent extends Component {
      * @protected
      */
     afterSetWeekStartDay(value, oldValue) {
-        if (oldValue !== undefined) {
-            this.createMonths();
-        }
+        oldValue !== undefined && this.createMonths();
     }
 
     /**
@@ -661,37 +674,35 @@ class YearComponent extends Component {
      * @param {Object} [containerEl]
      */
     createMonths(silent=false, containerEl) {
-        let me             = this,
-            currentDate    = me.currentDate, // cloned
-            vdom           = me.vdom,
-            monthContainer = containerEl || vdom.cn[0].cn[1],
-            i              = 0,
-            monthVdom;
+        let me = this;
 
-        monthContainer.cn = [];
+        if (!me.mounted) {
+            me.needsEventUpdate = true;
+        } else {
+            let currentDate    = me.currentDate, // cloned
+                vdom           = me.vdom,
+                monthContainer = containerEl || vdom.cn[0].cn[1],
+                i              = 0,
+                monthVdom;
 
-        for (; i < 12; i++) {
-            currentDate.setMonth(i);
-            currentDate.setDate(1);
+            monthContainer.cn = [];
 
-            monthVdom = {
-                cls: ['neo-month'],
-                cn : [
-                    {
-                        cls : ['neo-month-name'],
-                        html: me.intlFormat_month.format(currentDate)
-                    },
+            for (; i < 12; i++) {
+                currentDate.setMonth(i);
+                currentDate.setDate(1);
+
+                monthVdom =
+                {cls: ['neo-month'], cn: [
+                    {cls: ['neo-month-name'], html: me.intlFormat_month.format(currentDate)},
                     me.createDayNamesRow()
-                ]
-            };
+                ]};
 
-            monthVdom = me.createMonthContent(monthVdom, DateUtil.clone(currentDate));
+                monthVdom = me.createMonthContent(monthVdom, DateUtil.clone(currentDate));
 
-            monthContainer.cn.push(monthVdom);
-        }
+                monthContainer.cn.push(monthVdom);
+            }
 
-        if (!silent) {
-            me.vdom = vdom;
+            me[silent ? '_vdom' : 'vdom'] = vdom;
         }
     }
 
@@ -739,6 +750,14 @@ class YearComponent extends Component {
      */
     onEventStoreLoad(data) {
         this.calendarStore.getCount() > 0 && this.createMonths();
+    }
+
+    /**
+     *
+     * @param {Object[]} data
+     */
+    onEventStoreRecordChange(data) {
+        this.createMonths();
     }
 
     /**

@@ -154,11 +154,6 @@ class Base extends CoreBase {
          */
         html_: null,
         /**
-         * The unique component id
-         * @member {String|null} id_=null
-         */
-        id_: null,
-        /**
          * Internal flag which will get set to true while an update request (worker messages) is in progress
          * @member {Boolean} isVdomUpdating=false
          * @protected
@@ -403,15 +398,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
-     * @param {Object} config
-     */
-    constructor(config) {
-        super(config);
-        ComponentManager.register(this);
-    }
-
-    /**
      * Either a string like 'color: red; background-color: blue;'
      * or an object containing style attributes
      * @param {String|Object} value
@@ -548,7 +534,11 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetId(value, oldValue) {
+        super.afterSetId(value, oldValue);
         this.changeVdomRootKey('id', value);
+
+        oldValue && ComponentManager.unregister(oldValue);
+        ComponentManager.register(this);
     }
 
     /**
@@ -852,37 +842,29 @@ class Base extends CoreBase {
      */
     destroy(updateParentVdom=false, silent=false) {
         let me          = this,
-            parent      = Neo.getComponent(me.parentId),
+            parentId    = me.parentId,
+            parent      = Neo.getComponent(parentId),
             parentModel = parent?.getModel(),
-            parentController, parentVdom;
+            parentVdom;
 
         me.domListeners = [];
 
-        if (me.controller) {
-            me.controller.destroy();
-        } else if (me.reference) {
-            parentController = me.getController();
+        me.controller?.destroy();
+        me.controller = null;
 
-            if (parentController) {
-                parentController.removeReference(me);
-            }
-        }
+        me.reference && me.getController()?.removeReference(me); // remove own reference from parent controllers
 
-        if (me.model) {
-            me.model.destroy();
-        }
+        me.model?.destroy();
 
-        if (me.bind && parentModel) {
-            parentModel.removeBindings(me.id);
-        }
+        me.bind && parentModel?.removeBindings(me.id);
 
-        if (updateParentVdom && me.parentId) {
-            if (me.parentId === 'document.body') {
-                Neo.currentWorker.promiseMessage('main', {
-                    action : 'updateDom',
-                    appName: me.appName,
-                    deltas : [{action: 'removeNode', id: me.vdom.id}]
-                });
+        me.plugins?.forEach(plugin => {
+            plugin.destroy();
+        });
+
+        if (updateParentVdom && parentId) {
+            if (parentId === 'document.body') {
+                Neo.applyDeltas(me.appName, {action: 'removeNode', id: me.vdom.id});
             } else {
                 parentVdom = parent.vdom;
 
