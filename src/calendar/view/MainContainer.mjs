@@ -30,6 +30,11 @@ class MainContainer extends Container {
          */
         className: 'Neo.calendar.view.MainContainer',
         /**
+         * @member {String} ntype='calendar-maincontainer'
+         * @protected
+         */
+        ntype: 'calendar-maincontainer',
+        /**
          * The currently active view. Must be a value included inside the views config.
          * valid values: 'day', 'week', 'month', 'year'
          * @member {String} activeView_='week'
