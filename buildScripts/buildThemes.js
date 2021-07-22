@@ -106,8 +106,8 @@ inquirer.prompt(questions).then(answers => {
           themes     = answers.themes    || programOpts.themes  || 'all',
           insideNeo  = programOpts.framework || false,
           startDate  = new Date(),
-          fileCount  = {vars: 0, noVars: 0},
-          totalFiles = {vars: 0, noVars: 0},
+          fileCount  = {development: {vars: 0, noVars: 0}, production: {vars: 0, noVars: 0}},
+          totalFiles = {development: {vars: 0, noVars: 0}, production: {vars: 0, noVars: 0}},
           sassThemes = [];
 
     let themeMap, themeMapNoVars;
@@ -280,7 +280,7 @@ inquirer.prompt(questions).then(answers => {
             varsFlag  = useCssVars ? 'vars' : 'noVars',
             map, neoThemePath, themeBuffer, themePath, workspaceThemePath;
 
-        totalFiles[varsFlag] += files.length;
+        totalFiles[mode][varsFlag] += files.length;
 
         if (path.sep === '\\') {
             mixinPath = mixinPath.replace(/\\/g, '/');
@@ -366,19 +366,28 @@ inquirer.prompt(questions).then(answers => {
                     }
                 }).then(result => {
                     fs.mkdirpSync(folderPath);
-                    fileCount[varsFlag]++;
+                    fileCount[mode][varsFlag]++;
 
                     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
                     console.log('Writing file:', (fileCount.vars + fileCount.noVars), chalk.blue(`${processTime}s`), destPath);
-                    fs.writeFile(destPath, result.css, () => true);
+                    fs.writeFileSync(destPath, result.css, () => true);
 
                     if (result.map) {
-                        fs.writeFile(result.opts.to + '.map', result.map.toString());
+                        fs.writeFileSync(result.opts.to + '.map', result.map.toString());
                     }
 
-                    if (fileCount[varsFlag] === totalFiles[varsFlag]) {
-                        fs.writeFile(
+                    if (fileCount[mode][varsFlag] === totalFiles[mode][varsFlag]) {
+                        fs.writeFileSync(
                             path.resolve(cwd, useCssVars ? themeMapFile : themeMapFileNoVars),
+                            JSON.stringify(useCssVars ? themeMap : themeMapNoVars, null, 0)
+                        );
+
+                        fs.mkdirpSync(path.join(cwd, '/dist/', mode, '/resources'), {
+                            recursive: true
+                        });
+
+                        fs.writeFileSync(
+                            path.join(cwd, '/dist/', mode, useCssVars ? themeMapFile : themeMapFileNoVars),
                             JSON.stringify(useCssVars ? themeMap : themeMapNoVars, null, 0)
                         );
                     }
