@@ -306,6 +306,7 @@ inquirer.prompt(questions).then(answers => {
 
             data = [
                 `@use "sass:map";`,
+                `@use "sass:math";`,
                 `$neoMap: ();`,
                 `$useCssVars: ${useCssVars};`,
                 `@import "${mixinPath}";`,
@@ -316,6 +317,7 @@ inquirer.prompt(questions).then(answers => {
         } else {
             data = [
                 `@use "sass:map";`,
+                `@use "sass:math";`,
                 `$neoMap: ();`,
                 `$useCssVars: ${useCssVars};`,
                 `@import "${mixinPath}";`
@@ -369,7 +371,7 @@ inquirer.prompt(questions).then(answers => {
                     fileCount[mode][varsFlag]++;
 
                     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
-                    console.log('Writing file:', (fileCount.vars + fileCount.noVars), chalk.blue(`${processTime}s`), destPath);
+                    console.log('Writing file:', (fileCount[mode].vars + fileCount[mode].noVars), chalk.blue(`${processTime}s`), destPath);
                     fs.writeFileSync(destPath, result.css, () => true);
 
                     if (result.map) {
