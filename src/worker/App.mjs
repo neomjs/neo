@@ -225,10 +225,18 @@ class App extends Base {
         super.onRegisterNeoConfig(msg);
 
         let config = Neo.config,
-            url    = `../../resources/theme-map${Neo.config.useCssVars ? '' : '-no-vars'}.json`;
+            url    = `resources/theme-map${Neo.config.useCssVars ? '' : '-no-vars'}.json`;
+
+        if (Neo.config.environment === 'development') {
+            url = `../../${url}`;
+        }
 
         if (config.workerBasePath?.includes('node_modules')) {
-            url = '../../' + url;
+            url = `../../${url}`;
+        }
+
+        if (url[0] !== '.') {
+            url = `./${url}`;
         }
 
         fetch(url)
