@@ -841,19 +841,21 @@ class Component extends BaseComponent {
                     calendarRecord = calendarStore.get(record.calendarId);
 
                     if (calendarRecord?.active) {
-                        endDate   = DateUtil.clone(record.endDate);
-                        startDate = DateUtil.clone(record.startDate);
+                        endDate   = record.endDate;
+                        startDate = record.startDate;
 
                         if (endTime <= startDate.getHours() || startTime >= endDate.getHours()) {
                             continue;
                         }
 
                         if (endTime < endDate.getHours()) {
+                            endDate = DateUtil.clone(endDate);
                             endDate.setHours(endTime);
                             endDate.setMinutes(0);
                         }
 
                         if (startTime > startDate.getHours()) {
+                            startDate = DateUtil.clone(startDate);
                             startDate.setHours(startTime);
                             startDate.setMinutes(0);
                         }
