@@ -26,7 +26,7 @@ class Event extends Model {
             type: 'Integer'
         }, {
             name: 'calendarId',
-            type: 'String'
+            type: 'Integer'
         }, {
             name: 'description',
             type: 'String'
