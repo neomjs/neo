@@ -30,12 +30,21 @@ class Base extends Component {
      */
     afterSetValue(value, oldValue) {
         if (oldValue !== undefined) {
-            this.fire('change', {
-                component: this,
-                oldValue : oldValue,
-                value    : value
-            });
+            this.fireChangeEvent(value, oldValue);
         }
+    }
+
+    /**
+     * Override this method as needed
+     * @param {*} value
+     * @param {*} oldValue
+     */
+    fireChangeEvent(value, oldValue) {
+        this.fire('change', {
+            component: this,
+            oldValue : oldValue,
+            value    : value
+        });
     }
 
     /**
