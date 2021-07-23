@@ -218,7 +218,7 @@ class Filter extends Base {
     }
 
     static ['like'](a, b) {
-        return a.toLowerCase().includes(b.toLowerCase());
+        return a?.toLowerCase().includes(b?.toLowerCase()) || false;
     }
 }
 
