@@ -227,7 +227,7 @@ class Base extends CoreBase {
 
             if (oldValue) {
                 source = Neo.get(oldValue);
-                source.un(listenersConfig); // todo: core.Observable.un needs to support this syntax
+                source.un(listenersConfig);
             }
         }
     }
