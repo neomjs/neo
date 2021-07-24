@@ -11,6 +11,43 @@ import VNodeUtil from '../util/VNode.mjs';
  * @singleton
  */
 class Helper extends Base {
+    /**
+     * @member {Boolean} returnChildNodeOuterHtml=false
+     */
+    returnChildNodeOuterHtml = false
+    /**
+     * Void attributes inside html tags
+     * @member {String[]} voidAttributes
+     * @protected
+     */
+    voidAttributes = [
+        'checked',
+        'required'
+    ]
+    /**
+     * Void html tags
+     * @member {String[]} voidElements
+     * @protected
+     */
+    voidElements = [
+        'area',
+        'base',
+        'br',
+        'col',
+        'command',
+        'embed',
+        'hr',
+        'img',
+        'input',
+        'keygen',
+        'link',
+        'meta',
+        'param',
+        'source',
+        'track',
+        'wbr'
+    ]
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.vdom.Helper'
@@ -18,13 +55,8 @@ class Helper extends Base {
          */
         className: 'Neo.vdom.Helper',
         /**
-         * @member {String} ntype='vdom-helper'
-         * @protected
-         */
-        ntype: 'vdom-helper',
-        /**
          * Remote method access for other workers
-         * @member {Object} remote={app: ['create', 'update']}
+         * @member {Object} remote={app:['create','update']}
          * @protected
          */
         remote: {
@@ -34,46 +66,10 @@ class Helper extends Base {
             ]
         },
         /**
-         * @member {Boolean} returnChildNodeOuterHtml=false
-         */
-        returnChildNodeOuterHtml: false,
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * Void attributes inside html tags
-         * @member {String[]} voidAttributes
-         * @protected
-         */
-        voidAttributes: [
-            'checked',
-            'required'
-        ],
-        /**
-         * Void html tags
-         * @member {String[]} voidElements
-         * @protected
-         */
-        voidElements: [
-            'area',
-            'base',
-            'br',
-            'col',
-            'command',
-            'embed',
-            'hr',
-            'img',
-            'input',
-            'keygen',
-            'link',
-            'meta',
-            'param',
-            'source',
-            'track',
-            'wbr'
-        ]
+        singleton: true
     }}
 
     /**
@@ -788,10 +784,11 @@ class Helper extends Base {
     update(opts) {
         let me     = this,
             node   = me.parseHelper(opts.vdom),
-            deltas = me.createDeltas({
-                newVnode: node,
-                oldVnode: opts.vnode
-            });
+
+        deltas = me.createDeltas({
+            newVnode: node,
+            oldVnode: opts.vnode
+        });
 
         return {
             deltas,
