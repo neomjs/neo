@@ -11,6 +11,16 @@ import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
  */
 class Base extends CoreBase {
     /**
+     * @member {Object|null} channelPorts=null
+     * @protected
+     */
+    channelPorts = null
+    /**
+     * @member {Boolean} isSharedWorker=false
+     * @protected
+     */
+    isSharedWorker = false
+    /**
      * Only needed for SharedWorkers
      * @member {Array|null} ports=null
      */
@@ -23,21 +33,11 @@ class Base extends CoreBase {
          */
         className: 'Neo.worker.Base',
         /**
-         * @member {Object|null} channelPorts=null
-         * @protected
-         */
-        channelPorts: null,
-        /**
          * Only needed for SharedWorkers
          * @member {Boolean} isConnected=false
          * @protected
          */
         isConnected: false,
-        /**
-         * @member {Boolean} isSharedWorker=false
-         * @protected
-         */
-        isSharedWorker: false,
         /**
          * @member {String[]|Neo.core.Base[]|null} mixins=[Observable,RemoteMethodAccess]
          */
