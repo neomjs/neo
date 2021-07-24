@@ -40,7 +40,7 @@ class Base extends CoreBase {
          * Only needed for SharedWorkers
          * @member {Array|null} ports=null
          */
-        ports : null,
+        ports: null,
         /**
          * @member {String|null} workerId=null
          * @protected
