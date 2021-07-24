@@ -63,8 +63,8 @@ class App extends Base {
     applyDeltas(appName, deltas) {
          return this.promiseMessage('main', {
             action : 'updateDom',
-            appName: appName,
-            deltas : deltas
+            appName,
+            deltas
         });
     }
 
@@ -157,7 +157,7 @@ class App extends Base {
                         ns[fileName] = true;
 
                         Neo.main.addon.Stylesheet.addThemeFiles({
-                            appName  : appName,
+                            appName,
                             className: mapClassName || className,
                             folders  : themeFolders
                         });
