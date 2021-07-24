@@ -300,17 +300,17 @@ neo
  | - apps
  |    | - myapp
  |    |    | - app.mjs
+ |    |    | - config.json
  |    |    | - index.html
  |    |    | - MainContainer.mjs
 ```
 
 The program will also add the App config into buildScripts/webpack/json/myApps.json.
 ```json
-"MyApp": {
-    "input": "./apps/myapp/app.mjs",
-    "output": "/apps/myapp/",
-    "title": "MyApp"
-}
+"apps": [
+    "Docs",
+    "MyApp"
+]
 ```
 This file is added inside the .gitignore.</br>
 If the file does not exist yet, the program will copy buildScripts/webpack/json/myApps.template.json to create it.
@@ -387,17 +387,6 @@ Object.assign(Neo.config, {
 });
 ```
 
-To add it into your build versions (dist/development & dist/production), you also need to adjust the
-buildScripts/webpack/json/myApps.json file:
-```json
-"MyApp": {
-    "input": "./apps/myapp/app.mjs",
-    "mainThreadAddons": "'MapboxGL', 'Stylesheet'",
-    "output": "/apps/myapp/",
-    "title": "MyApp"
-}
-```
-
 Regarding the -u (SharedWorkers) option:</br>
 Only use it in case you want to create an App which uses multiple main threads (Browser Windows).</br>
 Even in this case I recommend to start without it and switch at the point when your App is ready to connect
@@ -425,7 +414,7 @@ There are several enhancements around it to polish it for our class system impro
 Source code: <a href="./docs/jsdocx.js">generate-docs-json</a>
 
 ## server-start
-> webpack serve --open
+> webpack serve -c ./buildScripts/webpack/webpack.server.config.js --open
 
 To open JS modules locally inside your Browser you need a web-server, since importing files is not possible
 otherwise for security reasons. You could enable this on an OS level, but this is definitely not recommended.
