@@ -97,9 +97,7 @@ class Base {
             delete me.constructor.config.id;
         }
 
-        if (me.getStaticConfig('observable')) {
-            me.initObservable(config);
-        }
+        me.getStaticConfig('observable') && me.initObservable(config);
 
         me.initConfig(config);
 
@@ -108,9 +106,7 @@ class Base {
             value     : true
         });
 
-        if (me.remote) {
-            setTimeout(me.initRemote.bind(me), 1);
-        }
+        me.remote && setTimeout(me.initRemote.bind(me), 1);
     }
 
     /**
@@ -282,9 +278,7 @@ class Base {
         me.isConstructed = true;
 
         // We can only fire the event in case the Observable mixin is included.
-        if (me.getStaticConfig('observable')) {
-            me.fire('constructed', me);
-        }
+        me.getStaticConfig('observable') && me.fire('constructed', me);
     }
 
     /**
@@ -333,9 +327,9 @@ class Base {
                 origin = Neo.workerId === 'main' ? Neo.worker.Manager : Neo.currentWorker;
 
                 origin.sendMessage(worker, {
-                    action   : 'registerRemote',
-                    methods  : methods,
-                    className: className
+                    action: 'registerRemote',
+                    methods,
+                    className
                 });
             }
         });
