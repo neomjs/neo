@@ -12,11 +12,6 @@ class RemoteMethodAccess extends Base {
          */
         className: 'Neo.worker.mixin.RemoteMethodAccess',
         /**
-         * @member {String} ntype='mixin-remote-method-access'
-         * @protected
-         */
-        ntype: 'mixin-remote-method-access',
-        /**
          * @member {Boolean} mixin=true
          * @protected
          */
