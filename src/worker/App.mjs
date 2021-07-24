@@ -14,6 +14,24 @@ import HashHistory     from '../util/HashHistory.mjs';
  * @singleton
  */
 class App extends Base {
+    /**
+     * @member {Object|null} data=null
+     * @protected
+     */
+    data = null
+    /**
+     * @member {Boolean} isUsingViewModels=false
+     * @protected
+     */
+    isUsingViewModels = false
+    /**
+     * We are storing the params of insertThemeFiles() calls here, in case the method does get triggered
+     * before the json theme structure got loaded.
+     * @member {Array[]} themeFilesCache=[]
+     * @protected
+     */
+    themeFilesCache = []
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.worker.App'
@@ -21,27 +39,10 @@ class App extends Base {
          */
         className: 'Neo.worker.App',
         /**
-         * @member {Object|null} data=null
-         * @protected
-         */
-        data: null,
-        /**
-         * @member {Boolean} isUsingViewModels=false
-         * @protected
-         */
-        isUsingViewModels: false,
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */
         singleton: true,
-        /**
-         * We are storing the params of insertThemeFiles() calls here, in case the method does get triggered
-         * before the json theme structure got loaded.
-         * @member {Array[]} themeFilesCache=[]
-         * @protected
-         */
-        themeFilesCache: [],
         /**
          * @member {String} workerId='app'
          * @protected
@@ -66,7 +67,7 @@ class App extends Base {
      */
     applyDeltas(appName, deltas) {
          return this.promiseMessage('main', {
-            action : 'updateDom',
+            action: 'updateDom',
             appName,
             deltas
         });
