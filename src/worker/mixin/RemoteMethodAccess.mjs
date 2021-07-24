@@ -36,7 +36,7 @@ class RemoteMethodAccess extends Base {
         return function(data, buffer) {
             let opts = {
                 action         : 'remoteMethod',
-                data           : data,
+                data,
                 destination    : origin,
                 remoteClassName: remote.className,
                 remoteMethod   : method
@@ -127,7 +127,7 @@ class RemoteMethodAccess extends Base {
     reject(msg, data) {
         let opts = {
             action : 'reply',
-            data   : data,
+            data,
             reject : true,
             replyId: msg.id
         };
@@ -148,7 +148,7 @@ class RemoteMethodAccess extends Base {
     resolve(msg, data) {
         let opts = {
             action : 'reply',
-            data   : data,
+            data,
             replyId: msg.id
         };
 
