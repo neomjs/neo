@@ -20,11 +20,6 @@ class Data extends Base {
          */
         className: 'Neo.worker.Data',
         /**
-         * @member {String} ntype='data-worker'
-         * @protected
-         */
-        ntype: 'data-worker',
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */

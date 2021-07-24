@@ -17,11 +17,6 @@ class Base extends CoreBase {
          */
         className: 'Neo.worker.Base',
         /**
-         * @member {String} ntype='worker'
-         * @protected
-         */
-        ntype: 'worker',
-        /**
          * @member {Object|null} channelPorts=null
          * @protected
          */

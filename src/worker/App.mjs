@@ -21,11 +21,6 @@ class App extends Base {
          */
         className: 'Neo.worker.App',
         /**
-         * @member {String} ntype='app-worker'
-         * @protected
-         */
-        ntype: 'app-worker',
-        /**
          * @member {Object|null} data=null
          * @protected
          */
