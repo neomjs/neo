@@ -9,6 +9,7 @@ const chalk        = require('chalk'),
       packageJson  = require(path.resolve(process.cwd(), 'package.json')),
       insideNeo    = packageJson.name === 'neo.mjs',
       neoPath      = insideNeo ? './' : './node_modules/neo.mjs/',
+      addonChoices = fs.readdirSync(path.join(neoPath, '/src/main/addon')).map(item => item.slice(0, -4)),
       os           = require('os'),
       programName  = `${packageJson.name} create-app`,
       questions    = [],
@@ -26,7 +27,7 @@ program
     .version(packageJson.version)
     .option('-i, --info',                     'print environment debug info')
     .option('-a, --appName <value>')
-    .option('-m, --mainThreadAddons <value>', 'Comma separated list of AmCharts, AnalyticsByGoogle, DragDrop, HighlightJS, LocalStorage, MapboxGL, Markdown, Siesta, Stylesheet\n Defaults to DragDrop, Stylesheet')
+    .option('-m, --mainThreadAddons <value>', `Comma separated list of:\n${addonChoices.join(', ')}\nDefaults to DragDrop, Stylesheet`)
     .option('-t, --themes <value>',           ['all', ...themeFolders, 'none'].join(", "))
     .option('-u, --useSharedWorkers <value>', '"yes", "no"')
     .allowUnknownOption()
@@ -85,7 +86,7 @@ if (!programOpts.mainThreadAddons) {
         type   : 'checkbox',
         name   : 'mainThreadAddons',
         message: 'Please choose your main thread addons:',
-        choices: fs.readdirSync(path.join(neoPath, '/src/main/addon')).map(item => item.slice(0, -4)),
+        choices: addonChoices,
         default: ['DragDrop', 'Stylesheet']
     });
 }
