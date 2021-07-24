@@ -300,17 +300,17 @@ neo
  | - apps
  |    | - myapp
  |    |    | - app.mjs
+ |    |    | - config.json
  |    |    | - index.html
  |    |    | - MainContainer.mjs
 ```
 
 The program will also add the App config into buildScripts/webpack/json/myApps.json.
 ```json
-"MyApp": {
-    "input": "./apps/myapp/app.mjs",
-    "output": "/apps/myapp/",
-    "title": "MyApp"
-}
+"apps": [
+    "Docs",
+    "MyApp"
+]
 ```
 This file is added inside the .gitignore.</br>
 If the file does not exist yet, the program will copy buildScripts/webpack/json/myApps.template.json to create it.
@@ -385,17 +385,6 @@ Object.assign(Neo.config, {
     environment     : 'development',
     mainThreadAddons: ['MapboxGL', 'Stylesheet']
 });
-```
-
-To add it into your build versions (dist/development & dist/production), you also need to adjust the
-buildScripts/webpack/json/myApps.json file:
-```json
-"MyApp": {
-    "input": "./apps/myapp/app.mjs",
-    "mainThreadAddons": "'MapboxGL', 'Stylesheet'",
-    "output": "/apps/myapp/",
-    "title": "MyApp"
-}
 ```
 
 Regarding the -u (SharedWorkers) option:</br>
