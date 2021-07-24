@@ -38,7 +38,7 @@ class Base extends CoreBase {
          */
         isSharedWorker: false,
         /**
-         * @member {String[]|Neo.core.Base[]|null} mixins=[Observable, RemoteMethodAccess]
+         * @member {String[]|Neo.core.Base[]|null} mixins=[Observable,RemoteMethodAccess]
          */
         mixins: [Observable, RemoteMethodAccess],
         /**
@@ -135,7 +135,7 @@ class Base extends CoreBase {
 
         me.ports.push({
             appName: null,
-            id     : id,
+            id,
             port   : e.ports[0]
         });
 
@@ -237,8 +237,8 @@ class Base extends CoreBase {
                 msgId   = message.id;
 
             me.promises[msgId] = {
-                resolve: resolve,
-                reject : reject
+                resolve,
+                reject
             };
         });
     }
