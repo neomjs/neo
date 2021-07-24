@@ -85,7 +85,7 @@ if (!programOpts.mainThreadAddons) {
         type   : 'checkbox',
         name   : 'mainThreadAddons',
         message: 'Please choose your main thread addons:',
-        choices: ['AmCharts', 'AnalyticsByGoogle', 'DragDrop', 'HighlightJS', 'LocalStorage', 'MapboxGL', 'Markdown', 'Siesta', 'Stylesheet'],
+        choices: fs.readdirSync(path.join(neoPath, '/src/main/addon')).map(item => item.slice(0, -4)),
         default: ['DragDrop', 'Stylesheet']
     });
 }
