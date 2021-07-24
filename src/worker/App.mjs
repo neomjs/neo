@@ -49,6 +49,10 @@ class App extends Base {
         workerId: 'app'
     }}
 
+    /**
+     *
+     * @param {Object} config
+     */
     constructor(config) {
         super(config);
         Neo.applyDeltas = this.applyDeltas.bind(this); // convenience shortcut
