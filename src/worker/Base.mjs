@@ -16,6 +16,12 @@ class Base extends CoreBase {
      */
     channelPorts = null
     /**
+     * Only needed for SharedWorkers
+     * @member {Boolean} isConnected=false
+     * @protected
+     */
+    isConnected = false
+    /**
      * @member {Boolean} isSharedWorker=false
      * @protected
      */
@@ -32,12 +38,6 @@ class Base extends CoreBase {
          * @protected
          */
         className: 'Neo.worker.Base',
-        /**
-         * Only needed for SharedWorkers
-         * @member {Boolean} isConnected=false
-         * @protected
-         */
-        isConnected: false,
         /**
          * @member {String[]|Neo.core.Base[]|null} mixins=[Observable,RemoteMethodAccess]
          */
