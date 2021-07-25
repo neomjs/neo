@@ -146,7 +146,7 @@ class Picker extends Text {
         let me = this;
 
         Neo.main.DomAccess.getBoundingClientRect({
-            id: [me.id, me.id + '-input-wrapper', 'body']
+            id: [me.id, me.getInputWrapperId(), 'body']
         }).then(data => {
             me.clientRects = data;
             me.showPicker(callback, callbackScope);
