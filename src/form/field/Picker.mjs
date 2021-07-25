@@ -89,9 +89,10 @@ class Picker extends Text {
      */
     applyClientRects(silent) {
         let me          = this,
-            bodyRect    = me.clientRects[2],
-            inputRect   = me.clientRects[1],
-            triggerRect = me.clientRects[0],
+            rects       = me.clientRects,
+            bodyRect    = rects[2],
+            inputRect   = rects[1],
+            triggerRect = rects[0],
             vdom        = me.picker.vdom,
             width       = me.matchPickerWidth ? (inputRect.width - 1) : me.pickerWidth;
 
