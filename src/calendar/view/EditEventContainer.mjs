@@ -1,6 +1,8 @@
 import Button        from '../../button/Base.mjs';
+import CalendarStore from '../store/Calendars.mjs';
 import DateUtil      from '../../util/Date.mjs';
 import FormContainer from '../../form/Container.mjs';
+import SelectField   from '../../form/field/Select.mjs';
 import TextField     from '../../form/field/Text.mjs';
 import TimeField     from '../../form/field/Time.mjs';
 
@@ -22,6 +24,10 @@ class EditEventContainer extends FormContainer {
             intlFormat_time     : data => data.intlFormat_time,
             minimumEventDuration: data => data.minimumEventDuration
         },
+        /**
+         * @member {Object|null} calendarFieldConfig=null
+         */
+        calendarFieldConfig: null,
         /**
          * @member {String[]} cls=['neo-calendar-edit-event-container']
          */
@@ -94,9 +100,10 @@ class EditEventContainer extends FormContainer {
             me.getField('startTime').maxValue = me.getStartTimeMaxValue(value);
 
             me.reset({
-                endTime  : timeFormat.format(value.endDate),
-                startTime: timeFormat.format(value.startDate),
-                title    : value.title
+                calendarId: value.calendarId,
+                endTime   : timeFormat.format(value.endDate),
+                startTime : timeFormat.format(value.startDate),
+                title     : value.title
             });
         } else if (value) {
             this.createItems();
@@ -127,12 +134,29 @@ class EditEventContainer extends FormContainer {
                 clearToOriginalValue: true,
                 flex                : 'none',
                 labelPosition       : 'inline',
-                labelText           : 'Event Title',
+                labelText           : 'Title',
                 listeners           : {change: me.onTitleFieldChange, scope: me},
                 name                : 'title',
                 required            : true,
                 value               : record.title,
                 ...me.titleFieldConfig
+            }, {
+                module       : SelectField,
+                displayField : 'name',
+                flex         : 'none',
+                labelPosition: 'inline',
+                labelText    : 'Calendar',
+                listeners    : {change: me.onCalendarFieldChange, scope: me},
+                name         : 'calendarId',
+                required     : true,
+                value        : record.calendarId,
+
+                store: {
+                    module  : CalendarStore,
+                    sourceId: me.model.getStore('calendars').id
+                },
+
+                ...me.calendarFieldConfig
             }, {
                 labelText: 'Start Time',
                 maxValue : me.getStartTimeMaxValue(record),
@@ -192,10 +216,18 @@ class EditEventContainer extends FormContainer {
      *
      * @param {Object} data
      */
+    onCalendarFieldChange(data) {
+        if (!Neo.isEmpty(data.value)) {
+            this.record.calendarId = data.value;
+        }
+    }
+
+    /**
+     * todo: we could add a confirm dialog
+     * @param {Object} data
+     */
     onDeleteButtonClick(data) {
         let me = this;
-
-        // todo: we could add a confirm dialog
 
         me.getModel().getStore('events').remove(me.record);
         me.unmount();
