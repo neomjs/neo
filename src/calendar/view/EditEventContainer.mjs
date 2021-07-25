@@ -141,15 +141,16 @@ class EditEventContainer extends FormContainer {
                 value               : record.title,
                 ...me.titleFieldConfig
             }, {
-                module       : SelectField,
-                displayField : 'name',
-                flex         : 'none',
-                labelPosition: 'inline',
-                labelText    : 'Calendar',
-                listeners    : {change: me.onCalendarFieldChange, scope: me},
-                name         : 'calendarId',
-                required     : true,
-                value        : record.calendarId,
+                module        : SelectField,
+                displayField  : 'name',
+                flex          : 'none',
+                forceSelection: true,
+                labelPosition : 'inline',
+                labelText     : 'Calendar',
+                listeners     : {change: me.onCalendarFieldChange, scope: me},
+                name          : 'calendarId',
+                required      : true,
+                value         : record.calendarId,
 
                 store: {
                     module  : CalendarStore,

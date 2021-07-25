@@ -213,13 +213,16 @@ class Select extends Picker {
         let me           = this,
             displayField = me.displayField,
             store        = me.store,
-            keyProperty  = store.keyProperty;
+            keyProperty  = store.keyProperty,
+            record       = store.find(displayField, value)[0];
 
-        me.fire('change', {
-            component: me,
-            oldValue : store.find(displayField, oldValue)[0]?.[keyProperty] || oldValue,
-            value    : store.find(displayField, value)   [0]?.[keyProperty] || value
-        });
+        if (!(me.forceSelection && !record)) {
+            me.fire('change', {
+                component: me,
+                oldValue : store.find(displayField, oldValue)[0]?.[keyProperty] || oldValue,
+                value    : record?.[keyProperty] || value
+            });
+        }
     }
 
     /**
