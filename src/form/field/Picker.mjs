@@ -184,9 +184,7 @@ class Picker extends Text {
             picker = me.getPicker(),
             vdom   = me.vdom;
 
-        if (me.pickerIsMounted) {
-            VDomUtil.removeVdomChild(vdom, me.getPickerId());
-        }
+        me.pickerIsMounted && VDomUtil.removeVdomChild(vdom, me.getPickerId());
 
         me.pickerIsMounted = false;
 
@@ -226,9 +224,7 @@ class Picker extends Text {
      * @protected
      */
     onKeyDownEnter(data, callback, callbackScope) {
-        if (!this.pickerIsMounted) {
-            this.getClientRectsThenShow(callback, callbackScope);
-        }
+        !this.pickerIsMounted && this.getClientRectsThenShow(callback, callbackScope);
     }
 
     /**
@@ -237,9 +233,7 @@ class Picker extends Text {
      * @protected
      */
     onKeyDownEscape(data) {
-        if (this.pickerIsMounted) {
-            this.hidePicker();
-        }
+        this.pickerIsMounted && this.hidePicker();
     }
 
     /**
@@ -274,9 +268,7 @@ class Picker extends Text {
 
             picker.mounted = me.pickerIsMounted;
 
-            if (callback) {
-                callback.apply(callbackScope || me);
-            }
+            callback?.apply(callbackScope || me);
         });
     }
 }
