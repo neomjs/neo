@@ -37,8 +37,8 @@ class Picker extends Text {
          * @member {Object} keys
          */
         keys: {
-            'Enter' : 'onKeyDownEnter',
-            'Escape': 'onKeyDownEscape'
+            Enter : 'onKeyDownEnter',
+            Escape: 'onKeyDownEscape'
         },
         /**
          * @member {Boolean} matchPickerWidth=true
