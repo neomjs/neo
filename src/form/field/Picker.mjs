@@ -130,8 +130,8 @@ class Picker extends Text {
     }
 
     /**
-     *
-     * @returns {null}
+     * Override this method to create your picker content as needed
+     * @returns {Neo.component.Base|null}
      */
     createPickerComponent() {
         return null;
