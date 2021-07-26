@@ -1,9 +1,9 @@
 import Neo             from '../Neo.mjs';
 import Base            from './Base.mjs';
 import * as core       from '../core/_export.mjs';
+import Application     from '../controller/Application.mjs';
 import Instance        from '../manager/Instance.mjs';
 import DomEventManager from '../manager/DomEvent.mjs';
-import Application     from '../controller/Application.mjs';
 import HashHistory     from '../util/HashHistory.mjs';
 
 /**
@@ -14,6 +14,24 @@ import HashHistory     from '../util/HashHistory.mjs';
  * @singleton
  */
 class App extends Base {
+    /**
+     * @member {Object|null} data=null
+     * @protected
+     */
+    data = null
+    /**
+     * @member {Boolean} isUsingViewModels=false
+     * @protected
+     */
+    isUsingViewModels = false
+    /**
+     * We are storing the params of insertThemeFiles() calls here, in case the method does get triggered
+     * before the json theme structure got loaded.
+     * @member {Array[]} themeFilesCache=[]
+     * @protected
+     */
+    themeFilesCache = []
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.worker.App'
@@ -21,32 +39,10 @@ class App extends Base {
          */
         className: 'Neo.worker.App',
         /**
-         * @member {String} ntype='app-worker'
-         * @protected
-         */
-        ntype: 'app-worker',
-        /**
-         * @member {Object|null} data=null
-         * @protected
-         */
-        data: null,
-        /**
-         * @member {Boolean} isUsingViewModels=false
-         * @protected
-         */
-        isUsingViewModels: false,
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */
         singleton: true,
-        /**
-         * We are storing the params of insertThemeFiles() calls here, in case the method does get triggered
-         * before the json theme structure got loaded.
-         * @member {Array[]} themeFilesCache=[]
-         * @protected
-         */
-        themeFilesCache: [],
         /**
          * @member {String} workerId='app'
          * @protected
@@ -54,6 +50,10 @@ class App extends Base {
         workerId: 'app'
     }}
 
+    /**
+     *
+     * @param {Object} config
+     */
     constructor(config) {
         super(config);
         Neo.applyDeltas = this.applyDeltas.bind(this); // convenience shortcut
@@ -67,9 +67,9 @@ class App extends Base {
      */
     applyDeltas(appName, deltas) {
          return this.promiseMessage('main', {
-            action : 'updateDom',
-            appName: appName,
-            deltas : deltas
+            action: 'updateDom',
+            appName,
+            deltas
         });
     }
 
@@ -162,7 +162,7 @@ class App extends Base {
                         ns[fileName] = true;
 
                         Neo.main.addon.Stylesheet.addThemeFiles({
-                            appName  : appName,
+                            appName,
                             className: mapClassName || className,
                             folders  : themeFolders
                         });

@@ -467,7 +467,7 @@ class Text extends Base {
                 vdom.cn[1] = {
                     cls  : ['neo-input-wrapper'],
                     cn   : [...preTriggers, inputEl, ...postTriggers],
-                    id   : me.id + '-input-wrapper',
+                    id   : me.getInputWrapperId(),
                     width: inputEl.width
                 };
 
@@ -683,6 +683,14 @@ class Text extends Base {
         }
 
         return null;
+    }
+
+    /**
+     *
+     * @returns {String}
+     */
+    getInputWrapperId() {
+        return `${this.id}__input-wrapper`;
     }
 
     /**

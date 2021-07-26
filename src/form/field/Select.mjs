@@ -22,13 +22,19 @@ class Select extends Picker {
          */
         ntype: 'selectfield',
         /**
-         * @member {String[]} cls=['neo-selectfield', 'neo-pickerfield', 'neo-textfield']
+         * @member {String[]} cls=['neo-selectfield','neo-pickerfield','neo-textfield']
          */
         cls: ['neo-selectfield', 'neo-pickerfield', 'neo-textfield'],
         /**
          * @member {String} displayField='name'
          */
         displayField: 'name',
+        /**
+         * True will only fire a change event, in case the TextField input value matches a record.
+         * onFocusLeave() will try to select a hint record, if needed and possible.
+         * @member {Boolean} forceSelection=false
+         */
+        forceSelection: false,
         /**
          * @member {String|Number|null} hintRecordId=null
          */
@@ -38,11 +44,11 @@ class Select extends Picker {
          * @member {Object} keys
          */
         keys: {
-            'Down'  : 'onKeyDownDown',
-            'Enter' : 'onKeyDownEnter',
-            'Escape': 'onKeyDownEscape',
-            'Right' : 'onKeyDownRight',
-            'Up'    : 'onKeyDownUp'
+            Down  : 'onKeyDownDown',
+            Enter : 'onKeyDownEnter',
+            Escape: 'onKeyDownEscape',
+            Right : 'onKeyDownRight',
+            Up    : 'onKeyDownUp'
         },
         /**
          * @member {String|null} lastManualInput=null
@@ -108,9 +114,7 @@ class Select extends Picker {
             scope             : me
         });
 
-        if (me.typeAhead) {
-            me.updateTypeAhead();
-        }
+        me.typeAhead && me.updateTypeAhead();
     }
 
     /**
@@ -130,7 +134,7 @@ class Select extends Picker {
                 includeEmptyValues: true,
                 operator          : 'like',
                 property          : me.displayField,
-                value             : me.value
+                value             : value.get(me.value)?.[me.displayField] || me.value
             });
 
             value.filters = filters;
@@ -144,9 +148,7 @@ class Select extends Picker {
      * @protected
      */
     afterSetTypeAhead(value, oldValue) {
-        if (this.rendered) {
-            this.updateTypeAhead();
-        }
+        this.rendered && this.updateTypeAhead();
     }
 
     /**
@@ -159,9 +161,7 @@ class Select extends Picker {
     afterSetValue(value, oldValue, preventFilter=false) {
         super.afterSetValue(value, oldValue);
 
-        if (!preventFilter) {
-            this.updateValue();
-        }
+        !preventFilter && this.updateValue();
     }
 
     /**
@@ -172,11 +172,27 @@ class Select extends Picker {
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
+        oldValue && oldValue.destroy();
 
         return ClassSystemUtil.beforeSetInstance(value, Store);
+    }
+
+    /**
+     * Triggered before the value config gets changed.
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     * @returns {Number|String|null}
+     * @protected
+     */
+    beforeSetValue(value, oldValue) {
+        let me     = this,
+            record = me.store.get(value);
+
+        if (record) {
+            return record[me.displayField];
+        }
+
+        return value;
     }
 
     /**
@@ -185,6 +201,28 @@ class Select extends Picker {
      */
     createPickerComponent() {
         return this.list;
+    }
+
+    /**
+     * Overrides form.field.Base
+     * @param {*} value
+     * @param {*} oldValue
+     * @override
+     */
+    fireChangeEvent(value, oldValue) {
+        let me           = this,
+            displayField = me.displayField,
+            store        = me.store,
+            keyProperty  = store.keyProperty,
+            record       = store.find(displayField, value)[0];
+
+        if (!(me.forceSelection && !record)) {
+            me.fire('change', {
+                component: me,
+                oldValue : store.find(displayField, oldValue)[0]?.[keyProperty] || oldValue,
+                value    : record?.[keyProperty] || value
+            });
+        }
     }
 
     /**
@@ -200,9 +238,7 @@ class Select extends Picker {
         Neo.main.DomAccess.focus({
             id: me.getInputElId()
         }).then(() => {
-            if (callback) {
-                callback.apply(me);
-            }
+            callback && callback.apply(me);
         });
     }
 
@@ -228,8 +264,8 @@ class Select extends Picker {
      * returns {Object}
      */
     getRecord() {
-        const list      = this.list,
-              recordKey = list.selectionModel.getSelection()[0];
+        let list      = this.list,
+            recordKey = list.selectionModel.getSelection()[0];
 
         return recordKey && this.store.get(list.getItemRecordId(recordKey)) || null;
     }
@@ -314,24 +350,17 @@ class Select extends Picker {
     }
 
     /**
-     * List items got created or updated
-     * Since the list & inputHint update would run in parallel => before getting the new vnode back
-     * this could cause invalid states, so we delay updateTypeAheadValue() until the list is done.
      * @protected
      */
     onListCreateItems() {
         let me = this;
-
-        if (me.typeAhead) {
-            if (me.picker?.mounted) {
-                me.updateTypeAheadValue();
-            }
-        }
+        me.typeAhead && me.picker?.mounted && me.updateTypeAheadValue();
     }
 
     /**
      *
      * @param {Object} record
+     * @protected
      */
     onListItemClick(record) {
         let me       = this,
@@ -355,6 +384,7 @@ class Select extends Picker {
     /**
      *
      * @param {Object} record
+     * @protected
      */
     onListItemNavigate(record) {
         this.onListItemClick(record);
@@ -389,12 +419,11 @@ class Select extends Picker {
             }
         }
 
-        me.onListItemNavigate(me.store.getAt(index));
         me.list.selectItem(index);
+        me.onListItemNavigate(me.store.getAt(index));
     }
 
     /**
-     *
      * @param {Boolean} [silent=false]
      * @protected
      */
@@ -424,12 +453,11 @@ class Select extends Picker {
     }
 
     /**
-     *
-     * @param {String|null} [value]
+     * @param {String|null} [value=this.value]
      * @param {Boolean} [silent=false]
      * @protected
      */
-    updateTypeAheadValue(value, silent=false) {
+    updateTypeAheadValue(value=this.value, silent=false) {
         let me          = this,
             hasMatch    = false,
             store       = me.store,
@@ -438,10 +466,6 @@ class Select extends Picker {
             vdom        = me.vdom,
             inputHintEl = me.getInputHintEl(),
             storeValue;
-
-        if (value === undefined) {
-            value = me.value;
-        }
 
         if (value && value.length > 0) {
             for (; i < len; i++) {
@@ -453,7 +477,7 @@ class Select extends Picker {
                 }
             }
 
-            if (hasMatch) {
+            if (hasMatch && inputHintEl) {
                 inputHintEl.value = value + storeValue.substr(value.length);
                 me.hintRecordId = store.items[i][store.keyProperty || store.model.keyProperty];
             }
@@ -468,7 +492,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @protected
      */
     updateValue() {
@@ -484,10 +507,8 @@ class Select extends Picker {
             }
         }
 
-        if (me.typeAhead) {
-            if (!me.picker?.containsFocus) {
-                me.updateTypeAheadValue();
-            }
+        if (me.typeAhead && !me.picker?.containsFocus) {
+            me.updateTypeAheadValue();
         }
     }
 }

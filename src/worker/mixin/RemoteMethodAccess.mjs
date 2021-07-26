@@ -12,11 +12,6 @@ class RemoteMethodAccess extends Base {
          */
         className: 'Neo.worker.mixin.RemoteMethodAccess',
         /**
-         * @member {String} ntype='mixin-remote-method-access'
-         * @protected
-         */
-        ntype: 'mixin-remote-method-access',
-        /**
          * @member {Boolean} mixin=true
          * @protected
          */
@@ -36,7 +31,7 @@ class RemoteMethodAccess extends Base {
         return function(data, buffer) {
             let opts = {
                 action         : 'remoteMethod',
-                data           : data,
+                data,
                 destination    : origin,
                 remoteClassName: remote.className,
                 remoteMethod   : method
@@ -127,7 +122,7 @@ class RemoteMethodAccess extends Base {
     reject(msg, data) {
         let opts = {
             action : 'reply',
-            data   : data,
+            data,
             reject : true,
             replyId: msg.id
         };
@@ -148,7 +143,7 @@ class RemoteMethodAccess extends Base {
     resolve(msg, data) {
         let opts = {
             action : 'reply',
-            data   : data,
+            data,
             replyId: msg.id
         };
 

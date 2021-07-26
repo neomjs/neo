@@ -70,8 +70,8 @@ class Base {
     }}
 
     /**
-     * Consumes the static getConfig() object
-     * Applies the observable mixin if needed, grants remote access if needed
+     * Consumes the static getConfig() return object.
+     * Applies the observable mixin if needed, grants remote access if needed.
      * @param {Object} config={}
      */
     constructor(config={}) {
@@ -97,9 +97,7 @@ class Base {
             delete me.constructor.config.id;
         }
 
-        if (me.getStaticConfig('observable')) {
-            me.initObservable(config);
-        }
+        me.getStaticConfig('observable') && me.initObservable(config);
 
         me.initConfig(config);
 
@@ -108,13 +106,13 @@ class Base {
             value     : true
         });
 
-        if (me.remote) {
-            setTimeout(me.initRemote.bind(me), 1);
-        }
+        me.remote && setTimeout(me.initRemote.bind(me), 1);
     }
 
     /**
-     * Triggered after the id config got changed
+     * Triggered after the id config got changed.
+     * You can dynamically change instance ids if needed. They need to stay unique at any given point.
+     * Use case: e.g. component based lists, where you want to re-use item instances.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
@@ -282,9 +280,7 @@ class Base {
         me.isConstructed = true;
 
         // We can only fire the event in case the Observable mixin is included.
-        if (me.getStaticConfig('observable')) {
-            me.fire('constructed', me);
-        }
+        me.getStaticConfig('observable') && me.fire('constructed', me);
     }
 
     /**
@@ -333,9 +329,9 @@ class Base {
                 origin = Neo.workerId === 'main' ? Neo.worker.Manager : Neo.currentWorker;
 
                 origin.sendMessage(worker, {
-                    action   : 'registerRemote',
-                    methods  : methods,
-                    className: className
+                    action: 'registerRemote',
+                    methods,
+                    className
                 });
             }
         });

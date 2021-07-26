@@ -20,11 +20,6 @@ class Manager extends Base {
          */
         className: 'Neo.worker.Manager',
         /**
-         * @member {String} ntype='worker-manager'
-         * @protected
-         */
-        ntype: 'worker-manager',
-        /**
          * @member {boolean} singleton=true
          * @protected
          */

@@ -37,8 +37,8 @@ class Picker extends Text {
          * @member {Object} keys
          */
         keys: {
-            'Enter' : 'onKeyDownEnter',
-            'Escape': 'onKeyDownEscape'
+            Enter : 'onKeyDownEnter',
+            Escape: 'onKeyDownEscape'
         },
         /**
          * @member {Boolean} matchPickerWidth=true
@@ -89,9 +89,10 @@ class Picker extends Text {
      */
     applyClientRects(silent) {
         let me          = this,
-            bodyRect    = me.clientRects[2],
-            inputRect   = me.clientRects[1],
-            triggerRect = me.clientRects[0],
+            rects       = me.clientRects,
+            bodyRect    = rects[2],
+            inputRect   = rects[1],
+            triggerRect = rects[0],
             vdom        = me.picker.vdom,
             width       = me.matchPickerWidth ? (inputRect.width - 1) : me.pickerWidth;
 
@@ -130,8 +131,8 @@ class Picker extends Text {
     }
 
     /**
-     *
-     * @returns {null}
+     * Override this method to create your picker content as needed
+     * @returns {Neo.component.Base|null}
      */
     createPickerComponent() {
         return null;
@@ -146,7 +147,7 @@ class Picker extends Text {
         let me = this;
 
         Neo.main.DomAccess.getBoundingClientRect({
-            id: [me.id, me.id + '-input-wrapper', 'body']
+            id: [me.id, me.getInputWrapperId(), 'body']
         }).then(data => {
             me.clientRects = data;
             me.showPicker(callback, callbackScope);
@@ -184,9 +185,7 @@ class Picker extends Text {
             picker = me.getPicker(),
             vdom   = me.vdom;
 
-        if (me.pickerIsMounted) {
-            VDomUtil.removeVdomChild(vdom, me.getPickerId());
-        }
+        me.pickerIsMounted && VDomUtil.removeVdomChild(vdom, me.getPickerId());
 
         me.pickerIsMounted = false;
 
@@ -226,9 +225,7 @@ class Picker extends Text {
      * @protected
      */
     onKeyDownEnter(data, callback, callbackScope) {
-        if (!this.pickerIsMounted) {
-            this.getClientRectsThenShow(callback, callbackScope);
-        }
+        !this.pickerIsMounted && this.getClientRectsThenShow(callback, callbackScope);
     }
 
     /**
@@ -237,9 +234,7 @@ class Picker extends Text {
      * @protected
      */
     onKeyDownEscape(data) {
-        if (this.pickerIsMounted) {
-            this.hidePicker();
-        }
+        this.pickerIsMounted && this.hidePicker();
     }
 
     /**
@@ -274,9 +269,7 @@ class Picker extends Text {
 
             picker.mounted = me.pickerIsMounted;
 
-            if (callback) {
-                callback.apply(callbackScope || me);
-            }
+            callback?.apply(callbackScope || me);
         });
     }
 }

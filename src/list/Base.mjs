@@ -117,11 +117,7 @@ class Base extends Component {
      * @protected
      */
     afterSetDisableSelection(value, oldValue) {
-        let me = this;
-
-        if (value && me.rendered && me.selectionModel) {
-            me.selectionModel.deselectAll();
-        }
+        value && this.rendered && this.selectionModel?.deselectAll();
     }
 
     /**
@@ -171,9 +167,7 @@ class Base extends Component {
             scope       : me
         });
 
-        if (value?.getCount() > 0) {
-            me.onStoreLoad();
-        }
+        value?.getCount() > 0 && me.onStoreLoad();
     }
 
     /**
@@ -312,13 +306,9 @@ class Base extends Component {
     destroy() {
         let me = this;
 
-        if (me.selectionModel) {
-            me.selectionModel.destroy();
-        }
+        me.selectionModel?.destroy();
 
-        if (me.store && me.autoDestroyStore) {
-            me.store.destroy();
-        }
+        me.autoDestroyStore && me.store?.destroy();
 
         super.destroy();
     }
@@ -330,13 +320,10 @@ class Base extends Component {
     focus(id) {
         super.focus(id);
 
-        if (id) {
-            // remote method access
-            Neo.main.DomAccess.scrollIntoView({
-                behavior: 'auto',
-                id      : id || this.id
-            });
-        }
+        id && Neo.main.DomAccess.scrollIntoView({
+            behavior: 'auto',
+            id      : id || this.id
+        });
     }
 
     /**
@@ -393,14 +380,13 @@ class Base extends Component {
         }
     }
 
+    /**
+     *
+     */
     onConstructed() {
         super.onConstructed();
 
-        let me = this;
-
-        if (me.selectionModel) {
-            me.selectionModel.register(me);
-        }
+        this.selectionModel?.register(this);
     }
 
     /**
@@ -427,9 +413,7 @@ class Base extends Component {
     onItemClick(node, data) {
         let me = this;
 
-        if (!me.disableSelection && me.selectionModel) {
-            me.selectionModel.select(node.id);
-        }
+        !me.disableSelection && me.selectionModel?.select(node.id);
 
         /**
          * The itemClick event fires when a click occurs on a list item
@@ -489,11 +473,7 @@ class Base extends Component {
      * @param {Number} index
      */
     selectItem(index) {
-        let me = this;
-
-        if (!me.disableSelection && me.selectionModel) {
-            me.selectionModel.selectAt(index);
-        }
+        !this.disableSelection && this.selectionModel?.selectAt(index);
     }
 }
 

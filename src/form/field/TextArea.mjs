@@ -52,9 +52,9 @@ class TextArea extends Text {
         inputType: null,
         /**
          * Use false to disable the browsers default resizing feature
-         * @member {Boolean} resizable_=true
+         * @member {Boolean} resizable_=false
          */
-        resizable_: true,
+        resizable_: false,
         /**
          * An integer > 0 or null
          * @member {Number|null} rows_=3
@@ -112,6 +112,22 @@ class TextArea extends Text {
      */
     afterSetRows(value, oldValue) {
         this.changeInputElKey('rows', value);
+    }
+
+    /**
+     * Triggered after the value config got changed
+     * While dynamic value changes for a textarea can use the value property,
+     * the initial value needs to get rendered into the innerHTML of the textarea tag
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetValue(value, oldValue) {
+        if (!this.mounted) {
+            this.getInputEl().html = value;
+        }
+
+        super.afterSetValue(value, oldValue);
     }
 
     /**

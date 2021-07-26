@@ -77,12 +77,10 @@ class Application extends Base {
      * @protected
      */
     afterSetMainView(value, oldValue) {
-        if (value) {
-            // short delay to ensure changes from onHashChange() got applied
-            setTimeout(() => {
-                value.render(true);
-            }, Neo.config.hash ? 200 : 10);
-        }
+        // short delay to ensure changes from onHashChange() got applied
+        value && setTimeout(() => {
+            value.render(true);
+        }, Neo.config.hash ? 200 : 10);
     }
 
     /**

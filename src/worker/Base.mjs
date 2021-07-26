@@ -10,6 +10,28 @@ import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
  * @abstract
  */
 class Base extends CoreBase {
+    /**
+     * @member {Object|null} channelPorts=null
+     * @protected
+     */
+    channelPorts = null
+    /**
+     * Only needed for SharedWorkers
+     * @member {Boolean} isConnected=false
+     * @protected
+     */
+    isConnected = false
+    /**
+     * @member {Boolean} isSharedWorker=false
+     * @protected
+     */
+    isSharedWorker = false
+    /**
+     * Only needed for SharedWorkers
+     * @member {Array|null} ports=null
+     */
+    ports = null
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.worker.Base'
@@ -17,35 +39,9 @@ class Base extends CoreBase {
          */
         className: 'Neo.worker.Base',
         /**
-         * @member {String} ntype='worker'
-         * @protected
-         */
-        ntype: 'worker',
-        /**
-         * @member {Object|null} channelPorts=null
-         * @protected
-         */
-        channelPorts: null,
-        /**
-         * Only needed for SharedWorkers
-         * @member {Boolean} isConnected=false
-         * @protected
-         */
-        isConnected: false,
-        /**
-         * @member {Boolean} isSharedWorker=false
-         * @protected
-         */
-        isSharedWorker: false,
-        /**
-         * @member {String[]|Neo.core.Base[]|null} mixins=[Observable, RemoteMethodAccess]
+         * @member {String[]|Neo.core.Base[]|null} mixins=[Observable,RemoteMethodAccess]
          */
         mixins: [Observable, RemoteMethodAccess],
-        /**
-         * Only needed for SharedWorkers
-         * @member {Array|null} ports=null
-         */
-        ports : null,
         /**
          * @member {String|null} workerId=null
          * @protected
@@ -135,7 +131,7 @@ class Base extends CoreBase {
 
         me.ports.push({
             appName: null,
-            id     : id,
+            id,
             port   : e.ports[0]
         });
 
@@ -237,8 +233,8 @@ class Base extends CoreBase {
                 msgId   = message.id;
 
             me.promises[msgId] = {
-                resolve: resolve,
-                reject : reject
+                resolve,
+                reject
             };
         });
     }

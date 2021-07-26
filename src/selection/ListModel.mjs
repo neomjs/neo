@@ -27,9 +27,7 @@ class ListModel extends Model {
      * @param {Object} data
      */
     onKeyDownDown(data) {
-        if (!this.view.disableSelection) {
-            this.onNavKey(data, 1);
-        }
+        !this.view.disableSelection && this.onNavKey(data, 1);
     }
 
     /**
@@ -39,9 +37,7 @@ class ListModel extends Model {
     onKeyDownEnter(data) {
         let view = this.view;
 
-        if (!view.disableSelection) {
-            view.onKeyDownEnter?.(this.getSelection()[0]);
-        }
+        !view.disableSelection && view.onKeyDownEnter?.(this.getSelection()[0]);
     }
 
     /**
@@ -65,9 +61,7 @@ class ListModel extends Model {
      * @param {Object} data
      */
     onKeyDownUp(data) {
-        if (!this.view.disableSelection) {
-            this.onNavKey(data, -1);
-        }
+        !this.view.disableSelection && this.onNavKey(data, -1);
     }
 
     /**
@@ -138,15 +132,13 @@ class ListModel extends Model {
             id   = me.id,
             view = me.view;
 
-        if (view.keys) {
-            view.keys._keys.push(
-                {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
-                {fn: 'onKeyDownEnter' ,key: 'Enter' ,scope: id},
-                {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
-                {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
-                {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
-            );
-        }
+        view.keys && view.keys._keys.push(
+            {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
+            {fn: 'onKeyDownEnter' ,key: 'Enter' ,scope: id},
+            {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
+            {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
+            {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
+        );
     }
 
     /**
@@ -172,15 +164,13 @@ class ListModel extends Model {
             id   = me.id,
             view = me.view;
 
-        if (view.keys) {
-            view.keys.removeKeys([
-                {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
-                {fn: 'onKeyDownEnter' ,key: 'Enter' ,scope: id},
-                {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
-                {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
-                {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
-            ]);
-        }
+        view.keys && view.keys.removeKeys([
+            {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
+            {fn: 'onKeyDownEnter' ,key: 'Enter' ,scope: id},
+            {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
+            {fn: 'onKeyDownRight' ,key: 'Right' ,scope: id},
+            {fn: 'onKeyDownUp'    ,key: 'Up'    ,scope: id}
+        ]);
 
         super.unregister();
     }

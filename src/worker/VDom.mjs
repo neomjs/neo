@@ -18,11 +18,6 @@ class VDom extends Base {
          */
         className: 'Neo.worker.VDom',
         /**
-         * @member {String} ntype='vdom-worker'
-         * @protected
-         */
-        ntype: 'vdom-worker',
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */
