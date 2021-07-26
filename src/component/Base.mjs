@@ -62,7 +62,8 @@ class Base extends CoreBase {
          * @example
          * {
          *     bind: {
-         *         text: '${myDataProperty.foo.bar}'
+         *         iconCls: data => `fa fa-{$data.icon}`,
+         *         text   : data => data.foo.bar
          *     }
          * }
          * @see https://github.com/neomjs/neo/blob/dev/examples/model/inline/MainContainer.mjs
