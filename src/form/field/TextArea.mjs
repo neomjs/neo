@@ -115,6 +115,22 @@ class TextArea extends Text {
     }
 
     /**
+     * Triggered after the value config got changed
+     * While dynamic value changes for a textarea can use the value property,
+     * the initial value needs to get rendered into the innerHTML of the textarea tag
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetValue(value, oldValue) {
+        if (!this.mounted) {
+            this.getInputEl().html = value;
+        }
+
+        super.afterSetValue(value, oldValue);
+    }
+
+    /**
      * Triggered after the wrap config got changed
      * @param {Number|null} value
      * @param {Number|null} oldValue
