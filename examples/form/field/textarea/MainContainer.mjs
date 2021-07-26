@@ -132,7 +132,7 @@ class MainContainer extends ConfigurationViewport {
             module   : NumberField,
             labelText: 'width',
             listeners: {change: me.onConfigChange.bind(me, 'width')},
-            maxValue : 300,
+            maxValue : 800,
             minValue : 50,
             stepSize : 5,
             value    : me.exampleComponent.width
@@ -175,10 +175,11 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create(TextAreaField, {
             clearable : true,
+            height    : 600,
             labelText : 'Label',
             labelWidth: 70,
             value     : 'Hello World',
-            width     : 200
+            width     : 400,
         });
     }
 }

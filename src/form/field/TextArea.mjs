@@ -52,9 +52,9 @@ class TextArea extends Text {
         inputType: null,
         /**
          * Use false to disable the browsers default resizing feature
-         * @member {Boolean} resizable_=true
+         * @member {Boolean} resizable_=false
          */
-        resizable_: true,
+        resizable_: false,
         /**
          * An integer > 0 or null
          * @member {Number|null} rows_=3
