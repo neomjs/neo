@@ -110,7 +110,9 @@ class Base {
     }
 
     /**
-     * Triggered after the id config got changed
+     * Triggered after the id config got changed.
+     * You can dynamically change instance ids if needed. They need to stay unique at any given point.
+     * Use case: e.g. component based lists, where you want to re-use item instances.
      * @param {String|null} value
      * @param {String|null} oldValue
      * @protected
