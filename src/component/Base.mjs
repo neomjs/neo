@@ -60,13 +60,11 @@ class Base extends CoreBase {
          * Bind configs to model.Component data properties.
          * Example for a button.Base:
          * @example
-         * {
-         *     bind: {
-         *         iconCls: data => `fa fa-{$data.icon}`,
-         *         text   : data => data.foo.bar
-         *     }
+         * bind: {
+         *     iconCls: data => `fa fa-{$data.icon}`,
+         *     text   : data => data.foo.bar
          * }
-         * @see https://github.com/neomjs/neo/blob/dev/examples/model/inline/MainContainer.mjs
+         * @see https://github.com/neomjs/neo/blob/dev/examples/model
          * @member {Object|null} bind=null
          */
         bind: null,
