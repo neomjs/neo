@@ -1,5 +1,5 @@
-import Store from '../../../../src/data/Store.mjs';
-import Model from './MainModel.mjs';
+import Store     from '../../../../src/data/Store.mjs';
+import MainModel from './MainModel.mjs';
 
 /**
  * @class Neo.examples.form.field.color.MainStore
@@ -7,16 +7,26 @@ import Model from './MainModel.mjs';
  */
 class MainStore extends Store {
     static getConfig() {return {
-        className  : 'Neo.examples.form.field.color.MainStore',
-        autoLoad   : true,
-        keyProperty: 'abbreviation',
-        model      : Model,
-        url        : '../../resources/examples/data/us_states.json',
-
-        sorters: [{
-            property : 'name',
-            direction: 'ASC'
-        }]
+        /**
+         * @member {String} className='Neo.examples.form.field.color.MainStore'
+         * @protected
+         */
+        className: 'Neo.examples.form.field.color.MainStore',
+        /**
+         * @member {Object[]} data
+         */
+        data: [
+            {id: 1, name: 'red'},
+            {id: 2, name: 'pink'},
+            {id: 3, name: 'orange'},
+            {id: 4, name: 'yellow'},
+            {id: 5, name: 'green'},
+            {id: 6, name: 'blue'}
+        ],
+        /**
+         * @member {Neo.data.Model} model=MainModel
+         */
+        model: MainModel
     }}
 }
 
