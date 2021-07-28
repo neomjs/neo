@@ -21,6 +21,24 @@ class Color extends Base {
          */
         cls: ['neo-color-list', 'neo-list']
     }}
+
+    /**
+     * Override this method for custom renderers
+     * @param {Object} record
+     * @param {Number} index
+     * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
+     */
+    createItemContent(record, index) {
+        let me = this;
+
+        return [{
+            tag: 'i',
+            cls: ['neo-icon', 'fas', 'fa-check-square']
+        }, {
+            vtype: 'text',
+            html : record[me.displayField]
+        }];
+    }
 }
 
 Neo.applyClassConfig(Color);
