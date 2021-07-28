@@ -26,12 +26,6 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'disableSelection',
             listeners: {change: me.onConfigChange.bind(me, 'disableSelection')}
         }, {
-            module   : CheckBox,
-            checked  : me.exampleComponent.draggable,
-            labelText: 'draggable',
-            listeners: {change: me.onConfigChange.bind(me, 'draggable')},
-            style    : {marginTop: '10px'}
-        }, {
             module   : NumberField,
             clearable: true,
             labelText: 'height',
@@ -40,12 +34,6 @@ class MainContainer extends ConfigurationViewport {
             minValue : 30,
             stepSize : 5,
             value    : me.exampleComponent.height,
-            style    : {marginTop: '10px'}
-        }, {
-            module   : CheckBox,
-            checked  : me.exampleComponent.useCheckBoxes,
-            labelText: 'useCheckBoxes',
-            listeners: {change: me.onConfigChange.bind(me, 'useCheckBoxes')},
             style    : {marginTop: '10px'}
         }, {
             module   : NumberField,
