@@ -1,4 +1,5 @@
-import Select from './Select.mjs';
+import ColorList from '../../list/Color.mjs'
+import Select    from './Select.mjs';
 
 /**
  * @class Neo.form.field.Color
@@ -15,7 +16,13 @@ class Color extends Select {
          * @member {String} ntype='colorfield'
          * @protected
          */
-        ntype: 'colorfield'
+        ntype: 'colorfield',
+        /**
+         * @member {Object|null} listConfig={module:ColorList}
+         */
+        listConfig: {
+            module: ColorList
+        }
     }}
 }
 
