@@ -62,11 +62,9 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create({
-            module      : ColorList,
-            displayField: 'firstname',
-            draggable   : true,
-            store       : MainStore,
-            width       : 100
+            module: ColorList,
+            store : MainStore,
+            width : 100
         });
     }
 }
