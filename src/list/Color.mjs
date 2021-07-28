@@ -30,18 +30,39 @@ class Color extends Base {
      */
     createItemContent(record, index) {
         let me         = this,
-            isSelected = me.selectionModel.isSelected(me.getItemId(record[me.store.keyProperty]));
+            id         = record[me.store.keyProperty],
+            isSelected = me.selectionModel.isSelected(me.getItemId(id));
 
         return [{
             tag  : 'i',
             cls  : ['neo-icon', 'fas', 'fa-check-square', `fa-${isSelected ? 'check-' : ''}square`],
+            id   : me.getListItemIconId(id),
             style: {
                 color: record[me.displayField]
             }
         }, {
             vtype: 'text',
-            html : record[me.displayField]
+            html : record[me.displayField],
+            id   : me.getListItemVtextId(id)
         }];
+    }
+
+    /**
+     *
+     * @param {Number|String} recordId
+     * @returns {String}
+     */
+    getListItemIconId(recordId) {
+        return `${this.id}__icon__${recordId}`;
+    }
+
+    /**
+     *
+     * @param {Number|String} recordId
+     * @returns {String}
+     */
+    getListItemVtextId(recordId) {
+        return `${this.id}__vtext__${recordId}`;
     }
 
     /**
@@ -49,7 +70,8 @@ class Color extends Base {
      * @param {String[]} items
      */
     onSelect(items) {
-        this.createItems();
+        this.createItems(true);
+        this.focus(items[0]);
     }
 }
 
