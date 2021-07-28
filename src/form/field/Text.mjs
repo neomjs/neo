@@ -148,11 +148,9 @@ class Text extends Base {
 
         super.afterSetAppName(value, oldValue);
 
-        if (value && me.triggers) {
-            me.triggers.forEach(item => {
-                item.appName = value;
-            });
-        }
+        value && me.triggers?.forEach(item => {
+            item.appName = value;
+        });
     }
 
     /**
