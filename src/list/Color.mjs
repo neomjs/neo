@@ -32,8 +32,11 @@ class Color extends Base {
         let me = this;
 
         return [{
-            tag: 'i',
-            cls: ['neo-icon', 'fas', 'fa-check-square']
+            tag  : 'i',
+            cls  : ['neo-icon', 'fas', 'fa-check-square'],
+            style: {
+                color: record[me.displayField]
+            }
         }, {
             vtype: 'text',
             html : record[me.displayField]
