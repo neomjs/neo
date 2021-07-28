@@ -6,20 +6,20 @@ import Model  from '../../../src/data/Model.mjs';
  */
 class MainModel extends Model {
     static getConfig() {return {
-        className  : 'Neo.examples.list.color.MainModel',
-        keyProperty: 'githubId',
-
+        /**
+         * @member {String} className='Neo.examples.list.color.MainModel'
+         * @protected
+         */
+        className: 'Neo.examples.list.color.MainModel',
+        /**
+         * @member {Object[]} fields
+         * @protected
+         */
         fields: [{
-            name: 'country',
-            type: 'String'
+            name: 'id',
+            type: 'Integer'
         }, {
-            name: 'firstname',
-            type: 'String'
-        }, {
-            name: 'githubId',
-            type: 'String'
-        }, {
-            name: 'lastname',
+            name: 'name',
             type: 'String'
         }]
     }}
