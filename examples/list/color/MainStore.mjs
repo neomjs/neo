@@ -7,46 +7,26 @@ import Store     from '../../../src/data/Store.mjs';
  */
 class MainStore extends Store {
     static getConfig() {return {
-        className  : 'Neo.examples.list.color.MainStore',
-        keyProperty: 'githubId',
-        model      : MainModel,
-
-        data: [{
-            country  : 'Germany',
-            firstname: 'Tobias',
-            githubId : 'tobiu',
-            lastname : 'Uhlig'
-        }, {
-            country  : 'USA',
-            firstname: 'Rich',
-            githubId : 'rwaters',
-            lastname : 'Waters'
-        }, {
-            country  : 'Germany',
-            firstname: 'Nils',
-            githubId : 'mrsunshine',
-            lastname : 'Dehl'
-        }, {
-            country  : 'USA',
-            firstname: 'Gerard',
-            githubId : 'camtnbikerrwc',
-            lastname : 'Horan'
-        }, {
-            country  : 'Slovakia',
-            firstname: 'Jozef',
-            githubId : 'jsakalos',
-            lastname : 'Sakalos'
-        }, {
-            country  : 'Germany',
-            firstname: 'Bastian',
-            githubId : 'bhaustein',
-            lastname : 'Haustein'
-        }],
-
-        sorters: [{
-            property : 'firstname',
-            direction: 'ASC'
-        }]
+        /**
+         * @member {String} className='Neo.examples.list.color.MainStore'
+         * @protected
+         */
+        className: 'Neo.examples.list.color.MainStore',
+        /**
+         * @member {Object[]} data
+         */
+        data: [
+            {id: 1, name: 'red'},
+            {id: 2, name: 'pink'},
+            {id: 3, name: 'orange'},
+            {id: 4, name: 'yellow'},
+            {id: 5, name: 'green'},
+            {id: 6, name: 'blue'}
+        ],
+        /**
+         * @member {Neo.data.Model} model=MainModel
+         */
+        model: MainModel
     }}
 }
 
