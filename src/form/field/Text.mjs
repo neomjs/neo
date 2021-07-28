@@ -200,8 +200,8 @@ class Text extends Base {
      */
     afterSetClearToOriginalValue(value, oldValue) {
         this.fire('changeClearToOriginalValue', {
-            oldValue: oldValue,
-            value   : value
+            oldValue,
+            value
         });
     }
 
@@ -355,9 +355,7 @@ class Text extends Base {
 
             me._vdom = vdom; // silent update
 
-            if (!me.hideLabel) {
-                me.updateInputWidth();
-            }
+            !me.hideLabel && me.updateInputWidth();
         }
     }
 
@@ -636,7 +634,7 @@ class Text extends Base {
      * @override
      */
     focus(id=this.id) {
-        super.focus(this.getInputEl().id);
+        super.focus(this.getInputElId());
     }
 
     /**
@@ -940,20 +938,18 @@ class Text extends Base {
     updateCenterBorderElWidth(silent=false) {
         let me = this;
 
-        if (me.mounted) {
-            Neo.main.DomAccess.getBoundingClientRect({
-                id: me.getCenterBorderEl().id
-            }).then(data => {
-                me.centerBorderElWidth = Math.round(data.width * .7) + 8;
+        me.mounted && Neo.main.DomAccess.getBoundingClientRect({
+            id: me.getCenterBorderEl().id
+        }).then(data => {
+            me.centerBorderElWidth = Math.round(data.width * .7) + 8;
 
-                if (!silent) {
-                    let vdom = me.vdom;
+            if (!silent) {
+                let vdom = me.vdom;
 
-                    me.getCenterBorderEl().width = me.centerBorderElWidth;
-                    me.vdom = vdom;
-                }
-            });
-        }
+                me.getCenterBorderEl().width = me.centerBorderElWidth;
+                me.vdom = vdom;
+            }
+        });
     }
 
     /**
@@ -987,13 +983,11 @@ class Text extends Base {
         childNodes.forEach(vnode => {
             trigger = me.getTriggerById(vnode.id);
 
-            if (trigger) {
-                Object.assign(trigger, {
-                    vnode    : vnode,
-                    _rendered: true,
-                    _mounted : true
-                });
-            }
+            trigger && Object.assign(trigger, {
+                vnode,
+                _rendered: true,
+                _mounted : true
+            });
         });
     }
 }
