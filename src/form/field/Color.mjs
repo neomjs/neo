@@ -43,12 +43,21 @@ class Color extends Select {
 
         inputWrapper.vdom.cn.unshift({
             cls  : 'neo-color',
+            id   : me.getColorIndicatorId(),
             style: {
                 backgroundColor: 'red'
             }
         });
 
         me.vdom = vdom;
+    }
+
+    /**
+     *
+     * @returns {String}
+     */
+    getColorIndicatorId() {
+        return this.id + '__color-indicator'
     }
 }
 
