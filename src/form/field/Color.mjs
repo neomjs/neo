@@ -45,7 +45,7 @@ class Color extends Select {
             cls  : 'neo-color',
             id   : me.getColorIndicatorId(),
             style: {
-                backgroundColor: 'red'
+                backgroundColor: me.getColor()
             }
         });
 
@@ -61,14 +61,13 @@ class Color extends Select {
      */
     afterSetValue(value, oldValue, preventFilter=false) {
         let me             = this,
-            vdom           = me.vdom,
-            colorIndicator = VDomUtil.findVdomChild(vdom, {id: me.getColorIndicatorId()})?.vdom,
-            record         = me.store.get(value);
+            colorIndicator = VDomUtil.findVdomChild(me.vdom, {id: me.getColorIndicatorId()})?.vdom;
 
         if (colorIndicator) {
-            colorIndicator.style.backgroundColor = record ? record[me.displayField] : value;
+            colorIndicator.style.backgroundColor = me.getColor();
         }
 
+        // the super call will trigger the vdom update
         super.afterSetValue(value, oldValue, preventFilter);
     }
 
@@ -81,7 +80,7 @@ class Color extends Select {
             value  = me.value,
             record = me.store.get(value);
 
-        return record ? record[me.displayField] : value;
+        return record ? record[me.displayField] : value || null;
     }
 
     /**
