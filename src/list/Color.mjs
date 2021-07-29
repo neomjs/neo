@@ -5,6 +5,13 @@ import Base from './Base.mjs';
  * @extends Neo.list.Base
  */
 class Color extends Base {
+    /**
+     * form.field.Color needs to trigger a silent vdom update
+     * @member {Boolean} silentSelectUpdate=false
+     * @protected
+     */
+    silentSelectUpdate = false
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.list.Color'
@@ -70,8 +77,10 @@ class Color extends Base {
      * @param {String[]} items
      */
     onSelect(items) {
-        this.createItems(true);
-        this.focus(items[0]);
+        let me = this;
+
+        me.createItems(me.silentSelectUpdate);
+        me.focus(items[0]);
     }
 }
 

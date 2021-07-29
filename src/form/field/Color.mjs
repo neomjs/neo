@@ -23,10 +23,11 @@ class Color extends Select {
          */
         cls: ['neo-colorfield', 'neo-selectfield', 'neo-pickerfield', 'neo-textfield'],
         /**
-         * @member {Object|null} listConfig={module:ColorList}
+         * @member {Object|null} listConfig={module:ColorList,silentSelectUpdate:true}
          */
         listConfig: {
-            module: ColorList
+            module            : ColorList,
+            silentSelectUpdate: true
         }
     }}
 
