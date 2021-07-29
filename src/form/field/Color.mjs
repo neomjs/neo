@@ -76,6 +76,18 @@ class Color extends Select {
      *
      * @returns {String}
      */
+    getColor() {
+        let me     = this,
+            value  = me.value,
+            record = me.store.get(value);
+
+        return record ? record[me.displayField] : value;
+    }
+
+    /**
+     *
+     * @returns {String}
+     */
     getColorIndicatorId() {
         return `${this.id}__color-indicator`;
     }
