@@ -19,6 +19,10 @@ class Color extends Select {
          */
         ntype: 'colorfield',
         /**
+         * @member {String[]} cls=['neo-colorfield','neo-selectfield','neo-pickerfield','neo-textfield']
+         */
+        cls: ['neo-colorfield', 'neo-selectfield', 'neo-pickerfield', 'neo-textfield'],
+        /**
          * @member {Object|null} listConfig={module:ColorList}
          */
         listConfig: {
@@ -33,14 +37,14 @@ class Color extends Select {
     constructor(config) {
         super(config);
 
-        let me      = this,
-            vdom    = me.vdom,
-            inputEl = VDomUtil.findVdomChild(vdom, {flag: 'neo-real-input'});
+        let me           = this,
+            vdom         = me.vdom,
+            inputWrapper = VDomUtil.findVdomChild(vdom, {id: me.getInputWrapperId()});
 
-        inputEl.parentNode.cn.unshift({
-            cls : 'neo-color',
+        inputWrapper.vdom.cn.unshift({
+            cls  : 'neo-color',
             style: {
-                color: 'red'
+                backgroundColor: 'red'
             }
         });
 

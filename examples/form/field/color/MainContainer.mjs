@@ -127,7 +127,7 @@ class MainContainer extends ConfigurationViewport {
             module       : ColorField,
             labelPosition: 'inline',
             labelText    : 'Colors',
-            labelWidth   : 80,
+            labelWidth   : 55,
             width        : 200,
 
             store: {

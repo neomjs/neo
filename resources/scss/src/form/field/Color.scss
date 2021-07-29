@@ -1,0 +1,13 @@
+.neo-colorfield {
+    &.label-inline {
+        .neo-label-wrapper {
+            .neo-left-border {
+                width: 2em;
+            }
+        }
+    }
+
+    .neo-color {
+        width: 1.7em;
+    }
+}
