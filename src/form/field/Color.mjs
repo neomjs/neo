@@ -53,6 +53,24 @@ class Color extends Select {
     }
 
     /**
+     * Triggered after the value config got changed
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
+     * @param {Boolean} [preventFilter=false]
+     * @protected
+     */
+    afterSetValue(value, oldValue, preventFilter=false) {
+        let me             = this,
+            vdom           = me.vdom,
+            colorIndicator = VDomUtil.findVdomChild(vdom, {id: me.getColorIndicatorId()})?.vdom,
+            record         = me.store.get(value);
+
+        colorIndicator?.style.backgroundColor = record ? record[me.displayField] : value;
+
+        super.afterSetValue(value, oldValue, preventFilter);
+    }
+
+    /**
      *
      * @returns {String}
      */

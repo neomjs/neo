@@ -153,8 +153,8 @@ class Select extends Picker {
 
     /**
      * Triggered after the value config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
      * @param {Boolean} [preventFilter=false]
      * @protected
      */
