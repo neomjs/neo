@@ -77,7 +77,7 @@ class Color extends Select {
      * @returns {String}
      */
     getColorIndicatorId() {
-        return this.id + '__color-indicator'
+        return `${this.id}__color-indicator`;
     }
 }
 
