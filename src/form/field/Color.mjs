@@ -65,7 +65,9 @@ class Color extends Select {
             colorIndicator = VDomUtil.findVdomChild(vdom, {id: me.getColorIndicatorId()})?.vdom,
             record         = me.store.get(value);
 
-        colorIndicator?.style.backgroundColor = record ? record[me.displayField] : value;
+        if (colorIndicator) {
+            colorIndicator.style.backgroundColor = record ? record[me.displayField] : value;
+        }
 
         super.afterSetValue(value, oldValue, preventFilter);
     }
