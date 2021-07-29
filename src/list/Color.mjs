@@ -42,7 +42,7 @@ class Color extends Base {
 
         return [{
             tag  : 'i',
-            cls  : ['neo-icon', 'fas', 'fa-check-square', `fa-${isSelected ? 'check-' : ''}square`],
+            cls  : ['neo-icon', 'fas', `fa-${isSelected ? 'check-' : ''}square`],
             id   : me.getListItemIconId(id),
             style: {
                 color: record[me.displayField]
