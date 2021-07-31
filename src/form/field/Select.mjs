@@ -203,9 +203,15 @@ class Select extends Picker {
      * @protected
      */
     beforeSetValue(value, oldValue) {
-        let me = this;
+        let me           = this,
+            displayField = me.displayField;
 
-        me.record = me.store.find(me.displayField, value)[0] || null;
+        if (Neo.isObject(value)) {
+            me.record = value;
+            return value[displayField];
+        }
+
+        me.record = me.store.find(displayField, value)[0] || null;
 
         return value;
     }
