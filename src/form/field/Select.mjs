@@ -159,7 +159,11 @@ class Select extends Picker {
      * @protected
      */
     afterSetValue(value, oldValue, preventFilter=false) {
+        let list = this.list;
+
+        list && (list.silentVdomUpdate = true);
         !preventFilter && this.updateValue(true);
+        list && (list.silentVdomUpdate = false);
 
         super.afterSetValue(value, oldValue);
     }
@@ -238,7 +242,7 @@ class Select extends Picker {
         Neo.main.DomAccess.focus({
             id: me.getInputElId()
         }).then(() => {
-            callback && callback.apply(me);
+            callback?.apply(me);
         });
     }
 
