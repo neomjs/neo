@@ -1271,6 +1271,11 @@ class Base extends CoreBase {
             me._vdom = vdom;
         }
 
+        if (me.silentVdomUpdate) {
+            me._vdom = vdom;
+            return Promise.resolve();
+        }
+
         return new Promise((resolve, reject) => {
             if (me.mounted) {
                 me.updateVdom(vdom, vnode, resolve, reject);
