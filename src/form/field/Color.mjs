@@ -62,10 +62,21 @@ class Color extends Select {
      */
     afterSetValue(value, oldValue, preventFilter=false) {
         let me             = this,
-            colorIndicator = VDomUtil.findVdomChild(me.vdom, {id: me.getColorIndicatorId()})?.vdom;
+            colorIndicator = VDomUtil.findVdomChild(me.vdom, {id: me.getColorIndicatorId()})?.vdom,
+            list           = me.list,
+            record         = me.record,
+            selectionModel = me.list?.selectionModel;
 
         if (colorIndicator) {
             colorIndicator.style.backgroundColor = me.getColor();
+        }
+
+        if (record) {
+            list.silentSelect = true;
+            selectionModel?.select(list.getItemId(record[me.store.keyProperty]));
+            list.silentSelect = false;
+        } else {
+            selectionModel?.deselectAll(true);
         }
 
         // the super call will trigger the vdom update

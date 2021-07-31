@@ -80,7 +80,8 @@ class Color extends Base {
         let me = this;
 
         me.createItems(me.silentSelectUpdate);
-        me.focus(items[0]);
+
+        !me.silentSelect && me.focus(items[0]);
     }
 }
 
