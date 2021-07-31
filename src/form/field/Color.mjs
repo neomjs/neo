@@ -87,8 +87,8 @@ class Color extends Select {
      */
     getColor() {
         let me     = this,
-            value  = me.value,
-            record = me.record;
+            record = me.record,
+            value  = me.value;
 
         return record ? record[me.displayField] : value || null;
     }
