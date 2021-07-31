@@ -114,8 +114,8 @@ class Select extends Picker {
             createItems       : me.onListCreateItems,
             itemClick         : me.onListItemClick,
             itemNavigate      : me.onListItemNavigate,
-            selectPostLastItem: me.focusInputEl,
-            selectPreFirstItem: me.focusInputEl,
+            selectPostLastItem: me.onSelectPostLastItem,
+            selectPreFirstItem: me.onSelectPreFirstItem,
             scope             : me
         });
 
@@ -398,6 +398,20 @@ class Select extends Picker {
                 value : record[me.store.keyProperty]
             });
         }
+    }
+
+    /**
+     * @protected
+     */
+    onSelectPostLastItem() {
+        this.focusInputEl();
+    }
+
+    /**
+     * @protected
+     */
+    onSelectPreFirstItem() {
+        this.focusInputEl();
     }
 
     /**
