@@ -235,9 +235,16 @@ class MainContainerController extends ComponentController {
         let component  = data.component,
             store      = component.store,
             value      = data.value,
-            record     = value && store.find('country', value)?.[0];
+            record;
 
         if (store.getCount() > 0) {
+            if (Neo.isObject(value)) {
+                record = value;
+                value  = value[component.displayField];
+            } else {
+                record = value && store.find('country', value)?.[0];
+            }
+
             this.getModel().setData({
                 country      : value,
                 countryRecord: record || null
