@@ -159,9 +159,9 @@ class Select extends Picker {
      * @protected
      */
     afterSetValue(value, oldValue, preventFilter=false) {
-        super.afterSetValue(value, oldValue);
+        !preventFilter && this.updateValue(true);
 
-        !preventFilter && this.updateValue();
+        super.afterSetValue(value, oldValue);
     }
 
     /**
@@ -492,9 +492,10 @@ class Select extends Picker {
     }
 
     /**
+     * @param {Boolean} [silent=false]
      * @protected
      */
-    updateValue() {
+    updateValue(silent=false) {
         let me    = this,
             store = me.store,
             filter;
@@ -508,7 +509,7 @@ class Select extends Picker {
         }
 
         if (me.typeAhead && !me.picker?.containsFocus) {
-            me.updateTypeAheadValue();
+            me.updateTypeAheadValue(silent);
         }
     }
 }
