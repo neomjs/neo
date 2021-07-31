@@ -387,6 +387,7 @@ class Select extends Picker {
 
         if (me.value !== value) {
             me.hintRecordId = null;
+            me.record       = record;
             me._value       = value;
             me.getInputHintEl().value = null;
 

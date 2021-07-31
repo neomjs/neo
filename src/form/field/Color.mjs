@@ -72,9 +72,7 @@ class Color extends Select {
         }
 
         if (record) {
-            list.silentSelect = true;
             selectionModel?.select(list.getItemId(record[me.store.keyProperty]));
-            list.silentSelect = false;
         } else {
             selectionModel?.deselectAll(true);
         }
