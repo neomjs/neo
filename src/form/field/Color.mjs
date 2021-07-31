@@ -104,12 +104,22 @@ class Color extends Select {
     /**
      * @protected
      */
+    onSelectPostLastItem() {
+        let list  = this.list,
+            index = list.store.getCount() - 1;
+
+        list.vdom.cn[index] = list.createItem(list.store.getAt(index), index);
+
+        super.onSelectPostLastItem();
+    }
+
+    /**
+     * @protected
+     */
     onSelectPreFirstItem() {
         let list = this.list;
 
-        if (list) {
-            list.vdom.cn[0] = list.createItem(list.store.getAt(0), 0);
-        }
+        list.vdom.cn[0] = list.createItem(list.store.getAt(0), 0);
 
         super.onSelectPreFirstItem();
     }
