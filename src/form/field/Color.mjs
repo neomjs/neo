@@ -100,6 +100,19 @@ class Color extends Select {
     getColorIndicatorId() {
         return `${this.id}__color-indicator`;
     }
+
+    /**
+     * @protected
+     */
+    onSelectPreFirstItem() {
+        let list = this.list;
+
+        if (list) {
+            list.vdom.cn[0] = list.createItem(list.store.getAt(0), 0);
+        }
+
+        super.onSelectPreFirstItem();
+    }
 }
 
 Neo.applyClassConfig(Color);
