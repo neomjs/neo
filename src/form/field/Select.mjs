@@ -70,6 +70,11 @@ class Select extends Picker {
          */
         pickerHeight: null,
         /**
+         * @member {Object} record=null
+         * @protected
+         */
+        record: null,
+        /**
          * @member {Neo.data.Store|null} store_=null
          */
         store_: null,
@@ -169,6 +174,15 @@ class Select extends Picker {
     }
 
     /**
+     * Gets triggered before getting the value of the value config
+     * @param {Number|String|null} value
+     * @returns {Number|Object|String}
+     */
+    beforeGetValue(value) {
+        return this.record || value;
+    }
+
+    /**
      * Triggered before the store config gets changed.
      * @param {Object|Neo.data.Store|null} value
      * @param {Neo.data.Store} oldValue
@@ -189,12 +203,9 @@ class Select extends Picker {
      * @protected
      */
     beforeSetValue(value, oldValue) {
-        let me     = this,
-            record = me.store.get(value);
+        let me = this;
 
-        if (record) {
-            return record[me.displayField];
-        }
+        me.record = me.store.find(me.displayField, value)[0] || null;
 
         return value;
     }
@@ -214,17 +225,14 @@ class Select extends Picker {
      * @override
      */
     fireChangeEvent(value, oldValue) {
-        let me           = this,
-            displayField = me.displayField,
-            store        = me.store,
-            keyProperty  = store.keyProperty,
-            record       = store.find(displayField, value)[0];
+        let me     = this,
+            record = me.record;
 
         if (!(me.forceSelection && !record)) {
             me.fire('change', {
                 component: me,
-                oldValue : store.find(displayField, oldValue)[0]?.[keyProperty] || oldValue,
-                value    : record?.[keyProperty] || value
+                oldValue : me.store.get(oldValue) ? oldValue : null,
+                value    : record || value
             });
         }
     }
@@ -461,7 +469,7 @@ class Select extends Picker {
      * @param {Boolean} [silent=false]
      * @protected
      */
-    updateTypeAheadValue(value=this.value, silent=false) {
+    updateTypeAheadValue(value=this._value, silent=false) {
         let me          = this,
             hasMatch    = false,
             store       = me.store,
@@ -471,7 +479,7 @@ class Select extends Picker {
             inputHintEl = me.getInputHintEl(),
             storeValue;
 
-        if (value && value.length > 0) {
+        if (!me.record && value && value.length > 0) {
             for (; i < len; i++) {
                 storeValue = store.items[i][me.displayField];
 
@@ -500,15 +508,18 @@ class Select extends Picker {
      * @protected
      */
     updateValue(silent=false) {
-        let me    = this,
-            store = me.store,
+        let me           = this,
+            displayField = me.displayField,
+            store        = me.store,
+            value        = me._value,
+            record       = me.record,
             filter;
 
         if (store && !Neo.isEmpty(store.filters)) {
-            filter = store.getFilter(me.displayField);
+            filter = store.getFilter(displayField);
 
             if (filter) {
-                filter.value = me.value;
+                filter.value = record ? record[displayField] : value;
             }
         }
 
