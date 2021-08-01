@@ -204,14 +204,23 @@ class Select extends Picker {
      */
     beforeSetValue(value, oldValue) {
         let me           = this,
-            displayField = me.displayField;
+            displayField = me.displayField,
+            store        = me.store,
+            record;
 
         if (Neo.isObject(value)) {
             me.record = value;
             return value[displayField];
+        } else {
+            record = store.isFiltered() ? store.allItems.get(value) : store.get(value);
+
+            if (record) {
+                me.record = record;
+                return record[me.displayField];
+            }
         }
 
-        me.record = me.store.find(displayField, value)[0] || null;
+        me.record = store.find(displayField, value)[0] || null;
 
         return value;
     }
