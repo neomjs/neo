@@ -128,11 +128,9 @@ class MainContainer extends ConfigurationViewport {
             labelPosition: 'inline',
             labelText    : 'Colors',
             labelWidth   : 55,
-            width        : 200,
-
-            store: {
-                module: MainStore
-            }
+            store        : MainStore,
+            triggerAction: 'all',
+            width        : 200
         });
     }
 }

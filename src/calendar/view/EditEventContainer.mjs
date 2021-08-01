@@ -150,6 +150,7 @@ class EditEventContainer extends FormContainer {
                 listeners     : {change: me.onCalendarFieldChange, scope: me},
                 name          : 'calendarId',
                 required      : true,
+                triggerAction : 'all',
                 value         : record.calendarId,
 
                 store: {

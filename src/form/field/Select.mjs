@@ -415,7 +415,7 @@ class Select extends Picker {
         let me = this;
 
         if (me.triggerAction === 'all' && !me.pickerIsMounted) {
-            // todo
+            console.log('remove filter');
         }
 
         super.onPickerTriggerClick();
