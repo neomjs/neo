@@ -95,7 +95,7 @@ class Color extends Select {
             record = me.record,
             value  = me.value;
 
-        return record ? record[me.colorField] : value || null;
+        return record ? record[me.colorField] : me.forceSelection ? null : value;
     }
 
     /**

@@ -142,6 +142,7 @@ class EditEventContainer extends FormContainer {
                 ...me.titleFieldConfig
             }, {
                 module        : ColorField,
+                colorField    : 'color',
                 displayField  : 'name',
                 flex          : 'none',
                 forceSelection: true,
