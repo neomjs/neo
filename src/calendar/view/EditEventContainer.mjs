@@ -1,8 +1,8 @@
 import Button        from '../../button/Base.mjs';
 import CalendarStore from '../store/Calendars.mjs';
+import ColorField    from '../../form/field/Color.mjs';
 import DateUtil      from '../../util/Date.mjs';
 import FormContainer from '../../form/Container.mjs';
-import SelectField   from '../../form/field/Select.mjs';
 import TextField     from '../../form/field/Text.mjs';
 import TimeField     from '../../form/field/Time.mjs';
 
@@ -141,7 +141,7 @@ class EditEventContainer extends FormContainer {
                 value               : record.title,
                 ...me.titleFieldConfig
             }, {
-                module        : SelectField,
+                module        : ColorField,
                 displayField  : 'name',
                 flex          : 'none',
                 forceSelection: true,

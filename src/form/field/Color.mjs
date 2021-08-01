@@ -23,6 +23,11 @@ class Color extends Select {
          */
         cls: ['neo-colorfield', 'neo-selectfield', 'neo-pickerfield', 'neo-textfield'],
         /**
+         * The data.Model field which contains the color value
+         * @member {String} colorField='name'
+         */
+        colorField: 'name',
+        /**
          * @member {Object|null} listConfig={module:ColorList,silentSelectUpdate:true}
          */
         listConfig: {
@@ -90,7 +95,7 @@ class Color extends Select {
             record = me.record,
             value  = me.value;
 
-        return record ? record[me.displayField] : value || null;
+        return record ? record[me.colorField] : value || null;
     }
 
     /**
