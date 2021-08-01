@@ -304,7 +304,7 @@ class Base {
 
             items.forEach(item => {
                 Object.entries(item).forEach(([key, value]) => {
-                    if (Array.isArray(key)) {
+                    if (Array.isArray(value)) {
                         me.parseItemConfigs(value);
                     } else if (typeof value === 'string' && value.startsWith('@config:')) {
                         value = value.substr(8).trim();
