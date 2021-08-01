@@ -31,7 +31,13 @@ class Color extends Base {
          * The data.Model field which contains the color value
          * @member {String} colorField='name'
          */
-        colorField: 'name'
+        colorField: 'name',
+        /**
+         * Override the formatter to apply a custom background-color styling.
+         * E.g. using CSS vars for different themes
+         * @member {Function} colorField=(scope,data)=>data[scope.colorField]
+         */
+        colorFormatter: (scope,data) => data[scope.colorField]
     }}
 
     /**
@@ -50,7 +56,7 @@ class Color extends Base {
             cls  : ['neo-icon', 'fas', `fa-${isSelected ? 'check-' : ''}square`],
             id   : me.getListItemIconId(id),
             style: {
-                color: record[me.colorField]
+                color: me.colorFormatter(me, record)
             }
         }, {
             vtype: 'text',

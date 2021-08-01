@@ -28,11 +28,18 @@ class Color extends Select {
          */
         colorField: 'name',
         /**
+         * Override the formatter to apply a custom background-color styling.
+         * E.g. using CSS vars for different themes
+         * @member {Function} colorField=(scope,data)=>data[scope.colorField]
+         */
+        colorFormatter: (scope,data) => data[scope.colorField],
+        /**
          * @member {Object|null} listConfig
          */
         listConfig: {
             module            : ColorList,
             colorField        : '@config:colorField',
+            colorFormatter    : '@config:colorFormatter',
             silentSelectUpdate: true
         }
     }}
@@ -96,7 +103,7 @@ class Color extends Select {
             record = me.record,
             value  = me.value;
 
-        return record ? record[me.colorField] : me.forceSelection ? null : value;
+        return record ? me.colorFormatter(me, record) : me.forceSelection ? null : value;
     }
 
     /**

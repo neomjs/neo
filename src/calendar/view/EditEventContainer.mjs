@@ -141,18 +141,29 @@ class EditEventContainer extends FormContainer {
                 value               : record.title,
                 ...me.titleFieldConfig
             }, {
-                module        : ColorField,
-                colorField    : 'color',
-                displayField  : 'name',
-                flex          : 'none',
-                forceSelection: true,
-                labelPosition : 'inline',
-                labelText     : 'Calendar',
-                listeners     : {change: me.onCalendarFieldChange, scope: me},
-                name          : 'calendarId',
-                required      : true,
-                triggerAction : 'all',
-                value         : record.calendarId,
+                module              : ColorField,
+                clearToOriginalValue: true,
+                colorField          : 'color',
+                displayField        : 'name',
+                flex                : 'none',
+                forceSelection      : true,
+                labelPosition       : 'inline',
+                labelText           : 'Calendar',
+                listeners           : {change: me.onCalendarFieldChange, scope: me},
+                name                : 'calendarId',
+                required            : true,
+                triggerAction       : 'all',
+                value               : record.calendarId,
+
+                colorFormatter: (scope,data) => {
+                    let value = data[scope.colorField];
+
+                    if (value === 'yellow') {
+                        return 'var(--event-yellow-border-color)';
+                    }
+
+                    return `var(--event-${value}-color)`;
+                },
 
                 store: {
                     module  : CalendarStore,
