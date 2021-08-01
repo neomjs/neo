@@ -554,7 +554,7 @@ class Select extends Picker {
      * @param {Boolean} [silent=false]
      * @protected
      */
-    updateTypeAheadValue(value=this._value, silent=false) {
+    updateTypeAheadValue(value=this.value, silent=false) {
         let me          = this,
             hasMatch    = false,
             store       = me.store,
@@ -609,7 +609,7 @@ class Select extends Picker {
         }
 
         if (me.typeAhead && !me.picker?.containsFocus) {
-            me.updateTypeAheadValue(silent);
+            me.updateTypeAheadValue(value, silent);
         }
     }
 }
