@@ -28,7 +28,7 @@ class Color extends Select {
          */
         colorField: 'name',
         /**
-         * @member {Object|null} listConfig={module:ColorList,silentSelectUpdate:true}
+         * @member {Object|null} listConfig
          */
         listConfig: {
             module            : ColorList,
