@@ -13,7 +13,7 @@ class Colors extends Store {
          */
         className: 'Neo.calendar.store.Colors',
         /**
-         * @member {Object[]} data=
+         * @member {Object[]} data
          */
         data: [
             {id: 1, name: 'red'},

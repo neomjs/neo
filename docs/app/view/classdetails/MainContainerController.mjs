@@ -2,7 +2,7 @@ import Component           from '../../../../src/controller/Component.mjs';
 import SourceViewComponent from "./SourceViewComponent.mjs";
 
 /**
- * @class Docs.view.MainContainerController
+ * @class Docs.view.classdetails.MainContainerController
  * @extends Neo.controller.Component
  */
 class MainContainerController extends Component {
@@ -11,12 +11,7 @@ class MainContainerController extends Component {
          * @member {String} className='Docs.view.classdetails.MainContainerController'
          * @protected
          */
-        className: 'Docs.view.classdetails.MainContainerController',
-        /**
-         * @member {String} ntype='docs-classdetails-maincontainer-controller'
-         * @protected
-         */
-        ntype: 'docs-classdetails-maincontainer-controller'
+        className: 'Docs.view.classdetails.MainContainerController'
     }}
 
     /**
@@ -93,7 +88,7 @@ class MainContainerController extends Component {
 
         Neo.main.addon.HighlightJS.scrollIntoView({
             text   : button.reference.substr(4),
-            vnodeId: me.view.vdom.id
+            vnodeId: me.component.vdom.id
         });
     }
 

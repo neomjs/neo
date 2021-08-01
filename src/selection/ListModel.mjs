@@ -95,6 +95,7 @@ class ListModel extends Model {
                     index = maxItems - 1;
                 } else {
                     preventSelection = true;
+                    me.deselectAll();
                     view.fire('selectPreFirstItem');
                 }
             } else if (index >= maxItems) {
@@ -102,6 +103,7 @@ class ListModel extends Model {
                     index = 0;
                 } else {
                     preventSelection = true;
+                    me.deselectAll();
                     view.fire('selectPostLastItem');
                 }
             }
@@ -116,8 +118,6 @@ class ListModel extends Model {
             me.select(itemId);
             view.focus(itemId);
             view.fire('itemNavigate', record);
-        } else {
-            me.deselectAll();
         }
     }
 

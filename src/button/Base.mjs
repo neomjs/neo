@@ -9,7 +9,7 @@ class Base extends Component {
     static getStaticConfig() {return {
         /**
          * Valid values for iconPosition
-         * @member {String[]} iconPositions=['top', 'right', 'bottom', 'left']
+         * @member {String[]} iconPositions=['top','right','bottom','left']
          * @protected
          * @static
          */

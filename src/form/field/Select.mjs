@@ -10,6 +10,16 @@ import VDomUtil        from '../../util/VDom.mjs';
  * @extends Neo.form.field.Picker
  */
 class Select extends Picker {
+    static getStaticConfig() {return {
+        /**
+         * Valid values for triggerAction
+         * @member {String[]} triggerActions=['all','filtered']
+         * @protected
+         * @static
+         */
+        triggerActions: ['all', 'filtered']
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.Select'
@@ -61,18 +71,30 @@ class Select extends Picker {
          */
         list: null,
         /**
-         * @member {Object|null} listConfig=null
+         * @member {Object|null} listConfig_=null
          */
-        listConfig: null,
+        listConfig_: null,
         /**
          * The height of the picker container. Defaults to px.
          * @member {Number|null} pickerHeight=null
          */
         pickerHeight: null,
         /**
+         * @member {Object} record=null
+         * @protected
+         */
+        record: null,
+        /**
          * @member {Neo.data.Store|null} store_=null
          */
         store_: null,
+        /**
+         * Showing the list via the down trigger can either show all list items or only show items which
+         * match the filter string inside the input field.
+         * Valid values: all, filtered
+         * @member {String} triggerAction_='filtered'
+         */
+        triggerAction_: 'filtered',
         /**
          * Display the first matching result while typing
          * @member {Boolean} typeAhead_=true
@@ -81,7 +103,6 @@ class Select extends Picker {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -109,8 +130,8 @@ class Select extends Picker {
             createItems       : me.onListCreateItems,
             itemClick         : me.onListItemClick,
             itemNavigate      : me.onListItemNavigate,
-            selectPostLastItem: me.focusInputEl,
-            selectPreFirstItem: me.focusInputEl,
+            selectPostLastItem: me.onSelectPostLastItem,
+            selectPreFirstItem: me.onSelectPreFirstItem,
             scope             : me
         });
 
@@ -153,15 +174,40 @@ class Select extends Picker {
 
     /**
      * Triggered after the value config got changed
-     * @param {String|null} value
-     * @param {String|null} oldValue
+     * @param {Number|String|null} value
+     * @param {Number|String|null} oldValue
      * @param {Boolean} [preventFilter=false]
      * @protected
      */
     afterSetValue(value, oldValue, preventFilter=false) {
-        super.afterSetValue(value, oldValue);
+        let list = this.list;
 
-        !preventFilter && this.updateValue();
+        list && (list.silentVdomUpdate = true);
+        !preventFilter && this.updateValue(true);
+        list && (list.silentVdomUpdate = false);
+
+        super.afterSetValue(value, oldValue);
+    }
+
+    /**
+     * Gets triggered before getting the value of the value config
+     * @param {Number|String|null} value
+     * @returns {Number|Object|String}
+     */
+    beforeGetValue(value) {
+        return this.record || value;
+    }
+
+    /**
+     * Triggered before the listConfig config gets changed.
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @returns {Object}
+     * @protected
+     */
+    beforeSetListConfig(value, oldValue) {
+        value && this.parseItemConfigs(value);
+        return value;
     }
 
     /**
@@ -178,6 +224,16 @@ class Select extends Picker {
     }
 
     /**
+     * Triggered before the triggerAction config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetTriggerAction(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'triggerAction');
+    }
+
+    /**
      * Triggered before the value config gets changed.
      * @param {Number|String|null} value
      * @param {Number|String|null} oldValue
@@ -185,18 +241,29 @@ class Select extends Picker {
      * @protected
      */
     beforeSetValue(value, oldValue) {
-        let me     = this,
-            record = me.store.get(value);
+        let me           = this,
+            displayField = me.displayField,
+            store        = me.store,
+            record;
 
-        if (record) {
-            return record[me.displayField];
+        if (Neo.isObject(value)) {
+            me.record = value;
+            return value[displayField];
+        } else {
+            record = store.isFiltered() ? store.allItems.get(value) : store.get(value);
+
+            if (record) {
+                me.record = record;
+                return record[me.displayField];
+            }
         }
+
+        me.record = store.find(displayField, value)[0] || null;
 
         return value;
     }
 
     /**
-     *
      * @returns {Neo.list.Base}
      */
     createPickerComponent() {
@@ -210,35 +277,32 @@ class Select extends Picker {
      * @override
      */
     fireChangeEvent(value, oldValue) {
-        let me           = this,
-            displayField = me.displayField,
-            store        = me.store,
-            keyProperty  = store.keyProperty,
-            record       = store.find(displayField, value)[0];
+        let me     = this,
+            record = me.record;
 
         if (!(me.forceSelection && !record)) {
             me.fire('change', {
                 component: me,
-                oldValue : store.find(displayField, oldValue)[0]?.[keyProperty] || oldValue,
-                value    : record?.[keyProperty] || value
+                oldValue : me.store.get(oldValue) ? oldValue : null,
+                value    : record || value
             });
         }
     }
 
     /**
-     *
      * @param {Function} [callback]
      */
     focusInputEl(callback) {
-        let me = this;
+        let me              = this,
+            lastManualInput = me.lastManualInput;
 
-        me.updateTypeAheadValue(me.lastManualInput, true);
-        me.value = me.lastManualInput;
+        me.updateTypeAheadValue(lastManualInput, true);
+        me.value = lastManualInput;
 
         Neo.main.DomAccess.focus({
             id: me.getInputElId()
         }).then(() => {
-            callback && callback.apply(me);
+            callback?.apply(me);
         });
     }
 
@@ -252,7 +316,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @returns {String}
      */
     getInputHintId() {
@@ -287,6 +350,22 @@ class Select extends Picker {
     }
 
     /**
+     *
+     * @param {Object} data
+     * @param {Object[]} data.oldPath
+     * @protected
+     */
+    onFocusLeave(data) {
+        let me = this;
+
+        if (me.forceSelection && !me.record) {
+            me.value = me.hintRecordId;
+        }
+
+        super.onFocusLeave(data);
+    }
+
+    /**
      * @param {Object} data
      * @protected
      */
@@ -296,7 +375,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */
@@ -305,7 +383,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */
@@ -321,7 +398,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */
@@ -334,7 +410,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */
@@ -358,7 +433,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @param {Object} record
      * @protected
      */
@@ -369,6 +443,7 @@ class Select extends Picker {
 
         if (me.value !== value) {
             me.hintRecordId = null;
+            me.record       = record;
             me._value       = value;
             me.getInputHintEl().value = null;
 
@@ -382,7 +457,41 @@ class Select extends Picker {
     }
 
     /**
-     *
+     * Called by form.field.trigger.Picker
+     * @protected
+     */
+    onPickerTriggerClick() {
+        let me = this,
+            filter;
+
+        if (me.triggerAction === 'all' && !me.pickerIsMounted) {
+            filter = me.store.getFilter(me.displayField);
+
+            if (filter) {
+                filter.value = null;
+            }
+        }
+
+        super.onPickerTriggerClick();
+    }
+
+    /**
+     * @protected
+     */
+    onSelectPostLastItem() {
+        this.record = null;
+        this.focusInputEl();
+    }
+
+    /**
+     * @protected
+     */
+    onSelectPreFirstItem() {
+        this.record = null;
+        this.focusInputEl();
+    }
+
+    /**
      * @param {Object} record
      * @protected
      */
@@ -467,7 +576,7 @@ class Select extends Picker {
             inputHintEl = me.getInputHintEl(),
             storeValue;
 
-        if (value && value.length > 0) {
+        if (!me.record && value && value.length > 0) {
             for (; i < len; i++) {
                 storeValue = store.items[i][me.displayField];
 
@@ -492,23 +601,27 @@ class Select extends Picker {
     }
 
     /**
+     * @param {Boolean} [silent=false]
      * @protected
      */
-    updateValue() {
-        let me    = this,
-            store = me.store,
+    updateValue(silent=false) {
+        let me           = this,
+            displayField = me.displayField,
+            store        = me.store,
+            value        = me._value,
+            record       = me.record,
             filter;
 
         if (store && !Neo.isEmpty(store.filters)) {
-            filter = store.getFilter(me.displayField);
+            filter = store.getFilter(displayField);
 
             if (filter) {
-                filter.value = me.value;
+                filter.value = record?.[displayField] || value;
             }
         }
 
         if (me.typeAhead && !me.picker?.containsFocus) {
-            me.updateTypeAheadValue();
+            me.updateTypeAheadValue(value, silent);
         }
     }
 }

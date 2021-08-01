@@ -457,30 +457,6 @@ class Base extends Component {
 
     /**
      *
-     * @param {Object[]} items
-     */
-    parseItemConfigs(items) {
-        let me = this;
-
-        items.forEach(item => {
-            Object.entries(item).forEach(([key, value]) => {
-                if (key === 'items') {
-                    me.parseItemConfigs(value);
-                } else if (typeof value === 'string' && value.startsWith('@config:')) {
-                    value = value.substr(8);
-
-                    if (!me.hasOwnProperty(value)) {
-                        Logger.logError('The used @config does not exist:', value, me);
-                    } else {
-                        item[key] = me[value];
-                    }
-                }
-            });
-        });
-    }
-
-    /**
-     *
      * @param {Object|String} config
      * @protected
      * @returns {Object} layoutConfig

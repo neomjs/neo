@@ -201,7 +201,7 @@ class Picker extends Text {
 
     /**
      *
-     * @param {Array} data
+     * @param {Object} data
      * @protected
      */
     onFocusLeave(data) {

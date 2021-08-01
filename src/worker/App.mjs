@@ -136,9 +136,7 @@ class App extends Base {
                     className = className.split('.');
                     className.shift();
 
-                    if (className[0] === 'view') {
-                        className.shift();
-                    }
+                    className[0] === 'view' && className.shift();
 
                     mapClassName = `apps.${Neo.apps[appName].appThemeFolder || lAppName}.${className.join('.')}`;
                     className    = `apps.${lAppName}.${className.join('.')}`;

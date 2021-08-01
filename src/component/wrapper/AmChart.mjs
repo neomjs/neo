@@ -21,9 +21,9 @@ class AmChart extends Component {
         ntype: 'am-chart',
         /**
          * See: https://www.amcharts.com/docs/v4/
-         * @member {Object} chartConfig=null
+         * @member {Object} chartConfig_=null
          */
-        chartConfig: null,
+        chartConfig_: null,
         /**
          * @member {String} chartType='XYChart'
          */
@@ -100,7 +100,7 @@ class AmChart extends Component {
         super.afterSetMounted(value, oldValue);
 
         if (value) {
-            const opts = {
+            let opts = {
                 appName             : me.appName,
                 combineSeriesTooltip: me.combineSeriesTooltip,
                 config              : me.chartConfig,
@@ -118,6 +118,22 @@ class AmChart extends Component {
                 Neo.main.addon.AmCharts.create(opts).then(me.onChartMounted);
             }, 50);
         }
+    }
+
+    /**
+     * Triggered before the chartConfig config gets changed.
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @returns {Object}
+     * @protected
+     */
+    beforeSetChartConfig(value, oldValue) {
+        if (!value) {
+            console.error('wrapper.AmChart defined without a chartConfig', this.id);
+        }
+
+        this.parseItemConfigs(value);
+        return value;
     }
 
     /**
@@ -139,49 +155,6 @@ class AmChart extends Component {
      */
     onChartMounted() {
 
-    }
-
-    /**
-     *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        const me = this;
-
-        if (!me.chartConfig) {
-            Logger.logError('wrapper.AmChart defined without a chartConfig', me.id);
-        }
-
-        me.parseChartConfig(me.chartConfig);
-    }
-
-    /**
-     *
-     * @param {Array|Object} config
-     */
-    parseChartConfig(config) {
-        const me = this;
-
-        if (Neo.isArray(config)) {
-            config.forEach(item => {
-                me.parseChartConfig(item);
-            });
-        } else {
-            Object.entries(config).forEach(([key, value]) => {
-                if (Neo.isArray(value) || Neo.isObject(value)) {
-                    me.parseChartConfig(value);
-                } else if (Neo.isString(value) && value.startsWith('@config:')) {
-                    value = value.substr(8);
-
-                    if (!me[value]) {
-                        Logger.logError('The used @config does not exist:', value, me);
-                    } else {
-                        config[key] = me[value];
-                    }
-                }
-            });
-        }
     }
 }
 

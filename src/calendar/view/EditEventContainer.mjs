@@ -1,8 +1,8 @@
 import Button        from '../../button/Base.mjs';
 import CalendarStore from '../store/Calendars.mjs';
+import ColorField    from '../../form/field/Color.mjs';
 import DateUtil      from '../../util/Date.mjs';
 import FormContainer from '../../form/Container.mjs';
-import SelectField   from '../../form/field/Select.mjs';
 import TextField     from '../../form/field/Text.mjs';
 import TimeField     from '../../form/field/Time.mjs';
 
@@ -141,16 +141,29 @@ class EditEventContainer extends FormContainer {
                 value               : record.title,
                 ...me.titleFieldConfig
             }, {
-                module        : SelectField,
-                displayField  : 'name',
-                flex          : 'none',
-                forceSelection: true,
-                labelPosition : 'inline',
-                labelText     : 'Calendar',
-                listeners     : {change: me.onCalendarFieldChange, scope: me},
-                name          : 'calendarId',
-                required      : true,
-                value         : record.calendarId,
+                module              : ColorField,
+                clearToOriginalValue: true,
+                colorField          : 'color',
+                displayField        : 'name',
+                flex                : 'none',
+                forceSelection      : true,
+                labelPosition       : 'inline',
+                labelText           : 'Calendar',
+                listeners           : {change: me.onCalendarFieldChange, scope: me},
+                name                : 'calendarId',
+                required            : true,
+                triggerAction       : 'all',
+                value               : record.calendarId,
+
+                colorFormatter: (scope,data) => {
+                    let value = data[scope.colorField];
+
+                    if (value === 'yellow') {
+                        return 'var(--event-yellow-border-color)';
+                    }
+
+                    return `var(--event-${value}-color)`;
+                },
 
                 store: {
                     module  : CalendarStore,
@@ -219,7 +232,7 @@ class EditEventContainer extends FormContainer {
      */
     onCalendarFieldChange(data) {
         if (!Neo.isEmpty(data.value)) {
-            this.record.calendarId = data.value;
+            this.record.calendarId = data.value[data.component.store.keyProperty];
         }
     }
 

@@ -60,12 +60,11 @@ class Base extends CoreBase {
          * Bind configs to model.Component data properties.
          * Example for a button.Base:
          * @example
-         * {
-         *     bind: {
-         *         text: '${myDataProperty.foo.bar}'
-         *     }
+         * bind: {
+         *     iconCls: data => `fa fa-{$data.icon}`,
+         *     text   : data => data.foo.bar
          * }
-         * @see https://github.com/neomjs/neo/blob/dev/examples/model/inline/MainContainer.mjs
+         * @see https://github.com/neomjs/neo/blob/dev/examples/model
          * @member {Object|null} bind=null
          */
         bind: null,
@@ -1270,6 +1269,11 @@ class Base extends CoreBase {
             Object.assign(me._vdom, vdom);
         } else {
             me._vdom = vdom;
+        }
+
+        if (me.silentVdomUpdate) {
+            me._vdom = vdom;
+            return Promise.resolve();
         }
 
         return new Promise((resolve, reject) => {

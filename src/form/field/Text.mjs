@@ -148,11 +148,9 @@ class Text extends Base {
 
         super.afterSetAppName(value, oldValue);
 
-        if (value && me.triggers) {
-            me.triggers.forEach(item => {
-                item.appName = value;
-            });
-        }
+        value && me.triggers?.forEach(item => {
+            item.appName = value;
+        });
     }
 
     /**
@@ -202,8 +200,8 @@ class Text extends Base {
      */
     afterSetClearToOriginalValue(value, oldValue) {
         this.fire('changeClearToOriginalValue', {
-            oldValue: oldValue,
-            value   : value
+            oldValue,
+            value
         });
     }
 
@@ -357,9 +355,7 @@ class Text extends Base {
 
             me._vdom = vdom; // silent update
 
-            if (!me.hideLabel) {
-                me.updateInputWidth();
-            }
+            !me.hideLabel && me.updateInputWidth();
         }
     }
 
@@ -638,7 +634,7 @@ class Text extends Base {
      * @override
      */
     focus(id=this.id) {
-        super.focus(this.getInputEl().id);
+        super.focus(this.getInputElId());
     }
 
     /**
@@ -922,16 +918,14 @@ class Text extends Base {
     /**
      * Resets the field to its original value or null depending on the clearToOriginalValue config
      * You can optionally pass a new value, which will adjust the originalConfig.value if needed.
-     * @param {String|null} [value]
+     * @param {String|null} [value=null]
      */
-    reset(value) {
-        let me = this;
-
-        if (value && me.clearToOriginalValue) {
-            me.originalConfig.value = value;
+    reset(value=null) {
+        if (value && this.clearToOriginalValue) {
+            this.originalConfig.value = value;
         }
 
-        me.value = me.clearToOriginalValue ? me.originalConfig.value : null;
+        super.reset(value);
     }
 
     /**
@@ -942,20 +936,18 @@ class Text extends Base {
     updateCenterBorderElWidth(silent=false) {
         let me = this;
 
-        if (me.mounted) {
-            Neo.main.DomAccess.getBoundingClientRect({
-                id: me.getCenterBorderEl().id
-            }).then(data => {
-                me.centerBorderElWidth = Math.round(data.width * .7) + 8;
+        me.mounted && Neo.main.DomAccess.getBoundingClientRect({
+            id: me.getCenterBorderEl().id
+        }).then(data => {
+            me.centerBorderElWidth = Math.round(data.width * .7) + 8;
 
-                if (!silent) {
-                    let vdom = me.vdom;
+            if (!silent) {
+                let vdom = me.vdom;
 
-                    me.getCenterBorderEl().width = me.centerBorderElWidth;
-                    me.vdom = vdom;
-                }
-            });
-        }
+                me.getCenterBorderEl().width = me.centerBorderElWidth;
+                me.vdom = vdom;
+            }
+        });
     }
 
     /**
@@ -989,13 +981,11 @@ class Text extends Base {
         childNodes.forEach(vnode => {
             trigger = me.getTriggerById(vnode.id);
 
-            if (trigger) {
-                Object.assign(trigger, {
-                    vnode    : vnode,
-                    _rendered: true,
-                    _mounted : true
-                });
-            }
+            trigger && Object.assign(trigger, {
+                vnode,
+                _rendered: true,
+                _mounted : true
+            });
         });
     }
 }
