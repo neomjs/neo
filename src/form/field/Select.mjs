@@ -261,10 +261,11 @@ class Select extends Picker {
      * @param {Function} [callback]
      */
     focusInputEl(callback) {
-        let me = this;
+        let me              = this,
+            lastManualInput = me.lastManualInput;
 
-        me.updateTypeAheadValue(me.lastManualInput, true);
-        me.value = me.lastManualInput;
+        me.updateTypeAheadValue(lastManualInput, true);
+        me.value = lastManualInput;
 
         Neo.main.DomAccess.focus({
             id: me.getInputElId()
@@ -430,6 +431,7 @@ class Select extends Picker {
      * @protected
      */
     onSelectPostLastItem() {
+        this.record = null;
         this.focusInputEl();
     }
 
@@ -437,6 +439,7 @@ class Select extends Picker {
      * @protected
      */
     onSelectPreFirstItem() {
+        this.record = null;
         this.focusInputEl();
     }
 
