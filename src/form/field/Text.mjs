@@ -918,16 +918,16 @@ class Text extends Base {
     /**
      * Resets the field to its original value or null depending on the clearToOriginalValue config
      * You can optionally pass a new value, which will adjust the originalConfig.value if needed.
-     * @param {String|null} [value]
+     * @param {String|null} [value=null]
      */
-    reset(value) {
+    reset(value=null) {
         let me = this;
 
         if (value && me.clearToOriginalValue) {
             me.originalConfig.value = value;
         }
 
-        me.value = me.clearToOriginalValue ? me.originalConfig.value : null;
+        me.value = value;
     }
 
     /**
