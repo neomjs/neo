@@ -412,10 +412,15 @@ class Select extends Picker {
      * @protected
      */
     onPickerTriggerClick() {
-        let me = this;
+        let me = this,
+            filter;
 
         if (me.triggerAction === 'all' && !me.pickerIsMounted) {
-            console.log('remove filter');
+            filter = me.store.getFilter(me.displayField);
+
+            if (filter) {
+                filter.value = null;
+            }
         }
 
         super.onPickerTriggerClick();
@@ -560,7 +565,7 @@ class Select extends Picker {
             filter = store.getFilter(displayField);
 
             if (filter) {
-                filter.value = record ? record[displayField] : value;
+                filter.value = record?.[displayField] || value;
             }
         }
 
