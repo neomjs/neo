@@ -921,13 +921,11 @@ class Text extends Base {
      * @param {String|null} [value=null]
      */
     reset(value=null) {
-        let me = this;
-
-        if (value && me.clearToOriginalValue) {
-            me.originalConfig.value = value;
+        if (value && this.clearToOriginalValue) {
+            this.originalConfig.value = value;
         }
 
-        me.value = value;
+        super.reset(value);
     }
 
     /**

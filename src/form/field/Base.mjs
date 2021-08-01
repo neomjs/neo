@@ -65,10 +65,10 @@ class Base extends Component {
 
     /**
      * Resets the field to a new value or null
-     * @param {*} [value]
+     * @param {*} [value=null]
      */
     reset(value) {
-        this.value = value || null;
+        this.value = value;
     }
 }
 
