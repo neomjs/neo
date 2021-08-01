@@ -338,6 +338,22 @@ class Select extends Picker {
     }
 
     /**
+     *
+     * @param {Object} data
+     * @param {Object[]} data.oldPath
+     * @protected
+     */
+    onFocusLeave(data) {
+        let me = this;
+
+        if (me.forceSelection && !me.record) {
+            me.value = me.hintRecordId;
+        }
+
+        super.onFocusLeave(data);
+    }
+
+    /**
      * @param {Object} data
      * @protected
      */
