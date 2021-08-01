@@ -32,6 +32,7 @@ class Color extends Select {
          */
         listConfig: {
             module            : ColorList,
+            colorField        : '@config: colorField',
             silentSelectUpdate: true
         }
     }}

@@ -26,7 +26,12 @@ class Color extends Base {
         /**
          * @member {String[]} cls=['neo-color-list','neo-list']
          */
-        cls: ['neo-color-list', 'neo-list']
+        cls: ['neo-color-list', 'neo-list'],
+        /**
+         * The data.Model field which contains the color value
+         * @member {String} colorField='name'
+         */
+        colorField: 'name'
     }}
 
     /**
@@ -45,7 +50,7 @@ class Color extends Base {
             cls  : ['neo-icon', 'fas', `fa-${isSelected ? 'check-' : ''}square`],
             id   : me.getListItemIconId(id),
             style: {
-                color: record[me.displayField]
+                color: record[me.colorField]
             }
         }, {
             vtype: 'text',
