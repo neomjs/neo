@@ -212,6 +212,16 @@ class Select extends Picker {
     }
 
     /**
+     * Triggered before the triggerAction config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetTriggerAction(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'triggerAction');
+    }
+
+    /**
      * Triggered before the value config gets changed.
      * @param {Number|String|null} value
      * @param {Number|String|null} oldValue
