@@ -10,6 +10,16 @@ import VDomUtil        from '../../util/VDom.mjs';
  * @extends Neo.form.field.Picker
  */
 class Select extends Picker {
+    static getStaticConfig() {return {
+        /**
+         * Valid values for triggerAction
+         * @member {String[]} triggerActions=['all','filtered']
+         * @protected
+         * @static
+         */
+        triggerActions: ['all', 'filtered']
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.form.field.Select'
