@@ -290,6 +290,39 @@ class Base {
     onConstructed() {}
 
     /**
+     * Helper method to replace string based values containing "@config:" with the matching config value
+     * of this instance.
+     * @param {Object|Object[]} items
+     */
+    parseItemConfigs(items) {
+        let me = this;
+
+        if (items) {
+            if (!Array.isArray(items)) {
+                items = [items];
+            }
+
+            items.forEach(item => {
+                Object.entries(item).forEach(([key, value]) => {
+                    if (Array.isArray(key)) {
+                        me.parseItemConfigs(value);
+                    } else if (typeof value === 'string' && value.startsWith('@config:')) {
+                        value = value.substr(8).trim();
+
+                        if (!me[value] && !me.hasOwnProperty(value)) {
+                            console.error('The used @config does not exist:', value, me);
+                        } else {
+                            // The config might not be processed yet, especially for configs
+                            // not ending with an underscore, so we need to check the configSymbol first.
+                            item[key] = me[configSymbol][value] || me[value];
+                        }
+                    }
+                });
+            });
+        }
+    }
+
+    /**
      * When using set(), configs without a trailing underscore can already be assigned,
      * so the hasOwnProperty() check will return true
      * @param {Boolean} [forceAssign=false]

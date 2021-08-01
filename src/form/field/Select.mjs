@@ -71,9 +71,9 @@ class Select extends Picker {
          */
         list: null,
         /**
-         * @member {Object|null} listConfig=null
+         * @member {Object|null} listConfig_=null
          */
-        listConfig: null,
+        listConfig_: null,
         /**
          * The height of the picker container. Defaults to px.
          * @member {Number|null} pickerHeight=null
@@ -196,6 +196,18 @@ class Select extends Picker {
      */
     beforeGetValue(value) {
         return this.record || value;
+    }
+
+    /**
+     * Triggered before the listConfig config gets changed.
+     * @param {Object} value
+     * @param {Object} oldValue
+     * @returns {Object}
+     * @protected
+     */
+    beforeSetListConfig(value, oldValue) {
+        value && this.parseItemConfigs(value);
+        return value;
     }
 
     /**
