@@ -79,6 +79,13 @@ class Select extends Picker {
          */
         store_: null,
         /**
+         * Showing the list via the down trigger can either show all list items or only show items which
+         * match the filter string inside the input field.
+         * Valid values: all, filtered
+         * @member {String} triggerAction_='filtered'
+         */
+        triggerAction_: 'filtered',
+        /**
          * Display the first matching result while typing
          * @member {Boolean} typeAhead_=true
          */
@@ -86,7 +93,6 @@ class Select extends Picker {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -226,7 +232,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @returns {Neo.list.Base}
      */
     createPickerComponent() {
@@ -253,7 +258,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @param {Function} [callback]
      */
     focusInputEl(callback) {
@@ -279,7 +283,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @returns {String}
      */
     getInputHintId() {
@@ -323,7 +326,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */
@@ -332,7 +334,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */
@@ -348,7 +349,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */
@@ -361,7 +361,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */
@@ -385,7 +384,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @param {Object} record
      * @protected
      */
@@ -410,6 +408,20 @@ class Select extends Picker {
     }
 
     /**
+     * Called by form.field.trigger.Picker
+     * @protected
+     */
+    onPickerTriggerClick() {
+        let me = this;
+
+        if (me.triggerAction === 'all' && !me.pickerIsMounted) {
+            // todo
+        }
+
+        super.onPickerTriggerClick();
+    }
+
+    /**
      * @protected
      */
     onSelectPostLastItem() {
@@ -424,7 +436,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @param {Object} record
      * @protected
      */
