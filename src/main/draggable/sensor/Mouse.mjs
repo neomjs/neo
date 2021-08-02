@@ -94,6 +94,7 @@ class Mouse extends Base {
             let me     = this,
                 target = DomEvents.testPathInclusion(event, me.dragTargetClasses);
 
+            // see: https://github.com/neomjs/neo/issues/2669
             if (!event.path) {
                 event.path = event.composedPath();
             }
