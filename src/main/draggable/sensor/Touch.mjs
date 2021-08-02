@@ -185,6 +185,11 @@ class Touch extends Base {
         if (target) {
             const {pageX, pageY} = DomEvents.getTouchCoords(event);
 
+            // see: https://github.com/neomjs/neo/issues/2669
+            if (!event.path) {
+                event.path = event.composedPath();
+            }
+
             Object.assign(me, {
                 currentElement: target.node,
                 pageX         : pageX,

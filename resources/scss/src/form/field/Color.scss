@@ -12,6 +12,7 @@
     }
 
     .neo-color {
-        width: 1.7em;
+        transition: background-color .2s ease-out;
+        width     : 1.7em;
     }
 }

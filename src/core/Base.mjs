@@ -1,7 +1,7 @@
 import IdGenerator from './IdGenerator.mjs'
 
 const configSymbol       = Symbol.for('configSymbol'),
-      forceAssignConfigs = Symbol('processConfigMode'),
+      forceAssignConfigs = Symbol('forceAssignConfigs'),
       isInstance         = Symbol('isInstance');
 
 /**

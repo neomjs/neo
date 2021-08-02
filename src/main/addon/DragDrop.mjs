@@ -191,7 +191,7 @@ class DragDrop extends Base {
         if (event.detail.eventPath) {
             e.targetPath = event.detail.eventPath.map(e => DomEvents.getTargetData(e));
         } else {
-            e.targetPath = e.path || e.composedPath();
+            e.targetPath = e.path;
         }
 
         e.path = path.map(e => DomEvents.getTargetData(e));
