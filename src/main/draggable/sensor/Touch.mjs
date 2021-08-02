@@ -185,6 +185,10 @@ class Touch extends Base {
         if (target) {
             const {pageX, pageY} = DomEvents.getTouchCoords(event);
 
+            if (!event.path) {
+                event.path = event.composedPath();
+            }
+
             Object.assign(me, {
                 currentElement: target.node,
                 pageX         : pageX,

@@ -94,6 +94,10 @@ class Mouse extends Base {
             let me     = this,
                 target = DomEvents.testPathInclusion(event, me.dragTargetClasses);
 
+            if (!event.path) {
+                event.path = event.composedPath();
+            }
+
             if (target) {
                 Object.assign(me, {
                     currentElement: target.node,
