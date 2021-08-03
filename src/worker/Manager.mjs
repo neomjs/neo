@@ -5,6 +5,8 @@ import Message            from './Message.mjs';
 import Observable         from '../core/Observable.mjs';
 import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
 
+const env = Neo.config.environment;
+
 /**
  * The worker manager lives inside the main thread and creates the App, Data & VDom worker.
  * Also responsible for sending messages from the main thread to the different workers.
@@ -70,13 +72,13 @@ class Manager extends Base {
          */
         workers: {
             app: {
-                fileName: Neo.config.environment === 'development' ? 'App.mjs'  : 'appworker.js'
+                fileName: env === 'development' ? 'App.mjs'  : 'appworker.js'
             },
             data: {
-                fileName: Neo.config.environment === 'development' ? 'Data.mjs' : 'dataworker.js'
+                fileName: env === 'development' ? 'Data.mjs' : 'dataworker.js'
             },
             vdom: {
-                fileName: Neo.config.environment === 'development' ? 'VDom.mjs' : 'vdomworker.js'
+                fileName: env === 'development' ? 'VDom.mjs' : 'vdomworker.js'
             }
         }
     }}
@@ -129,12 +131,12 @@ class Manager extends Base {
               filePath = (opts.basePath || me.basePath) + fileName,
               name     = `neomjs-${fileName.substring(0, fileName.indexOf('.')).toLowerCase()}-worker`,
               isShared = me.sharedWorkersEnabled && Neo.config.useSharedWorkers,
-              worker   = Neo.config.environment !== 'development'  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
+              worker   = env !== 'development'  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
                   ? new (isShared ? SharedWorker : Worker)(filePath, {name: name})
                   : new (isShared ? SharedWorker : Worker)(filePath, {name: name, type: 'module'});
 
         (isShared ? worker.port : worker).onmessage = me.onWorkerMessage.bind(me);
-        (isShared ? worker.port : worker).onerror   = me.onWorkerError.bind(me);
+        (isShared ? worker.port : worker).onerror   = me.onWorkerError  .bind(me);
 
         return worker;
     }
@@ -234,7 +236,7 @@ class Manager extends Base {
      * @param {Object} e
      */
     onWorkerError(e) {
-        if (Neo.config.environment !== 'development') { // starting a worker from a JS module will show JS errors in a correct way
+        if (env !== 'development') { // starting a worker from a JS module will show JS errors in a correct way
             console.log('Worker Error:', e);
         }
     }
