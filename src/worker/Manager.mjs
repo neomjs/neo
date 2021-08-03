@@ -22,12 +22,12 @@ class Manager extends Base {
          */
         className: 'Neo.worker.Manager',
         /**
-         * @member {boolean} singleton=true
+         * @member {Boolean} singleton=true
          * @protected
          */
         singleton: true,
         /**
-         * @member {Array} appNames=[]
+         * @member {String[]} appNames=[]
          * @protected
          */
         appNames: [],
@@ -111,7 +111,7 @@ class Manager extends Base {
 
     /**
      * Sends a message to each worker defined inside the this.workers config.
-     * @param msg
+     * @param {String} msg
      */
     broadcast(msg) {
         Object.keys(this.workers).forEach(name => {
