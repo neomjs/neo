@@ -366,10 +366,11 @@ class Manager extends Base {
      * @protected
      */
     sendMessage(dest, opts, transfer) {
-        let me = this;
+        let me = this,
+            message, worker;
 
         if (!me.stopCommunication) {
-            let worker = me.getWorker(dest);
+            worker = me.getWorker(dest);
 
             if (!worker) {
                 throw new Error('Called sendMessage for a worker that does not exist: ' + dest);
@@ -377,7 +378,7 @@ class Manager extends Base {
 
             opts.destination = dest;
 
-            let message = new Message(opts);
+            message = new Message(opts);
 
             (me.sharedWorkersEnabled && Neo.config.useSharedWorkers ? worker.port : worker).postMessage(message, transfer);
             return message;
