@@ -17,9 +17,9 @@ class Canvas extends Component {
          */
         ntype: 'canvas',
         /**
-         * @member {Boolean} offscreen_=false
+         * @member {Boolean} offscreen=false
          */
-        offscreen_: false,
+        offscreen: false,
         /**
          * @member {Object} _vdom={tag: 'canvas'}
          */
@@ -28,13 +28,19 @@ class Canvas extends Component {
     }}
 
     /**
-     * Triggered after the offscreen config got changed
+     * Triggered after the mounted config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
-    afterSetOffscreen(value, oldValue) {
-        console.log('afterSetOffscreen', value);
+    afterSetMounted(value, oldValue) {
+        let me = this;
+
+        if (value && me.offscreen) {
+            Neo.currentWorker.promiseMessage('main', {action: 'getOwnership', nodeId: me.id}).then(data => {
+                console.log('then', data);
+            })
+        }
     }
 }
 

@@ -112,6 +112,7 @@ class Manager extends Base {
 
         me.on({
             'message:addDomListener'   : {fn: DomEvents.addDomListener, scope: DomEvents},
+            'message:getOwnership'     : {fn: DomAccess.onGetOwnership, scope: DomAccess},
             'message:readDom'          : {fn: DomAccess.onReadDom,      scope: DomAccess},
             'message:registerRemote'   : {fn: me.onRegisterRemote,      scope: me},
             'message:workerConstructed': {fn: me.onWorkerConstructed,   scope: me}
@@ -208,7 +209,6 @@ class Manager extends Base {
     }
 
     /**
-     *
      * @param {String|Worker} name
      * @returns {Worker}
      */
@@ -217,7 +217,6 @@ class Manager extends Base {
     }
 
     /**
-     *
      * @param {String} path
      */
     loadApplication(path) {
@@ -229,7 +228,6 @@ class Manager extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onWorkerConstructed(data) {
@@ -264,11 +262,7 @@ class Manager extends Base {
             transfer     = null,
             promise;
 
-        const {
-             action,
-             destination: dest,
-             replyId
-        } = data;
+        const {action, destination: dest, replyId} = data;
 
         // console.log('Main: Incoming Worker message: ' + data.origin + ':' + action, data);
 
@@ -333,7 +327,6 @@ class Manager extends Base {
     }
 
     /**
-     *
      * @param {String} dest app, data or vdom
      * @param {Object} opts configs for Neo.worker.Message
      * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.
@@ -356,7 +349,6 @@ class Manager extends Base {
     }
 
     /**
-     *
      * @param {String} replyId
      */
     resolveDomOperationPromise(replyId) {
@@ -371,7 +363,6 @@ class Manager extends Base {
     }
 
     /**
-     *
      * @param {String} dest app, data or vdom
      * @param {Object} opts configs for Neo.worker.Message
      * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.

@@ -320,6 +320,24 @@ class DomAccess extends Base {
     }
 
     /**
+     * @param {Object} data
+     */
+    onGetOwnership(data) {
+        let me        = this,
+            node      = me.getElement(data.nodeId),
+            offscreen = node.transferControlToOffscreen();
+
+        data.offscreen = offscreen;
+
+        Neo.worker.Manager.sendMessage(data.origin, {
+            action : 'reply',
+            data   : data,
+            replyId: data.id,
+            success: true
+        }, [offscreen]);
+    }
+
+    /**
      *
      * @param {Object} data
      * @param {String[]} data.attributes
