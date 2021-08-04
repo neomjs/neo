@@ -39,7 +39,7 @@ class Canvas extends Component {
         if (value && me.offscreen) {
             Neo.currentWorker.promiseMessage('main', {action: 'getOffscreenCanvas', nodeId: me.id}).then(data => {
                 console.log(data);
-            })
+            });
         }
     }
 }

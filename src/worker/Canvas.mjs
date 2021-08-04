@@ -31,12 +31,21 @@ class Canvas extends Base {
 
     /**
      *
-     * @param {Object} config
+     * @param {Object} msg
      */
-    constructor(config) {
-        super(config);
+    onRegisterNeoConfig(msg) {
+        super.onRegisterNeoConfig(msg);
 
-        console.log('worker.Canvas ctor', this);
+        let path = Neo.config.appPath.slice(0, -8); // removing "/app.mjs"
+
+        import(
+            /* webpackInclude: /\/app.mjs$/ */
+            /* webpackExclude: /\/node_modules/ */
+            /* webpackMode: "lazy" */
+            `../../${path}/canvas.mjs`
+        ).then(module => {
+            console.log(module);
+        });
     }
 }
 
