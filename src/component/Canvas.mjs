@@ -17,9 +17,9 @@ class Canvas extends Component {
          */
         ntype: 'canvas',
         /**
-         * @member {Boolean} offscreen=false
+         * @member {Boolean} offscreen=true
          */
-        offscreen: false,
+        offscreen: true,
         /**
          * Only applicable if offscreen === true.
          * true once the ownership of the canvas node got transferred to worker.Canvas.
