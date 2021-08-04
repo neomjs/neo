@@ -5,7 +5,8 @@ import Message            from './Message.mjs';
 import Observable         from '../core/Observable.mjs';
 import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
 
-const env = Neo.config.environment;
+const NeoConfig = Neo.config,
+      env       = NeoConfig.environment;
 
 /**
  * The worker manager lives inside the main thread and creates the App, Data & VDom worker.
@@ -36,7 +37,7 @@ class Manager extends Base {
          * @member {String|null} basePath=Neo.config.workerBasePath || 'worker/'
          * @protected
          */
-        basePath: Neo.config.workerBasePath || 'worker/',
+        basePath: NeoConfig.workerBasePath || 'worker/',
         /**
          * @member {Number} constructedThreads=0
          * @protected
@@ -129,7 +130,7 @@ class Manager extends Base {
             fileName = opts.fileName,
             filePath = (opts.basePath || me.basePath) + fileName,
             name     = `neomjs-${fileName.substring(0, fileName.indexOf('.')).toLowerCase()}-worker`,
-            isShared = me.sharedWorkersEnabled && Neo.config.useSharedWorkers,
+            isShared = me.sharedWorkersEnabled && NeoConfig.useSharedWorkers,
             cls      = isShared ? SharedWorker : Worker,
             worker   = env !== 'development'  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
                 ? new cls(filePath, {name: name})
@@ -151,7 +152,7 @@ class Manager extends Base {
 
         // pass the initial hash value as Neo.configs
         if (hash) {
-            Neo.config.hash = {
+            NeoConfig.hash = {
                 hash      : DomEvents.parseHash(hash.substr(1)),
                 hashString: hash.substr(1)
             };
@@ -168,7 +169,7 @@ class Manager extends Base {
 
             me.sendMessage(key, {
                 action: 'registerNeoConfig',
-                data  : Neo.config
+                data  : NeoConfig
             });
         }
     }
@@ -179,7 +180,7 @@ class Manager extends Base {
     detectFeatures() {
         let me = this;
 
-        Neo.config.hasTouchEvents = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        NeoConfig.hasTouchEvents = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
         if (window.Worker) {
             me.webWorkersEnabled = true;
@@ -209,7 +210,7 @@ class Manager extends Base {
         this.sendMessage('app', {
             action       : 'loadApplication',
             path,
-            resourcesPath: Neo.config.resourcesPath
+            resourcesPath: NeoConfig.resourcesPath
         });
     }
 
@@ -223,8 +224,8 @@ class Manager extends Base {
         me.constructedThreads++;
 
         if (me.constructedThreads === Object.keys(me.workers).length + 1) {
-            Neo.config.appPath && setTimeout(() => { // better save than sorry => all remotes need to be registered
-                me.loadApplication(Neo.config.appPath);
+            NeoConfig.appPath && setTimeout(() => { // better save than sorry => all remotes need to be registered
+                me.loadApplication(NeoConfig.appPath);
             }, 20);
         }
     }
@@ -380,7 +381,7 @@ class Manager extends Base {
 
             message = new Message(opts);
 
-            (me.sharedWorkersEnabled && Neo.config.useSharedWorkers ? worker.port : worker).postMessage(message, transfer);
+            (me.sharedWorkersEnabled && NeoConfig.useSharedWorkers ? worker.port : worker).postMessage(message, transfer);
             return message;
         }
     }
