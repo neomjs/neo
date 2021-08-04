@@ -90,7 +90,7 @@ inquirer.prompt(questions).then(answers => {
         console.log(chalk.blue(`${programName} starting dist/development`));
         if (threads === 'all' || threads === 'main')   {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.main.js`],                                      cpOpts);}
         if (threads === 'all' || threads === 'app')    {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.appworker.js`, `--env insideNeo=${insideNeo}`], cpOpts);}
-        if (threads === 'all' || threads === 'canvas') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`,    "--env worker=data"],            cpOpts);}
+        if (threads === 'all' || threads === 'canvas') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`,    "--env worker=canvas"],          cpOpts);}
         if (threads === 'all' || threads === 'data')   {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`,    "--env worker=data"],            cpOpts);}
         if (threads === 'all' || threads === 'vdom')   {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`,    "--env worker=vdom"],            cpOpts);}
     }
@@ -100,7 +100,7 @@ inquirer.prompt(questions).then(answers => {
          console.log(chalk.blue(`${programName} starting dist/production`));
          if (threads === 'all' || threads === 'main')   {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.main.js`],                                      cpOpts);}
          if (threads === 'all' || threads === 'app')    {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.appworker.js`, `--env insideNeo=${insideNeo}`], cpOpts);}
-         if (threads === 'all' || threads === 'canvas') {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.worker.js`,    '--env worker=data'],            cpOpts);}
+         if (threads === 'all' || threads === 'canvas') {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.worker.js`,    '--env worker=canvas'],          cpOpts);}
          if (threads === 'all' || threads === 'data')   {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.worker.js`,    '--env worker=data'],            cpOpts);}
          if (threads === 'all' || threads === 'vdom')   {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.worker.js`,    '--env worker=vdom'],            cpOpts);}
      }
