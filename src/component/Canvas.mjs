@@ -40,6 +40,8 @@ class Canvas extends Component {
      * @protected
      */
     afterSetMounted(value, oldValue) {
+        super.afterSetMounted(value, oldValue);
+
         let me     = this,
             id     = me.id,
             worker = Neo.currentWorker;
