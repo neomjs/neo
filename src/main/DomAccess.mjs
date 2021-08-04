@@ -321,8 +321,9 @@ class DomAccess extends Base {
 
     /**
      * @param {Object} data
+     * @param {String} data.nodeId
      */
-    onGetOwnership(data) {
+    onGetOffscreenCanvas(data) {
         let me        = this,
             node      = me.getElement(data.nodeId),
             offscreen = node.transferControlToOffscreen();

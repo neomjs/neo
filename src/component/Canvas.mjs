@@ -37,8 +37,8 @@ class Canvas extends Component {
         let me = this;
 
         if (value && me.offscreen) {
-            Neo.currentWorker.promiseMessage('main', {action: 'getOwnership', nodeId: me.id}).then(data => {
-                console.log('then', data);
+            Neo.currentWorker.promiseMessage('main', {action: 'getOffscreenCanvas', nodeId: me.id}).then(data => {
+                console.log(data);
             })
         }
     }
