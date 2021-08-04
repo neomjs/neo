@@ -5,6 +5,9 @@ import Message            from './Message.mjs';
 import Observable         from '../core/Observable.mjs';
 import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
 
+const NeoConfig = Neo.config,
+      devMode   = NeoConfig.environment === 'development';
+
 /**
  * The worker manager lives inside the main thread and creates the App, Data & VDom worker.
  * Also responsible for sending messages from the main thread to the different workers.
@@ -20,12 +23,17 @@ class Manager extends Base {
          */
         className: 'Neo.worker.Manager',
         /**
-         * @member {boolean} singleton=true
+         * @member {Boolean} singleton=true
          * @protected
          */
         singleton: true,
         /**
-         * @member {Array} appNames=[]
+         * @member {Number} activeWorkers=0
+         * @protected
+         */
+        activeWorkers: 0,
+        /**
+         * @member {String[]} appNames=[]
          * @protected
          */
         appNames: [],
@@ -34,7 +42,7 @@ class Manager extends Base {
          * @member {String|null} basePath=Neo.config.workerBasePath || 'worker/'
          * @protected
          */
-        basePath: Neo.config.workerBasePath || 'worker/',
+        basePath: NeoConfig.workerBasePath || 'worker/',
         /**
          * @member {Number} constructedThreads=0
          * @protected
@@ -70,25 +78,27 @@ class Manager extends Base {
          */
         workers: {
             app: {
-                fileName: Neo.config.environment === 'development' ? 'App.mjs'  : 'appworker.js'
+                fileName: devMode ? 'App.mjs'    : 'appworker.js'
+            },
+            canvas: {
+                fileName: devMode ? 'Canvas.mjs' : 'canvasworker.js'
             },
             data: {
-                fileName: Neo.config.environment === 'development' ? 'Data.mjs' : 'dataworker.js'
+                fileName: devMode ? 'Data.mjs'   : 'dataworker.js'
             },
             vdom: {
-                fileName: Neo.config.environment === 'development' ? 'VDom.mjs' : 'vdomworker.js'
+                fileName: devMode ? 'VDom.mjs'   : 'vdomworker.js'
             }
         }
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
         super(config);
 
-        const me = this;
+        let me = this;
 
         me.detectFeatures();
 
@@ -101,16 +111,17 @@ class Manager extends Base {
         me.promises = {};
 
         me.on({
-            'message:addDomListener'   : {fn: DomEvents.addDomListener, scope: DomEvents},
-            'message:readDom'          : {fn: DomAccess.onReadDom,      scope: DomAccess},
-            'message:registerRemote'   : {fn: me.onRegisterRemote,      scope: me},
-            'message:workerConstructed': {fn: me.onWorkerConstructed,   scope: me}
+            'message:addDomListener'    : {fn: DomEvents.addDomListener,       scope: DomEvents},
+            'message:getOffscreenCanvas': {fn: DomAccess.onGetOffscreenCanvas, scope: DomAccess},
+            'message:readDom'           : {fn: DomAccess.onReadDom,            scope: DomAccess},
+            'message:registerRemote'    : {fn: me.onRegisterRemote,            scope: me},
+            'message:workerConstructed' : {fn: me.onWorkerConstructed,         scope: me}
         });
     }
 
     /**
      * Sends a message to each worker defined inside the this.workers config.
-     * @param msg
+     * @param {String} msg
      */
     broadcast(msg) {
         Object.keys(this.workers).forEach(name => {
@@ -121,20 +132,23 @@ class Manager extends Base {
     /**
      * Creates a web worker using the passed options as well as adding error & message event listeners.
      * @param {Object} opts
-     * @returns {Worker}
+     * @returns {SharedWorker|Worker}
      */
     createWorker(opts) {
-        const me       = this,
-              fileName = opts.fileName,
-              filePath = (opts.basePath || me.basePath) + fileName,
-              name     = `neomjs-${fileName.substring(0, fileName.indexOf('.')).toLowerCase()}-worker`,
-              isShared = me.sharedWorkersEnabled && Neo.config.useSharedWorkers,
-              worker   = Neo.config.environment !== 'development'  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
-                  ? new (isShared ? SharedWorker : Worker)(filePath, {name: name})
-                  : new (isShared ? SharedWorker : Worker)(filePath, {name: name, type: 'module'});
+        let me       = this,
+            fileName = opts.fileName,
+            filePath = (opts.basePath || me.basePath) + fileName,
+            name     = `neomjs-${fileName.substring(0, fileName.indexOf('.')).toLowerCase()}-worker`,
+            isShared = me.sharedWorkersEnabled && NeoConfig.useSharedWorkers,
+            cls      = isShared ? SharedWorker : Worker,
+            worker   = devMode  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
+                ? new cls(filePath, {name: name, type: 'module'})
+                : new cls(filePath, {name: name});
 
         (isShared ? worker.port : worker).onmessage = me.onWorkerMessage.bind(me);
-        (isShared ? worker.port : worker).onerror   = me.onWorkerError.bind(me);
+        (isShared ? worker.port : worker).onerror   = me.onWorkerError  .bind(me);
+
+        me.activeWorkers++;
 
         return worker;
     }
@@ -149,13 +163,17 @@ class Manager extends Base {
 
         // pass the initial hash value as Neo.configs
         if (hash) {
-            Neo.config.hash = {
+            NeoConfig.hash = {
                 hash      : DomEvents.parseHash(hash.substr(1)),
                 hashString: hash.substr(1)
             };
         }
 
         for ([key, value] of Object.entries(me.workers)) {
+            if (key === 'canvas' && !NeoConfig.useCanvasWorker) {
+                continue;
+            }
+
             try {
                 value.worker = me.createWorker(value);
             } catch (e) {
@@ -166,7 +184,7 @@ class Manager extends Base {
 
             me.sendMessage(key, {
                 action: 'registerNeoConfig',
-                data  : Neo.config
+                data  : NeoConfig
             });
         }
     }
@@ -175,9 +193,9 @@ class Manager extends Base {
      *
      */
     detectFeatures() {
-        const me = this;
+        let me = this;
 
-        Neo.config.hasTouchEvents = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        NeoConfig.hasTouchEvents = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
         if (window.Worker) {
             me.webWorkersEnabled = true;
@@ -191,7 +209,6 @@ class Manager extends Base {
     }
 
     /**
-     *
      * @param {String|Worker} name
      * @returns {Worker}
      */
@@ -200,19 +217,17 @@ class Manager extends Base {
     }
 
     /**
-     *
      * @param {String} path
      */
     loadApplication(path) {
         this.sendMessage('app', {
             action       : 'loadApplication',
-            path         : path,
-            resourcesPath: Neo.config.resourcesPath
+            path,
+            resourcesPath: NeoConfig.resourcesPath
         });
     }
 
     /**
-     *
      * @param {Object} data
      */
     onWorkerConstructed(data) {
@@ -220,12 +235,10 @@ class Manager extends Base {
 
         me.constructedThreads++;
 
-        if (me.constructedThreads === Object.keys(me.workers).length + 1) {
-            if (Neo.config.appPath) {
-                setTimeout(() => { // better save than sorry => all remotes need to be registered
-                    me.loadApplication(Neo.config.appPath);
-                }, 20);
-            }
+        if (me.constructedThreads === me.activeWorkers) {
+            NeoConfig.appPath && setTimeout(() => { // better save than sorry => all remotes need to be registered
+                me.loadApplication(NeoConfig.appPath);
+            }, 20);
         }
     }
 
@@ -234,9 +247,8 @@ class Manager extends Base {
      * @param {Object} e
      */
     onWorkerError(e) {
-        if (Neo.config.environment !== 'development') { // starting a worker from a JS module will show JS errors in a correct way
-            console.log('Worker Error:', e);
-        }
+        // starting a worker from a JS module will show JS errors in a correct way
+        !devMode && console.log('Worker Error:', e);
     }
 
     /**
@@ -250,11 +262,7 @@ class Manager extends Base {
             transfer     = null,
             promise;
 
-        const {
-             action,
-             destination: dest,
-             replyId
-        } = data;
+        const {action, destination: dest, replyId} = data;
 
         // console.log('Main: Incoming Worker message: ' + data.origin + ':' + action, data);
 
@@ -319,7 +327,6 @@ class Manager extends Base {
     }
 
     /**
-     *
      * @param {String} dest app, data or vdom
      * @param {Object} opts configs for Neo.worker.Message
      * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.
@@ -328,21 +335,20 @@ class Manager extends Base {
      * @returns {Promise<any>}
      */
     promiseMessage(dest, opts, transfer) {
-        const me = this;
+        let me = this;
 
         return new Promise((resolve, reject) => {
             let message = me.sendMessage(dest, opts, transfer),
                 msgId   = message.id;
 
             me.promises[msgId] = {
-                reject : reject,
-                resolve: resolve
+                reject,
+                resolve
             };
         });
     }
 
     /**
-     *
      * @param {String} replyId
      */
     resolveDomOperationPromise(replyId) {
@@ -357,7 +363,6 @@ class Manager extends Base {
     }
 
     /**
-     *
      * @param {String} dest app, data or vdom
      * @param {Object} opts configs for Neo.worker.Message
      * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.
@@ -367,10 +372,11 @@ class Manager extends Base {
      * @protected
      */
     sendMessage(dest, opts, transfer) {
-        const me = this;
+        let me = this,
+            message, worker;
 
         if (!me.stopCommunication) {
-            const worker = me.getWorker(dest);
+            worker = me.getWorker(dest);
 
             if (!worker) {
                 throw new Error('Called sendMessage for a worker that does not exist: ' + dest);
@@ -378,9 +384,9 @@ class Manager extends Base {
 
             opts.destination = dest;
 
-            const message = new Message(opts);
+            message = new Message(opts);
 
-            (me.sharedWorkersEnabled && Neo.config.useSharedWorkers ? worker.port : worker).postMessage(message, transfer);
+            (me.sharedWorkersEnabled && NeoConfig.useSharedWorkers ? worker.port : worker).postMessage(message, transfer);
             return message;
         }
     }

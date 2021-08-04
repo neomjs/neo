@@ -6,6 +6,10 @@
             "input": "./src/worker/App.mjs",
             "output": "appworker.js"
         },
+        "canvas": {
+            "input": "./src/worker/Canvas.mjs",
+            "output": "canvasworker.js"
+        },
         "data": {
             "input": "./src/worker/Data.mjs",
             "output": "dataworker.js"

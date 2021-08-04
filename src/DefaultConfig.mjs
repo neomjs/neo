@@ -131,6 +131,14 @@ const DefaultConfig = {
      */
     useCssVars: true,
     /**
+     * Experimental flag if an offscreen canvas worker should get created.
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.useCssVars
+     * @type Boolean
+     */
+    useCanvasWorker: false,
+    /**
      * Flag if vdom ids should get mapped into DOM element ids.
      * false will convert them into a "data-neo-id" attribute.
      * @default true
