@@ -1,5 +1,6 @@
-import Neo  from '../Neo.mjs';
-import Base from './Base.mjs';
+import Neo       from '../Neo.mjs';
+import Base      from './Base.mjs';
+import * as core from '../core/_export.mjs';
 
 /**
  * Experimental.

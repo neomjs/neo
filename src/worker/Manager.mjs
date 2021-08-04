@@ -6,7 +6,7 @@ import Observable         from '../core/Observable.mjs';
 import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
 
 const NeoConfig = Neo.config,
-      env       = NeoConfig.environment;
+      devMode   = NeoConfig.environment === 'development';
 
 /**
  * The worker manager lives inside the main thread and creates the App, Data & VDom worker.
@@ -27,6 +27,11 @@ class Manager extends Base {
          * @protected
          */
         singleton: true,
+        /**
+         * @member {Number} activeWorkers=0
+         * @protected
+         */
+        activeWorkers: 0,
         /**
          * @member {String[]} appNames=[]
          * @protected
@@ -73,13 +78,16 @@ class Manager extends Base {
          */
         workers: {
             app: {
-                fileName: env === 'development' ? 'App.mjs'  : 'appworker.js'
+                fileName: devMode ? 'App.mjs'    : 'appworker.js'
+            },
+            canvas: {
+                fileName: devMode ? 'Canvas.mjs' : 'canvasworker.js'
             },
             data: {
-                fileName: env === 'development' ? 'Data.mjs' : 'dataworker.js'
+                fileName: devMode ? 'Data.mjs'   : 'dataworker.js'
             },
             vdom: {
-                fileName: env === 'development' ? 'VDom.mjs' : 'vdomworker.js'
+                fileName: devMode ? 'VDom.mjs'   : 'vdomworker.js'
             }
         }
     }}
@@ -132,12 +140,14 @@ class Manager extends Base {
             name     = `neomjs-${fileName.substring(0, fileName.indexOf('.')).toLowerCase()}-worker`,
             isShared = me.sharedWorkersEnabled && NeoConfig.useSharedWorkers,
             cls      = isShared ? SharedWorker : Worker,
-            worker   = env !== 'development'  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
-                ? new cls(filePath, {name: name})
-                : new cls(filePath, {name: name, type: 'module'});
+            worker   = devMode  // todo: switch to the new syntax to create a worker from a JS module once browsers are ready
+                ? new cls(filePath, {name: name, type: 'module'})
+                : new cls(filePath, {name: name});
 
         (isShared ? worker.port : worker).onmessage = me.onWorkerMessage.bind(me);
         (isShared ? worker.port : worker).onerror   = me.onWorkerError  .bind(me);
+
+        me.activeWorkers++;
 
         return worker;
     }
@@ -159,6 +169,10 @@ class Manager extends Base {
         }
 
         for ([key, value] of Object.entries(me.workers)) {
+            if (key === 'canvas' && !NeoConfig.useCanvasWorker) {
+                continue;
+            }
+
             try {
                 value.worker = me.createWorker(value);
             } catch (e) {
@@ -223,7 +237,7 @@ class Manager extends Base {
 
         me.constructedThreads++;
 
-        if (me.constructedThreads === Object.keys(me.workers).length + 1) {
+        if (me.constructedThreads === me.activeWorkers) {
             NeoConfig.appPath && setTimeout(() => { // better save than sorry => all remotes need to be registered
                 me.loadApplication(NeoConfig.appPath);
             }, 20);
@@ -236,7 +250,7 @@ class Manager extends Base {
      */
     onWorkerError(e) {
         // starting a worker from a JS module will show JS errors in a correct way
-        env !== 'development' && console.log('Worker Error:', e);
+        !devMode && console.log('Worker Error:', e);
     }
 
     /**
