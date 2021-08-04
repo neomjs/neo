@@ -252,7 +252,7 @@ class App extends Base {
 
         port.onmessage = me.onMessage.bind(me);
 
-        me.channelPorts.data = port;
+        me.channelPorts[msg.origin] = port;
     }
 
     /**
