@@ -18,6 +18,11 @@ class Canvas extends Base {
          */
         className: 'Neo.worker.Canvas',
         /**
+         * key: value => canvasId: OffscreenCanvas
+         * @member {Object} map={}
+         */
+        map: {},
+        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -49,7 +54,7 @@ class Canvas extends Base {
      * @param {Object} data
      */
     onRegisterCanvas(data) {
-        console.log('onRegisterCanvas', data);
+        this.map[data.nodeId] = data.node;
 
         Neo.currentWorker.sendMessage(data.origin, {
             action : 'reply',
