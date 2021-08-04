@@ -73,7 +73,7 @@ class Canvas extends Base {
         let path = Neo.config.appPath.slice(0, -8); // removing "/app.mjs"
 
         import(
-            /* webpackInclude: /\/app.mjs$/ */
+            /* webpackInclude: /\/canvas.mjs$/ */
             /* webpackExclude: /\/node_modules/ */
             /* webpackMode: "lazy" */
             `../../${path}/canvas.mjs`
