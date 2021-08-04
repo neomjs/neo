@@ -43,7 +43,7 @@ class Canvas extends Component {
         super.afterSetMounted(value, oldValue);
 
         let me     = this,
-            id     = me.id,
+            id     = me.getCanvasId(),
             worker = Neo.currentWorker;
 
         if (value && me.offscreen) {
@@ -60,6 +60,14 @@ class Canvas extends Component {
                 });
             });
         }
+    }
+
+    /**
+     * Override this method when using wrappers (e.g. D3)
+     * @returns {String}
+     */
+    getCanvasId() {
+        return this.id;
     }
 }
 

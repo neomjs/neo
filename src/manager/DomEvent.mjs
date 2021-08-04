@@ -385,14 +385,14 @@ class DomEvent extends Base {
                 Object.entries(domListener).forEach(([key, value]) => {
                     if (!eventConfigKeys.includes(key)) {
                         me.register({
-                            delegate      : value.delegate || domListener.delegate || '#' + component.id,
+                            delegate      : domListener.delegate || value.delegate || '#' + component.id,
                             eventName     : key,
                             id            : component.id,
                             opts          : value,
                             originalConfig: domListener,
                             ownerId       : component.id,
                             scope         : domListener.scope || component,
-                            vnodeId       : value.vnodeId || component.id
+                            vnodeId       : domListener.vnodeId || value.vnodeId || component.id
                         });
                     }
                 });
