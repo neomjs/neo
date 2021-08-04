@@ -21,6 +21,12 @@ class Canvas extends Component {
          */
         offscreen: false,
         /**
+         * Only applicable if offscreen === true.
+         * true once the ownership of the canvas node got transferred to worker.Canvas.
+         * @member {Boolean} offscreenRegistered_=false
+         */
+        offscreenRegistered_: false,
+        /**
          * @member {Object} _vdom={tag: 'canvas'}
          */
         _vdom:
@@ -34,11 +40,22 @@ class Canvas extends Component {
      * @protected
      */
     afterSetMounted(value, oldValue) {
-        let me = this;
+        let me     = this,
+            id     = me.id,
+            worker = Neo.currentWorker;
 
         if (value && me.offscreen) {
-            Neo.currentWorker.promiseMessage('main', {action: 'getOffscreenCanvas', nodeId: me.id}).then(data => {
-                console.log(data);
+            worker.promiseMessage('main', {
+                action: 'getOffscreenCanvas',
+                nodeId: id
+            }).then(data => {
+                worker.promiseMessage('canvas', {
+                    action: 'registerCanvas',
+                    node  : data.offscreen,
+                    nodeId: id
+                }, [data.offscreen]).then(() => {
+                    me.offscreenRegistered = true;
+                });
             });
         }
     }
