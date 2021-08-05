@@ -4,9 +4,12 @@ const path           = require('path'),
       packageJson    = require(path.resolve(processRoot, 'package.json')),
       neoPath        = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
       filenameConfig = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
-      entry          = {};
+      entry          = {},
+      webpack        = require('webpack');
 
 module.exports = env => {
+    let insideNeo = env.insideNeo == 'true';
+
     if (filenameConfig.workers) {
         Object.entries(filenameConfig.workers).forEach(([key, value]) => {
             if (key === env.worker) {
@@ -19,6 +22,14 @@ module.exports = env => {
         mode  : 'production',
         entry,
         target: 'webworker',
+
+        plugins: [
+            new webpack.ContextReplacementPlugin(/.*/, context => {
+                if (!insideNeo && context.context.includes('/src/worker')) {
+                    context.request = '../../' + context.request;
+                }
+            })
+        ],
 
         output: {
             chunkFilename: `chunks/${env.worker}/[id].js`,

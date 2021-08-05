@@ -81,29 +81,29 @@ inquirer.prompt(questions).then(answers => {
           insideNeo = programOpts.framework || false,
           startDate = new Date();
 
-    if (os.platform().startsWith('win')) {
+    if (path.sep === '\\') {
         webpack = path.resolve(webpack).replace(/\\/g,'/');
+    }
+
+    function parseThreads(tPath) {
+        if (threads === 'all' || threads === 'main')   {cp.spawnSync(webpack, ['--config', `${tPath}.main.js`],                                                    cpOpts);}
+        if (threads === 'all' || threads === 'app')    {cp.spawnSync(webpack, ['--config', `${tPath}.appworker.js`, `--env insideNeo=${insideNeo}`],               cpOpts);}
+        if (threads === 'all' || threads === 'canvas') {cp.spawnSync(webpack, ['--config', `${tPath}.worker.js`,    `--env insideNeo=${insideNeo} worker=canvas`], cpOpts);}
+        if (threads === 'all' || threads === 'data')   {cp.spawnSync(webpack, ['--config', `${tPath}.worker.js`,    `--env insideNeo=${insideNeo} worker=data`],   cpOpts);}
+        if (threads === 'all' || threads === 'vdom')   {cp.spawnSync(webpack, ['--config', `${tPath}.worker.js`,    `--env insideNeo=${insideNeo} worker=vdom`],   cpOpts);}
     }
 
     // dist/development
     if (env === 'all' || env === 'dev') {
         console.log(chalk.blue(`${programName} starting dist/development`));
-        if (threads === 'all' || threads === 'main')   {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.main.js`],                                      cpOpts);}
-        if (threads === 'all' || threads === 'app')    {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.appworker.js`, `--env insideNeo=${insideNeo}`], cpOpts);}
-        if (threads === 'all' || threads === 'canvas') {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`,    "--env worker=canvas"],          cpOpts);}
-        if (threads === 'all' || threads === 'data')   {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`,    "--env worker=data"],            cpOpts);}
-        if (threads === 'all' || threads === 'vdom')   {cp.spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.worker.js`,    "--env worker=vdom"],            cpOpts);}
+        parseThreads(`${webpackPath}/development/webpack.config`);
     }
 
     // dist/production
-     if (env === 'all' || env === 'prod') {
-         console.log(chalk.blue(`${programName} starting dist/production`));
-         if (threads === 'all' || threads === 'main')   {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.main.js`],                                      cpOpts);}
-         if (threads === 'all' || threads === 'app')    {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.appworker.js`, `--env insideNeo=${insideNeo}`], cpOpts);}
-         if (threads === 'all' || threads === 'canvas') {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.worker.js`,    '--env worker=canvas'],          cpOpts);}
-         if (threads === 'all' || threads === 'data')   {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.worker.js`,    '--env worker=data'],            cpOpts);}
-         if (threads === 'all' || threads === 'vdom')   {cp.spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.worker.js`,    '--env worker=vdom'],            cpOpts);}
-     }
+    if (env === 'all' || env === 'prod') {
+        console.log(chalk.blue(`${programName} starting dist/production`));
+        parseThreads(`${webpackPath}/production/webpack.config`);
+    }
 
     const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
     console.log(`\nTotal time for ${programName}: ${processTime}s`);
