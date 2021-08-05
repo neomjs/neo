@@ -48,6 +48,7 @@ class Main extends core.Base {
          */
         remote: {
             app: [
+                'alert',
                 'editRoute',
                 'getWindowData',
                 'setNeoConfig',
@@ -124,6 +125,14 @@ class Main extends core.Base {
         if (document.readyState !== 'loading') {
             DomEvents.onDomContentLoaded();
         }
+    }
+
+    /**
+     * Workers can not trigger alert(), so we need remote method access.
+     * @param {String} value
+     */
+    alert(value) {
+        alert(value);
     }
 
     /**
