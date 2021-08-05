@@ -3,7 +3,6 @@ import Base      from './Base.mjs';
 import * as core from '../core/_export.mjs';
 
 /**
- * Experimental.
  * The Canvas worker is responsible for dynamically manipulating offscreen canvas.
  * See: https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas
  * @class Neo.worker.Canvas
@@ -77,9 +76,7 @@ class Canvas extends Base {
             /* webpackExclude: /\/node_modules/ */
             /* webpackMode: "lazy" */
             `../../${path}/canvas.mjs`
-        ).then(module => {
-            console.log(module);
-        });
+        );
     }
 }
 
