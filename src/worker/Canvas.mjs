@@ -76,7 +76,9 @@ class Canvas extends Base {
             /* webpackExclude: /\/node_modules/ */
             /* webpackMode: "lazy" */
             `../../${path}/canvas.mjs`
-        );
+        ).then(module => {
+            module.onStart();
+        });
     }
 }
 
