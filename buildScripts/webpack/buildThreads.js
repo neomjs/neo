@@ -81,7 +81,7 @@ inquirer.prompt(questions).then(answers => {
           insideNeo = programOpts.framework || false,
           startDate = new Date();
 
-    if (os.platform().startsWith('win')) {
+    if (path.sep === '\\') {
         webpack = path.resolve(webpack).replace(/\\/g,'/');
     }
 
