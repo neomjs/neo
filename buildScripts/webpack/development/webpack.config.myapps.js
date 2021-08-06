@@ -1,14 +1,15 @@
-const cwd            = process.cwd(),
-      fs             = require('fs-extra'),
-      buildTarget    = require('./buildTarget.json'),
-      path           = require('path'),
-      configPath     = path.resolve(cwd, 'buildScripts/myApps.json'),
-      packageJson    = require(path.resolve(cwd, 'package.json')),
-      neoPath        = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      filenameConfig = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
-      plugins        = [],
-      regexTopLevel  = /\.\.\//g,
-      webpack        = require('webpack');
+const cwd                   = process.cwd(),
+      fs                    = require('fs-extra'),
+      buildTarget           = require('./buildTarget.json'),
+      path                  = require('path'),
+      configPath            = path.resolve(cwd, 'buildScripts/myApps.json'),
+      packageJson           = require(path.resolve(cwd, 'package.json')),
+      neoPath               = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      filenameConfig        = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
+      plugins               = [],
+      regexIndexNodeModules = /node_modules/g,
+      regexTopLevel         = /\.\.\//g,
+      webpack               = require('webpack');
 
 let config;
 
@@ -91,7 +92,9 @@ module.exports = env => {
                 inputPath  = path.resolve(cwd, 'apps', lAppName, 'index.html');
                 outputPath = path.resolve(cwd, buildTarget.folder, 'apps', lAppName, 'index.html');
 
-                fs.copySync(inputPath, outputPath);
+                content = fs.readFileSync(inputPath).toString().replace(regexIndexNodeModules, '../../node_modules');
+
+                fs.writeFileSync(outputPath, content);
             }
         });
     }
