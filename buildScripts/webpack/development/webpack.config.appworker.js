@@ -1,15 +1,16 @@
-const cwd               = process.cwd(),
-      fs                = require('fs-extra'),
-      path              = require('path'),
-      buildTarget       = require('./buildTarget.json'),
-      WebpackHookPlugin = require('webpack-hook-plugin'),
-      configPath        = path.resolve(cwd, 'buildScripts/myApps.json'),
-      packageJson       = require(path.resolve(cwd, 'package.json')),
-      neoPath           = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      filenameConfig    = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
-      plugins           = [],
-      regexTopLevel     = /\.\.\//g,
-      webpack           = require('webpack');
+const cwd                   = process.cwd(),
+      fs                    = require('fs-extra'),
+      path                  = require('path'),
+      buildTarget           = require('./buildTarget.json'),
+      WebpackHookPlugin     = require('webpack-hook-plugin'),
+      configPath            = path.resolve(cwd, 'buildScripts/myApps.json'),
+      packageJson           = require(path.resolve(cwd, 'package.json')),
+      neoPath               = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      filenameConfig        = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
+      plugins               = [],
+      regexIndexNodeModules = /node_modules/g,
+      regexTopLevel         = /\.\.\//g,
+      webpack               = require('webpack');
 
 let config, examplesPath;
 
@@ -79,7 +80,9 @@ module.exports = env => {
         inputPath  = path.resolve(cwd, folder, lAppName, 'index.html');
         outputPath = path.resolve(cwd, buildTarget.folder, folder, lAppName, 'index.html');
 
-        fs.copySync(inputPath, outputPath);
+        content = fs.readFileSync(inputPath).toString().replace(regexIndexNodeModules, '../../node_modules');
+
+        fs.writeFileSync(outputPath, content);
     };
 
     const isFile = fileName => {

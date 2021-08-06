@@ -1,17 +1,18 @@
-const cwd            = process.cwd(),
-      fs             = require('fs-extra'),
-      path           = require('path'),
-      buildTarget    = require('./buildTarget.json'),
-      configPath     = path.resolve(cwd, 'buildScripts/myApps.json'),
-      packageJson    = require(path.resolve(cwd, 'package.json')),
-      neoPath        = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      filenameConfig = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
-      plugins        = [],
-      regexLineBreak = /(\r\n|\n|\r)/gm,
-      regexTopLevel  = /\.\.\//g,
-      regexTrimEnd   = /\s+$/gm,
-      regexTrimStart = /^\s+/gm,
-      webpack        = require('webpack');
+const cwd                   = process.cwd(),
+      fs                    = require('fs-extra'),
+      path                  = require('path'),
+      buildTarget           = require('./buildTarget.json'),
+      configPath            = path.resolve(cwd, 'buildScripts/myApps.json'),
+      packageJson           = require(path.resolve(cwd, 'package.json')),
+      neoPath               = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      filenameConfig        = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
+      plugins               = [],
+      regexIndexNodeModules = /node_modules/g,
+      regexLineBreak        = /(\r\n|\n|\r)/gm,
+      regexTopLevel         = /\.\.\//g,
+      regexTrimEnd          = /\s+$/gm,
+      regexTrimStart        = /^\s+/gm,
+      webpack               = require('webpack');
 
 let config;
 
@@ -97,6 +98,7 @@ module.exports = env => {
                 outputPath = path.resolve(cwd, buildTarget.folder, 'apps', lAppName, 'index.html');
 
                 content = fs.readFileSync(inputPath).toString()
+                    .replace(regexIndexNodeModules, '../../node_modules')
                     .replace(regexTrimStart, '')
                     .replace(regexTrimEnd, '')
                     .replace(', ', ',')
