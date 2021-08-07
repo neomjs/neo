@@ -104,7 +104,7 @@ class Helper extends Base {
             });
         }
 
-        return node;
+        return Neo.config.useVdomWorker ? node : Promise.resolve(node);
     }
 
     /**
@@ -788,13 +788,15 @@ class Helper extends Base {
         deltas = me.createDeltas({
             newVnode: node,
             oldVnode: opts.vnode
-        });
+        }),
 
-        return {
+        returnObj = {
             deltas,
             updateVdom: true,
             vnode     : node
         };
+
+        return Neo.config.useVdomWorker ? returnObj : Promise.resolve(returnObj);
     }
 }
 
