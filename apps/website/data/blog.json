@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Aug 6, 2021",
+        "id"          : 41,
+        "image"       : "rendering-3d-offscreen-getting-max-performance-using-canvas-workers.png",
+        "name"        : "Rendering 3d offscreen: Getting max performance using canvas workers",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/rendering-3d-offscreen-getting-max-performance-using-canvas-workers-88c207cbcdc2?source=friends_link&sk=7ee0851ff6043c4a79248ff5a20a23fc"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Jun 27, 2021",
         "id"          : 40,
         "image"       : "how-to-create-a-list-containing-checkbox-fields-and-keynav-in-125-lines-of-code.png",
