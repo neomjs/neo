@@ -1614,7 +1614,7 @@ class Base extends CoreBase {
      */
     updateVdom(vdom, vnode, resolve, reject) {
         let me = this,
-            opts;
+            deltas, opts;
 
         // console.log('updateVdom', me.id, Neo.clone(vdom, true), Neo.clone(vnode, true));
         // console.log('updateVdom', me.id, me.isVdomUpdating);
@@ -1624,10 +1624,7 @@ class Base extends CoreBase {
         } else {
             me.isVdomUpdating = true;
 
-            opts = {
-                vdom : vdom,
-                vnode: vnode
-            };
+            opts = { vdom, vnode };
 
             if (Neo.currentWorker.isSharedWorker) {
                 opts.appName = me.appName;
@@ -1638,21 +1635,30 @@ class Base extends CoreBase {
                 me.vnode          = data.vnode;
                 me.isVdomUpdating = false;
 
-                if (resolve) {
-                    resolve();
-                }
+                deltas = data.deltas;
 
-                if (me.needsVdomUpdate) {
-                    me.needsVdomUpdate = false;
-                    me.vdom = me.vdom;
+                if (!Neo.config.useVdomWorker && deltas.length > 0) {
+                    Neo.applyDeltas(me.appName, deltas).then(() => {
+                        resolve?.();
+
+                        if (me.needsVdomUpdate) {
+                            me.needsVdomUpdate = false;
+                            me.vdom = me.vdom;
+                        }
+                    });
+                } else {
+                    resolve?.();
+
+                    if (me.needsVdomUpdate) {
+                        me.needsVdomUpdate = false;
+                        me.vdom = me.vdom;
+                    }
                 }
             }).catch(err => {
                 console.log('Error attempting to update component dom', err, me);
                 me.isVdomUpdating = false;
 
-                if (reject) {
-                    reject();
-                }
+                reject?.();
             });
         }
     }
