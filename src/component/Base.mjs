@@ -1348,9 +1348,10 @@ class Base extends CoreBase {
      * @param {Boolean} [mount] Mount the DOM after the vnode got created
      */
     render(mount) {
-        let me        = this,
-            autoMount = mount || me.autoMount,
-            app       = Neo.apps[me.appName];
+        let me            = this,
+            autoMount     = mount || me.autoMount,
+            app           = Neo.apps[me.appName],
+            useVdomWorker = Neo.config.useVdomWorker;
 
         me.rendering = true;
 
@@ -1368,8 +1369,10 @@ class Base extends CoreBase {
                 parentIndex: autoMount ? me.parentIndex : undefined,
                 ...me.vdom
             }).then(data => {
-                me.onRender(data, autoMount);
+                me.onRender(data, useVdomWorker ? autoMount : false);
                 me.isVdomUpdating = false;
+
+                autoMount && !useVdomWorker && me.mount();
             });
         }
     }
