@@ -3,6 +3,5 @@
     "basePath"        : "../../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["DragDrop", "Stylesheet"],
-    "useVdomWorker"   : false
+    "mainThreadAddons": ["DragDrop", "Stylesheet"]
 }
