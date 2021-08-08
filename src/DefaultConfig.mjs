@@ -179,7 +179,15 @@ const DefaultConfig = {
      * @name config.useTouchEvents
      * @type Boolean
      */
-    useTouchEvents: true
+    useTouchEvents: true,
+    /**
+     * False will create the vdom.Helper within the App worker (experimental!)
+     * @default true
+     * @memberOf! module:Neo
+     * @name config.useVdomWorker
+     * @type Boolean
+     */
+    useVdomWorker: true
 };
 
 Object.assign(DefaultConfig, {

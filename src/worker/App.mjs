@@ -225,7 +225,7 @@ class App extends Base {
         let config = Neo.config,
             url    = `resources/theme-map${Neo.config.useCssVars ? '' : '-no-vars'}.json`;
 
-        if (Neo.config.environment === 'development') {
+        if (config.environment === 'development') {
             url = `../../${url}`;
         }
 
@@ -240,6 +240,10 @@ class App extends Base {
         fetch(url)
             .then(response => response.json())
             .then(data => {this.createThemeMap(data)});
+
+        if (!config.useVdomWorker) {
+            import('../vdom/Helper.mjs');
+        }
     }
 
     /**

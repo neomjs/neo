@@ -76,8 +76,12 @@ class Helper extends Base {
      * Creates a Neo.vdom.VNode tree for the given vdom template.
      * The top level vnode contains the outerHTML as a string.
      * @param {Object} opts
+     * @param {String} opts.appName
+     * @param {Boolean} [opts.autoMount]
+     * @param {String} opts.parentId
+     * @param {Number} opts.parentIndex
      * @param {Object} opts.vdom
-     * @returns {Neo.vdom.VNode}
+     * @returns {Neo.vdom.VNode|Promise<Neo.vdom.VNode>}
      */
     create(opts) {
         let me          = this,
@@ -104,7 +108,7 @@ class Helper extends Base {
             });
         }
 
-        return node;
+        return Neo.config.useVdomWorker ? node : Promise.resolve(node);
     }
 
     /**
@@ -779,7 +783,7 @@ class Helper extends Base {
      * @param {Object} opts
      * @param {Object} opts.vdom
      * @param {Object} opts.vnode
-     * @returns {Object}
+     * @returns {Object|Promise<Object>}
      */
     update(opts) {
         let me     = this,
@@ -788,13 +792,15 @@ class Helper extends Base {
         deltas = me.createDeltas({
             newVnode: node,
             oldVnode: opts.vnode
-        });
+        }),
 
-        return {
+        returnObj = {
             deltas,
             updateVdom: true,
             vnode     : node
         };
+
+        return Neo.config.useVdomWorker ? returnObj : Promise.resolve(returnObj);
     }
 }
 

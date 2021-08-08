@@ -170,7 +170,9 @@ class Manager extends Base {
         }
 
         for ([key, value] of Object.entries(me.workers)) {
-            if (key === 'canvas' && !NeoConfig.useCanvasWorker) {
+            if (key === 'canvas' && !NeoConfig.useCanvasWorker ||
+                key === 'vdom'   && !NeoConfig.useVdomWorker
+            ) {
                 continue;
             }
 
