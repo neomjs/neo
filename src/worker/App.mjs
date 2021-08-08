@@ -242,9 +242,7 @@ class App extends Base {
             .then(data => {this.createThemeMap(data)});
 
         if (!config.useVdomWorker) {
-            import('../vdom/Helper.mjs').then(module => {
-                console.log('Helper ready');
-            });
+            import('../vdom/Helper.mjs');
         }
     }
 
