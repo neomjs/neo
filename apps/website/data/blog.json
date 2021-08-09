@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Aug 9, 2021",
+        "id"          : 42,
+        "image"       : "javascript-development-making-a-web-worker-optional.png",
+        "name"        : "JavaScript Development: Making a Web Worker optional",
+        "provider"    : "Medium",
+        "publisher"   : "",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://tobiasuhlig.medium.com/javascript-development-making-a-web-worker-optional-f23a13490b28?source=friends_link&sk=63c267c70f36865378a750c772e0a253"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Aug 6, 2021",
         "id"          : 41,
         "image"       : "rendering-3d-offscreen-getting-max-performance-using-canvas-workers.png",
