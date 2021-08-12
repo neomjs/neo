@@ -48,7 +48,7 @@ class Button extends Component {
      * Triggered after the disabled config got changed.
      * @param {Boolean} value
      * @param {Boolean} oldValue
-     * @override component.Base
+     * @override
      * @protected
      */
     afterSetDisabled(value, oldValue) {

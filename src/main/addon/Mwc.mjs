@@ -41,7 +41,15 @@ class Mwc extends Base {
      *
      */
     loadButtonModule() {
-        import('https://unpkg.com/@material/mwc-button@0.23.0-canary.78b1eaac.0/mwc-button.js?module');
+        if (Neo.config.environment === 'development') {
+            import(
+                /* webpackIgnore: true */
+                'https://unpkg.com/@material/mwc-button@0.23.0-canary.78b1eaac.0/mwc-button.js?module'
+                );
+        } else {
+            // dist/development & dist/production
+            import('@material/mwc-button');
+        }
     }
 }
 
