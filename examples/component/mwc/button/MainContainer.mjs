@@ -26,16 +26,6 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'dense',
             listeners: {change: me.onConfigChange.bind(me, 'dense')}
         }, {
-            module   : NumberField,
-            clearable: true,
-            labelText: 'height',
-            listeners: {change: me.onConfigChange.bind(me, 'height')},
-            maxValue : 100,
-            minValue : 20,
-            stepSize : 2,
-            value    : me.exampleComponent.height,
-            style    : {marginTop: '.5em'}
-        }, {
             module   : TextField,
             labelText: 'icon',
             listeners: {change: me.onConfigChange.bind(me, 'icon')},
@@ -64,16 +54,6 @@ class MainContainer extends ConfigurationViewport {
             checked  : me.exampleComponent.unelevated,
             labelText: 'unelevated',
             listeners: {change: me.onConfigChange.bind(me, 'unelevated')},
-            style    : {marginTop: '.5em'}
-        }, {
-            module   : NumberField,
-            clearable: true,
-            labelText: 'width',
-            listeners: {change: me.onConfigChange.bind(me, 'width')},
-            maxValue : 300,
-            minValue : 100,
-            stepSize : 5,
-            value    : me.exampleComponent.width,
             style    : {marginTop: '.5em'}
         }];
     }
