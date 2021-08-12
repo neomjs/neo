@@ -22,9 +22,9 @@ class MainContainer extends ConfigurationViewport {
 
         return [{
             module   : CheckBox,
-            checked  : me.exampleComponent.closable,
-            labelText: 'closable',
-            listeners: {change: me.onConfigChange.bind(me, 'closable')}
+            checked  : me.exampleComponent.outlined,
+            labelText: 'outlined',
+            listeners: {change: me.onConfigChange.bind(me, 'outlined')}
         }, {
             module    :  NumberField,
             clearable : true,
@@ -61,9 +61,10 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create({
-            module: MwcButton,
-            icon  : 'event',
-            label : 'Hello World'
+            module  : MwcButton,
+            icon    : 'event',
+            label   : 'Hello World',
+            outlined: true
         });
     }
 }
