@@ -26,10 +26,17 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'dense',
             listeners: {change: me.onConfigChange.bind(me, 'dense')}
         }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.disabled,
+            labelText: 'disabled',
+            listeners: {change: me.onConfigChange.bind(me, 'disabled')},
+            style    : {marginTop: '.5em'}
+        }, {
             module   : TextField,
             labelText: 'icon',
             listeners: {change: me.onConfigChange.bind(me, 'icon')},
-            value    : me.exampleComponent.icon
+            value    : me.exampleComponent.icon,
+            style    : {marginTop: '.5em'}
         }, {
             module   : TextField,
             clearable: true,

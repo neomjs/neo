@@ -64,6 +64,17 @@ class Button extends Component {
     }
 
     /**
+     * Triggered after the disabled config got changed.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @override component.Base
+     * @protected
+     */
+    afterSetDisabled(value, oldValue) {
+        this.changeVdomRootKey('disabled', value);
+    }
+
+    /**
      * Triggered after the handler config got changed
      * @param {String} value
      * @param {String} oldValue
