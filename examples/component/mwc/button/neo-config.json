@@ -1,6 +1,7 @@
 {
-    "appPath"    : "examples/component/mwc/button/app.mjs",
-    "basePath"   : "../../../../",
-    "environment": "development",
-    "mainPath"   : "./Main.mjs"
+    "appPath"         : "examples/component/mwc/button/app.mjs",
+    "basePath"        : "../../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["DragDrop", "Mwc", "StyleSheet"]
 }

@@ -1,5 +1,7 @@
 import Component from '../../../src/component/Base.mjs';
 
+let moduleLoaded = false;
+
 /**
  * @class Neo.component.mwc.Button
  * @extends Neo.component.Base
@@ -52,6 +54,19 @@ class Button extends Component {
         _vdom:
         {tag: 'mwc-button'}
     }}
+
+    constructor(config) {
+        super(config);
+
+        if (!Neo.config.mainThreadAddons.includes('Mwc')) {
+            console.error('Please include "Mwc" into the mainThreadAddons of your neo-config.json file.');
+        }
+
+        if (!moduleLoaded) {
+            moduleLoaded = true;
+            Neo.main.addon.Mwc.loadButtonModule();
+        }
+    }
 
     /**
      * Triggered after the dense config got changed.

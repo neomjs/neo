@@ -32,19 +32,16 @@ class Mwc extends Base {
          */
         remote: {
             app: [
-
+                'loadButtonModule'
             ]
         }
     }}
 
     /**
      *
-     * @param {Object} config
      */
-    constructor(config) {
-        super(config);
-
-        console.log('')
+    loadButtonModule() {
+        import('https://unpkg.com/@material/mwc-button@0.23.0-canary.78b1eaac.0/mwc-button.js?module');
     }
 }
 
