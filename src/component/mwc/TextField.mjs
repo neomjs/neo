@@ -41,8 +41,19 @@ class Button extends Component {
          * @member {Object} _vdom={tag:'mwc-textfield'}
          */
         _vdom:
-            {tag: 'mwc-textfield'}
+        {tag: 'mwc-textfield'}
     }}
+
+    /**
+     * Triggered after the disabled config got changed.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @override component.Base
+     * @protected
+     */
+    afterSetDisabled(value, oldValue) {
+        this.changeVdomRootKey('disabled', value);
+    }
 
     /**
      * Triggered after the helper config got changed.
