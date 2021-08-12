@@ -36,10 +36,10 @@ class MainContainer extends ConfigurationViewport {
             style     : {marginTop: '10px'},
             value     : me.exampleComponent.height
         }, {
-            module    :  TextField, // todo: selectField with options
-            labelText : 'iconCls',
-            listeners : {change: me.onConfigChange.bind(me, 'iconCls')},
-            value     : me.exampleComponent.iconCls
+            module    :  TextField,
+            labelText : 'icon',
+            listeners : {change: me.onConfigChange.bind(me, 'icon')},
+            value     : me.exampleComponent.icon
         }, {
             module    :  TextField,
             clearable : true,
@@ -62,6 +62,7 @@ class MainContainer extends ConfigurationViewport {
     createExampleComponent() {
         return Neo.create({
             module: MwcButton,
+            icon  : 'event',
             label : 'Hello World'
         });
     }
