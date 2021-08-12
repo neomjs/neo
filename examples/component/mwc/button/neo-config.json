@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/component/mwc/button/app.mjs",
+    "basePath"   : "../../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}
