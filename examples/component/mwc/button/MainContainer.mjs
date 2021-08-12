@@ -21,11 +21,6 @@ class MainContainer extends ConfigurationViewport {
         let me = this;
 
         return [{
-            module   : CheckBox,
-            checked  : me.exampleComponent.outlined,
-            labelText: 'outlined',
-            listeners: {change: me.onConfigChange.bind(me, 'outlined')}
-        }, {
             module    :  NumberField,
             clearable : true,
             labelText : 'height',
@@ -33,7 +28,6 @@ class MainContainer extends ConfigurationViewport {
             maxValue  : 100,
             minValue  : 20,
             stepSize  : 2,
-            style     : {marginTop: '10px'},
             value     : me.exampleComponent.height
         }, {
             module    :  TextField,
@@ -45,8 +39,20 @@ class MainContainer extends ConfigurationViewport {
             clearable : true,
             labelText : 'label',
             listeners : {change: me.onConfigChange.bind(me, 'label')},
-            style     : {marginTop: '10px'},
+            style     : {marginTop: '.5em'},
             value     : me.exampleComponent.label
+        }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.outlined,
+            labelText: 'outlined',
+            listeners: {change: me.onConfigChange.bind(me, 'outlined')},
+            style     : {marginTop: '.5em'}
+        }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.raised,
+            labelText: 'raised',
+            listeners: {change: me.onConfigChange.bind(me, 'raised')},
+            style     : {marginTop: '.5em'}
         }, {
             module    :  NumberField,
             clearable : true,
