@@ -54,6 +54,12 @@ class MainContainer extends ConfigurationViewport {
             listeners: {change: me.onConfigChange.bind(me, 'raised')},
             style     : {marginTop: '.5em'}
         }, {
+            module   : CheckBox,
+            checked  : me.exampleComponent.unelevated,
+            labelText: 'unelevated',
+            listeners: {change: me.onConfigChange.bind(me, 'unelevated')},
+            style     : {marginTop: '.5em'}
+        }, {
             module    :  NumberField,
             clearable : true,
             labelText : 'width',
@@ -61,7 +67,8 @@ class MainContainer extends ConfigurationViewport {
             maxValue  : 300,
             minValue  : 100,
             stepSize  : 5,
-            value     : me.exampleComponent.width
+            value     : me.exampleComponent.width,
+            style     : {marginTop: '.5em'}
         }];
     }
 
