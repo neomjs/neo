@@ -1,5 +1,7 @@
 import Component from '../../../src/component/Base.mjs';
 
+let moduleLoaded = false;
+
 /**
  * @class Neo.component.mwc.TextField
  * @extends Neo.component.Base
@@ -43,6 +45,22 @@ class Button extends Component {
         _vdom:
         {tag: 'mwc-textfield'}
     }}
+
+    /**
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        if (!Neo.config.mainThreadAddons.includes('Mwc')) {
+            console.error('Please include "Mwc" into the mainThreadAddons of your neo-config.json file.');
+        }
+
+        if (!moduleLoaded) {
+            moduleLoaded = true;
+            Neo.main.addon.Mwc.loadTextFieldModule();
+        }
+    }
 
     /**
      * Triggered after the disabled config got changed.

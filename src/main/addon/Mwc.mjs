@@ -16,11 +16,6 @@ class Mwc extends Base {
          */
         className: 'Neo.main.addon.Mwc',
         /**
-         * @member {Boolean} scriptsLoaded_=true
-         * @protected
-         */
-        scriptsLoaded_: false,
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -32,7 +27,8 @@ class Mwc extends Base {
          */
         remote: {
             app: [
-                'loadButtonModule'
+                'loadButtonModule',
+                'loadTextFieldModule'
             ]
         }
     }}
@@ -49,6 +45,21 @@ class Mwc extends Base {
         } else {
             // dist/development & dist/production
             import('@material/mwc-button');
+        }
+    }
+
+    /**
+     *
+     */
+    loadTextFieldModule() {
+        if (Neo.config.environment === 'development') {
+            import(
+                /* webpackIgnore: true */
+                'https://unpkg.com/@material/mwc-textfield@0.23.0-canary.fe7cca31.0/mwc-textfield.js?module'
+                );
+        } else {
+            // dist/development & dist/production
+            import('@material/mwc-textfield');
         }
     }
 }
