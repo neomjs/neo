@@ -43,10 +43,10 @@ class MainContainer extends ConfigurationViewport {
         }, {
             module    :  TextField,
             clearable : true,
-            labelText : 'text',
-            listeners : {change: me.onConfigChange.bind(me, 'text')},
+            labelText : 'label',
+            listeners : {change: me.onConfigChange.bind(me, 'label')},
             style     : {marginTop: '10px'},
-            value     : me.exampleComponent.text
+            value     : me.exampleComponent.label
         }, {
             module    :  NumberField,
             clearable : true,
