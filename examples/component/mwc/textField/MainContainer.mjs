@@ -21,11 +21,6 @@ class MainContainer extends ConfigurationViewport {
 
         return [{
             module   : CheckBox,
-            checked  : me.exampleComponent.dense,
-            labelText: 'dense',
-            listeners: {change: me.onConfigChange.bind(me, 'dense')}
-        }, {
-            module   : CheckBox,
             checked  : me.exampleComponent.disabled,
             labelText: 'disabled',
             listeners: {change: me.onConfigChange.bind(me, 'disabled')},
@@ -35,6 +30,12 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'icon',
             listeners: {change: me.onConfigChange.bind(me, 'icon')},
             value    : me.exampleComponent.icon,
+            style    : {marginTop: '.5em'}
+        }, {
+            module   : TextField,
+            labelText: 'iconTrailing',
+            listeners: {change: me.onConfigChange.bind(me, 'iconTrailing')},
+            value    : me.exampleComponent.iconTrailing,
             style    : {marginTop: '.5em'}
         }, {
             module   : TextField,
@@ -49,27 +50,16 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'outlined',
             listeners: {change: me.onConfigChange.bind(me, 'outlined')},
             style    : {marginTop: '.5em'}
-        }, {
-            module   : CheckBox,
-            checked  : me.exampleComponent.raised,
-            labelText: 'raised',
-            listeners: {change: me.onConfigChange.bind(me, 'raised')},
-            style    : {marginTop: '.5em'}
-        }, {
-            module   : CheckBox,
-            checked  : me.exampleComponent.unelevated,
-            labelText: 'unelevated',
-            listeners: {change: me.onConfigChange.bind(me, 'unelevated')},
-            style    : {marginTop: '.5em'}
         }];
     }
 
     createExampleComponent() {
         return Neo.create({
-            module  : MwcTextField,
-            icon    : 'event',
-            label   : 'Hello World',
-            outlined: true
+            module      : MwcTextField,
+            icon        : 'event',
+            iconTrailing: 'delete',
+            label       : 'Hello World',
+            outlined    : true
         });
     }
 }
