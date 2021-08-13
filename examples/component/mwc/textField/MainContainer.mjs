@@ -65,6 +65,7 @@ class MainContainer extends ConfigurationViewport {
             value    : exampleComponent.placeholder
         }, {
             module   : TextField,
+            id       : `${me.id}__value`,
             labelText: 'value',
             listeners: {change: me.onConfigChange.bind(me, 'value')},
             style    : {marginTop: '.5em'},
@@ -78,6 +79,8 @@ class MainContainer extends ConfigurationViewport {
     }
 
     createExampleComponent() {
+        let me = this;
+
         return Neo.create({
             module      : MwcTextField,
             helper      : 'Helper Text',
@@ -86,7 +89,15 @@ class MainContainer extends ConfigurationViewport {
             label       : 'Hello World',
             outlined    : true,
             required    : true,
-            value       : 'Foo'
+            value       : 'Foo',
+
+            listeners: {
+                change: data => {
+                    if (data.oldValue) {
+                        Neo.getComponent(`${me.id}__value`).value = data.value;
+                    }
+                }
+            }
         });
     }
 }

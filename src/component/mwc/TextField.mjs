@@ -72,6 +72,15 @@ class TextField extends Component {
             moduleLoaded = true;
             Neo.main.addon.Mwc.loadTextFieldModule();
         }
+
+        let me           = this,
+            domListeners = me.domListeners;
+
+        domListeners.push(
+            {input: me.onInputValueChange, scope: me}
+        );
+
+        me.domListeners = domListeners;
     }
 
     /**
@@ -162,7 +171,15 @@ class TextField extends Component {
      * @protected
      */
     afterSetValue(value, oldValue) {
-        this.changeVdomRootKey('value', value);
+        let me = this;
+
+        me.changeVdomRootKey('value', value);
+
+        me.fire('change', {
+            component: me,
+            oldValue : oldValue,
+            value    : value
+        });
     }
 
     /**
@@ -172,6 +189,24 @@ class TextField extends Component {
      */
     checkValidity() {
         return Neo.main.addon.Mwc.checkValidity(this.id);
+    }
+
+    /**
+     *
+     * @param {Object} data
+     * @param {Neo.component.mwc.TextField} data.component
+     * @param {Object[]} data.path
+     * @param {Boolean} data.valid
+     * @param {String} data.value
+     */
+    onInputValueChange(data) {
+        let me       = this,
+            value    = data.value,
+            oldValue = me.value;
+
+        if (value !== oldValue) {
+            me.value = value;
+        }
     }
 
     /**
