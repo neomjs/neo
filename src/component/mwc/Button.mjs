@@ -55,6 +55,9 @@ class Button extends Component {
         {tag: 'mwc-button'}
     }}
 
+    /**
+     * @param {Object} config
+     */
     constructor(config) {
         super(config);
 

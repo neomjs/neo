@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Aug 13, 2022",
+        "id"          : 43,
+        "image"       : "using-material-web-components-within-the-neomjs-application-worker.png",
+        "name"        : "Using Material Web Components within the neo.mjs application worker",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/using-material-web-components-within-the-neo-mjs-application-worker-50d3790ea48?source=friends_link&sk=2bca9de4a3ba98b693e7582dcc55a990"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Aug 9, 2021",
         "id"          : 42,
         "image"       : "javascript-development-making-a-web-worker-optional.png",
