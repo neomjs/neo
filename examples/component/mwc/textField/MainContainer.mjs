@@ -64,6 +64,12 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '.5em'},
             value    : exampleComponent.placeholder
         }, {
+            module   : TextField,
+            labelText: 'value',
+            listeners: {change: me.onConfigChange.bind(me, 'value')},
+            style    : {marginTop: '.5em'},
+            value    : exampleComponent.value
+        }, {
             ntype  : 'button',
             text   : 'check validity',
             handler: data => {exampleComponent.checkValidity().then(value => console.log(value))},
@@ -79,7 +85,8 @@ class MainContainer extends ConfigurationViewport {
             iconTrailing: 'delete',
             label       : 'Hello World',
             outlined    : true,
-            required    : true
+            required    : true,
+            value       : 'Foo'
         });
     }
 }

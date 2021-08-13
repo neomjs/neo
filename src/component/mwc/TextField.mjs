@@ -48,6 +48,10 @@ class TextField extends Component {
          */
         required_: false,
         /**
+         * @member {String} value_=''
+         */
+        value_: '',
+        /**
          * @member {Object} _vdom={tag:'mwc-textfield'}
          */
         _vdom:
@@ -149,6 +153,16 @@ class TextField extends Component {
      */
     afterSetRequired(value, oldValue) {
         this.changeVdomRootKey('required', value);
+    }
+
+    /**
+     * Triggered after the value config got changed.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetValue(value, oldValue) {
+        this.changeVdomRootKey('value', value);
     }
 
     /**
