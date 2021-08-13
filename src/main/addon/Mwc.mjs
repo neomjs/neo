@@ -28,7 +28,8 @@ class Mwc extends Base {
             app: [
                 'checkValidity',
                 'loadButtonModule',
-                'loadTextFieldModule'
+                'loadTextFieldModule',
+                'reportValidity'
             ]
         }
     }}
