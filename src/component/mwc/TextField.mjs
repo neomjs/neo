@@ -40,6 +40,10 @@ class Button extends Component {
          */
         outlined_: false,
         /**
+         * @member {String} placeholder_=''
+         */
+        placeholder_: '',
+        /**
          * @member {Object} _vdom={tag:'mwc-textfield'}
          */
         _vdom:
@@ -121,6 +125,16 @@ class Button extends Component {
      */
     afterSetOutlined(value, oldValue) {
         this.changeVdomRootKey('outlined', value || null);
+    }
+
+    /**
+     * Triggered after the placeholder config got changed.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetPlaceholder(value, oldValue) {
+        this.changeVdomRootKey('placeholder', value);
     }
 }
 

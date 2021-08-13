@@ -56,6 +56,12 @@ class MainContainer extends ConfigurationViewport {
             labelText: 'outlined',
             listeners: {change: me.onConfigChange.bind(me, 'outlined')},
             style    : {marginTop: '.5em'}
+        }, {
+            module   : TextField,
+            labelText: 'placeholder',
+            listeners: {change: me.onConfigChange.bind(me, 'placeholder')},
+            value    : me.exampleComponent.placeholder,
+            style    : {marginTop: '.5em'}
         }];
     }
 
