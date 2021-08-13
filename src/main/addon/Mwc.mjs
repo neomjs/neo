@@ -1,5 +1,4 @@
-import Base      from '../../core/Base.mjs';
-import DomAccess from '../DomAccess.mjs';
+import Base from '../../core/Base.mjs';
 
 /**
  * Helper class to include Google's Material Web Components into your neo.mjs app
@@ -51,7 +50,7 @@ class Mwc extends Base {
             import(
                 /* webpackIgnore: true */
                 'https://unpkg.com/@material/mwc-button@0.23.0-canary.78b1eaac.0/mwc-button.js?module'
-                );
+            );
         } else {
             // dist/development & dist/production
             import('@material/mwc-button');
@@ -66,7 +65,7 @@ class Mwc extends Base {
             import(
                 /* webpackIgnore: true */
                 'https://unpkg.com/@material/mwc-textfield@0.23.0-canary.fe7cca31.0/mwc-textfield.js?module'
-                );
+            );
         } else {
             // dist/development & dist/production
             import('@material/mwc-textfield');
