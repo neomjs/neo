@@ -36,10 +36,7 @@ class Toolbar extends BaseToolbar {
         let me = this;
 
         if (value && !me.sortZone) {
-            import(
-                /* webpackChunkName: 'src/draggable/tab/header/toolbar/SortZone-mjs.js' */
-                '../../draggable/tab/header/toolbar/SortZone.mjs'
-                ).then(module => {
+            import('../../draggable/tab/header/toolbar/SortZone.mjs').then(module => {
                 me.sortZone = Neo.create({
                     module             : module.default,
                     appName            : me.appName,
