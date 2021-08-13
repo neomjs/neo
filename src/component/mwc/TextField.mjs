@@ -136,6 +136,15 @@ class TextField extends Component {
     afterSetPlaceholder(value, oldValue) {
         this.changeVdomRootKey('placeholder', value);
     }
+
+    /**
+     * Returns true if the textarea passes validity checks.
+     * Returns false and fires an invalid event on the textfield otherwise.
+     * @returns {Promise<Boolean>}
+     */
+    checkValidity() {
+        return Neo.main.addon.Mwc.checkValidity(this.id);
+    }
 }
 
 Neo.applyClassConfig(TextField);

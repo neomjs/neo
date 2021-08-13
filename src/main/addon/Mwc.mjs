@@ -27,11 +27,21 @@ class Mwc extends Base {
          */
         remote: {
             app: [
+                'checkValidity',
                 'loadButtonModule',
                 'loadTextFieldModule'
             ]
         }
     }}
+
+    /**
+     *
+     * @param {String} id
+     * @returns {Boolean}
+     */
+    checkValidity(id) {
+        return document.getElementById(id).checkValidity();
+    }
 
     /**
      *
