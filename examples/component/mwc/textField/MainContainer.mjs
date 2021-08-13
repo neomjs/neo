@@ -17,11 +17,12 @@ class MainContainer extends ConfigurationViewport {
     }}
 
     createConfigurationComponents() {
-        let me = this;
+        let me               = this,
+            exampleComponent = me.exampleComponent;
 
         return [{
             module   : CheckBox,
-            checked  : me.exampleComponent.disabled,
+            checked  : exampleComponent.disabled,
             labelText: 'disabled',
             listeners: {change: me.onConfigChange.bind(me, 'disabled')},
             style    : {marginTop: '.5em'}
@@ -29,30 +30,30 @@ class MainContainer extends ConfigurationViewport {
             module   : TextField,
             labelText: 'helper',
             listeners: {change: me.onConfigChange.bind(me, 'helper')},
-            value    : me.exampleComponent.helper,
-            style    : {marginTop: '.5em'}
+            style    : {marginTop: '.5em'},
+            value    : exampleComponent.helper
         }, {
             module   : TextField,
             labelText: 'icon',
             listeners: {change: me.onConfigChange.bind(me, 'icon')},
-            value    : me.exampleComponent.icon,
-            style    : {marginTop: '.5em'}
+            style    : {marginTop: '.5em'},
+            value    : exampleComponent.icon
         }, {
             module   : TextField,
             labelText: 'iconTrailing',
             listeners: {change: me.onConfigChange.bind(me, 'iconTrailing')},
-            value    : me.exampleComponent.iconTrailing,
-            style    : {marginTop: '.5em'}
+            style    : {marginTop: '.5em'},
+            value    : exampleComponent.iconTrailing
         }, {
             module   : TextField,
             clearable: true,
             labelText: 'label',
             listeners: {change: me.onConfigChange.bind(me, 'label')},
             style    : {marginTop: '.5em'},
-            value    : me.exampleComponent.label
+            value    : exampleComponent.label
         }, {
             module   : CheckBox,
-            checked  : me.exampleComponent.outlined,
+            checked  : exampleComponent.outlined,
             labelText: 'outlined',
             listeners: {change: me.onConfigChange.bind(me, 'outlined')},
             style    : {marginTop: '.5em'}
@@ -60,8 +61,13 @@ class MainContainer extends ConfigurationViewport {
             module   : TextField,
             labelText: 'placeholder',
             listeners: {change: me.onConfigChange.bind(me, 'placeholder')},
-            value    : me.exampleComponent.placeholder,
-            style    : {marginTop: '.5em'}
+            style    : {marginTop: '.5em'},
+            value    : exampleComponent.placeholder
+        }, {
+            ntype  : 'button',
+            text   : 'check validity',
+            handler: data => {exampleComponent.checkValidity().then(value => console.log(value))},
+            style  : {marginTop: '.5em'}
         }];
     }
 
