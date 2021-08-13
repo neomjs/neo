@@ -6,7 +6,7 @@ let moduleLoaded = false;
  * @class Neo.component.mwc.TextField
  * @extends Neo.component.Base
  */
-class Button extends Component {
+class TextField extends Component {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.component.mwc.TextField'
@@ -138,6 +138,6 @@ class Button extends Component {
     }
 }
 
-Neo.applyClassConfig(Button);
+Neo.applyClassConfig(TextField);
 
-export {Button as default};
+export {TextField as default};
