@@ -36,6 +36,10 @@ class TextField extends Component {
          */
         label_: '',
         /**
+         * @member {String} name_=''
+         */
+        name_: '',
+        /**
          * @member {Boolean} outlined_=false
          */
         outlined_: false,
@@ -132,6 +136,16 @@ class TextField extends Component {
      */
     afterSetLabel(value, oldValue) {
         this.changeVdomRootKey('label', value);
+    }
+
+    /**
+     * Triggered after the name config got changed.
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetName(value, oldValue) {
+        this.changeVdomRootKey('name', value);
     }
 
     /**
