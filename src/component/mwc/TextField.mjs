@@ -44,6 +44,10 @@ class TextField extends Component {
          */
         placeholder_: '',
         /**
+         * @member {Boolean} required_=false
+         */
+        required_: false,
+        /**
          * @member {Object} _vdom={tag:'mwc-textfield'}
          */
         _vdom:
@@ -124,7 +128,7 @@ class TextField extends Component {
      * @protected
      */
     afterSetOutlined(value, oldValue) {
-        this.changeVdomRootKey('outlined', value || null);
+        this.changeVdomRootKey('outlined', value);
     }
 
     /**
@@ -135,6 +139,16 @@ class TextField extends Component {
      */
     afterSetPlaceholder(value, oldValue) {
         this.changeVdomRootKey('placeholder', value);
+    }
+
+    /**
+     * Triggered after the required config got changed.
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetRequired(value, oldValue) {
+        this.changeVdomRootKey('required', value);
     }
 
     /**

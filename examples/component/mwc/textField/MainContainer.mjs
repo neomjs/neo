@@ -78,7 +78,8 @@ class MainContainer extends ConfigurationViewport {
             icon        : 'event',
             iconTrailing: 'delete',
             label       : 'Hello World',
-            outlined    : true
+            outlined    : true,
+            required    : true
         });
     }
 }
