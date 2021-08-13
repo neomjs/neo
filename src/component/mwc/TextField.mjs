@@ -145,6 +145,15 @@ class TextField extends Component {
     checkValidity() {
         return Neo.main.addon.Mwc.checkValidity(this.id);
     }
+
+    /**
+     * Runs checkValidity() method, and if it returns false,
+     * then it reports to the user that the input is invalid.
+     * @returns {Promise<Boolean>}
+     */
+    reportValidity() {
+        return Neo.main.addon.Mwc.reportValidity(this.id);
+    }
 }
 
 Neo.applyClassConfig(TextField);

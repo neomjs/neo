@@ -72,6 +72,15 @@ class Mwc extends Base {
             import('@material/mwc-textfield');
         }
     }
+
+    /**
+     *
+     * @param {String} id
+     * @returns {Boolean}
+     */
+    reportValidity(id) {
+        return document.getElementById(id).reportValidity();
+    }
 }
 
 Neo.applyClassConfig(Mwc);
