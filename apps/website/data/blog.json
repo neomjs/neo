@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Aug 20, 2022",
+        "id"          : 44,
+        "image"       : "the-best-frontend-development-strategies-in-2022.png",
+        "name"        : "The best frontend development strategies in 2022",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/the-best-frontend-development-strategies-in-2022-cb02dd7aa48b?source=friends_link&sk=70ae630fa553df54bdd2acaa531f1767"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Aug 13, 2022",
         "id"          : 43,
         "image"       : "using-material-web-components-within-the-neomjs-application-worker.png",
