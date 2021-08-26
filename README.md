@@ -210,6 +210,8 @@ Please take a look at the <a href="./buildScripts/README.md">Command-Line Interf
 There are 3 different ways on how you can get the basics running locally.</br>
 Please take a look at the <a href=".github/GETTING_STARTED.md">Getting Started Guide</a>.
 
+Here is an in depth tutorial on how to build your first neo.mjs app:
+https://itnext.io/define-a-web-4-0-app-to-be-multi-threaded-9c495c0d0ef9?source=friends_link&sk=4d143ace05f0e9bbe82babd9433cc822
 </br></br>
 <h2 id="project-history">11. Project History</h2>
 
