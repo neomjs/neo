@@ -619,9 +619,8 @@ class Base extends CoreBase {
                 me.createTooltips(value);
             } else {
                 import('../tooltip/Base.mjs').then((module) => {
-                        me.createTooltips(value);
-                    }
-                );
+                    me.createTooltips(value);
+                });
             }
         }
     }

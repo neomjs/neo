@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Aug 25, 2022",
+        "id"          : 45,
+        "image"       : "define-a-web-4.0-app-to-be-multi-threaded.png",
+        "name"        : "Define a web 4.0 app to be multi threaded",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Tutorial",
+        "url"         : "https://itnext.io/define-a-web-4-0-app-to-be-multi-threaded-9c495c0d0ef9?source=friends_link&sk=4d143ace05f0e9bbe82babd9433cc822"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Aug 20, 2022",
         "id"          : 44,
         "image"       : "the-best-frontend-development-strategies-in-2022.png",
