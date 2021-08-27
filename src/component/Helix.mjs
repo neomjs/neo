@@ -703,6 +703,7 @@ class Helix extends Component {
             }
 
             Neo.vdom.Helper.create({
+                appName    : me.appName,
                 autoMount  : true,
                 parentId   : group.id,
                 parentIndex: store.getCount(),
