@@ -381,15 +381,11 @@ class Helix extends Component {
         me.transitionTimeouts.splice(0, me.transitionTimeouts.length);
 
         if (me.mounted) {
-            Neo.currentWorker.promiseMessage('main', {
-                action : 'updateDom',
-                appName: me.appName,
-                deltas : {
-                    id : me.id,
-                    cls: {
-                        add   : [cls],
-                        remove: []
-                    }
+            Neo.applyDeltas(me.appName, {
+                id : me.id,
+                cls: {
+                    add   : [cls],
+                    remove: []
                 }
             }).then(() => {
                 callback.apply(me, [callbackParam]);
@@ -397,15 +393,11 @@ class Helix extends Component {
                 timeoutId = setTimeout(() => {
                     NeoArray.remove(me.transitionTimeouts, timeoutId);
 
-                    Neo.currentWorker.promiseMessage('main', {
-                        action : 'updateDom',
-                        appName: me.appName,
-                        deltas : {
-                            id : me.id,
-                            cls: {
-                                add   : [],
-                                remove: [cls]
-                            }
+                    Neo.applyDeltas(me.appName, {
+                        id : me.id,
+                        cls: {
+                            add   : [],
+                            remove: [cls]
                         }
                     });
                 }, animationTime + 200);
