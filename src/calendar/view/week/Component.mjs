@@ -424,9 +424,11 @@ class Component extends BaseComponent {
 
             setTimeout(() => {
                 Neo.main.DomAccess.getBoundingClientRect({
-                    id: me.getColumnContainer().id
+                    appName: me.appName,
+                    id     : me.getColumnContainer().id
                 }).then(data => {
                     Neo.main.DomAccess.scrollBy({
+                        appName  : me.appName,
                         direction: 'left',
                         id       : me.getScrollContainer().id,
                         value    : data.width / 3
