@@ -322,14 +322,10 @@ class Helix extends Component {
         let me = this;
 
         if (me.mounted) {
-            Neo.currentWorker.promiseMessage('main', {
-                action : 'updateDom',
-                appName: me.appName,
-                deltas : {
-                    id   : me.vdom.id,
-                    style: {
-                        perspective: value + 'px'
-                    }
+            Neo.applyDeltas(me.appName, {
+                id   : me.vdom.id,
+                style: {
+                    perspective: value + 'px'
                 }
             });
 
@@ -633,17 +629,9 @@ class Helix extends Component {
 
             me.clonedItems = [];
 
-            Neo.currentWorker.promiseMessage('main', {
-                action : 'updateDom',
-                appName: me.appName,
-                deltas : deltas
-            }).then(data => {
+            Neo.applyDeltas(me.appName, deltas).then(data => {
                 setTimeout(() => {
-                    Neo.currentWorker.promiseMessage('main', {
-                        action : 'updateDom',
-                        appName: me.appName,
-                        deltas : removeDeltas
-                    });
+                    Neo.applyDeltas(me.appName, removeDeltas);
                 }, 650);
             });
         }
@@ -704,16 +692,12 @@ class Helix extends Component {
                 me.clonedItems.push(itemVdom);
 
                 setTimeout(() => {
-                    Neo.currentWorker.promiseMessage('main', {
-                        action : 'updateDom',
-                        appName: me.appName,
-                        deltas : [{
-                            id   : itemVdom.id,
-                            style: {
-                                opacity  : 1,
-                                transform: me.getCloneTransform()
-                            }
-                        }]
+                    Neo.applyDeltas(me.appName, {
+                        id   : itemVdom.id,
+                        style: {
+                            opacity  : 1,
+                            transform: me.getCloneTransform()
+                        }
                     });
                 }, 50);
             });
