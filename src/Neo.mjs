@@ -347,6 +347,31 @@ Neo = self.Neo = Object.assign({
     emptyFn() {},
 
     /**
+     * Deep-merges a source object into a target object
+     * @memberOf module:Neo
+     * @param {Object} target
+     * @param {Object} source
+     * @returns {Object} target
+     */
+    merge(target, source) {
+        if (Neo.typeOf(target) === 'Object') {
+            for (let key in source) {
+                if (Neo.typeOf(source[key]) === 'Object') {
+                    if (!target[key]) {
+                        target[key] = source[key];
+                    } else {
+                        Neo.merge(target[key], source[key]);
+                    }
+                } else {
+                    target[key] = source[key];
+                }
+            }
+        }
+
+        return target;
+    },
+
+    /**
      * Maps a className string into a global namespace
      * @example
      * Neo.ns('Neo.button.Base', true);

@@ -46,10 +46,9 @@ class MainContainer extends Viewport {
                 url    : 'https://github.com/neomjs/neo/tree/dev/src/calendar'
             }]
         }, {
-            module     : Calendar,
-            currentDate: new Date('2021-07-20'),
-            flex       : 1,
-            reference  : 'calendar',
+            module   : Calendar,
+            flex     : 1,
+            reference: 'calendar',
 
             calendarStoreConfig: {
                 autoLoad: true,
@@ -59,6 +58,10 @@ class MainContainer extends Viewport {
             eventStoreConfig: {
                 autoLoad: true,
                 url     : '../../examples/calendar/basic/data/events.json'
+            },
+
+            modelData: {
+                currentDate: new Date('2021-07-20')
             }
         }]
     }}

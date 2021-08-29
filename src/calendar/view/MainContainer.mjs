@@ -49,7 +49,6 @@ class MainContainer extends Container {
          * @member {Object} bind
          */
         bind: {
-            currentDate         : {twoWay: true, value: data => data.currentDate},
             endTime             : {twoWay: true, value: data => data.endTime},
             locale              : {twoWay: true, value: data => data.locale},
             minimumEventDuration: {twoWay: true, value: data => data.minimumEventDuration},
@@ -75,11 +74,6 @@ class MainContainer extends Container {
          * @member {Object|null} colorStoreConfig_=null
          */
         colorStoreConfig_: null,
-        /**
-         * The currently active date inside all views
-         * @member {Date} currentDate_=new Date()
-         */
-        currentDate_: todayDate,
         /**
          * @member {Neo.component.DateSelector|null} dateSelector=null
          */
@@ -511,7 +505,6 @@ class MainContainer extends Container {
             height   : me.sideBarWidth,
             listeners: {change: me.onDateSelectorChange, scope: me},
             parentId : me.id, // we need the parentId to access the model inside the ctor
-            value    : DateUtil.convertToyyyymmdd(me.currentDate),
 
             bind: {
                 locale              : data => data.locale,
@@ -690,7 +683,9 @@ class MainContainer extends Container {
      * @param data
      */
     onTodayButtonClick(data) {
-        this.currentDate = todayDate;
+        this.model.setData({
+            currentDate: todayDate
+        });
     }
 
     /**
@@ -715,7 +710,7 @@ class MainContainer extends Container {
      */
     switchInterval(multiplier) {
         let me          = this,
-            currentDate = me.currentDate, // cloned
+            currentDate = me.data.currentDate,
 
         map = {
             day  : () => {currentDate.setDate(    currentDate.getDate()     + multiplier)},
@@ -725,7 +720,10 @@ class MainContainer extends Container {
         };
 
         map[me.activeView]();
-        me.currentDate = currentDate;
+
+        me.model.setData({
+            currentDate: currentDate
+        });
     }
 }
 

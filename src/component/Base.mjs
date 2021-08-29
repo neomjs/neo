@@ -190,6 +190,12 @@ class Base extends CoreBase {
          */
         model_: null,
         /**
+         * Override specific model data properties.
+         * This will merge the content.
+         * @member {Object|null} model_=null
+         */
+        modelData: null,
+        /**
          * True in case the component is mounted to the DOM
          * @member {Boolean} mounted_=false
          * @protected
@@ -758,9 +764,14 @@ class Base extends CoreBase {
         }
 
         if (value) {
-            return ClassSystemUtil.beforeSetInstance(value, 'Neo.model.Component', {
-                component: this
-            });
+            let me            = this,
+                defaultValues = {component: me};
+
+            if (me.modelData) {
+                defaultValues.data = me.modelData;
+            }
+
+            return ClassSystemUtil.beforeSetInstance(value, 'Neo.model.Component', defaultValues);
         }
 
         return null;
