@@ -31,7 +31,12 @@ class MainContainer extends Viewport {
          * 2. Just drop them into a parent view.
          * @member {Neo.calendar.view.MainContainerModel} model=MainContainerModel
          */
-        model: MainContainerModel,
+        model: {
+            module: MainContainerModel,
+            data  : {
+                currentDate: new Date('2021-07-20')
+            }
+        },
         /**
          * Config options for Neo.calendar.store.Calendars.
          * The calendar view model relies on it.
@@ -55,8 +60,7 @@ class MainContainer extends Viewport {
          * @member {Object[]} items
          */
         items: [{
-            module     : WeekComponent,
-            currentDate: new Date('2021-07-20')
+            module: WeekComponent
         }]
     }}
 

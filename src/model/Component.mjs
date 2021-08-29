@@ -503,6 +503,20 @@ class Component extends Base {
     }
 
     /**
+     * Override this method to change the order configs are applied to this instance.
+     * @param {Object} config
+     * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
+     * @returns {Object} config
+     */
+    mergeConfig(config, preventOriginalConfig) {
+        if (config.data) {
+            config.data = Neo.merge(Neo.clone(this.constructor.config.data, true), config.data);
+        }
+
+        return super.mergeConfig(config, preventOriginalConfig);
+    }
+
+    /**
      *
      * @param {String} key
      * @param {*} value
