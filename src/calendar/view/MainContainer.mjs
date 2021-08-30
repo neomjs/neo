@@ -49,11 +49,10 @@ class MainContainer extends Container {
          * @member {Object} bind
          */
         bind: {
-            scrollNewYearFromTop: {twoWay: true, value: data => data.scrollNewYearFromTop},
-            showWeekends        : {twoWay: true, value: data => data.showWeekends},
-            startTime           : {twoWay: true, value: data => data.startTime},
-            timeFormat          : {twoWay: true, value: data => data.timeFormat},
-            weekStartDay        : {twoWay: true, value: data => data.weekStartDay}
+            showWeekends: {twoWay: true, value: data => data.showWeekends},
+            startTime   : {twoWay: true, value: data => data.startTime},
+            timeFormat  : {twoWay: true, value: data => data.timeFormat},
+            weekStartDay: {twoWay: true, value: data => data.weekStartDay}
         },
         /**
          * @member {Neo.calendar.view.Container|null} calendarsContainer=null
@@ -131,11 +130,6 @@ class MainContainer extends Container {
          * @member {Boolean} removeInactiveCards=true
          */
         removeInactiveCards: true,
-        /**
-         * True to scroll new years in from the top
-         * @member {Boolean} scrollNewYearFromTop_=false
-         */
-        scrollNewYearFromTop_: false,
         /**
          * @member {Object|null} settingsContainerConfig=null
          */
