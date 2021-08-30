@@ -49,7 +49,6 @@ class MainContainer extends Container {
          * @member {Object} bind
          */
         bind: {
-            locale              : {twoWay: true, value: data => data.locale},
             minimumEventDuration: {twoWay: true, value: data => data.minimumEventDuration},
             scrollNewYearFromTop: {twoWay: true, value: data => data.scrollNewYearFromTop},
             showWeekends        : {twoWay: true, value: data => data.showWeekends},
@@ -116,10 +115,6 @@ class MainContainer extends Container {
          * @protected
          */
         layout: {ntype: 'vbox', align: 'stretch'},
-        /**
-         * @member {String} locale_=Neo.config.locale
-         */
-        locale_: Neo.config.locale,
         /**
          * Time in minutes
          * @member {Number} minimumEventDuration_=30
