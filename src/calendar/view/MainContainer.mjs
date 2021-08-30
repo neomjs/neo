@@ -49,7 +49,6 @@ class MainContainer extends Container {
          * @member {Object} bind
          */
         bind: {
-            timeFormat  : {twoWay: true, value: data => data.timeFormat},
             weekStartDay: {twoWay: true, value: data => data.weekStartDay}
         },
         /**
@@ -148,10 +147,6 @@ class MainContainer extends Container {
          * @member {Number} sideBarWidth=220
          */
         sideBarWidth: 220,
-        /**
-         * @member {Object} timeFormat_={hour:'2-digit',minute:'2-digit'}
-         */
-        timeFormat_: {hour: '2-digit', minute: '2-digit'},
         /**
          * @member {Boolean} useSettingsContainer_=true
          */
