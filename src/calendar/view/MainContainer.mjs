@@ -49,7 +49,6 @@ class MainContainer extends Container {
          * @member {Object} bind
          */
         bind: {
-            endTime             : {twoWay: true, value: data => data.endTime},
             locale              : {twoWay: true, value: data => data.locale},
             minimumEventDuration: {twoWay: true, value: data => data.minimumEventDuration},
             scrollNewYearFromTop: {twoWay: true, value: data => data.scrollNewYearFromTop},
@@ -108,12 +107,6 @@ class MainContainer extends Container {
          * @member {Object|null} editEventContainerConfig=null
          */
         editEventContainerConfig: null,
-        /**
-         * Only full hours are valid for now
-         * format: 'hh:mm'
-         * @member {String} endTime_='24:00'
-         */
-        endTime_: '24:00',
         /**
          * @member {Object|null} eventStoreConfig_=null
          */
