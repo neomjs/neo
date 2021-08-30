@@ -46,12 +46,6 @@ class MainContainer extends Container {
          */
         baseFontSize_: null,
         /**
-         * @member {Object} bind
-         */
-        bind: {
-            weekStartDay: {twoWay: true, value: data => data.weekStartDay}
-        },
-        /**
          * @member {Neo.calendar.view.Container|null} calendarsContainer=null
          */
         calendarsContainer: null,
@@ -164,11 +158,6 @@ class MainContainer extends Container {
          * @member {Object|null} weekComponentConfig=null
          */
         weekComponentConfig: null,
-        /**
-         * 0-6 => Sun-Sat
-         * @member {Number} weekStartDay_=0
-         */
-        weekStartDay_: 0,
         /**
          * @member {Neo.calendar.view.YearComponent|null} yearComponent=null
          */
