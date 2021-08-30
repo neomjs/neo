@@ -49,7 +49,6 @@ class MainContainer extends Container {
          * @member {Object} bind
          */
         bind: {
-            showWeekends: {twoWay: true, value: data => data.showWeekends},
             startTime   : {twoWay: true, value: data => data.startTime},
             timeFormat  : {twoWay: true, value: data => data.timeFormat},
             weekStartDay: {twoWay: true, value: data => data.weekStartDay}
@@ -142,10 +141,6 @@ class MainContainer extends Container {
          * @member {Boolean} settingsExpanded_=false
          */
         settingsExpanded_: false,
-        /**
-         * @member {Boolean} showWeekends_=true
-         */
-        showWeekends_: true,
         /**
          * @member {Boolean} sideBarExpanded_=true
          */
