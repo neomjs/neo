@@ -49,7 +49,6 @@ class MainContainer extends Container {
          * @member {Object} bind
          */
         bind: {
-            minimumEventDuration: {twoWay: true, value: data => data.minimumEventDuration},
             scrollNewYearFromTop: {twoWay: true, value: data => data.scrollNewYearFromTop},
             showWeekends        : {twoWay: true, value: data => data.showWeekends},
             startTime           : {twoWay: true, value: data => data.startTime},
@@ -115,11 +114,6 @@ class MainContainer extends Container {
          * @protected
          */
         layout: {ntype: 'vbox', align: 'stretch'},
-        /**
-         * Time in minutes
-         * @member {Number} minimumEventDuration_=30
-         */
-        minimumEventDuration_: 30,
         /**
          * @member {Neo.calendar.view.MainContainerModel} model=MainContainerModel
          */
@@ -609,7 +603,6 @@ class MainContainer extends Container {
             week: {
                 module: () => import('./week/Component.mjs'),
                 flag  : 'week',
-                minimumEventDuration: me.minimumEventDuration,
                 ...defaultConfig,
                 ...me.weekComponentConfig
             },
