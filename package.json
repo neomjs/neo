@@ -38,7 +38,7 @@
         "@material/mwc-textfield": "^0.22.1",
         "autoprefixer": "^10.3.3",
         "chalk": "^4.1.2",
-        "clean-webpack-plugin": "^3.0.0",
+        "clean-webpack-plugin": "^4.0.0",
         "commander": "^8.1.0",
         "cssnano": "^5.0.8",
         "envinfo": "^7.8.1",
@@ -51,7 +51,7 @@
         "sass": "^1.38.2",
         "webpack": "^5.51.1",
         "webpack-cli": "^4.8.0",
-        "webpack-dev-server": "4.0.0",
+        "webpack-dev-server": "4.1.0",
         "webpack-hook-plugin": "^1.0.7",
         "webpack-node-externals": "^3.0.0"
     },
