@@ -46,19 +46,6 @@ class MainContainer extends Container {
          */
         baseFontSize_: null,
         /**
-         * @member {Object} bind
-         */
-        bind: {
-            endTime             : {twoWay: true, value: data => data.endTime},
-            locale              : {twoWay: true, value: data => data.locale},
-            minimumEventDuration: {twoWay: true, value: data => data.minimumEventDuration},
-            scrollNewYearFromTop: {twoWay: true, value: data => data.scrollNewYearFromTop},
-            showWeekends        : {twoWay: true, value: data => data.showWeekends},
-            startTime           : {twoWay: true, value: data => data.startTime},
-            timeFormat          : {twoWay: true, value: data => data.timeFormat},
-            weekStartDay        : {twoWay: true, value: data => data.weekStartDay}
-        },
-        /**
          * @member {Neo.calendar.view.Container|null} calendarsContainer=null
          */
         calendarsContainer: null,
@@ -109,12 +96,6 @@ class MainContainer extends Container {
          */
         editEventContainerConfig: null,
         /**
-         * Only full hours are valid for now
-         * format: 'hh:mm'
-         * @member {String} endTime_='24:00'
-         */
-        endTime_: '24:00',
-        /**
          * @member {Object|null} eventStoreConfig_=null
          */
         eventStoreConfig_: null,
@@ -123,15 +104,6 @@ class MainContainer extends Container {
          * @protected
          */
         layout: {ntype: 'vbox', align: 'stretch'},
-        /**
-         * @member {String} locale_=Neo.config.locale
-         */
-        locale_: Neo.config.locale,
-        /**
-         * Time in minutes
-         * @member {Number} minimumEventDuration_=30
-         */
-        minimumEventDuration_: 30,
         /**
          * @member {Neo.calendar.view.MainContainerModel} model=MainContainerModel
          */
@@ -150,11 +122,6 @@ class MainContainer extends Container {
          */
         removeInactiveCards: true,
         /**
-         * True to scroll new years in from the top
-         * @member {Boolean} scrollNewYearFromTop_=false
-         */
-        scrollNewYearFromTop_: false,
-        /**
          * @member {Object|null} settingsContainerConfig=null
          */
         settingsContainerConfig: null,
@@ -167,10 +134,6 @@ class MainContainer extends Container {
          */
         settingsExpanded_: false,
         /**
-         * @member {Boolean} showWeekends_=true
-         */
-        showWeekends_: true,
-        /**
          * @member {Boolean} sideBarExpanded_=true
          */
         sideBarExpanded_: true,
@@ -178,16 +141,6 @@ class MainContainer extends Container {
          * @member {Number} sideBarWidth=220
          */
         sideBarWidth: 220,
-        /**
-         * Only full hours are valid for now
-         * format: 'hh:mm'
-         * @member {String} startTime_='00:00'
-         */
-        startTime_: '00:00',
-        /**
-         * @member {Object} timeFormat_={hour:'2-digit',minute:'2-digit'}
-         */
-        timeFormat_: {hour: '2-digit', minute: '2-digit'},
         /**
          * @member {Boolean} useSettingsContainer_=true
          */
@@ -205,11 +158,6 @@ class MainContainer extends Container {
          * @member {Object|null} weekComponentConfig=null
          */
         weekComponentConfig: null,
-        /**
-         * 0-6 => Sun-Sat
-         * @member {Number} weekStartDay_=0
-         */
-        weekStartDay_: 0,
         /**
          * @member {Neo.calendar.view.YearComponent|null} yearComponent=null
          */
@@ -621,7 +569,6 @@ class MainContainer extends Container {
             week: {
                 module: () => import('./week/Component.mjs'),
                 flag  : 'week',
-                minimumEventDuration: me.minimumEventDuration,
                 ...defaultConfig,
                 ...me.weekComponentConfig
             },

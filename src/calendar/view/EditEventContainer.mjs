@@ -21,8 +21,10 @@ class EditEventContainer extends FormContainer {
          * @member {Object} bind
          */
         bind: {
+            endTime             : data => data.endTime,
             intlFormat_time     : data => data.intlFormat_time,
-            minimumEventDuration: data => data.minimumEventDuration
+            minimumEventDuration: data => data.minimumEventDuration,
+            startTime           : data => data.startTime
         },
         /**
          * @member {Object|null} calendarFieldConfig=null
@@ -32,6 +34,12 @@ class EditEventContainer extends FormContainer {
          * @member {String[]} cls=['neo-calendar-edit-event-container']
          */
         cls: ['neo-calendar-edit-event-container'],
+        /**
+         * Only full hours are valid for now
+         * format: 'hh:mm'
+         * @member {String} endTime_='24:00'
+         */
+        endTime_: '24:00',
         /**
          * @member {Object|null} endTimeFieldConfig=null
          */
@@ -50,6 +58,12 @@ class EditEventContainer extends FormContainer {
          * @member {Neo.calendar.model.Event|null} record_=null
          */
         record_: null,
+        /**
+         * Only full hours are valid for now
+         * format: 'hh:mm'
+         * @member {String} startTime_='00:00'
+         */
+        startTime_: '00:00',
         /**
          * @member {Object|null} startTimeFieldConfig=null
          */
@@ -115,7 +129,6 @@ class EditEventContainer extends FormContainer {
      */
     createItems() {
         let me         = this,
-            owner      = me.owner,
             record     = me.record,
             timeFormat = me.intlFormat_time,
             timeFieldDefaults = {
@@ -174,14 +187,14 @@ class EditEventContainer extends FormContainer {
             }, {
                 labelText: 'Start Time',
                 maxValue : me.getStartTimeMaxValue(record),
-                minValue : owner.startTime,
+                minValue : me.startTime,
                 name     : 'startTime',
                 value    : timeFormat.format(record.startDate),
                 ...timeFieldDefaults,
                 ...me.startTimeFieldConfig
             }, {
                 labelText: 'End Time',
-                maxValue : owner.endTime,
+                maxValue : me.endTime,
                 minValue : me.getEndTimeMinValue(record),
                 name     : 'endTime',
                 value    : timeFormat.format(record.endDate),
