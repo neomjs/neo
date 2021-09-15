@@ -158,10 +158,13 @@
             justify-content: center;
 
             .neo-month-text {
-                color      : v(dateselector-header-month-text-color);
-                flex       : 1;
-                font-weight: bold;
-                text-align : end;
+                align-items    : center;
+                color          : v(dateselector-header-month-text-color);
+                display        : flex;
+                flex           : 1;
+                font-weight    : bold;
+                height         : 1em;
+                justify-content: end;
             }
 
             .neo-year-text {
