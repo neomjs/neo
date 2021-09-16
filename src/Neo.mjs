@@ -570,7 +570,7 @@ function autoGenerateGetSet(proto, key) {
             set(value) {
                 let me        = this,
                     _key      = '_' + key,
-                    uKey = key[0].toUpperCase() + key.slice(1),
+                    uKey      = key[0].toUpperCase() + key.slice(1),
                     beforeSet = 'beforeSet' + uKey,
                     afterSet  = 'afterSet'  + uKey,
                     oldValue  = me[_key];
