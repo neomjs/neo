@@ -510,7 +510,7 @@ class Component extends Base {
      */
     mergeConfig(config, preventOriginalConfig) {
         if (config.data) {
-            config.data = Neo.merge(Neo.clone(this.constructor.config.data, true), config.data);
+            config.data = Neo.merge(Neo.clone(this.constructor.config.data, true) || {}, config.data);
         }
 
         return super.mergeConfig(config, preventOriginalConfig);
