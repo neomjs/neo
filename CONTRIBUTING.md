@@ -8,7 +8,7 @@ No worries, you don't need to be a guru, ninja or rockstar to support the projec
 1. Add a star to this repository. Ok, this one was easy. Thank you!
 2. Tell your friends about neo.mjs.
 3. Write blog posts or post on social media (Facebook, LinkedIn, Twitter, etc.)
-4. Please stick to our <a href=".github/CODE_OF_CONDUCT.md">Code of Conduct</a>
+4. Please stick to our [Code of Conduct](.github/CODE_OF_CONDUCT.md)
 5. Interested to see a neo.mjs session at a developer conference? Definitely possible. Just reach out!
 
 ### 2.  Use the issues tracker
@@ -30,11 +30,11 @@ No worries, you don't need to be a guru, ninja or rockstar to support the projec
 5. Please do not copy code from other frameworks / libraries. So far, the entire neo.mjs code base is written from scratch.
     1. It is simply impossible to verify if contributed code is self-written.
     2. Adding new npm packages => dependencies / devDependencies is fine, in case there are no licensing conflicts.
-6. Refer to the <a href="./.github/CODEBASE_OVERVIEW.md">codebase overview</a> to understand how our repository is structured.
+6. Refer to the [codebase overview](.github/CODEBASE_OVERVIEW.md) to understand how our repository is structured.
 
 ### 4.  In case you created a nice app or component using neo.mjs, please let us know about it.
 1.  We are always interested to feature client projects in blog posts or on social media.
 
-<br><br>
-Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
-& <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>
+</br></br>
+
+Built with ❤️ in Germany — Copyright © 2015-Today, [Tobias Uhlig](https://www.linkedin.com/in/tobiasuhlig/) & [Rich Waters](https://www.linkedin.com/in/richwaters/)

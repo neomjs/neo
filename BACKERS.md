@@ -2,10 +2,10 @@
 
 Truth to be told, the neo.mjs project is in need of sponsors & backers.
 
-As an <a href="./LICENSE">MIT-licensed</a> open source project,
+As an [MIT-licensed](LICENSE) open source project,
 you can use neo.mjs for free (as long as you stick to the license & copyright notice).
 
-Prior to the public release, the project was already at <a href=".github/NEOMJS_HISTORY.md">3720 commits</a>.
+Prior to the public release, the project was already at [3720 commits](.github/NEOMJS_HISTORY.md).
 
 To get neo.mjs to this point, I spent 3 years of my full and unpaid working time.
 This does not only include many 100h+ weeks and several sleepless nights,
@@ -60,7 +60,7 @@ By default, the main Readme will only include sponsors starting at the Gold tier
 
 # What will I sponsor?
 Obviously the continuing of the development for the neo.mjs framework.
-To get the idea of what this means in detail, please take a look at the: <a href=".github/VISION.md">Project Vision</a>.
+To get the idea of what this means in detail, please take a look at the [Project Vision](.github/VISION.md).
 
 # Why should I sponsor neo.mjs?
 I am in need to make up for the invested time, which means that going forward,
@@ -70,13 +70,13 @@ Of course I will do my best to continue pushing neo.mjs in my free time.
 With active sponsors I could invest more time into neo.mjs,
 which means that you will get new features, guides and bug-fixes a lot faster.
 
-# For developers:
+# For developers
 You can select a Backer tier ($10 / month), which would equal a cup of coffee for me every month (after taxes).
 This will not cover my living costs (unless neo.mjs goes viral), but it does have an impact on
 my motivation for sure.
 
-# For companies:
-Starting at the bronze tier (special offer), you will be able to place your company logo on the main repository landing page (Readme.md).
+# For companies
+Starting at the bronze tier (special offer), you will be able to place your company logo on the main repository [landing page](README.md).
 This will have a high impact on the neo.mjs community and make it easier for you
 to find neo.mjs developers in the future.
 
@@ -87,9 +87,9 @@ As soon as the neo.mjs community grows, it will also increase your company visib
 Please make sure to create a feature request ticket inside the neo.mjs <a href="../../issues">Issues Tracker</a>
 after signing a sponsor program to provide your company logo!
 
-### Thanks a lot for your support of the neo.mjs project!<br/>
-<a href="https://github.com/sponsors/tobiu">Sponsor Tobias Uhlig</a>
+### Thanks a lot for your support of the neo.mjs project!
+[Sponsor Tobias Uhlig](https://github.com/sponsors/tobiu)
 
 <br><br>
-Copyright (c) 2015 - today, <a href="https://www.linkedin.com/in/tobiasuhlig/">Tobias Uhlig</a>
-& <a href="https://www.linkedin.com/in/richwaters/">Rich Waters</a>
+
+Copyright © 2015 — today, [Tobias Uhlig](https://www.linkedin.com/in/tobiasuhlig/) & [Rich Waters](https://www.linkedin.com/in/richwaters/)
