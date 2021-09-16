@@ -95,9 +95,7 @@ class Component extends Base {
      * @protected
      */
     afterSetData(value, oldValue) {
-        if (value) {
-            this.createDataProperties(value, 'data');
-        }
+        value && this.createDataProperties(value, 'data');
     }
 
     /**
