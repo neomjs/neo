@@ -23,19 +23,19 @@ No need to take care of a workers setup, and the cross channel communication on 
 
 ## Content
 1. <a href="#slack-channel">Slack Channel for questions & feedback</a>
-2. <a href="#sponsors">neo.mjs is in need of more sponsors!</a>
-3. <a href="#architectures">Scalable frontend architectures</a>
-4. <a href="#sw-covid19-app">Multi Window COVID19 IN NUMBERS Demo App</a>
-5. <a href="#covid19-app">COVID19 IN NUMBERS Demo App</a>
-6. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
-7. <a href="#learn-more">Want to learn more?</a>
-8. <a href="#online-examples">Online Examples</a>
-9. <a href="#online-docs">Online Docs</a>
-10. <a href="#command-line-interface">Command-Line Interface</a>
-11. <a href="#get-started">Ready to get started?</a>
-12. <a href="#project-history">Project History</a>
-13. <a href="#story--vision">Story & Vision</a>
-14. <a href="#contributors">neo.mjs is in need of more contributors!</a>
+2. <a href="#architectures">Scalable frontend architectures</a>
+3. <a href="#sw-covid19-app">Multi Window COVID19 IN NUMBERS Demo App</a>
+4. <a href="#covid19-app">COVID19 IN NUMBERS Demo App</a>
+5. <a href="#what-if-">What if ...</a> (Short overview of the concept & design goals)
+6. <a href="#learn-more">Want to learn more?</a>
+7. <a href="#online-examples">Online Examples</a>
+8. <a href="#online-docs">Online Docs</a>
+9. <a href="#command-line-interface">Command-Line Interface</a>
+10. <a href="#get-started">Ready to get started?</a>
+11. <a href="#project-history">Project History</a>
+12. <a href="#story--vision">Story & Vision</a>
+13. <a href="#contributors">neo.mjs is in need of more contributors!</a>
+14. <a href="#sponsors">neo.mjs is in need of more sponsors!</a>
 
 </br></br>
 <h2 id="slack-channel">1. Slack Channel for questions & feedback</h2>
@@ -43,22 +43,7 @@ Join our community:
 <a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA">Slack Channel Invite Link</a>
 
 </br></br>
-<h2 id="sponsors">2. neo.mjs is in need for sponsors!</h2>
-
-neo.mjs is an MIT-licensed open source project with an ongoing development.</br>
-So far the development was made possible with burning my (tobiu's) personal savings.</br>
-
-This is obviously not sustainable. To enable me keep pushing like this, please support it.</br>
-The benefit of doing so is getting results delivered faster.
-
-<a href="https://github.com/sponsors/tobiu">Sponsor tobiu</a>
-
-More infos: <a href="./BACKERS.md">Sponsors & Backers</a>
-
-Logo contributed by <a href="https://www.linkedin.com/in/dinkheller/">Torsten Dinkheller</a>.
-
-</br></br>
-<h2 id="architectures">3. Scalable frontend architectures</h2>
+<h2 id="architectures">2. Scalable frontend architectures</h2>
 <img src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/apps-today.png">
 
 Most frontends today still look like this. Everything happens inside the main thread (browser window), leading to a poor rendering performance.
@@ -87,7 +72,7 @@ You can move entire component trees across windows, while even keeping the same 
 Cross window state management, cross window drag&drop and cross window delta CSS updates are available.
 
 </br></br>
-<h2 id="sw-covid19-app">4. Multi Browser Window COVID19 IN NUMBERS Demo App</h2>
+<h2 id="sw-covid19-app">3. Multi Browser Window COVID19 IN NUMBERS Demo App</h2>
 The most compelling way to introduce a new framework might simply be to show what you can do with it.</br>
 </br>
 Blog post: <a href="https://medium.com/swlh/expanding-single-page-apps-into-multiple-browser-windows-e6d9bd155d59?source=friends_link&sk=bbfe1dada95c5674669e463f93360822">Expanding Single Page Apps into multiple Browser Windows</a></br>
@@ -103,7 +88,7 @@ Desktop only.</br></br>
 You can find the code of the multi window covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/sharedcovid">here</a>.
 
 </br></br>
-<h2 id="covid19-app">5. COVID19 IN NUMBERS Demo App</h2>
+<h2 id="covid19-app">4. COVID19 IN NUMBERS Demo App</h2>
 <a href="https://neomjs.github.io/pages/node_modules/neo.mjs/dist/production/apps/covid/index.html#mainview=table">Live Demo: COIN App dist/production</a></br>
 Desktop only => support for mobile devices is on the roadmap.</br></br>
 
@@ -114,7 +99,7 @@ Desktop only => support for mobile devices is on the roadmap.</br></br>
 You can find the code of the covid app <a href="https://github.com/neomjs/neo/tree/dev/apps/covid">here</a>.
 
 </br></br>
-<h2 id="what-if-">6. Short overview of the concept & design goals</h2>
+<h2 id="what-if-">5. Short overview of the concept & design goals</h2>
 
 <table>
     <tr>
@@ -178,12 +163,12 @@ You can find the code of the covid app <a href="https://github.com/neomjs/neo/tr
 </table>
 
 </br></br>
-<h2 id="learn-more">7. Want to learn more?</h2>
+<h2 id="learn-more">6. Want to learn more?</h2>
 
 <a href=".github/CONCEPT.md">neo.mjs Concepts</a>
 
 </br></br>
-<h2 id="online-examples">8. Online Examples</h2>
+<h2 id="online-examples">7. Online Examples</h2>
 
 You can find a full list of (desktop based) online examples here:</br>
 <a href="https://neomjs.github.io/pages/">Online Examples</a>
@@ -191,7 +176,7 @@ You can find a full list of (desktop based) online examples here:</br>
 You can pick between the 3 modes (development, dist/development, dist/production) for each one.
 
 </br></br>
-<h2 id="online-docs">9. Online Docs</h2>
+<h2 id="online-docs">8. Online Docs</h2>
 
 The Online Docs are also included inside the Online Examples.
 
@@ -205,12 +190,12 @@ The development mode only works in Chrome and Safari Technology Preview, but doe
 since this will include documentation views for your own apps.
 
 </br></br>
-<h2 id="command-line-interface">10. Command-Line Interface</h2>
+<h2 id="command-line-interface">9. Command-Line Interface</h2>
 You can run several build programs inside your terminal.</br>
 Please take a look at the <a href="./buildScripts/README.md">Command-Line Interface Guide</a>.
 
 </br></br>
-<h2 id="get-started">11. Ready to get started?</h2>
+<h2 id="get-started">10. Ready to get started?</h2>
 
 There are 3 different ways on how you can get the basics running locally.</br>
 Please take a look at the <a href=".github/GETTING_STARTED.md">Getting Started Guide</a>.
@@ -218,14 +203,14 @@ Please take a look at the <a href=".github/GETTING_STARTED.md">Getting Started G
 Here is an in depth tutorial on how to build your first neo.mjs app:</br>
 https://itnext.io/define-a-web-4-0-app-to-be-multi-threaded-9c495c0d0ef9?source=friends_link&sk=4d143ace05f0e9bbe82babd9433cc822
 </br></br>
-<h2 id="project-history">12. Project History</h2>
+<h2 id="project-history">11. Project History</h2>
 
 neo.mjs got released to the public on November 23, 2019.</br>
 Before this point, the project was already at 3720 commits.<br>
 Find out more about the start of it inside the <a href=".github/NEOMJS_HISTORY.md">Project History</a> file.
 
 </br></br>
-<h2 id="story--vision">13. Story & Vision</h2>
+<h2 id="story--vision">12. Story & Vision</h2>
 
 Although neo.mjs is ready to craft beautiful & blazing fast UIs,</br>
 the current state is just a fraction of a bigger picture.
@@ -233,7 +218,7 @@ the current state is just a fraction of a bigger picture.
 Take a look at the <a href=".github/STORY.md">Project Story</a> and <a href=".github/VISION.md">Vision</a>.
 
 </br></br>
-<h2 id="contributors">14. neo.mjs is in need for more contributors!</h2>
+<h2 id="contributors">13. neo.mjs is in need for more contributors!</h2>
 
 Another way to fasten up the neo.mjs development speed is to actively jump in.</br>
 As the shiny "PRs welcome" badge suggests: open source is intended to be improved by anyone who is up for the challenge.
@@ -241,6 +226,21 @@ As the shiny "PRs welcome" badge suggests: open source is intended to be improve
 You can also write a guide in case you learned something new while using neo.mjs or just help to get more eyes on this project.
 
 Either way, here are more infos: <a href="./CONTRIBUTING.md">Contributing</a>
+
+</br></br>
+<h2 id="sponsors">14. neo.mjs is in need for sponsors!</h2>
+
+neo.mjs is an MIT-licensed open source project with an ongoing development.</br>
+So far the development was made possible with burning my (tobiu's) personal savings.</br>
+
+This is obviously not sustainable. To enable me keep pushing like this, please support it.</br>
+The benefit of doing so is getting results delivered faster.
+
+<a href="https://github.com/sponsors/tobiu">Sponsor tobiu</a>
+
+More infos: <a href="./BACKERS.md">Sponsors & Backers</a>
+
+Logo contributed by <a href="https://www.linkedin.com/in/dinkheller/">Torsten Dinkheller</a>.
 
 </br></br>
 Build with :heart: in Germany.
