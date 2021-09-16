@@ -22,7 +22,7 @@ No need to take care of a workers setup, and the cross channel communication on 
 <a href="https://itnext.io/the-webworkers-driven-ui-framework-neo-mjs-version-2-release-announcement-b91b476d6f16?source=friends_link&sk=e6eb21f75475f431ad9215d63a44fb53">Version 2 release announcement</a>
 
 ## Content
-1. <a href="#sponsors">neo.mjs is in need of more sponsors!</a>
+1. <a href="#slack-channel">Slack Channel for questions & feedback</a>
 2. <a href="#architectures">Scalable frontend architectures</a>
 3. <a href="#sw-covid19-app">Multi Window COVID19 IN NUMBERS Demo App</a>
 4. <a href="#covid19-app">COVID19 IN NUMBERS Demo App</a>
@@ -35,22 +35,12 @@ No need to take care of a workers setup, and the cross channel communication on 
 11. <a href="#project-history">Project History</a>
 12. <a href="#story--vision">Story & Vision</a>
 13. <a href="#contributors">neo.mjs is in need of more contributors!</a>
-14. <a href="#slack-channel">Slack Channel for questions & feedback</a>
+14. <a href="#sponsors">neo.mjs is in need of more sponsors!</a>
 
 </br></br>
-<h2 id="sponsors">1. neo.mjs is in need for sponsors!</h2>
-
-neo.mjs is an MIT-licensed open source project with an ongoing development.</br>
-So far the development was made possible with burning all of my (tobiu's) personal savings.</br>
-
-This is obviously not sustainable. To enable me keep pushing like this, please support it.</br>
-The benefit of doing so is getting results delivered faster.
-
-<a href="https://github.com/sponsors/tobiu">Sponsor tobiu</a>
-
-More infos: <a href="./BACKERS.md">Sponsors & Backers</a>
-
-Logo contributed by <a href="https://www.linkedin.com/in/dinkheller/">Torsten Dinkheller</a>.
+<h2 id="slack-channel">1. Slack Channel for questions & feedback</h2>
+Join our community:
+<a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA">Slack Channel Invite Link</a>
 
 </br></br>
 <h2 id="architectures">2. Scalable frontend architectures</h2>
@@ -238,9 +228,19 @@ You can also write a guide in case you learned something new while using neo.mjs
 Either way, here are more infos: <a href="./CONTRIBUTING.md">Contributing</a>
 
 </br></br>
-<h2 id="slack-channel">14. Slack Channel for questions & feedback</h2>
-Join our community:
-<a href="https://join.slack.com/t/neomjs/shared_invite/zt-6c50ueeu-3E1~M4T9xkNnb~M_prEEOA">Slack Channel Invite Link</a>
+<h2 id="sponsors">14. neo.mjs is in need for sponsors!</h2>
+
+neo.mjs is an MIT-licensed open source project with an ongoing development.</br>
+So far the development was made possible with burning my (tobiu's) personal savings.</br>
+
+This is obviously not sustainable. To enable me keep pushing like this, please support it.</br>
+The benefit of doing so is getting results delivered faster.
+
+<a href="https://github.com/sponsors/tobiu">Sponsor tobiu</a>
+
+More infos: <a href="./BACKERS.md">Sponsors & Backers</a>
+
+Logo contributed by <a href="https://www.linkedin.com/in/dinkheller/">Torsten Dinkheller</a>.
 
 </br></br>
 Build with :heart: in Germany.

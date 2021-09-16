@@ -95,9 +95,7 @@ class Component extends Base {
      * @protected
      */
     afterSetData(value, oldValue) {
-        if (value) {
-            this.createDataProperties(value, 'data');
-        }
+        value && this.createDataProperties(value, 'data');
     }
 
     /**
@@ -510,7 +508,7 @@ class Component extends Base {
      */
     mergeConfig(config, preventOriginalConfig) {
         if (config.data) {
-            config.data = Neo.merge(Neo.clone(this.constructor.config.data, true), config.data);
+            config.data = Neo.merge(Neo.clone(this.constructor.config.data, true) || {}, config.data);
         }
 
         return super.mergeConfig(config, preventOriginalConfig);

@@ -31,7 +31,7 @@ class MainContainerController extends Component {
                 width     : 300,
 
                 bind: {
-                    value: data => `${data.button3Text}`
+                    value: data => data.button3Text
                 },
 
                 listeners: {
