@@ -1,4 +1,4 @@
-import CheckBox     from '../../../src/form/field/CheckBox.mjs';
+import CheckBox    from '../../../src/form/field/CheckBox.mjs';
 import Helix       from '../../../src/component/Helix.mjs';
 import NumberField from '../../../src/form/field/Number.mjs';
 import Panel       from '../../../src/container/Panel.mjs';
