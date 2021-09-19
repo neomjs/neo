@@ -176,6 +176,12 @@ class Component extends BaseComponent {
          */
         timeAxisPosition_: 'start',
         /**
+         * The amount of total rendered columns.
+         * E.g.: showing 1 week with 1 week as the buffer to the left & right sides => 21
+         * @member {Number} totalColumns=21
+         */
+        totalColumns: 21,
+        /**
          * @member {Object} vdom
          */
         vdom:
@@ -757,7 +763,7 @@ class Component extends BaseComponent {
 
                 // we need a short delay to move the event rendering into the next animation frame.
                 // Details: https://github.com/neomjs/neo/issues/2216
-                setTimeout(() => {me.updateEvents(false, 14, 21)}, 50);
+                setTimeout(() => {me.updateEvents(false, 14, me.totalColumns)}, 50);
 
                 scrollValue = -width;
             }
@@ -806,9 +812,9 @@ class Component extends BaseComponent {
      * The algorithm relies on the eventStore being sorted by startDate ASC
      * @param {Boolean} [silent=false]
      * @param {Number} [startIndex=0]
-     * @param {Number} [endIndex=21]
+     * @param {Number} [endIndex=this.totalColumns]
      */
-    updateEvents(silent=false, startIndex=0, endIndex=21) {
+    updateEvents(silent=false, startIndex=0, endIndex=this.totalColumns) {
         let me = this;
 
         if (!me.mounted) {
@@ -939,7 +945,7 @@ class Component extends BaseComponent {
 
         me.firstColumnDate = DateUtil.clone(date);
 
-        for (; i < 21; i++) {
+        for (; i < me.totalColumns; i++) {
             columnCls   = ['neo-c-w-column', 'neo-draggable'];
             currentDate = date.getDate();
             currentDay  = date.getDay();
