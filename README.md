@@ -32,10 +32,9 @@ No need to take care of a workers setup, and the cross channel communication on 
 8. <a href="#online-docs">Online Docs</a>
 9. <a href="#command-line-interface">Command-Line Interface</a>
 10. <a href="#get-started">Ready to get started?</a>
-11. <a href="#project-history">Project History</a>
-12. <a href="#story--vision">Story & Vision</a>
-13. <a href="#contributors">neo.mjs is in need of more contributors!</a>
-14. <a href="#sponsors">neo.mjs is in need of more sponsors!</a>
+11. <a href="#story--vision">Story & Vision</a>
+12. <a href="#contributors">neo.mjs is in need of more contributors!</a>
+13. <a href="#sponsors">neo.mjs is in need of more sponsors!</a>
 
 </br></br>
 <h2 id="slack-channel">1. Slack Channel for questions & feedback</h2>
@@ -203,14 +202,7 @@ Please take a look at the <a href=".github/GETTING_STARTED.md">Getting Started G
 Here is an in depth tutorial on how to build your first neo.mjs app:</br>
 https://itnext.io/define-a-web-4-0-app-to-be-multi-threaded-9c495c0d0ef9?source=friends_link&sk=4d143ace05f0e9bbe82babd9433cc822
 </br></br>
-<h2 id="project-history">11. Project History</h2>
-
-neo.mjs got released to the public on November 23, 2019.</br>
-Before this point, the project was already at 3720 commits.<br>
-Find out more about the start of it inside the <a href=".github/NEOMJS_HISTORY.md">Project History</a> file.
-
-</br></br>
-<h2 id="story--vision">12. Story & Vision</h2>
+<h2 id="story--vision">11. Story & Vision</h2>
 
 Although neo.mjs is ready to craft beautiful & blazing fast UIs,</br>
 the current state is just a fraction of a bigger picture.
@@ -218,7 +210,7 @@ the current state is just a fraction of a bigger picture.
 Take a look at the <a href=".github/STORY.md">Project Story</a> and <a href=".github/VISION.md">Vision</a>.
 
 </br></br>
-<h2 id="contributors">13. neo.mjs is in need for more contributors!</h2>
+<h2 id="contributors">12. neo.mjs is in need for more contributors!</h2>
 
 Another way to fasten up the neo.mjs development speed is to actively jump in.</br>
 As the shiny "PRs welcome" badge suggests: open source is intended to be improved by anyone who is up for the challenge.
@@ -228,7 +220,7 @@ You can also write a guide in case you learned something new while using neo.mjs
 Either way, here are more infos: <a href="./CONTRIBUTING.md">Contributing</a>
 
 </br></br>
-<h2 id="sponsors">14. neo.mjs is in need for sponsors!</h2>
+<h2 id="sponsors">13. neo.mjs is in need for sponsors!</h2>
 
 neo.mjs is an MIT-licensed open source project with an ongoing development.</br>
 So far the development was made possible with burning my (tobiu's) personal savings.</br>
