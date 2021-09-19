@@ -1,18 +1,10 @@
-import Component from '../../component/Base.mjs';
-
-const todayDate = new Date();
-
-const today = {
-    day  : todayDate.getDate(),
-    month: todayDate.getMonth(),
-    year : todayDate.getFullYear()
-};
+import WeekComponent from './week/Component.mjs';
 
 /**
  * @class Neo.calendar.view.DayComponent
- * @extends Neo.component.Base
+ * @extends Neo.calendar.view.week.Component
  */
-class DayComponent extends Component {
+class DayComponent extends WeekComponent {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.calendar.view.DayComponent'
@@ -20,37 +12,9 @@ class DayComponent extends Component {
          */
         className: 'Neo.calendar.view.DayComponent',
         /**
-         * @member {String[]} cls=['neo-calendar-daycomponent']
+         * @member {String[]} cls=['neo-calendar-daycomponent','neo-calendar-weekcomponent']
          */
-        cls: ['neo-calendar-daycomponent'],
-        /**
-         * Will get passed from the MainContainer
-         * @member {Date|null} currentDate_=null
-         * @protected
-         */
-        currentDate_: null,
-        /**
-         * @member {Neo.calendar.store.Events|null} eventStore_=null
-         */
-        eventStore_: null,
-        /**
-         * @member {String} html='Month'
-         */
-        html: 'todo: Day View', // todo: remove
-        /**
-         * @member {Neo.calendar.view.MainContainer|null} owner=null
-         * @protected
-         */
-        owner: null,
-        /**
-         * @member {Object} vdom
-         */
-        vdom: {},
-        /**
-         * 0-6 => Sun-Sat
-         * @member {Number} weekStartDay_=0
-         */
-        weekStartDay_: 0
+        cls: ['neo-calendar-daycomponent', 'neo-calendar-weekcomponent']
     }}
 }
 
