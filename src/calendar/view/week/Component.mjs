@@ -186,11 +186,12 @@ class Component extends BaseComponent {
          */
         timeAxisPosition_: 'start',
         /**
-         * The amount of total rendered columns.
-         * E.g.: showing 1 week with 1 week as the buffer to the left & right sides => 21
-         * @member {Number} totalColumns=21
+         * Internal flag to store the total amount of rendered columns.
+         * Changing columnsBuffer or columnsVisible will update this value.
+         * @member {Number|null} totalColumns=null
+         * @protected
          */
-        totalColumns: 21,
+        totalColumns: null,
         /**
          * @member {Object} vdom
          */
@@ -305,6 +306,26 @@ class Component extends BaseComponent {
 
         oldValue?.un(listeners);
         value   ?.on(listeners);
+    }
+
+    /**
+     * Triggered after the columnsBuffer config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetColumnsBuffer(value, oldValue) {
+        this.totalColumns = this.visibleColumns + value;
+    }
+
+    /**
+     * Triggered after the columnsVisible config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetColumnsVisible(value, oldValue) {
+        this.totalColumns = this.columnsBuffer + value;
     }
 
     /**
