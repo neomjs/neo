@@ -60,6 +60,16 @@ class Component extends BaseComponent {
          */
         cls: ['neo-calendar-weekcomponent'],
         /**
+         * Amount of hidden columns on both sides each inside this view.
+         * @member {Number} columnsBuffer_=7
+         */
+        columnsBuffer_: 7,
+        /**
+         * Amount of visible columns inside this view.
+         * @member {Number} columnsVisible_=7
+         */
+        columnsVisible_: 7,
+        /**
          * Bound to the view model.
          * @member {Date|null} currentDate_=null
          * @protected
