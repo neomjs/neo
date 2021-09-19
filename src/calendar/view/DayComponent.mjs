@@ -26,6 +26,14 @@ class DayComponent extends WeekComponent {
          */
         columnsVisible: 1
     }}
+
+    /**
+     *
+     * @param {Date} date
+     */
+    setFirstColumnDate(date) {
+        date.setDate(date.getDate() - this.columnsBuffer);
+    }
 }
 
 Neo.applyClassConfig(DayComponent);
