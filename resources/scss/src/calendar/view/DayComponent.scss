@@ -1,0 +1,15 @@
+.neo-calendar-daycomponent.neo-calendar-weekcomponent {
+    .neo-c-w-column {
+        flex: 1 0 calc(100% / 3);
+    }
+
+    &.neo-show-weekends {
+        .neo-header-row-item {
+            flex: 1 0 calc(100%);
+        }
+    }
+
+    .neo-header-row-item {
+        flex: 1 0 calc(100%);
+    }
+}

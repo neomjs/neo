@@ -363,8 +363,8 @@ class Base {
 
                 origin.sendMessage(worker, {
                     action: 'registerRemote',
-                    methods,
-                    className
+                    className,
+                    methods
                 });
             }
         });

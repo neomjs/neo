@@ -60,6 +60,16 @@ class Component extends BaseComponent {
          */
         cls: ['neo-calendar-weekcomponent'],
         /**
+         * Amount of hidden columns on both sides each inside this view.
+         * @member {Number} columnsBuffer_=7
+         */
+        columnsBuffer_: 7,
+        /**
+         * Amount of visible columns inside this view.
+         * @member {Number} columnsVisible_=7
+         */
+        columnsVisible_: 7,
+        /**
          * Bound to the view model.
          * @member {Date|null} currentDate_=null
          * @protected
@@ -176,6 +186,13 @@ class Component extends BaseComponent {
          */
         timeAxisPosition_: 'start',
         /**
+         * Internal flag to store the total amount of rendered columns.
+         * Changing columnsBuffer or columnsVisible will update this value.
+         * @member {Number|null} totalColumns=null
+         * @protected
+         */
+        totalColumns: null,
+        /**
          * @member {Object} vdom
          */
         vdom:
@@ -289,6 +306,26 @@ class Component extends BaseComponent {
 
         oldValue?.un(listeners);
         value   ?.on(listeners);
+    }
+
+    /**
+     * Triggered after the columnsBuffer config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetColumnsBuffer(value, oldValue) {
+        this.totalColumns = this.visibleColumns + 2 * value;
+    }
+
+    /**
+     * Triggered after the columnsVisible config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetColumnsVisible(value, oldValue) {
+        this.totalColumns = 2 * this.columnsBuffer + value;
     }
 
     /**
@@ -729,6 +766,8 @@ class Component extends BaseComponent {
         if (!this.isUpdating && Math.abs(data.deltaX) > Math.abs(data.deltaY)) {
             let me              = this,
                 columns         = me.getColumnContainer(),
+                columnsBuffer   = me.columnsBuffer,
+                columnsVisible  = me.columnsVisible,
                 firstColumnDate = me.firstColumnDate,
                 header          = me.getHeaderContainer(),
                 i               = 0,
@@ -738,13 +777,13 @@ class Component extends BaseComponent {
 
             // console.log(data.scrollLeft, Math.round(data.scrollLeft / (data.clientWidth - timeAxisWidth) * 7));
 
-            if (data.deltaX > 0 && Math.round(data.scrollLeft / width * 7) > 13) {
+            if (data.deltaX > 0 && Math.round(data.scrollLeft / width * columnsBuffer) > columnsBuffer + columnsVisible - 1) {
                 date = new Date(columns.cn[columns.cn.length - 1].flag);
 
-                columns.cn.splice(0, 7);
-                header .cn.splice(0, 7);
+                columns.cn.splice(0, columnsBuffer);
+                header .cn.splice(0, columnsBuffer);
 
-                for (; i < 7; i++) {
+                for (; i < columnsBuffer; i++) {
                     date.setDate(date.getDate() + 1);
 
                     config = me.createColumnAndHeader(date);
@@ -753,22 +792,22 @@ class Component extends BaseComponent {
                     header .cn.push(config.header);
                 }
 
-                firstColumnDate.setDate(firstColumnDate.getDate() + 7);
+                firstColumnDate.setDate(firstColumnDate.getDate() + columnsBuffer);
 
                 // we need a short delay to move the event rendering into the next animation frame.
                 // Details: https://github.com/neomjs/neo/issues/2216
-                setTimeout(() => {me.updateEvents(false, 14, 21)}, 50);
+                setTimeout(() => {me.updateEvents(false, columnsBuffer + columnsVisible, me.totalColumns)}, 50);
 
                 scrollValue = -width;
             }
 
-            else if (data.deltaX < 0 && Math.round(data.scrollLeft / width * 7) < 1) {
+            else if (data.deltaX < 0 && Math.round(data.scrollLeft / width * columnsBuffer) < 1) {
                 date = new Date(columns.cn[0].flag);
 
-                columns.cn.length = 14;
-                header .cn.length = 14;
+                columns.cn.length = columnsBuffer + columnsVisible;
+                header .cn.length = columnsBuffer + columnsVisible;
 
-                for (; i < 7; i++) {
+                for (; i < columnsBuffer; i++) {
                     date.setDate(date.getDate() - 1);
 
                     config = me.createColumnAndHeader(date);
@@ -777,11 +816,11 @@ class Component extends BaseComponent {
                     header .cn.unshift(config.header);
                 }
 
-                firstColumnDate.setDate(firstColumnDate.getDate() - 7);
+                firstColumnDate.setDate(firstColumnDate.getDate() - columnsBuffer);
 
                 // we need a short delay to move the event rendering into the next animation frame.
                 // Details: https://github.com/neomjs/neo/issues/2216
-                setTimeout(() => {me.updateEvents(false, 0, 7)}, 50);
+                setTimeout(() => {me.updateEvents(false, 0, columnsBuffer)}, 50);
 
                 scrollValue = width;
             }
@@ -803,12 +842,20 @@ class Component extends BaseComponent {
     }
 
     /**
+     *
+     * @param {Date} date
+     */
+    setFirstColumnDate(date) {
+        date.setDate(date.getDate() - date.getDay() + this.weekStartDay - this.columnsBuffer);
+    }
+
+    /**
      * The algorithm relies on the eventStore being sorted by startDate ASC
      * @param {Boolean} [silent=false]
      * @param {Number} [startIndex=0]
-     * @param {Number} [endIndex=21]
+     * @param {Number} [endIndex=this.totalColumns]
      */
-    updateEvents(silent=false, startIndex=0, endIndex=21) {
+    updateEvents(silent=false, startIndex=0, endIndex=this.totalColumns) {
         let me = this;
 
         if (!me.mounted) {
@@ -935,11 +982,11 @@ class Component extends BaseComponent {
             showWeekends = me.showWeekends,
             columnCls, currentDate, currentDay, dateCls, headerId, removeDom;
 
-        date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay - 7);
+        me.setFirstColumnDate(date);
 
         me.firstColumnDate = DateUtil.clone(date);
 
-        for (; i < 21; i++) {
+        for (; i < me.totalColumns; i++) {
             columnCls   = ['neo-c-w-column', 'neo-draggable'];
             currentDate = date.getDate();
             currentDay  = date.getDay();

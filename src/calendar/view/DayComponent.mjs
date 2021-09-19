@@ -1,18 +1,10 @@
-import Component from '../../component/Base.mjs';
-
-const todayDate = new Date();
-
-const today = {
-    day  : todayDate.getDate(),
-    month: todayDate.getMonth(),
-    year : todayDate.getFullYear()
-};
+import WeekComponent from './week/Component.mjs';
 
 /**
  * @class Neo.calendar.view.DayComponent
- * @extends Neo.component.Base
+ * @extends Neo.calendar.view.week.Component
  */
-class DayComponent extends Component {
+class DayComponent extends WeekComponent {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.calendar.view.DayComponent'
@@ -20,38 +12,28 @@ class DayComponent extends Component {
          */
         className: 'Neo.calendar.view.DayComponent',
         /**
-         * @member {String[]} cls=['neo-calendar-daycomponent']
+         * @member {String[]} cls=['neo-calendar-daycomponent','neo-calendar-weekcomponent']
          */
-        cls: ['neo-calendar-daycomponent'],
+        cls: ['neo-calendar-daycomponent', 'neo-calendar-weekcomponent'],
         /**
-         * Will get passed from the MainContainer
-         * @member {Date|null} currentDate_=null
-         * @protected
+         * Amount of hidden columns on both sides each inside this view.
+         * @member {Number} columnsBuffer=1
          */
-        currentDate_: null,
+        columnsBuffer: 1,
         /**
-         * @member {Neo.calendar.store.Events|null} eventStore_=null
+         * Amount of visible columns inside this view.
+         * @member {Number} columnsVisible=1
          */
-        eventStore_: null,
-        /**
-         * @member {String} html='Month'
-         */
-        html: 'todo: Day View', // todo: remove
-        /**
-         * @member {Neo.calendar.view.MainContainer|null} owner=null
-         * @protected
-         */
-        owner: null,
-        /**
-         * @member {Object} vdom
-         */
-        vdom: {},
-        /**
-         * 0-6 => Sun-Sat
-         * @member {Number} weekStartDay_=0
-         */
-        weekStartDay_: 0
+        columnsVisible: 1
     }}
+
+    /**
+     *
+     * @param {Date} date
+     */
+    setFirstColumnDate(date) {
+        date.setDate(date.getDate() - this.columnsBuffer);
+    }
 }
 
 Neo.applyClassConfig(DayComponent);
