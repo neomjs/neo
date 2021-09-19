@@ -556,7 +556,6 @@ class MainContainer extends Container {
             day: {
                 module: () => import('./DayComponent.mjs'),
                 flag  : 'day',
-                style : {padding: '20px'},
                 ...defaultConfig,
                 ...me.dayComponentConfig
             },
