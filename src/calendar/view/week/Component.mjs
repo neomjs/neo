@@ -842,6 +842,14 @@ class Component extends BaseComponent {
     }
 
     /**
+     *
+     * @param {Date} date
+     */
+    setFirstColumnDate(date) {
+        date.setDate(date.getDate() - date.getDay() + this.weekStartDay - this.columnsBuffer);
+    }
+
+    /**
      * The algorithm relies on the eventStore being sorted by startDate ASC
      * @param {Boolean} [silent=false]
      * @param {Number} [startIndex=0]
@@ -974,7 +982,7 @@ class Component extends BaseComponent {
             showWeekends = me.showWeekends,
             columnCls, currentDate, currentDay, dateCls, headerId, removeDom;
 
-        date.setDate(date.getDate() - date.getDay() + me.weekStartDay - me.columnsBuffer);
+        me.setFirstColumnDate(date);
 
         me.firstColumnDate = DateUtil.clone(date);
 
