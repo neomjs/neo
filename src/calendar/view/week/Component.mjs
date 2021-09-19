@@ -974,7 +974,7 @@ class Component extends BaseComponent {
             showWeekends = me.showWeekends,
             columnCls, currentDate, currentDay, dateCls, headerId, removeDom;
 
-        date.setDate(me.currentDate.getDate() - me.currentDate.getDay() + me.weekStartDay - me.columnsBuffer);
+        date.setDate(date.getDate() - date.getDay() + me.weekStartDay - me.columnsBuffer);
 
         me.firstColumnDate = DateUtil.clone(date);
 
