@@ -315,7 +315,7 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetColumnsBuffer(value, oldValue) {
-        this.totalColumns = this.visibleColumns + value;
+        this.totalColumns = this.visibleColumns + 2 * value;
     }
 
     /**
@@ -325,7 +325,7 @@ class Component extends BaseComponent {
      * @protected
      */
     afterSetColumnsVisible(value, oldValue) {
-        this.totalColumns = this.columnsBuffer + value;
+        this.totalColumns = 2 * this.columnsBuffer + value;
     }
 
     /**
