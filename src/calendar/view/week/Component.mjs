@@ -468,7 +468,7 @@ class Component extends BaseComponent {
                         appName  : me.appName,
                         direction: 'left',
                         id       : me.getScrollContainer().id,
-                        value    : data.width / 3
+                        value    : data.width * me.columnsBuffer / me.columnsVisible / 3
                     });
                 });
             }, 20);
