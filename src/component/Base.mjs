@@ -440,7 +440,7 @@ class Base extends CoreBase {
     afterSetConfig(key, value, oldValue) {
         if (Neo.currentWorker.isUsingViewModels) {
             if (this.bind?.[key]?.twoWay) {
-                this.getModel().setData(key, value);
+                this.getModel()?.setData(key, value);
             }
         }
     }
