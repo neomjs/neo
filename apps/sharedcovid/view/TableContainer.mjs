@@ -23,9 +23,19 @@ class TableContainer extends Container {
          */
         autoMount: true,
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            countryRecord: data => data.countryRecord
+        },
+        /**
          * @member {Neo.controller.Component|null} controller=TableContainerController
          */
         controller: TableContainerController,
+        /**
+         * @member {Object} countryRecord_=null
+         */
+        countryRecord_: null,
         /**
          * @member {Number} historyPanelWidth=520
          * @protected
@@ -165,6 +175,18 @@ class TableContainer extends Container {
         });
 
         me.items[0].items.push(me.table);
+    }
+
+    /**
+     * Triggered after the countryRecord config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetCountryRecord(value, oldValue) {
+        setTimeout(() => {
+            this.controller.onCountryChange(value);
+        }, this.isConstructed ? 0 : 50);
     }
 
     /**
