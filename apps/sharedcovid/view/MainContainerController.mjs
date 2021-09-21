@@ -443,22 +443,14 @@ class MainContainerController extends ComponentController {
      */
     onCountryFieldClear() {
         this.countryRecord = null;
-
-        Neo.Main.editRoute({
-            country: null
-        });
     }
 
     /**
      *
      * @param {Object} data
      */
-    onCountryFieldSelect(data) {console.log('onCountryFieldSelect', data);
+    onCountryFieldSelect(data) {
         this.countryRecord = data.record;
-
-        Neo.Main.editRoute({
-            country: data.value
-        });
     }
 
     /**
