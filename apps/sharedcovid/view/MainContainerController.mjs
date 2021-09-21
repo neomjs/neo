@@ -80,7 +80,6 @@ class MainContainerController extends ComponentController {
     }}
 
     /**
-     *
      * @param {Object[]} data
      */
     addStoreItems(data) {
@@ -122,7 +121,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Number} data.active
      * @param {Number} data.cases
@@ -157,7 +155,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} record
      */
     clearCountryField(record) {
@@ -192,7 +189,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {String} [appName]
      * @returns {Neo.component.Base}
      */
@@ -205,7 +201,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} hashObject
      * @param {String} hashObject.mainview
      * @returns {Number}
@@ -219,7 +214,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Number} tabIndex
      * @returns {Neo.component.Base}
      */
@@ -258,7 +252,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.appName
      */
@@ -316,7 +309,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.appName
      */
@@ -414,7 +406,6 @@ class MainContainerController extends ComponentController {
 
 
     /**
-     *
      * @param {Object} data
      */
     onCountryFieldChange(data) {
@@ -517,18 +508,6 @@ class MainContainerController extends ComponentController {
                         countryField.value = country;
                     } else {
                         value.country = 'all';
-                    }
-
-                    if (ntype === 'gallery' || me.connectedApps.includes('SharedCovidGallery')) {
-                        if (!listeners.includes('gallery')) {
-                            listeners.push('gallery');
-                            me.galleryView = me.getReference('gallery');
-                            me.galleryView.on('select', me.updateCountryField, me);
-                        }
-
-                        if (country && !me.galleryView.selectionModel.isSelected(country)) {
-                            me.galleryView.selectionModel.select(country, false);
-                        }
                     }
 
                     if (ntype === 'helix' || me.connectedApps.includes('SharedCovidHelix')) {
