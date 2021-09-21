@@ -14,9 +14,19 @@ class CountryHelix extends Helix {
          */
         className: 'SharedCovid.view.country.Helix',
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            country: {twoWay: true, value: data => data.country}
+        },
+        /**
          * @member {String[]} cls=['covid-country-helix', 'neo-helix']
          */
         cls: ['covid-country-helix', 'neo-helix'],
+        /**
+         * @member {String|null} country_=null
+         */
+        country_: null,
         /**
          * The vertical delta between each helix item (increasing this value will create a spiral)
          * @member {Number} deltaY=1.2
@@ -96,6 +106,24 @@ class CountryHelix extends Helix {
     }}
 
     /**
+     * Triggered after the country config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetCountry(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me             = this,
+                selectionModel = me.selectionModel;
+
+            if (value && !selectionModel.isSelected(value)) {
+                selectionModel.select(value, false);
+                me.onKeyDownSpace(null);
+            }
+        }
+    }
+
+    /**
      *
      * @param {Object} vdomItem
      * @param {Object} record
@@ -143,6 +171,14 @@ class CountryHelix extends Helix {
      */
     getItemId(vnodeId) {
         return vnodeId.split('__')[1];
+    }
+
+    /**
+     * Gets triggered from selection.Model: select()
+     * @param {String[]} items
+     */
+    onSelect(items) {
+        this.country = items[0] || null;
     }
 }
 
