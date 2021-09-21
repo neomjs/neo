@@ -226,7 +226,6 @@ class MainContainerController extends ComponentController {
         me.component.on('mounted', me.onMainViewMounted, me);
     }
 
-
     /**
      *
      * @param {Object} data
