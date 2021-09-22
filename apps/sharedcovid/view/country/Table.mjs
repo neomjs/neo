@@ -129,9 +129,7 @@ class Table extends Container {
                 if (!selectionModel.isSelected(id)) {
                     selectionModel.select(id);
 
-                    if (me.mounted) {
-                        Neo.main.DomAccess.scrollToTableRow({id: id});
-                    }
+                    me.mounted && Neo.main.DomAccess.scrollToTableRow({id: id});
                 }
             } else {
                 selectionModel.deselectAll();
