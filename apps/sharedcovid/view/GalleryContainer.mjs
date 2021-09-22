@@ -208,6 +208,8 @@ class GalleryContainer extends Container {
 
         me.gallery = Neo.create({
             module   : Gallery,
+            appName  : me.appName,
+            parentId : me.id,
             reference: 'gallery',
             ...me.galleryConfig
         });
