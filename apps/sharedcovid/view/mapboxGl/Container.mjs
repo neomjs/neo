@@ -28,9 +28,6 @@ class Container extends BaseContainer {
          * @member {Object[]} items
          */
         items: [{
-            module   : Component,
-            reference: 'mapboxglmap'
-        }, {
             module      : Panel,
             height      : 150,
             ignoreLayout: true,
@@ -105,6 +102,29 @@ class Container extends BaseContainer {
             }]
         }
     }}
+
+    /**
+     *
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me = this,
+
+        map = Neo.create({
+            module   : Component,
+            appName  : me.appName,
+            parentId : me.id,
+            reference: 'mapboxglmap',
+
+            model: {
+                parent: me.getModel()
+            }
+        });
+
+        me.items.unshift(map);
+    }
 
     /**
      *

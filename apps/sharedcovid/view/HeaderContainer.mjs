@@ -140,9 +140,7 @@ class HeaderContainer extends Container {
                     },
 
                     listeners: {
-                        change: 'onCountryFieldChange',
-                        clear : 'onCountryFieldClear',
-                        select: 'onCountryFieldSelect'
+                        change: 'onCountryFieldChange'
                     },
 
                     store: {

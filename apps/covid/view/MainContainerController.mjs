@@ -253,21 +253,6 @@ class MainContainerController extends ComponentController {
 
     /**
      *
-     */
-    onCountryFieldClear() {
-        this.countryRecord = null;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onCountryFieldSelect(data) {
-        this.countryRecord = data.record;
-    }
-
-    /**
-     *
      * @param {Object} value
      * @param {Object} oldValue
      */
@@ -276,7 +261,7 @@ class MainContainerController extends ComponentController {
             activeIndex = me.getTabIndex(value.hash),
             activeView  = me.getView(activeIndex),
             country     = value.hash?.country,
-            ntype;
+            countryRecord, ntype;
 
         me.getReference('tab-container').activeIndex = activeIndex;
         me.activeMainTabIndex = activeIndex;
@@ -311,9 +296,8 @@ class MainContainerController extends ComponentController {
                 me.mapboxglMapHasData = true;
             }
 
-            if (me.countryRecord) {
-                MainContainerController.selectMapboxGlCountry(activeView, me.countryRecord);
-            }
+            countryRecord = me.getModel().data.countryRecord;
+            countryRecord && MainContainerController.selectMapboxGlCountry(activeView, countryRecord);
 
             activeView.autoResize();
         } else if (ntype === 'covid-world-map' && me.data) {

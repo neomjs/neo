@@ -35,10 +35,6 @@ class MainContainerController extends ComponentController {
          */
         connectedApps: [],
         /**
-         * @member {Object|null} countryRecord=null
-         */
-        countryRecord: null,
-        /**
          * @member {Object[]|null} data=null
          */
         data: null,
@@ -430,22 +426,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
-     */
-    onCountryFieldClear() {
-        this.countryRecord = null;
-    }
-
-    /**
-     *
-     * @param {Object} data
-     */
-    onCountryFieldSelect(data) {
-        this.countryRecord = data.record;
-    }
-
-    /**
-     *
      * @param {Object} value
      * @param {Object} oldValue
      */
@@ -455,7 +435,7 @@ class MainContainerController extends ComponentController {
             activeView   = me.getView(activeIndex),
             country      = value.hash?.country,
             tabContainer = me.getReference('tab-container'),
-            ntype;
+            countryRecord, ntype;
 
         if (me.firstHashChange || value.appNames) {
             tabContainer.activeIndex = activeIndex;
@@ -495,9 +475,8 @@ class MainContainerController extends ComponentController {
                     me.mapboxglMapHasData = true;
                 }
 
-                if (me.countryRecord) {
-                    MainContainerController.selectMapboxGlCountry(me.mapBoxView, me.tableView.store.get(country));
-                }
+                countryRecord = me.getModel().data.countryRecord;
+                countryRecord && MainContainerController.selectMapboxGlCountry(me.mapBoxView, countryRecord);
 
                 me.mapBoxView.autoResize();
             } else if (ntype === 'covid-world-map' && me.data) {
@@ -687,11 +666,10 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param view
      * @param record
      */
-    static selectMapboxGlCountry(view, record) {console.log(record.countryInfo.iso2);
+    static selectMapboxGlCountry(view, record) {
         // https://github.com/neomjs/neo/issues/490
         // there are missing iso2&3 values on natural earth vector
         const map = {
@@ -714,7 +692,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Object} data.record
      */
