@@ -211,6 +211,11 @@ class GalleryContainer extends Container {
             appName  : me.appName,
             parentId : me.id,
             reference: 'gallery',
+
+            model: {
+                parent: me.getModel()
+            },
+
             ...me.galleryConfig
         });
 
