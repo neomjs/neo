@@ -170,6 +170,8 @@ class TableContainer extends Container {
 
         me.table = Neo.create({
             module   : Table,
+            appName  : me.appName,
+            parentId : me.id,
             reference: 'table',
             ...me.tableConfig
         });
