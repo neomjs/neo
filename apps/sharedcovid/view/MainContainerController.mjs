@@ -531,28 +531,6 @@ class MainContainerController extends ComponentController {
 
                         me.mapBoxView.autoResize();
                     }
-
-                    if (ntype === 'table-container') {
-                        if (!listeners.includes('table')) {
-                            listeners.push('table');
-                            me.tableView = me.getReference('table')
-
-                            me.tableView.on({
-                                deselect: me.clearCountryField,
-                                select  : me.updateCountryField,
-                                scope   : me
-                            });
-                        }
-
-                        id = selectionModel.getRowId(activeView.store.indexOf(country));
-
-                        me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(country)});
-
-                        if (country && !selectionModel.isSelected(id)) {
-                            selectionModel.select(id);
-                            Neo.main.DomAccess.scrollToTableRow({id: id});
-                        }
-                    }
                 }
             }, delaySelection);
         }
