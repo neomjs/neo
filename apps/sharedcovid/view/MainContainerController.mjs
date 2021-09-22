@@ -474,7 +474,6 @@ class MainContainerController extends ComponentController {
             });
 
             // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
-
             if (me.data && activeView.store?.getCount() < 1) {
                 activeView.store.data = me.data;
             }
