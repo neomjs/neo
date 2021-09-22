@@ -510,21 +510,6 @@ class MainContainerController extends ComponentController {
                         value.country = 'all';
                     }
 
-                    if (ntype === 'helix' || me.connectedApps.includes('SharedCovidHelix')) {
-                        if (!listeners.includes('helix')) {
-                            listeners.push('helix');
-                            me.helixView = me.getReference('helix');
-                            me.helixView.on('select', me.updateCountryField, me);
-                        }
-
-                        me.helixView.getOffsetValues();
-
-                        if (country && !me.helixView.selectionModel.isSelected(country)) {
-                            me.helixView.selectionModel.select(country, false);
-                            me.helixView.onKeyDownSpace(null);
-                        }
-                    }
-
                     if ((ntype === 'mapboxgl' || me.connectedApps.includes('SharedCovidMap')) && me.data) {
                         if (!me.mapBoxView) {
                             me.mapBoxView = me.getReference('mapboxglmap');
