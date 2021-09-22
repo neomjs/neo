@@ -14,6 +14,12 @@ class Table extends Container {
          */
         className: 'SharedCovid.view.country.Table',
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            country: {twoWay: true, value: data => data.country}
+        },
+        /**
          * @member {String[]} cls=['covid-country-table', 'neo-table-container']
          */
         cls: ['covid-country-table', 'neo-table-container'],
@@ -96,10 +102,70 @@ class Table extends Container {
             text     : 'Tests / 1M'
         }],
         /**
+         * @member {String|null} country_=null
+         */
+        country_: null,
+        /**
          * @member {Neo.data.Store} store=CountryStore
          */
         store: CountryStore
     }}
+
+    /**
+     * Triggered after the country config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetCountry(value, oldValue) {
+        if (oldValue !== undefined) {
+            let me             = this,
+                selectionModel = me.selectionModel,
+                id;
+
+            if (value) {
+                id = `${me.getView().id}__tr__${value}`; // the store can not be loaded on the first selection
+
+                if (!selectionModel.isSelected(id)) {
+                    selectionModel.select(id);
+
+                    if (me.mounted) {
+                        Neo.main.DomAccess.scrollToTableRow({id: id});
+                    }
+                }
+            } else {
+                selectionModel.deselectAll();
+            }
+        }
+    }
+
+    /**
+     * Gets triggered from selection.Model: deselect()
+     * @param {String[]} items
+     */
+    onDeselect(items) {
+        this.country = null;
+    }
+
+    /**
+     * Gets triggered from selection.Model: select()
+     * @param {String[]} items
+     */
+    onSelect(items) {
+        let me   = this,
+            item = items[0] || null;
+
+        if (me.store.getCount() > 0) {
+            if (item) {
+                item = me.getView().getRecordByRowId(item)?.country;
+            }
+
+            // in case getRecordByRowId() has no match, the initial row creation will include the selection
+            if (item) {
+                me.country = item;
+            }
+        }
+    }
 }
 
 Neo.applyClassConfig(Table);
