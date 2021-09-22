@@ -450,15 +450,12 @@ class MainContainerController extends ComponentController {
      * @param {Object} oldValue
      */
     onHashChange(value, oldValue) {
-        let me                = this,
-            activeIndex       = me.getTabIndex(value.hash),
-            activeView        = me.getView(activeIndex),
-            country           = value.hash?.country,
-            countryField      = me.getReference('country-field'),
-            tabContainer      = me.getReference('tab-container'),
-            delaySelection    = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
-            listeners         = me.mainTabsListeners,
-            id, ntype, selectionModel;
+        let me           = this,
+            activeIndex  = me.getTabIndex(value.hash),
+            activeView   = me.getView(activeIndex),
+            country      = value.hash?.country,
+            tabContainer = me.getReference('tab-container'),
+            ntype;
 
         if (me.firstHashChange || value.appNames) {
             tabContainer.activeIndex = activeIndex;
@@ -480,59 +477,36 @@ class MainContainerController extends ComponentController {
 
             if (me.data && activeView.store?.getCount() < 1) {
                 activeView.store.data = me.data;
-                delaySelection = 500;
             }
 
             ntype = activeView.ntype;
 
-            // todo: https://github.com/neomjs/neo/issues/483
-            // quick hack. selectionModels update the vdom of the table.Container.
-            // if table.View is vdom updating, this can result in a 2x rendering of all rows.
-            if (delaySelection === 1000 && activeView.ntype === 'table-container') {
-                delaySelection = 2000;
-            }
+            if ((ntype === 'mapboxgl' || me.connectedApps.includes('SharedCovidMap')) && me.data) {
+                if (!me.mapBoxView) {
+                    me.mapBoxView = me.getReference('mapboxglmap');
+                }
 
-            if (ntype === 'covid-world-map' && me.data) {
+                if (me.mapboxStyle) {
+                    me.mapBoxView.mapboxStyle = me.mapBoxView[me.mapboxStyle];
+                    delete me.mapboxStyle;
+                }
+
+                if (!me.mapboxglMapHasData) {
+                    me.mapBoxView.chartData = me.data;
+                    me.mapboxglMapHasData = true;
+                }
+
+                if (me.countryRecord) {
+                    MainContainerController.selectMapboxGlCountry(me.mapBoxView, me.tableView.store.get(country));
+                }
+
+                me.mapBoxView.autoResize();
+            } else if (ntype === 'covid-world-map' && me.data) {
                 if (!me.worldMapHasData) {
                     activeView.loadData(me.data);
                     me.worldMapHasData = true;
                 }
             }
-
-            // todo: instead of a timeout this should add a store load listener (single: true)
-            setTimeout(() => {
-                if (me.data) {
-                    selectionModel = activeView.selectionModel;
-
-                    if (country) {
-                        countryField.value = country;
-                    } else {
-                        value.country = 'all';
-                    }
-
-                    if ((ntype === 'mapboxgl' || me.connectedApps.includes('SharedCovidMap')) && me.data) {
-                        if (!me.mapBoxView) {
-                            me.mapBoxView = me.getReference('mapboxglmap');
-                        }
-
-                        if (me.mapboxStyle) {
-                            me.mapBoxView.mapboxStyle = me.mapBoxView[me.mapboxStyle];
-                            delete me.mapboxStyle;
-                        }
-
-                        if (!me.mapboxglMapHasData) {
-                            me.mapBoxView.chartData = me.data;
-                            me.mapboxglMapHasData = true;
-                        }
-
-                        if (me.countryRecord) {
-                            MainContainerController.selectMapboxGlCountry(me.mapBoxView, me.tableView.store.get(country));
-                        }
-
-                        me.mapBoxView.autoResize();
-                    }
-                }
-            }, delaySelection);
         }
 
         me.firstHashChange = false;
