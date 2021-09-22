@@ -257,6 +257,11 @@ class HelixContainer extends Container {
             appName  : me.appName,
             parentId : me.id,
             reference: 'helix',
+
+            model: {
+                parent: me.getModel()
+            },
+
             ...me.helixConfig
         });
 
