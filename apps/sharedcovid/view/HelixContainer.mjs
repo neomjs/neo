@@ -254,6 +254,8 @@ class HelixContainer extends Container {
 
         me.helix = Neo.create({
             module   : Helix,
+            appName  : me.appName,
+            parentId : me.id,
             reference: 'helix',
             ...me.helixConfig
         });
