@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "2.3.13",
+    "version": "2.3.14",
     "description": "The webworkers driven UI framework",
     "repository": {
         "type": "git",
@@ -34,8 +34,8 @@
     "homepage": "https://neomjs.github.io/pages/",
     "dependencies": {
         "@fortawesome/fontawesome-free": "^5.15.4",
-        "@material/mwc-button": "^0.23.0",
-        "@material/mwc-textfield": "^0.23.0",
+        "@material/mwc-button": "^0.25.1",
+        "@material/mwc-textfield": "^0.25.1",
         "autoprefixer": "^10.3.4",
         "chalk": "^4.1.2",
         "clean-webpack-plugin": "^4.0.0",

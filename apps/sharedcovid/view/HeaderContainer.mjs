@@ -135,9 +135,12 @@ class HeaderContainer extends Container {
                     style        : {marginTop: '15px'},
                     width        : 200,
 
+                    bind: {
+                        value: data => data.country
+                    },
+
                     listeners: {
-                        clear : 'onCountryFieldClear',
-                        select: 'onCountryFieldSelect'
+                        change: 'onCountryFieldChange'
                     },
 
                     store: {

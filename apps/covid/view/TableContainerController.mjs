@@ -155,8 +155,8 @@ class TableContainerController extends ComponentController {
      * @param {String} countryName
      */
     loadHistoricalData(countryName) {
-        const me      = this,
-              apiPath = me.apiBaseUrl + me.apiHistoricalDataEndpoint + countryName + '?lastdays=' + me.apiHistoricalDataTimeRange;
+        let me      = this,
+            apiPath = me.apiBaseUrl + me.apiHistoricalDataEndpoint + countryName + '?lastdays=' + me.apiHistoricalDataTimeRange;
 
         fetch(apiPath)
             .then(response => response.json())
@@ -182,8 +182,8 @@ class TableContainerController extends ComponentController {
      * {Object} data
      */
     onCollapseButtonClick(data) {
-        const panel  = this.getReference('controls-panel'),
-              expand = panel.width === 40;
+        let panel  = this.getReference('controls-panel'),
+            expand = panel.width === 40;
 
         panel.width = expand ? this.component.historyPanelWidth : 40;
 
@@ -194,7 +194,7 @@ class TableContainerController extends ComponentController {
      * {Object} record
      */
     onCountryChange(record) {
-        const me = this;
+        let me = this;
 
         if (record) {
             me.selectedRecord = {...record};
@@ -212,9 +212,9 @@ class TableContainerController extends ComponentController {
      * {Object} data
      */
     onDailyValuesChange(data) {
-        const chartId     = this.getReference('line-chart').id,
-              logCheckbox = this.getReference('logarithmic-scale-checkbox'),
-              value       = data.value;
+        let chartId     = this.getReference('line-chart').id,
+            logCheckbox = this.getReference('logarithmic-scale-checkbox'),
+            value       = data.value;
 
         if (value) {
             logCheckbox.set({

@@ -43,17 +43,6 @@ class TableContainerController extends ComponentController {
 
     /**
      *
-     */
-    onConstructed() {
-        super.onConstructed();
-
-        const me = this;
-
-        me.component.on('countrySelect', me.onTableSelect, me);
-    }
-
-    /**
-     *
      * @param {Object} data
      */
     addStoreItems(data) {
@@ -166,8 +155,8 @@ class TableContainerController extends ComponentController {
      * @param {String} countryName
      */
     loadHistoricalData(countryName) {
-        const me      = this,
-              apiPath = me.apiBaseUrl + me.apiHistoricalDataEndpoint + countryName + '?lastdays=' + me.apiHistoricalDataTimeRange;
+        let me      = this,
+            apiPath = me.apiBaseUrl + me.apiHistoricalDataEndpoint + countryName + '?lastdays=' + me.apiHistoricalDataTimeRange;
 
         fetch(apiPath)
             .then(response => response.json())
@@ -193,8 +182,8 @@ class TableContainerController extends ComponentController {
      * {Object} data
      */
     onCollapseButtonClick(data) {
-        const panel  = this.getReference('controls-panel'),
-              expand = panel.width === 40;
+        let panel  = this.getReference('controls-panel'),
+            expand = panel.width === 40;
 
         panel.width = expand ? this.component.historyPanelWidth : 40;
 
@@ -202,12 +191,30 @@ class TableContainerController extends ComponentController {
     }
 
     /**
+     * {Object} record
+     */
+    onCountryChange(record) {
+        let me = this;
+
+        if (record) {
+            me.selectedRecord = {...record};
+        } else {
+            me.selectedRecord = null;
+        }
+
+        // removed optional chaining for now, see: https://github.com/neomjs/neo/issues/467
+        me.loadHistoricalData(record?.countryInfo?.iso2 || 'all');
+
+        me.getReference('historical-data-label').html = 'Historical Data (' + (record?.country || 'World') + ')';
+    }
+
+    /**
      * {Object} data
      */
     onDailyValuesChange(data) {
-        const chartId     = this.getReference('line-chart').id,
-              logCheckbox = this.getReference('logarithmic-scale-checkbox'),
-              value       = data.value;
+        let chartId     = this.getReference('line-chart').id,
+            logCheckbox = this.getReference('logarithmic-scale-checkbox'),
+            value       = data.value;
 
         if (value) {
             logCheckbox.set({
@@ -240,7 +247,7 @@ class TableContainerController extends ComponentController {
      * {Object} data
      */
     onLogarithmicScaleChange(data) {
-        const lineChart = this.getReference('line-chart');
+        let lineChart = this.getReference('line-chart');
 
         Neo.main.addon.AmCharts.setProperty({
             appName: lineChart.appName,
@@ -248,26 +255,6 @@ class TableContainerController extends ComponentController {
             path   : 'yAxes.values.0.logarithmic',
             value  : data.value
         });
-    }
-
-    /**
-     * {Object} data
-     * {Object} data.record
-     */
-    onTableSelect(data) {
-        const me      = this,
-              record  = data.record;
-
-        if (data.record) {
-            me.selectedRecord = {...record};
-        } else {
-            me.selectedRecord = null;
-        }
-
-        // removed optional chaining for now, see: https://github.com/neomjs/neo/issues/467
-        me.loadHistoricalData(record?.countryInfo?.iso2 || 'all');
-
-        me.getReference('historical-data-label').html = 'Historical Data (' + (record?.country || 'World') + ')';
     }
 
     /**

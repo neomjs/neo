@@ -14,9 +14,19 @@ class CountryGallery extends Gallery {
          */
         className: 'SharedCovid.view.country.Gallery',
         /**
+         * @member {Object} bind
+         */
+        bind: {
+            country: {twoWay: true, value: data => data.country}
+        },
+        /**
          * @member {String[]} cls=['covid-country-gallery', 'neo-gallery', 'page', 'view']
          */
         cls: ['covid-country-gallery', 'neo-gallery', 'page', 'view'],
+        /**
+         * @member {String|null} country_=null
+         */
+        country_: null,
         /**
          * The image height of the gallery
          * @member {Number} imageHeight=240
@@ -101,6 +111,22 @@ class CountryGallery extends Gallery {
     }}
 
     /**
+     * Triggered after the country config got changed
+     * @param {String|null} value
+     * @param {String|null} oldValue
+     * @protected
+     */
+    afterSetCountry(value, oldValue) {
+        if (oldValue !== undefined) {
+            let selectionModel = this.selectionModel;
+
+            if (value && !selectionModel.isSelected(value)) {
+                selectionModel.select(value, false);
+            }
+        }
+    }
+
+    /**
      * Override this method to get different item-markups
      * @param {Object} vdomItem
      * @param {Object} record
@@ -144,6 +170,14 @@ class CountryGallery extends Gallery {
     }
 
     /**
+     * Gets triggered from selection.Model: select()
+     * @param {String[]} items
+     */
+    onSelect(items) {
+        this.country = items[0] || null;
+    }
+
+    /**
      *
      * @param {Array} items
      */
@@ -153,7 +187,7 @@ class CountryGallery extends Gallery {
         setTimeout(() => {
             this.selectOnMount = true;
             this.afterSetMounted(true, false);
-        }, 200);
+        }, 400);
     }
 }
 

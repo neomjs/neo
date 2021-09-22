@@ -125,7 +125,12 @@ class Manager extends Base {
      */
     broadcast(msg) {
         Object.keys(this.workers).forEach(name => {
-            this.sendMessage(name, msg);
+            if (!(
+                name === 'canvas' && !NeoConfig.useCanvasWorker ||
+                name === 'vdom'   && !NeoConfig.useVdomWorker
+            )) {
+                this.sendMessage(name, msg);
+            }
         });
     }
 

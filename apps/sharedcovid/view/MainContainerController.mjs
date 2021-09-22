@@ -35,10 +35,6 @@ class MainContainerController extends ComponentController {
          */
         connectedApps: [],
         /**
-         * @member {Object|null} countryRecord=null
-         */
-        countryRecord: null,
-        /**
          * @member {Object[]|null} data=null
          */
         data: null,
@@ -80,7 +76,6 @@ class MainContainerController extends ComponentController {
     }}
 
     /**
-     *
      * @param {Object[]} data
      */
     addStoreItems(data) {
@@ -122,7 +117,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Number} data.active
      * @param {Number} data.cases
@@ -157,7 +151,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} record
      */
     clearCountryField(record) {
@@ -192,7 +185,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {String} [appName]
      * @returns {Neo.component.Base}
      */
@@ -205,7 +197,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} hashObject
      * @param {String} hashObject.mainview
      * @returns {Number}
@@ -219,7 +210,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Number} tabIndex
      * @returns {Neo.component.Base}
      */
@@ -258,7 +248,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.appName
      */
@@ -316,7 +305,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.appName
      */
@@ -412,44 +400,42 @@ class MainContainerController extends ComponentController {
         me.component.on('mounted', me.onMainViewMounted, me);
     }
 
-    /**
-     *
-     */
-    onCountryFieldClear() {
-        this.countryRecord = null;
-
-        Neo.Main.editRoute({
-            country: null
-        });
-    }
 
     /**
-     *
      * @param {Object} data
      */
-    onCountryFieldSelect(data) {console.log('onCountryFieldSelect', data);
-        this.countryRecord = data.record;
+    onCountryFieldChange(data) {
+        let component  = data.component,
+            store      = component.store,
+            value      = data.value,
+            record;
 
-        Neo.Main.editRoute({
-            country: data.value
-        });
+        if (store.getCount() > 0) {
+            if (Neo.isObject(value)) {
+                record = value;
+                value  = value[component.displayField];
+            } else {
+                record = value && store.find('country', value)?.[0];
+            }
+
+            this.getModel().setData({
+                country      : value,
+                countryRecord: record || null
+            });
+        }
     }
 
     /**
-     *
      * @param {Object} value
      * @param {Object} oldValue
      */
     onHashChange(value, oldValue) {
-        let me                = this,
-            activeIndex       = me.getTabIndex(value.hash),
-            activeView        = me.getView(activeIndex),
-            country           = value.hash?.country,
-            countryField      = me.getReference('country-field'),
-            tabContainer      = me.getReference('tab-container'),
-            delaySelection    = !me.data ? 1000 : tabContainer.activeIndex !== activeIndex ? 100 : 0,
-            listeners         = me.mainTabsListeners,
-            id, ntype, selectionModel;
+        let me           = this,
+            activeIndex  = me.getTabIndex(value.hash),
+            activeView   = me.getView(activeIndex),
+            country      = value.hash?.country,
+            tabContainer = me.getReference('tab-container'),
+            countryRecord, ntype;
 
         if (me.firstHashChange || value.appNames) {
             tabContainer.activeIndex = activeIndex;
@@ -463,112 +449,42 @@ class MainContainerController extends ComponentController {
                 return;
             }
 
-            // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
+            me.getModel().setData({
+                country: country || null
+            });
 
+            // todo: this will only load each store once. adjust the logic in case we want to support reloading the API
             if (me.data && activeView.store?.getCount() < 1) {
                 activeView.store.data = me.data;
-                delaySelection = 500;
             }
 
             ntype = activeView.ntype;
 
-            // todo: https://github.com/neomjs/neo/issues/483
-            // quick hack. selectionModels update the vdom of the table.Container.
-            // if table.View is vdom updating, this can result in a 2x rendering of all rows.
-            if (delaySelection === 1000 && activeView.ntype === 'table-container') {
-                delaySelection = 2000;
-            }
+            if ((ntype === 'mapboxgl' || me.connectedApps.includes('SharedCovidMap')) && me.data) {
+                if (!me.mapBoxView) {
+                    me.mapBoxView = me.getReference('mapboxglmap');
+                }
 
-            if (ntype === 'covid-world-map' && me.data) {
+                if (me.mapboxStyle) {
+                    me.mapBoxView.mapboxStyle = me.mapBoxView[me.mapboxStyle];
+                    delete me.mapboxStyle;
+                }
+
+                if (!me.mapboxglMapHasData) {
+                    me.mapBoxView.chartData = me.data;
+                    me.mapboxglMapHasData = true;
+                }
+
+                countryRecord = me.getModel().data.countryRecord;
+                countryRecord && MainContainerController.selectMapboxGlCountry(me.mapBoxView, countryRecord);
+
+                me.mapBoxView.autoResize();
+            } else if (ntype === 'covid-world-map' && me.data) {
                 if (!me.worldMapHasData) {
                     activeView.loadData(me.data);
                     me.worldMapHasData = true;
                 }
             }
-
-            // todo: instead of a timeout this should add a store load listener (single: true)
-            setTimeout(() => {
-                if (me.data) {
-                    selectionModel = activeView.selectionModel;
-
-                    if (country) {
-                        countryField.value = country;
-                    } else {
-                        value.country = 'all';
-                    }
-
-                    if (ntype === 'gallery' || me.connectedApps.includes('SharedCovidGallery')) {
-                        if (!listeners.includes('gallery')) {
-                            listeners.push('gallery');
-                            me.galleryView = me.getReference('gallery');
-                            me.galleryView.on('select', me.updateCountryField, me);
-                        }
-
-                        if (country && !me.galleryView.selectionModel.isSelected(country)) {
-                            me.galleryView.selectionModel.select(country, false);
-                        }
-                    }
-
-                    if (ntype === 'helix' || me.connectedApps.includes('SharedCovidHelix')) {
-                        if (!listeners.includes('helix')) {
-                            listeners.push('helix');
-                            me.helixView = me.getReference('helix');
-                            me.helixView.on('select', me.updateCountryField, me);
-                        }
-
-                        me.helixView.getOffsetValues();
-
-                        if (country && !me.helixView.selectionModel.isSelected(country)) {
-                            me.helixView.selectionModel.select(country, false);
-                            me.helixView.onKeyDownSpace(null);
-                        }
-                    }
-
-                    if ((ntype === 'mapboxgl' || me.connectedApps.includes('SharedCovidMap')) && me.data) {
-                        if (!me.mapBoxView) {
-                            me.mapBoxView = me.getReference('mapboxglmap');
-                        }
-
-                        if (me.mapboxStyle) {
-                            me.mapBoxView.mapboxStyle = me.mapBoxView[me.mapboxStyle];
-                            delete me.mapboxStyle;
-                        }
-
-                        if (!me.mapboxglMapHasData) {
-                            me.mapBoxView.chartData = me.data;
-                            me.mapboxglMapHasData = true;
-                        }
-
-                        if (me.countryRecord) {
-                            MainContainerController.selectMapboxGlCountry(me.mapBoxView, me.tableView.store.get(country));
-                        }
-
-                        me.mapBoxView.autoResize();
-                    }
-
-                    if (ntype === 'table-container') {
-                        if (!listeners.includes('table')) {
-                            listeners.push('table');
-                            me.tableView = me.getReference('table')
-
-                            me.tableView.on({
-                                deselect: me.clearCountryField,
-                                select  : me.updateCountryField,
-                                scope   : me
-                            });
-                        }
-
-                        id = selectionModel.getRowId(activeView.store.indexOf(country));
-
-                        me.getReference('table-container').fire('countrySelect', {record: activeView.store.get(country)});
-
-                        if (country && !selectionModel.isSelected(id)) {
-                            selectionModel.select(id);
-                            Neo.main.DomAccess.scrollToTableRow({id: id});
-                        }
-                    }
-                }
-            }, delaySelection);
         }
 
         me.firstHashChange = false;
@@ -750,11 +666,10 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param view
      * @param record
      */
-    static selectMapboxGlCountry(view, record) {console.log(record.countryInfo.iso2);
+    static selectMapboxGlCountry(view, record) {
         // https://github.com/neomjs/neo/issues/490
         // there are missing iso2&3 values on natural earth vector
         const map = {
@@ -777,7 +692,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Object} data.record
      */

@@ -250,11 +250,18 @@ class HelixContainer extends Container {
     constructor(config) {
         super(config);
 
-        const me = this;
+        let me = this;
 
         me.helix = Neo.create({
             module   : Helix,
+            appName  : me.appName,
+            parentId : me.id,
             reference: 'helix',
+
+            model: {
+                parent: me.getModel()
+            },
+
             ...me.helixConfig
         });
 

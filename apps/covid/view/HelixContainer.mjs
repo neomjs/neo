@@ -242,7 +242,7 @@ class HelixContainer extends Container {
     constructor(config) {
         super(config);
 
-        const me = this;
+        let me = this;
 
         me.helix = Neo.create({
             module   : Helix,
