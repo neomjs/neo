@@ -2,7 +2,20 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
-        "date"        : "Aug 25, 2022",
+        "date"        : "Sep 23, 2021",
+        "id"          : 46,
+        "image"       : "safari-just-released-support-for-js-modules-inside-the-worker-scope.png",
+        "name"        : "Safari (Webkit) just released support for JS modules inside the worker scope",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/safari-webkit-just-released-support-for-js-modules-inside-the-worker-scope-b2d29e67178?source=friends_link&sk=dfabc5dd91430f11e2c49dd10b698544"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Aug 25, 2021",
         "id"          : 45,
         "image"       : "define-a-web-4.0-app-to-be-multi-threaded.png",
         "name"        : "Tutorial: Create your first app in neo v2",
@@ -15,7 +28,7 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
-        "date"        : "Aug 20, 2022",
+        "date"        : "Aug 20, 2021",
         "id"          : 44,
         "image"       : "the-best-frontend-development-strategies-in-2022.png",
         "name"        : "The best frontend development strategies in 2022",
@@ -28,7 +41,7 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
-        "date"        : "Aug 13, 2022",
+        "date"        : "Aug 13, 2021",
         "id"          : 43,
         "image"       : "using-material-web-components-within-the-neomjs-application-worker.png",
         "name"        : "Using Material Web Components within the neo.mjs application worker",
