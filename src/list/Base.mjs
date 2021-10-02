@@ -21,6 +21,10 @@ class Base extends Component {
          */
         ntype: 'list',
         /**
+         * @member {Boolean} animate_=false
+         */
+        animate_: false,
+        /**
          * True will destroy the used collection / store when the component gets destroyed
          * @member {Boolean} autoDestroyStore=true
          */
@@ -108,6 +112,16 @@ class Base extends Component {
         });
 
         me.domListeners = domListeners;
+    }
+
+    /**
+     * Triggered after the animate config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetAnimate(value, oldValue) {
+        console.log('afterSetAnimate', value);
     }
 
     /**
