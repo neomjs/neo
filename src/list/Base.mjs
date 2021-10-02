@@ -72,6 +72,11 @@ class Base extends Component {
          */
         keys: {},
         /**
+         * config values for Neo.list.plugin.Animate
+         * @member {Object} pluginAnimateConfig=null
+         */
+        pluginAnimateConfig: null,
+        /**
          * Either pass a selection.Model module, an instance or a config object
          * @member {Object|Neo.selection.Model} selectionModel_=null
          */
@@ -128,7 +133,8 @@ class Base extends Component {
             plugins.push({
                 module : module.default,
                 appName: me.appName,
-                flag   : 'animate'
+                flag   : 'animate',
+                ...me.pluginAnimateConfig
             });
 
             me.plugins = plugins;
