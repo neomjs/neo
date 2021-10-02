@@ -7,17 +7,20 @@ import Model  from '../../../src/data/Model.mjs';
 class MainModel extends Model {
     static getConfig() {return {
         className  : 'Neo.examples.list.animate.MainModel',
-        keyProperty: 'githubId',
+        keyProperty: 'id',
 
         fields: [{
-            name: 'country',
-            type: 'String'
-        }, {
             name: 'firstname',
             type: 'String'
         }, {
-            name: 'githubId',
+            name: 'id',
+            type: 'Integer'
+        }, {
+            name: 'image',
             type: 'String'
+        }, {
+            name: 'isOnline',
+            type: 'Boolean'
         }, {
             name: 'lastname',
             type: 'String'
