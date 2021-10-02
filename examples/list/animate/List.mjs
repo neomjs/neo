@@ -6,8 +6,22 @@ import BaseList from '../../../src/list/Base.mjs';
  */
 class List extends BaseList {
     static getConfig() {return {
-        className  : 'Neo.examples.list.animate.List',
-        animate    : true,
+        /**
+         * @member {String} className='Neo.examples.list.animate.List'
+         * @protected
+         */
+        className: 'Neo.examples.list.animate.List',
+        /**
+         * @member {Boolean} animate=true
+         */
+        animate: true,
+        /**
+         * @member {String[]} cls=['neo-examples-list-animate','neo-list-container','neo-list']
+         */
+        cls: ['neo-examples-list-animate', 'neo-list-container', 'neo-list'],
+        /**
+         * @member {String} itemTagName='div'
+         */
         itemTagName: 'div'
     }}
 
@@ -19,9 +33,11 @@ class List extends BaseList {
      */
     createItemContent(record, index) {
         return [
-            {tag: 'img', src: `../../../resources/examples/${record.image}`},
-            {html: record.firstname},
-            {html: record.lastname}
+            {cls: ['neo-list-item-content'], cn: [
+                {tag: 'img', src: `../../../resources/examples/${record.image}`},
+                {html: record.firstname},
+                {html: record.lastname}
+            ]}
         ];
     }
 }
