@@ -19,6 +19,7 @@ class List extends BaseList {
      */
     createItemContent(record, index) {
         return [
+            {tag: 'img', src: `../../../resources/examples/${record.image}`},
             {html: record.firstname},
             {html: record.lastname}
         ];
