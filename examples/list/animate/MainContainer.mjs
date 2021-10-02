@@ -1,4 +1,4 @@
-import List      from '../../../src/list/Base.mjs';
+import List      from './List.mjs';
 import MainStore from './MainStore.mjs';
 import Toolbar   from '../../../src/container/Toolbar.mjs';
 import Viewport  from '../../../src/container/Viewport.mjs';
@@ -32,7 +32,6 @@ class MainContainer extends Viewport {
             }]
         }, {
             module      : List,
-            animate     : true,
             displayField: 'firstname',
             store       : MainStore
         }]
