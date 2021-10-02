@@ -1,6 +1,19 @@
 .neo-examples-list-animate {
+    .neo-lastname {
+        color      : #1c60a0;
+        font-weight: bold;
+    }
+
     .neo-list-item {
         border: 1px solid #1c60a0;
-        border-radius: 5px;
+        border-radius: 6px;
+    }
+
+    .neo-list-item-content {
+        display: flex;
+    }
+
+    .neo-list-item-text {
+        margin-left: 10px;
     }
 }
