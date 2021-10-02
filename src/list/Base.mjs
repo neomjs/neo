@@ -121,7 +121,18 @@ class Base extends Component {
      * @protected
      */
     afterSetAnimate(value, oldValue) {
-        console.log('afterSetAnimate', value);
+        value && import('./plugin/Animate.mjs').then(module => {
+            let me      = this,
+                plugins = me.plugins || [];
+
+            plugins.push({
+                module : module.default,
+                appName: me.appName,
+                flag   : 'animate'
+            });
+
+            me.plugins = plugins;
+        });
     }
 
     /**
