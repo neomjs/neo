@@ -8,40 +8,10 @@ import Store     from '../../../src/data/Store.mjs';
 class MainStore extends Store {
     static getConfig() {return {
         className  : 'Neo.examples.list.animate.MainStore',
-        keyProperty: 'githubId',
+        autoLoad   : true,
+        keyProperty: 'id',
         model      : MainModel,
-
-        data: [{
-            country  : 'Germany',
-            firstname: 'Tobias',
-            githubId : 'tobiu',
-            lastname : 'Uhlig'
-        }, {
-            country  : 'USA',
-            firstname: 'Rich',
-            githubId : 'rwaters',
-            lastname : 'Waters'
-        }, {
-            country  : 'Germany',
-            firstname: 'Nils',
-            githubId : 'mrsunshine',
-            lastname : 'Dehl'
-        }, {
-            country  : 'USA',
-            firstname: 'Gerard',
-            githubId : 'camtnbikerrwc',
-            lastname : 'Horan'
-        }, {
-            country  : 'Slovakia',
-            firstname: 'Jozef',
-            githubId : 'jsakalos',
-            lastname : 'Sakalos'
-        }, {
-            country  : 'Germany',
-            firstname: 'Bastian',
-            githubId : 'bhaustein',
-            lastname : 'Haustein'
-        }],
+        url        : '../../resources/examples/data/circleContacts.json',
 
         sorters: [{
             property : 'firstname',
