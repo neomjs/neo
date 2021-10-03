@@ -43,8 +43,7 @@ class MainContainer extends Viewport {
             }]
         }, {
             module: List,
-            store : MainStore,
-            style : {margin: '10px'}
+            store : MainStore
         }];
     }
 
