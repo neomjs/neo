@@ -25,20 +25,21 @@ class Animate extends Base {
         let me    = this,
             owner = me.owner;
 
-        me.ownerCreateItem = owner.createItem;
+        me.ownerCreateItem = owner.createItem.bind(owner);
+        owner.createItem   = me.createItem.bind(owner, me);
+    }
 
-        owner.createItem = function(...args) {
-            let item  = me.ownerCreateItem.call(owner, ...args),
-                style = item.style || {};
+    createItem(scope, ...args) {
+        let item  = scope.ownerCreateItem(...args),
+            style = item.style || {};
 
-            Object.assign(style, {
-                position: 'absolute'
-            });
+        Object.assign(style, {
+            position: 'absolute'
+        });
 
-            item.style = style;
+        item.style = style;
 
-            return item;
-        }
+        return item;
     }
 }
 
