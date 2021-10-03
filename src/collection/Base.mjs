@@ -568,7 +568,7 @@ class Base extends CoreBase {
         me[isSorted] = countSorters > 0;
 
         if (me[updatingIndex] === 0) {
-            me.fire('sort');
+            me.fire('sort', me);
         }
     }
 
@@ -687,7 +687,7 @@ class Base extends CoreBase {
 
         me[isFiltered] = countFilters !== 0;
 
-        me.fire('filter');
+        me.fire('filter', me);
     }
 
     /**

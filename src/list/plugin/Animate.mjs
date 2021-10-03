@@ -43,7 +43,11 @@ class Animate extends Base {
     constructor(config) {
         super(config);
 
-        this.adjustCreateItem();
+        let me = this;
+
+        me.adjustCreateItem();
+
+        me.owner.store.on('sort', me.onSort, me);
     }
 
     /**
@@ -103,6 +107,15 @@ class Animate extends Base {
                 rows     : Math.floor(rect.height / me.itemHeight)
             });
         });
+    }
+
+    /**
+     * @param {Neo.data.Store} store
+     */
+    onSort(store) {
+        let me = this;
+
+        me.owner.createItems();
     }
 }
 
