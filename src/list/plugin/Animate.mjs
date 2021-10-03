@@ -23,6 +23,11 @@ class Animate extends Base {
         itemHeight: 200,
         /**
          * Value in px
+         * @member {Number} itemMargin=10
+         */
+        itemMargin: 10,
+        /**
+         * Value in px
          * @member {Number} itemWidth=300
          */
         itemWidth: 300,
@@ -69,9 +74,12 @@ class Animate extends Base {
      * @returns {Object}
      */
     createItem(me, record, index) {
-        let item  = me.ownerCreateItem(record, index),
-            style = item.style || {},
-            column, row;
+        let item       = me.ownerCreateItem(record, index),
+            itemHeight = me.itemHeight,
+            itemWidth  = me.itemWidth,
+            margin     = me.itemMargin,
+            style      = item.style || {},
+            column, row, x, y;
 
         if (!me.ownerRect) {
             return null;
@@ -79,12 +87,14 @@ class Animate extends Base {
 
         column =  index % me.columns;
         row    = Math.floor(index / me.columns);
+        x      = column * (margin + itemWidth)  + margin;
+        y      = row    * (margin + itemHeight) + margin;
 
         Object.assign(style, {
-            height   : `${me.itemHeight}px`,
+            height   : `${itemHeight}px`,
             position : 'absolute',
-            transform: `translate(${column * me.itemWidth}px, ${row * me.itemHeight}px)`,
-            width    : `${me.itemWidth}px`
+            transform: `translate(${x}px, ${y}px)`,
+            width    : `${itemWidth}px`
         });
 
         item.style = style;
