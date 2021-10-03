@@ -18,7 +18,27 @@ class Animate extends Base {
      */
     constructor(config) {
         super(config);
-        console.log('Neo.list.plugin.Animate ctor');
+        this.adjustCreateItem();
+    }
+
+    adjustCreateItem() {
+        let me    = this,
+            owner = me.owner;
+
+        me.ownerCreateItem = owner.createItem;
+
+        owner.createItem = function(...args) {
+            let item  = me.ownerCreateItem.call(owner, ...args),
+                style = item.style || {};
+
+            Object.assign(style, {
+                position: 'absolute'
+            });
+
+            item.style = style;
+
+            return item;
+        }
     }
 }
 
