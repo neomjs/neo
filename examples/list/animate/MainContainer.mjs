@@ -42,10 +42,9 @@ class MainContainer extends Viewport {
                 text   : 'Lastname'
             }]
         }, {
-            module      : List,
-            displayField: 'firstname',
-            store       : MainStore,
-            style       : {margin: '10px'}
+            module: List,
+            store : MainStore,
+            style : {margin: '10px'}
         }];
     }
 
@@ -54,7 +53,9 @@ class MainContainer extends Viewport {
      * @param {Object} data
      */
     changeSorting(field, data) {
-        console.log('changeSorting', field);
+        let store = this.down({module: List}).store;
+
+        store.sorters[0].property = field;
     }
 }
 
