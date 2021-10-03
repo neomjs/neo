@@ -11,9 +11,18 @@ class MainContainer extends Viewport {
     static getConfig() {return {
         className: 'Neo.examples.list.animate.MainContainer',
         autoMount: true,
-        layout   : {ntype: 'vbox', align: 'stretch'},
+        layout   : {ntype: 'vbox', align: 'stretch'}
+    }}
 
-        items: [{
+    /**
+     * @param {Object} config
+     */
+    constructor(config) {
+        super(config);
+
+        let me = this;
+
+        me.items = [{
             module: Toolbar,
             flex  : 'none',
 
@@ -26,17 +35,27 @@ class MainContainer extends Viewport {
                 ntype: 'label',
                 text : 'Sort by'
             }, {
-                text: 'Firstname'
+                handler: me.changeSorting.bind(me, 'firstname'),
+                text   : 'Firstname'
             }, {
-                text: 'Lastname'
+                handler: me.changeSorting.bind(me, 'lastname'),
+                text   : 'Lastname'
             }]
         }, {
             module      : List,
             displayField: 'firstname',
             store       : MainStore,
             style       : {margin: '10px'}
-        }]
-    }}
+        }];
+    }
+
+    /**
+     * @param {String} field
+     * @param {Object} data
+     */
+    changeSorting(field, data) {
+        console.log('changeSorting', field);
+    }
 }
 
 Neo.applyClassConfig(MainContainer);
