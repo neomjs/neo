@@ -10,7 +10,17 @@ class Animate extends Base {
          * @member {String} className='Neo.list.plugin.Animate'
          * @protected
          */
-        className: 'Neo.list.plugin.Animate'
+        className: 'Neo.list.plugin.Animate',
+        /**
+         * Value in px
+         * @member {Number} itemHeight=100
+         */
+        itemHeight: 200,
+        /**
+         * Value in px
+         * @member {Number} itemWidth=300
+         */
+        itemWidth: 300
     }}
 
     /**
@@ -34,7 +44,9 @@ class Animate extends Base {
             style = item.style || {};
 
         Object.assign(style, {
-            position: 'absolute'
+            height  : `${scope.itemHeight}px`,
+            position: 'absolute',
+            width   : `${scope.itemWidth}px`
         });
 
         item.style = style;
