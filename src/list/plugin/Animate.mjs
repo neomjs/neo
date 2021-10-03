@@ -126,11 +126,38 @@ class Animate extends Base {
      * @param {Neo.data.Store} data.scope
      */
     onSort(data) {
-        let me = this;
+        let me          = this,
+            hasChange   = false,
+            keyProperty = data.scope.keyProperty,
+            owner       = me.owner,
+            newVdomCn   = [],
+            vdom        = owner.vdom,
+            vdomMap     = vdom.cn.map(e => e.id),
+            fromIndex, itemId;
 
-        console.log(data);
+        if (vdomMap.length > 0) {
+            data.items.forEach((item, index) => {
+                itemId    = owner.getItemId(item[keyProperty]);
+                fromIndex = vdomMap.indexOf(itemId);
 
-        me.owner.createItems();
+                newVdomCn.push(vdom.cn[fromIndex]);
+
+                if (fromIndex !== index) {
+                    hasChange = true;
+                }
+            });
+
+            if (hasChange) {
+                owner.vdom.cn = newVdomCn;
+
+                owner.promiseVdomUpdate().then(() => {
+                    // we need to ensure to get this call into the next animation frame
+                    setTimeout(() => {
+                        owner.createItems();
+                    }, 50);
+                });
+            }
+        }
     }
 }
 
