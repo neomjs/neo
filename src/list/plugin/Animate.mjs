@@ -20,7 +20,11 @@ class Animate extends Base {
          * Value in px
          * @member {Number} itemWidth=300
          */
-        itemWidth: 300
+        itemWidth: 300,
+        /**
+         * @member {DOMRect|null} ownerRect=null
+         */
+        ownerRect: null
     }}
 
     /**
@@ -28,6 +32,7 @@ class Animate extends Base {
      */
     constructor(config) {
         super(config);
+
         this.adjustCreateItem();
     }
 
@@ -39,19 +44,34 @@ class Animate extends Base {
         owner.createItem   = me.createItem.bind(owner, me);
     }
 
-    createItem(scope, ...args) {
-        let item  = scope.ownerCreateItem(...args),
+    createItem(me, ...args) {
+        let item  = me.ownerCreateItem(...args),
             style = item.style || {};
 
+        console.log(me.ownerRect);
+
         Object.assign(style, {
-            height  : `${scope.itemHeight}px`,
+            height  : `${me.itemHeight}px`,
             position: 'absolute',
-            width   : `${scope.itemWidth}px`
+            width   : `${me.itemWidth}px`
         });
 
         item.style = style;
 
         return item;
+    }
+
+    /**
+     *
+     */
+    onOwnerMounted() {
+        let me = this;
+
+        Neo.main.DomAccess.getBoundingClientRect({
+            id: me.owner.id
+        }).then(rect => {
+            me.ownerRect = rect;
+        });
     }
 }
 
