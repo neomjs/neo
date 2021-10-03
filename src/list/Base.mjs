@@ -267,6 +267,10 @@ class Base extends Component {
         };
 
         switch (Neo.typeOf(itemContent)) {
+            case null: {
+                return null;
+            }
+
             case 'Array': {
                 item.cn = itemContent;
                 break;
@@ -314,12 +318,14 @@ class Base extends Component {
      */
     createItems(silent=false) {
         let me   = this,
-            vdom = me.vdom;
+            vdom = me.vdom,
+            listItem;
 
         vdom.cn = [];
 
         me.store.items.forEach((item, index) => {
-            vdom.cn.push(me.createItem(item, index));
+            listItem = me.createItem(item, index);
+            listItem && vdom.cn.push(listItem);
         });
 
         if (silent) {

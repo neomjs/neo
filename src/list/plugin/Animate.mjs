@@ -12,8 +12,13 @@ class Animate extends Base {
          */
         className: 'Neo.list.plugin.Animate',
         /**
+         * Read only
+         * @member {Number|null} columns=null
+         */
+        columns: null,
+        /**
          * Value in px
-         * @member {Number} itemHeight=100
+         * @member {Number} itemHeight=200
          */
         itemHeight: 200,
         /**
@@ -24,7 +29,12 @@ class Animate extends Base {
         /**
          * @member {DOMRect|null} ownerRect=null
          */
-        ownerRect: null
+        ownerRect: null,
+        /**
+         * Read only
+         * @member {Number|null} rows=null
+         */
+        rows: null
     }}
 
     /**
@@ -44,16 +54,23 @@ class Animate extends Base {
         owner.createItem   = me.createItem.bind(owner, me);
     }
 
-    createItem(me, ...args) {
-        let item  = me.ownerCreateItem(...args),
-            style = item.style || {};
+    createItem(me, record, index) {
+        let item  = me.ownerCreateItem(record, index),
+            style = item.style || {},
+            column, row;
 
-        console.log(me.ownerRect);
+        if (!me.ownerRect) {
+            return null;
+        }
+
+        column =  index % me.columns;
+        row    = Math.floor(index / me.columns);
 
         Object.assign(style, {
-            height  : `${me.itemHeight}px`,
-            position: 'absolute',
-            width   : `${me.itemWidth}px`
+            height   : `${me.itemHeight}px`,
+            position : 'absolute',
+            transform: `translate(${column * me.itemWidth}px, ${row * me.itemHeight}px)`,
+            width    : `${me.itemWidth}px`
         });
 
         item.style = style;
@@ -70,7 +87,11 @@ class Animate extends Base {
         Neo.main.DomAccess.getBoundingClientRect({
             id: me.owner.id
         }).then(rect => {
-            me.ownerRect = rect;
+            Object.assign(me, {
+                columns  : Math.floor(rect.width / me.itemWidth),
+                ownerRect: rect,
+                rows     : Math.floor(rect.height / me.itemHeight)
+            });
         });
     }
 }
