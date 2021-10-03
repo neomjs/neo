@@ -46,6 +46,9 @@ class Animate extends Base {
         this.adjustCreateItem();
     }
 
+    /**
+     *
+     */
     adjustCreateItem() {
         let me    = this,
             owner = me.owner;
@@ -54,6 +57,13 @@ class Animate extends Base {
         owner.createItem   = me.createItem.bind(owner, me);
     }
 
+    /**
+     *
+     * @param {Neo.list.plugin.Animate} me
+     * @param {Object} record
+     * @param {Number} index
+     * @returns {Object}
+     */
     createItem(me, record, index) {
         let item  = me.ownerCreateItem(record, index),
             style = item.style || {},
