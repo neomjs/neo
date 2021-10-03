@@ -120,10 +120,15 @@ class Animate extends Base {
     }
 
     /**
-     * @param {Neo.data.Store} store
+     * @param {Object} data
+     * @param {Object[]} data.items
+     * @param {Object[]} data.previousItems
+     * @param {Neo.data.Store} data.scope
      */
-    onSort(store) {
+    onSort(data) {
         let me = this;
+
+        console.log(data);
 
         me.owner.createItems();
     }
