@@ -145,7 +145,7 @@ class Base {
      * @returns {String|Number} value or oldValue
      */
     beforeSetEnumValue(value, oldValue, name, staticName = name + 's') {
-        const values = Array.isArray(staticName) ? staticName : this.getStaticConfig(staticName);
+        let values = Array.isArray(staticName) ? staticName : this.getStaticConfig(staticName);
 
         if (!values.includes(value)) {
             Neo.logError(`Supported values for ${name} are: ${values.join(', ')}`, this);
@@ -234,9 +234,7 @@ class Base {
             currentWorker = Neo.currentWorker,
             listenerId;
 
-        if (!me.singleton) {
-            throw new Error('Remote method access is only functional for Singleton classes ' + className);
-        }
+        !me.singleton && throw new Error('Remote method access is only functional for Singleton classes ' + className);
 
         if (!Neo.config.unitTestMode && Neo.isObject(remote)) {
             if (Neo.workerId !== 'main' && currentWorker.isSharedWorker && !currentWorker.isConnected) {
