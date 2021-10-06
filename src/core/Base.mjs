@@ -234,7 +234,9 @@ class Base {
             currentWorker = Neo.currentWorker,
             listenerId;
 
-        !me.singleton && throw new Error('Remote method access is only functional for Singleton classes ' + className);
+        if (!me.singleton) {
+            throw new Error('Remote method access is only functional for Singleton classes ' + className);
+        }
 
         if (!Neo.config.unitTestMode && Neo.isObject(remote)) {
             if (Neo.workerId !== 'main' && currentWorker.isSharedWorker && !currentWorker.isConnected) {
