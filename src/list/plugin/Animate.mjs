@@ -52,7 +52,11 @@ class Animate extends Base {
 
         me.adjustCreateItem();
 
-        me.owner.store.on('sort', me.onSort, me);
+        me.owner.store.on({
+            filter: me.onFilter,
+            sort  : me.onSort,
+            scope : me
+        });
     }
 
     /**
@@ -100,6 +104,13 @@ class Animate extends Base {
         item.style = style;
 
         return item;
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onFilter(data) {
+        console.log('onFilter', data);
     }
 
     /**
