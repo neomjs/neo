@@ -51,7 +51,7 @@
         "sass": "^1.42.1",
         "webpack": "^5.56.0",
         "webpack-cli": "^4.8.0",
-        "webpack-dev-server": "4.3.0",
+        "webpack-dev-server": "4.3.1",
         "webpack-hook-plugin": "^1.0.7",
         "webpack-node-externals": "^3.0.0"
     },
