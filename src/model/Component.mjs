@@ -598,9 +598,7 @@ class Component extends Base {
             delete binding[componentId];
         });
 
-        if (parentModel) {
-            parentModel.removeBindings(componentId);
-        }
+        parentModel?.removeBindings(componentId);
     }
 
     /**
