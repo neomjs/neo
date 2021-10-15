@@ -608,9 +608,8 @@ class Component extends Base {
      * @param {Neo.component.Base} component
      * @param {String} configName
      * @param {String} storeName
-     * @param {Neo.model.Component} [originModel=this] for internal usage only
      */
-    resolveStore(component, configName, storeName, originModel=this) {
+    resolveStore(component, configName, storeName) {
         component[configName] = this.getStore(storeName);
     }
 
