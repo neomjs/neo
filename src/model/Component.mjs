@@ -543,9 +543,7 @@ class Component extends Base {
                     config[configField] = model.callFormatter(formatter, hierarchyData[model.id]);
                 });
 
-                if (component) {
-                    component.set(config);
-                }
+                component?.set(config);
             });
         }
 
