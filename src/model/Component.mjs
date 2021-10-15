@@ -57,7 +57,6 @@ class Component extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -135,7 +134,6 @@ class Component extends Base {
     }
 
     /**
-     *
      * @param {Function} formatter
      * @param {Object} [data=null] optionally pass this.getHierarchyData() for performance reasons
      * @returns {String}
@@ -194,7 +192,6 @@ class Component extends Base {
     }
 
     /**
-     *
      * @param {Neo.component.Base} component
      */
     createBindings(component) {
@@ -210,7 +207,6 @@ class Component extends Base {
     }
 
     /**
-     *
      * @param {Object} config
      * @param {String} path
      */
@@ -238,7 +234,6 @@ class Component extends Base {
     }
 
     /**
-     *
      * @param {String} key
      * @param {String} path
      * @param {Object} [root=this.data]
@@ -515,7 +510,6 @@ class Component extends Base {
     }
 
     /**
-     *
      * @param {String} key
      * @param {*} value
      * @param {*} oldValue
