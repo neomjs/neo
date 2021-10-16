@@ -37,7 +37,8 @@ class List extends BaseList {
                 {tag: 'img', src: `../../../resources/examples/${record.image}`},
                 {cls: ['neo-list-item-text'], cn: [
                     {html: record.firstname},
-                    {cls: ['neo-lastname'], html: record.lastname}
+                    {cls: ['neo-lastname'], html: record.lastname},
+                    {cls: ['neo-is-online'], removeDom: !record.isOnline}
                 ]}
             ]}
         ];
