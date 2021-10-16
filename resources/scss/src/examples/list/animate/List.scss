@@ -1,4 +1,12 @@
 .neo-examples-list-animate {
+    .neo-is-online {
+        background-color: green;
+        border-radius   : 50%;
+        height          : .7em;
+        margin-top      : .5em;
+        width           : .7em;
+    }
+
     .neo-lastname {
         color      : #1c60a0;
         font-weight: bold;
