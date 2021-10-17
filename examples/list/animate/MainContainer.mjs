@@ -1,3 +1,4 @@
+import CheckBox  from '../../../src/form/field/CheckBox.mjs';
 import List      from './List.mjs';
 import MainStore from './MainStore.mjs';
 import Toolbar   from '../../../src/container/Toolbar.mjs';
@@ -40,6 +41,11 @@ class MainContainer extends Viewport {
             }, {
                 handler: me.changeSorting.bind(me, 'lastname'),
                 text   : 'Lastname'
+            }, {
+                module    : CheckBox,
+                labelText : 'Is online',
+                labelWidth: 70,
+                style     : {marginLeft: '50px'}
             }]
         }, {
             module: List,
