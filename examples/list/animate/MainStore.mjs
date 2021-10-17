@@ -13,6 +13,12 @@ class MainStore extends Store {
         model      : MainModel,
         url        : '../../resources/examples/data/circleContacts.json',
 
+        filters: [{
+            disabled : true,
+            property : 'isOnline',
+            value    : true
+        }],
+
         sorters: [{
             property : 'firstname',
             direction: 'ASC'
