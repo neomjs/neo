@@ -45,12 +45,22 @@ class MainContainer extends Viewport {
                 module    : CheckBox,
                 labelText : 'Is online',
                 labelWidth: 70,
+                listeners : {change: me.changeIsOnlineFilter.bind(me)},
                 style     : {marginLeft: '50px'}
             }]
         }, {
             module: List,
             store : MainStore
         }];
+    }
+
+    /**
+     * @param {Object} data
+     */
+    changeIsOnlineFilter(data) {
+        let store = this.down({module: List}).store;
+
+        store.getFilter('isOnline').disabled = !data.value;
     }
 
     /**
