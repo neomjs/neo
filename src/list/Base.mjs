@@ -103,7 +103,6 @@ class Base extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -364,7 +363,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @param {Number|String} recordId
      * @returns {String}
      */
@@ -373,7 +371,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @param {String} vnodeId
      * @returns {String|Number} itemId
      */
@@ -398,7 +395,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onClick(data) {
@@ -427,7 +423,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onContainerClick(data) {
@@ -443,7 +438,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @param {Object} node
      * @param {Object} data
      */
