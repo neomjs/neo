@@ -13,9 +13,11 @@
     }
 
     .neo-list-item {
-        border       : 1px solid #1c60a0;
-        border-radius: 6px;
-        transition   : transform .5s ease-in-out;
+        background-color: lavender;
+        border          : 1px solid #1c60a0;
+        border-radius   : 6px;
+        opacity         : .9;
+        transition      : transform .5s ease-in-out;
     }
 
     .neo-list-item-content {
