@@ -21,6 +21,10 @@ class Base extends Component {
          */
         ntype: 'list',
         /**
+         * @member {Boolean} animate_=false
+         */
+        animate_: false,
+        /**
          * True will destroy the used collection / store when the component gets destroyed
          * @member {Boolean} autoDestroyStore=true
          */
@@ -68,6 +72,11 @@ class Base extends Component {
          */
         keys: {},
         /**
+         * config values for Neo.list.plugin.Animate
+         * @member {Object} pluginAnimateConfig=null
+         */
+        pluginAnimateConfig: null,
+        /**
          * Either pass a selection.Model module, an instance or a config object
          * @member {Object|Neo.selection.Model} selectionModel_=null
          */
@@ -94,7 +103,6 @@ class Base extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -108,6 +116,28 @@ class Base extends Component {
         });
 
         me.domListeners = domListeners;
+    }
+
+    /**
+     * Triggered after the animate config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetAnimate(value, oldValue) {
+        value && import('./plugin/Animate.mjs').then(module => {
+            let me      = this,
+                plugins = me.plugins || [];
+
+            plugins.push({
+                module : module.default,
+                appName: me.appName,
+                flag   : 'animate',
+                ...me.pluginAnimateConfig
+            });
+
+            me.plugins = plugins;
+        });
     }
 
     /**
@@ -236,6 +266,10 @@ class Base extends Component {
         };
 
         switch (Neo.typeOf(itemContent)) {
+            case null: {
+                return null;
+            }
+
             case 'Array': {
                 item.cn = itemContent;
                 break;
@@ -283,12 +317,14 @@ class Base extends Component {
      */
     createItems(silent=false) {
         let me   = this,
-            vdom = me.vdom;
+            vdom = me.vdom,
+            listItem;
 
         vdom.cn = [];
 
         me.store.items.forEach((item, index) => {
-            vdom.cn.push(me.createItem(item, index));
+            listItem = me.createItem(item, index);
+            listItem && vdom.cn.push(listItem);
         });
 
         if (silent) {
@@ -327,7 +363,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @param {Number|String} recordId
      * @returns {String}
      */
@@ -336,7 +371,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @param {String} vnodeId
      * @returns {String|Number} itemId
      */
@@ -361,7 +395,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onClick(data) {
@@ -390,7 +423,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onContainerClick(data) {
@@ -406,7 +438,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @param {Object} node
      * @param {Object} data
      */

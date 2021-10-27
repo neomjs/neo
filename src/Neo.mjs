@@ -137,9 +137,7 @@ Neo = self.Neo = Object.assign({
             delete ctor.getConfig;
             delete ctor.getStaticConfig;
 
-            if (!config.singleton) {
-                this.applyToGlobalNs(cls);
-            }
+            !config.singleton && this.applyToGlobalNs(cls);
         });
     },
 

@@ -145,7 +145,7 @@ class Base {
      * @returns {String|Number} value or oldValue
      */
     beforeSetEnumValue(value, oldValue, name, staticName = name + 's') {
-        const values = Array.isArray(staticName) ? staticName : this.getStaticConfig(staticName);
+        let values = Array.isArray(staticName) ? staticName : this.getStaticConfig(staticName);
 
         if (!values.includes(value)) {
             Neo.logError(`Supported values for ${name} are: ${values.join(', ')}`, this);

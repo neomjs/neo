@@ -93,7 +93,7 @@ class MainContainer extends Viewport {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
-         * @member {SharedCovid.view.MainContainerModel} model=MainContainerModel
+         * @member {Neo.model.Component} model=MainContainerModel
          */
         model: MainContainerModel
     }}

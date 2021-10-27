@@ -484,6 +484,7 @@ class Base extends CoreBase {
     doSort() {
         let me                = this,
             items             = me._items,
+            previousItems     = [...items],
             sorters           = me.sorters,
             sortDirections    = me.sortDirections,
             sortProperties    = me.sortProperties,
@@ -568,7 +569,11 @@ class Base extends CoreBase {
         me[isSorted] = countSorters > 0;
 
         if (me[updatingIndex] === 0) {
-            me.fire('sort');
+            me.fire('sort', {
+                items: me._items,
+                previousItems,
+                scope: me
+            });
         }
     }
 
@@ -687,7 +692,7 @@ class Base extends CoreBase {
 
         me[isFiltered] = countFilters !== 0;
 
-        me.fire('filter');
+        me.fire('filter', me);
     }
 
     /**
@@ -968,8 +973,6 @@ class Base extends CoreBase {
         }
 
         me.splice(null, opts.removedItems, opts.addedItems);
-
-        // console.log('onMutate', me.getCount(), me.id, opts);
     }
 
     /**

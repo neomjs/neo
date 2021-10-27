@@ -57,7 +57,6 @@ class Component extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -135,7 +134,6 @@ class Component extends Base {
     }
 
     /**
-     *
      * @param {Function} formatter
      * @param {Object} [data=null] optionally pass this.getHierarchyData() for performance reasons
      * @returns {String}
@@ -194,7 +192,6 @@ class Component extends Base {
     }
 
     /**
-     *
      * @param {Neo.component.Base} component
      */
     createBindings(component) {
@@ -210,7 +207,6 @@ class Component extends Base {
     }
 
     /**
-     *
      * @param {Object} config
      * @param {String} path
      */
@@ -238,7 +234,6 @@ class Component extends Base {
     }
 
     /**
-     *
      * @param {String} key
      * @param {String} path
      * @param {Object} [root=this.data]
@@ -515,7 +510,6 @@ class Component extends Base {
     }
 
     /**
-     *
      * @param {String} key
      * @param {*} value
      * @param {*} oldValue
@@ -543,9 +537,7 @@ class Component extends Base {
                     config[configField] = model.callFormatter(formatter, hierarchyData[model.id]);
                 });
 
-                if (component) {
-                    component.set(config);
-                }
+                component?.set(config);
             });
         }
 
@@ -598,9 +590,7 @@ class Component extends Base {
             delete binding[componentId];
         });
 
-        if (parentModel) {
-            parentModel.removeBindings(componentId);
-        }
+        parentModel?.removeBindings(componentId);
     }
 
     /**
@@ -608,9 +598,8 @@ class Component extends Base {
      * @param {Neo.component.Base} component
      * @param {String} configName
      * @param {String} storeName
-     * @param {Neo.model.Component} [originModel=this] for internal usage only
      */
-    resolveStore(component, configName, storeName, originModel=this) {
+    resolveStore(component, configName, storeName) {
         component[configName] = this.getStore(storeName);
     }
 

@@ -1,7 +1,7 @@
 {
-    "appPath"         : "examples/list/base/app.mjs",
+    "appPath"         : "examples/list/animate/app.mjs",
     "basePath"        : "../../../",
     "environment"     : "development",
     "mainPath"        : "./Main.mjs",
-    "mainThreadAddons": ["DragDrop", "Stylesheet"]
+    "mainThreadAddons": ["Stylesheet"]
 }

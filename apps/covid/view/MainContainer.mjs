@@ -90,7 +90,7 @@ class MainContainer extends Viewport {
          */
         layout: {ntype: 'vbox', align: 'stretch'},
         /**
-         * @member {Covid.view.MainContainerModel} model=MainContainerModel
+         * @member {Neo.model.Component} model=MainContainerModel
          */
         model: MainContainerModel
     }}
