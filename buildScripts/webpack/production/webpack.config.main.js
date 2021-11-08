@@ -14,6 +14,7 @@ module.exports = {
     output: {
         chunkFilename: 'chunks/main/[id].js',
         filename     : filenameConfig.mainOutput,
-        path         : path.resolve(processRoot, buildTarget.folder)
+        path         : path.resolve(processRoot, buildTarget.folder),
+        publicPath   : ''
     }
 };
