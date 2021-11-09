@@ -102,9 +102,7 @@ class Manager extends Base {
 
         me.detectFeatures();
 
-        if (!Neo.insideWorker) {
-            me.createWorkers();
-        }
+        !Neo.insideWorker && me.createWorkers();
 
         Neo.workerId = 'main';
 
