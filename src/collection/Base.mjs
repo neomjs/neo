@@ -1,6 +1,6 @@
 import CoreBase   from '../core/Base.mjs';
 import Filter     from './Filter.mjs';
-import Logger     from '../core/Logger.mjs';
+import Logger     from '../util/Logger.mjs';
 import Sorter     from './Sorter.mjs';
 import Observable from '../core/Observable.mjs';
 import Util       from '../core/Util.mjs';

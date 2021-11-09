@@ -3,7 +3,7 @@ import ComponentManager from '../manager/Component.mjs';
 import CoreBase         from '../core/Base.mjs';
 import DomEventManager  from '../manager/DomEvent.mjs';
 import KeyNavigation    from '../util/KeyNavigation.mjs';
-import Logger           from '../core/Logger.mjs';
+import Logger           from '../util/Logger.mjs';
 import NeoArray         from '../util/Array.mjs';
 import Observable       from '../core/Observable.mjs';
 import Style            from '../util/Style.mjs';

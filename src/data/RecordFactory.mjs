@@ -1,5 +1,5 @@
 import Base   from '../core/Base.mjs';
-import Logger from '../core/Logger.mjs';
+import Logger from '../util/Logger.mjs';
 import Model  from './Model.mjs';
 
 let instance;

@@ -1,7 +1,7 @@
 import Base             from '../core/Base.mjs';
 import ComponentManager from './Component.mjs';
 import FocusManager     from './Focus.mjs';
-import Logger           from '../core/Logger.mjs';
+import Logger           from '../util/Logger.mjs';
 import NeoArray         from '../util/Array.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 

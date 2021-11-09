@@ -1,22 +1,17 @@
-import Base from './Base.mjs';
+import Base from '../core/Base.mjs';
 
 /**
- * @class Neo.core.Logger
+ * @class Neo.util.Logger
  * @extends Neo.core.Base
  * @singleton
  */
 class Logger extends Base {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.core.Logger'
+         * @member {String} className='Neo.util.Logger'
          * @protected
          */
-        className: 'Neo.core.Logger',
-        /**
-         * @member {String} ntype='logger'
-         * @protected
-         */
-        ntype: 'logger',
+        className: 'Neo.util.Logger',
         /**
          * Set this config to false to disable the logging
          * @member {boolean} enableLogs=true

@@ -4,7 +4,7 @@ import LayoutCard from '../layout/Card.mjs';
 import LayoutFit  from '../layout/Fit.mjs';
 import LayoutHbox from '../layout/HBox.mjs';
 import LayoutVBox from '../layout/VBox.mjs';
-import Logger     from '../core/Logger.mjs';
+import Logger     from '../util/Logger.mjs';
 import NeoArray   from '../util/Array.mjs';
 
 /**

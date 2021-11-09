@@ -1,7 +1,7 @@
 import Base             from './Base.mjs';
 import ComponentManager from '../manager/Component.mjs';
 import DomEventManager  from '../manager/DomEvent.mjs';
-import Logger           from '../core/Logger.mjs';
+import Logger           from '../util/Logger.mjs';
 
 /**
  * @class Neo.controller.Component
