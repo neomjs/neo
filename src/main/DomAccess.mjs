@@ -104,7 +104,7 @@ class DomAccess extends Base {
      * @param {String} [data.src=true]
      */
     addScript(data) {
-        const script = document.createElement('script');
+        let script = document.createElement('script');
 
         if (!data.hasOwnProperty('async')) {
             data.async = true;
@@ -120,7 +120,7 @@ class DomAccess extends Base {
      * @param {String[]} data.cls
      */
     applyBodyCls(data) {
-        const cls = data.cls || [];
+        let cls = data.cls || [];
         document.body.classList.add(...cls);
     }
 
@@ -271,10 +271,10 @@ class DomAccess extends Base {
             script = document.createElement('script');
 
             Object.assign(script, {
-                async  : async,
+                async,
                 onerror: reject,
                 onload : resolve,
-                src    : src
+                src
             });
 
             document.head.appendChild(script);
@@ -293,7 +293,7 @@ class DomAccess extends Base {
             link = document.createElement('link');
 
             Object.assign(link, {
-                href   : href,
+                href,
                 onerror: reject,
                 onload : resolve,
                 rel    : 'stylesheet',
@@ -326,7 +326,7 @@ class DomAccess extends Base {
 
         Neo.worker.Manager.sendMessage(data.origin, {
             action : 'reply',
-            data   : data,
+            data,
             replyId: data.id,
             success: true
         }, [offscreen]);
@@ -391,7 +391,7 @@ class DomAccess extends Base {
 
         Neo.worker.Manager.sendMessage(data.origin, {
             action : 'reply',
-            data   : data,
+            data,
             replyId: data.id,
             success: true
         });
