@@ -371,20 +371,20 @@ class Main extends core.Base {
     /**
      * Change the location.hash value
      * @param {Object} data
-     * @param {String} data.value
-     */
-    setRoute(data) {
-        window.location.hash = data.value;
-    }
-
-    /**
-     * Change the location.hash value
-     * @param {Object} data
      * @param {String} data.key
      * @param {*} data.value
      */
     setNeoConfig(data) {
         Neo.config[data.key] = data.value;
+    }
+
+    /**
+     * Change the location.hash value
+     * @param {Object} data
+     * @param {String} data.value
+     */
+    setRoute(data) {
+        window.location.hash = data.value;
     }
 
     /**
