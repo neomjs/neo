@@ -18,7 +18,6 @@ class Article extends Base {
     }}
 
     /**
-     *
      * @param {String} slug
      * @param {Number} id
      */
@@ -29,7 +28,6 @@ class Article extends Base {
     }
 
     /**
-     *
      * @param {String} slug
      */
     getComments(slug) {
@@ -39,7 +37,6 @@ class Article extends Base {
     }
 
     /**
-     *
      * @param {String} slug
      * @param {Object} opts
      */

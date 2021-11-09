@@ -45,7 +45,6 @@ class Color extends Select {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -95,7 +94,6 @@ class Color extends Select {
     }
 
     /**
-     *
      * @returns {String}
      */
     getColor() {
@@ -107,7 +105,6 @@ class Color extends Select {
     }
 
     /**
-     *
      * @returns {String}
      */
     getColorIndicatorId() {

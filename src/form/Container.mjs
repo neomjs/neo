@@ -50,7 +50,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * @returns {Neo.form.field.Base[]} fields
      */
     getFields() {
@@ -67,7 +66,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * @returns {Object} values
      */
     getValues() {

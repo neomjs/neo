@@ -206,7 +206,6 @@ class List extends BaseList {
     }
 
     /**
-     *
      * @param {Number|String} recordId
      * @returns {String}
      */
@@ -215,7 +214,6 @@ class List extends BaseList {
     }
 
     /**
-     *
      * @param {Number|String} recordId
      * @returns {String}
      */
@@ -255,7 +253,6 @@ class List extends BaseList {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Object[]} data.path
      */
@@ -264,7 +261,6 @@ class List extends BaseList {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Object[]} data.oldPath
      */
@@ -273,7 +269,6 @@ class List extends BaseList {
     }
 
     /**
-     *
      * @param {String[]} items
      */
     onSelect(items) {
@@ -292,7 +287,6 @@ class List extends BaseList {
     }
 
     /**
-     *
      * @param {String} nodeId
      * @param {Object} record
      */

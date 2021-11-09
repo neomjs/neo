@@ -307,7 +307,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @returns {Object}
      */
     getInputHintEl() {
@@ -350,7 +349,6 @@ class Select extends Picker {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Object[]} data.oldPath
      * @protected

@@ -120,7 +120,6 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     *
      * @param {String} dock
      * @returns {String} layoutConfig
      * @override

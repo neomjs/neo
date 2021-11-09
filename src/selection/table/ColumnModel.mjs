@@ -42,7 +42,6 @@ class ColumnModel extends Model {
     }
 
     /**
-     *
      * @param {Object} eventPath
      * @returns {String|null} cellId
      */
@@ -76,7 +75,6 @@ class ColumnModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onCellClick(data) {
@@ -94,7 +92,6 @@ class ColumnModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownLeft(data) {
@@ -102,7 +99,6 @@ class ColumnModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownRight(data) {
@@ -110,7 +106,6 @@ class ColumnModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Number} step
      */
@@ -138,7 +133,6 @@ class ColumnModel extends Model {
     }
 
     /**
-     *
      * @param {Neo.component.Base} component
      */
     register(component) {

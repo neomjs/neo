@@ -53,7 +53,6 @@ class Component extends Base {
     }
 
     /**
-     *
      * @param {Number} index
      * @returns {String}
      */
@@ -62,7 +61,6 @@ class Component extends Base {
     }
 
     /**
-     *
      * @param {Number|String} recordId
      * @returns {String}
      */
@@ -71,7 +69,6 @@ class Component extends Base {
     }
 
     /**
-     *
      * @param {String} vnodeId
      * @returns {String|Number} itemId
      */

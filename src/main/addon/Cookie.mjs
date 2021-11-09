@@ -33,7 +33,6 @@ class Cookie extends Base {
     }}
 
     /**
-     *
      * @param {String} name
      * @returns {String}
      */
@@ -45,7 +44,6 @@ class Cookie extends Base {
     }
 
     /**
-     *
      * @returns {String}
      */
     getCookies() {
@@ -53,7 +51,6 @@ class Cookie extends Base {
     }
 
     /**
-     *
      * @param {String} value
      */
     setCookie(value) {

@@ -15,7 +15,6 @@ class Base extends CollectionBase{
     }}
 
     /**
-     *
      * @param {Number|String} id
      * @returns {Object}
      */
@@ -24,7 +23,6 @@ class Base extends CollectionBase{
     }
 
     /**
-     *
      * @param {Object} item
      */
     register(item) {

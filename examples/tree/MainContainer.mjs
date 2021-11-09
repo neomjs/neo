@@ -76,7 +76,6 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     *
      * @returns {*}
      */
     createExampleComponent() {
@@ -119,7 +118,6 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     *
      * @param {Object} opts
      */
     onLeafNodesOnlyChange(opts) {

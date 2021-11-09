@@ -30,7 +30,6 @@ class SpinUp extends Base {
     }}
 
     /**
-     *
      * @param {Object} data
      */
     onTriggerClick(data) {

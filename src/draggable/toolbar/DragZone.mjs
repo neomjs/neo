@@ -21,7 +21,6 @@ class DragZone extends BaseDragZone {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -46,7 +45,6 @@ class DragZone extends BaseDragZone {
     }
 
     /**
-     *
      * @param {Boolean} draggable
      */
     adjustToolbarItemCls(draggable) {
@@ -64,7 +62,6 @@ class DragZone extends BaseDragZone {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragEnd(data) {
@@ -93,7 +90,6 @@ class DragZone extends BaseDragZone {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragStart(data) {

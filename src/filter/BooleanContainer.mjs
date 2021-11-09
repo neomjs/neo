@@ -89,7 +89,6 @@ class BooleanContainer extends Container {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onRadioChange(data) {

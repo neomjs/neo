@@ -21,7 +21,6 @@ class Component extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -94,7 +93,6 @@ class Component extends Base {
     }
 
     /**
-     *
      * @param {Array} path
      * @returns {String|null} the component id in case there is a match
      */
@@ -167,7 +165,6 @@ class Component extends Base {
     }
 
     /**
-     *
      * @param {Array} path
      * @returns {Array}
      */

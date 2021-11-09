@@ -33,7 +33,6 @@ class Store extends Base {
     }}
 
     /**
-     *
      * Dummy method until we have a data package in place
      * @param {Number} amountColumns
      * @param {Number} amountRows
@@ -58,7 +57,6 @@ class Store extends Base {
     }
 
     /**
-     *
      * @param storeId
      * @param fieldName
      * @param value
@@ -68,7 +66,6 @@ class Store extends Base {
     }
 
     /**
-     *
      * @param storeId
      * @param params
      */
@@ -77,7 +74,6 @@ class Store extends Base {
     }
 
     /**
-     *
      * @param storeId
      * @param fieldName
      * @param value

@@ -49,7 +49,6 @@ class Split extends Button {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -120,7 +119,6 @@ class Split extends Button {
     }
 
     /**
-     *
      * @param {Boolean} [updateParentVdom=false]
      * @param {Boolean} [silent=false]
      */
@@ -130,7 +128,6 @@ class Split extends Button {
     }
 
     /**
-     *
      * @returns {Object} The new vdom root
      */
     getVdomRoot() {
@@ -138,7 +135,6 @@ class Split extends Button {
     }
 
     /**
-     *
      * @returns {Object} The new vnode root
      */
     getVnodeRoot() {

@@ -302,7 +302,6 @@ class MainContainer extends Viewport {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -330,7 +329,6 @@ class MainContainer extends Viewport {
     }
 
     /**
-     *
      * @returns {Neo.data.Store}
      */
     getStore() {

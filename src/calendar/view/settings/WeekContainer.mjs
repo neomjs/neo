@@ -92,7 +92,6 @@ class WeekContainer extends Container {
     }
 
     /**
-     *
      * @returns {Neo.calendar.view.TimeAxisComponent}
      */
     getTimeAxis() {
@@ -100,7 +99,6 @@ class WeekContainer extends Container {
     }
 
     /**
-     *
      * @returns {Neo.calendar.view.Component}
      */
     getWeekComponent() {
@@ -108,7 +106,6 @@ class WeekContainer extends Container {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onConfigChange(data) {
@@ -116,7 +113,6 @@ class WeekContainer extends Container {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onTimeAxisConfigChange(data) {
@@ -124,7 +120,6 @@ class WeekContainer extends Container {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onTimeAxisPositionChange(data) {

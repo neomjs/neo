@@ -195,7 +195,6 @@ class Fieldset extends Container {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onLegendClick(data) {

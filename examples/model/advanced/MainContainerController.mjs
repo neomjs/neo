@@ -14,7 +14,6 @@ class MainContainerController extends Component {
     }}
 
     /**
-     *
      * @param {Object} data
      */
     onAddButtonTextfieldButtonClick(data) {
@@ -59,7 +58,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onButton1Click(data) {
@@ -67,7 +65,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onButton2Click(data) {
@@ -75,7 +72,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onButton3Click(data) {
@@ -83,7 +79,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onLogChildModelIntoConsoleButtonClick(data) {
@@ -91,7 +86,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onLogMainModelIntoConsoleButtonClick(data) {
@@ -99,7 +93,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onTextField1Change(data) {
@@ -109,7 +102,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onTextField2Change(data) {
@@ -119,7 +111,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onTextField3Change(data) {
@@ -129,7 +120,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {String} value
      */
     updateButton1Text(value) {
@@ -138,7 +128,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {String} value
      */
     updateButton2Text(value) {
@@ -148,7 +137,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {String} value
      */
     updateButton3Text(value) {

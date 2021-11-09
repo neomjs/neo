@@ -39,7 +39,6 @@ class CloneNode extends Base {
     }}
 
     /**
-     *
      * @param {Object} data
      * @param {Array} data.data
      * @param {String} data.id The reference id, not DOM id
@@ -86,7 +85,6 @@ class CloneNode extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.html
      * @param {String} data.id The reference id, not DOM id

@@ -45,7 +45,6 @@ class HashHistory extends Base {
     }}
 
     /**
-     *
      * @returns {Object}
      */
     first() {
@@ -53,7 +52,6 @@ class HashHistory extends Base {
     }
 
     /**
-     *
      * @returns {Number}
      */
     getCount() {
@@ -61,7 +59,6 @@ class HashHistory extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.appName
      * @param {Object} data.hash

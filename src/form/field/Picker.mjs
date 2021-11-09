@@ -84,7 +84,6 @@ class Picker extends Text {
     }}
 
     /**
-     *
      * @param {Boolean} silent
      */
     applyClientRects(silent) {
@@ -110,7 +109,6 @@ class Picker extends Text {
     }
 
     /**
-     *
      * @returns {Neo.container.Base}
      */
     createPicker() {
@@ -139,7 +137,6 @@ class Picker extends Text {
     }
 
     /**
-     *
      * @param {Function} [callback]
      * @param {Function} [callbackScope]
      */
@@ -169,7 +166,6 @@ class Picker extends Text {
     }
 
     /**
-     *
      * @returns {String}
      */
     getPickerId() {
@@ -177,7 +173,6 @@ class Picker extends Text {
     }
 
     /**
-     *
      * @param {Boolean} [silent=false]
      */
     hidePicker(silent=false) {
@@ -200,7 +195,6 @@ class Picker extends Text {
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */
@@ -218,7 +212,6 @@ class Picker extends Text {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Function} [callback]
      * @param {Function} [callbackScope]
@@ -229,7 +222,6 @@ class Picker extends Text {
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */
@@ -252,7 +244,6 @@ class Picker extends Text {
     }
 
     /**
-     *
      * @param {Function} [callback]
      * @param {Function} [callbackScope]
      */

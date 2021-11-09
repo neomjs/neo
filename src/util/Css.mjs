@@ -14,7 +14,6 @@ class Css extends Base {
     }}
 
     /**
-     *
      * @param {Array} rules
      */
     static insertRules(rules) {

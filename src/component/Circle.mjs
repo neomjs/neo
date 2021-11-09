@@ -118,7 +118,6 @@ class Circle extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -317,7 +316,6 @@ class Circle extends Component {
     }
 
     /**
-     *
      * @returns {Object[]}
      */
     calculateItemPositions() {
@@ -356,7 +354,6 @@ class Circle extends Component {
     }
 
     /**
-     *
      * @param data
      */
     collapseItem(data) {
@@ -376,7 +373,6 @@ class Circle extends Component {
     }
 
     /**
-     *
      * @param {Boolean} [silent=false]
      */
     createBacksideItems(silent=false) {
@@ -405,7 +401,6 @@ class Circle extends Component {
     }
 
     /**
-     *
      * @param {Number} [startIndex=0]
      * @param {Boolean} [silent=false]
      */
@@ -457,7 +452,6 @@ class Circle extends Component {
     }
 
     /**
-     *
      * @param data
      */
     expandItem(data) {
@@ -508,7 +502,6 @@ class Circle extends Component {
     }
 
     /**
-     *
      * @param {String} itemId
      * @returns {Object}
      */
@@ -519,7 +512,6 @@ class Circle extends Component {
     }
 
     /**
-     *
      * @param {Number} index
      * @returns {String}
      */
@@ -530,7 +522,6 @@ class Circle extends Component {
     }
 
     /**
-     *
      * @param {String} vnodeId
      * @returns {String|Number} itemId
      */
@@ -576,7 +567,6 @@ class Circle extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onBacksideIconClick(data) {
@@ -604,7 +594,6 @@ class Circle extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onContextMenu(data) {
@@ -612,7 +601,6 @@ class Circle extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onMouseWheel(data) {
@@ -664,7 +652,6 @@ class Circle extends Component {
     }
 
     /**
-     *
      * @param {Boolean} [silent=false]
      */
     updateInnerCircle(silent=false) {
@@ -685,7 +672,6 @@ class Circle extends Component {
     }
 
     /**
-     *
      * @param {Boolean} [silent=false]
      */
     updateItemAngle(silent=false) {
@@ -703,7 +689,6 @@ class Circle extends Component {
     }
 
     /**
-     *
      * @param {Number} value
      * @param {Boolean} [silent=false]
      * @param {Number} [startIndex=0]
@@ -723,7 +708,6 @@ class Circle extends Component {
     }
 
     /**
-     *
      * @param {Boolean} [silent=false]
      */
     updateItemPositions(silent=false) {
@@ -753,7 +737,6 @@ class Circle extends Component {
     }
 
     /**
-     *
      * @param {Boolean} [silent=false]
      */
     updateOuterCircle(silent=false) {
@@ -787,7 +770,6 @@ class Circle extends Component {
     }
 
     /**
-     *
      * @param {Boolean} [silent=false]
      */
     updateTitle(silent=false) {

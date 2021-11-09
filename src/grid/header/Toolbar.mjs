@@ -43,7 +43,6 @@ class Toolbar extends BaseToolbar {
     }}
 
     /**
-     *
      * @param {Array} items
      */
     createItems(items) {
@@ -73,7 +72,6 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     *
      * @param dock
      * @returns {String} layoutConfig
      * @override
@@ -83,7 +81,6 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     *
      * @returns {Object}
      */
     getVdomRoot() {
@@ -91,7 +88,6 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     *
      * @returns {Object}
      */
     getVnodeRoot() {

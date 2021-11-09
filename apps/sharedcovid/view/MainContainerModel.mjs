@@ -28,7 +28,6 @@ class MainContainerModel extends Component {
     }}
 
     /**
-     *
      * @param {String} key
      * @param {*} value
      * @param {*} oldValue

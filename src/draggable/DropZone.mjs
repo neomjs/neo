@@ -23,7 +23,6 @@ class DropZone extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -43,7 +42,6 @@ class DropZone extends Base {
     }
 
     /**
-     *
      * @param {String} name
      * @param {Object} data
      */
@@ -52,7 +50,6 @@ class DropZone extends Base {
     }
 
     /**
-     *
      * @param {String} dragZoneId
      * @returns {Object|null}
      */
@@ -67,7 +64,6 @@ class DropZone extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDrop(data) {
@@ -75,7 +71,6 @@ class DropZone extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDropEnter(data) {
@@ -83,7 +78,6 @@ class DropZone extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDropLeave(data) {

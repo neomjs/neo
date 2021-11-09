@@ -152,7 +152,6 @@ class Tree extends Base {
     }
 
     /**
-     *
      * @param {String} [parentId] The parent node
      * @param {Object} [vdomRoot] The vdom template root for the current sub tree
      * @param {Number} level The hierarchy level of the tree
@@ -302,7 +301,6 @@ class Tree extends Base {
     }
 
     /**
-     *
      * @returns {Object}
      */
     getListItemsRoot() {
@@ -310,7 +308,6 @@ class Tree extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onClick(data) {
@@ -350,7 +347,6 @@ class Tree extends Base {
     }
 
     /**
-     *
      * @param {Object} node
      * @param {Object} data
      */

@@ -14,7 +14,6 @@ class Compare extends Base {
     }}
 
     /**
-     *
      * @param {*} item1
      * @param {*} item2
      * @returns {Boolean}

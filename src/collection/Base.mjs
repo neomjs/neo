@@ -106,7 +106,6 @@ class Base extends CoreBase {
     }}
 
     /**
-     *
      * @param config
      */
     constructor(config) {
@@ -142,7 +141,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Array} value
      * @param {Array} oldValue
      * @protected
@@ -161,7 +159,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Array} value
      * @param {Array} oldValue
      * @protected
@@ -182,7 +179,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Array} value
      * @param {Array} oldValue
      * @protected
@@ -203,7 +199,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Number|String} value
      * @param {Number|String} oldValue
      * @protected
@@ -249,7 +244,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Array} value
      * @param {Array} oldValue
      * @protected
@@ -307,7 +301,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Map|null} value
      * @param {Map|null} oldValue
      * @protected
@@ -317,7 +310,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Array} value
      * @param {Array} oldValue
      * @protected
@@ -370,7 +362,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param opts
      * @protected
      */
@@ -432,7 +423,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @returns {Neo.collection.Base} The cloned collection
      */
     clone() {
@@ -793,7 +783,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @returns {Number}
      */
     getCountMutations() {
@@ -849,7 +838,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * Returns a boolean asserting whether a value has been associated to the key in the Collection or not
      * @param {Number|String} key
      * @returns {Boolean}
@@ -905,7 +893,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @returns {Boolean} true in case the collection is filtered
      */
     isFiltered() {
@@ -913,7 +900,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} item
      * @returns {boolean}
      * @protected
@@ -936,7 +922,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @returns {Boolean} true in case the collection is sorted
      */
     isSorted() {
@@ -952,7 +937,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} opts
      * @protected
      */
@@ -961,7 +945,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} opts
      * @protected
      */
@@ -976,7 +959,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} opts
      * @protected
      */
@@ -1042,7 +1024,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {function} callback Function to test for each item, taking three parameters:
      * @param {Object}   callback.item The current collection item being processed
      * @param {Number}  [callback.index] The index of the current item being processed

@@ -41,7 +41,6 @@ class Mouse extends Base {
     }}
 
     /**
-     *
      * @param config
      */
     constructor(config) {
@@ -86,7 +85,6 @@ class Mouse extends Base {
     }
 
     /**
-     *
      * @param {MouseEvent} event
      */
     onMouseDown(event) {
@@ -120,7 +118,6 @@ class Mouse extends Base {
     }
 
     /**
-     *
      * @param {MouseEvent} event
      */
     onMouseMove(event) {
@@ -143,7 +140,6 @@ class Mouse extends Base {
     }
 
     /**
-     *
      * @param {MouseEvent} event
      */
     onMouseUp(event) {

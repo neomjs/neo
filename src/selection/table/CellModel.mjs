@@ -41,7 +41,6 @@ class CellModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onCellClick(data) {
@@ -64,7 +63,6 @@ class CellModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownDown(data) {
@@ -72,7 +70,6 @@ class CellModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownLeft(data) {
@@ -80,7 +77,6 @@ class CellModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownRight(data) {
@@ -88,7 +84,6 @@ class CellModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownUp(data) {
@@ -96,7 +91,6 @@ class CellModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Number} step
      */
@@ -121,7 +115,6 @@ class CellModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Number} step
      */
@@ -146,7 +139,6 @@ class CellModel extends Model {
     }
 
     /**
-     *
      * @param {Neo.component.Base} component
      */
     register(component) {

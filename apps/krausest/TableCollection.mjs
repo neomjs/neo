@@ -22,7 +22,6 @@ class TableCollection extends BaseCollection {
     }}
 
     /**
-     *
      * @param {Number} count
      * @returns {Object[]}
      */

@@ -30,7 +30,6 @@ class Picker extends Base {
     }}
 
     /**
-     *
      * @param {Object} data
      */
     onTriggerClick(data) {

@@ -96,7 +96,6 @@ class Main extends core.Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -229,7 +228,6 @@ class Main extends core.Base {
     }
 
     /**
-     *
      * @param data
      */
     onMountDom(data) {
@@ -243,7 +241,6 @@ class Main extends core.Base {
     }
 
     /**
-     *
      * @param data
      */
     onRender(data) {
@@ -252,7 +249,6 @@ class Main extends core.Base {
     }
 
     /**
-     *
      * @param data
      */
     onUpdateDom(data) {
@@ -260,7 +256,6 @@ class Main extends core.Base {
     }
 
     /**
-     *
      * @param data
      */
     onUpdateVdom(data) {
@@ -269,7 +264,6 @@ class Main extends core.Base {
     }
 
     /**
-     *
      * @param {Object[]} queue
      * @param {Date} start
      * @returns {Number}
@@ -292,7 +286,6 @@ class Main extends core.Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */
@@ -307,7 +300,6 @@ class Main extends core.Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */
@@ -322,7 +314,6 @@ class Main extends core.Base {
     }
 
     /**
-     *
      * @param data
      * @protected
      */

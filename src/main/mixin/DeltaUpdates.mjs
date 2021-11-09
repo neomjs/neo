@@ -16,7 +16,6 @@ class DeltaUpdates extends Base {
     }}
 
     /**
-     *
      * @param {Object} delta
      * @param {String} delta.id
      */
@@ -88,7 +87,6 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     *
      * @param {Object} delta
      * @param {String} delta.id
      * @param {String} delta.index
@@ -110,7 +108,6 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     *
      * @param {Object} delta
      * @param {String} delta.id
      * @param {String} delta.parentId
@@ -136,7 +133,6 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     *
      * @param {Object} delta
      * @param {String} delta.fromId
      * @param {String} delta.parentId
@@ -150,7 +146,6 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     *
      * @param {Object} delta
      * @param {String} [delta.id]
      * @param {String} [delta.value
@@ -163,7 +158,6 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     *
      * @param {Object} delta
      * @param {Object} [delta.attributes]
      * @param {String} [delta.cls]
@@ -228,7 +222,6 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     *
      * @param {Object} delta
      * @param {String} delta.id
      * @param {String} delta.parentId
@@ -255,7 +248,6 @@ class DeltaUpdates extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Object|Object[]} data.deltas
      * @param {String} data.id

@@ -30,7 +30,6 @@ class Logger extends Base {
     }}
 
     /**
-     *
      * @param config
      */
     constructor(config) {
@@ -47,7 +46,6 @@ class Logger extends Base {
     }
 
     /**
-     *
      * @param value
      */
     error(value) {
@@ -55,7 +53,6 @@ class Logger extends Base {
     }
 
     /**
-     *
      * @param args
      */
     info(...args) {
@@ -64,7 +61,6 @@ class Logger extends Base {
     }
 
     /**
-     *
      * @param args
      */
     log(...args) {
@@ -73,7 +69,6 @@ class Logger extends Base {
     }
 
     /**
-     *
      * @param args
      */
     logError(...args) {
@@ -82,7 +77,6 @@ class Logger extends Base {
     }
 
     /**
-     *
      * @param args
      */
     warn(...args) {
@@ -91,7 +85,6 @@ class Logger extends Base {
     }
 
     /**
-     *
      * @param args
      * @protected
      */

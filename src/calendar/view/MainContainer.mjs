@@ -169,7 +169,6 @@ class MainContainer extends Container {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -392,7 +391,6 @@ class MainContainer extends Container {
     }
 
     /**
-     *
      * @param {String} view
      * @protected
      */
@@ -401,7 +399,6 @@ class MainContainer extends Container {
     }
 
     /**
-     *
      * @returns {Object[]}
      */
     createHeaderItems() {
@@ -433,7 +430,6 @@ class MainContainer extends Container {
     }
 
     /**
-     *
      * @protected
      */
     createItemsContent() {
@@ -495,7 +491,6 @@ class MainContainer extends Container {
     }
 
     /**
-     *
      * @param {Boolean} collapsed
      * @returns {Promise<*>}
      */
@@ -515,7 +510,6 @@ class MainContainer extends Container {
     }
 
     /**
-     *
      * @returns {Object[]}
      */
     createViewHeaderButtons() {
@@ -538,7 +532,6 @@ class MainContainer extends Container {
     }
 
     /**
-     *
      * @returns {Neo.component.Base[]}
      */
     createViews() {
@@ -588,7 +581,6 @@ class MainContainer extends Container {
     }
 
     /**
-     *
      * @param data
      */
     onCardLoaded(data) {
@@ -599,7 +591,6 @@ class MainContainer extends Container {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.oldValue
      * @param {String} data.value
@@ -609,7 +600,6 @@ class MainContainer extends Container {
     }
 
     /**
-     *
      * @param data
      */
     onNextIntervalButtonClick(data) {
@@ -617,7 +607,6 @@ class MainContainer extends Container {
     }
 
     /**
-     *
      * @param data
      */
     onPreviousIntervalButtonClick(data) {
@@ -625,7 +614,6 @@ class MainContainer extends Container {
     }
 
     /**
-     *
      * @param data
      */
     onTodayButtonClick(data) {
@@ -635,7 +623,6 @@ class MainContainer extends Container {
     }
 
     /**
-     *
      * @protected
      */
     toggleSettings() {
@@ -643,7 +630,6 @@ class MainContainer extends Container {
     }
 
     /**
-     *
      * @protected
      */
     toggleSidebar() {
@@ -651,7 +637,6 @@ class MainContainer extends Container {
     }
 
     /**
-     *
      * @param {Number} multiplier
      */
     switchInterval(multiplier) {

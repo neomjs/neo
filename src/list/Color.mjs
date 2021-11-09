@@ -66,7 +66,6 @@ class Color extends Base {
     }
 
     /**
-     *
      * @param {Number|String} recordId
      * @returns {String}
      */
@@ -75,7 +74,6 @@ class Color extends Base {
     }
 
     /**
-     *
      * @param {Number|String} recordId
      * @returns {String}
      */
@@ -84,7 +82,6 @@ class Color extends Base {
     }
 
     /**
-     *
      * @param {String[]} items
      */
     onSelect(items) {

@@ -36,7 +36,6 @@ class Component extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -69,7 +68,6 @@ class Component extends Base {
     }
 
     /**
-     *
      * @param {String} handlerName
      * @returns {Neo.controller.Component|null}
      */
@@ -137,7 +135,6 @@ class Component extends Base {
     onComponentConstructed() {}
 
     /**
-     *
      * @param {Neo.component.Base} [component=this.component]
      */
     parseConfig(component=this.component) {

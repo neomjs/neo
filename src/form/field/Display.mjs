@@ -29,7 +29,6 @@ class Display extends Text {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {

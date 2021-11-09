@@ -79,7 +79,6 @@ class SortZone extends DragZone {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragEnd(data) {
@@ -131,7 +130,6 @@ class SortZone extends DragZone {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragMove(data) {
@@ -169,7 +167,6 @@ class SortZone extends DragZone {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragStart(data) {
@@ -246,7 +243,6 @@ class SortZone extends DragZone {
     }
 
     /**
-     *
      * @param {Number} index1
      * @param {Number} index2
      */
@@ -287,7 +283,6 @@ class SortZone extends DragZone {
     }
 
     /**
-     *
      * @param {Number} index
      * @param {Object} rect
      */

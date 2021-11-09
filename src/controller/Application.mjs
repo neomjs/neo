@@ -46,7 +46,6 @@ class Application extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {

@@ -24,7 +24,6 @@ class Observable extends Base {
     }}
 
     /**
-     *
      * @param {Object|String} name
      * @param {Object} [opts]
      * @param {Object} [scope]
@@ -93,7 +92,6 @@ class Observable extends Base {
     }
 
     /**
-     *
      * @param name
      */
     fire(name) {
@@ -166,7 +164,6 @@ class Observable extends Base {
     }
 
     /**
-     *
      * @param {Object|String} name
      * @param {String} [eventId]
      */

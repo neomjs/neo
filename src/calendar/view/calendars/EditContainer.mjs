@@ -46,7 +46,6 @@ class EditContainer extends FormContainer {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -153,7 +152,6 @@ class EditContainer extends FormContainer {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Object} data.record
      */
@@ -162,7 +160,6 @@ class EditContainer extends FormContainer {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDeleteButtonClick(data) {
@@ -175,7 +172,6 @@ class EditContainer extends FormContainer {
     }
 
     /**
-     *
      * @param {Object} [data]
      */
     onFocusLeave(data) {
@@ -189,7 +185,6 @@ class EditContainer extends FormContainer {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onNameFieldChange(data) {

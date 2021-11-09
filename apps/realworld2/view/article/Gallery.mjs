@@ -80,7 +80,6 @@ class Gallery extends BaseGallery {
     }
 
     /**
-     *
      * @param {String} vnodeId
      * @returns {String}
      */
@@ -89,7 +88,6 @@ class Gallery extends BaseGallery {
     }
 
     /**
-     *
      * @param {Array} items
      */
     onStoreLoad(items) {

@@ -594,7 +594,6 @@ class Component extends Base {
     }
 
     /**
-     *
      * @param {Neo.component.Base} component
      * @param {String} configName
      * @param {String} storeName

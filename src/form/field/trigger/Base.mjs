@@ -80,7 +80,6 @@ class Base extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -168,7 +167,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @param {Boolean} updateParentVdom
      * @param {Boolean} silent
      */

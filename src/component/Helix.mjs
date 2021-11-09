@@ -248,7 +248,6 @@ class Helix extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -359,7 +358,6 @@ class Helix extends Component {
     }
 
     /**
-     *
      * @param callback
      * @param animationTime
      * @param callbackParam
@@ -404,7 +402,6 @@ class Helix extends Component {
     }
 
     /**
-     *
      * @returns {Object}
      */
     beforeGetItemTpl() {
@@ -638,7 +635,6 @@ class Helix extends Component {
     }
 
     /**
-     *
      * @param {Number} [startIndex]
      * @param {Number} [amountItems]
      */
@@ -705,7 +701,6 @@ class Helix extends Component {
     }
 
     /**
-     *
      * @returns {String}
      */
     getCloneTransform() {
@@ -718,7 +713,6 @@ class Helix extends Component {
     }
 
     /**
-     *
      * @param {String} vnodeId
      * @returns {Number}
      */
@@ -735,7 +729,6 @@ class Helix extends Component {
     }
 
     /**
-     *
      * @param {Number|String} id
      * @returns {String}
      */
@@ -783,7 +776,6 @@ class Helix extends Component {
     }
 
     /**
-     *
      * @param {String} itemId
      */
     moveToSelectedItem(itemId) {
@@ -792,7 +784,6 @@ class Helix extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onClick(data) {
@@ -816,7 +807,6 @@ class Helix extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownEnter(data) {
@@ -825,7 +815,6 @@ class Helix extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownSpace(data) {
@@ -833,7 +822,6 @@ class Helix extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onMouseWheel(data) {
@@ -855,7 +843,6 @@ class Helix extends Component {
     }
 
     /**
-     *
      * @param {String[]} value
      * @param {String[]} oldValue
      */
@@ -879,7 +866,6 @@ class Helix extends Component {
     }
 
     /**
-     *
      * @param {Array} items
      */
     onStoreLoad(items) {

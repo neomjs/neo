@@ -138,7 +138,6 @@ class DateSelector extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -387,7 +386,6 @@ class DateSelector extends Component {
     }
 
     /**
-     *
      * @param {Number} increment
      * @param {Number} yearIncrement
      */
@@ -476,7 +474,6 @@ class DateSelector extends Component {
     }
 
     /**
-     *
      * @param {Number} increment
      */
     changeYear(increment) {
@@ -568,7 +565,6 @@ class DateSelector extends Component {
     }
 
     /**
-     *
      * @param {Boolean} silent true to update the vdom silently
      * @param {Object} [containerEl]
      */
@@ -678,7 +674,6 @@ class DateSelector extends Component {
     }
 
     /**
-     *
      * @returns {Object}
      */
     getCenterContentEl() {
@@ -686,7 +681,6 @@ class DateSelector extends Component {
     }
 
     /**
-     *
      * @returns {Object}
      */
     getHeaderMonthEl() {
@@ -694,7 +688,6 @@ class DateSelector extends Component {
     }
 
     /**
-     *
      * @returns {Object}
      */
     getHeaderYearEl() {
@@ -702,7 +695,6 @@ class DateSelector extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onCellClick(data) {
@@ -715,7 +707,6 @@ class DateSelector extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onComponentClick(data) {
@@ -735,7 +726,6 @@ class DateSelector extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onComponentWheel(data) {
@@ -825,7 +815,6 @@ class DateSelector extends Component {
     }
 
     /**
-     *
      * @param {String} value
      * @param {String} oldValue
      * @param {Boolean} [silent=false]
@@ -865,7 +854,6 @@ class DateSelector extends Component {
     }
 
     /**
-     *
      * @param {Number} increment
      * @param {Number} yearIncrement
      * @param {Boolean} silent=false
@@ -966,7 +954,6 @@ class DateSelector extends Component {
     }
 
     /**
-     *
      * @param {Number} increment
      * @param {Boolean} [silent=false]
      */

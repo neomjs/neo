@@ -20,7 +20,6 @@ class Menu extends Split {
     }}
 
     /**
-     *
      * @param {Object} data
      */
     splitButtonHandler(data) {

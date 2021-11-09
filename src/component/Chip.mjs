@@ -58,7 +58,6 @@ class Chip extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -151,7 +150,6 @@ class Chip extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onCloseButtonClick(data) {

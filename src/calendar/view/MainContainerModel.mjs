@@ -105,7 +105,6 @@ class MainContainerModel extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -146,7 +145,6 @@ class MainContainerModel extends Component {
     }
 
     /**
-     *
      * @param {String} key
      * @param {*} value
      * @param {*} oldValue

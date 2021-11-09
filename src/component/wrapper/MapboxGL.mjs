@@ -278,7 +278,6 @@ class MapboxGL extends Component {
     }
 
     /**
-     *
      * @param {Object[]} data
      * @returns {Object} Object matching the geojson format
      */
@@ -313,7 +312,6 @@ class MapboxGL extends Component {
     }
 
     /**
-     *
      * @param {Object} value
      * @param {Number} value.lat
      * @param {Number} value.lng
@@ -350,7 +348,6 @@ class MapboxGL extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.layerId
      * @param {Object} data.options
@@ -368,7 +365,6 @@ class MapboxGL extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.layerId
      * @param {String} data.key
@@ -388,7 +384,6 @@ class MapboxGL extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.layerId
      * @param {String} data.key

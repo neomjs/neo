@@ -100,7 +100,6 @@ class Button extends BaseButton {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -327,7 +326,6 @@ class Button extends BaseButton {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onDragOver(event) {
@@ -346,7 +344,6 @@ class Button extends BaseButton {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDrop(data) {
@@ -364,7 +361,6 @@ class Button extends BaseButton {
     }
 
     /**
-     *
      * @param {Object} data
      */
     changeFilterOperator(data) {
@@ -395,7 +391,6 @@ class Button extends BaseButton {
     }
 
     /**
-     *
      * @param {Object} data
      */
     changeFilterValue(data) {
@@ -445,7 +440,6 @@ class Button extends BaseButton {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.dataField
      * @param {Number} data.index

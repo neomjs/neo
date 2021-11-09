@@ -21,7 +21,6 @@ class Instance extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {

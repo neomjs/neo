@@ -173,7 +173,6 @@ class YearComponent extends Component {
     }}
 
     /**
-     *
      * @param config
      */
     constructor(config) {
@@ -477,7 +476,6 @@ class YearComponent extends Component {
     }
 
     /**
-     *
      * @param {Number} increment
      */
     changeYear(increment) {
@@ -569,7 +567,6 @@ class YearComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} containerEl
      * @param {Date} currentDate
      * @returns {Object} vdom
@@ -729,7 +726,6 @@ class YearComponent extends Component {
     }
 
     /**
-     *
      * @param {Object[]} data
      */
     onCalendarStoreLoad(data) {
@@ -737,7 +733,6 @@ class YearComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onCalendarStoreRecordChange(data) {
@@ -745,7 +740,6 @@ class YearComponent extends Component {
     }
 
     /**
-     *
      * @param {Object[]} data
      */
     onEventStoreLoad(data) {
@@ -753,7 +747,6 @@ class YearComponent extends Component {
     }
 
     /**
-     *
      * @param {Object[]} data
      */
     onEventStoreRecordChange(data) {
@@ -761,7 +754,6 @@ class YearComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onNavButtonClick(data) {
@@ -774,7 +766,6 @@ class YearComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onWheel(data) {

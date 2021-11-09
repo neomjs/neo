@@ -35,7 +35,6 @@ class Mwc extends Base {
     }}
 
     /**
-     *
      * @param {String} id
      * @returns {Boolean}
      */
@@ -74,7 +73,6 @@ class Mwc extends Base {
     }
 
     /**
-     *
      * @param {String} id
      * @returns {Boolean}
      */

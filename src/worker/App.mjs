@@ -51,7 +51,6 @@ class App extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -60,7 +59,6 @@ class App extends Base {
     }
 
     /**
-     *
      * @param {String} appName
      * @param {Array|Object} deltas
      * @returns {Promise<*>}
@@ -74,7 +72,6 @@ class App extends Base {
     }
 
     /**
-     *
      * @param {JSON} data
      */
     createThemeMap(data) {
@@ -95,7 +92,6 @@ class App extends Base {
     }
 
     /**
-     *
      * @param {String} path
      * @returns {Promise}
      */
@@ -216,7 +212,6 @@ class App extends Base {
     }
 
     /**
-     *
      * @param {Object} msg
      */
     onRegisterNeoConfig(msg) {
@@ -247,7 +242,6 @@ class App extends Base {
     }
 
     /**
-     *
      * @param {Object} msg
      */
     onRegisterPort(msg) {
@@ -260,7 +254,6 @@ class App extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onWindowPositionChange(data) {

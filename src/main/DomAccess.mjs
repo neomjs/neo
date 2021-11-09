@@ -76,7 +76,6 @@ class DomAccess extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -99,7 +98,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Boolean} data.async
      * @param {Boolean} [data.defer=false]
@@ -118,7 +116,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String[]} data.cls
      */
@@ -128,7 +125,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.command
      * @returns {Object} data
@@ -237,7 +233,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {String} nodeId
      * @returns {HTMLElement}
      * @protected
@@ -251,7 +246,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {String} [nodeId='document.body']
      * @returns {HTMLElement}
      * @protected
@@ -339,7 +333,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String[]} data.attributes
      * @param {Array} data.functions An array containing strings and/or objects
@@ -405,7 +398,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */
@@ -416,7 +408,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.direction left, top
      * @param {String} data.id
@@ -434,7 +425,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.id
      * @param {String} [data.behavior='smooth']
@@ -457,7 +447,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.direction left, top
      * @param {String} data.id
@@ -475,7 +464,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.id
      * @param {String} [data.behavior='smooth']
@@ -501,7 +489,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.id
      * @param {Number} [data.start=0]
@@ -557,7 +544,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} [data.behavior='smooth'] // auto or smooth
      * @param {String} [data.left=0]
@@ -572,7 +558,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */

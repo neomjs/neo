@@ -111,7 +111,6 @@ class Container extends BaseContainer {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -289,7 +288,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * @param columns
      * @returns {*}
      */
@@ -329,7 +327,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * @param {Number} countRows
      */
     createRandomViewData(countRows) {
@@ -361,7 +358,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * @returns {Neo.table.View}
      */
     getView() {
@@ -377,7 +373,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * @param {Number} countRows
      */
     loadData(countRows) {
@@ -411,7 +406,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * @param {Object} opts
      * @param {String} opts.direction
      * @param {String} opts.property
@@ -433,7 +427,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * @param {Array} data
      * @protected
      */
@@ -472,7 +465,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * @param {String} dataField
      * @protected
      */

@@ -55,7 +55,6 @@ class CopyToClipboard extends Base {
     }
 
     /**
-     *
      * @returns {Boolean} true in case the trigger should be hidden
      */
     getHiddenState() {
@@ -80,7 +79,6 @@ class CopyToClipboard extends Base {
     }
 
     /**
-     *
      * @param {Object} opts
      */
     onFieldChange(opts) {
@@ -88,7 +86,6 @@ class CopyToClipboard extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onTriggerClick(data) {

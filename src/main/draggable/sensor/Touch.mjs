@@ -55,7 +55,6 @@ class Touch extends Base {
     }}
 
     /**
-     *
      * @param config
      */
     constructor(config) {
@@ -101,7 +100,6 @@ class Touch extends Base {
     }
 
     /**
-     *
      * @param {TouchEvent} event
      */
     onTouchEnd(event) {
@@ -149,7 +147,6 @@ class Touch extends Base {
     }
 
     /**
-     *
      * @param {TouchEvent} event
      */
     onTouchMove(event) {
@@ -175,7 +172,6 @@ class Touch extends Base {
     }
 
     /**
-     *
      * @param {TouchEvent} event
      */
     onTouchStart(event) {

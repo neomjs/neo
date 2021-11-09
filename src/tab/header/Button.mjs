@@ -46,7 +46,6 @@ class Button extends BaseButton {
     }
 
     /**
-     *
      * @param {Boolean} [silent=false]
      */
     updateUseActiveTabIndicator(silent=false) {

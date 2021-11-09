@@ -34,7 +34,6 @@ class SettingsContainer extends Container {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -48,7 +47,6 @@ class SettingsContainer extends Container {
     }
 
     /**
-     *
      * @param {Number} width
      */
     collapse(width) {
@@ -162,7 +160,6 @@ class SettingsContainer extends Container {
     }
 
     /**
-     *
      * @returns {Neo.calendar.view.MainContainer}
      */
     getMainContainer() {
@@ -170,7 +167,6 @@ class SettingsContainer extends Container {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onCardIndexChange(data) {

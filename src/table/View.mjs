@@ -180,7 +180,6 @@ class View extends Component {
     }
 
     /**
-     *
      * @param {Boolean} updateParentVdom
      * @param {Boolean} silent
      */
@@ -190,7 +189,6 @@ class View extends Component {
     }
 
     /**
-     *
      * @param {Object} record
      * @param {String} dataField
      * @returns {String}
@@ -200,7 +198,6 @@ class View extends Component {
     }
 
     /**
-     *
      * @param {String} rowId
      * @returns {Object}
      */
@@ -209,7 +206,6 @@ class View extends Component {
     }
 
     /**
-     *
      * @param {Object} record
      * @param {Number} [index]
      * @returns {String}

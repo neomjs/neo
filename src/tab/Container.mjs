@@ -227,7 +227,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * @protected
      */
     createItems() {
@@ -318,7 +317,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * @returns {Object} layoutConfig
      * @protected
      */
@@ -363,7 +361,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * @param {Number} index
      * @returns {Neo.tab.header.Button|null}
      */
@@ -379,7 +376,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * @param {Object} config
      * @param {Number} index
      * @returns {Object} The merged config
@@ -572,7 +568,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * @param {Number} index
      * @param {Boolean} [destroyItem=true]
      * @param {Boolean} [silent=false]
@@ -605,7 +600,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * @protected
      */
     updateTabButtons() {

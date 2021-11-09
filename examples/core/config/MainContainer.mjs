@@ -33,7 +33,6 @@ class MainContainer extends Viewport {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -75,7 +74,6 @@ class MainContainer extends Viewport {
     }
 
     /**
-     *
      * @param {Object} data
      */
     changeConfig(data) {

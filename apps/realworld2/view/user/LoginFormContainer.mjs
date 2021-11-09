@@ -33,7 +33,6 @@ class LoginFormContainer extends Container {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {

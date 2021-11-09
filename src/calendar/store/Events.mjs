@@ -32,7 +32,6 @@ class Events extends Store {
     }}
 
     /**
-     *
      * @param {Date} date
      * @returns {Neo.calendar.model.Event[]}
      */

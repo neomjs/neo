@@ -104,7 +104,6 @@ class Container extends BaseContainer {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {

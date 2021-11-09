@@ -150,7 +150,6 @@ class HeaderComponent extends Component {
     }
 
     /**
-     *
      * @param {String} value
      * @returns {Number} The target index
      */

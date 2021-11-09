@@ -973,7 +973,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Object|String} opts
      * @returns {Neo.plugin.Base|null}
      */
@@ -1290,7 +1289,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Array|Object} value
      */
     removeDomListeners(value) {

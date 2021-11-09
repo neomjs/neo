@@ -49,7 +49,6 @@ class Canvas extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onRegisterCanvas(data) {
@@ -63,7 +62,6 @@ class Canvas extends Base {
     }
 
     /**
-     *
      * @param {Object} msg
      */
     onRegisterNeoConfig(msg) {

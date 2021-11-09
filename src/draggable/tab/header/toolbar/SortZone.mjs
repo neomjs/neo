@@ -35,7 +35,6 @@ class SortZone extends BaseSortZone {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragEnd(data) {
@@ -52,7 +51,6 @@ class SortZone extends BaseSortZone {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragStart(data) {

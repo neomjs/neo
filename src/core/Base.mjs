@@ -350,7 +350,6 @@ class Base {
     }
 
     /**
-     *
      * @param {String} className
      * @param {Object} remote
      */

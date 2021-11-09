@@ -90,7 +90,6 @@ class Model extends Base {
     addDomListener() {}
 
     /**
-     *
      * @param {Object} item
      * @param {Boolean} [silent] true to prevent a vdom update
      * @param {Array} [itemCollection]
@@ -117,7 +116,6 @@ class Model extends Base {
     }
 
     /**
-     *
      * @param {Boolean} [silent] true to prevent a vdom update
      */
     deselectAll(silent) {
@@ -144,7 +142,6 @@ class Model extends Base {
     }
 
     /**
-     *
      * @returns {Array} this.items
      */
     getSelection() {
@@ -152,7 +149,6 @@ class Model extends Base {
     }
 
     /**
-     *
      * @returns {Boolean} true in case there is a selection
      */
     hasSelection() {
@@ -160,7 +156,6 @@ class Model extends Base {
     }
 
     /**
-     *
      * @param {String} id
      * @returns {Boolean} true in case the item is selected
      */
@@ -169,7 +164,6 @@ class Model extends Base {
     }
 
     /**
-     *
      * @param {Neo.component.Base} component
      */
     register(component) {
@@ -203,7 +197,6 @@ class Model extends Base {
     }
 
     /**
-     *
      * @param {Object|Object[]|String[]} items
      * @param {Array} [itemCollection]
      * @param {String} [selectedCls]
@@ -244,7 +237,6 @@ class Model extends Base {
     }
 
     /**
-     *
      * @param {Object} item
      */
     toggleSelection(item) {

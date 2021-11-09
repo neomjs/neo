@@ -121,7 +121,6 @@ class Text extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -638,7 +637,6 @@ class Text extends Base {
     }
 
     /**
-     *
      * @returns {Object|null}
      */
     getCenterBorderEl() {
@@ -647,7 +645,6 @@ class Text extends Base {
     }
 
     /**
-     *
      * @returns {Object|null}
      */
     getInputEl() {
@@ -655,7 +652,6 @@ class Text extends Base {
         return el?.vdom;
     }
     /**
-     *
      * @returns {String}
      */
     getInputElId() {
@@ -682,7 +678,6 @@ class Text extends Base {
     }
 
     /**
-     *
      * @returns {String}
      */
     getInputWrapperId() {
@@ -690,7 +685,6 @@ class Text extends Base {
     }
 
     /**
-     *
      * @returns {Object|null}
      */
     getLabelEl() {
@@ -699,7 +693,6 @@ class Text extends Base {
     }
 
     /**
-     *
      * @returns {String}
      */
     getLabelId() {
@@ -707,7 +700,6 @@ class Text extends Base {
     }
 
     /**
-     *
      * @param {String} type
      * @returns {Neo.form.field.trigger.Base|null}
      */
@@ -727,7 +719,6 @@ class Text extends Base {
     }
 
     /**
-     *
      * @param {String} id
      * @returns {Neo.form.field.trigger.Base|null}
      */
@@ -747,7 +738,6 @@ class Text extends Base {
     }
 
     /**
-     *
      * @param {String} type
      * @protected
      * @returns {String} The trigger node id
@@ -776,7 +766,6 @@ class Text extends Base {
     }
 
     /**
-     *
      * @returns {Boolean}
      */
     isEmpty() {
@@ -784,7 +773,6 @@ class Text extends Base {
     }
 
     /**
-     *
      * @returns {Boolean}
      */
     isValid() {
@@ -798,7 +786,6 @@ class Text extends Base {
     }
 
     /**
-     *
      * @param {Object} config
      * @param {Boolean} [preventOriginalConfig] True prevents the instance from getting an originalConfig property
      * @returns {Object} config
@@ -815,7 +802,6 @@ class Text extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Object[]} data.path
      * @protected
@@ -840,7 +826,6 @@ class Text extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Object[]} data.oldPath
      * @protected

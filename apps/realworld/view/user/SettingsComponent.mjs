@@ -75,7 +75,6 @@ class SettingsComponent extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -174,7 +173,6 @@ class SettingsComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} value
      */
     onCurrentUserChange(value) {
@@ -190,7 +188,6 @@ class SettingsComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onLogoutButtonClick(data) {
@@ -198,7 +195,6 @@ class SettingsComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onSubmitButtonClick(data) {

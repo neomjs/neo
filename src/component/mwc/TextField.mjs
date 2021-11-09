@@ -206,7 +206,6 @@ class TextField extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Neo.component.mwc.TextField} data.component
      * @param {Object[]} data.path

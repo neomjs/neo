@@ -263,7 +263,6 @@ class GeneralContainer extends Container {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onConfigChange(data) {
@@ -271,7 +270,6 @@ class GeneralContainer extends Container {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDataChange(data) {
@@ -279,7 +277,6 @@ class GeneralContainer extends Container {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onRadioDataChange(data) {

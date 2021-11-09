@@ -95,7 +95,6 @@ class ProfileComponent extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -247,7 +246,6 @@ class ProfileComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} params
      */
     getArticles(params) {
@@ -257,7 +255,6 @@ class ProfileComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} value
      */
     onCurrentUserChange(value) {console.log('onCurrentUserChange', value);
@@ -265,7 +262,6 @@ class ProfileComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onFollowButtonClick(data) {
@@ -277,7 +273,6 @@ class ProfileComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onNavLinkClick(data) {
@@ -316,7 +311,6 @@ class ProfileComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} configs
      */
     update(configs) {

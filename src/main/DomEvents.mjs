@@ -108,7 +108,6 @@ class DomEvents extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -125,7 +124,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     addDomListener(data) {
@@ -249,7 +247,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      * @returns {Object}
      */
@@ -265,7 +262,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      * @returns {Object}
      */
@@ -285,7 +281,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      * @returns {Object}
      */
@@ -310,7 +305,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Element} element
      * @returns {Element[]}
      */
@@ -330,7 +324,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} node
      * @returns {Object}
      */
@@ -408,7 +401,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onChange(event) {
@@ -420,7 +412,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onClick(event) {
@@ -434,7 +425,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onContextMenu(event) {
@@ -456,7 +446,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onDoubleClick(event) {
@@ -470,7 +459,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onDragOver(event) {
@@ -479,7 +467,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onFocusIn(event) {
@@ -487,7 +474,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onFocusOut(event) {
@@ -512,7 +498,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onKeyDown(event) {
@@ -526,7 +511,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onKeyUp(event) {
@@ -534,7 +518,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onMouseDown(event) {
@@ -542,7 +525,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onMouseEnter(event) {
@@ -554,7 +536,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onMouseLeave(event) {
@@ -566,7 +547,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onMouseUp(event) {
@@ -574,7 +554,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onWheel(event) {
@@ -678,7 +657,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Array|String} data.cls
      * @param {String} data.name
@@ -722,7 +700,6 @@ class DomEvents extends Base {
 
 
     /**
-     *
      * @param {Object} event
      * @param {Object} targetArray
      * @returns {Object|Boolean} target cls & node if found, false otherwise

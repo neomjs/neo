@@ -54,7 +54,6 @@ class Container extends BaseContainer {
     }}
 
     /**
-     *
      * @param {Object} data
      */
     onAddCalendarButtonClick(data) {

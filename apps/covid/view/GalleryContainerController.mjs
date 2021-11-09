@@ -44,7 +44,6 @@ class GalleryContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onOrderButtonClick(data) {
@@ -57,7 +56,6 @@ class GalleryContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onRangefieldChange(data) {
@@ -65,7 +63,6 @@ class GalleryContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {String} id
      */
     onRangefieldMounted(id) {
@@ -78,7 +75,6 @@ class GalleryContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onSortButtonClick(data) {

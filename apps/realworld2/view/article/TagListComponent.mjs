@@ -49,7 +49,6 @@ class TagListComponent extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -117,7 +116,6 @@ class TagListComponent extends Component {
     }
 
     /**
-     *
      * @param {String} nodeId
      * @returns {String}
      */
@@ -126,7 +124,6 @@ class TagListComponent extends Component {
     }
 
     /**
-     *
      * @param {String} name
      * @returns {String}
      */
@@ -135,7 +132,6 @@ class TagListComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onTagLinkClick(data) {

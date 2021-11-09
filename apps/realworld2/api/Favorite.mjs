@@ -14,7 +14,6 @@ class Favorite extends Base {
     }}
 
     /**
-     *
      * @param {String} slug
      */
     add(slug) {
@@ -24,7 +23,6 @@ class Favorite extends Base {
     }
 
     /**
-     *
      * @param {String} slug
      */
     remove(slug) {

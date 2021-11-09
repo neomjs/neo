@@ -77,7 +77,6 @@ class List extends ComponentList {
     }
 
     /**
-     *
      * @param {Number} index
      * @returns {String}
      */
@@ -86,7 +85,6 @@ class List extends ComponentList {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onCheckboxChange(data) {
@@ -94,7 +92,6 @@ class List extends ComponentList {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onClick(data) {
@@ -133,7 +130,6 @@ class List extends ComponentList {
     }
 
     /**
-     *
      * @param {String} itemId
      */
     onKeyDownEnter(itemId) {
@@ -145,7 +141,6 @@ class List extends ComponentList {
     }
 
     /**
-     *
      * @param {String[]} items
      */
     onSelect(items) {

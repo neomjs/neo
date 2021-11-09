@@ -18,7 +18,6 @@ class MainContainerController extends Component {
     }}
 
     /**
-     *
      * @param {Object} data
      */
     onEditUserButtonClick(data) {

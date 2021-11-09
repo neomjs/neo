@@ -35,7 +35,6 @@ class DragProxyComponent extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -47,7 +46,6 @@ class DragProxyComponent extends Base {
     }
 
     /**
-     *
      * @param {String} id
      */
     onMounted(id) {

@@ -38,7 +38,6 @@ class HeaderToolbarController extends ComponentController {
     }
 
     /**
-     *
      * @param {String} hash
      */
     setRoute(hash) {

@@ -105,7 +105,6 @@ class CountryHelix extends Helix {
     }}
 
     /**
-     *
      * @param {Object} vdomItem
      * @param {Object} record
      * @param {Number} index
@@ -133,7 +132,6 @@ class CountryHelix extends Helix {
     }
 
     /**
-     *
      * @param {String} name
      * @returns {String} url
      */
@@ -198,7 +196,6 @@ class CountryHelix extends Helix {
         return 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/flaticon/country_flags/png/' + imageName + '.png'
     }
     /**
-     *
      * @returns {String}
      */
     getCloneTransform() {
@@ -211,7 +208,6 @@ class CountryHelix extends Helix {
     }
 
     /**
-     *
      * @param {String} vnodeId
      * @returns {String}
      */

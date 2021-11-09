@@ -72,7 +72,6 @@ class AmCharts extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -108,7 +107,6 @@ class AmCharts extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.id
      * @param {String} data.path
@@ -128,7 +126,6 @@ class AmCharts extends Base {
     }
 
     /**
-     *
      * @param {Object} chart
      */
     combineSeriesTooltip(chart) {
@@ -146,7 +143,6 @@ class AmCharts extends Base {
     }
 
     /**
-     *
      * @param {Object}  data
      * @param {Boolean} data.combineSeriesTooltip
      * @param {Object}  data.config
@@ -185,7 +181,6 @@ class AmCharts extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.id
      */
@@ -195,7 +190,6 @@ class AmCharts extends Base {
     }
 
     /**
-     *
      * @param {String} id
      * @returns {Boolean}
      */
@@ -227,7 +221,6 @@ class AmCharts extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.id
      * @param {Object} data.properties
@@ -243,7 +236,6 @@ class AmCharts extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.id
      * @param {Boolean} [data.isColor=false] true will wrap the value into am4core.color()
@@ -264,7 +256,6 @@ class AmCharts extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Object} data.data
      * @param {String} data.dataPath

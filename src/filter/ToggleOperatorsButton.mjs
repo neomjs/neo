@@ -28,7 +28,6 @@ class ToggleOperatorsButton extends Button {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -82,7 +81,6 @@ class ToggleOperatorsButton extends Button {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onButtonClick(data) {

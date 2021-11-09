@@ -100,7 +100,6 @@ class MonthContainer extends Container {
     }
 
     /**
-     *
      * @returns {Neo.calendar.view.month.Component}
      */
     getMonthComponent() {
@@ -108,7 +107,6 @@ class MonthContainer extends Container {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onConfigChange(data) {
@@ -116,7 +114,6 @@ class MonthContainer extends Container {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onRadioChange(data) {

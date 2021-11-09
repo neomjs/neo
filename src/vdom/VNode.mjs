@@ -4,7 +4,6 @@
  */
 class VNode {
     /**
-     *
      * @param config
      */
     constructor(config) {

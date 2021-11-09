@@ -36,7 +36,6 @@ class CellColumnRowModel extends CellRowModel {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -46,7 +45,6 @@ class CellColumnRowModel extends CellRowModel {
     }
 
     /**
-     *
      * @param {Boolean} [silent] true to prevent a vdom update
      */
     deselectAllCells(silent) {
@@ -65,7 +63,6 @@ class CellColumnRowModel extends CellRowModel {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onCellClick(data) {
@@ -86,7 +83,6 @@ class CellColumnRowModel extends CellRowModel {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Number} step
      */

@@ -158,7 +158,6 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     *
      * @param {String} config
      * @param {Object} opts
      */
@@ -167,7 +166,6 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     *
      * @returns {Neo.tab.header.Button}
      */
     getFirstTabHeader() {
@@ -175,7 +173,6 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Neo.component.Base} data.component
      * @param {Boolean} data.oldValue
@@ -199,7 +196,6 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     *
      * @param {String} value
      * @param {Object} opts
      */
@@ -212,7 +208,6 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     *
      * @param {Object} opts
      */
     onUserActiveIndexChange(opts) {

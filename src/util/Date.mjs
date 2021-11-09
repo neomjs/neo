@@ -62,7 +62,6 @@ class DateUtil extends Base {
     }
 
     /**
-     *
      * @param {Date} date
      * @param {Number} weekStartDay 0-6
      * @returns {Number}
@@ -106,7 +105,6 @@ class DateUtil extends Base {
     }
 
     /**
-     *
      * @param {Date} date
      * @param {Number} weekStartDay 0-6
      * @returns {Number} 5-6

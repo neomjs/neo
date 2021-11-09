@@ -124,7 +124,6 @@ class CountryHelix extends Helix {
     }
 
     /**
-     *
      * @param {Object} vdomItem
      * @param {Object} record
      * @param {Number} index
@@ -152,7 +151,6 @@ class CountryHelix extends Helix {
         return vdomItem;
     }
     /**
-     *
      * @returns {String}
      */
     getCloneTransform() {
@@ -165,7 +163,6 @@ class CountryHelix extends Helix {
     }
 
     /**
-     *
      * @param {String} vnodeId
      * @returns {String}
      */

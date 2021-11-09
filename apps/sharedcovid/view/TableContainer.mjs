@@ -146,7 +146,6 @@ class TableContainer extends Container {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
