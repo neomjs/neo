@@ -190,15 +190,6 @@ class Select extends Picker {
     }
 
     /**
-     * Gets triggered before getting the value of the value config
-     * @param {Number|String|null} value
-     * @returns {Number|Object|String}
-     */
-    beforeGetValue(value) {
-        return this.record || value;
-    }
-
-    /**
      * Triggered before the listConfig config gets changed.
      * @param {Object} value
      * @param {Object} oldValue
@@ -278,13 +269,18 @@ class Select extends Picker {
      */
     fireChangeEvent(value, oldValue) {
         let me     = this,
-            record = me.record;
+            record = me.record,
+            oldRecord;
 
         if (!(me.forceSelection && !record)) {
+            oldRecord = me.store.get(oldValue) || null;
+
             me.fire('change', {
                 component: me,
-                oldValue : me.store.get(oldValue) ? oldValue : null,
-                value    : record || value
+                oldRecord,
+                oldValue,
+                record,
+                value
             });
         }
     }
@@ -400,10 +396,17 @@ class Select extends Picker {
      * @protected
      */
     onKeyDownRight(data) {
-        let me = this;
+        let me = this,
+            oldValue, record;
 
         if (me.hintRecordId) {
-            me.value = me.store.get(me.hintRecordId)[me.displayField];
+            oldValue = me.value;
+            record   = me.store.get(me.hintRecordId);
+
+            me.record = record;
+            me._value = record[me.displayField];
+
+            me.afterSetValue(me._value, oldValue);
         }
     }
 
@@ -435,9 +438,10 @@ class Select extends Picker {
      * @protected
      */
     onListItemClick(record) {
-        let me       = this,
-            oldValue = me.value,
-            value    = record[me.displayField];
+        let me           = this,
+            displayField = me.displayField,
+            oldValue     = me.value,
+            value        = record[displayField];
 
         if (me.value !== value) {
             me.hintRecordId = null;
@@ -449,7 +453,7 @@ class Select extends Picker {
 
             me.fire('select', {
                 record: record,
-                value : record[me.store.keyProperty]
+                value : record[displayField]
             });
         }
     }
