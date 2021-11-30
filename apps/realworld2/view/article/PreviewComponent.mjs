@@ -92,7 +92,6 @@ class PreviewComponent extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -276,7 +275,6 @@ class PreviewComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onFavoriteButtonClick(data) {

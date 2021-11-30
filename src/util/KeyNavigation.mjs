@@ -38,7 +38,6 @@ class KeyNavigation extends Base {
     }
 
     /**
-     *
      * @protected
      * @returns {Neo.component.Base}
      */
@@ -47,7 +46,6 @@ class KeyNavigation extends Base {
     }
 
     /**
-     *
      * @param {Neo.component.Base} value
      * @protected
      * @returns {String} the component id
@@ -65,7 +63,6 @@ class KeyNavigation extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDown(data) {
@@ -90,7 +87,6 @@ class KeyNavigation extends Base {
     }
 
     /**
-     *
      * @param {Object} value
      * @returns {Object}
      */
@@ -144,7 +140,6 @@ class KeyNavigation extends Base {
     }
 
     /**
-     *
      * @param {Neo.component.Base} component
      */
     register(component) {

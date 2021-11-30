@@ -85,7 +85,6 @@ class HomeComponent extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -333,7 +332,6 @@ class HomeComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} [params={}]
      * @param {Object} [opts={}]
      */
@@ -356,7 +354,6 @@ class HomeComponent extends Component {
     }
 
     /**
-     *
      * @returns {Object} vdom
      */
     getContainer() {
@@ -365,7 +362,6 @@ class HomeComponent extends Component {
     }
 
     /**
-     *
      * @param {String} nodeId
      * @returns {Number}
      */
@@ -374,7 +370,6 @@ class HomeComponent extends Component {
     }
 
     /**
-     *
      * @param {Number|String} id
      * @returns {String}
      */
@@ -383,7 +378,6 @@ class HomeComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onNavLinkClick(data) {
@@ -423,7 +417,6 @@ class HomeComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} value
      */
     onCurrentUserChange(value) {
@@ -431,7 +424,6 @@ class HomeComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onPageNavLinkClick(data) {
@@ -439,7 +431,6 @@ class HomeComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} opts
      * @param {String|null} opts.oldValue
      * @param {String|null} opts.value

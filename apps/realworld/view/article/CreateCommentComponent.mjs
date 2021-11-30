@@ -41,7 +41,6 @@ class CreateCommentComponent extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -101,7 +100,6 @@ class CreateCommentComponent extends Component {
     }
 
     /**
-     *
      * @returns {String}
      */
     getInputElId() {
@@ -109,7 +107,6 @@ class CreateCommentComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} value
      */
     onCurrentUserChange(value) {
@@ -120,7 +117,6 @@ class CreateCommentComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onSubmitButtonClick(data) {

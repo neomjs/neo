@@ -82,7 +82,6 @@ class Time extends Picker {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -253,7 +252,6 @@ class Time extends Picker {
     }
 
     /**
-     *
      * @returns {String[]}
      */
     createCollectionItems() {
@@ -285,7 +283,6 @@ class Time extends Picker {
     }
 
     /**
-     *
      * @returns {Neo.component.DateSelector}
      */
     createPickerComponent() {
@@ -293,7 +290,6 @@ class Time extends Picker {
     }
 
     /**
-     *
      * @param {Function} [callback]
      */
     focusInputEl(callback) {
@@ -340,7 +336,6 @@ class Time extends Picker {
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */
@@ -356,7 +351,6 @@ class Time extends Picker {
     }
 
     /**
-     *
      * @param {Object} record
      */
     onListItemClick(record) {
@@ -373,7 +367,6 @@ class Time extends Picker {
     }
 
     /**
-     *
      * @param {Object} record
      */
     onListItemNavigate(record) {

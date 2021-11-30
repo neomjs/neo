@@ -155,7 +155,6 @@ class Component extends BaseComponent {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -423,7 +422,6 @@ class Component extends BaseComponent {
     }
 
     /**
-     *
      * @param {Boolean} [silent=false]
      */
     createContent(silent=false) {
@@ -462,7 +460,6 @@ class Component extends BaseComponent {
     }
 
     /**
-     *
      * @param {Date} date
      * @returns {Object}
      */
@@ -566,7 +563,6 @@ class Component extends BaseComponent {
     }
 
     /**
-     *
      * @param {Object[]} data
      */
     onCalendarStoreLoad(data) {
@@ -574,7 +570,6 @@ class Component extends BaseComponent {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onCalendarStoreRecordChange(data) {
@@ -582,7 +577,6 @@ class Component extends BaseComponent {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onEventDoubleClick(data) {
@@ -612,7 +606,6 @@ class Component extends BaseComponent {
     }
 
     /**
-     *
      * @param {Object[]} data
      */
     onEventStoreLoad(data) {
@@ -620,7 +613,6 @@ class Component extends BaseComponent {
     }
 
     /**
-     *
      * @param {Object[]} data
      */
     onEventStoreRecordChange(data) {
@@ -628,7 +620,6 @@ class Component extends BaseComponent {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Object[]} data.oldPath
      * @param {Object[]} data.path
@@ -651,7 +642,6 @@ class Component extends BaseComponent {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onWheel(data) {
@@ -776,7 +766,6 @@ class Component extends BaseComponent {
     }
 
     /**
-     *
      * @param {Boolean} [create=false]
      */
     updateHeader(create=false) {
@@ -825,7 +814,6 @@ class Component extends BaseComponent {
     }
 
     /**
-     *
      * @param {Boolean} [silent=false]
      */
     updateMonthNames(silent=false) {

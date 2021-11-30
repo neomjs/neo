@@ -144,7 +144,6 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
-     *
      * @param {Object} data
      */
     logInstance(data) {
@@ -152,7 +151,6 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
-     *
      * @param {String} config
      * @param {Object} opts
      */
@@ -161,7 +159,6 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
-     *
      * @param {String} config
      * @param {String} value
      * @param {Object} opts
@@ -173,7 +170,6 @@ class ConfigurationViewport extends Viewport {
     }
 
     /**
-     *
      * @param {String} target
      */
     onSwitchTheme(target) {

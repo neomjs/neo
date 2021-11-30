@@ -66,7 +66,6 @@ class HighlightJS extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.text
      * @param {String} data.vnodeId
@@ -86,7 +85,6 @@ class HighlightJS extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.vnodeId
      */
@@ -102,7 +100,6 @@ class HighlightJS extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     syntaxHighlightInit(data) {
@@ -115,7 +112,6 @@ class HighlightJS extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Number} data.addLine
      * @param {String} data.vnodeId

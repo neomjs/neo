@@ -73,7 +73,6 @@ class HomeContainer extends Container {
     }}
 
     /**
-     *
      * @param {Object} [params={}]
      * @param {Object} [opts={}]
      */

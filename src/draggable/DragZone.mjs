@@ -150,7 +150,6 @@ class DragZone extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -185,7 +184,6 @@ class DragZone extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     createDragProxy(data) {
@@ -251,7 +249,6 @@ class DragZone extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     dragEnd(data) {
@@ -280,7 +277,6 @@ class DragZone extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     dragMove(data) {
@@ -305,7 +301,6 @@ class DragZone extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     dragStart(data) {
@@ -348,7 +343,6 @@ class DragZone extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @returns {Object}
      */

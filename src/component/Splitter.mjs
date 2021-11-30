@@ -69,7 +69,6 @@ class Splitter extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -142,7 +141,6 @@ class Splitter extends Component {
     }
 
     /**
-     *
      * @param data
      */
     onDragEnd(data) {
@@ -201,7 +199,6 @@ class Splitter extends Component {
     }
 
     /**
-     *
      * @param data
      */
     onDragStart(data) {

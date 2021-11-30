@@ -26,7 +26,6 @@ class GalleryContainer extends GalleryMainContainer {
     }}
 
     /**
-     *
      * @param {Object} [params={}]
      * @param {Object} [opts={}]
      */

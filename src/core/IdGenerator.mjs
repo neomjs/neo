@@ -40,7 +40,6 @@ class IdGenerator {
     }}
 
     /**
-     *
      * @param config
      */
     constructor(config) {
@@ -53,7 +52,6 @@ class IdGenerator {
     }
 
     /**
-     *
      * @param name
      * @returns {string}
      */

@@ -175,7 +175,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Event} event
      * @returns {Object}
      */
@@ -200,7 +199,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onDragEnd(event) {
@@ -259,7 +257,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onDragMove(event) {
@@ -320,7 +317,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onDragStart(event) {
@@ -344,7 +340,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onMouseEnter(event) {
@@ -360,7 +355,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onMouseLeave(event) {
@@ -376,7 +370,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Array} path
      * @returns {Boolean}
      */
@@ -416,7 +409,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Number} data.clientX
      * @param {Number} data.clientY
@@ -509,7 +501,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.id
      */

@@ -29,7 +29,6 @@ class MainContainer extends Viewport {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -62,7 +61,6 @@ class MainContainer extends Viewport {
     }
 
     /**
-     *
      * @param {Object} data
      */
     createDialog(data) {
@@ -79,7 +77,6 @@ class MainContainer extends Viewport {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragLimitChange(data) {
@@ -98,7 +95,6 @@ class MainContainer extends Viewport {
     }
 
     /**
-     *
      * @param {Object} data
      */
     switchTheme(data) {

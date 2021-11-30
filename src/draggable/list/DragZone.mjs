@@ -27,7 +27,6 @@ class DragZone extends BaseDragZone {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -58,7 +57,6 @@ class DragZone extends BaseDragZone {
     }
 
     /**
-     *
      * @param {Boolean} draggable
      */
     adjustListItemCls(draggable) {
@@ -81,7 +79,6 @@ class DragZone extends BaseDragZone {
     }
 
     /**
-     *
      * @param {Object} record
      * @param {Number} index
      * @returns {Object|null} vdom
@@ -91,7 +88,6 @@ class DragZone extends BaseDragZone {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragEnd(data) {
@@ -120,7 +116,6 @@ class DragZone extends BaseDragZone {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragStart(data) {
@@ -140,7 +135,6 @@ class DragZone extends BaseDragZone {
     }
 
     /**
-     *
      * @param {Object} data={}
      */
     setData(data={}) {

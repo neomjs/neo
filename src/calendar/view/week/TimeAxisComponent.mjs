@@ -62,7 +62,6 @@ class TimeAxisComponent extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {

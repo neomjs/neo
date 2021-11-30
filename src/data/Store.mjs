@@ -77,7 +77,6 @@ class Store extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -103,7 +102,6 @@ class Store extends Base {
     }
 
     /**
-     *
      * @param value
      * @param oldValue
      * @protected
@@ -125,7 +123,6 @@ class Store extends Base {
     }
 
     /**
-     *
      * @param value
      * @param oldValue
      * @protected
@@ -135,7 +132,6 @@ class Store extends Base {
     }
 
     /**
-     *
      * @param value
      * @param oldValue
      * @protected
@@ -148,7 +144,6 @@ class Store extends Base {
     }
 
     /**
-     *
      * @param value
      * @param oldValue
      * @protected
@@ -178,7 +173,6 @@ class Store extends Base {
     }
 
     /**
-     *
      * @param value
      * @param oldValue
      * @protected
@@ -193,7 +187,6 @@ class Store extends Base {
     }
 
     /**
-     *
      * @param {Neo.data.Model} value
      * @param {Neo.data.Model} oldValue
      * @protected
@@ -208,7 +201,6 @@ class Store extends Base {
     }
 
     /**
-     *
      * @param {Object} config
      */
     createRecord(config) {
@@ -229,7 +221,6 @@ class Store extends Base {
     }
 
     /**
-     *
      * @param {Object} opts
      */
     onCollectionMutate(opts) {
@@ -288,7 +279,6 @@ class Store extends Base {
     }
 
     /**
-     *
      * @param {Object} opts
      * @param {String} opts.direction
      * @param {String} opts.property

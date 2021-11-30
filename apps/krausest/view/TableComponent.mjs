@@ -35,7 +35,6 @@ class TableComponent extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -112,7 +111,6 @@ class TableComponent extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Number} data.id
      * @param {String} data.label

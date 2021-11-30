@@ -108,7 +108,6 @@ class MapboxGL extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -117,7 +116,6 @@ class MapboxGL extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.id
      * @param {Object[]} data.layers
@@ -141,7 +139,6 @@ class MapboxGL extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.id
      * @param {Object[]} data.sources
@@ -183,7 +180,6 @@ class MapboxGL extends Base {
     }
 
     /**
-     *
      * @param {Object} map
      * @param {Object} styleJson
      * @param {String} [name]
@@ -216,7 +212,6 @@ class MapboxGL extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Boolean} [data.animate=false]
      * @param {String} data.id
@@ -239,7 +234,6 @@ class MapboxGL extends Base {
     }
 
     /**
-     *
      * @param {Object}   data
      * @param {String}   data.accessToken
      * @param {Object}   data.center
@@ -278,7 +272,6 @@ class MapboxGL extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.id
      */
@@ -288,7 +281,6 @@ class MapboxGL extends Base {
     }
 
     /**
-     *
      * @param {String} id
      * @returns {Boolean}
      */
@@ -309,7 +301,6 @@ class MapboxGL extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Object} event
      * @param {Object} event.target map instance
@@ -349,7 +340,6 @@ class MapboxGL extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Object} event
      * @param {Object} event.target map instance
@@ -430,7 +420,6 @@ class MapboxGL extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.accessToken
      * @param {String} data.id
@@ -463,7 +452,6 @@ class MapboxGL extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Object} data.data
      * @param {String} data.dataSourceId
@@ -488,7 +476,6 @@ class MapboxGL extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.id
      * @param {Number} data.zoom

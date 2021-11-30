@@ -71,7 +71,6 @@ class Animate extends Base {
     }
 
     /**
-     *
      * @param {Neo.list.plugin.Animate} me
      * @param {Object} record
      * @param {Number} index

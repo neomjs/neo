@@ -42,7 +42,6 @@ class TableContainerController extends ComponentController {
     }}
 
     /**
-     *
      * @param {Object} data
      */
     addStoreItems(data) {
@@ -119,7 +118,6 @@ class TableContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} record
      * @protected
      * @returns {Object}
@@ -151,7 +149,6 @@ class TableContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {String} countryName
      */
     loadHistoricalData(countryName) {

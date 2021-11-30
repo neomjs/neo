@@ -104,7 +104,6 @@ class NumberContainer extends Container {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onOperatorChange(data) {
@@ -112,7 +111,6 @@ class NumberContainer extends Container {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onValueChange(data) {

@@ -61,7 +61,6 @@ class CommentComponent extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -154,7 +153,6 @@ class CommentComponent extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDeleteButtonClick(data) {

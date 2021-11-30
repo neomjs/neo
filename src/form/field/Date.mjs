@@ -60,7 +60,6 @@ class DateField extends Picker {
     }}
 
     /**
-     *
      * @param config
      */
     constructor(config) {
@@ -85,7 +84,6 @@ class DateField extends Picker {
     }
 
     /**
-     *
      * @returns {Neo.component.DateSelector}
      */
     createPickerComponent() {
@@ -104,7 +102,6 @@ class DateField extends Picker {
     }
 
     /**
-     *
      * @param {Object} opts
      */
     onDatePickerChange(opts) {
@@ -141,7 +138,6 @@ class DateField extends Picker {
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */

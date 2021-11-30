@@ -167,7 +167,6 @@ class Gallery extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -365,7 +364,6 @@ class Gallery extends Component {
     }
 
     /**
-     *
      * @returns {*}
      */
     beforeGetItemTpl() {
@@ -457,7 +455,6 @@ class Gallery extends Component {
     }
 
     /**
-     *
      * @param {Number} [startIndex]
      * @param {Number} [amountItems]
      */
@@ -476,7 +473,6 @@ class Gallery extends Component {
     }
 
     /**
-     *
      * @param {Number} index
      * @returns {Number[]}
      */
@@ -504,7 +500,6 @@ class Gallery extends Component {
     }
 
     /**
-     *
      * @param {String} vnodeId
      * @returns {Number} itemId
      */
@@ -521,7 +516,6 @@ class Gallery extends Component {
     }
 
     /**
-     *
      * @param {Number} index
      * @returns {String}
      */
@@ -548,7 +542,6 @@ class Gallery extends Component {
     }
 
     /**
-     *
      * @param {String} id
      * @returns {String}
      */
@@ -569,7 +562,6 @@ class Gallery extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onClick(data) {
@@ -607,7 +599,6 @@ class Gallery extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onMouseWheel(data) {
@@ -629,7 +620,6 @@ class Gallery extends Component {
     }
 
     /**
-     *
      * @param {Array} value
      */
     onSelectionChange(value) {
@@ -752,7 +742,6 @@ class Gallery extends Component {
     }
 
     /**
-     *
      * @param {Array} items
      */
     onStoreLoad(items) {
@@ -788,7 +777,6 @@ class Gallery extends Component {
     }
 
     /**
-     *
      * @param {Number} x
      * @param {Number} y
      * @param {Number} z

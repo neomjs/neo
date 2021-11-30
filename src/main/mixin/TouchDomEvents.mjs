@@ -16,7 +16,6 @@ class TouchDomEvents extends Base {
     }}
 
     /**
-     *
      * @param {Object} event
      */
     onTouchCancel(event) {
@@ -24,7 +23,6 @@ class TouchDomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onTouchEnd(event) {
@@ -32,7 +30,6 @@ class TouchDomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onTouchEnter(event) {
@@ -40,7 +37,6 @@ class TouchDomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onTouchLeave(event) {
@@ -48,7 +44,6 @@ class TouchDomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onTouchMove(event) {
@@ -56,7 +51,6 @@ class TouchDomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onTouchStart(event) {

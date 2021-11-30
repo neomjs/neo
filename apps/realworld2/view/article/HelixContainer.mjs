@@ -26,7 +26,6 @@ class HelixContainer extends HelixMainContainer {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -65,7 +64,6 @@ class HelixContainer extends HelixMainContainer {
     }
 
     /**
-     *
      * @param {Object} [params={}]
      * @param {Object} [opts={}]
      */

@@ -29,7 +29,6 @@ class Util extends Base {
     }}
 
     /**
-     *
      * @param {Object} scope
      * @param {String[]} values
      */

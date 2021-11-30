@@ -62,7 +62,6 @@ class GalleryModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onItemClick(data) {
@@ -86,7 +85,6 @@ class GalleryModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownDown(data) {
@@ -94,7 +92,6 @@ class GalleryModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownLeft(data) {
@@ -102,7 +99,6 @@ class GalleryModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownRight(data) {
@@ -110,7 +106,6 @@ class GalleryModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownUp(data) {
@@ -118,7 +113,6 @@ class GalleryModel extends Model {
     }
 
     /**
-     *
      * @param {Number} step=1
      */
     onNavKeyColumn(step=1) {
@@ -151,7 +145,6 @@ class GalleryModel extends Model {
     }
 
     /**
-     *
      * @param {Number} step=1
      */
     onNavKeyRow(step=1) {
@@ -202,7 +195,6 @@ class GalleryModel extends Model {
     }
 
     /**
-     *
      * @param {Neo.component.Base} component
      */
     register(component) {
@@ -229,7 +221,6 @@ class GalleryModel extends Model {
     }
 
     /**
-     *
      * @param {String} itemId
      */
     select(itemId) {

@@ -31,7 +31,6 @@ class AnalyticsByGoogle extends Base {
     }
 
     /**
-     *
      * @protected
      */
     insertGoogleAnalyticsScript() {

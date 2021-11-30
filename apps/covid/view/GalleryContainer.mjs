@@ -190,7 +190,6 @@ class GalleryContainer extends Container {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {

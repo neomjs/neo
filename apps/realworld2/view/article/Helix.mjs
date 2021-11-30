@@ -34,7 +34,6 @@ class Helix extends BaseHelix {
     }}
 
     /**
-     *
      * @param {Object} vdomItem
      * @param {Object} record
      * @param {Number} index
@@ -68,7 +67,6 @@ class Helix extends BaseHelix {
     }
 
     /**
-     *
      * @param {String} vnodeId
      * @returns {String}
      */

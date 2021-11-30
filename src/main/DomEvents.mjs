@@ -108,7 +108,6 @@ class DomEvents extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -125,7 +124,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     addDomListener(data) {
@@ -156,7 +154,7 @@ class DomEvents extends Base {
 
         Neo.worker.Manager.sendMessage(data.origin, {
             action : 'reply',
-            data   : data,
+            data,
             replyId: data.id,
             success: true
         });
@@ -249,7 +247,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      * @returns {Object}
      */
@@ -265,52 +262,49 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      * @returns {Object}
      */
     getKeyboardEventData(event) {
-        const {altKey, code, ctrlKey, key, keyCode, metaKey, shiftKey} = event;
+        let {altKey, code, ctrlKey, key, keyCode, metaKey, shiftKey} = event;
 
         return {
             ...this.getEventData(event),
-            altKey  : altKey,
-            code    : code,
-            ctrlKey : ctrlKey,
-            key     : key,
-            keyCode : keyCode,
-            metaKey : metaKey,
-            shiftKey: shiftKey
+            altKey,
+            code,
+            ctrlKey,
+            key,
+            keyCode,
+            metaKey,
+            shiftKey
         };
     }
 
     /**
-     *
      * @param {Object} event
      * @returns {Object}
      */
     getMouseEventData(event) {
-        const {altKey, clientX, clientY, ctrlKey, metaKey, offsetX, offsetY, pageX, pageY, screenX, screenY, shiftKey} = event;
+        let {altKey, clientX, clientY, ctrlKey, metaKey, offsetX, offsetY, pageX, pageY, screenX, screenY, shiftKey} = event;
 
         return {
             ...this.getEventData(event),
-            altKey  : altKey,
-            clientX : clientX,
-            clientY : clientY,
-            ctrlKey : ctrlKey,
-            metaKey : metaKey,
-            offsetX : offsetX,
-            offsetY : offsetY,
-            pageX   : pageX,
-            pageY   : pageY,
-            screenX : screenX,
-            screenY : screenY,
-            shiftKey: shiftKey
+            altKey,
+            clientX,
+            clientY,
+            ctrlKey,
+            metaKey,
+            offsetX,
+            offsetY,
+            pageX,
+            pageY,
+            screenX,
+            screenY,
+            shiftKey
         };
     }
 
     /**
-     *
      * @param {Element} element
      * @returns {Element[]}
      */
@@ -330,7 +324,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} node
      * @returns {Object}
      */
@@ -397,18 +390,17 @@ class DomEvents extends Base {
      * @param {Object} event
      */
     onBeforeUnload(event) {
-        let M = Neo.worker.Manager;
+        let manager = Neo.worker.Manager;
 
-        M.appNames.forEach(appName => {
-            M.broadcast({
+        manager.appNames.forEach(appName => {
+            manager.broadcast({
                 action : 'disconnect',
-                appName: appName
+                appName
             });
         })
     }
 
     /**
-     *
      * @param {Object} event
      */
     onChange(event) {
@@ -420,7 +412,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onClick(event) {
@@ -428,13 +419,10 @@ class DomEvents extends Base {
 
         me.sendMessageToApp(me.getMouseEventData(event));
 
-        if (me.testPathInclusion(event, preventClickTargets)) {
-            event.preventDefault();
-        }
+        me.testPathInclusion(event, preventClickTargets) && event.preventDefault();
     }
 
     /**
-     *
      * @param {Object} event
      */
     onContextMenu(event) {
@@ -442,9 +430,7 @@ class DomEvents extends Base {
 
         me.sendMessageToApp(me.getMouseEventData(event));
 
-        if (me.testPathInclusion(event, preventContextmenuTargets)) {
-            event.preventDefault();
-        }
+        me.testPathInclusion(event, preventContextmenuTargets) && event.preventDefault();
     }
 
     /**
@@ -456,7 +442,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onDoubleClick(event) {
@@ -464,13 +449,10 @@ class DomEvents extends Base {
 
         me.sendMessageToApp(me.getMouseEventData(event));
 
-        if (me.testPathInclusion(event, preventClickTargets)) {
-            event.preventDefault();
-        }
+        me.testPathInclusion(event, preventClickTargets) && event.preventDefault();
     }
 
     /**
-     *
      * @param {Object} event
      */
     onDragOver(event) {
@@ -479,7 +461,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onFocusIn(event) {
@@ -487,7 +468,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onFocusOut(event) {
@@ -498,21 +478,20 @@ class DomEvents extends Base {
      *
      */
     onHashChange() {
-        const Manager    = Neo.worker.Manager,
-              hashString = location.hash.substr(1);
+        let manager    = Neo.worker.Manager,
+            hashString = location.hash.substr(1);
 
-        Manager.sendMessage('app', {
+        manager.sendMessage('app', {
             action: 'hashChange',
             data  : {
-                appNames  : Manager.appNames,
+                appNames  : manager.appNames,
                 hash      : this.parseHash(hashString),
-                hashString: hashString
+                hashString
             }
         });
     }
 
     /**
-     *
      * @param {Object} event
      */
     onKeyDown(event) {
@@ -526,7 +505,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onKeyUp(event) {
@@ -534,7 +512,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onMouseDown(event) {
@@ -542,7 +519,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onMouseEnter(event) {
@@ -554,7 +530,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onMouseLeave(event) {
@@ -566,7 +541,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onMouseUp(event) {
@@ -574,7 +548,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onWheel(event) {
@@ -592,22 +565,22 @@ class DomEvents extends Base {
                     preventUpdate = true;
                 } else {
                     Object.assign(lastWheelEvent, {
-                        date  : date,
+                        date,
                         target: targetCls
                     });
                 }
             }
 
              if (!preventUpdate) {
-                const {deltaX, deltaY, deltaZ} = event;
+                let {deltaX, deltaY, deltaZ} = event;
 
                 this.sendMessageToApp({
                     ...this.getEventData(event),
                     clientHeight: target.node.clientHeight,
                     clientWidth : target.node.clientWidth,
-                    deltaX      : deltaX,
-                    deltaY      : deltaY,
-                    deltaZ      : deltaZ,
+                    deltaX,
+                    deltaY,
+                    deltaZ,
                     scrollLeft  : target.node.scrollLeft,
                     scrollTop   : target.node.scrollTop
                 });
@@ -678,7 +651,6 @@ class DomEvents extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Array|String} data.cls
      * @param {String} data.name
@@ -700,9 +672,7 @@ class DomEvents extends Base {
         }
 
         data.cls.forEach(cls => {
-            if (!preventArray.includes(cls)) {
-                preventArray.push(cls);
-            }
+            !preventArray.includes(cls) && preventArray.push(cls);
         });
     }
 
@@ -715,14 +685,11 @@ class DomEvents extends Base {
         Neo.worker.Manager.sendMessage('app', {
             action   : 'domEvent',
             eventName: data.type,
-            data     : data
+            data
         });
     }
 
-
-
     /**
-     *
      * @param {Object} event
      * @param {Object} targetArray
      * @returns {Object|Boolean} target cls & node if found, false otherwise
@@ -741,7 +708,7 @@ class DomEvents extends Base {
                 if (node.classList?.contains(targetArray[j])) {
                     return {
                         cls : targetArray[j],
-                        node: node
+                        node
                     };
                 }
             }

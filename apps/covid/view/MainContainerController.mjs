@@ -62,7 +62,6 @@ class MainContainerController extends ComponentController {
     }}
 
     /**
-     *
      * @param {Object[]} data
      */
     addStoreItems(data) {
@@ -110,7 +109,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Number} data.active
      * @param {Number} data.cases
@@ -145,7 +143,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} hashObject
      * @param {String} hashObject.mainview
      * @returns {Number}
@@ -159,7 +156,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Number} tabIndex
      * @returns {Neo.component.Base}
      */
@@ -227,7 +223,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onCountryFieldChange(data) {
@@ -252,7 +247,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} value
      * @param {Object} oldValue
      */
@@ -441,7 +435,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param view
      * @param record
      */

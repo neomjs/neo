@@ -138,7 +138,6 @@ class Stylesheet extends Base {
     }
 
     /**
-     *
      * @param {String} token
      * @returns {Boolean}
      */
@@ -158,7 +157,6 @@ class Stylesheet extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Array} data.rules
      * @protected
@@ -184,7 +182,6 @@ class Stylesheet extends Base {
     }
 
     /**
-     *
      * @param {Object} opts
      * @param {String[]} opts.included
      * @param {String[]} opts.excluded
@@ -224,7 +221,6 @@ class Stylesheet extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.href
      * @param {String} data.id

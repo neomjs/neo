@@ -35,7 +35,6 @@ class MainContainerController extends ComponentController {
     }}
 
     /**
-     *
      * @param {Number} tabIndex
      * @returns {Neo.component.Base}
      */
@@ -67,7 +66,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} value
      * @param {Object} oldValue
      */
@@ -145,7 +143,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onNavLinkClick(data) {
@@ -175,7 +172,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onSearchFieldChange(data) {

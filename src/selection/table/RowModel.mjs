@@ -75,7 +75,6 @@ class RowModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownDown(data) {
@@ -83,7 +82,6 @@ class RowModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownUp(data) {
@@ -91,7 +89,6 @@ class RowModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Number} step
      */
@@ -122,7 +119,6 @@ class RowModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onRowClick(data) {
@@ -147,7 +143,6 @@ class RowModel extends Model {
     }
 
     /**
-     *
      * @param {Neo.component.Base} component
      */
     register(component) {

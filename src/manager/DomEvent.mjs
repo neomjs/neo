@@ -1,7 +1,7 @@
 import Base             from '../core/Base.mjs';
 import ComponentManager from './Component.mjs';
 import FocusManager     from './Focus.mjs';
-import Logger           from '../core/Logger.mjs';
+import Logger           from '../util/Logger.mjs';
 import NeoArray         from '../util/Array.mjs';
 import VDomUtil         from '../util/VDom.mjs';
 
@@ -63,7 +63,6 @@ class DomEvent extends Base {
     }}
 
     /**
-     *
      * @param {Object} event
      * @protected
      */
@@ -150,7 +149,6 @@ class DomEvent extends Base {
     }
 
     /**
-     *
      * @param config
      * @param scope
      * @returns {Object}
@@ -351,7 +349,6 @@ class DomEvent extends Base {
     }
 
     /**
-     *
      * @param {Neo.component.Base} component
      * @param {Object[]} domListeners
      * @param {Object[]} oldDomListeners
@@ -435,7 +432,6 @@ class DomEvent extends Base {
     }
 
     /**
-     *
      * @param {Object} listener
      * @param {Array} path
      * @returns {Boolean|String} true in case the delegation string matches the event path
@@ -483,7 +479,6 @@ class DomEvent extends Base {
     }
 
     /**
-     *
      * @param {Neo.component.Base} component
      * @param {Object} data
      * @param {String} delegationTargetId

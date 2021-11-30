@@ -14,7 +14,6 @@ class MainContainerController extends ComponentController {
     }}
 
     /**
-     *
      * @param {Object} data
      */
     onCreateDialogButtonClick(data) {

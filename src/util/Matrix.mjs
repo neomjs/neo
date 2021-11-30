@@ -99,7 +99,6 @@ class Matrix extends Base {
     }
 
     /**
-     *
      * @param t
      * @returns {*}
      */
@@ -116,7 +115,6 @@ class Matrix extends Base {
     }
 
     /**
-     *
      * @param t
      * @returns {*}
      */
@@ -133,7 +131,6 @@ class Matrix extends Base {
     }
 
     /**
-     *
      * @param t
      * @returns {*}
      */

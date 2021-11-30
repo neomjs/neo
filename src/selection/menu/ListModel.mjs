@@ -19,7 +19,6 @@ class ListModel extends BaseListModel {
     }}
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownLeft(data) {
@@ -34,7 +33,6 @@ class ListModel extends BaseListModel {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownRight(data) {

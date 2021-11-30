@@ -75,7 +75,6 @@ class EditEventContainer extends FormContainer {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -214,7 +213,6 @@ class EditEventContainer extends FormContainer {
     }
 
     /**
-     *
      * @param {Neo.calendar.model.Event} record
      * @returns {String}
      */
@@ -227,7 +225,6 @@ class EditEventContainer extends FormContainer {
     }
 
     /**
-     *
      * @param {Neo.calendar.model.Event} record
      * @returns {String}
      */
@@ -240,7 +237,6 @@ class EditEventContainer extends FormContainer {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onCalendarFieldChange(data) {
@@ -261,7 +257,6 @@ class EditEventContainer extends FormContainer {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onFocusLeave(data) {
@@ -274,7 +269,6 @@ class EditEventContainer extends FormContainer {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onTimeFieldChange(data) {
@@ -298,7 +292,6 @@ class EditEventContainer extends FormContainer {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onTitleFieldChange(data) {

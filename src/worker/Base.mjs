@@ -50,7 +50,6 @@ class Base extends CoreBase {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -81,7 +80,6 @@ class Base extends CoreBase {
     afterConnect() {}
 
     /**
-     *
      * @param {Object} opts
      * @returns {Object|null}
      */
@@ -170,7 +168,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} e
      */
     onMessage(e) {
@@ -198,7 +195,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} msg
      */
     onPing(msg) {
@@ -208,7 +204,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} msg
      */
     onRegisterNeoConfig(msg) {
@@ -217,7 +212,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {String} dest app, data, main or vdom (excluding the current worker)
      * @param {Object} opts configs for Neo.worker.Message
      * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.

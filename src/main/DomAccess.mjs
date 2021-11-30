@@ -76,7 +76,6 @@ class DomAccess extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -99,14 +98,13 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Boolean} data.async
      * @param {Boolean} [data.defer=false]
      * @param {String} [data.src=true]
      */
     addScript(data) {
-        const script = document.createElement('script');
+        let script = document.createElement('script');
 
         if (!data.hasOwnProperty('async')) {
             data.async = true;
@@ -118,17 +116,15 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String[]} data.cls
      */
     applyBodyCls(data) {
-        const cls = data.cls || [];
+        let cls = data.cls || [];
         document.body.classList.add(...cls);
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.command
      * @returns {Object} data
@@ -237,7 +233,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {String} nodeId
      * @returns {HTMLElement}
      * @protected
@@ -251,7 +246,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {String} [nodeId='document.body']
      * @returns {HTMLElement}
      * @protected
@@ -277,10 +271,10 @@ class DomAccess extends Base {
             script = document.createElement('script');
 
             Object.assign(script, {
-                async  : async,
+                async,
                 onerror: reject,
                 onload : resolve,
-                src    : src
+                src
             });
 
             document.head.appendChild(script);
@@ -299,7 +293,7 @@ class DomAccess extends Base {
             link = document.createElement('link');
 
             Object.assign(link, {
-                href   : href,
+                href,
                 onerror: reject,
                 onload : resolve,
                 rel    : 'stylesheet',
@@ -332,14 +326,13 @@ class DomAccess extends Base {
 
         Neo.worker.Manager.sendMessage(data.origin, {
             action : 'reply',
-            data   : data,
+            data,
             replyId: data.id,
             success: true
         }, [offscreen]);
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String[]} data.attributes
      * @param {Array} data.functions An array containing strings and/or objects
@@ -398,14 +391,13 @@ class DomAccess extends Base {
 
         Neo.worker.Manager.sendMessage(data.origin, {
             action : 'reply',
-            data   : data,
+            data,
             replyId: data.id,
             success: true
         });
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */
@@ -416,7 +408,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.direction left, top
      * @param {String} data.id
@@ -434,7 +425,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.id
      * @param {String} [data.behavior='smooth']
@@ -457,7 +447,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.direction left, top
      * @param {String} data.id
@@ -475,7 +464,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.id
      * @param {String} [data.behavior='smooth']
@@ -501,7 +489,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.id
      * @param {Number} [data.start=0]
@@ -557,7 +544,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} [data.behavior='smooth'] // auto or smooth
      * @param {String} [data.left=0]
@@ -572,7 +558,6 @@ class DomAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @protected
      */

@@ -18,7 +18,6 @@ class Profile extends Base {
     }}
 
     /**
-     *
      * @param {String} slug
      */
     follow(slug) {
@@ -28,7 +27,6 @@ class Profile extends Base {
     }
 
     /**
-     *
      * @param {String} slug
      */
     unfollow(slug) {

@@ -51,7 +51,6 @@ class Focus extends CoreBase {
     }}
 
     /**
-     *
      * @param {Object} opts
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
@@ -65,7 +64,6 @@ class Focus extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} opts
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
@@ -77,7 +75,6 @@ class Focus extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} opts
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
@@ -88,7 +85,6 @@ class Focus extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} opts
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
@@ -128,7 +124,6 @@ class Focus extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} opts
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
@@ -147,7 +142,6 @@ class Focus extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} opts
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos
@@ -166,7 +160,6 @@ class Focus extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} opts
      * @param {Array}  opts.componentPath Component ids upwards
      * @param {Object} opts.data dom event infos

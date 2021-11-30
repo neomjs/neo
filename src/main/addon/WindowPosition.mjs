@@ -128,7 +128,6 @@ class WindowPosition extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     getPosition(data) {
@@ -161,7 +160,6 @@ class WindowPosition extends Base {
     }
 
     /**
-     *
      * @param {MouseEvent} event
      */
     onMouseOut(event) {
@@ -178,7 +176,6 @@ class WindowPosition extends Base {
     }
 
     /**
-     *
      * @param {Object} event
      */
     onResize(event) {
@@ -209,7 +206,6 @@ class WindowPosition extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.dock
      * @param {String} data.name
@@ -255,7 +251,6 @@ class WindowPosition extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.name
      */

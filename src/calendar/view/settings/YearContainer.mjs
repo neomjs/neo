@@ -121,7 +121,6 @@ class YearContainer extends Container {
     }
 
     /**
-     *
      * @returns {Neo.calendar.view.YearComponent}
      */
     getYearComponent() {
@@ -129,7 +128,6 @@ class YearContainer extends Container {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onRadioChange(data) {
@@ -139,7 +137,6 @@ class YearContainer extends Container {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onConfigChange(data) {

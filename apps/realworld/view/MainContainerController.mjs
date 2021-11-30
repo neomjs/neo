@@ -98,7 +98,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {String} slug
      */
     deleteArticle(slug) {
@@ -110,7 +109,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Number} id
      * @returns {Promise<any>}
      */
@@ -124,7 +122,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {String} slug
      * @param {Boolean} favorited
      */
@@ -133,7 +130,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {String} slug
      * @param {Boolean} follow
      */
@@ -153,7 +149,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} [params={}]
      * @param {Object} [opts={}]
      * @returns {Promise<any>}
@@ -170,7 +165,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {String} slug
      */
     getComments(slug) {
@@ -180,7 +174,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {String} token
      */
     getCurrentUser(token) {
@@ -194,7 +187,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {String} slug
      */
     getProfile(slug) {
@@ -282,7 +274,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} value
      * @param {Object} oldValue
      */
@@ -390,7 +381,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} [opts)
      * @returns {Promise<any>}
      */
@@ -404,7 +394,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {String} key
      * @param {Function} module
      * @param {String} reference
@@ -427,7 +416,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} opts
      * @returns {Promise<any>}
      */
@@ -436,7 +424,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} [opts)
      * @returns {Promise<any>}
      */

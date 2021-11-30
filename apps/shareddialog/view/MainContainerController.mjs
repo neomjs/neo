@@ -86,7 +86,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} appName
      */
@@ -126,7 +125,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} proxyRect
      */
     dropDialogBetweenWindows(proxyRect) {
@@ -171,7 +169,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Boolean} enable
      */
     enableOpenDialogButtons(enable) {
@@ -181,7 +178,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @return {Neo.button.Base}
      */
     getOpenDockedWindowButton() {
@@ -198,7 +194,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {String} side
      * @return {String}
      */
@@ -212,7 +207,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} proxyRect
      * @param {String} side
      * @param {Boolean} [fullyIncludeIntoWindow=false]
@@ -250,7 +244,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @return {Boolean}
      */
     hasDockedWindow() {
@@ -258,7 +251,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Object} data.proxyRect
      * @param {Boolean} [data.fullyIncludeIntoWindow]
@@ -305,7 +297,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.appName
      */
@@ -327,7 +318,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {String} data.appName
      */
@@ -356,7 +346,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onCreateDialogButtonClick(data) {
@@ -371,7 +360,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDockedPositionChange(data) {
@@ -381,7 +369,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragEnd(data) {
@@ -409,7 +396,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragMove(data) {
@@ -469,7 +455,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragStart(data) {
@@ -498,7 +483,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragZoneCreated(data) {
@@ -604,7 +588,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {String} appName
      * @param {String} theme
      */
@@ -617,7 +600,6 @@ class MainContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} style
      */
     updateDockedWindowProxyStyle(style) {

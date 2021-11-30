@@ -73,7 +73,6 @@ class Util extends Base {
     }
 
     /**
-     *
      * @param {String} name
      * @returns {String} url
      */
@@ -149,7 +148,6 @@ class Util extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Number} data.index
      * @returns {Object}

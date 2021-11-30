@@ -46,7 +46,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onButton1Click(data) {
@@ -54,7 +53,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onButton2Click(data) {
@@ -62,7 +60,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onTextField1Change(data) {
@@ -70,7 +67,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onTextField2Change(data) {
@@ -88,7 +84,6 @@ class MainContainerController extends Component {
     }
 
     /**
-     *
      * @param {String} value
      * @param {String} buttonReference
      * @param {String} textfieldReference

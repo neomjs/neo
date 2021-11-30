@@ -7,7 +7,6 @@ import IdGenerator from '../core/IdGenerator.mjs';
  */
 class Message {
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {

@@ -23,7 +23,6 @@ class ListModel extends Model {
     }}
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownDown(data) {
@@ -31,7 +30,6 @@ class ListModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownEnter(data) {
@@ -41,7 +39,6 @@ class ListModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownLeft(data) {
@@ -49,7 +46,6 @@ class ListModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownRight(data) {
@@ -57,7 +53,6 @@ class ListModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownUp(data) {
@@ -65,7 +60,6 @@ class ListModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Number} step
      */
@@ -122,7 +116,6 @@ class ListModel extends Model {
     }
 
     /**
-     *
      * @param {Neo.component.Base} component
      */
     register(component) {
@@ -142,7 +135,6 @@ class ListModel extends Model {
     }
 
     /**
-     *
      * @param {Number} index
      */
     selectAt(index) {

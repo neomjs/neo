@@ -1,5 +1,5 @@
 import Base   from '../core/Base.mjs';
-import Logger from '../core/Logger.mjs';
+import Logger from '../util/Logger.mjs';
 import Model  from './Model.mjs';
 
 let instance;
@@ -34,7 +34,6 @@ class RecordFactory extends Base {
     }}
 
     /**
-     *
      * @param {Neo.data.Model} model
      * @param {Object} config
      * @returns {Object}
@@ -50,7 +49,6 @@ class RecordFactory extends Base {
     }
 
     /**
-     *
      * @param {Neo.data.Model} model
      * @returns {Object}
      */
@@ -156,7 +154,6 @@ class RecordFactory extends Base {
     }
 
     /**
-     *
      * @param {Object} record
      * @param {Boolean} trackModifiedFields
      * @returns {Boolean} true in case a change was found
@@ -183,7 +180,6 @@ class RecordFactory extends Base {
     }
 
     /**
-     *
      * @param {Object} record
      * @param {String} fieldName
      * @returns {Boolean|null} null in case the model does not use trackModifiedFields, true in case a change was found
@@ -240,7 +236,6 @@ class RecordFactory extends Base {
     }
 
     /**
-     *
      * @param {Neo.data.Model} model
      * @param {Object} record
      * @param {Object} fields

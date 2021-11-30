@@ -4,7 +4,7 @@ import LayoutCard from '../layout/Card.mjs';
 import LayoutFit  from '../layout/Fit.mjs';
 import LayoutHbox from '../layout/HBox.mjs';
 import LayoutVBox from '../layout/VBox.mjs';
-import Logger     from '../core/Logger.mjs';
+import Logger     from '../util/Logger.mjs';
 import NeoArray   from '../util/Array.mjs';
 
 /**
@@ -109,7 +109,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @param {Neo.layout.Base} value
      * @param {Neo.layout.Base} oldValue
      * @protected
@@ -171,7 +170,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @param {Object|String} value
      * @returns {Neo.layout.Base}
      * @protected
@@ -181,7 +179,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @param {*} item
      * @param {Number} index
      * @returns {Neo.component.Base|Object} Object for lazy loaded items
@@ -254,7 +251,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @protected
      */
     createItems() {
@@ -280,7 +276,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @param {Object|String|Neo.layout.Base} value
      * @protected
      * @returns {Neo.layout.Base}
@@ -456,7 +451,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @param {Object|String} config
      * @protected
      * @returns {Object} layoutConfig

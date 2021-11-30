@@ -148,7 +148,7 @@ class Base {
         let values = Array.isArray(staticName) ? staticName : this.getStaticConfig(staticName);
 
         if (!values.includes(value)) {
-            Neo.logError(`Supported values for ${name} are: ${values.join(', ')}`, this);
+            console.error(`Supported values for ${name} are: ${values.join(', ')}`, this);
             return oldValue;
         }
 
@@ -350,7 +350,6 @@ class Base {
     }
 
     /**
-     *
      * @param {String} className
      * @param {Object} remote
      */

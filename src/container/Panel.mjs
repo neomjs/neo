@@ -48,7 +48,6 @@ class Panel extends Container {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -65,7 +64,6 @@ class Panel extends Container {
     }
 
     /**
-     *
      * @param {Object} header the header config
      * @returns {Object}
      */
@@ -178,7 +176,6 @@ class Panel extends Container {
     }
 
     /**
-     *
      * @returns {Boolean}
      */
     hasHeaders() {

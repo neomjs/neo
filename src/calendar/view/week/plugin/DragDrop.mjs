@@ -22,7 +22,6 @@ class DragDrop extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -60,7 +59,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Object} opts
      * @param {Object} opts.dragElement
      * @param {Boolean} opts.enableResizingAcrossOppositeEdge
@@ -106,7 +104,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Object} path
      * @returns {Boolean}
      */
@@ -115,7 +112,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Object} eventData
      * @returns {Boolean}
      */
@@ -124,7 +120,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onColumnDragEnd(data) {
@@ -149,7 +144,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onColumnDragMove(data) {
@@ -159,7 +153,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onColumnDragStart(data) {
@@ -226,7 +219,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onEventDragEnd(data) {
@@ -248,7 +240,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onEventDragMove(data) {
@@ -265,7 +256,6 @@ class DragDrop extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onEventDragStart(data) {

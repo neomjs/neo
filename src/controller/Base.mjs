@@ -28,7 +28,6 @@ class Base extends CoreBase {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {

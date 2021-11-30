@@ -37,7 +37,6 @@ class WorldMapContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onHeatRuleFieldChange(data) {
@@ -51,7 +50,6 @@ class WorldMapContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onSeriesButtonClick(data) {

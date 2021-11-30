@@ -70,7 +70,6 @@ class CheckBox extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -87,7 +86,6 @@ class CheckBox extends Base {
     }
 
     /**
-     *
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
@@ -261,7 +259,6 @@ class CheckBox extends Base {
     }
 
     /**
-     *
      * @returns {String}
      */
     getInputElId() {
@@ -269,7 +266,6 @@ class CheckBox extends Base {
     }
 
     /**
-     *
      * @returns {String}
      */
     getLabelId() {
@@ -277,7 +273,6 @@ class CheckBox extends Base {
     }
 
     /**
-     *
      * @returns {String}
      */
     getValueLabelId() {

@@ -55,7 +55,6 @@ class SpinUpDown extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onTriggerClick(data) {

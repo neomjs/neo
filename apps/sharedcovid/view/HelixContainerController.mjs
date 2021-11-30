@@ -66,7 +66,6 @@ class HelixContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onRangefieldChange(data) {
@@ -80,7 +79,6 @@ class HelixContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {String} id
      */
     onRangefieldMounted(id) {
@@ -93,7 +91,6 @@ class HelixContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onSortButtonClick(data) {

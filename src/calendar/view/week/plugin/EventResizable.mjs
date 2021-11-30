@@ -14,7 +14,6 @@ class EventResizable extends Resizable {
     }}
 
     /**
-     *
      * @param {Object} data
      */
     onDragEnd(data) {
@@ -26,7 +25,6 @@ class EventResizable extends Resizable {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragMove(data) {
@@ -34,7 +32,6 @@ class EventResizable extends Resizable {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragStart(data) {

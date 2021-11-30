@@ -63,7 +63,6 @@ class Sorter extends Base {
     }}
 
     /**
-     *
      * @param {String} value
      * @param {String} oldValue
      */
@@ -81,7 +80,6 @@ class Sorter extends Base {
     }
 
     /**
-     *
      * @param {String} value
      * @param {String} oldValue
      */
@@ -124,7 +122,6 @@ class Sorter extends Base {
     }
 
     /**
-     *
      * @param {*} value
      * @returns {*} value
      */

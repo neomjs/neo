@@ -74,7 +74,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -84,7 +83,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * @param columns
      * @returns {*}
      */
@@ -108,7 +106,6 @@ class Container extends BaseContainer {
     }
 
     /**
-     *
      * Dummy method until we have a data package in place
      * @param {Number} amountRows
      */

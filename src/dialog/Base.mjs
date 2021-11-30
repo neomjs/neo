@@ -123,7 +123,6 @@ class Base extends Panel {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -383,7 +382,6 @@ class Base extends Panel {
     }
 
     /**
-     *
      * @param {Boolean} [animate=!!this.animateTargetId]
      */
     close(animate=!!this.animateTargetId) {
@@ -398,7 +396,6 @@ class Base extends Panel {
     }
 
     /**
-     *
      * @param {Boolean} [animate=!!this.animateTargetId]
      */
     closeOrHide(animate=!!this.animateTargetId) {
@@ -453,7 +450,6 @@ class Base extends Panel {
     }
 
     /**
-     *
      * @returns {Object} vdom
      */
     getProxyVdom() {
@@ -467,7 +463,6 @@ class Base extends Panel {
     }
 
     /**
-     *
      * @returns {Object} The new vdom root
      */
     getVdomRoot() {
@@ -475,7 +470,6 @@ class Base extends Panel {
     }
 
     /**
-     *
      * @returns {Object} The new vnode root
      */
     getVnodeRoot() {
@@ -491,7 +485,6 @@ class Base extends Panel {
     }
 
     /**
-     *
      * @param {Boolean} [animate=!!this.animateTargetId]
      */
     hide(animate=!!this.animateTargetId) {
@@ -530,7 +523,6 @@ class Base extends Panel {
     }
 
     /**
-     *
      * @param data
      */
     onDragEnd(data) {
@@ -587,7 +579,6 @@ class Base extends Panel {
     }
 
     /**
-     *
      * @param data
      */
     onDragStart(data) {
@@ -634,7 +625,6 @@ class Base extends Panel {
     }
 
     /**
-     *
      * @param {Boolean} [animate=!!this.animateTargetId]
      */
     show(animate=!!this.animateTargetId) {

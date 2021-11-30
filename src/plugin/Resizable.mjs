@@ -170,7 +170,6 @@ class Resizable extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {
@@ -210,7 +209,6 @@ class Resizable extends Base {
     }
 
     /**
-     *
      * @param {String} name
      * @returns {Boolean} true
      */
@@ -273,7 +271,6 @@ class Resizable extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragEnd(data) {
@@ -301,7 +298,6 @@ class Resizable extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragMove(data) {
@@ -385,7 +381,6 @@ class Resizable extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragStart(data) {
@@ -455,7 +450,6 @@ class Resizable extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onMouseMove(data) {
@@ -519,7 +513,6 @@ class Resizable extends Base {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onMouseLeave(data) {
@@ -576,7 +569,6 @@ class Resizable extends Base {
     }
 
     /**
-     *
      * @param {String} name
      * @returns {Boolean} true in case the node existed
      */

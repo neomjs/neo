@@ -141,7 +141,6 @@ class Filter extends Base {
     }
 
     /**
-     *
      * @param value
      * @param oldValue
      */

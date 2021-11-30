@@ -48,7 +48,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @returns {*} this.value
      */
     getSubmitValue() {
@@ -56,7 +55,6 @@ class Base extends Component {
     }
 
     /**
-     *
      * @returns {Boolean}
      */
     isValid() {

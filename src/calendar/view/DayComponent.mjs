@@ -28,7 +28,6 @@ class DayComponent extends WeekComponent {
     }}
 
     /**
-     *
      * @param {Date} date
      */
     setFirstColumnDate(date) {

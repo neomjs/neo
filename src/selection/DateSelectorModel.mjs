@@ -25,7 +25,6 @@ class DateSelectorModel extends Model {
     }}
 
     /**
-     *
      * @param {Object} data
      * @returns {Date}
      */
@@ -47,7 +46,6 @@ class DateSelectorModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownDown(data) {
@@ -55,7 +53,6 @@ class DateSelectorModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownLeft(data) {
@@ -63,7 +60,6 @@ class DateSelectorModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownRight(data) {
@@ -71,7 +67,6 @@ class DateSelectorModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownUp(data) {
@@ -79,7 +74,6 @@ class DateSelectorModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Number} step
      */
@@ -101,7 +95,6 @@ class DateSelectorModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Number} step
      */
@@ -139,7 +132,6 @@ class DateSelectorModel extends Model {
     }
 
     /**
-     *
      * @param {Neo.component.Base} component
      */
     register(component) {

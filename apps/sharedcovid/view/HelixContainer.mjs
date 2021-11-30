@@ -244,7 +244,6 @@ class HelixContainer extends Container {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {

@@ -19,7 +19,6 @@ class CircleModel extends Model {
     }}
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownLeft(data) {
@@ -27,7 +26,6 @@ class CircleModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onKeyDownRight(data) {
@@ -35,7 +33,6 @@ class CircleModel extends Model {
     }
 
     /**
-     *
      * @param {Object} data
      * @param {Number} step
      */
@@ -64,7 +61,6 @@ class CircleModel extends Model {
     }
 
     /**
-     *
      * @param {Neo.component.Base} component
      */
     register(component) {

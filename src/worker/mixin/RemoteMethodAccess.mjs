@@ -19,7 +19,6 @@ class RemoteMethodAccess extends Base {
     }}
 
     /**
-     *
      * @param {Object} remote
      * @param method
      * @returns {function(*=, *=): Promise<any>}
@@ -47,7 +46,6 @@ class RemoteMethodAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} remote
      */
     onRegisterRemote(remote) {
@@ -78,7 +76,6 @@ class RemoteMethodAccess extends Base {
     }
 
     /**
-     *
      * @param {Object} msg
      */
     onRemoteMethod(msg) {

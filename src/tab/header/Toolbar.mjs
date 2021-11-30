@@ -70,7 +70,6 @@ class Toolbar extends BaseToolbar {
     }
 
     /**
-     *
      * @protected
      */
     createItems() {

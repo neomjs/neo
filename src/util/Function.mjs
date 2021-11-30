@@ -28,7 +28,6 @@ class NeoFunction extends Base {
     }
 
     /**
-     *
      * @param {Neo.core.Base} target
      * @param {String} methodName
      * @param {Function} fn
@@ -45,7 +44,6 @@ class NeoFunction extends Base {
     }
 
     /**
-     *
      * @param {Neo.core.Base} target
      * @param {String} methodName
      * @param {Function} fn

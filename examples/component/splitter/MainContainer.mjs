@@ -65,7 +65,6 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     *
      * @param {Object} data
      */
     logInstance(data) {
@@ -73,7 +72,6 @@ class MainContainer extends ConfigurationViewport {
     }
 
     /**
-     *
      * @param {Object} data
      */
     switchDirection(data) {

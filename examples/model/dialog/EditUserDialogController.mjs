@@ -14,7 +14,6 @@ class EditUserDialogController extends Component {
     }}
 
     /**
-     *
      * @param {Object} data
      */
     onFirstnameTextFieldChange(data) {
@@ -24,7 +23,6 @@ class EditUserDialogController extends Component {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onLastnameTextFieldChange(data) {

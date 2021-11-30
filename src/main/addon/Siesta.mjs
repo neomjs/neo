@@ -29,7 +29,6 @@ class Siesta extends Base {
     }
 
     /**
-     *
      * @protected
      */
     adjustSiestaEnvironment() {

@@ -155,7 +155,6 @@ class EventDragZone extends DragZone {
     }
 
     /**
-     *
      * @param {Object} data
      */
     createDragProxy(data) {
@@ -257,7 +256,6 @@ class EventDragZone extends DragZone {
     }
 
     /**
-     *
      * @param {Object} data
      */
     dragMove(data) {
@@ -497,7 +495,6 @@ class EventDragZone extends DragZone {
     }
 
     /**
-     *
      * @param {Object} data
      */
     dragStart(data) {

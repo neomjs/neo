@@ -58,7 +58,6 @@ class DragZone extends BaseDragZone {
     }
 
     /**
-     *
      * @returns {Object}
      */
     getDragElementRoot() {
@@ -66,7 +65,6 @@ class DragZone extends BaseDragZone {
     }
 
     /**
-     *
      * @param {Object} record
      * @param {Number} index
      * @returns {Object|null} vdom
@@ -82,7 +80,6 @@ class DragZone extends BaseDragZone {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDragStart(data) {

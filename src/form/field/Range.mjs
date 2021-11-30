@@ -46,7 +46,6 @@ class Range extends Number {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {

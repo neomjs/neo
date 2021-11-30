@@ -579,7 +579,6 @@ class Helper extends Base {
     }
 
     /**
-     *
      * @param {Object} vnode
      */
     createStringFromVnode(vnode) {
@@ -629,7 +628,6 @@ class Helper extends Base {
     }
 
     /**
-     *
      * @param {Neo.vdom.VNode} vnode
      * @param {String} id
      * @param {Neo.vdom.VNode} parentNode
@@ -672,7 +670,6 @@ class Helper extends Base {
     }
 
     /**
-     *
      * @param {Object} opts
      * @returns {Object|Neo.vdom.VNode|null}
      */

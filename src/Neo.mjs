@@ -435,7 +435,6 @@ Neo = self.Neo = Object.assign({
     },
 
     /**
-     *
      * @param {*} item
      * @returns {String|null}
      */

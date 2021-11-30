@@ -14,7 +14,6 @@ class MainComponentController extends ComponentController {
     }}
 
     /**
-     *
      * @param {Object} data
      */
     onButtonClick(data) {

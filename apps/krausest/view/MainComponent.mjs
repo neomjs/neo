@@ -61,7 +61,6 @@ class MainComponent extends Base {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {

@@ -55,7 +55,6 @@ class Xhr extends Base {
     }
 
     /**
-     *
      * @param {Object} e
      */
     onError(e) {
@@ -74,7 +73,6 @@ class Xhr extends Base {
     }
 
     /**
-     *
      * @param {Object} e
      */
     onLoad(e) {
@@ -100,7 +98,6 @@ class Xhr extends Base {
     }
 
     /**
-     *
      * @param {Object} opts
      * @returns {Promise<any>}
      */
@@ -130,7 +127,6 @@ class Xhr extends Base {
     }
 
     /**
-     *
      * @param {Object} opts
      * @returns {Promise<any>}
      */
@@ -150,7 +146,6 @@ class Xhr extends Base {
     }
 
     /**
-     *
      * @param {Object} opts
      * @param {Function} opts.callback
      * @param {Object} opts.data
@@ -213,7 +208,6 @@ class Xhr extends Base {
     }
 
     /**
-     *
      * @param form
      * @param {Object} opts
      * @returns {XMLHttpRequest}

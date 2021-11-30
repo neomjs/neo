@@ -66,7 +66,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} [opts={}]
      * @param {Object} [opts.data]
      * @param {Object} [opts.params]
@@ -84,7 +83,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} [opts={}]
      * @param {Object} [opts.data]
      * @param {Object} [opts.params]
@@ -112,7 +110,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} [opts={}]
      * @param {Object} [opts.data]
      * @param {Object} [opts.params]
@@ -156,7 +153,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} [opts={}]
      * @param {Object} [opts.data]
      * @param {Object} [opts.params]
@@ -187,7 +183,6 @@ class Base extends CoreBase {
     }
 
     /**
-     *
      * @param {Object} [opts={}]
      * @param {Object} [opts.data]
      * @param {Object} [opts.params]

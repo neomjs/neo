@@ -62,7 +62,6 @@ class SignUpComponent extends Component {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {

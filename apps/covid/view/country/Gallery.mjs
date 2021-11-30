@@ -141,7 +141,6 @@ class CountryGallery extends Gallery {
     }
 
     /**
-     *
      * @param {String} vnodeId
      * @returns {String} itemId
      */
@@ -158,7 +157,6 @@ class CountryGallery extends Gallery {
     }
 
     /**
-     *
      * @param {Array} items
      */
     onStoreLoad(items) {

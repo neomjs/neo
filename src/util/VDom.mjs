@@ -14,7 +14,6 @@ class VDom extends Base {
     }}
 
     /**
-     *
      * @param {Object} vdom
      * @param {Boolean} [removeIds=true]
      * @returns {Object} cloned vdom
@@ -160,7 +159,6 @@ class VDom extends Base {
     }
 
     /**
-     *
      * @param {Object} vdom
      * @param {Number} index
      * @returns {Array}
@@ -180,7 +178,6 @@ class VDom extends Base {
     }
 
     /**
-     *
      * @param {Object} vdom
      * @param {Number} index
      * @returns {Array}
@@ -190,7 +187,6 @@ class VDom extends Base {
     }
 
     /**
-     *
      * @param {Object} vdom
      * @param {String} flag
      * @param {Array} [matchArray]
@@ -217,7 +213,6 @@ class VDom extends Base {
     }
 
     /**
-     *
      * @param {Object} vdom
      * @param {String} id
      * @param {Boolean} topLevel=true Internal flag, do not use it

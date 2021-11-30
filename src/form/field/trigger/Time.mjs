@@ -48,7 +48,6 @@ class Time extends Picker {
     }}
 
     /**
-     *
      * @param {Object} config
      */
     constructor(config) {

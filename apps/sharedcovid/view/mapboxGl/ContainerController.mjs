@@ -19,7 +19,6 @@ class ContainerController extends ComponentController {
     }}
 
     /**
-     *
      * @param {String} layerId
      * @param {String} visibility
      */
@@ -32,7 +31,6 @@ class ContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onDetailCirclesChange(data) {
@@ -43,7 +41,6 @@ class ContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onHeatMapChange(data) {
@@ -51,7 +48,6 @@ class ContainerController extends ComponentController {
     }
 
     /**
-     *
      * @param {Object} data
      */
     onTerrainChange(data) {

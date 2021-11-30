@@ -78,7 +78,6 @@ class WorldMapComponent extends AmChartComponent {
     }}
 
     /**
-     *
      * @param {Object[]} data
      */
     loadData(data) {
