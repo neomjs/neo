@@ -169,8 +169,8 @@ class Gallery extends Component {
     /**
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         let me           = this,
             domListeners = Neo.clone(me.domListeners, true),

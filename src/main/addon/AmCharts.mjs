@@ -74,8 +74,8 @@ class AmCharts extends Base {
     /**
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         this.insertAmChartsScripts();
     }

@@ -77,8 +77,8 @@ class EditEventContainer extends FormContainer {
     /**
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         // focus trap, see: https://github.com/neomjs/neo/issues/2306
         this.vdom.tabIndex = -1;

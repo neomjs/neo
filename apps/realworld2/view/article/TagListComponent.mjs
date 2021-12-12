@@ -51,8 +51,8 @@ class TagListComponent extends Component {
     /**
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         Neo.main.DomEvents.registerPreventDefaultTargets({
             name: 'click',

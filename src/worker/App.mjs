@@ -53,8 +53,8 @@ class App extends Base {
     /**
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
         Neo.applyDeltas = this.applyDeltas.bind(this); // convenience shortcut
     }
 

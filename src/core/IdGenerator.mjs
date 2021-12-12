@@ -42,7 +42,7 @@ class IdGenerator {
     /**
      * @param config
      */
-    constructor(config) {
+    construct(config) {
         let me = this;
 
         me.idCounter = {};

@@ -30,8 +30,8 @@ class MainContainer extends Container {
         store: null
     }}
 
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         let me = this;
 

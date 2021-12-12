@@ -48,13 +48,13 @@ class Application extends Base {
     /**
      * @param {Object} config
      */
-    constructor(config) {
+    construct(config) {
         // to guarantee that the main view can access Neo.apps at any point,
         // we need to trigger its assignment at the end of the ctor.
         let mainView = config.mainView;
         delete config.mainView;
 
-        super(config);
+        super.construct(config);
 
         let me = this;
 

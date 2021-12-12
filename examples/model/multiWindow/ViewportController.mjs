@@ -27,8 +27,8 @@ class MainContainerController extends ComponentController {
     /**
      * The App worker will receive connect & disconnect events inside the SharedWorkers context
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         let me = this;
 

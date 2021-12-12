@@ -105,8 +105,8 @@ class Base extends Component {
     /**
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         let me           = this,
             domListeners = me.domListeners;
