@@ -24,6 +24,8 @@ Neo.applyClassConfig(TestClass);
 
 StartTest(t => {
     t.it('Class based class configs and fields', t => {
+        t.diag("Testing class based values");
+
         let instance = Neo.create({
             className: 'Neo.TestClass'
         });
@@ -35,6 +37,8 @@ StartTest(t => {
     });
 
     t.it('Instance based class configs and fields', t => {
+        t.diag("Testing values which got set on instance level");
+
         let instance = Neo.create({
             className: 'Neo.TestClass',
             fieldA   : 5,
@@ -50,6 +54,8 @@ StartTest(t => {
     });
 
     t.it('Dynamically changed class configs and fields', t => {
+        t.diag("Testing instance.set()");
+
         let instance = Neo.create({
             className: 'Neo.TestClass'
         });
