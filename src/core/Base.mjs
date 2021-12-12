@@ -403,7 +403,7 @@ class Base {
         let configNames = this.constructor.config;
 
         Object.entries(config).forEach(([key, value]) => {
-            if (!configNames.hasOwnProperty(key)) {
+            if (!configNames.hasOwnProperty(key) && !Neo.hasPropertySetter(this, key)) {
                 this[key] = value;
                 delete config[key];
             }
