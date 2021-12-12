@@ -7,15 +7,15 @@ class TestClass extends core.Base {
 
     static getConfig() {return {
         className: 'Neo.TestClass',
-        configA_: 3,
-        configB_: 4
+        configA_ : 3,
+        configB_ : 4
     }}
 
-    beforeSetA(value) {
+    beforeSetConfigA(value) {
         return this.fieldA + value;
     }
 
-    beforeSetB(value) {
+    beforeSetConfigB(value) {
         return this.fieldB + value;
     }
 }
@@ -30,8 +30,8 @@ StartTest(t => {
             className: 'Neo.TestClass'
         });
 
-        t.isStrict(instance.configA, 3, 'configA equals ' + 3);
-        t.isStrict(instance.configB, 4, 'configB equals ' + 4);
+        t.isStrict(instance.configA, 4, 'configA equals ' + 4); // 1 + 3
+        t.isStrict(instance.configB, 6, 'configB equals ' + 6); // 2 + 4
         t.isStrict(instance.fieldA,  1, 'fieldA equals '  + 1);
         t.isStrict(instance.fieldB,  2, 'fieldB equals '  + 2);
     });

@@ -99,6 +99,9 @@ class Base {
 
         me.getStaticConfig('observable') && me.initObservable(config);
 
+        // assign class field values prior to configs
+        config = me.setFields(config);
+
         me.initConfig(config);
 
         Object.defineProperty(me, 'configsApplied', {
@@ -376,6 +379,8 @@ class Base {
     set(values={}) {
         let me = this;
 
+        values = me.setFields(values);
+
         // If the initial config processing is still running,
         // finish this one first before dropping new values into the configSymbol.
         // see: https://github.com/neomjs/neo/issues/2201
@@ -386,6 +391,25 @@ class Base {
         Object.assign(me[configSymbol], values);
 
         me.processConfigs(true);
+    }
+
+    /**
+     * We want to assign class fields first and remove them from the config object,
+     * so that afterSet(), beforeGet() and beforeSet() methods can get the new values right away
+     * @param {Object} config
+     * @returns {Object}
+     */
+    setFields(config) {
+        let configNames = this.constructor.config;
+
+        Object.entries(config).forEach(([key, value]) => {
+            if (!configNames[key]) {
+                this[key] = value;
+                delete config[key];
+            }
+        });
+
+        return config;
     }
 
     /**
