@@ -69,8 +69,8 @@ class MainContainer extends Viewport {
      * We want to fetch the CSS without requiring to load the related JS module.
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
         Neo.worker.App.insertThemeFiles(this.appName, null, 'Neo.calendar.view.MainContainer');
     }
 }
