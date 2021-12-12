@@ -403,7 +403,7 @@ class Base {
         let configNames = this.constructor.config;
 
         Object.entries(config).forEach(([key, value]) => {
-            if (!configNames[key]) {
+            if (!configNames.hasOwnProperty(key)) {
                 this[key] = value;
                 delete config[key];
             }
