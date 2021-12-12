@@ -17,6 +17,7 @@ project.configure({
 });
 
 project.plan(
+    'tests/ClassConfigsAndFields.mjs',
     'tests/ClassSystem.mjs',
     'tests/CollectionBase.mjs',
     'tests/VdomHelper.mjs',
