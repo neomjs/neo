@@ -35,6 +35,7 @@ No need to take care of a workers setup, and the cross channel communication on 
 11. <a href="#story--vision">Story & Vision</a>
 12. <a href="#contributors">neo.mjs is in need of more contributors!</a>
 13. <a href="#sponsors">neo.mjs is in need of more sponsors!</a>
+14. <a href="#jobs">Jobs</a>
 
 </br></br>
 <h2 id="slack-channel">1. Slack Channel for questions & feedback</h2>
@@ -232,6 +233,14 @@ The benefit of doing so is getting results delivered faster.
 
 More infos: <a href="./BACKERS.md">Sponsors & Backers</a>
 
+</br></br>
+<h2 id="jobs">14. Jobs</h2>
+Accenture is hiring multiple neo.mjs developers for the new Cloud Technology Studio in Kaiserslauern (Germany):</br>
+<a href="https://www.accenture.com/de-de/careers/jobdetails?id=R00057924_de">Senior neo.mjs Frontend Developer /Architect (all genders)</a></br></br>
+
+These full-time roles are based on German contracts, so they require living in (or relocating to) Germany.
+
+</br></br>
 Logo contributed by <a href="https://www.linkedin.com/in/dinkheller/">Torsten Dinkheller</a>.
 
 </br></br>

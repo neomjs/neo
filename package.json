@@ -1,6 +1,6 @@
 {
     "name": "neo.mjs",
-    "version": "2.3.18",
+    "version": "2.3.19",
     "description": "The webworkers driven UI framework",
     "repository": {
         "type": "git",
@@ -48,8 +48,8 @@
         "neo-jsdoc": "^1.0.1",
         "neo-jsdoc-x": "^1.0.4",
         "postcss": "^8.4.4",
-        "sass": "^1.44.0",
-        "webpack": "^5.64.4",
+        "sass": "^1.45.0",
+        "webpack": "^5.65.0",
         "webpack-cli": "^4.9.1",
         "webpack-dev-server": "4.6.0",
         "webpack-hook-plugin": "^1.0.7",
