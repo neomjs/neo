@@ -49,8 +49,8 @@ StartTest(t => {
 
         t.isStrict(instance.configA, 11, 'configA equals ' + 11); // 5 + 6
         t.isStrict(instance.configB, 15, 'configB equals ' + 15); // 8 + 7
-        t.isStrict(instance.fieldA,   5, 'fieldA equals '  + 5);
-        t.isStrict(instance.fieldB,   8, 'fieldB equals '  + 8);
+        t.isStrict(instance.fieldA,   5, 'fieldA equals '  +  5);
+        t.isStrict(instance.fieldB,   8, 'fieldB equals '  +  8);
     });
 
     t.it('Dynamically changed class configs and fields', t => {
@@ -69,7 +69,7 @@ StartTest(t => {
 
         t.isStrict(instance.configA, 11, 'configA equals ' + 11); // 5 + 6
         t.isStrict(instance.configB, 15, 'configB equals ' + 15); // 8 + 7
-        t.isStrict(instance.fieldA,   5, 'fieldA equals '  + 5);
-        t.isStrict(instance.fieldB,   8, 'fieldB equals '  + 8);
+        t.isStrict(instance.fieldA,   5, 'fieldA equals '  +  5);
+        t.isStrict(instance.fieldB,   8, 'fieldB equals '  +  8);
     });
 });
