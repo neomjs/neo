@@ -37,8 +37,8 @@ class Stylesheet extends Base {
     /**
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         if (Neo.config.useFontAwesome) {
             this.createStyleSheet(null, null, Neo.config.basePath + 'node_modules/@fortawesome/fontawesome-free/css/all.min.css');

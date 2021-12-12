@@ -23,8 +23,8 @@ class DragZone extends BaseDragZone {
     /**
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         let me           = this,
             owner        = me.owner,

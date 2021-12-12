@@ -23,8 +23,8 @@ class Component extends Base {
     /**
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
         Neo.getComponent = this.getById.bind(this); // alias
     }
 

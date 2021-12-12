@@ -9,7 +9,7 @@ class Message {
     /**
      * @param {Object} config
      */
-    constructor(config) {
+    construct(config) {
         /**
          * @member {String} action
          */

@@ -175,8 +175,8 @@ class YearComponent extends Component {
     /**
      * @param config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         let me           = this,
             domListeners = me.domListeners;

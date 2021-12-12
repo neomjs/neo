@@ -6,7 +6,7 @@ class VNode {
     /**
      * @param config
      */
-    constructor(config) {
+    construct(config) {
         /**
          * @member {Array} attributes=[]
          */

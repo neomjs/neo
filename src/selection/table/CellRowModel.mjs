@@ -34,8 +34,8 @@ class CellRowModel extends CellModel {
     /**
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         this.selectedRowIds = [];
     }
