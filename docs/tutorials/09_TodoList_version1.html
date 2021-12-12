@@ -149,8 +149,8 @@ class MainComponent extends Component {
         }
     }}
 
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
         this.createItems(this.data || []);
     }
 
@@ -226,7 +226,7 @@ export {MainComponent as default};</code></pre>
             <button style="margin-left:10px;" class="todo-add-button" id="neo-vnode-9">Add Item</button>
         </div>
     </div>
-    
+
     <p>The generated DOM will be:</p>
     <pre><code>&lt;div style="border:1px solid #000;margin:20px;overflow:scroll;height:200px;width:300px;max-width:300px;" id="neo-todolistapp1-maincomponent-1"&gt;
     &lt;ol id="neo-vnode-7"&gt;
@@ -244,8 +244,8 @@ export {MainComponent as default};</code></pre>
         Engine to detect moved nodes.</br>
         Since a todoList without any logic is no fun, let's change this!
     </p>
-    <pre><code>constructor(config) {
-    super(config);
+    <pre><code>construct(config) {
+    super.construct(config);
 
     let me           = this,
         domListeners = me.domListeners || [];
@@ -409,8 +409,8 @@ class MainComponent extends Component {
         }
     }}
 
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         let me           = this,
             domListeners = me.domListeners || [];

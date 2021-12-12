@@ -57,8 +57,8 @@ class SourceViewComponent extends Component {
      *
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         let me   = this,
             url  = '../../' + me.structureData.srcPath;
