@@ -333,8 +333,9 @@ Neo = self.Neo = Object.assign({
             cls = Neo.ns(className);
         }
 
-        instance = new cls(config);
+        instance = new cls();
 
+        instance.construct(config);
         instance.onConstructed();
         instance.onAfterConstructed();
         instance.init();

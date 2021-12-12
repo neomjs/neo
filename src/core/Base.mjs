@@ -74,7 +74,7 @@ class Base {
      * Applies the observable mixin if needed, grants remote access if needed.
      * @param {Object} config={}
      */
-    constructor(config={}) {
+    construct(config={}) {
         let me = this;
 
         Object.defineProperties(me, {
