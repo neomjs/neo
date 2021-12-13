@@ -1,6 +1,31 @@
 import Neo       from '../../../src/Neo.mjs';
 import * as core from '../../../src/core/_export.mjs';
 
+class DefaultTestClass {
+    _fieldA = 1;
+    _fieldB = 2;
+
+    get fieldA() {
+        return this._fieldA;
+    }
+
+    set fieldA(value) {
+        this._fieldA = this.fieldB + value;
+    }
+
+    get fieldB() {
+        return this._fieldB;
+    }
+
+    set fieldB(value) {
+        this._fieldB = this.fieldA + value;
+    }
+
+    constructor(config) {
+        Object.assign(this, config);
+    }
+}
+
 class TestClass extends core.Base {
     fieldA = 1;
     fieldB = 2;
@@ -23,6 +48,28 @@ class TestClass extends core.Base {
 Neo.applyClassConfig(TestClass);
 
 StartTest(t => {
+    t.it('Default class fields', t => {
+        t.diag("Testing class fields");
+
+        let instance = new DefaultTestClass({
+            fieldA: 3,
+            fieldB: 4
+        });
+
+        // not consistent
+        t.isStrict(instance.fieldA, 5, 'fieldA equals ' + 5); // 2 + 3 => old value of fieldB + new value of fieldA
+        t.isStrict(instance.fieldB, 9, 'fieldB equals ' + 9); // 5 + 4 => new value of fieldA + new value of fieldB
+
+        Object.assign(instance, {
+            fieldA: 5,
+            fieldB: 6
+        });
+
+        // not consistent
+        t.isStrict(instance.fieldA, 14, 'fieldA equals ' + 14); //  9 + 5 => old value of fieldB + new value of fieldA
+        t.isStrict(instance.fieldB, 20, 'fieldB equals ' + 20); // 14 + 6 => new value of fieldA + new value of fieldB
+    });
+
     t.it('Class based class configs and fields', t => {
         t.diag("Testing class based values");
 
