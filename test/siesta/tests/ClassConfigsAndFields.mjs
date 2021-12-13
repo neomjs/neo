@@ -59,23 +59,25 @@ StartTest(t => {
         t.diag("Testing class fields");
 
         class DefaultTestClass {
-            _fieldA = 1;
-            _fieldB = 2;
+            fieldA   = 1;
+            fieldB   = 2;
+            _configA = 3;
+            _configB = 4;
 
-            get fieldA() {
-                return this._fieldA;
+            get configA() {
+                return this._configA;
             }
 
-            set fieldA(value) {
-                this._fieldA = this.fieldB + value;
+            set configA(value) {
+                this._configA = this.fieldA + value;
             }
 
-            get fieldB() {
-                return this._fieldB;
+            get configB() {
+                return this._configB;
             }
 
-            set fieldB(value) {
-                this._fieldB = this.fieldA + value;
+            set configB(value) {
+                this._configB = this.fieldB + value;
             }
 
             constructor(config) {
@@ -84,42 +86,32 @@ StartTest(t => {
         }
 
         const instance = new DefaultTestClass({
-            fieldA: 3,
-            fieldB: 4
+            fieldA : 5,
+            configA: 6,
+            configB: 7,
+            fieldB : 8
         });
 
         // not consistent
-        t.isStrict(instance.fieldA, 5, 'fieldA equals ' + 5); // 2 + 3 => old value of fieldB + new value of fieldA
-        t.isStrict(instance.fieldB, 9, 'fieldB equals ' + 9); // 5 + 4 => new value of fieldA + new value of fieldB
-
-        Object.assign(instance, {
-            fieldA: 5,
-            fieldB: 6
-        });
-
-        // not consistent
-        t.isStrict(instance.fieldA, 14, 'fieldA equals ' + 14); //  9 + 5 => old value of fieldB + new value of fieldA
-        t.isStrict(instance.fieldB, 20, 'fieldB equals ' + 20); // 14 + 6 => new value of fieldA + new value of fieldB
+        t.isStrict(instance.configA, 11, 'configA equals ' + 11); // 5 + 6 => new value of fieldA + new value of configA
+        t.isStrict(instance.configB,  9, 'configB equals ' +  9); // 7 + 2 => old value of fieldB + new value of configB
+        t.isStrict(instance.fieldA,   5, 'fieldA equals '  +  5);
+        t.isStrict(instance.fieldB,   8, 'fieldB equals '  +  8);
 
         t.diag('Reversed order');
 
         const instance2 = new DefaultTestClass({
-            fieldB: 4, // reversed order
-            fieldA: 3
+            fieldB : 8, // reversed order
+            configB: 7,
+            configA: 6,
+            fieldA : 5
         });
 
         // not consistent
-        t.isStrict(instance2.fieldA, 8, 'fieldA equals ' + 8); // 5 + 3 => new value of fieldB + new value of fieldA
-        t.isStrict(instance2.fieldB, 5, 'fieldB equals ' + 5); // 1 + 4 => old value of fieldA + new value of fieldB
-
-        Object.assign(instance2, {
-            fieldB: 6, // reversed order
-            fieldA: 5
-        });
-
-        // not consistent
-        t.isStrict(instance2.fieldA, 19, 'fieldA equals ' + 19); // 14 + 5 => new value of fieldB + new value of fieldA
-        t.isStrict(instance2.fieldB, 14, 'fieldB equals ' + 14); //  8 + 6 => old value of fieldA + new value of fieldB
+        t.isStrict(instance2.configA,  7, 'configA equals ' +  7); // 5 + 6 => old value of fieldA + new value of configA
+        t.isStrict(instance2.configB, 15, 'configB equals ' + 15); // 8 + 7 => new value of fieldB + new value of configB
+        t.isStrict(instance2.fieldA,   5, 'fieldA equals '  +  5);
+        t.isStrict(instance2.fieldB,   8, 'fieldB equals '  +  8);
     });
 
     t.it('Class based class configs and fields', t => {
