@@ -48,6 +48,38 @@ class TestClass extends core.Base {
 Neo.applyClassConfig(TestClass);
 
 StartTest(t => {
+    t.it('Default class fields inside constructors', t => {
+        t.diag("Default class");
+
+        class CtorTest {
+            fieldA = 1;
+            fieldB = 2;
+
+            constructor() {
+                t.isStrict(this.fieldA, 1, 'fieldA equals ' + 1);
+                t.isStrict(this.fieldB, 2, 'fieldB equals ' + 2);
+            }
+        }
+
+        new CtorTest();
+
+        t.diag("Default class extension");
+
+        class CtorTestExtension extends CtorTest {
+            fieldA = 3;
+            fieldB = 4;
+
+            constructor() {
+                super();
+
+                t.isStrict(this.fieldA, 3, 'fieldA equals ' + 3);
+                t.isStrict(this.fieldB, 4, 'fieldB equals ' + 4);
+            }
+        }
+
+        new CtorTestExtension();
+    });
+
     t.it('Default class fields', t => {
         t.diag("Testing class fields");
 
