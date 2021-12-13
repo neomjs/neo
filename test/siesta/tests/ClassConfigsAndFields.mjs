@@ -55,6 +55,46 @@ StartTest(t => {
         new CtorTestExtension();
     });
 
+    t.it('Neo default class fields inside constructors', t => {
+        t.diag("Neo default class");
+
+        class NeoCtorTest extends core.Base {
+            fieldA = 1;
+            fieldB = 2;
+
+            construct(config) {
+                super.construct(config);
+
+                let me        = this,
+                    extension = me.extension;
+
+                t.isStrict(this.fieldA, extension ? 3 : 1, 'fieldA equals ' + (extension ? 3 : 1));
+                t.isStrict(this.fieldB, extension ? 4 : 2, 'fieldB equals ' + (extension ? 4 : 2));
+            }
+        }
+
+        Neo.applyClassConfig(NeoCtorTest);
+
+        Neo.create(NeoCtorTest);
+
+        t.diag("Neo default class extension");
+
+        class NeoCtorTestExtension extends NeoCtorTest {
+            extension = true; // flag for the base ctor tests
+            fieldA    = 3;
+            fieldB    = 4;
+
+            construct(config) {
+                super.construct(config);
+
+                t.isStrict(this.fieldA, 3, 'fieldA equals ' + 3);
+                t.isStrict(this.fieldB, 4, 'fieldB equals ' + 4);
+            }
+        }
+
+        Neo.create(NeoCtorTestExtension);
+    });
+
     t.it('Default class fields', t => {
         t.diag("Testing class fields");
 
