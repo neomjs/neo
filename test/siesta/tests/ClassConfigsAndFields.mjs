@@ -185,5 +185,23 @@ StartTest(t => {
         t.isStrict(instance.configB, 15, 'configB equals ' + 15); // 8 + 7
         t.isStrict(instance.fieldA,   5, 'fieldA equals '  +  5);
         t.isStrict(instance.fieldB,   8, 'fieldB equals '  +  8);
+
+        t.diag('Reversed order');
+
+        const instance2 = Neo.create({
+            className: 'Neo.TestClass'
+        });
+
+        instance2.set({
+            fieldB : 8, // reversed order
+            configB: 7,
+            configA: 6,
+            fieldA : 5
+        });
+
+        t.isStrict(instance2.configA, 11, 'configA equals ' + 11); // 5 + 6
+        t.isStrict(instance2.configB, 15, 'configB equals ' + 15); // 8 + 7
+        t.isStrict(instance2.fieldA,   5, 'fieldA equals '  +  5);
+        t.isStrict(instance2.fieldB,   8, 'fieldB equals '  +  8);
     });
 });
