@@ -256,13 +256,6 @@ StartTest(t => {
                 t.isStrict(me.configA + me.configB + me.configC + me.fieldA + me.fieldB, sum, 'sum equals ' + sum);
             }
 
-            afterSetConfigB(value, oldValue) {
-                let me  = this,
-                    sum = me.fieldA === 1 ? 21 : 6;
-
-                t.isStrict(me.configA + me.configB + me.configC + me.fieldA + me.fieldB, sum, 'sum equals ' + sum);
-            }
-
             afterSetConfigC(value, oldValue) {
                 let me  = this,
                     sum = me.fieldA === 1 ? 21 : 6;
@@ -272,6 +265,15 @@ StartTest(t => {
 
             beforeSetConfigA(value) {
                 return this.fieldA + value;
+            }
+
+            beforeSetConfigB(value) {
+                let me  = this,
+                    sum = me.fieldA === 1 ? 21 : 6;
+
+                t.isStrict(me.configA + me.configB + me.configC + me.fieldA + me.fieldB, sum, 'sum equals ' + sum);
+
+                return value;
             }
 
             beforeSetConfigC(value) {
