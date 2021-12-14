@@ -236,4 +236,71 @@ StartTest(t => {
         t.isStrict(instance2.fieldA,   5, 'fieldA equals '  +  5);
         t.isStrict(instance2.fieldB,   8, 'fieldB equals '  +  8);
     });
+
+    t.it('Advanced configs and fields example', t => {
+        class AdvancedClass extends core.Base {
+            fieldA = 2;
+            fieldB = 1;
+
+            static getConfig() {return {
+                className: 'Neo.TestClass',
+                configA_ : 0,
+                configB_ : 0,
+                configC_ : 0,
+            }}
+
+            afterSetConfigA(value, oldValue) {
+                let me  = this,
+                    sum = me.fieldA === 1 ? 21 : 6;
+
+                t.isStrict(me.configA + me.configB + me.configC + me.fieldA + me.fieldB, sum, 'sum equals ' + sum);
+            }
+
+            afterSetConfigB(value, oldValue) {
+                let me  = this,
+                    sum = me.fieldA === 1 ? 21 : 6;
+
+                t.isStrict(me.configA + me.configB + me.configC + me.fieldA + me.fieldB, sum, 'sum equals ' + sum);
+            }
+
+            afterSetConfigC(value, oldValue) {
+                let me  = this,
+                    sum = me.fieldA === 1 ? 21 : 6;
+
+                t.isStrict(me.configA + me.configB + me.configC + me.fieldA + me.fieldB, sum, 'sum equals ' + sum);
+            }
+
+            beforeSetConfigA(value) {
+                return this.fieldA + value;
+            }
+
+            beforeSetConfigC(value) {
+                return this.fieldB + value;
+            }
+        }
+
+        Neo.applyClassConfig(AdvancedClass);
+
+        let instance = Neo.create(AdvancedClass);
+
+        instance.set({
+            fieldA : 1,
+            configA: 2,
+            configB: 3,
+            configC: 4,
+            fieldB : 5
+        });
+
+        t.diag('Reversed order');
+
+        let instance2 = Neo.create(AdvancedClass);
+
+        instance2.set({
+            fieldB : 5,
+            configC: 4,
+            configB: 3,
+            configA: 2,
+            fieldA : 1
+        });
+    });
 });
