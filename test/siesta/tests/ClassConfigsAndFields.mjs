@@ -243,10 +243,9 @@ StartTest(t => {
             fieldB = 1;
 
             static getConfig() {return {
-                className: 'Neo.TestClass',
-                configA_ : 0,
-                configB_ : 0,
-                configC_ : 0,
+                configA_: 0,
+                configB_: 0,
+                configC_: 0
             }}
 
             afterSetConfigA(value, oldValue) {
