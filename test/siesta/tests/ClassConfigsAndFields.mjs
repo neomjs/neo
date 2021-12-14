@@ -133,10 +133,10 @@ StartTest(t => {
         });
 
         // not consistent
-        t.isStrict(instance.configA, 11, 'configA equals ' + 11); // 5 + 6 => new value of fieldA + new value of configA
-        t.isStrict(instance.configB,  9, 'configB equals ' +  9); // 7 + 2 => old value of fieldB + new value of configB
-        t.isStrict(instance.fieldA,   5, 'fieldA equals '  +  5);
-        t.isStrict(instance.fieldB,   8, 'fieldB equals '  +  8);
+        t.isStrict(instance.configA, 11, 'configA equals 11'); // 5 + 6 => new value of fieldA + new value of configA
+        t.isStrict(instance.configB,  9, 'configB equals  9'); // 7 + 2 => old value of fieldB + new value of configB
+        t.isStrict(instance.fieldA,   5, 'fieldA equals   5');
+        t.isStrict(instance.fieldB,   8, 'fieldB equals   8');
 
         t.diag('Reversed order');
 
@@ -148,10 +148,10 @@ StartTest(t => {
         });
 
         // not consistent
-        t.isStrict(instance2.configA,  7, 'configA equals ' +  7); // 5 + 6 => old value of fieldA + new value of configA
-        t.isStrict(instance2.configB, 15, 'configB equals ' + 15); // 8 + 7 => new value of fieldB + new value of configB
-        t.isStrict(instance2.fieldA,   5, 'fieldA equals '  +  5);
-        t.isStrict(instance2.fieldB,   8, 'fieldB equals '  +  8);
+        t.isStrict(instance2.configA,  7, 'configA equals  7'); // 5 + 6 => old value of fieldA + new value of configA
+        t.isStrict(instance2.configB, 15, 'configB equals 15'); // 8 + 7 => new value of fieldB + new value of configB
+        t.isStrict(instance2.fieldA,   5, 'fieldA equals   5');
+        t.isStrict(instance2.fieldB,   8, 'fieldB equals   8');
     });
 
     t.it('Class based class configs and fields', t => {
@@ -161,10 +161,10 @@ StartTest(t => {
             className: 'Neo.TestClass'
         });
 
-        t.isStrict(instance.configA, 4, 'configA equals ' + 4); // 1 + 3
-        t.isStrict(instance.configB, 6, 'configB equals ' + 6); // 2 + 4
-        t.isStrict(instance.fieldA,  1, 'fieldA equals '  + 1);
-        t.isStrict(instance.fieldB,  2, 'fieldB equals '  + 2);
+        t.isStrict(instance.configA, 4, 'configA equals 4'); // 1 + 3
+        t.isStrict(instance.configB, 6, 'configB equals 6'); // 2 + 4
+        t.isStrict(instance.fieldA,  1, 'fieldA equals  1');
+        t.isStrict(instance.fieldB,  2, 'fieldB equals  2');
     });
 
     t.it('Instance based class configs and fields', t => {
@@ -178,10 +178,10 @@ StartTest(t => {
             fieldB   : 8
         });
 
-        t.isStrict(instance.configA, 11, 'configA equals ' + 11); // 5 + 6
-        t.isStrict(instance.configB, 15, 'configB equals ' + 15); // 8 + 7
-        t.isStrict(instance.fieldA,   5, 'fieldA equals '  +  5);
-        t.isStrict(instance.fieldB,   8, 'fieldB equals '  +  8);
+        t.isStrict(instance.configA, 11, 'configA equals 11'); // 5 + 6
+        t.isStrict(instance.configB, 15, 'configB equals 15'); // 8 + 7
+        t.isStrict(instance.fieldA,   5, 'fieldA equals   5');
+        t.isStrict(instance.fieldB,   8, 'fieldB equals   8');
 
         t.diag('Reversed order');
 
@@ -193,10 +193,10 @@ StartTest(t => {
             fieldA   : 5
         });
 
-        t.isStrict(instance2.configA, 11, 'configA equals ' + 11); // 5 + 6
-        t.isStrict(instance2.configB, 15, 'configB equals ' + 15); // 8 + 7
-        t.isStrict(instance2.fieldA,   5, 'fieldA equals '  +  5);
-        t.isStrict(instance2.fieldB,   8, 'fieldB equals '  +  8);
+        t.isStrict(instance2.configA, 11, 'configA equals 11'); // 5 + 6
+        t.isStrict(instance2.configB, 15, 'configB equals 15'); // 8 + 7
+        t.isStrict(instance2.fieldA,   5, 'fieldA equals   5');
+        t.isStrict(instance2.fieldB,   8, 'fieldB equals   8');
     });
 
     t.it('Dynamically changed class configs and fields', t => {
@@ -213,10 +213,10 @@ StartTest(t => {
             fieldB : 8
         });
 
-        t.isStrict(instance.configA, 11, 'configA equals ' + 11); // 5 + 6
-        t.isStrict(instance.configB, 15, 'configB equals ' + 15); // 8 + 7
-        t.isStrict(instance.fieldA,   5, 'fieldA equals '  +  5);
-        t.isStrict(instance.fieldB,   8, 'fieldB equals '  +  8);
+        t.isStrict(instance.configA, 11, 'configA equals 11'); // 5 + 6
+        t.isStrict(instance.configB, 15, 'configB equals 15'); // 8 + 7
+        t.isStrict(instance.fieldA,   5, 'fieldA equals   5');
+        t.isStrict(instance.fieldB,   8, 'fieldB equals   8');
 
         t.diag('Reversed order');
 
@@ -231,10 +231,10 @@ StartTest(t => {
             fieldA : 5
         });
 
-        t.isStrict(instance2.configA, 11, 'configA equals ' + 11); // 5 + 6
-        t.isStrict(instance2.configB, 15, 'configB equals ' + 15); // 8 + 7
-        t.isStrict(instance2.fieldA,   5, 'fieldA equals '  +  5);
-        t.isStrict(instance2.fieldB,   8, 'fieldB equals '  +  8);
+        t.isStrict(instance2.configA, 11, 'configA equals 11'); // 5 + 6
+        t.isStrict(instance2.configB, 15, 'configB equals 15'); // 8 + 7
+        t.isStrict(instance2.fieldA,   5, 'fieldA equals   5');
+        t.isStrict(instance2.fieldB,   8, 'fieldB equals   8');
     });
 
     t.it('Advanced configs and fields example', t => {
@@ -252,14 +252,14 @@ StartTest(t => {
                 let me  = this,
                     sum = me.fieldA === 1 ? 21 : 6;
 
-                t.isStrict(me.configA + me.configB + me.configC + me.fieldA + me.fieldB, sum, 'sum equals ' + sum);
+                t.isStrict(me.configA + me.configB + me.configC + me.fieldA + me.fieldB, sum, `sum equals ${sum}`);
             }
 
             afterSetConfigC(value, oldValue) {
                 let me  = this,
                     sum = me.fieldA === 1 ? 21 : 6;
 
-                t.isStrict(me.configA + me.configB + me.configC + me.fieldA + me.fieldB, sum, 'sum equals ' + sum);
+                t.isStrict(me.configA + me.configB + me.configC + me.fieldA + me.fieldB, sum, `sum equals ${sum}`);
             }
 
             beforeSetConfigA(value) {
@@ -270,7 +270,7 @@ StartTest(t => {
                 let me  = this,
                     sum = me.fieldA === 1 ? 21 : 6;
 
-                t.isStrict(me.configA + me.configB + me.configC + me.fieldA + me.fieldB, sum, 'sum equals ' + sum);
+                t.isStrict(me.configA + me.configB + me.configC + me.fieldA + me.fieldB, sum, `sum equals ${sum}`);
 
                 return value;
             }
