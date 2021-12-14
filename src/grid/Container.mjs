@@ -76,8 +76,8 @@ class Container extends BaseContainer {
     /**
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         this.createRandomViewData(this.amountRows);
     }

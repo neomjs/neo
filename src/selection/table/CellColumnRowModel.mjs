@@ -38,8 +38,8 @@ class CellColumnRowModel extends CellRowModel {
     /**
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         this.selectedColumnCellIds = [];
     }

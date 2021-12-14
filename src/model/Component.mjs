@@ -59,9 +59,9 @@ class Component extends Base {
     /**
      * @param {Object} config
      */
-    constructor(config) {
+    construct(config) {
         Neo.currentWorker.isUsingViewModels = true;
-        super(config);
+        super.construct(config);
         this.bindings = {};
     }
 

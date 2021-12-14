@@ -108,8 +108,8 @@ class Base extends CoreBase {
     /**
      * @param config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         let me           = this,
             symbolConfig = {enumerable: false, writable: true};

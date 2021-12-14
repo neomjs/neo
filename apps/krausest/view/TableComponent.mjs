@@ -37,8 +37,8 @@ class TableComponent extends Base {
     /**
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         Neo.main.addon.CloneNode.createNode({
             id  : this.id,

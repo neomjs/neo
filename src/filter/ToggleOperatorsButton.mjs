@@ -30,8 +30,8 @@ class ToggleOperatorsButton extends Button {
     /**
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         let me = this;
 

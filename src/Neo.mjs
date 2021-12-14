@@ -87,7 +87,7 @@ Neo = self.Neo = Object.assign({
 
                     // only apply properties which have no setters inside the prototype chain
                     // those will get applied on create (Neo.core.Base -> initConfig)
-                    else if (!hasPropertySetter(element, key)) {
+                    else if (!Neo.hasPropertySetter(element, key)) {
                         Object.defineProperty(element, key, {
                             enumerable: true,
                             value     : value,
@@ -333,8 +333,9 @@ Neo = self.Neo = Object.assign({
             cls = Neo.ns(className);
         }
 
-        instance = new cls(config);
+        instance = new cls();
 
+        instance.construct(config);
         instance.onConstructed();
         instance.onAfterConstructed();
         instance.init();
@@ -343,6 +344,28 @@ Neo = self.Neo = Object.assign({
     },
 
     emptyFn() {},
+
+    /**
+     * Checks if there is a set method for a given property key inside the prototype chain
+     * @memberOf module:Neo
+     * @param {Neo.core.Base} proto The top level prototype of a class
+     * @param {String} key the property key to test
+     * @returns {Boolean}
+     */
+    hasPropertySetter(proto, key) {
+        let descriptor;
+
+        while (proto.__proto__) {
+            descriptor = Object.getOwnPropertyDescriptor(proto, key);
+
+            if (typeof descriptor === 'object' && typeof descriptor.set === 'function') {
+                return true;
+            }
+            proto = proto.__proto__;
+        }
+
+        return false;
+    },
 
     /**
      * Deep-merges a source object into a target object
@@ -526,7 +549,7 @@ function applyMixins(cls, mixins) {
  * @tutorial 02_ClassSystem
  */
 function autoGenerateGetSet(proto, key) {
-    if (hasPropertySetter(proto, key)) {
+    if (Neo.hasPropertySetter(proto, key)) {
         throw('Config ' + key + '_ (' + proto.className + ') already has a set method, use beforeGet, beforeSet & afterSet instead');
     }
 
@@ -620,28 +643,6 @@ function exists(className) {
     } catch(e) {
         return false;
     }
-}
-
-/**
- * Checks if there is a set method for a given property key inside the prototype chain
- * @param {Neo.core.Base} proto The top level prototype of a class
- * @param {String} key the property key to test
- * @returns {Boolean}
- * @private
- */
-function hasPropertySetter(proto, key) {
-    let descriptor;
-
-    while (proto.__proto__) {
-        descriptor = Object.getOwnPropertyDescriptor(proto, key);
-
-        if (typeof descriptor === 'object' && typeof descriptor.set === 'function') {
-            return true;
-        }
-        proto = proto.__proto__;
-    }
-
-    return false;
 }
 
 /**

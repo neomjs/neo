@@ -63,8 +63,8 @@ class MainComponent extends Base {
     /**
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         this.createColumns(); // silent vdom update
         this.createTable();

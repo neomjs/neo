@@ -17,9 +17,9 @@
 (1.1.) This might not sound like a big deal at first, but it does prevent any pre-processing inside the constructor chain.
 ```
 class TabContainer extends Container {
-    constructor(config) {
+    construct(config) {
         //let me = this; // breaks!
-        super(config);
+        super.construct(config);
         let me = this;  //ok
     }
 }

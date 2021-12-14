@@ -32,8 +32,8 @@ class Logger extends Base {
     /**
      * @param config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         // aliases
         Neo.applyFromNs(Neo, this, {

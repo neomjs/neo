@@ -57,8 +57,8 @@ class Touch extends Base {
     /**
      * @param config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
         Neo.bindMethods(this, ['onDistanceChange', 'onTouchEnd', 'onTouchMove', 'onTouchStart', 'startDrag']);
     }
 

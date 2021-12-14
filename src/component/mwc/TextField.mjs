@@ -65,8 +65,8 @@ class TextField extends Component {
     /**
      * @param {Object} config
      */
-    constructor(config) {
-        super(config);
+    construct(config) {
+        super.construct(config);
 
         if (!Neo.config.mainThreadAddons.includes('Mwc')) {
             console.error('Please include "Mwc" into the mainThreadAddons of your neo-config.json file.');
