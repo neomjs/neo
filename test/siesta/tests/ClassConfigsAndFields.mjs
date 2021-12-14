@@ -68,8 +68,8 @@ StartTest(t => {
                 let me        = this,
                     extension = me.extension;
 
-                t.isStrict(this.fieldA, extension ? 3 : 1, 'fieldA equals ' + (extension ? 3 : 1));
-                t.isStrict(this.fieldB, extension ? 4 : 2, 'fieldB equals ' + (extension ? 4 : 2));
+                t.isStrict(me.fieldA, extension ? 3 : 1, 'fieldA equals ' + (extension ? 3 : 1));
+                t.isStrict(me.fieldB, extension ? 4 : 2, 'fieldB equals ' + (extension ? 4 : 2));
             }
         }
 
