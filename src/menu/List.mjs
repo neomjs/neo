@@ -299,10 +299,7 @@ class List extends BaseList {
             subMenu      = subMenuMap[subMenuMapId],
             menuStyle, style;
 
-        Neo.main.DomAccess.getBoundingClientRect({
-            appName: me.appName,
-            id     : nodeId
-        }).then(rect => {
+        me.getDomRect(nodeId).then(rect => {
             style = {
                 left: `${rect.right + me.subMenuGap}px`,
                 top : `${rect.top - 1}px` // minus the border
