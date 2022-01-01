@@ -316,9 +316,7 @@ class Component extends BaseComponent {
             }
 
             setTimeout(() => {
-                Neo.main.DomAccess.getBoundingClientRect({
-                    id: [me.vdom.cn[1].id, me.vdom.cn[0].id]
-                }).then(data => {
+                me.getDomRect([me.vdom.cn[1].id, me.vdom.cn[0].id]).then(data => {
                     me.headerHeight = data[1].height;
 
                     Neo.main.DomAccess.scrollTo({

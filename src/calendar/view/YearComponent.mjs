@@ -488,9 +488,7 @@ class YearComponent extends Component {
             if (!me.isUpdating) {
                 me.isUpdating = true;
 
-                Neo.main.DomAccess.getBoundingClientRect({
-                    id: me.id
-                }).then(data => {
+                me.getDomRect().then(data => {
                     scrollFromTop = me.scrollNewYearFromTop && increment < 0 || !me.scrollNewYearFromTop && increment > 0;
                     vdom          = me.vdom;
                     y             = scrollFromTop ? 0 : -data.height;

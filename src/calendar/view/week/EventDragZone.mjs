@@ -501,9 +501,7 @@ class EventDragZone extends DragZone {
         let me = this,
             eventDuration, offsetX, offsetY;
 
-        Neo.main.DomAccess.getBoundingClientRect({
-            id: [me.getDragElementRoot().id, data.path[1].id]
-        }).then(rects => {
+        me.owner.getDomRect([me.getDragElementRoot().id, data.path[1].id]).then(rects => {
             eventDuration = (me.eventRecord.endDate - me.eventRecord.startDate) / 60 / 1000;
             offsetX       = data.clientX - rects[0].left;
             offsetY       = data.clientY - rects[0].top;
