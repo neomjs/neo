@@ -55,7 +55,11 @@ class App extends Base {
      */
     construct(config) {
         super.construct(config);
-        Neo.applyDeltas = this.applyDeltas.bind(this); // convenience shortcut
+
+        let me = this;
+
+        Neo.applyDeltas = me.applyDeltas.bind(me); // convenience shortcuts
+        Neo.getDomRect  = me.getDomRect .bind(me);
     }
 
     /**
@@ -88,6 +92,18 @@ class App extends Base {
     fireMainViewsEvent(eventName, data) {
         this.ports.forEach(port => {
             Neo.apps[port.appName].mainViewInstance.fire(eventName, data);
+        });
+    }
+
+    /**
+     * @param {String} appName
+     * @param {String[]|String} id
+     * @returns {Promise<*>}
+     */
+    getDomRect(appName, id) {
+        return Neo.main.DomAccess.getBoundingClientRect({
+            appName,
+            id
         });
     }
 
