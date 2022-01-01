@@ -166,9 +166,7 @@ class MainContainerController extends ComponentController {
         let me = this;
 
         Neo.Main.getWindowData().then(winData => {
-            Neo.main.DomAccess.getBoundingClientRect({
-                id: [me.getReference(containerReference).id]
-            }).then(data => {
+            me.component.getDomRect(me.getReference(containerReference).id).then(data => {
                 let {height, left, top, width} = data[0];
 
                 height -= 50; // popup header in Chrome
@@ -178,7 +176,7 @@ class MainContainerController extends ComponentController {
                 Neo.Main.windowOpen({
                     url           : `../${url}/index.html`,
                     windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
-                    windowName    : windowName
+                    windowName
                 });
             });
         });
