@@ -400,9 +400,7 @@ class DateSelector extends Component {
             if (!me.isUpdating) {
                 me.isUpdating = true;
 
-                Neo.main.DomAccess.getBoundingClientRect({
-                    id: [me.getCenterContentEl().id, me.getHeaderMonthEl().id]
-                }).then(data => {
+                me.getDomRect([me.getCenterContentEl().id, me.getHeaderMonthEl().id]).then(data => {
                     vdom = me.vdom;
                     x    = slideDirection === 'right' ? 0 : -data[0].width;
 
@@ -486,9 +484,7 @@ class DateSelector extends Component {
             if (!me.isUpdating) {
                 me.isUpdating = true;
 
-                Neo.main.DomAccess.getBoundingClientRect({
-                    id: me.getCenterContentEl().id
-                }).then(data => {
+                me.getDomRect(me.getCenterContentEl().id).then(data => {
                     scrollFromTop = me.scrollNewYearFromTop && increment < 0 || !me.scrollNewYearFromTop && increment > 0;
                     vdom          = me.vdom;
                     y             = scrollFromTop ? 0 : -data.height;

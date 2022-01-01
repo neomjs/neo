@@ -204,9 +204,7 @@ class SortZone extends DragZone {
                 });
             });
 
-            Neo.main.DomAccess.getBoundingClientRect({
-                id: [owner.id].concat(owner.items.map(e => e.id))
-            }).then(itemRects => {
+            owner.getDomRect([owner.id].concat(owner.items.map(e => e.id))).then(itemRects => {
                 me.ownerRect = itemRects[0];
 
                 ownerStyle.height = `${itemRects[0].height}px`;

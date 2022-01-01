@@ -193,9 +193,7 @@ class List extends BaseList {
 
         me.store.destroy();
 
-        if (activeSubMenu) {
-            activeSubMenu.unmount();
-        }
+        activeSubMenu?.unmount();
 
         Object.entries(subMenuMap).forEach(([key, value]) => {
             value.destroy();
@@ -279,10 +277,7 @@ class List extends BaseList {
 
         if (me.activeSubMenu !== me.subMenuMap?.[me.getMenuMapId(recordId)]) {
             me.hideSubMenu();
-
-            if (me.hasChildren(record)) {
-                me.showSubMenu(nodeId, record);
-            }
+            me.hasChildren(record) && me.showSubMenu(nodeId, record);
         }
     }
 
@@ -299,10 +294,7 @@ class List extends BaseList {
             subMenu      = subMenuMap[subMenuMapId],
             menuStyle, style;
 
-        Neo.main.DomAccess.getBoundingClientRect({
-            appName: me.appName,
-            id     : nodeId
-        }).then(rect => {
+        me.getDomRect(nodeId).then(rect => {
             style = {
                 left: `${rect.right + me.subMenuGap}px`,
                 top : `${rect.top - 1}px` // minus the border
@@ -324,7 +316,7 @@ class List extends BaseList {
                     parentId   : Neo.apps[me.appName].mainView.id,
                     parentIndex: store.indexOf(record),
                     parentMenu : me,
-                    style      : style,
+                    style,
                     zIndex     : me.zIndex + 1
                 });
             }

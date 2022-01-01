@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Dec 15, 2021",
+        "id"          : 47,
+        "image"       : "resolving-pitfalls-of-the-ecmascript-class-system.png",
+        "name"        : "Resolving pitfalls of the ECMAScript class system",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/resolving-pitfalls-of-the-ecmascript-class-system-856024218399?source=friends_link&sk=9733342654c50d8d618671b754089e1d"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Sep 23, 2021",
         "id"          : 46,
         "image"       : "safari-just-released-support-for-js-modules-inside-the-worker-scope.png",

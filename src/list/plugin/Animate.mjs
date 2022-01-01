@@ -118,9 +118,7 @@ class Animate extends Base {
     onOwnerMounted() {
         let me = this;
 
-        Neo.main.DomAccess.getBoundingClientRect({
-            id: me.owner.id
-        }).then(rect => {
+        me.owner.getDomRect().then(rect => {
             Object.assign(me, {
                 columns  : Math.floor(rect.width / me.itemWidth),
                 ownerRect: rect,

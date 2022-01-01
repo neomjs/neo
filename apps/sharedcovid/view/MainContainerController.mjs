@@ -166,9 +166,7 @@ class MainContainerController extends ComponentController {
         let me = this;
 
         Neo.Main.getWindowData().then(winData => {
-            Neo.main.DomAccess.getBoundingClientRect({
-                id: [me.getReference(containerReference).id]
-            }).then(data => {
+            me.component.getDomRect(me.getReference(containerReference).id).then(data => {
                 let {height, left, top, width} = data[0];
 
                 height -= 50; // popup header in Chrome
@@ -178,7 +176,7 @@ class MainContainerController extends ComponentController {
                 Neo.Main.windowOpen({
                     url           : `../${url}/index.html`,
                     windowFeatures: `height=${height},left=${left},top=${top},width=${width}`,
-                    windowName    : windowName
+                    windowName
                 });
             });
         });
@@ -371,13 +369,11 @@ class MainContainerController extends ComponentController {
     onComponentConstructed() {
         super.onComponentConstructed();
 
-        if (!Neo.config.hash) {
-            this.onHashChange({
-                country   : 'all',
-                hash      : {mainview: 'table'},
-                hashString: 'mainview=table'
-            }, null);
-        }
+        !Neo.config.hash && this.onHashChange({
+            country   : 'all',
+            hash      : {mainview: 'table'},
+            hashString: 'mainview=table'
+        }, null);
     }
 
     /**
@@ -611,16 +607,16 @@ class MainContainerController extends ComponentController {
         } else {
             [component.appName, ...me.connectedApps].forEach(appName => {
                 Neo.main.addon.Stylesheet.swapStyleSheet({
-                    appName: appName,
-                    href   : href,
-                    id     : 'neo-theme'
+                    appName,
+                    href,
+                    id: 'neo-theme'
                 });
             });
         }
 
         button.set({
-            iconCls: iconCls,
-            text   : buttonText
+            iconCls,
+            text: buttonText
         });
 
         if (mapView) {

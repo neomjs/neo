@@ -396,7 +396,7 @@ class Resizable extends Base {
         me.isDragging = true;
 
         style.opacity = 0.3;
-        me.owner.wrapperStyle = style;
+        owner.wrapperStyle = style;
 
         for (; i < len; i++) {
             target = data.path[i];
@@ -414,10 +414,7 @@ class Resizable extends Base {
         }
 
         if (!me.boundaryContainerRect) {
-            Neo.main.DomAccess.getBoundingClientRect({
-                appName: appName,
-                id     : me.boundaryContainerRect
-            }).then(rect => {
+            owner.getDomRect(me.boundaryContainerRect).then(rect => {
                 me.boundaryContainerRect = rect;
             });
         }

@@ -286,10 +286,7 @@ class Base extends Panel {
             appName = me.appName,
             id      = me.getAnimateTargetId();
 
-        Neo.main.DomAccess.getBoundingClientRect({
-            appName: appName,
-            id     : [me.id, me.animateTargetId]
-        }).then(rects => {
+        me.getDomRect([me.id, me.animateTargetId]).then(rects => {
             Neo.currentWorker.promiseMessage('main', {
                 action  : 'mountDom',
                 appName : appName,
@@ -336,10 +333,7 @@ class Base extends Panel {
             appName = me.appName,
             id      = me.getAnimateTargetId();
 
-        Neo.main.DomAccess.getBoundingClientRect({
-            appName: appName,
-            id     : me.animateTargetId
-        }).then(rect => {
+        me.getDomRect(me.animateTargetId).then(rect => {
             Neo.currentWorker.promiseMessage('main', {
                 action  : 'mountDom',
                 appName : appName,
@@ -530,10 +524,7 @@ class Base extends Panel {
             initialTransitionProperty, wrapperStyle;
 
         if (!me.maximized) {
-            Neo.main.DomAccess.getBoundingClientRect({
-                appName: me.appName,
-                id     : me.dragZone.dragProxy.id
-            }).then(rect => {
+            me.getDomRect(me.dragZone.dragProxy.id).then(rect => {
                 wrapperStyle = me.wrapperStyle;
 
                 Object.assign(wrapperStyle, {

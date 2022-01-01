@@ -960,6 +960,19 @@ class Base extends CoreBase {
     }
 
     /**
+     * Convenience shortcut
+     * @param {String[]|String} id=this.id
+     * @param {String} appName=this.appName
+     * @returns {Promise<*>}
+     */
+    getDomRect(id=this.id, appName=this.appName) {
+        return Neo.main.DomAccess.getBoundingClientRect({
+            appName,
+            id
+        });
+    }
+
+    /**
      * Returns this.model or the closest parent model
      * @param {String} [ntype]
      * @returns {Neo.model.Component|null}
