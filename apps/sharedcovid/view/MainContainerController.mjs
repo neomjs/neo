@@ -369,13 +369,11 @@ class MainContainerController extends ComponentController {
     onComponentConstructed() {
         super.onComponentConstructed();
 
-        if (!Neo.config.hash) {
-            this.onHashChange({
-                country   : 'all',
-                hash      : {mainview: 'table'},
-                hashString: 'mainview=table'
-            }, null);
-        }
+        !Neo.config.hash && this.onHashChange({
+            country   : 'all',
+            hash      : {mainview: 'table'},
+            hashString: 'mainview=table'
+        }, null);
     }
 
     /**
@@ -609,16 +607,16 @@ class MainContainerController extends ComponentController {
         } else {
             [component.appName, ...me.connectedApps].forEach(appName => {
                 Neo.main.addon.Stylesheet.swapStyleSheet({
-                    appName: appName,
-                    href   : href,
-                    id     : 'neo-theme'
+                    appName,
+                    href,
+                    id: 'neo-theme'
                 });
             });
         }
 
         button.set({
-            iconCls: iconCls,
-            text   : buttonText
+            iconCls,
+            text: buttonText
         });
 
         if (mapView) {
