@@ -921,9 +921,7 @@ class Text extends Base {
     updateCenterBorderElWidth(silent=false) {
         let me = this;
 
-        me.mounted && Neo.main.DomAccess.getBoundingClientRect({
-            id: me.getCenterBorderEl().id
-        }).then(data => {
+        me.mounted && me.getDomRect(me.getCenterBorderEl().id).then(data => {
             me.centerBorderElWidth = Math.round(data.width * .7) + 8;
 
             if (!silent) {

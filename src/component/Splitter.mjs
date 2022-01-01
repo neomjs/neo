@@ -158,9 +158,7 @@ class Splitter extends Component {
 
         me.style = style;
 
-        Neo.main.DomAccess.getBoundingClientRect({
-            id: me.parentId
-        }).then(parentRect => {
+        me.getDomRect(me.parentId).then(parentRect => {
             parent  = Neo.getComponent(me.parentId);
             index   = parent.indexOf(me);
             sibling = parent.items[resizeNext ? index + 1 :index - 1];
