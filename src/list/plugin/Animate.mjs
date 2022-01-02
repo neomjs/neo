@@ -84,27 +84,19 @@ class Animate extends Base {
      * @returns {Object}
      */
     createItem(me, record, index) {
-        let item       = me.ownerCreateItem(record, index),
-            itemHeight = me.itemHeight,
-            itemWidth  = me.itemWidth,
-            margin     = me.itemMargin,
-            style      = item.style || {},
-            column, row, x, y;
+        let item     = me.ownerCreateItem(record, index),
+            position = me.getItemPosition(record, index),
+            style    = item.style || {};
 
         if (!me.ownerRect) {
             return null;
         }
 
-        column = index % me.columns;
-        row    = Math.floor(index / me.columns);
-        x      = column * (margin + itemWidth)  + margin;
-        y      = row    * (margin + itemHeight) + margin;
-
         Object.assign(style, {
-            height   : `${itemHeight}px`,
+            height   : `${me.itemHeight}px`,
             position : 'absolute',
-            transform: `translate(${x}px, ${y}px)`,
-            width    : `${itemWidth}px`
+            transform: `translate(${position.x}px, ${position.y}px)`,
+            width    : `${me.itemWidth}px`
         });
 
         item.style = style;
