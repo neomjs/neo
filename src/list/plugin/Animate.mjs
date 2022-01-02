@@ -48,14 +48,16 @@ class Animate extends Base {
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        let me    = this,
+            owner = me.owner;
 
         me.adjustCreateItem();
 
-        me.owner.store.on({
-            filter: me.onFilter,
-            sort  : me.onSort,
-            scope : me
+        owner.onStoreFilter = me.onStoreFilter.bind(me);
+
+        owner.store.on({
+            sort : me.onSort,
+            scope: me
         });
     }
 
@@ -103,13 +105,6 @@ class Animate extends Base {
         item.style = style;
 
         return item;
-    }
-
-    /**
-     * @param {Object} data
-     */
-    onFilter(data) {
-        console.log('onFilter', data);
     }
 
     /**
@@ -166,6 +161,13 @@ class Animate extends Base {
                 });
             }
         }
+    }
+
+    /**
+     * @param {Neo.data.Store} store
+     */
+    onStoreFilter(store) {
+        console.log('onFilter', store);
     }
 }
 
