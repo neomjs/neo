@@ -107,6 +107,10 @@ class Observable extends Base {
             for (i = 0; i < len; i++) {
                 eventConfig = events[i];
 
+                if (!Neo.isFunction(eventConfig.fn)) {
+                    eventConfig.fn = eventConfig.scope[eventConfig.fn];
+                }
+
                 eventConfig.fn.apply(eventConfig.scope || me, eventConfig.data ? args.concat(eventConfig.data) : args);
             }
         }
