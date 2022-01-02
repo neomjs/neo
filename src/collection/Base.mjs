@@ -607,7 +607,7 @@ class Base extends CoreBase {
             i               = 0,
             countItems      = items.length,
             filteredItems   = [],
-            oldItems        = [...items],
+            oldItems        = [...me._items],
             config, isIncluded, item, j, tmpItems;
 
         for (; i < countAllFilters; i++) {

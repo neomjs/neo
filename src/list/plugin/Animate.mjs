@@ -39,7 +39,12 @@ class Animate extends Base {
          * Read only
          * @member {Number|null} rows=null
          */
-        rows: null
+        rows: null,
+        /**
+         * Time in ms. Please ensure to match the CSS based value, in case you change the default.
+         * @member {Number} transitionDuration=500
+         */
+        transitionDuration: 500
     }}
 
     /**
@@ -105,6 +110,23 @@ class Animate extends Base {
         item.style = style;
 
         return item;
+    }
+
+    /**
+     *
+     * @param {Object} record
+     * @param {Number} index
+     * @returns {{x: Number, y: Number}}
+     */
+    getItemPosition(record, index) {
+        let me     = this,
+            column = index % me.columns,
+            margin = me.itemMargin,
+            row    = Math.floor(index / me.columns),
+            x      = column * (margin + me.itemWidth) + margin,
+            y      = row * (margin + me.itemHeight) + margin;
+
+        return {x, y};
     }
 
     /**
@@ -175,8 +197,23 @@ class Animate extends Base {
 
         let me           = this,
             owner        = me.owner,
+            addedItems   = [],
+            movedItems   = [],
             removedItems = [],
-            vdom         = owner.vdom;
+            vdom         = owner.vdom,
+            position;
+
+        data.items.forEach((record, index) => {
+            if (!data.oldItems.includes(record)) {
+                addedItems.push({index, record});
+            } else {
+                movedItems.push({
+                    index,
+                    oldIndex: data.oldItems.indexOf(record),
+                    record
+                });
+            }
+        });
 
         data.oldItems.forEach((record, index) => {
             if (!data.items.includes(record)) {
@@ -184,11 +221,39 @@ class Animate extends Base {
             }
         });
 
-        removedItems.forEach(obj => {
-            vdom.cn[obj.index].style.opacity = 0;
+        addedItems.forEach(obj => {
+            vdom.cn.splice(obj.index, 0, me.createItem(me, obj.record, obj.index));
+
+            obj.item = vdom.cn[obj.index];
+            obj.item.style.opacity = 0;
         });
 
         owner.vdom = vdom;
+
+        // ensure to get into the next animation frame
+        setTimeout(() => {
+            vdom = owner.vdom;
+
+            addedItems.forEach(obj => {
+                vdom.cn[obj.index].style.opacity = 1;
+            });
+
+            movedItems.forEach(obj => {
+                position = me.getItemPosition(obj.record, obj.index);
+                vdom.cn[obj.oldIndex].style.transform = `translate(${position.x}px, ${position.y}px)`;
+            });
+
+            removedItems.forEach(obj => {
+                obj.item = vdom.cn[obj.index];
+                obj.item.style.opacity = 0;
+            });
+
+            owner.vdom = vdom;
+
+            setTimeout(() => {
+                owner.createItems();
+            }, me.transitionDuration);
+        }, 50);
     }
 }
 
