@@ -12,7 +12,8 @@ class MainContainer extends Viewport {
     static getConfig() {return {
         className: 'Neo.examples.list.animate.MainContainer',
         autoMount: true,
-        layout   : {ntype: 'vbox', align: 'stretch'}
+        layout   : {ntype: 'vbox', align: 'stretch'},
+        sortBy   : 'firstname'
     }}
 
     /**
@@ -36,11 +37,16 @@ class MainContainer extends Viewport {
                 ntype: 'label',
                 text : 'Sort by'
             }, {
-                handler: me.changeSorting.bind(me, 'firstname'),
-                text   : 'Firstname'
+                field       : 'firstname',
+                handler     : me.changeSorting.bind(me, 'firstname'),
+                iconCls     : 'fas fa-arrow-circle-up',
+                iconPosition: 'right',
+                text        : 'Firstname'
             }, {
-                handler: me.changeSorting.bind(me, 'lastname'),
-                text   : 'Lastname'
+                field       : 'lastname',
+                handler     : me.changeSorting.bind(me, 'lastname'),
+                iconPosition: 'right',
+                text        : 'Lastname'
             }, {
                 module    : CheckBox,
                 labelText : 'Is online',
@@ -64,13 +70,32 @@ class MainContainer extends Viewport {
     }
 
     /**
-     * @param {String} field
+     * @param {String} property
      * @param {Object} data
      */
-    changeSorting(field, data) {
-        let store = this.down({module: List}).store;
+    changeSorting(property, data) {
+        let me              = this,
+            buttonFirstName = me.down({field: 'firstname'}),
+            buttonLastName  = me.down({field: 'lastname'}),
+            direction       = 'ASC',
+            store           = me.down({module: List}).store,
+            sorter          = store.sorters[0],
+            button;
 
-        store.sorters[0].property = field;
+        button = property === 'firstname' ? buttonFirstName : buttonLastName;
+
+        if (property === me.sortBy) {
+            direction = sorter.direction === 'ASC' ? 'DESC' : 'ASC';
+        }
+
+        button.iconCls = `fas fa-arrow-circle-${direction === 'ASC' ? 'up' : 'down'}`;
+
+        button = button === buttonFirstName ? buttonLastName : buttonFirstName;
+        button.iconCls = null;
+
+        sorter.set({direction, property});
+
+        me.sortBy = property;
     }
 }
 
