@@ -172,6 +172,23 @@ class Animate extends Base {
      */
     onStoreFilter(data) {
         console.log('onFilter', data);
+
+        let me           = this,
+            owner        = me.owner,
+            removedItems = [],
+            vdom         = owner.vdom;
+
+        data.oldItems.forEach((record, index) => {
+            if (!data.items.includes(record)) {
+                removedItems.push({index, record});
+            }
+        });
+
+        removedItems.forEach(obj => {
+            vdom.cn[obj.index].style.opacity = 0;
+        });
+
+        owner.vdom = vdom;
     }
 }
 
