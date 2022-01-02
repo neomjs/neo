@@ -164,10 +164,14 @@ class Animate extends Base {
     }
 
     /**
-     * @param {Neo.data.Store} store
+     * @param {Object} data
+     * @param {Boolean} data.isFiltered
+     * @param {Object[]} data.items
+     * @param {Object[]} data.oldItems
+     * @param {Neo.data.Store} data.scope
      */
-    onStoreFilter(store) {
-        console.log('onFilter', store);
+    onStoreFilter(data) {
+        console.log('onFilter', data);
     }
 }
 

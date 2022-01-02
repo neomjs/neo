@@ -607,6 +607,7 @@ class Base extends CoreBase {
             i               = 0,
             countItems      = items.length,
             filteredItems   = [],
+            oldItems        = [...items],
             config, isIncluded, item, j, tmpItems;
 
         for (; i < countAllFilters; i++) {
@@ -682,7 +683,12 @@ class Base extends CoreBase {
 
         me[isFiltered] = countFilters !== 0;
 
-        me.fire('filter', me);
+        me.fire('filter', {
+            isFiltered: me[isFiltered],
+            items     : me.items,
+            oldItems,
+            scope     : me
+        });
     }
 
     /**
