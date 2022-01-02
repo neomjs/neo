@@ -469,11 +469,13 @@ class Base extends CoreBase {
     }
 
     /**
+     *
+     * @param {Object[]} items=this._items
+     * @param {Boolean} silent=false
      * @protected
      */
-    doSort() {
+    doSort(items=this._items, silent=false) {
         let me                = this,
-            items             = me._items,
             previousItems     = [...items],
             sorters           = me.sorters,
             sortDirections    = me.sortDirections,
@@ -558,7 +560,7 @@ class Base extends CoreBase {
 
         me[isSorted] = countSorters > 0;
 
-        if (me[updatingIndex] === 0) {
+        if (!silent && me[updatingIndex] === 0) {
             me.fire('sort', {
                 items: me._items,
                 previousItems,
@@ -607,6 +609,7 @@ class Base extends CoreBase {
             i               = 0,
             countItems      = items.length,
             filteredItems   = [],
+            needsSorting    = false,
             oldItems        = [...me._items],
             config, isIncluded, item, j, tmpItems;
 
@@ -617,6 +620,10 @@ class Base extends CoreBase {
         }
 
         if (countFilters === 0 && me.allItems) {
+            if (me.sorters.length > 0) {
+                needsSorting = true;
+            }
+
             me.clear();
 
             me.items = [...me.allItems._items];
@@ -682,6 +689,10 @@ class Base extends CoreBase {
         }
 
         me[isFiltered] = countFilters !== 0;
+
+        if (needsSorting) {
+            me.doSort(me.items, true);
+        }
 
         me.fire('filter', {
             isFiltered: me[isFiltered],
