@@ -193,25 +193,19 @@ class Animate extends Base {
      * @param {Neo.data.Store} data.scope
      */
     onStoreFilter(data) {
-        console.log('onFilter', data);
-
         let me           = this,
             owner        = me.owner,
             addedItems   = [],
             movedItems   = [],
             removedItems = [],
             vdom         = owner.vdom,
-            position;
+            index, map, position;
 
         data.items.forEach((record, index) => {
             if (!data.oldItems.includes(record)) {
                 addedItems.push({index, record});
             } else {
-                movedItems.push({
-                    index,
-                    oldIndex: data.oldItems.indexOf(record),
-                    record
-                });
+                movedItems.push({index, record});
             }
         });
 
@@ -238,9 +232,14 @@ class Animate extends Base {
                 vdom.cn[obj.index].style.opacity = 1;
             });
 
+            // new items are already added into the vdom, while old items are not yet removed
+            // => we need a map to ensure getting the correct index
+            map = vdom.cn.map(e => e.id);
+
             movedItems.forEach(obj => {
+                index    = map.indexOf(owner.getItemId(obj.record[owner.store.keyProperty]));
                 position = me.getItemPosition(obj.record, obj.index);
-                vdom.cn[obj.oldIndex].style.transform = `translate(${position.x}px, ${position.y}px)`;
+                vdom.cn[index].style.transform = `translate(${position.x}px, ${position.y}px)`;
             });
 
             removedItems.forEach(obj => {
