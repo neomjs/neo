@@ -39,7 +39,12 @@ class Animate extends Base {
          * Read only
          * @member {Number|null} rows=null
          */
-        rows: null
+        rows: null,
+        /**
+         * Time in ms. Please ensure to match the CSS based value, in case you change the default.
+         * @member {Number} transitionDuration=500
+         */
+        transitionDuration: 500
     }}
 
     /**
@@ -48,14 +53,16 @@ class Animate extends Base {
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        let me    = this,
+            owner = me.owner;
 
         me.adjustCreateItem();
 
-        me.owner.store.on({
-            filter: me.onFilter,
-            sort  : me.onSort,
-            scope : me
+        owner.onStoreFilter = me.onStoreFilter.bind(me);
+
+        owner.store.on({
+            sort : me.onSort,
+            scope: me
         });
     }
 
@@ -77,27 +84,19 @@ class Animate extends Base {
      * @returns {Object}
      */
     createItem(me, record, index) {
-        let item       = me.ownerCreateItem(record, index),
-            itemHeight = me.itemHeight,
-            itemWidth  = me.itemWidth,
-            margin     = me.itemMargin,
-            style      = item.style || {},
-            column, row, x, y;
+        let item     = me.ownerCreateItem(record, index),
+            position = me.getItemPosition(record, index),
+            style    = item.style || {};
 
         if (!me.ownerRect) {
             return null;
         }
 
-        column = index % me.columns;
-        row    = Math.floor(index / me.columns);
-        x      = column * (margin + itemWidth)  + margin;
-        y      = row    * (margin + itemHeight) + margin;
-
         Object.assign(style, {
-            height   : `${itemHeight}px`,
+            height   : `${me.itemHeight}px`,
             position : 'absolute',
-            transform: `translate(${x}px, ${y}px)`,
-            width    : `${itemWidth}px`
+            transform: `translate(${position.x}px, ${position.y}px)`,
+            width    : `${me.itemWidth}px`
         });
 
         item.style = style;
@@ -106,10 +105,20 @@ class Animate extends Base {
     }
 
     /**
-     * @param {Object} data
+     *
+     * @param {Object} record
+     * @param {Number} index
+     * @returns {{x: Number, y: Number}}
      */
-    onFilter(data) {
-        console.log('onFilter', data);
+    getItemPosition(record, index) {
+        let me     = this,
+            column = index % me.columns,
+            margin = me.itemMargin,
+            row    = Math.floor(index / me.columns),
+            x      = column * (margin + me.itemWidth)  + margin,
+            y      = row    * (margin + me.itemHeight) + margin;
+
+        return {x, y};
     }
 
     /**
@@ -166,6 +175,76 @@ class Animate extends Base {
                 });
             }
         }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Boolean} data.isFiltered
+     * @param {Object[]} data.items
+     * @param {Object[]} data.oldItems
+     * @param {Neo.data.Store} data.scope
+     */
+    onStoreFilter(data) {
+        let me           = this,
+            owner        = me.owner,
+            addedItems   = [],
+            movedItems   = [],
+            removedItems = [],
+            vdom         = owner.vdom,
+            index, map, position;
+
+        data.items.forEach((record, index) => {
+            if (!data.oldItems.includes(record)) {
+                addedItems.push({index, record});
+            } else {
+                movedItems.push({index, record});
+            }
+        });
+
+        data.oldItems.forEach((record, index) => {
+            if (!data.items.includes(record)) {
+                removedItems.push({index, record});
+            }
+        });
+
+        addedItems.forEach(obj => {
+            vdom.cn.splice(obj.index, 0, me.createItem(me, obj.record, obj.index));
+
+            obj.item = vdom.cn[obj.index];
+            obj.item.style.opacity = 0;
+        });
+
+        owner.vdom = vdom;
+
+        // ensure to get into the next animation frame
+        setTimeout(() => {
+            vdom = owner.vdom;
+
+            addedItems.forEach(obj => {
+                vdom.cn[obj.index].style.opacity = 1;
+            });
+
+            // new items are already added into the vdom, while old items are not yet removed
+            // => we need a map to ensure getting the correct index
+            map = vdom.cn.map(e => e.id);
+
+            movedItems.forEach(obj => {
+                index    = map.indexOf(owner.getItemId(obj.record[owner.store.keyProperty]));
+                position = me.getItemPosition(obj.record, obj.index);
+                vdom.cn[index].style.transform = `translate(${position.x}px, ${position.y}px)`;
+            });
+
+            removedItems.forEach(obj => {
+                obj.item = vdom.cn[obj.index];
+                obj.item.style.opacity = 0;
+            });
+
+            owner.vdom = vdom;
+
+            setTimeout(() => {
+                owner.createItems();
+            }, me.transitionDuration);
+        }, 50);
     }
 }
 

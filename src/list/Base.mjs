@@ -191,9 +191,9 @@ class Base extends Component {
         let me = this;
 
         value?.on({
-            filter      : me.onStoreFilter,
-            load        : me.onStoreLoad,
-            recordChange: me.onStoreRecordChange,
+            filter      : 'onStoreFilter',
+            load        : 'onStoreLoad',
+            recordChange: 'onStoreRecordChange',
             scope       : me
         });
 

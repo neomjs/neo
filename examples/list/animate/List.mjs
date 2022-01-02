@@ -32,13 +32,15 @@ class List extends BaseList {
      * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
      */
     createItemContent(record, index) {
+        let id = this.getItemId(record.id);
+
         return [
-            {cls: ['neo-list-item-content'], cn: [
-                {tag: 'img', src: `../../../resources/examples/${record.image}`},
-                {cls: ['neo-list-item-text'], cn: [
-                    {html: record.firstname},
-                    {cls: ['neo-lastname'], html: record.lastname},
-                    {cls: ['neo-is-online'], removeDom: !record.isOnline}
+            {cls: ['neo-list-item-content'], id: `${id}__content`, cn: [
+                {tag: 'img', id: `${id}__image`, src: `../../../resources/examples/${record.image}`},
+                {cls: ['neo-list-item-text'], id: `${id}__content_wrapper`, cn: [
+                    {html: record.firstname, id: `${id}__firstname`},
+                    {cls: ['neo-lastname'],  id: `${id}__lastname`, html: record.lastname},
+                    {cls: ['neo-is-online'], id: `${id}__isonline`, removeDom: !record.isOnline}
                 ]}
             ]}
         ];
