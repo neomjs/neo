@@ -115,8 +115,8 @@ class Animate extends Base {
             column = index % me.columns,
             margin = me.itemMargin,
             row    = Math.floor(index / me.columns),
-            x      = column * (margin + me.itemWidth) + margin,
-            y      = row * (margin + me.itemHeight) + margin;
+            x      = column * (margin + me.itemWidth)  + margin,
+            y      = row    * (margin + me.itemHeight) + margin;
 
         return {x, y};
     }
