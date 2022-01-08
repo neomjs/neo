@@ -79,15 +79,15 @@ class Animate extends Base {
     }
 
     /**
-     * Triggered after the transitionDuration config got changed
+     * Triggered after the transitionDuration config got changed.
+     *
+     * We do not want to apply the style to each list item itself,
+     * so we are using Neo.util.Css
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetTransitionDuration(value, oldValue) {
-        // We do not want to apply the style to each list item itself,
-        // so we are using Neo.util.Css
-
         Neo.isNumber(oldValue) && Css.deleteRules(`#${this.owner.id} .neo-list-item`);
 
         Css.insertRules([
