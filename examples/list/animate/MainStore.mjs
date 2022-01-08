@@ -22,10 +22,14 @@ class MainStore extends Store {
             value    : null,
 
             filterBy: opts => {
-                if (opts.value) {
+                let record = opts.item,
+                    value  = opts.value;
 
-                    console.log(opts);
-                    return false;
+                if (value) {
+                    return !(
+                        record.firstname.toLowerCase().includes(value) ||
+                        record.lastname .toLowerCase().includes(value)
+                    );
                 }
 
                 return false;
