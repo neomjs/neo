@@ -56,17 +56,13 @@ class MainContainer extends Viewport {
                 style     : {marginLeft: '50px'}
             }]
         }, {
-            module: Toolbar,
-            flex  : 'none',
-
-            items : [{
-                module    : TextField,
-                labelText : 'Search',
-                labelWidth: 60,
-                listeners : {change: me.changeNameFilter.bind(me)},
-                style     : {marginLeft: '5px'},
-                width     : 262
-            }]
+            module    : TextField,
+            flex      : 'none',
+            labelText : 'Search',
+            labelWidth: 60,
+            listeners : {change: me.changeNameFilter.bind(me)},
+            style     : {marginLeft: '10px'},
+            width     : 262
         }, {
             module: List,
             store : MainStore
