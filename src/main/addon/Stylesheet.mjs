@@ -23,6 +23,7 @@ class Stylesheet extends Base {
             app: [
                 'addThemeFiles',
                 'createStyleSheet',
+                'deleteCssRules',
                 'insertCssRules',
                 'swapStyleSheet'
             ]
@@ -138,6 +139,32 @@ class Stylesheet extends Base {
     }
 
     /**
+     * @param {Object} data
+     * @param {Array} data.rules
+     * @protected
+     */
+    deleteCssRules(data) {
+        let styleEl    = document.getElementById('neo-dynamic-stylesheet'),
+            styleSheet = styleEl.sheet,
+            cssRules   = styleSheet.cssRules,
+            i          = 0,
+            len        = data.rules.length,
+            j, rulesLen;
+
+        for (; i < len; i++) {
+            j        = 0;
+            rulesLen = cssRules.length;
+
+            for (; j < rulesLen; j++) {
+                if (cssRules[j].selectorText === data.rules[i]) {
+                    styleSheet.deleteRule(j);
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
      * @param {String} token
      * @returns {Boolean}
      */
@@ -162,7 +189,7 @@ class Stylesheet extends Base {
      * @protected
      */
     insertCssRules(data) {
-        let styleEl = document.getElementById('neoDynamicStyleSheet'),
+        let styleEl = document.getElementById('neo-dynamic-stylesheet'),
             i     = 0,
             len   = data.rules.length,
             styleSheet;
@@ -170,7 +197,7 @@ class Stylesheet extends Base {
         if (!styleEl) {
             styleEl = document.createElement('style');
 
-            styleEl.id = 'neoDynamicStyleSheet';
+            styleEl.id = 'neo-dynamic-stylesheet';
             document.head.appendChild(styleEl);
         }
 
