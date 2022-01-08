@@ -17,6 +17,19 @@ class MainStore extends Store {
             disabled : true,
             property : 'isOnline',
             value    : true
+        }, {
+            property : 'name',
+            value    : null,
+
+            filterBy: opts => {
+                if (opts.value) {
+
+                    console.log(opts);
+                    return false;
+                }
+
+                return false;
+            }
         }],
 
         sorters: [{

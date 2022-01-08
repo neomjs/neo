@@ -63,6 +63,7 @@ class MainContainer extends Viewport {
                 module    : TextField,
                 labelText : 'Search',
                 labelWidth: 60,
+                listeners : {change: me.changeNameFilter.bind(me)},
                 style     : {marginLeft: '5px'},
                 width     : 262
             }]
@@ -79,6 +80,15 @@ class MainContainer extends Viewport {
         let store = this.down({module: List}).store;
 
         store.getFilter('isOnline').disabled = !data.value;
+    }
+
+    /**
+     * @param {Object} data
+     */
+    changeNameFilter(data) {
+        let store = this.down({module: List}).store;
+
+        store.getFilter('name').value = data.value;
     }
 
     /**
