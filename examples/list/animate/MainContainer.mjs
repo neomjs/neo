@@ -1,9 +1,10 @@
-import CheckBox  from '../../../src/form/field/CheckBox.mjs';
-import List      from './List.mjs';
-import MainStore from './MainStore.mjs';
-import TextField from '../../../src/form/field/Text.mjs';
-import Toolbar   from '../../../src/container/Toolbar.mjs';
-import Viewport  from '../../../src/container/Viewport.mjs';
+import CheckBox    from '../../../src/form/field/CheckBox.mjs';
+import List        from './List.mjs';
+import MainStore   from './MainStore.mjs';
+import NumberField from '../../../src/form/field/Number.mjs';
+import TextField   from '../../../src/form/field/Text.mjs';
+import Toolbar     from '../../../src/container/Toolbar.mjs';
+import Viewport    from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.list.animate.MainContainer
@@ -64,6 +65,19 @@ class MainContainer extends Viewport {
             style     : {marginLeft: '10px'},
             width     : 262
         }, {
+            module              : NumberField,
+            clearToOriginalValue: true,
+            flex                : 'none',
+            labelText           : 'Transition Duration',
+            labelWidth          : 150,
+            listeners           : {change: me.changeTransitionDuration.bind(me)},
+            maxValue            : 5000,
+            minValue            : 100,
+            stepSize            : 100,
+            style               : {marginLeft: '10px'},
+            value               : 500,
+            width               : 262
+        }, {
             module: List,
             store : MainStore
         }];
@@ -114,6 +128,13 @@ class MainContainer extends Viewport {
         sorter.set({direction, property});
 
         me.sortBy = property;
+    }
+
+    /**
+     * @param {Object} data
+     */
+    changeTransitionDuration(data) {
+        this.down({module: List}).getPlugin('animate').transitionDuration = data.value;
     }
 }
 
