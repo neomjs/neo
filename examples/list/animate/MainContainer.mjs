@@ -1,6 +1,7 @@
 import CheckBox  from '../../../src/form/field/CheckBox.mjs';
 import List      from './List.mjs';
 import MainStore from './MainStore.mjs';
+import TextField from '../../../src/form/field/Text.mjs';
 import Toolbar   from '../../../src/container/Toolbar.mjs';
 import Viewport  from '../../../src/container/Viewport.mjs';
 
@@ -53,6 +54,17 @@ class MainContainer extends Viewport {
                 labelWidth: 70,
                 listeners : {change: me.changeIsOnlineFilter.bind(me)},
                 style     : {marginLeft: '50px'}
+            }]
+        }, {
+            module: Toolbar,
+            flex  : 'none',
+
+            items : [{
+                module    : TextField,
+                labelText : 'Search',
+                labelWidth: 60,
+                style     : {marginLeft: '5px'},
+                width     : 262
             }]
         }, {
             module: List,
