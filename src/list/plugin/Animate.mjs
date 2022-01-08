@@ -85,7 +85,11 @@ class Animate extends Base {
      * @protected
      */
     afterSetTransitionDuration(value, oldValue) {
-        // We do not want to apply the style to each list item itself
+        // We do not want to apply the style to each list item itself,
+        // so we are using Neo.util.Css
+
+        Neo.isNumber(oldValue) && Css.deleteRules(`#${this.owner.id} .neo-list-item`);
+
         Css.insertRules([
             `#${this.owner.id} .neo-list-item {`,
                 `transition: opacity ${value}ms ease-in-out, transform ${value}ms ease-in-out`,
