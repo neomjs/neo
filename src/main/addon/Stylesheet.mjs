@@ -8,6 +8,12 @@ import Base from '../../core/Base.mjs';
  * @singleton
  */
 class Stylesheet extends Base {
+    /**
+     * @member {String} dynamicStyleSheetId='neo-dynamic-stylesheet'
+     * @protected
+     */
+    dynamicStyleSheetId = 'neo-dynamic-stylesheet';
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.main.addon.Stylesheet'
@@ -144,7 +150,7 @@ class Stylesheet extends Base {
      * @protected
      */
     deleteCssRules(data) {
-        let styleEl    = document.getElementById('neo-dynamic-stylesheet'),
+        let styleEl    = document.getElementById(this.dynamicStyleSheetId),
             styleSheet = styleEl.sheet,
             cssRules   = styleSheet.cssRules,
             i          = 0,
@@ -189,7 +195,7 @@ class Stylesheet extends Base {
      * @protected
      */
     insertCssRules(data) {
-        let styleEl = document.getElementById('neo-dynamic-stylesheet'),
+        let styleEl = document.getElementById(this.dynamicStyleSheetId),
             i     = 0,
             len   = data.rules.length,
             styleSheet;
@@ -197,7 +203,7 @@ class Stylesheet extends Base {
         if (!styleEl) {
             styleEl = document.createElement('style');
 
-            styleEl.id = 'neo-dynamic-stylesheet';
+            styleEl.id = this.dynamicStyleSheetId;
             document.head.appendChild(styleEl);
         }
 
