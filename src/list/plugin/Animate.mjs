@@ -1,4 +1,5 @@
 import Base from '../../plugin/Base.mjs';
+import Css  from '../../util/Css.mjs';
 
 /**
  * @class Neo.list.plugin.Animate
@@ -42,9 +43,9 @@ class Animate extends Base {
         rows: null,
         /**
          * Time in ms. Please ensure to match the CSS based value, in case you change the default.
-         * @member {Number} transitionDuration=500
+         * @member {Number} transitionDuration_=500
          */
-        transitionDuration: 500
+        transitionDuration_: 500
     }}
 
     /**
@@ -75,6 +76,20 @@ class Animate extends Base {
 
         me.ownerCreateItem = owner.createItem.bind(owner);
         owner.createItem   = me.createItem.bind(owner, me);
+    }
+
+    /**
+     * Triggered after the transitionDuration config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetTransitionDuration(value, oldValue) {
+        Css.insertRules([
+            `#${this.owner.id} .neo-list-item {`,
+                `transition: opacity ${value}ms ease-in-out, transform ${value}ms ease-in-out`,
+            '}'
+        ].join(''));
     }
 
     /**

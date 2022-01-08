@@ -14,9 +14,13 @@ class Css extends Base {
     }}
 
     /**
-     * @param {Array} rules
+     * @param {Array|String} rules
      */
     static insertRules(rules) {
+        if (!Array.isArray(rules)) {
+            rules = [rules];
+        }
+
         Neo.main.addon.Stylesheet.insertCssRules({
             rules: rules
         }).then(function(data) {
