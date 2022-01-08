@@ -45,7 +45,12 @@ class Animate extends Base {
          * Time in ms. Please ensure to match the CSS based value, in case you change the default.
          * @member {Number} transitionDuration_=500
          */
-        transitionDuration_: 500
+        transitionDuration_: 500,
+        /**
+         * The id of the setTimeout() call which gets triggered after a transition is done.
+         * @member {Number|null} transitionTimeoutId=null
+         */
+        transitionTimeoutId: null
     }}
 
     /**
@@ -205,13 +210,19 @@ class Animate extends Base {
      * @param {Neo.data.Store} data.scope
      */
     onStoreFilter(data) {
-        let me           = this,
-            owner        = me.owner,
-            addedItems   = [],
-            movedItems   = [],
-            removedItems = [],
-            vdom         = owner.vdom,
+        let me                  = this,
+            owner               = me.owner,
+            addedItems          = [],
+            movedItems          = [],
+            removedItems        = [],
+            transitionTimeoutId = me.transitionTimeoutId,
+            vdom                = owner.vdom,
             index, map, position;
+
+        if (transitionTimeoutId) {
+            clearTimeout(transitionTimeoutId);
+            me.transitionTimeoutId = null;
+        }
 
         data.items.forEach((record, index) => {
             if (!data.oldItems.includes(record)) {
@@ -261,10 +272,20 @@ class Animate extends Base {
 
             owner.vdom = vdom;
 
-            setTimeout(() => {
-                owner.createItems();
-            }, me.transitionDuration);
+            me.triggerTransitionCallback();
         }, 50);
+    }
+
+    /**
+     *
+     */
+    triggerTransitionCallback() {
+        let me = this;
+
+        me.transitionTimeoutId = setTimeout(() => {
+            me.transitionTimeoutId = null;
+            me.owner.createItems();
+        }, me.transitionDuration);
     }
 }
 
