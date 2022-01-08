@@ -85,6 +85,7 @@ class Animate extends Base {
      * @protected
      */
     afterSetTransitionDuration(value, oldValue) {
+        // We do not want to apply the style to each list item itself
         Css.insertRules([
             `#${this.owner.id} .neo-list-item {`,
                 `transition: opacity ${value}ms ease-in-out, transform ${value}ms ease-in-out`,
