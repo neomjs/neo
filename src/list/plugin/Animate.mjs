@@ -1,5 +1,6 @@
-import Base from '../../plugin/Base.mjs';
-import Css  from '../../util/Css.mjs';
+import Base     from '../../plugin/Base.mjs';
+import CssUtil  from '../../util/Css.mjs';
+import VdomUtil from '../../util/VDom.mjs';
 
 /**
  * @class Neo.list.plugin.Animate
@@ -47,6 +48,10 @@ class Animate extends Base {
          */
         transitionDuration_: 500,
         /**
+         * @member {Object[]|null} transitionItems=null
+         */
+        transitionItems: null,
+        /**
          * The id of the setTimeout() call which gets triggered after a transition is done.
          * @member {Number|null} transitionTimeoutId=null
          */
@@ -93,9 +98,9 @@ class Animate extends Base {
      * @protected
      */
     afterSetTransitionDuration(value, oldValue) {
-        Neo.isNumber(oldValue) && Css.deleteRules(`#${this.owner.id} .neo-list-item`);
+        Neo.isNumber(oldValue) && CssUtil.deleteRules(`#${this.owner.id} .neo-list-item`);
 
-        Css.insertRules([
+        CssUtil.insertRules([
             `#${this.owner.id} .neo-list-item {`,
                 `transition: opacity ${value}ms ease-in-out, transform ${value}ms ease-in-out`,
             '}'
@@ -148,6 +153,32 @@ class Animate extends Base {
 
     /**
      *
+     * @param {Object} obj
+     * @param {String[]} map
+     * @returns {Number}
+     */
+    getItemIndex(obj, map) {
+        let owner = this.owner;
+
+        return map.indexOf(owner.getItemId(obj.record[owner.store.keyProperty]));
+    }
+
+    /**
+     *
+     * @param {Object} obj
+     * @param {Boolean} intercept
+     * @returns {Number}
+     */
+    getVdomIndex(obj, intercept) {
+        let owner = this.owner;
+
+        return !intercept ?
+            obj.index :
+            VdomUtil.findVdomChild(owner.vdom, {id: owner.getItemId(obj.record.id)}).index;
+    }
+
+    /**
+     *
      */
     onOwnerMounted() {
         let me = this;
@@ -167,7 +198,7 @@ class Animate extends Base {
      * @param {Object[]} data.previousItems
      * @param {Neo.data.Store} data.scope
      */
-    onSort(data) {
+    onSort(data) {console.log('onSort');
         let me          = this,
             hasChange   = false,
             keyProperty = data.scope.keyProperty,
@@ -216,11 +247,16 @@ class Animate extends Base {
             movedItems          = [],
             removedItems        = [],
             transitionTimeoutId = me.transitionTimeoutId,
+            intercept           = !!transitionTimeoutId,
             vdom                = owner.vdom,
             index, map, position;
 
         if (transitionTimeoutId) {
             clearTimeout(transitionTimeoutId);
+
+            //data.oldItems = me.transitionItems;
+
+            me.transitionItems     = null;
             me.transitionTimeoutId = null;
         }
 
@@ -239,9 +275,10 @@ class Animate extends Base {
         });
 
         addedItems.forEach(obj => {
-            vdom.cn.splice(obj.index, 0, me.createItem(me, obj.record, obj.index));
+            index = me.getVdomIndex(obj, intercept);
+            vdom.cn.splice(index, 0, me.createItem(me, obj.record, obj.index));
 
-            obj.item = vdom.cn[obj.index];
+            obj.item = vdom.cn[index];
             obj.item.style.opacity = 0;
         });
 
@@ -251,39 +288,53 @@ class Animate extends Base {
         setTimeout(() => {
             vdom = owner.vdom;
 
-            addedItems.forEach(obj => {
-                vdom.cn[obj.index].style.opacity = 1;
-            });
-
             // new items are already added into the vdom, while old items are not yet removed
             // => we need a map to ensure getting the correct index
             map = vdom.cn.map(e => e.id);
 
+            addedItems.forEach(obj => {
+                index = me.getItemIndex(obj, map);
+                vdom.cn[index].style.opacity = 1;
+            });
+
             movedItems.forEach(obj => {
-                index    = map.indexOf(owner.getItemId(obj.record[owner.store.keyProperty]));
+                index    = me.getItemIndex(obj, map);
                 position = me.getItemPosition(obj.record, obj.index);
-                vdom.cn[index].style.transform = `translate(${position.x}px, ${position.y}px)`;
+
+                Object.assign(vdom.cn[index].style, {
+                    opacity  : 1,
+                    transform: `translate(${position.x}px, ${position.y}px)`
+                });
             });
 
             removedItems.forEach(obj => {
-                obj.item = vdom.cn[obj.index];
+                index = !intercept ?
+                    obj.index :
+                    VdomUtil.findVdomChild(vdom, {id: owner.getItemId(obj.record.id)}).index;
+
+                obj.item = vdom.cn[index];
+
                 obj.item.style.opacity = 0;
             });
 
             owner.vdom = vdom;
 
-            me.triggerTransitionCallback();
+            me.triggerTransitionCallback(data.items);
         }, 50);
     }
 
     /**
-     *
+     * @param {Object[]} items
      */
-    triggerTransitionCallback() {
+    triggerTransitionCallback(items) {
         let me = this;
 
+        me.transitionItems = items;
+
         me.transitionTimeoutId = setTimeout(() => {
+            me.transitionItems     = null;
             me.transitionTimeoutId = null;
+
             me.owner.createItems();
         }, me.transitionDuration);
     }
