@@ -1,6 +1,5 @@
-import Base     from '../../plugin/Base.mjs';
-import CssUtil  from '../../util/Css.mjs';
-import VdomUtil from '../../util/VDom.mjs';
+import Base    from '../../plugin/Base.mjs';
+import CssUtil from '../../util/Css.mjs';
 
 /**
  * @class Neo.list.plugin.Animate
@@ -46,7 +45,7 @@ class Animate extends Base {
          * Time in ms. Please ensure to match the CSS based value, in case you change the default.
          * @member {Number} transitionDuration_=500
          */
-        transitionDuration_: 2000,
+        transitionDuration_: 500,
         /**
          * The id of the setTimeout() call which gets triggered after a transition is done.
          * @member {Number|null} transitionTimeoutId=null
@@ -198,7 +197,7 @@ class Animate extends Base {
             transitionTimeoutId = me.transitionTimeoutId,
             intercept           = !!transitionTimeoutId,
             vdom                = owner.vdom,
-            index, item, map, position, vdomIndex;
+            index, item, map, position;
 
         if (transitionTimeoutId) {
             clearTimeout(transitionTimeoutId);
@@ -324,12 +323,12 @@ class Animate extends Base {
             if (hasChange) {
                 owner.vdom.cn = newVdomCn;
 
-                owner.promiseVdomUpdate().then(() => {
-                    // we need to ensure to get this call into the next animation frame
-                    setTimeout(() => {
-                        owner.createItems();
-                    }, 50);
-                });
+                owner.vdom = vdom;
+
+                // we need to ensure to get this call into the next animation frame
+                setTimeout(() => {
+                    owner.createItems();
+                }, 50);
             }
         }
     }

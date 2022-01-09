@@ -36,7 +36,7 @@ class List extends BaseList {
 
         return [
             {cls: ['neo-list-item-content'], id: `${id}__content`, cn: [
-                {tag: 'img', id: `${id}__image`, src: `../../../resources/examples/${record.image}`},
+                {tag: 'img', id: `${id}__image`, src: `${Neo.config.resourcesPath}examples/${record.image}`},
                 {cls: ['neo-list-item-text'], id: `${id}__content_wrapper`, cn: [
                     {html: record.firstname, id: `${id}__firstname`},
                     {cls: ['neo-lastname'],  id: `${id}__lastname`, html: record.lastname},

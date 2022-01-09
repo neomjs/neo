@@ -23,7 +23,7 @@ class MainStore extends Store {
 
             filterBy: opts => {
                 let record = opts.item,
-                    value  = opts.value;
+                    value  = opts.value?.toLowerCase();
 
                 if (value) {
                     return !(
