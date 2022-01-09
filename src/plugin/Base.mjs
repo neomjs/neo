@@ -33,7 +33,11 @@ class Base extends CoreBase {
 
         let me = this;
 
-        me.owner.on('mounted', me.onOwnerMounted, me);
+        if (me.owner.mounted) {
+            me.onOwnerMounted();
+        } else {
+            me.owner.on('mounted', me.onOwnerMounted, me);
+        }
     }
 
     /**

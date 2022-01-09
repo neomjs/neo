@@ -132,7 +132,7 @@ class Base extends Component {
             plugins.push({
                 module : module.default,
                 appName: me.appName,
-                flag   : 'animate',
+                id     : 'animate',
                 ...me.pluginAnimateConfig
             });
 

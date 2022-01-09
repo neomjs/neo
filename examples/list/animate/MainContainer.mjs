@@ -1,8 +1,10 @@
-import CheckBox  from '../../../src/form/field/CheckBox.mjs';
-import List      from './List.mjs';
-import MainStore from './MainStore.mjs';
-import Toolbar   from '../../../src/container/Toolbar.mjs';
-import Viewport  from '../../../src/container/Viewport.mjs';
+import CheckBox    from '../../../src/form/field/CheckBox.mjs';
+import List        from './List.mjs';
+import MainStore   from './MainStore.mjs';
+import NumberField from '../../../src/form/field/Number.mjs';
+import TextField   from '../../../src/form/field/Text.mjs';
+import Toolbar     from '../../../src/container/Toolbar.mjs';
+import Viewport    from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.list.animate.MainContainer
@@ -55,6 +57,27 @@ class MainContainer extends Viewport {
                 style     : {marginLeft: '50px'}
             }]
         }, {
+            module    : TextField,
+            flex      : 'none',
+            labelText : 'Search',
+            labelWidth: 60,
+            listeners : {change: me.changeNameFilter.bind(me)},
+            style     : {marginLeft: '10px'},
+            width     : 262
+        }, {
+            module              : NumberField,
+            clearToOriginalValue: true,
+            flex                : 'none',
+            labelText           : 'Transition Duration',
+            labelWidth          : 150,
+            listeners           : {change: me.changeTransitionDuration.bind(me)},
+            maxValue            : 5000,
+            minValue            : 100,
+            stepSize            : 100,
+            style               : {marginLeft: '10px'},
+            value               : 3000,
+            width               : 262
+        }, {
             module: List,
             store : MainStore
         }];
@@ -67,6 +90,15 @@ class MainContainer extends Viewport {
         let store = this.down({module: List}).store;
 
         store.getFilter('isOnline').disabled = !data.value;
+    }
+
+    /**
+     * @param {Object} data
+     */
+    changeNameFilter(data) {
+        let store = this.down({module: List}).store;
+
+        store.getFilter('name').value = data.value;
     }
 
     /**
@@ -96,6 +128,13 @@ class MainContainer extends Viewport {
         sorter.set({direction, property});
 
         me.sortBy = property;
+    }
+
+    /**
+     * @param {Object} data
+     */
+    changeTransitionDuration(data) {
+        this.down({module: List}).getPlugin('animate').transitionDuration = data.value;
     }
 }
 

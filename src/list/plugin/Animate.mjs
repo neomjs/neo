@@ -1,4 +1,6 @@
-import Base from '../../plugin/Base.mjs';
+import Base     from '../../plugin/Base.mjs';
+import CssUtil  from '../../util/Css.mjs';
+import VdomUtil from '../../util/VDom.mjs';
 
 /**
  * @class Neo.list.plugin.Animate
@@ -42,9 +44,14 @@ class Animate extends Base {
         rows: null,
         /**
          * Time in ms. Please ensure to match the CSS based value, in case you change the default.
-         * @member {Number} transitionDuration=500
+         * @member {Number} transitionDuration_=500
          */
-        transitionDuration: 500
+        transitionDuration_: 2000,
+        /**
+         * The id of the setTimeout() call which gets triggered after a transition is done.
+         * @member {Number|null} transitionTimeoutId=null
+         */
+        transitionTimeoutId: null
     }}
 
     /**
@@ -61,7 +68,7 @@ class Animate extends Base {
         owner.onStoreFilter = me.onStoreFilter.bind(me);
 
         owner.store.on({
-            sort : me.onSort,
+            sort : me.onStoreSort,
             scope: me
         });
     }
@@ -75,6 +82,25 @@ class Animate extends Base {
 
         me.ownerCreateItem = owner.createItem.bind(owner);
         owner.createItem   = me.createItem.bind(owner, me);
+    }
+
+    /**
+     * Triggered after the transitionDuration config got changed.
+     *
+     * We do not want to apply the style to each list item itself,
+     * so we are using Neo.util.Css
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetTransitionDuration(value, oldValue) {
+        Neo.isNumber(oldValue) && CssUtil.deleteRules(`#${this.owner.id} .neo-list-item`);
+
+        CssUtil.insertRules([
+            `#${this.owner.id} .neo-list-item {`,
+                `transition: opacity ${value}ms ease-in-out, transform ${value}ms ease-in-out`,
+            '}'
+        ].join(''));
     }
 
     /**
@@ -123,6 +149,24 @@ class Animate extends Base {
 
     /**
      *
+     * @param {Object} obj
+     * @param {String[]} map
+     * @param {Boolean} intercept
+     * @returns {Number}
+     */
+    getItemIndex(obj, map, intercept) {
+        if (!intercept) {
+            return obj.index;
+        }
+
+        let owner = this.owner,
+            key   = owner.store.keyProperty;
+
+        return map.indexOf(owner.getItemId(obj.record[key]));
+    }
+
+    /**
+     *
      */
     onOwnerMounted() {
         let me = this;
@@ -138,11 +182,124 @@ class Animate extends Base {
 
     /**
      * @param {Object} data
+     * @param {Boolean} data.isFiltered
+     * @param {Object[]} data.items
+     * @param {Object[]} data.oldItems
+     * @param {Neo.data.Store} data.scope
+     */
+    onStoreFilter(data) {
+        let me                  = this,
+            owner               = me.owner,
+            key                 = owner.store.keyProperty,
+            hasAddedItems       = false,
+            addedItems          = [],
+            movedItems          = [],
+            removedItems        = [],
+            transitionTimeoutId = me.transitionTimeoutId,
+            intercept           = !!transitionTimeoutId,
+            vdom                = owner.vdom,
+            index, item, map, position, vdomIndex;
+
+        if (transitionTimeoutId) {
+            clearTimeout(transitionTimeoutId);
+            me.transitionTimeoutId = null;
+        }
+
+        map = intercept ? vdom.cn.map(e => e.id) : [];
+
+        data.items.forEach((record, index) => {
+            item = {index, record};
+
+            if (!data.oldItems.includes(record)) {
+                // flag items which are still inside the DOM (running remove OP)
+                if (intercept && map.includes(owner.getItemId(record[key]))) {
+                    item.reAdded = true;
+                }
+
+                addedItems.push(item);
+            } else {
+                movedItems.push(item);
+            }
+        });
+
+        data.oldItems.forEach((record, index) => {
+            if (!data.items.includes(record)) {
+                removedItems.push({index, record});
+            }
+        });
+
+        addedItems.forEach(obj => {
+            if (!obj.reAdded) {
+                index = me.getItemIndex(obj, map, intercept);
+
+                if (index > -1) {
+                    hasAddedItems = true;
+
+                    vdom.cn.splice(index, 0, me.createItem(me, obj.record, obj.index));
+
+                    obj.item = vdom.cn[index];
+                    obj.item.style.opacity = 0;
+                }
+            }
+        });
+
+        if (hasAddedItems) {
+            owner.vdom = vdom;
+        }
+
+        // ensure to get into the next animation frame
+        setTimeout(() => {
+            // get the latest version of the vdom, since this is a delayed callback
+            vdom = owner.vdom;
+
+            // new items are already added into the vdom, while old items are not yet removed
+            // => we need a map to ensure getting the correct index
+            map = vdom.cn.map(e => e.id);
+
+            addedItems.forEach(obj => {
+                index = me.getItemIndex(obj, map, intercept);
+
+                if (index > -1) {
+                    // we can change the opacity for re-added items too => the vdom engine will ignore this
+                    vdom.cn[index].style.opacity = 1;
+                }
+            });
+
+            movedItems.forEach(obj => {
+                index = me.getItemIndex(obj, map, true); // honor removed items, even without interceptions
+
+                if (index > -1) {
+                    position = me.getItemPosition(obj.record, obj.index);
+
+                    Object.assign(vdom.cn[index].style, {
+                        opacity  : 1,
+                        transform: `translate(${position.x}px, ${position.y}px)`
+                    });
+                }
+            });
+
+            removedItems.forEach(obj => {
+                index = me.getItemIndex(obj, map, intercept);
+
+                if (index > -1) {
+                    obj.item = vdom.cn[index];
+                    obj.item.style.opacity = 0;
+                }
+            });
+
+            owner.vdom = vdom;
+
+            me.triggerTransitionCallback();
+        }, 50);
+    }
+
+    /**
+     * @param {Object} data
      * @param {Object[]} data.items
      * @param {Object[]} data.previousItems
      * @param {Neo.data.Store} data.scope
      */
-    onSort(data) {
+    onStoreSort(data) {
         let me          = this,
             hasChange   = false,
             keyProperty = data.scope.keyProperty,
@@ -178,73 +335,16 @@ class Animate extends Base {
     }
 
     /**
-     * @param {Object} data
-     * @param {Boolean} data.isFiltered
-     * @param {Object[]} data.items
-     * @param {Object[]} data.oldItems
-     * @param {Neo.data.Store} data.scope
+     *
      */
-    onStoreFilter(data) {
-        let me           = this,
-            owner        = me.owner,
-            addedItems   = [],
-            movedItems   = [],
-            removedItems = [],
-            vdom         = owner.vdom,
-            index, map, position;
+    triggerTransitionCallback() {
+        let me = this;
 
-        data.items.forEach((record, index) => {
-            if (!data.oldItems.includes(record)) {
-                addedItems.push({index, record});
-            } else {
-                movedItems.push({index, record});
-            }
-        });
+        me.transitionTimeoutId = setTimeout(() => {
+            me.transitionTimeoutId = null;
 
-        data.oldItems.forEach((record, index) => {
-            if (!data.items.includes(record)) {
-                removedItems.push({index, record});
-            }
-        });
-
-        addedItems.forEach(obj => {
-            vdom.cn.splice(obj.index, 0, me.createItem(me, obj.record, obj.index));
-
-            obj.item = vdom.cn[obj.index];
-            obj.item.style.opacity = 0;
-        });
-
-        owner.vdom = vdom;
-
-        // ensure to get into the next animation frame
-        setTimeout(() => {
-            vdom = owner.vdom;
-
-            addedItems.forEach(obj => {
-                vdom.cn[obj.index].style.opacity = 1;
-            });
-
-            // new items are already added into the vdom, while old items are not yet removed
-            // => we need a map to ensure getting the correct index
-            map = vdom.cn.map(e => e.id);
-
-            movedItems.forEach(obj => {
-                index    = map.indexOf(owner.getItemId(obj.record[owner.store.keyProperty]));
-                position = me.getItemPosition(obj.record, obj.index);
-                vdom.cn[index].style.transform = `translate(${position.x}px, ${position.y}px)`;
-            });
-
-            removedItems.forEach(obj => {
-                obj.item = vdom.cn[obj.index];
-                obj.item.style.opacity = 0;
-            });
-
-            owner.vdom = vdom;
-
-            setTimeout(() => {
-                owner.createItems();
-            }, me.transitionDuration);
-        }, 50);
+            me.owner.createItems();
+        }, me.transitionDuration);
     }
 }
 

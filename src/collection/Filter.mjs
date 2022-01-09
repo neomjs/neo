@@ -40,7 +40,7 @@ class Filter extends Base {
          */
         disabled_: false,
         /**
-         * Provide a custom filtering function, has a higher priority than property, operator & value
+         * Provide a custom filtering function which has a higher priority than property, operator & value
          * @member {Function|null} filterBy_=null
          */
         filterBy_: null,
@@ -173,7 +173,12 @@ class Filter extends Base {
         }
 
         if (me._filterBy) {
-            return me.filterBy.call(me.scope || me, item, filteredItems, allItems);
+            return me.filterBy.call(me.scope || me, {
+                allItems,
+                filteredItems,
+                item,
+                value: me._value
+            });
         }
 
         if (me.includeEmptyValues && (me._value === null || Neo.isEmpty(me._value))) {

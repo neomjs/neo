@@ -8,6 +8,12 @@ import Base from '../../core/Base.mjs';
  * @singleton
  */
 class Stylesheet extends Base {
+    /**
+     * @member {String} dynamicStyleSheetId='neo-dynamic-stylesheet'
+     * @protected
+     */
+    dynamicStyleSheetId = 'neo-dynamic-stylesheet';
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.main.addon.Stylesheet'
@@ -23,6 +29,7 @@ class Stylesheet extends Base {
             app: [
                 'addThemeFiles',
                 'createStyleSheet',
+                'deleteCssRules',
                 'insertCssRules',
                 'swapStyleSheet'
             ]
@@ -138,6 +145,32 @@ class Stylesheet extends Base {
     }
 
     /**
+     * @param {Object} data
+     * @param {Array} data.rules
+     * @protected
+     */
+    deleteCssRules(data) {
+        let styleEl    = document.getElementById(this.dynamicStyleSheetId),
+            styleSheet = styleEl.sheet,
+            cssRules   = styleSheet.cssRules,
+            i          = 0,
+            len        = data.rules.length,
+            j, rulesLen;
+
+        for (; i < len; i++) {
+            j        = 0;
+            rulesLen = cssRules.length;
+
+            for (; j < rulesLen; j++) {
+                if (cssRules[j].selectorText === data.rules[i]) {
+                    styleSheet.deleteRule(j);
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
      * @param {String} token
      * @returns {Boolean}
      */
@@ -162,7 +195,7 @@ class Stylesheet extends Base {
      * @protected
      */
     insertCssRules(data) {
-        let styleEl = document.getElementById('neoDynamicStyleSheet'),
+        let styleEl = document.getElementById(this.dynamicStyleSheetId),
             i     = 0,
             len   = data.rules.length,
             styleSheet;
@@ -170,7 +203,7 @@ class Stylesheet extends Base {
         if (!styleEl) {
             styleEl = document.createElement('style');
 
-            styleEl.id = 'neoDynamicStyleSheet';
+            styleEl.id = this.dynamicStyleSheetId;
             document.head.appendChild(styleEl);
         }
 

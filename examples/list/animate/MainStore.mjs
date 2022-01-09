@@ -17,6 +17,23 @@ class MainStore extends Store {
             disabled : true,
             property : 'isOnline',
             value    : true
+        }, {
+            property : 'name',
+            value    : null,
+
+            filterBy: opts => {
+                let record = opts.item,
+                    value  = opts.value;
+
+                if (value) {
+                    return !(
+                        record.firstname.toLowerCase().includes(value) ||
+                        record.lastname .toLowerCase().includes(value)
+                    );
+                }
+
+                return false;
+            }
         }],
 
         sorters: [{
