@@ -323,12 +323,12 @@ class Animate extends Base {
             if (hasChange) {
                 owner.vdom.cn = newVdomCn;
 
-                owner.promiseVdomUpdate().then(() => {
-                    // we need to ensure to get this call into the next animation frame
-                    setTimeout(() => {
-                        owner.createItems();
-                    }, 50);
-                });
+                owner.vdom = vdom;
+
+                // we need to ensure to get this call into the next animation frame
+                setTimeout(() => {
+                    owner.createItems();
+                }, 50);
             }
         }
     }
