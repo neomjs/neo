@@ -198,7 +198,7 @@ class Animate extends Base {
             transitionTimeoutId = me.transitionTimeoutId,
             intercept           = !!transitionTimeoutId,
             vdom                = owner.vdom,
-            index, item, map, position;
+            index, item, map, position, vdomIndex;
 
         if (transitionTimeoutId) {
             clearTimeout(transitionTimeoutId);
@@ -208,9 +208,9 @@ class Animate extends Base {
         map = intercept ? vdom.cn.map(e => e.id) : [];
 
         data.items.forEach((record, index) => {
-            if (!data.oldItems.includes(record)) {
-                item = {index, record};
+            item = {index, record};
 
+            if (!data.oldItems.includes(record)) {
                 // flag items which are still inside the DOM (running remove OP)
                 if (intercept && map.includes(owner.getItemId(record[key]))) {
                     item.reAdded = true;
@@ -218,7 +218,7 @@ class Animate extends Base {
 
                 addedItems.push(item);
             } else {
-                movedItems.push({index, record});
+                movedItems.push(item);
             }
         });
 
