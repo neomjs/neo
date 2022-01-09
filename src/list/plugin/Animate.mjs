@@ -45,7 +45,7 @@ class Animate extends Base {
          * Time in ms. Please ensure to match the CSS based value, in case you change the default.
          * @member {Number} transitionDuration_=500
          */
-        transitionDuration_: 2000,
+        transitionDuration_: 500,
         /**
          * The id of the setTimeout() call which gets triggered after a transition is done.
          * @member {Number|null} transitionTimeoutId=null
