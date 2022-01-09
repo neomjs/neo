@@ -197,7 +197,7 @@ class Animate extends Base {
             transitionTimeoutId = me.transitionTimeoutId,
             intercept           = !!transitionTimeoutId,
             vdom                = owner.vdom,
-            index, item, map, position, vdomIndex;
+            index, item, map, position;
 
         if (transitionTimeoutId) {
             clearTimeout(transitionTimeoutId);
