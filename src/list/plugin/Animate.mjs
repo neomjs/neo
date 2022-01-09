@@ -46,7 +46,7 @@ class Animate extends Base {
          * Time in ms. Please ensure to match the CSS based value, in case you change the default.
          * @member {Number} transitionDuration_=500
          */
-        transitionDuration_: 500,
+        transitionDuration_: 3000,
         /**
          * @member {Object[]|null} transitionItems=null
          */

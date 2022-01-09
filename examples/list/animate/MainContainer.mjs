@@ -75,7 +75,7 @@ class MainContainer extends Viewport {
             minValue            : 100,
             stepSize            : 100,
             style               : {marginLeft: '10px'},
-            value               : 2000,
+            value               : 3000,
             width               : 262
         }, {
             module: List,
