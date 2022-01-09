@@ -46,7 +46,7 @@ class Animate extends Base {
          * Time in ms. Please ensure to match the CSS based value, in case you change the default.
          * @member {Number} transitionDuration_=500
          */
-        transitionDuration_: 3000,
+        transitionDuration_: 2000,
         /**
          * The id of the setTimeout() call which gets triggered after a transition is done.
          * @member {Number|null} transitionTimeoutId=null
@@ -190,6 +190,7 @@ class Animate extends Base {
     onStoreFilter(data) {
         let me                  = this,
             owner               = me.owner,
+            key                 = owner.store.keyProperty,
             hasAddedItems       = false,
             addedItems          = [],
             movedItems          = [],
@@ -211,7 +212,7 @@ class Animate extends Base {
                 item = {index, record};
 
                 // flag items which are still inside the DOM (running remove OP)
-                if (intercept && map.includes(owner.getItemId(record.id))) {
+                if (intercept && map.includes(owner.getItemId(record[key]))) {
                     item.reAdded = true;
                 }
 
