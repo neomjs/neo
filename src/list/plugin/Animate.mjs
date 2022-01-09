@@ -48,10 +48,6 @@ class Animate extends Base {
          */
         transitionDuration_: 3000,
         /**
-         * @member {Object[]|null} transitionItems=null
-         */
-        transitionItems: null,
-        /**
          * The id of the setTimeout() call which gets triggered after a transition is done.
          * @member {Number|null} transitionTimeoutId=null
          */
@@ -155,26 +151,18 @@ class Animate extends Base {
      *
      * @param {Object} obj
      * @param {String[]} map
-     * @returns {Number}
-     */
-    getItemIndex(obj, map) {
-        let owner = this.owner;
-
-        return map.indexOf(owner.getItemId(obj.record[owner.store.keyProperty]));
-    }
-
-    /**
-     *
-     * @param {Object} obj
      * @param {Boolean} intercept
      * @returns {Number}
      */
-    getVdomIndex(obj, intercept) {
-        let owner = this.owner;
+    getItemIndex(obj, map, intercept) {
+        if (!intercept) {
+            return obj.index;
+        }
 
-        return !intercept ?
-            obj.index :
-            VdomUtil.findVdomChild(owner.vdom, {id: owner.getItemId(obj.record.id)}).index;
+        let owner = this.owner,
+            key   = owner.store.keyProperty;
+
+        return map.indexOf(owner.getItemId(obj.record[key]));
     }
 
     /**
@@ -202,26 +190,32 @@ class Animate extends Base {
     onStoreFilter(data) {
         let me                  = this,
             owner               = me.owner,
+            hasAddedItems       = false,
             addedItems          = [],
             movedItems          = [],
             removedItems        = [],
             transitionTimeoutId = me.transitionTimeoutId,
             intercept           = !!transitionTimeoutId,
             vdom                = owner.vdom,
-            index, map, position;
+            index, item, map, position;
 
         if (transitionTimeoutId) {
             clearTimeout(transitionTimeoutId);
-
-            //data.oldItems = me.transitionItems;
-
-            me.transitionItems     = null;
             me.transitionTimeoutId = null;
         }
 
+        map = intercept ? vdom.cn.map(e => e.id) : [];
+
         data.items.forEach((record, index) => {
             if (!data.oldItems.includes(record)) {
-                addedItems.push({index, record});
+                item = {index, record};
+
+                // flag items which are still inside the DOM (running remove OP)
+                if (intercept && map.includes(owner.getItemId(record.id))) {
+                    item.reAdded = true;
+                }
+
+                addedItems.push(item);
             } else {
                 movedItems.push({index, record});
             }
@@ -234,17 +228,27 @@ class Animate extends Base {
         });
 
         addedItems.forEach(obj => {
-            index = me.getVdomIndex(obj, intercept);
-            vdom.cn.splice(index, 0, me.createItem(me, obj.record, obj.index));
+            if (!obj.reAdded) {
+                index = me.getItemIndex(obj, map, intercept);
 
-            obj.item = vdom.cn[index];
-            obj.item.style.opacity = 0;
+                if (index > -1) {
+                    hasAddedItems = true;
+
+                    vdom.cn.splice(index, 0, me.createItem(me, obj.record, obj.index));
+
+                    obj.item = vdom.cn[index];
+                    obj.item.style.opacity = 0;
+                }
+            }
         });
 
-        owner.vdom = vdom;
+        if (hasAddedItems) {
+            owner.vdom = vdom;
+        }
 
         // ensure to get into the next animation frame
         setTimeout(() => {
+            // get the latest version of the vdom, since this is a delayed callback
             vdom = owner.vdom;
 
             // new items are already added into the vdom, while old items are not yet removed
@@ -252,33 +256,39 @@ class Animate extends Base {
             map = vdom.cn.map(e => e.id);
 
             addedItems.forEach(obj => {
-                index = me.getItemIndex(obj, map);
-                vdom.cn[index].style.opacity = 1;
+                index = me.getItemIndex(obj, map, intercept);
+
+                if (index > -1) {
+                    // we can change the opacity for re-added items too => the vdom engine will ignore this
+                    vdom.cn[index].style.opacity = 1;
+                }
             });
 
             movedItems.forEach(obj => {
-                index    = me.getItemIndex(obj, map);
-                position = me.getItemPosition(obj.record, obj.index);
+                index = me.getItemIndex(obj, map, true); // honor removed items, even without interceptions
 
-                Object.assign(vdom.cn[index].style, {
-                    opacity  : 1,
-                    transform: `translate(${position.x}px, ${position.y}px)`
-                });
+                if (index > -1) {
+                    position = me.getItemPosition(obj.record, obj.index);
+
+                    Object.assign(vdom.cn[index].style, {
+                        opacity  : 1,
+                        transform: `translate(${position.x}px, ${position.y}px)`
+                    });
+                }
             });
 
             removedItems.forEach(obj => {
-                index = !intercept ?
-                    obj.index :
-                    VdomUtil.findVdomChild(vdom, {id: owner.getItemId(obj.record.id)}).index;
+                index = me.getItemIndex(obj, map, intercept);
 
-                obj.item = vdom.cn[index];
-
-                obj.item.style.opacity = 0;
+                if (index > -1) {
+                    obj.item = vdom.cn[index];
+                    obj.item.style.opacity = 0;
+                }
             });
 
             owner.vdom = vdom;
 
-            me.triggerTransitionCallback(data.items);
+            me.triggerTransitionCallback();
         }, 50);
     }
 
@@ -324,15 +334,12 @@ class Animate extends Base {
     }
 
     /**
-     * @param {Object[]} items
+     *
      */
-    triggerTransitionCallback(items) {
+    triggerTransitionCallback() {
         let me = this;
 
-        me.transitionItems = items;
-
         me.transitionTimeoutId = setTimeout(() => {
-            me.transitionItems     = null;
             me.transitionTimeoutId = null;
 
             me.owner.createItems();
