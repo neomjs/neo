@@ -130,7 +130,6 @@ class Animate extends Base {
     }
 
     /**
-     *
      * @param {Object} record
      * @param {Number} index
      * @returns {{x: Number, y: Number}}
@@ -147,7 +146,6 @@ class Animate extends Base {
     }
 
     /**
-     *
      * @param {Object} obj
      * @param {String[]} map
      * @param {Boolean} intercept
