@@ -1,6 +1,5 @@
-import Base     from '../../plugin/Base.mjs';
-import CssUtil  from '../../util/Css.mjs';
-import VdomUtil from '../../util/VDom.mjs';
+import Base    from '../../plugin/Base.mjs';
+import CssUtil from '../../util/Css.mjs';
 
 /**
  * @class Neo.list.plugin.Animate
