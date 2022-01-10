@@ -6,6 +6,16 @@ import CssUtil from '../../util/Css.mjs';
  * @extends Neo.plugin.Base
  */
 class Animate extends Base {
+    static getStaticConfig() {return {
+        /**
+         * Valid values for transitionEasing
+         * @member {String[]} transitionEasings=['ease','ease-in','ease-out','ease-in-out','linear']
+         * @protected
+         * @static
+         */
+        transitionEasings: ['ease', 'ease-in', 'ease-out', 'ease-in-out', 'linear']
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.list.plugin.Animate'
@@ -107,6 +117,16 @@ class Animate extends Base {
                 `transition: opacity ${value}ms ${me.transitionEasing}, transform ${value}ms ${me.transitionEasing}`,
             '}'
         ].join(''));
+    }
+
+    /**
+     * Triggered before the transitionEasing config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetTransitionEasing(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'transitionEasing');
     }
 
     /**
