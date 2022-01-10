@@ -85,6 +85,8 @@ class Animate extends Base {
             sort : me.onStoreSort,
             scope: me
         });
+
+        this.updateTransitionDetails(false);
     }
 
     /**
@@ -100,23 +102,22 @@ class Animate extends Base {
 
     /**
      * Triggered after the transitionDuration config got changed.
-     *
-     * We do not want to apply the style to each list item itself,
-     * so we are using Neo.util.Css
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetTransitionDuration(value, oldValue) {
-        let me = this;
+        this.isConstructed && this.updateTransitionDetails(Neo.isNumber(oldValue));
+    }
 
-        Neo.isNumber(oldValue) && CssUtil.deleteRules(`#${me.owner.id} .neo-list-item`);
-
-        CssUtil.insertRules([
-            `#${this.owner.id} .neo-list-item {`,
-                `transition: opacity ${value}ms ${me.transitionEasing}, transform ${value}ms ${me.transitionEasing}`,
-            '}'
-        ].join(''));
+    /**
+     * Triggered after the transitionEasing config got changed.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetTransitionEasing(value, oldValue) {
+        this.isConstructed && this.updateTransitionDetails(!!oldValue);
     }
 
     /**
@@ -369,6 +370,27 @@ class Animate extends Base {
 
             me.owner.createItems();
         }, me.transitionDuration);
+    }
+
+    /**
+     * We do not want to apply the style to each list item itself,
+     * so we are using Neo.util.Css
+     * @param {Boolean} deleteRule
+     * @protected
+     */
+    updateTransitionDetails(deleteRule) {
+        let me       = this,
+            duration = me.transitionDuration,
+            easing   = me.transitionEasing,
+            id       = me.owner.id;
+
+        deleteRule && CssUtil.deleteRules(`#${id} .neo-list-item`);
+
+        CssUtil.insertRules([
+            `#${id} .neo-list-item {`,
+                `transition: opacity ${duration}ms ${easing}, transform ${duration}ms ${easing}`,
+            '}'
+        ].join(''));
     }
 }
 
