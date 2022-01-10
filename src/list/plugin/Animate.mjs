@@ -58,6 +58,7 @@ class Animate extends Base {
         transitionDuration_: 500,
         /**
          * The easing used for fadeIn, fadeOut and position changes.
+         * Valid values: 'ease','ease-in','ease-out','ease-in-out','linear'
          * @member {String} transitionEasing_='ease-in-out'
          */
         transitionEasing_: 'ease-in-out',
