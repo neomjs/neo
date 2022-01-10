@@ -47,6 +47,11 @@ class Animate extends Base {
          */
         transitionDuration_: 500,
         /**
+         * The easing used for fadeIn, fadeOut and position changes.
+         * @member {String} transitionEasing_='ease-in-out'
+         */
+        transitionEasing_: 'ease-in-out',
+        /**
          * The id of the setTimeout() call which gets triggered after a transition is done.
          * @member {Number|null} transitionTimeoutId=null
          */
@@ -93,11 +98,13 @@ class Animate extends Base {
      * @protected
      */
     afterSetTransitionDuration(value, oldValue) {
-        Neo.isNumber(oldValue) && CssUtil.deleteRules(`#${this.owner.id} .neo-list-item`);
+        let me = this;
+
+        Neo.isNumber(oldValue) && CssUtil.deleteRules(`#${me.owner.id} .neo-list-item`);
 
         CssUtil.insertRules([
             `#${this.owner.id} .neo-list-item {`,
-                `transition: opacity ${value}ms ease-in-out, transform ${value}ms ease-in-out`,
+                `transition: opacity ${value}ms ${me.transitionEasing}, transform ${value}ms ${me.transitionEasing}`,
             '}'
         ].join(''));
     }
