@@ -6,6 +6,16 @@ import CssUtil from '../../util/Css.mjs';
  * @extends Neo.plugin.Base
  */
 class Animate extends Base {
+    static getStaticConfig() {return {
+        /**
+         * Valid values for transitionEasing
+         * @member {String[]} transitionEasings=['ease','ease-in','ease-out','ease-in-out','linear']
+         * @protected
+         * @static
+         */
+        transitionEasings: ['ease', 'ease-in', 'ease-out', 'ease-in-out', 'linear']
+    }}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.list.plugin.Animate'
@@ -47,6 +57,12 @@ class Animate extends Base {
          */
         transitionDuration_: 500,
         /**
+         * The easing used for fadeIn, fadeOut and position changes.
+         * Valid values: 'ease','ease-in','ease-out','ease-in-out','linear'
+         * @member {String} transitionEasing_='ease-in-out'
+         */
+        transitionEasing_: 'ease-in-out',
+        /**
          * The id of the setTimeout() call which gets triggered after a transition is done.
          * @member {Number|null} transitionTimeoutId=null
          */
@@ -70,6 +86,8 @@ class Animate extends Base {
             sort : me.onStoreSort,
             scope: me
         });
+
+        this.updateTransitionDetails(false);
     }
 
     /**
@@ -85,21 +103,32 @@ class Animate extends Base {
 
     /**
      * Triggered after the transitionDuration config got changed.
-     *
-     * We do not want to apply the style to each list item itself,
-     * so we are using Neo.util.Css
      * @param {Boolean} value
      * @param {Boolean} oldValue
      * @protected
      */
     afterSetTransitionDuration(value, oldValue) {
-        Neo.isNumber(oldValue) && CssUtil.deleteRules(`#${this.owner.id} .neo-list-item`);
+        this.isConstructed && this.updateTransitionDetails(Neo.isNumber(oldValue));
+    }
 
-        CssUtil.insertRules([
-            `#${this.owner.id} .neo-list-item {`,
-                `transition: opacity ${value}ms ease-in-out, transform ${value}ms ease-in-out`,
-            '}'
-        ].join(''));
+    /**
+     * Triggered after the transitionEasing config got changed.
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetTransitionEasing(value, oldValue) {
+        this.isConstructed && this.updateTransitionDetails(!!oldValue);
+    }
+
+    /**
+     * Triggered before the transitionEasing config gets changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    beforeSetTransitionEasing(value, oldValue) {
+        return this.beforeSetEnumValue(value, oldValue, 'transitionEasing');
     }
 
     /**
@@ -130,7 +159,6 @@ class Animate extends Base {
     }
 
     /**
-     *
      * @param {Object} record
      * @param {Number} index
      * @returns {{x: Number, y: Number}}
@@ -147,7 +175,6 @@ class Animate extends Base {
     }
 
     /**
-     *
      * @param {Object} obj
      * @param {String[]} map
      * @param {Boolean} intercept
@@ -344,6 +371,27 @@ class Animate extends Base {
 
             me.owner.createItems();
         }, me.transitionDuration);
+    }
+
+    /**
+     * We do not want to apply the style to each list item itself,
+     * so we are using Neo.util.Css
+     * @param {Boolean} deleteRule
+     * @protected
+     */
+    updateTransitionDetails(deleteRule) {
+        let me       = this,
+            duration = me.transitionDuration,
+            easing   = me.transitionEasing,
+            id       = me.owner.id;
+
+        deleteRule && CssUtil.deleteRules(`#${id} .neo-list-item`);
+
+        CssUtil.insertRules([
+            `#${id} .neo-list-item {`,
+                `transition: opacity ${duration}ms ${easing}, transform ${duration}ms ${easing}`,
+            '}'
+        ].join(''));
     }
 }
 
