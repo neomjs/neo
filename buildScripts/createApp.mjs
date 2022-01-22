@@ -7,18 +7,21 @@ import inquirer    from 'inquirer';
 import os          from 'os';
 import path        from 'path';
 
-const __dirname      = path.resolve(),
-      cwd            = process.cwd(),
-      packageName    = process.env.npm_package_name,
-      packageVersion = process.env.npm_package_name,
-      insideNeo      = packageName === 'neo.mjs',
-      neoPath        = insideNeo ? './' : './node_modules/neo.mjs/',
-      addonChoices   = fs.readdirSync(path.join(neoPath, '/src/main/addon')).map(item => item.slice(0, -4)),
-      program        = new Command(),
-      programName    = `${packageName} create-app`,
-      questions      = [],
-      scssFolders    = fs.readdirSync(path.join(neoPath, '/resources/scss')),
-      themeFolders   = [];
+function requireJson(path) {
+    return JSON.parse(fs.readFileSync((path)));
+}
+
+const __dirname    = path.resolve(),
+      cwd          = process.cwd(),
+      packageJson  = requireJson(path.join(__dirname, 'package.json')),
+      insideNeo    = packageJson.name === 'neo.mjs',
+      neoPath      = insideNeo ? './' : './node_modules/neo.mjs/',
+      addonChoices = fs.readdirSync(path.join(neoPath, '/src/main/addon')).map(item => item.slice(0, -4)),
+      program      = new Command(),
+      programName  = `${packageJson.name} create-app`,
+      questions    = [],
+      scssFolders  = fs.readdirSync(path.join(neoPath, '/resources/scss')),
+      themeFolders = [];
 
 scssFolders.forEach(folder => {
     if (folder.includes('theme')) {
@@ -28,7 +31,7 @@ scssFolders.forEach(folder => {
 
 program
     .name(programName)
-    .version(packageVersion)
+    .version(packageJson.version)
     .option('-i, --info',                     'print environment debug info')
     .option('-a, --appName <value>')
     .option('-m, --mainThreadAddons <value>', `Comma separated list of:\n${addonChoices.join(', ')}\nDefaults to DragDrop, Stylesheet`)
@@ -45,7 +48,7 @@ const programOpts = program.opts();
 
 if (programOpts.info) {
     console.log(chalk.bold('\nEnvironment Info:'));
-    console.log(`\n  current version of ${packageName}: ${packageVersion}`);
+    console.log(`\n  current version of ${packageJson.name}: ${packageJson.version}`);
     console.log(`  running from ${__dirname}`);
 
     envinfo
@@ -251,17 +254,16 @@ if (programOpts.info) {
                 appJson;
 
             if (fs.existsSync(appJsonPath)) {
-                appJson = JSON.parse(fs.readFileSync((appJsonPath)));
+                appJson = requireJson(appJsonPath);
             } else {
                 appJsonPath = path.resolve(__dirname, 'buildScripts/webpack/json/myApps.json');
                 console.log(__dirname);
                 console.log(appJsonPath);
 
                 if (fs.existsSync(appJsonPath)) {
-                    appJson = JSON.parse(fs.readFileSync((appJsonPath)));
+                    appJson = requireJson(appJsonPath);
                 } else {
-                    //appJson = require(path.resolve(__dirname, '../buildScripts/webpack/json/myApps.template.json'));
-                    appJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'buildScripts/webpack/json/myApps.template.json')));
+                    appJson = requireJson(path.resolve(__dirname, 'buildScripts/webpack/json/myApps.template.json'));
                 }
             }
 
