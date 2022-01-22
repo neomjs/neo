@@ -2,6 +2,7 @@
     "name": "neo.mjs",
     "version": "3.0.6",
     "description": "The webworkers driven UI framework",
+    "type": "module",
     "repository": {
         "type": "git",
         "url": "https://github.com/neomjs/neo.git"
@@ -12,7 +13,7 @@
         "build-my-apps": "node ./buildScripts/webpack/buildMyApps.js -f",
         "build-themes": "node ./buildScripts/buildThemes.js -f",
         "build-threads": "node ./buildScripts/webpack/buildThreads.js -f",
-        "create-app": "node ./buildScripts/createApp.js",
+        "create-app": "node ./buildScripts/createApp.mjs",
         "generate-docs-json": "node ./buildScripts/docs/jsdocx.js",
         "server-start": "webpack serve -c ./buildScripts/webpack/webpack.server.config.js --open",
         "test": "echo \"Error: no test specified\" && exit 1"
