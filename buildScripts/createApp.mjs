@@ -254,8 +254,6 @@ if (programOpts.info) {
                 appJson = requireJson(appJsonPath);
             } else {
                 appJsonPath = path.resolve(__dirname, 'buildScripts/webpack/json/myApps.json');
-                console.log(__dirname);
-                console.log(appJsonPath);
 
                 if (fs.existsSync(appJsonPath)) {
                     appJson = requireJson(appJsonPath);
