@@ -7,12 +7,9 @@ import inquirer    from 'inquirer';
 import os          from 'os';
 import path        from 'path';
 
-function requireJson(path) {
-    return JSON.parse(fs.readFileSync((path)));
-}
-
 const __dirname    = path.resolve(),
       cwd          = process.cwd(),
+      requireJson  = path => JSON.parse(fs.readFileSync((path))),
       packageJson  = requireJson(path.join(__dirname, 'package.json')),
       insideNeo    = packageJson.name === 'neo.mjs',
       neoPath      = insideNeo ? './' : './node_modules/neo.mjs/',
