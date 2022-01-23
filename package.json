@@ -8,8 +8,8 @@
         "url": "https://github.com/neomjs/neo.git"
     },
     "scripts": {
-        "build-all": "node ./buildScripts/buildAll.js -f -n",
-        "build-all-questions": "node ./buildScripts/buildAll.js -f",
+        "build-all": "node ./buildScripts/buildAll.mjs -f -n",
+        "build-all-questions": "node ./buildScripts/buildAll.mjs -f",
         "build-my-apps": "node ./buildScripts/webpack/buildMyApps.js -f",
         "build-themes": "node ./buildScripts/buildThemes.mjs -f",
         "build-threads": "node ./buildScripts/webpack/buildThreads.js -f",
