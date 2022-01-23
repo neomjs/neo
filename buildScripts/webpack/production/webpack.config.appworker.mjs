@@ -1,31 +1,33 @@
+import fs                from 'fs-extra';
+import path              from 'path';
+import webpack           from 'webpack';
+import WebpackHookPlugin from 'webpack-hook-plugin';
+
 const cwd                   = process.cwd(),
-      fs                    = require('fs-extra'),
-      path                  = require('path'),
-      buildTarget           = require('./buildTarget.json'),
-      WebpackHookPlugin     = require('webpack-hook-plugin'),
       configPath            = path.resolve(cwd, 'buildScripts/myApps.json'),
-      packageJson           = require(path.resolve(cwd, 'package.json')),
+      requireJson           = path => JSON.parse(fs.readFileSync((path))),
+      packageJson           = requireJson(path.resolve(cwd, 'package.json')),
       neoPath               = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      filenameConfig        = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
+      buildTarget           = requireJson(path.resolve(neoPath, 'buildScripts/webpack/production/buildTarget.json')),
+      filenameConfig        = requireJson(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
       plugins               = [],
       regexIndexNodeModules = /node_modules/g,
       regexLineBreak        = /(\r\n|\n|\r)/gm,
       regexTopLevel         = /\.\.\//g,
       regexTrimEnd          = /\s+$/gm,
-      regexTrimStart        = /^\s+/gm,
-      webpack               = require('webpack');
+      regexTrimStart        = /^\s+/gm;
 
 let config, examplesPath;
 
 if (fs.existsSync(configPath)) {
-    config = require(configPath);
+    config = requireJson(configPath);
 } else {
     const myAppsPath = path.resolve(neoPath, 'buildScripts/webpack/json/myApps.json');
 
     if (fs.existsSync(myAppsPath)) {
-        config = require(myAppsPath);
+        config = requireJson(myAppsPath);
     } else {
-        config = require(path.resolve(neoPath, 'buildScripts/webpack/json/myApps.template.json'));
+        config = requireJson(path.resolve(neoPath, 'buildScripts/webpack/json/myApps.template.json'));
     }
 }
 
@@ -33,7 +35,7 @@ if (!buildTarget.folder) {
     buildTarget.folder = 'dist/production';
 }
 
-module.exports = env => {
+export default env => {
     let examples  = [],
         insideNeo = env.insideNeo == 'true',
         content, inputPath, outputPath;
@@ -67,7 +69,7 @@ module.exports = env => {
         inputPath  = path.resolve(cwd, folder, lAppName, 'neo-config.json');
         outputPath = path.resolve(cwd, buildTarget.folder, folder, lAppName, 'neo-config.json');
 
-        content = require(inputPath);
+        content = requireJson(inputPath);
         delete content.environment;
 
         content.appPath = content.appPath.replace(regexTopLevel, '');
@@ -94,9 +96,7 @@ module.exports = env => {
         fs.writeFileSync(outputPath, content);
     };
 
-    const isFile = fileName => {
-        return fs.lstatSync(fileName).isFile()
-    };
+    const isFile = fileName => fs.lstatSync(fileName).isFile();
 
     const parseFolder = (folderPath, index, relativePath) => {
         let itemPath;
@@ -142,7 +142,7 @@ module.exports = env => {
                 }
             }),
             new WebpackHookPlugin({
-                onBuildEnd: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.js')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(cwd, buildTarget.folder, 'docs/resources')]
+                onBuildEnd: ['node '+path.resolve(neoPath, 'buildScripts/copyFolder.mjs')+' -s '+path.resolve(neoPath, 'docs/resources')+' -t '+path.resolve(cwd, buildTarget.folder, 'docs/resources')]
             }),
             ...plugins
         ],
