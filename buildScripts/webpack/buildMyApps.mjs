@@ -108,13 +108,13 @@ if (programOpts.info) {
         // dist/development
         if (env === 'all' || env === 'dev') {
             console.log(chalk.blue(`${programName} starting dist/development`));
-            spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.myapps.js`, `--env apps=${apps}`, `--env insideNeo=${insideNeo}`], cpOpts);
+            spawnSync(webpack, ['--config', `${webpackPath}/development/webpack.config.myapps.mjs`, `--env apps=${apps}`, `--env insideNeo=${insideNeo}`], cpOpts);
         }
 
         // dist/production
         if (env === 'all' || env === 'prod') {
             console.log(chalk.blue(`${programName} starting dist/production`));
-            spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.myapps.js`, `--env apps=${apps}`, `--env insideNeo=${insideNeo}`], cpOpts);
+            spawnSync(webpack, ['--config', `${webpackPath}/production/webpack.config.myapps.mjs`, `--env apps=${apps}`, `--env insideNeo=${insideNeo}`], cpOpts);
         }
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
