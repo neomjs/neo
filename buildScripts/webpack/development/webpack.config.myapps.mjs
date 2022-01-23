@@ -1,41 +1,41 @@
+import fs      from 'fs-extra';
+import path    from 'path';
+import webpack from 'webpack';
+
 const cwd                   = process.cwd(),
-      fs                    = require('fs-extra'),
-      buildTarget           = require('./buildTarget.json'),
-      path                  = require('path'),
       configPath            = path.resolve(cwd, 'buildScripts/myApps.json'),
-      packageJson           = require(path.resolve(cwd, 'package.json')),
+      requireJson           = path => JSON.parse(fs.readFileSync((path))),
+      packageJson           = requireJson(path.resolve(cwd, 'package.json')),
       neoPath               = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      filenameConfig        = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
+      buildTarget           = requireJson(path.resolve(neoPath, 'buildScripts/webpack/development/buildTarget.json')),
+      filenameConfig        = requireJson(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
       plugins               = [],
       regexIndexNodeModules = /node_modules/g,
-      regexTopLevel         = /\.\.\//g,
-      webpack               = require('webpack');
+      regexTopLevel         = /\.\.\//g;
 
 let config;
 
 if (fs.existsSync(configPath)) {
-    config = require(configPath);
+    config = requireJson(configPath);
 } else {
     const myAppsPath = path.resolve(neoPath, 'buildScripts/webpack/json/myApps.json');
 
     if (fs.existsSync(myAppsPath)) {
-        config = require(myAppsPath);
+        config = requireJson(myAppsPath);
     } else {
-        config = require(path.resolve(neoPath, 'buildScripts/webpack/json/myApps.template.json'));
+        config = requireJson(path.resolve(neoPath, 'buildScripts/webpack/json/myApps.template.json'));
     }
 }
 
 let index = config.apps.indexOf('Docs');
 
-if (index > -1) {
-    config.apps.splice(index, 1);
-}
+index > -1 && config.apps.splice(index, 1);
 
 if (!buildTarget.folder) {
     buildTarget.folder = 'dist/development';
 }
 
-module.exports = env => {
+export default env => {
     let apps      = env.apps.split(','),
         insideNeo = env.insideNeo == 'true',
         buildAll  = apps.includes('all'),
@@ -75,7 +75,7 @@ module.exports = env => {
                 inputPath  = path.resolve(cwd, 'apps', lAppName, 'neo-config.json');
                 outputPath = path.resolve(cwd, buildTarget.folder, 'apps', lAppName, 'neo-config.json');
 
-                content = require(inputPath);
+                content = requireJson(inputPath);
 
                 content.appPath = content.appPath.replace(regexTopLevel, '');
 
