@@ -1,5 +1,5 @@
 import { Command } from 'commander/esm.mjs';
-import fs          from 'fs';
+import fs          from 'fs-extra';
 
 const program = new Command('copyFolder')
     .version('1.0.0')
