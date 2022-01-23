@@ -547,8 +547,10 @@ class MembersList extends Base {
 
         filters.push({
             scope   : me,
-            filterBy: function(item, filteredItems, allItems) {
+            filterBy: function(opts) {
                 let me              = this,
+                    filteredItems   = opts.filteredItems,
+                    item            = opts.item,
                     targetClassName = me.targetClassName,
                     filteredItem, i, len;
 
