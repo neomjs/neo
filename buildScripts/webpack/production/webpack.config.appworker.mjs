@@ -114,11 +114,9 @@ export default env => {
         });
     };
 
-    if (config.apps) {
-        config.apps.forEach(key => {
-            createStartingPoint(key, key === 'Docs' ? '' : 'apps');
-        });
-    }
+    config.apps?.forEach(key => {
+        createStartingPoint(key, key === 'Docs' ? '' : 'apps');
+    });
 
     examplesPath = path.join(cwd, 'examples');
 
