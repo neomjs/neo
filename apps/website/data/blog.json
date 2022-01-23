@@ -2,6 +2,32 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Jan 17, 2022",
+        "id"          : 49,
+        "image"       : "scaling-your-micro-frontends-off-the-main-thread.png",
+        "name"        : "Scaling your micro-frontends off the main thread",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/scaling-your-micro-frontends-off-the-main-thread-36dedf54c5bf?source=friends_link&sk=04620ee92b04adb4dba22c8ec98d1ef6"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Jan 10, 2022",
+        "id"          : 48,
+        "image"       : "intercepting-component-state-to-ensure-smooth-animated-transitions.png",
+        "name"        : "Intercepting component state to ensure smooth animated transitions",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/intercepting-component-state-to-ensure-smooth-animated-transitions-4facd46414dd?source=friends_link&sk=95a0eaef0e0b15dfc12ddd071479c61c"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Dec 15, 2021",
         "id"          : 47,
         "image"       : "resolving-pitfalls-of-the-ecmascript-class-system.png",

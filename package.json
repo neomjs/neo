@@ -1,20 +1,21 @@
 {
     "name": "neo.mjs",
-    "version": "3.0.6",
+    "version": "3.1.0",
     "description": "The webworkers driven UI framework",
+    "type": "module",
     "repository": {
         "type": "git",
         "url": "https://github.com/neomjs/neo.git"
     },
     "scripts": {
-        "build-all": "node ./buildScripts/buildAll.js -f -n",
-        "build-all-questions": "node ./buildScripts/buildAll.js -f",
-        "build-my-apps": "node ./buildScripts/webpack/buildMyApps.js -f",
-        "build-themes": "node ./buildScripts/buildThemes.js -f",
-        "build-threads": "node ./buildScripts/webpack/buildThreads.js -f",
-        "create-app": "node ./buildScripts/createApp.js",
-        "generate-docs-json": "node ./buildScripts/docs/jsdocx.js",
-        "server-start": "webpack serve -c ./buildScripts/webpack/webpack.server.config.js --open",
+        "build-all": "node ./buildScripts/buildAll.mjs -f -n",
+        "build-all-questions": "node ./buildScripts/buildAll.mjs -f",
+        "build-my-apps": "node ./buildScripts/webpack/buildMyApps.mjs -f",
+        "build-themes": "node ./buildScripts/buildThemes.mjs -f",
+        "build-threads": "node ./buildScripts/webpack/buildThreads.mjs -f",
+        "create-app": "node ./buildScripts/createApp.mjs",
+        "generate-docs-json": "node ./buildScripts/docs/jsdocx.mjs",
+        "server-start": "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "keywords": [
@@ -37,7 +38,7 @@
         "@material/mwc-button": "^0.25.3",
         "@material/mwc-textfield": "^0.25.3",
         "autoprefixer": "^10.4.2",
-        "chalk": "^4.1.2",
+        "chalk": "^5.0.0",
         "clean-webpack-plugin": "^4.0.0",
         "commander": "^8.3.0",
         "cssnano": "^5.0.15",
@@ -48,10 +49,10 @@
         "neo-jsdoc": "^1.0.1",
         "neo-jsdoc-x": "^1.0.4",
         "postcss": "^8.4.5",
-        "sass": "^1.47.0",
-        "webpack": "^5.65.0",
+        "sass": "^1.49.0",
+        "webpack": "^5.67.0",
         "webpack-cli": "^4.9.1",
-        "webpack-dev-server": "4.7.2",
+        "webpack-dev-server": "4.7.3",
         "webpack-hook-plugin": "^1.0.7",
         "webpack-node-externals": "^3.0.0"
     },

@@ -1,41 +1,44 @@
+import fs      from 'fs-extra';
+import path    from 'path';
+import webpack from 'webpack';
+
 const cwd                   = process.cwd(),
-      fs                    = require('fs-extra'),
-      buildTarget           = require('./buildTarget.json'),
-      path                  = require('path'),
       configPath            = path.resolve(cwd, 'buildScripts/myApps.json'),
-      packageJson           = require(path.resolve(cwd, 'package.json')),
+      requireJson           = path => JSON.parse(fs.readFileSync((path))),
+      packageJson           = requireJson(path.resolve(cwd, 'package.json')),
       neoPath               = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      filenameConfig        = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
+      buildTarget           = requireJson(path.resolve(neoPath, 'buildScripts/webpack/production/buildTarget.json')),
+      filenameConfig        = requireJson(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
       plugins               = [],
       regexIndexNodeModules = /node_modules/g,
+      regexLineBreak        = /(\r\n|\n|\r)/gm,
       regexTopLevel         = /\.\.\//g,
-      webpack               = require('webpack');
+      regexTrimEnd          = /\s+$/gm,
+      regexTrimStart        = /^\s+/gm;
 
 let config;
 
 if (fs.existsSync(configPath)) {
-    config = require(configPath);
+    config = requireJson(configPath);
 } else {
     const myAppsPath = path.resolve(neoPath, 'buildScripts/webpack/json/myApps.json');
 
     if (fs.existsSync(myAppsPath)) {
-        config = require(myAppsPath);
+        config = requireJson(myAppsPath);
     } else {
-        config = require(path.resolve(neoPath, 'buildScripts/webpack/json/myApps.template.json'));
+        config = requireJson(path.resolve(neoPath, 'buildScripts/webpack/json/myApps.template.json'));
     }
 }
 
 let index = config.apps.indexOf('Docs');
 
-if (index > -1) {
-    config.apps.splice(index, 1);
-}
+index > -1 && config.apps.splice(index, 1);
 
 if (!buildTarget.folder) {
-    buildTarget.folder = 'dist/development';
+    buildTarget.folder = 'dist/production';
 }
 
-module.exports = env => {
+export default env => {
     let apps      = env.apps.split(','),
         insideNeo = env.insideNeo == 'true',
         buildAll  = apps.includes('all'),
@@ -49,6 +52,8 @@ module.exports = env => {
     content = fs.readFileSync(inputPath).toString().replace(/\s/gm, '');
     fs.mkdirpSync(path.resolve(cwd, buildTarget.folder, 'src/'));
     fs.writeFileSync(outputPath, content);
+
+
 
     if (config.apps) {
         config.apps.forEach(key => {
@@ -75,24 +80,29 @@ module.exports = env => {
                 inputPath  = path.resolve(cwd, 'apps', lAppName, 'neo-config.json');
                 outputPath = path.resolve(cwd, buildTarget.folder, 'apps', lAppName, 'neo-config.json');
 
-                content = require(inputPath);
+                content = requireJson(inputPath);
+                delete content.environment;
 
                 content.appPath = content.appPath.replace(regexTopLevel, '');
 
                 Object.assign(content, {
                     basePath      : basePath,
-                    environment   : 'dist/development',
                     mainPath      : '../main.js',
                     workerBasePath: workerBasePath
                 });
 
-                fs.writeFileSync(outputPath, JSON.stringify(content, null, 4));
+                fs.writeFileSync(outputPath, JSON.stringify(content));
 
                 // index.html
                 inputPath  = path.resolve(cwd, 'apps', lAppName, 'index.html');
                 outputPath = path.resolve(cwd, buildTarget.folder, 'apps', lAppName, 'index.html');
 
-                content = fs.readFileSync(inputPath).toString().replace(regexIndexNodeModules, '../../node_modules');
+                content = fs.readFileSync(inputPath).toString()
+                    .replace(regexIndexNodeModules, '../../node_modules')
+                    .replace(regexTrimStart, '')
+                    .replace(regexTrimEnd, '')
+                    .replace(', ', ',')
+                    .replace(regexLineBreak, '');
 
                 fs.writeFileSync(outputPath, content);
             }
@@ -100,12 +110,7 @@ module.exports = env => {
     }
 
     return {
-        mode: 'development',
-
-        // see: https://webpack.js.org/configuration/devtool/
-        devtool: 'inline-source-map',
-        //devtool: 'cheap-module-eval-source-map',
-
+        mode  : 'production',
         entry : {app: path.resolve(neoPath, './src/worker/App.mjs')},
         target: 'webworker',
 
