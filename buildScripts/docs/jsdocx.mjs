@@ -1,9 +1,12 @@
-const fs          = require('fs-extra'),
-      jsdocx      = require('neo-jsdoc-x'),
-      path        = require('path'),
+import fs      from 'fs-extra';
+import helper  from 'neo-jsdoc-x/src/lib/helper.js';
+import jsdocx  from 'neo-jsdoc-x';
+import path    from 'path';
+
+const __dirname   = path.resolve(),
       cwd         = process.cwd(),
-      helper      = require(path.join(cwd, 'node_modules/neo-jsdoc-x/src/lib/helper.js')),
-      packageJson = require(path.resolve(process.cwd(), 'package.json')),
+      requireJson = path => JSON.parse(fs.readFileSync((path))),
+      packageJson = requireJson(path.resolve(cwd, 'package.json')),
       insideNeo   = packageJson.name === 'neo.mjs',
       neoPath     = insideNeo ? '' : 'node_modules/neo.mjs/',
       appNames    = [],
@@ -20,25 +23,23 @@ let appJsonPath = path.resolve(cwd, 'buildScripts/myApps.json'),
     appJson;
 
 if (fs.existsSync(appJsonPath)) {
-    appJson = require(appJsonPath);
+    appJson = requireJson(appJsonPath);
 } else {
-    appJsonPath = path.resolve(__dirname, '../webpack/json/myApps.json');
+    appJsonPath = path.resolve(__dirname, 'buildScripts/webpack/json/myApps.json');
 
     if (fs.existsSync(appJsonPath)) {
-        appJson = require(appJsonPath);
+        appJson = requireJson(appJsonPath);
     } else {
-        appJson = require(path.resolve(__dirname, '../webpack/json/myApps.template.json'));
+        appJson = requireJson(path.resolve(__dirname, 'buildScripts/webpack/json/myApps.template.json'));
     }
 }
 
-if (appJson) {
-    appJson.apps.forEach(key => {
-        if (key !== 'Docs') { // the docs app is automatically included
-            appNames.push(key);
-            options.files.push(`apps/${key.toLowerCase()}/**/*.mjs`);
-        }
-    });
-}
+appJson?.apps.forEach(key => {
+    if (key !== 'Docs') { // the docs app is automatically included
+        appNames.push(key);
+        options.files.push(`apps/${key.toLowerCase()}/**/*.mjs`);
+    }
+});
 
 function ns(names, create) {
     names = Array.isArray(names) ? names : names.split('.');
@@ -50,7 +51,7 @@ function ns(names, create) {
         if (prev) {
             return prev[current];
         }
-    }, this);
+    }, global);
 }
 
 const neoStructure = [{
@@ -199,15 +200,15 @@ function generateStructure(target, parentId, docs) {
         // console.log(srcPath);
 
         neoStructure.push({
-            className: className,
+            className,
             collapsed: appNames.includes(key) || key === 'Docs',
-            id       : id,
-            isLeaf   : isLeaf,
+            id,
+            isLeaf,
             name     : key,
-            path     : path,
-            parentId : parentId,
-            singleton: singleton,
-            srcPath  : srcPath
+            path,
+            parentId,
+            singleton,
+            srcPath
         });
 
         generateStructure(target + '.' + key, id, docs);
@@ -326,13 +327,11 @@ jsdocx.parse(options)
                 item.description = item.description.replace(/\n/g, "<br />");
             }
 
-            if (item.params) {
-                item.params.forEach(param => {
-                    if (param.description) {
-                        param.description = param.description.replace(/\n/g, "<br />");
-                    }
-                });
-            }
+            item.params?.forEach(param => {
+                if (param.description) {
+                    param.description = param.description.replace(/\n/g, "<br />");
+                }
+            });
 
             if (item.kind === 'member') {
                 if (item.comment) {
