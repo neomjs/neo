@@ -38,7 +38,7 @@
         "@material/mwc-button": "^0.25.3",
         "@material/mwc-textfield": "^0.25.3",
         "autoprefixer": "^10.4.2",
-        "chalk": "^4.1.2",
+        "chalk": "^5.0.0",
         "clean-webpack-plugin": "^4.0.0",
         "commander": "^8.3.0",
         "cssnano": "^5.0.15",
