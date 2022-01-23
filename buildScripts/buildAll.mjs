@@ -125,7 +125,7 @@ if (programOpts.info) {
 
         npminstall === 'yes' && spawnSync(npmCmd, ['i'], cpOpts);
         themes     === 'yes' && spawnSync('node', [`${neoPath}/buildScripts/buildThemes.mjs`].concat(cpArgs), cpOpts);
-        threads    === 'yes' && spawnSync('node', [`${webpackPath}/buildThreads.js`]         .concat(cpArgs), cpOpts);
+        threads    === 'yes' && spawnSync('node', [`${webpackPath}/buildThreads.mjs`]        .concat(cpArgs), cpOpts);
         parsedocs  === 'yes' && spawnSync(npmCmd, ['run', 'generate-docs-json'], cpOpts);
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);

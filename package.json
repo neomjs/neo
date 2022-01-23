@@ -12,7 +12,7 @@
         "build-all-questions": "node ./buildScripts/buildAll.mjs -f",
         "build-my-apps": "node ./buildScripts/webpack/buildMyApps.mjs -f",
         "build-themes": "node ./buildScripts/buildThemes.mjs -f",
-        "build-threads": "node ./buildScripts/webpack/buildThreads.js -f",
+        "build-threads": "node ./buildScripts/webpack/buildThreads.mjs -f",
         "create-app": "node ./buildScripts/createApp.mjs",
         "generate-docs-json": "node ./buildScripts/docs/jsdocx.js",
         "server-start": "webpack serve -c ./buildScripts/webpack/webpack.server.config.js --open",
