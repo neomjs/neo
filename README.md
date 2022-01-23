@@ -19,8 +19,6 @@ No need to take care of a workers setup, and the cross channel communication on 
 <a href="https://youtu.be/aEA5333WiWY"><img height="316px" width="400px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/neo-movie.png"></a>
 </p>
 
-<a href="https://itnext.io/the-webworkers-driven-ui-framework-neo-mjs-version-2-release-announcement-b91b476d6f16?source=friends_link&sk=e6eb21f75475f431ad9215d63a44fb53">Version 2 release announcement</a>
-
 ## Content
 1. <a href="#slack-channel">Slack Channel for questions & feedback</a>
 2. <a href="#architectures">Scalable frontend architectures</a>
