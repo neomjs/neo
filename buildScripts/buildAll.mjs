@@ -123,21 +123,10 @@ if (programOpts.info) {
         programOpts.noquestions && cpArgs.push('-n');
         insideNeo               && cpArgs.push('-f');
 
-        if (npminstall === 'yes') {
-            spawnSync(npmCmd, ['i'], cpOpts);
-        }
-
-        if (themes === 'yes') {
-            spawnSync('node', [`${neoPath}/buildScripts/buildThemes.js`].concat(cpArgs), cpOpts);
-        }
-
-        if (threads === 'yes') {
-            spawnSync('node', [`${webpackPath}/buildThreads.js`].concat(cpArgs), cpOpts);
-        }
-
-        if (parsedocs === 'yes') {
-            spawnSync(npmCmd, ['run', 'generate-docs-json'], cpOpts);
-        }
+        npminstall === 'yes' && spawnSync(npmCmd, ['i'], cpOpts);
+        themes     === 'yes' && spawnSync('node', [`${neoPath}/buildScripts/buildThemes.js`].concat(cpArgs), cpOpts);
+        threads    === 'yes' && spawnSync('node', [`${webpackPath}/buildThreads.js`]        .concat(cpArgs), cpOpts);
+        parsedocs  === 'yes' && spawnSync(npmCmd, ['run', 'generate-docs-json'], cpOpts);
 
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
         console.log(`\nTotal time for ${programName}: ${processTime}s`);
