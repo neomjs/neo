@@ -15,7 +15,7 @@
         "build-threads": "node ./buildScripts/webpack/buildThreads.mjs -f",
         "create-app": "node ./buildScripts/createApp.mjs",
         "generate-docs-json": "node ./buildScripts/docs/jsdocx.js",
-        "server-start": "webpack serve -c ./buildScripts/webpack/webpack.server.config.js --open",
+        "server-start": "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "keywords": [
