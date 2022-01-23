@@ -1,11 +1,11 @@
-import chalk       from 'chalk';
-import { exec }    from 'child_process';
-import { Command } from 'commander/esm.mjs';
-import envinfo     from 'envinfo';
-import fs          from 'fs';
-import inquirer    from 'inquirer';
-import os          from 'os';
-import path        from 'path';
+import chalk         from 'chalk';
+import { spawnSync } from 'child_process';
+import { Command }   from 'commander/esm.mjs';
+import envinfo       from 'envinfo';
+import fs            from 'fs-extra';
+import inquirer      from 'inquirer';
+import os            from 'os';
+import path          from 'path';
 
 const __dirname    = path.resolve(),
       cwd          = process.cwd(),
@@ -270,8 +270,8 @@ if (programOpts.info) {
             fs.writeFileSync(appJsonPath, JSON.stringify(appJson, null, 4));
 
             if (mainThreadAddons.includes('HighlightJS')) {
-                exec.spawnSync('node', [
-                    './buildScripts/copyFolder.js',
+                spawnSync('node', [
+                    './buildScripts/copyFolder.mjs',
                     '-s',
                     path.resolve(neoPath, 'docs/resources'),
                     '-t',
