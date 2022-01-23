@@ -1,13 +1,16 @@
-const path           = require('path'),
-      buildTarget    = require('./buildTarget.json'),
-      processRoot    = process.cwd(),
-      packageJson    = require(path.resolve(processRoot, 'package.json')),
-      neoPath        = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
-      filenameConfig = require(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
-      entry          = {},
-      webpack        = require('webpack');
+import fs      from 'fs-extra';
+import path    from 'path';
+import webpack from 'webpack';
 
-module.exports = env => {
+const cwd            = process.cwd(),
+      requireJson    = path => JSON.parse(fs.readFileSync((path))),
+      packageJson    = requireJson(path.resolve(cwd, 'package.json')),
+      neoPath        = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
+      buildTarget    = requireJson(path.resolve(neoPath, 'buildScripts/webpack/development/buildTarget.json')),
+      filenameConfig = requireJson(path.resolve(neoPath, 'buildScripts/webpack/json/build.json')),
+      entry          = {};
+
+export default env => {
     let insideNeo = env.insideNeo == 'true';
 
     if (filenameConfig.workers) {
@@ -43,7 +46,7 @@ module.exports = env => {
                 }
             },
 
-            path: path.resolve(processRoot, buildTarget.folder)
+            path: path.resolve(cwd, buildTarget.folder)
         }
     }
 };
