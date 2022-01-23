@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Jan 17, 2022",
+        "id"          : 49,
+        "image"       : "scaling-your-micro-frontends-off-the-main-thread.png",
+        "name"        : "Scaling your micro-frontends off the main thread",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/scaling-your-micro-frontends-off-the-main-thread-36dedf54c5bf?source=friends_link&sk=04620ee92b04adb4dba22c8ec98d1ef6"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Jan 10, 2022",
         "id"          : 48,
         "image"       : "intercepting-component-state-to-ensure-smooth-animated-transitions.png",
