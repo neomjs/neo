@@ -144,9 +144,7 @@ if (programOpts.info) {
         function buildEnv(p, mode) {
             if (cssVars !== 'no') {
                 parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'src', true);
-            }
 
-            if (cssVars !== 'no') {
                 themeFolders.forEach(themeFolder => {
                     if (themes === 'all' || themes === themeFolder) {
                         parseScssFiles(getAllScssFiles(path.join(p, themeFolder)), mode, themeFolder, true);
