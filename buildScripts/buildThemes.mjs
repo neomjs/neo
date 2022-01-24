@@ -208,10 +208,10 @@ if (programOpts.info) {
                         }
 
                         arrayOfFiles.push({
-                            className   : className,
-                            name        : fileInfo.name,
-                            path        : filePath,
-                            relativePath: relativePath
+                            className,
+                            name: fileInfo.name,
+                            path: filePath,
+                            relativePath
                         });
                     }
                 }
