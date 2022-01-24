@@ -422,13 +422,13 @@ if (programOpts.info) {
         // dist/development
         if (env === 'all' || env === 'dev') {
             console.log(chalk.blue(`${programName} starting dist/development`));
-            buildEnv(path.join(scssPath), 'development');
+            buildEnv(scssPath, 'development');
         }
 
         // dist/production
         if (env === 'all' || env === 'prod') {
             console.log(chalk.blue(`${programName} starting dist/production`));
-            buildEnv(path.join(scssPath), 'production');
+            buildEnv(scssPath, 'production');
         }
     });
 }
