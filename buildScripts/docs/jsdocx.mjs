@@ -51,7 +51,7 @@ function ns(names, create) {
         if (prev) {
             return prev[current];
         }
-    }, global);
+    }, globalThis);
 }
 
 const neoStructure = [{
