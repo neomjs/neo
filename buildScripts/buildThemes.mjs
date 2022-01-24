@@ -114,7 +114,6 @@ if (programOpts.info) {
         let themeMap, themeMapNoVars;
 
         /**
-         *
          * @param {Object} file
          * @param {String} target
          * @param {Boolean} useCssVars
@@ -137,7 +136,6 @@ if (programOpts.info) {
         }
 
         /**
-         *
          * @param {String} p
          * @param {String} mode development or production
          */
@@ -162,7 +160,6 @@ if (programOpts.info) {
         }
 
         /**
-         *
          * @param {String} dirPath
          * @returns {Object[]}
          */
@@ -177,7 +174,6 @@ if (programOpts.info) {
         }
 
         /**
-         *
          * @param {String} dirPath
          * @param [arrayOfFiles=[]]
          * @param [relativePath='']
@@ -221,7 +217,6 @@ if (programOpts.info) {
         }
 
         /**
-         *
          * @param {String} filePath
          * @returns {Object}
          */
@@ -245,7 +240,6 @@ if (programOpts.info) {
         }
 
         /**
-         *
          * @param {Array|String} names The class name string containing dots or an Array of the string parts
          * @param {Boolean} [create] Set create to true to create empty objects for non existing parts
          * @param {Object} [scope] Set a different starting point as self
@@ -265,7 +259,6 @@ if (programOpts.info) {
         }
 
         /**
-         *
          * @param {Object[]} files
          * @param {String} mode development or production
          * @param {String} target src or a theme
@@ -398,7 +391,6 @@ if (programOpts.info) {
         }
 
         /**
-         *
          * @param {String} content
          * @param {String} baseDir
          * @returns {String}
