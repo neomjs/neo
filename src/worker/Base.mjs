@@ -55,19 +55,20 @@ class Base extends CoreBase {
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        let me = this,
+            gt = globalThis;
 
         Object.assign(me, {
             channelPorts  : {},
-            isSharedWorker: self.toString() === '[object SharedWorkerGlobalScope]',
+            isSharedWorker: gt.toString() === '[object SharedWorkerGlobalScope]',
             ports         : [],
             promises      : {}
         });
 
         if (me.isSharedWorker) {
-            self.onconnect = me.onConnected.bind(me);
+            gt.onconnect = me.onConnected.bind(me);
         } else {
-            self.onmessage = me.onMessage.bind(me);
+            gt.onmessage = me.onMessage.bind(me);
         }
 
         Neo.workerId      = me.workerId;
@@ -251,7 +252,7 @@ class Base extends CoreBase {
         if (me.channelPorts[dest]) {
             port = me.channelPorts[dest];
         } else if (!me.isSharedWorker) {
-            port = self;
+            port = globalThis;
         } else {
             if (opts.port) {
                 port = me.getPort({id: opts.port}).port;

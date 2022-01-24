@@ -107,7 +107,7 @@ class DomEvent extends Base {
                                 if (!preventFire) {
                                     // console.log(Neo.get(id));
                                     data.component = component;
-                                    listener.fn.apply(listener.scope || self, [data]);
+                                    listener.fn.apply(listener.scope || globalThis, [data]);
 
                                     if (!listener.bubble) {
                                         bubble = false;

@@ -158,9 +158,9 @@ class AmCharts extends Base {
         if (!me.scriptsLoaded) {
             me.chartsToCreate.push(data);
         } else {
-            // todo: check if self[data.package] exists, if not load it and call create afterwards
+            // todo: check if globalThis[data.package] exists, if not load it and call create afterwards
 
-            me.charts[data.id] = am4core.createFromConfig(data.config, data.id, self[data.package][data.type || 'XYChart']);
+            me.charts[data.id] = am4core.createFromConfig(data.config, data.id, globalThis[data.package][data.type || 'XYChart']);
 
             if (data.combineSeriesTooltip) {
                 me.combineSeriesTooltip(me.charts[data.id]);

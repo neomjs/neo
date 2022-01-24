@@ -242,7 +242,7 @@ if (programOpts.info) {
         /**
          * @param {Array|String} names The class name string containing dots or an Array of the string parts
          * @param {Boolean} [create] Set create to true to create empty objects for non existing parts
-         * @param {Object} [scope] Set a different starting point as self
+         * @param {Object} [scope] Set a different starting point as globalThis
          * @returns {Object} reference to the toplevel namespace
          */
         function ns(names, create, scope) {
@@ -255,7 +255,7 @@ if (programOpts.info) {
                 if (prev) {
                     return prev[current];
                 }
-            }, scope);
+            }, globalThis || scope);
         }
 
         /**
