@@ -90,7 +90,7 @@ Neo = self.Neo = Object.assign({
                     else if (!Neo.hasPropertySetter(element, key)) {
                         Object.defineProperty(element, key, {
                             enumerable: true,
-                            value     : value,
+                            value,
                             writable  : true
                         });
                     }
@@ -504,7 +504,6 @@ const ignoreMixin = [
 ];
 
 /**
- *
  * @param {Neo.core.Base} cls
  * @param {Array} mixins
  * @private
@@ -646,7 +645,6 @@ function exists(className) {
 }
 
 /**
- *
  * @param {Neo.core.Base} proto
  * @param {Neo.core.Base} mixinProto
  * @returns {Function}
@@ -678,7 +676,6 @@ function mixinProperty(proto, mixinProto) {
 }
 
 /**
- *
  * @param mixinCls
  * @returns {Function}
  * @private
