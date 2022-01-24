@@ -1,4 +1,4 @@
-const Neo = self.Neo || {};
+const Neo = globalThis.Neo || {};
 
 Neo.config = Neo.config || {};
 

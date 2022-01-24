@@ -22,9 +22,9 @@ const configSymbol = Symbol.for('configSymbol'),
  * @borrows Neo.core.Util.toArray           as toArray
  * @tutorial 01_Concept
  */
-let Neo = self.Neo || {};
+let Neo = globalThis.Neo || {};
 
-Neo = self.Neo = Object.assign({
+Neo = globalThis.Neo = Object.assign({
     /**
      * A map containing ntypes as key and Neo classes or singletons as values
      * @memberOf! module:Neo
@@ -90,7 +90,7 @@ Neo = self.Neo = Object.assign({
                     else if (!Neo.hasPropertySetter(element, key)) {
                         Object.defineProperty(element, key, {
                             enumerable: true,
-                            value     : value,
+                            value,
                             writable  : true
                         });
                     }
@@ -343,6 +343,9 @@ Neo = self.Neo = Object.assign({
         return instance;
     },
 
+    /**
+     *
+     */
     emptyFn() {},
 
     /**
@@ -397,15 +400,15 @@ Neo = self.Neo = Object.assign({
      * @example
      * Neo.ns('Neo.button.Base', true);
      * // =>
-     * // self.Neo = self.Neo || {};
-     * // self.Neo.component = self.Neo.component || {};
-     * // self.Neo.button.Base = self.Neo.button.Base || {};
-     * // return self.Neo.button.Base;
+     * // globalThis.Neo             = globalThis.Neo             || {};
+     * // globalThis.Neo.button      = globalThis.Neo.button      || {};
+     * // globalThis.Neo.button.Base = globalThis.Neo.button.Base || {};
+     * // return globalThis.Neo.button.Base;
      *
      * @memberOf module:Neo
      * @param {Array|String} names The class name string containing dots or an Array of the string parts
      * @param {Boolean} [create] Set create to true to create empty objects for non existing parts
-     * @param {Object} [scope] Set a different starting point as self
+     * @param {Object} [scope] Set a different starting point as globalThis
      * @returns {Object} reference to the toplevel namespace
      */
     ns(names, create, scope) {
@@ -418,7 +421,7 @@ Neo = self.Neo = Object.assign({
             if (prev) {
                 return prev[current];
             }
-        }, scope || self);
+        }, scope || globalThis);
     },
 
     /**
@@ -504,7 +507,6 @@ const ignoreMixin = [
 ];
 
 /**
- *
  * @param {Neo.core.Base} cls
  * @param {Array} mixins
  * @private
@@ -639,14 +641,13 @@ function exists(className) {
     try {
         return !!className.split('.').reduce((prev, current) => {
             return prev[current];
-        }, self);
+        }, globalThis);
     } catch(e) {
         return false;
     }
 }
 
 /**
- *
  * @param {Neo.core.Base} proto
  * @param {Neo.core.Base} mixinProto
  * @returns {Function}
@@ -678,7 +679,6 @@ function mixinProperty(proto, mixinProto) {
 }
 
 /**
- *
  * @param mixinCls
  * @returns {Function}
  * @private

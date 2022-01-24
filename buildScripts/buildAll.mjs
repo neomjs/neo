@@ -131,6 +131,6 @@ if (programOpts.info) {
         const processTime = (Math.round((new Date - startDate) * 100) / 100000).toFixed(2);
         console.log(`\nTotal time for ${programName}: ${processTime}s`);
 
-        process.exit();
+        process.exit(0);
     });
 }

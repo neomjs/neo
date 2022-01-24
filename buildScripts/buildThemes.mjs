@@ -114,7 +114,6 @@ if (programOpts.info) {
         let themeMap, themeMapNoVars;
 
         /**
-         *
          * @param {Object} file
          * @param {String} target
          * @param {Boolean} useCssVars
@@ -137,16 +136,13 @@ if (programOpts.info) {
         }
 
         /**
-         *
          * @param {String} p
          * @param {String} mode development or production
          */
         function buildEnv(p, mode) {
             if (cssVars !== 'no') {
                 parseScssFiles(getAllScssFiles(path.join(p, 'src')), mode, 'src', true);
-            }
 
-            if (cssVars !== 'no') {
                 themeFolders.forEach(themeFolder => {
                     if (themes === 'all' || themes === themeFolder) {
                         parseScssFiles(getAllScssFiles(path.join(p, themeFolder)), mode, themeFolder, true);
@@ -164,7 +160,6 @@ if (programOpts.info) {
         }
 
         /**
-         *
          * @param {String} dirPath
          * @returns {Object[]}
          */
@@ -179,7 +174,6 @@ if (programOpts.info) {
         }
 
         /**
-         *
          * @param {String} dirPath
          * @param [arrayOfFiles=[]]
          * @param [relativePath='']
@@ -210,10 +204,10 @@ if (programOpts.info) {
                         }
 
                         arrayOfFiles.push({
-                            className   : className,
-                            name        : fileInfo.name,
-                            path        : filePath,
-                            relativePath: relativePath
+                            className,
+                            name: fileInfo.name,
+                            path: filePath,
+                            relativePath
                         });
                     }
                 }
@@ -223,7 +217,6 @@ if (programOpts.info) {
         }
 
         /**
-         *
          * @param {String} filePath
          * @returns {Object}
          */
@@ -247,10 +240,9 @@ if (programOpts.info) {
         }
 
         /**
-         *
          * @param {Array|String} names The class name string containing dots or an Array of the string parts
          * @param {Boolean} [create] Set create to true to create empty objects for non existing parts
-         * @param {Object} [scope] Set a different starting point as self
+         * @param {Object} [scope] Set a different starting point as globalThis
          * @returns {Object} reference to the toplevel namespace
          */
         function ns(names, create, scope) {
@@ -263,11 +255,10 @@ if (programOpts.info) {
                 if (prev) {
                     return prev[current];
                 }
-            }, scope);
+            }, globalThis || scope);
         }
 
         /**
-         *
          * @param {Object[]} files
          * @param {String} mode development or production
          * @param {String} target src or a theme
@@ -400,7 +391,6 @@ if (programOpts.info) {
         }
 
         /**
-         *
          * @param {String} content
          * @param {String} baseDir
          * @returns {String}
