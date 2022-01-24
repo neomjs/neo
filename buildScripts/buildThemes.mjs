@@ -255,7 +255,7 @@ if (programOpts.info) {
                 if (prev) {
                     return prev[current];
                 }
-            }, globalThis || scope);
+            }, scope || globalThis);
         }
 
         /**
