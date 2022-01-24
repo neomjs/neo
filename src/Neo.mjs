@@ -343,6 +343,9 @@ Neo = globalThis.Neo = Object.assign({
         return instance;
     },
 
+    /**
+     *
+     */
     emptyFn() {},
 
     /**
