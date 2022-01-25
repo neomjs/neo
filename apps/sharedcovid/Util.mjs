@@ -135,16 +135,16 @@ class Util extends Base {
         imageName = map[imageName] || imageName;
 
         if (Neo.config.isGitHubPages) {
-            let path = '../../../../resources/images/flaticon/country_flags/png/' + imageName + '.png';
+            let path = `../../../../resources/images/flaticon/country_flags/png/${imageName}.png`;
 
             if (Neo.config.environment !== 'development') {
-                path = '../../' + path;
+                path = `../../${path}`;
             }
 
             return path;
         }
 
-        return 'https://raw.githubusercontent.com/neomjs/pages/master/resources/images/flaticon/country_flags/png/' + imageName + '.png';
+        return `https://raw.githubusercontent.com/neomjs/pages/master/resources/images/flaticon/country_flags/png/${imageName}.png`;
     }
 
     /**
