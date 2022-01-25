@@ -121,17 +121,18 @@ class Base {
      * @protected
      */
     afterSetId(value, oldValue) {
-        let me = this;
+        let me         = this,
+            hasManager = Base.instanceManagerAvailable === true;
 
         if (oldValue) {
-            if (Base.instanceManagerAvailable === true) {
+            if (hasManager) {
                 Neo.manager.Instance.unregister(oldValue);
             } else {
                 delete Neo.idMap[oldValue];
             }
         }
 
-        if (Base.instanceManagerAvailable === true) {
+        if (hasManager) {
             Neo.manager.Instance.register(me);
         } else {
             Neo.idMap = Neo.idMap || {};
@@ -400,11 +401,12 @@ class Base {
      * @returns {Object}
      */
     setFields(config) {
-        let configNames = this.constructor.config;
+        let me          = this,
+            configNames = me.constructor.config;
 
         Object.entries(config).forEach(([key, value]) => {
-            if (!configNames.hasOwnProperty(key) && !Neo.hasPropertySetter(this, key)) {
-                this[key] = value;
+            if (!configNames.hasOwnProperty(key) && !Neo.hasPropertySetter(me, key)) {
+                me[key] = value;
                 delete config[key];
             }
         });

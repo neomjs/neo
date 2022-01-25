@@ -1,15 +1,17 @@
-import autoprefixer from 'autoprefixer';
-import chalk        from 'chalk';
-import cssnano      from 'cssnano';
-import { Command }  from 'commander/esm.mjs';
-import envinfo      from 'envinfo';
-import fs           from 'fs-extra';
-import inquirer     from 'inquirer';
-import path         from 'path';
-import postcss      from 'postcss';
-import sass         from 'sass';
+import autoprefixer      from 'autoprefixer';
+import chalk             from 'chalk';
+import cssnano           from 'cssnano';
+import { Command }       from 'commander/esm.mjs';
+import envinfo           from 'envinfo';
+import fs                from 'fs-extra';
+import inquirer          from 'inquirer';
+import path              from 'path';
+import postcss           from 'postcss';
+import sass              from 'sass';
+import { fileURLToPath } from 'url';
 
-const cwd                = process.cwd(),
+const __dirname          = fileURLToPath(path.dirname(import.meta.url)),
+      cwd                = process.cwd(),
       requireJson        = path => JSON.parse(fs.readFileSync((path))),
       packageJson        = requireJson(path.resolve(cwd, 'package.json')),
       neoPath            = packageJson.name === 'neo.mjs' ? './' : './node_modules/neo.mjs/',
@@ -422,13 +424,13 @@ if (programOpts.info) {
         // dist/development
         if (env === 'all' || env === 'dev') {
             console.log(chalk.blue(`${programName} starting dist/development`));
-            buildEnv(path.join(scssPath), 'development');
+            buildEnv(scssPath, 'development');
         }
 
         // dist/production
         if (env === 'all' || env === 'prod') {
             console.log(chalk.blue(`${programName} starting dist/production`));
-            buildEnv(path.join(scssPath), 'production');
+            buildEnv(scssPath, 'production');
         }
     });
 }

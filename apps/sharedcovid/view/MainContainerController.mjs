@@ -167,7 +167,7 @@ class MainContainerController extends ComponentController {
 
         Neo.Main.getWindowData().then(winData => {
             me.component.getDomRect(me.getReference(containerReference).id).then(data => {
-                let {height, left, top, width} = data[0];
+                let {height, left, top, width} = data;
 
                 height -= 50; // popup header in Chrome
                 left   += winData.screenLeft;
