@@ -1,16 +1,15 @@
-import autoprefixer      from 'autoprefixer';
-import chalk             from 'chalk';
-import cssnano           from 'cssnano';
-import { Command }       from 'commander/esm.mjs';
-import envinfo           from 'envinfo';
-import fs                from 'fs-extra';
-import inquirer          from 'inquirer';
-import path              from 'path';
-import postcss           from 'postcss';
-import sass              from 'sass';
-import { fileURLToPath } from 'url';
+import autoprefixer from 'autoprefixer';
+import chalk        from 'chalk';
+import cssnano      from 'cssnano';
+import { Command }  from 'commander/esm.mjs';
+import envinfo      from 'envinfo';
+import fs           from 'fs-extra';
+import inquirer     from 'inquirer';
+import path         from 'path';
+import postcss      from 'postcss';
+import sass         from 'sass';
 
-const __dirname          = fileURLToPath(path.dirname(import.meta.url)),
+const __dirname          = path.resolve(),
       cwd                = process.cwd(),
       requireJson        = path => JSON.parse(fs.readFileSync((path))),
       packageJson        = requireJson(path.resolve(cwd, 'package.json')),

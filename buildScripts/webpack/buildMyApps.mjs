@@ -1,14 +1,13 @@
-import chalk             from 'chalk';
-import { spawnSync }     from 'child_process';
-import { Command }       from 'commander/esm.mjs';
-import envinfo           from 'envinfo';
-import fs                from 'fs-extra';
-import inquirer          from 'inquirer';
-import os                from 'os';
-import path              from 'path';
-import { fileURLToPath } from 'url';
+import chalk         from 'chalk';
+import { spawnSync } from 'child_process';
+import { Command }   from 'commander/esm.mjs';
+import envinfo       from 'envinfo';
+import fs            from 'fs-extra';
+import inquirer      from 'inquirer';
+import os            from 'os';
+import path          from 'path';
 
-const __dirname   = fileURLToPath(path.dirname(import.meta.url)),
+const __dirname   = path.resolve(),
       cwd         = process.cwd(),
       cpOpts      = {env: process.env, cwd: cwd, stdio: 'inherit', shell: true},
       requireJson = path => JSON.parse(fs.readFileSync((path))),
