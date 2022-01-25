@@ -1,9 +1,10 @@
-import fs      from 'fs-extra';
-import helper  from 'neo-jsdoc-x/src/lib/helper.js';
-import jsdocx  from 'neo-jsdoc-x';
-import path    from 'path';
+import fs                from 'fs-extra';
+import helper            from 'neo-jsdoc-x/src/lib/helper.js';
+import jsdocx            from 'neo-jsdoc-x';
+import path              from 'path';
+import { fileURLToPath } from 'url';
 
-const __dirname   = path.resolve(),
+const __dirname   = fileURLToPath(path.dirname(import.meta.url)),
       cwd         = process.cwd(),
       requireJson = path => JSON.parse(fs.readFileSync((path))),
       packageJson = requireJson(path.resolve(cwd, 'package.json')),
