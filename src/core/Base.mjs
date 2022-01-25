@@ -121,17 +121,18 @@ class Base {
      * @protected
      */
     afterSetId(value, oldValue) {
-        let me = this;
+        let me         = this,
+            hasManager = Base.instanceManagerAvailable === true;
 
         if (oldValue) {
-            if (Base.instanceManagerAvailable === true) {
+            if (hasManager) {
                 Neo.manager.Instance.unregister(oldValue);
             } else {
                 delete Neo.idMap[oldValue];
             }
         }
 
-        if (Base.instanceManagerAvailable === true) {
+        if (hasManager) {
             Neo.manager.Instance.register(me);
         } else {
             Neo.idMap = Neo.idMap || {};
