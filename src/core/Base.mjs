@@ -401,11 +401,12 @@ class Base {
      * @returns {Object}
      */
     setFields(config) {
-        let configNames = this.constructor.config;
+        let me          = this,
+            configNames = me.constructor.config;
 
         Object.entries(config).forEach(([key, value]) => {
-            if (!configNames.hasOwnProperty(key) && !Neo.hasPropertySetter(this, key)) {
-                this[key] = value;
+            if (!configNames.hasOwnProperty(key) && !Neo.hasPropertySetter(me, key)) {
+                me[key] = value;
                 delete config[key];
             }
         });
