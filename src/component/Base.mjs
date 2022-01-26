@@ -425,9 +425,7 @@ class Base extends CoreBase {
      * @protected
      */
     afterSetAppName(value, oldValue) {
-        if (value) {
-            Neo.currentWorker.insertThemeFiles(value, this.__proto__);
-        }
+        value && Neo.currentWorker.insertThemeFiles(value, this.__proto__);
     }
 
     /**
@@ -702,9 +700,7 @@ class Base extends CoreBase {
      * @protected
      */
     beforeSetController(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
+        oldValue?.destroy();
 
         if (value) {
             return ClassSystemUtil.beforeSetInstance(value, null, {
@@ -737,9 +733,7 @@ class Base extends CoreBase {
      * @protected
      */
     beforeSetKeys(value, oldValue) {
-        if (oldValue) {
-            oldValue.destroy();
-        }
+        oldValue?.destroy();
 
         if (value) {
             value = ClassSystemUtil.beforeSetInstance(value, KeyNavigation, {
@@ -907,8 +901,6 @@ class Base extends CoreBase {
         // remote method access
         Neo.main.DomAccess.focus({
             id: id || me.id
-        }).then(data => {
-            // console.log('focus received: ' + id);
         }).catch(err => {
             console.log('Error attempting to receive focus for component', err, me);
         });
@@ -966,10 +958,7 @@ class Base extends CoreBase {
      * @returns {Promise<*>}
      */
     getDomRect(id=this.id, appName=this.appName) {
-        return Neo.main.DomAccess.getBoundingClientRect({
-            appName,
-            id
-        });
+        return Neo.main.DomAccess.getBoundingClientRect({ appName, id });
     }
 
     /**
@@ -1079,9 +1068,7 @@ class Base extends CoreBase {
      *
      */
     init() {
-        if (this.autoRender) {
-            this.render();
-        }
+        this.autoRender && this.render();
     }
 
     /**
@@ -1179,12 +1166,7 @@ class Base extends CoreBase {
      */
     onConstructed() {
         super.onConstructed();
-
-        let me = this;
-
-        if (me.keys) {
-            me.keys.register(me);
-        }
+        this.keys?.register(this);
     }
 
     /**
@@ -1378,7 +1360,7 @@ class Base extends CoreBase {
 
             Neo.vdom.Helper.create({
                 appName    : me.appName,
-                autoMount  : autoMount,
+                autoMount,
                 parentId   : autoMount ? me.parentId    : undefined,
                 parentIndex: autoMount ? me.parentIndex : undefined,
                 ...me.vdom
