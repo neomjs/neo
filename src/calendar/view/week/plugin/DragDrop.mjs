@@ -85,7 +85,7 @@ class DragDrop extends Base {
             owner.eventDragZone = eventDragZone = Neo.create({
                 module           : EventDragZone,
                 appName          : me.appName,
-                owner            : owner,
+                owner,
                 scrollContainerId: owner.getScrollContainer().id,
                 ...config,
 
@@ -101,6 +101,18 @@ class DragDrop extends Base {
         }
 
         return eventDragZone;
+    }
+
+    /**
+     * Returns the active field value of the active or first calendar record
+     * @returns {Boolean}
+     */
+    isActiveCalendar() {
+        let owner         = this.owner,
+            calendarStore = owner.calendarStore,
+            calendarId    = owner.data.activeCalendarId || calendarStore.getAt(0)[calendarStore.keyProperty];
+
+        return calendarStore.get(calendarId).active;
     }
 
     /**
@@ -147,8 +159,10 @@ class DragDrop extends Base {
      * @param {Object} data
      */
     onColumnDragMove(data) {
-        if (this.isTopLevelColumn(data.path)) {
-            this.owner.eventDragZone?.dragMove(data);
+        let me = this;
+
+        if (me.isActiveCalendar() && me.isTopLevelColumn(data.path)) {
+            me.owner.eventDragZone?.dragMove(data);
         }
     }
 
@@ -158,7 +172,7 @@ class DragDrop extends Base {
     onColumnDragStart(data) {
         let me = this;
 
-        if (me.isTopLevelColumn(data.targetPath)) {
+        if (me.isActiveCalendar() && me.isTopLevelColumn(data.targetPath)) {
             let owner           = me.owner,
                 axisStartTime   = owner.timeAxis.getTime(owner.startTime),
                 calendarStore   = owner.calendarStore,
