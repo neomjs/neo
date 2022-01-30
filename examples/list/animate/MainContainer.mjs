@@ -16,18 +16,9 @@ class MainContainer extends Viewport {
         className : 'Neo.examples.list.animate.MainContainer',
         autoMount : true,
         controller: MainContainerController,
-        layout    : {ntype: 'vbox', align: 'stretch'}
-    }}
+        layout    : {ntype: 'vbox', align: 'stretch'},
 
-    /**
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-
-        let me = this;
-
-        me.items = [{
+        items: [{
             module: Toolbar,
             flex  : 'none',
 
@@ -84,8 +75,8 @@ class MainContainer extends Viewport {
             module   : List,
             reference: 'list',
             store    : MainStore
-        }];
-    }
+        }]
+    }}
 }
 
 Neo.applyClassConfig(MainContainer);
