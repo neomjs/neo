@@ -3,6 +3,8 @@ import DateUtil      from '../../../../util/Date.mjs';
 import EventDragZone from '../EventDragZone.mjs';
 import VDomUtil      from '../../../../util/VDom.mjs';
 
+const newRecordSymbol = Symbol.for('newRecordSymbol');
+
 /**
  * @class Neo.calendar.view.week.plugin.DragDrop
  * @extends Neo.plugin.Base
@@ -135,15 +137,14 @@ class DragDrop extends Base {
      * @param {Object} data
      */
     onColumnDragEnd(data) {
-        let me           = this,
-            owner        = me.owner,
-            recordSymbol = Symbol.for('addedRecord'),
-            record       = me[recordSymbol];
+        let me     = this,
+            owner  = me.owner,
+            record = me[newRecordSymbol];
 
         if (record && me.isTopLevelColumn(data.path)) {
             me.isDragging = false;
 
-            delete me[recordSymbol];
+            delete me[newRecordSymbol];
 
             Neo.applyDeltas(me.appName, {
                 id   : owner.getEventId(record.id),
@@ -205,7 +206,7 @@ class DragDrop extends Base {
             })[0];
 
             // we need to cache a reference to make the record accessible for onColumnDragEnd()
-            me[Symbol.for('addedRecord')] = record;
+            me[newRecordSymbol] = record;
 
             // wait until the new event got mounted
             setTimeout(() => {
