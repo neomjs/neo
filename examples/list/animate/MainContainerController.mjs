@@ -21,6 +21,13 @@ class MainContainerController extends Component {
     /**
      * @param {Object} data
      */
+    changeIsOnlineFilter(data) {
+        this.getReference('list').store.getFilter('isOnline').disabled = !data.value;
+    }
+
+    /**
+     * @param {Object} data
+     */
     changeNameFilter(data) {
         this.getReference('list').store.getFilter('name').value = data.value;
     }
