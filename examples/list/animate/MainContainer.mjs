@@ -13,11 +13,26 @@ import Viewport                from '../../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className : 'Neo.examples.list.animate.MainContainer',
-        autoMount : true,
+        /**
+         * @member {String} className='Neo.examples.list.animate.MainContainer'
+         * @protected
+         */
+        className: 'Neo.examples.list.animate.MainContainer',
+        /**
+         * @member {Boolean} autoMount=true
+         */
+        autoMount: true,
+        /**
+         * @member {Neo.controller.Component} controller=MainContainerController
+         */
         controller: MainContainerController,
-        layout    : {ntype: 'vbox', align: 'stretch'},
-
+        /**
+         * @member {Object} layout={ntype:'vbox',align:'stretch'}
+         */
+        layout: {ntype: 'vbox', align: 'stretch'},
+        /**
+         * @member {Object[]} items
+         */
         items: [{
             module: Toolbar,
             flex  : 'none',
