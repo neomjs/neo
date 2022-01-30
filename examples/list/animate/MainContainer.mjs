@@ -64,7 +64,7 @@ class MainContainer extends Viewport {
             flex      : 'none',
             labelText : 'Search',
             labelWidth: 60,
-            listeners : {change: me.changeNameFilter.bind(me)},
+            listeners : {change: 'changeNameFilter'},
             style     : {marginLeft: '10px'},
             width     : 262
         }, {
@@ -94,15 +94,6 @@ class MainContainer extends Viewport {
         let store = this.down({module: List}).store;
 
         store.getFilter('isOnline').disabled = !data.value;
-    }
-
-    /**
-     * @param {Object} data
-     */
-    changeNameFilter(data) {
-        let store = this.down({module: List}).store;
-
-        store.getFilter('name').value = data.value;
     }
 }
 

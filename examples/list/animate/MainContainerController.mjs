@@ -21,6 +21,13 @@ class MainContainerController extends Component {
     /**
      * @param {Object} data
      */
+    changeNameFilter(data) {
+        this.getReference('list').store.getFilter('name').value = data.value;
+    }
+
+    /**
+     * @param {Object} data
+     */
     changeSorting(data) {
         let me              = this,
             buttonFirstName = me.getReference('firstnameButton'),
