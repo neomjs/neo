@@ -47,10 +47,10 @@ class Observable extends Base {
                 me.addListener(key, value, scope);
             });
         } else if (typeof opts === 'object') {
-            scope = scope || opts.scope;
+            scope    = scope || opts.scope;
             listener = opts.fn;
-            order = order || opts.order;
-            eventId = eventId || opts.eventId;
+            order    = order || opts.order;
+            eventId  = eventId || opts.eventId;
         } else if (typeof opts === 'function') {
             listener = opts;
         } else if (typeof opts === 'string') {
@@ -61,10 +61,10 @@ class Observable extends Base {
 
         if (!nameObject) {
             eventConfig = {
-                fn    : listener,
-                scope : scope,
-                data  : data,
-                id    : eventId || Neo.getId('event')
+                fn: listener,
+                scope,
+                data,
+                id: eventId || Neo.getId('event')
             };
 
             if (existing = me.listeners?.[name]) {
@@ -116,6 +116,9 @@ class Observable extends Base {
         }
     }
 
+    /**
+     * @param {Object} config
+     */
     initObservable(config) {
         let me = this,
             proto = me.__proto__,
