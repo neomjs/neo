@@ -73,7 +73,7 @@ class MainContainer extends Viewport {
             flex                : 'none',
             labelText           : 'Transition Duration',
             labelWidth          : 150,
-            listeners           : {change: me.changeTransitionDuration.bind(me)},
+            listeners           : {change: 'changeTransitionDuration'},
             maxValue            : 5000,
             minValue            : 100,
             stepSize            : 100,
@@ -103,13 +103,6 @@ class MainContainer extends Viewport {
         let store = this.down({module: List}).store;
 
         store.getFilter('name').value = data.value;
-    }
-
-    /**
-     * @param {Object} data
-     */
-    changeTransitionDuration(data) {
-        this.down({module: List}).getPlugin('animate').transitionDuration = data.value;
     }
 }
 

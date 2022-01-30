@@ -46,6 +46,13 @@ class MainContainerController extends Component {
 
         me.sortBy = property;
     }
+
+    /**
+     * @param {Object} data
+     */
+    changeTransitionDuration(data) {
+        this.getReference('list').getPlugin('animate').transitionDuration = data.value;
+    }
 }
 
 Neo.applyClassConfig(MainContainerController);
