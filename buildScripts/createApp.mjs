@@ -240,7 +240,7 @@ if (programOpts.info) {
                 "",
                 "Neo.applyClassConfig(MainContainer);",
                 "",
-                "export {MainContainer as default};"
+                "export default MainContainer;"
             ].join(os.EOL);
 
             fs.writeFileSync(path.join(folder + '/view/MainContainer.mjs'), mainContainerContent);
