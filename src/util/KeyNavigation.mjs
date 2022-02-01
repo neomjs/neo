@@ -78,9 +78,7 @@ class KeyNavigation extends Base {
                 scope = Neo.get(key.scope);
 
                 if (key.key.toUpperCase() === upperCaseKey) {
-                    if (scope[key.fn]) {
-                        scope[key.fn].apply(scope, [data]);
-                    }
+                    scope[key.fn]?.apply(scope, [data]);
                 }
             });
         }
@@ -188,9 +186,7 @@ class KeyNavigation extends Base {
      * @param {Array} items
      */
     removeKeys(items) {
-        if (Array.isArray(items)) {
-            items.forEach(item => this.removeKey(item));
-        }
+        Array.isArray(items) && items.forEach(item => this.removeKey(item));
     }
 
     /**
