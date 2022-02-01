@@ -470,4 +470,4 @@ class HomeComponent extends Component {
 
 Neo.applyClassConfig(HomeComponent);
 
-export {HomeComponent as default};
+export default HomeComponent;

@@ -170,4 +170,4 @@ class MainContainer extends TabContainer {
 
 Neo.applyClassConfig(MainContainer);
 
-export {MainContainer as default};
+export default MainContainer;

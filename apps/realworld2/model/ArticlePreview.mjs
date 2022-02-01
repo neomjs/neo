@@ -44,4 +44,4 @@ class ArticlePreview extends Model {
 
 Neo.applyClassConfig(ArticlePreview);
 
-export {ArticlePreview as default};
+export default ArticlePreview;

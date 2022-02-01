@@ -421,4 +421,4 @@ class Time extends Picker {
 
 Neo.applyClassConfig(Time);
 
-export {Time as default};
+export default Time;

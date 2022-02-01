@@ -17,4 +17,4 @@ class DemoDialog extends Dialog {
 
 Neo.applyClassConfig(DemoDialog);
 
-export {DemoDialog as default};
+export default DemoDialog;

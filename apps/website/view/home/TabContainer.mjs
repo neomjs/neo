@@ -53,4 +53,4 @@ class TabContainer extends Container {
 
 Neo.applyClassConfig(TabContainer);
 
-export {TabContainer as default};
+export default TabContainer;

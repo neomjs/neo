@@ -186,4 +186,4 @@ class TableContainer extends Container {
 
 Neo.applyClassConfig(TableContainer);
 
-export {TableContainer as default};
+export default TableContainer;

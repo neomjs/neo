@@ -25,4 +25,4 @@ class Tutorials extends Store {
 
 Neo.applyClassConfig(Tutorials);
 
-export {Tutorials as default};
+export default Tutorials;

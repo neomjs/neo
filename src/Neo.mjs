@@ -693,4 +693,4 @@ Neo.config = Neo.config || {};
 
 Neo.assignDefaults(Neo.config, DefaultConfig);
 
-export {Neo as default};
+export default Neo;

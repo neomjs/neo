@@ -414,4 +414,4 @@ class Tree extends Base {
 
 Neo.applyClassConfig(Tree);
 
-export {Tree as default};
+export default Tree;

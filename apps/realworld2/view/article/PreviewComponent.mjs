@@ -290,4 +290,4 @@ class PreviewComponent extends Component {
 
 Neo.applyClassConfig(PreviewComponent);
 
-export {PreviewComponent as default};
+export default PreviewComponent;

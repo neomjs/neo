@@ -38,4 +38,4 @@ class Example extends Model {
 
 Neo.applyClassConfig(Example);
 
-export {Example as default};
+export default Example;

@@ -103,4 +103,4 @@ class HelixContainerController extends ComponentController {
 
 Neo.applyClassConfig(HelixContainerController);
 
-export {HelixContainerController as default};
+export default HelixContainerController;

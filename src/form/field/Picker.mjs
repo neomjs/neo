@@ -265,4 +265,4 @@ class Picker extends Text {
 
 Neo.applyClassConfig(Picker);
 
-export {Picker as default};
+export default Picker;

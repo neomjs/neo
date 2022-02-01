@@ -234,4 +234,4 @@ class SignUpComponent extends Component {
 
 Neo.applyClassConfig(SignUpComponent);
 
-export {SignUpComponent as default};
+export default SignUpComponent;

@@ -21,4 +21,4 @@ class HistoricalData extends Store {
 
 Neo.applyClassConfig(HistoricalData);
 
-export {HistoricalData as default};
+export default HistoricalData;

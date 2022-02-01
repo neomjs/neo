@@ -24,4 +24,4 @@ class TodoListModel extends Model {
 
 Neo.applyClassConfig(TodoListModel);
 
-export {TodoListModel as default};
+export default TodoListModel;

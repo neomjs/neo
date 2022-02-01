@@ -61,4 +61,4 @@ class FooterContainer extends Container {
 
 Neo.applyClassConfig(FooterContainer);
 
-export {FooterContainer as default};
+export default FooterContainer;

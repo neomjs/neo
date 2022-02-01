@@ -57,4 +57,4 @@ class BlogPost extends Model {
 
 Neo.applyClassConfig(BlogPost);
 
-export {BlogPost as default};
+export default BlogPost;

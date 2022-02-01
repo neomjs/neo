@@ -180,4 +180,4 @@ class HeaderContainer extends Container {
 
 Neo.applyClassConfig(HeaderContainer);
 
-export {HeaderContainer as default};
+export default HeaderContainer;

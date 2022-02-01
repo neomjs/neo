@@ -191,4 +191,4 @@ class CountryGallery extends Gallery {
 
 Neo.applyClassConfig(CountryGallery);
 
-export {CountryGallery as default};
+export default CountryGallery;

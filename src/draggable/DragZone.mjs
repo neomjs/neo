@@ -449,4 +449,4 @@ class DragZone extends Base {
 
 Neo.applyClassConfig(DragZone);
 
-export {DragZone as default};
+export default DragZone;

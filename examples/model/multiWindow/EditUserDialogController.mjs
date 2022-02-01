@@ -34,4 +34,4 @@ class EditUserDialogController extends Component {
 
 Neo.applyClassConfig(EditUserDialogController);
 
-export {EditUserDialogController as default};
+export default EditUserDialogController;

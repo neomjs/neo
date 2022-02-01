@@ -29,4 +29,4 @@ class DetailsContainer extends Container {
 
 Neo.applyClassConfig(DetailsContainer);
 
-export {DetailsContainer as default};
+export default DetailsContainer;

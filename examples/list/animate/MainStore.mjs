@@ -45,4 +45,4 @@ class MainStore extends Store {
 
 Neo.applyClassConfig(MainStore);
 
-export {MainStore as default};
+export default MainStore;

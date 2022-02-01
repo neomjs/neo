@@ -80,4 +80,4 @@ class WorldMapContainer extends Container {
 
 Neo.applyClassConfig(WorldMapContainer);
 
-export {WorldMapContainer as default};
+export default WorldMapContainer;

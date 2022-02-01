@@ -110,4 +110,4 @@ class ContentTabContainer extends Container {
 
 Neo.applyClassConfig(ContentTabContainer);
 
-export {ContentTabContainer as default};
+export default ContentTabContainer;

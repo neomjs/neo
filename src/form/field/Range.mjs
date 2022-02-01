@@ -83,4 +83,4 @@ class Range extends Number {
 
 Neo.applyClassConfig(Range);
 
-export {Range as default};
+export default Range;

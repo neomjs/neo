@@ -45,4 +45,4 @@ class TableCollection extends BaseCollection {
 
 Neo.applyClassConfig(TableCollection);
 
-export {TableCollection as default};
+export default TableCollection;

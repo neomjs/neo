@@ -168,4 +168,4 @@ class Table extends Container {
 
 Neo.applyClassConfig(Table);
 
-export {Table as default};
+export default Table;

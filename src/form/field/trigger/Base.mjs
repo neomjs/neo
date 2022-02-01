@@ -213,4 +213,4 @@ class Base extends Component {
 
 Neo.applyClassConfig(Base);
 
-export {Base as default};
+export default Base;

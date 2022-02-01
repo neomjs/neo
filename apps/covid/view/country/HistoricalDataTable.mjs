@@ -87,4 +87,4 @@ class HistoricalDataTable extends Container {
 
 Neo.applyClassConfig(HistoricalDataTable);
 
-export {HistoricalDataTable as default};
+export default HistoricalDataTable;

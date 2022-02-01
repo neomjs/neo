@@ -270,4 +270,4 @@ class HelixContainer extends Container {
 
 Neo.applyClassConfig(HelixContainer);
 
-export {HelixContainer as default};
+export default HelixContainer;

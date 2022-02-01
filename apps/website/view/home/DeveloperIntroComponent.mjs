@@ -261,4 +261,4 @@ class DeveloperIntroComponent extends Component {
 
 Neo.applyClassConfig(DeveloperIntroComponent);
 
-export {DeveloperIntroComponent as default};
+export default DeveloperIntroComponent;

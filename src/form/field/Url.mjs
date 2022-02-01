@@ -28,4 +28,4 @@ class Url extends Text {
 
 Neo.applyClassConfig(Url);
 
-export {Url as default};
+export default Url;

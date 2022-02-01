@@ -57,4 +57,4 @@ class TutorialsTreeList extends TreeList {
 
 Neo.applyClassConfig(TutorialsTreeList);
 
-export {TutorialsTreeList as default};
+export default TutorialsTreeList;

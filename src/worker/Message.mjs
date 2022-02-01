@@ -37,4 +37,4 @@ class Message {
 const ns = Neo.ns('Neo.worker', true);
 ns['Message'] = Message;
 
-export {Message as default};
+export default Message;

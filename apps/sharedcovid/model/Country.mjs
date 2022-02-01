@@ -56,4 +56,4 @@ class Country extends Model {
 
 Neo.applyClassConfig(Country);
 
-export {Country as default};
+export default Country;

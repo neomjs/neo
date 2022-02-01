@@ -29,4 +29,4 @@ class ProfileContainer extends Container {
 
 Neo.applyClassConfig(ProfileContainer);
 
-export {ProfileContainer as default};
+export default ProfileContainer;

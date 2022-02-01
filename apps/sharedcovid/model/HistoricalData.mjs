@@ -41,4 +41,4 @@ class HistoricalData extends Model {
 
 Neo.applyClassConfig(HistoricalData);
 
-export {HistoricalData as default};
+export default HistoricalData;

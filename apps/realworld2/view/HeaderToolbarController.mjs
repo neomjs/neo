@@ -49,4 +49,4 @@ class HeaderToolbarController extends ComponentController {
 
 Neo.applyClassConfig(HeaderToolbarController);
 
-export {HeaderToolbarController as default};
+export default HeaderToolbarController;

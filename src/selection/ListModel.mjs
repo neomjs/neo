@@ -170,4 +170,4 @@ class ListModel extends Model {
 
 Neo.applyClassConfig(ListModel);
 
-export {ListModel as default};
+export default ListModel;

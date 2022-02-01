@@ -15,4 +15,4 @@ class CountryStore extends Store {
 
 Neo.applyClassConfig(CountryStore);
 
-export {CountryStore as default};
+export default CountryStore;

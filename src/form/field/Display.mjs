@@ -47,4 +47,4 @@ class Display extends Text {
 
 Neo.applyClassConfig(Display);
 
-export {Display as default};
+export default Display;

@@ -36,4 +36,4 @@ class BlogPosts extends Store {
 
 Neo.applyClassConfig(BlogPosts);
 
-export {BlogPosts as default};
+export default BlogPosts;

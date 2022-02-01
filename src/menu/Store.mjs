@@ -21,4 +21,4 @@ class Store extends BaseStore {
 
 Neo.applyClassConfig(Store);
 
-export {Store as default};
+export default Store;

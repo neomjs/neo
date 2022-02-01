@@ -638,4 +638,4 @@ class Select extends Picker {
 
 Neo.applyClassConfig(Select);
 
-export {Select as default};
+export default Select;

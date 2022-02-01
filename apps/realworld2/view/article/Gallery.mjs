@@ -102,4 +102,4 @@ class Gallery extends BaseGallery {
 
 Neo.applyClassConfig(Gallery);
 
-export {Gallery as default};
+export default Gallery;

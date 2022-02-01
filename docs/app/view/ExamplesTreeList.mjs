@@ -57,4 +57,4 @@ class ExamplesTreeList extends TreeList {
 
 Neo.applyClassConfig(ExamplesTreeList);
 
-export {ExamplesTreeList as default};
+export default ExamplesTreeList;

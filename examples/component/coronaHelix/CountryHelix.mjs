@@ -218,4 +218,4 @@ class CountryHelix extends Helix {
 
 Neo.applyClassConfig(CountryHelix);
 
-export {CountryHelix as default};
+export default CountryHelix;

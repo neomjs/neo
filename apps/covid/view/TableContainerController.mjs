@@ -278,4 +278,4 @@ class TableContainerController extends ComponentController {
 
 Neo.applyClassConfig(TableContainerController);
 
-export {TableContainerController as default};
+export default TableContainerController;

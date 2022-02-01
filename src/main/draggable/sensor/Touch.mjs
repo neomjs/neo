@@ -242,4 +242,4 @@ function preventDefault(event) {
 
 Neo.applyClassConfig(Touch);
 
-export {Touch as default};
+export default Touch;

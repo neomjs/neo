@@ -124,4 +124,4 @@ class MainComponent extends Component {
 
 Neo.applyClassConfig(MainComponent);
 
-export {MainComponent as default};
+export default MainComponent;
