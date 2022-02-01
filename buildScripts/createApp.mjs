@@ -134,12 +134,10 @@ if (programOpts.info) {
             const appContent = [
                 "import MainContainer from './view/MainContainer.mjs';",
                 "",
-                "const onStart = () => Neo.app({",
+                "export const onStart = () => Neo.app({",
                 "    mainView: MainContainer,",
                 "    name    : '" + appName + "'",
-                "});",
-                "",
-                "export {onStart as onStart};"
+                "});"
             ].join(os.EOL);
 
             fs.writeFileSync(folder + '/app.mjs', appContent);
