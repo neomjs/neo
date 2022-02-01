@@ -152,4 +152,4 @@ class Split extends Button {
 
 Neo.applyClassConfig(Split);
 
-export {Split as default};
+export default Split;

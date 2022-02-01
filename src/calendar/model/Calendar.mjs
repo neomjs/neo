@@ -33,4 +33,4 @@ class Calendar extends Model {
 
 Neo.applyClassConfig(Calendar);
 
-export {Calendar as default};
+export default Calendar;

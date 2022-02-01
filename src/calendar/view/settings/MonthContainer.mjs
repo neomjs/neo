@@ -131,4 +131,4 @@ class MonthContainer extends Container {
 
 Neo.applyClassConfig(MonthContainer);
 
-export {MonthContainer as default};
+export default MonthContainer;

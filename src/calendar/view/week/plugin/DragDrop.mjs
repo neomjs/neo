@@ -310,4 +310,4 @@ class DragDrop extends Base {
 
 Neo.applyClassConfig(DragDrop);
 
-export {DragDrop as default};
+export default DragDrop;

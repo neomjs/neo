@@ -159,4 +159,4 @@ class Chip extends Component {
 
 Neo.applyClassConfig(Chip);
 
-export {Chip as default};
+export default Chip;

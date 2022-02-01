@@ -786,4 +786,4 @@ class Circle extends Component {
 
 Neo.applyClassConfig(Circle);
 
-export {Circle as default};
+export default Circle;

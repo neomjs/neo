@@ -73,4 +73,4 @@ class Canvas extends Component {
 
 Neo.applyClassConfig(Canvas);
 
-export {Canvas as default};
+export default Canvas;

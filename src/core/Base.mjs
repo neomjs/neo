@@ -461,4 +461,4 @@ Neo.applyClassConfig(Base);
 
 Base.instanceManagerAvailable = false;
 
-export {Base as default};
+export default Base;

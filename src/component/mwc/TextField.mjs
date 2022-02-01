@@ -234,4 +234,4 @@ class TextField extends Component {
 
 Neo.applyClassConfig(TextField);
 
-export {TextField as default};
+export default TextField;

@@ -39,4 +39,4 @@ class StringField extends Field {
 
 Neo.applyClassConfig(StringField);
 
-export {StringField as default};
+export default StringField;

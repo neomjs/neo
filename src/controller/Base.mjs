@@ -48,4 +48,4 @@ class Base extends CoreBase {
 
 Neo.applyClassConfig(Base);
 
-export {Base as default};
+export default Base;

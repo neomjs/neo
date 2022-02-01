@@ -160,4 +160,4 @@ class AmChart extends Component {
 
 Neo.applyClassConfig(AmChart);
 
-export {AmChart as default};
+export default AmChart;

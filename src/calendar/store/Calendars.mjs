@@ -32,4 +32,4 @@ class Calendars extends Store {
 
 Neo.applyClassConfig(Calendars);
 
-export {Calendars as default};
+export default Calendars;

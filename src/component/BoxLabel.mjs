@@ -26,4 +26,4 @@ class BoxLabel extends Label {
 
 Neo.applyClassConfig(BoxLabel);
 
-export {BoxLabel as default};
+export default BoxLabel;

@@ -632,4 +632,4 @@ class Base extends Panel {
 
 Neo.applyClassConfig(Base);
 
-export {Base as default};
+export default Base;

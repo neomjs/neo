@@ -37,4 +37,4 @@ class DayComponent extends WeekComponent {
 
 Neo.applyClassConfig(DayComponent);
 
-export {DayComponent as default};
+export default DayComponent;
