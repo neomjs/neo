@@ -124,11 +124,9 @@ class Component extends Base {
      * @protected
      */
     beforeSetStores(value, oldValue) {
-        if (value) {
-            Object.entries(value).forEach(([key, storeValue]) => {
-                value[key] = ClassSystemUtil.beforeSetInstance(storeValue);
-            });
-        }
+        value && Object.entries(value).forEach(([key, storeValue]) => {
+            value[key] = ClassSystemUtil.beforeSetInstance(storeValue);
+        });
 
         return value;
     }
@@ -257,7 +255,7 @@ class Component extends Base {
                 if (!root[_key]) {
                     Object.defineProperty(root, _key, {
                         enumerable: false,
-                        value     : value,
+                        value,
                         writable  : true
                     });
                 } else {
@@ -542,10 +540,10 @@ class Component extends Base {
         }
 
         me.fire('dataPropertyChange', {
-            key     : key,
-            id      : me.id,
-            oldValue: oldValue,
-            value   : value
+            key,
+            id: me.id,
+            oldValue,
+            value
         });
     }
 
