@@ -109,4 +109,4 @@ Neo.app = config => Neo.create({
     ...config
 });
 
-export {Application as default};
+export default Application;

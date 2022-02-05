@@ -219,4 +219,4 @@ class TimeAxisComponent extends Component {
 
 Neo.applyClassConfig(TimeAxisComponent);
 
-export {TimeAxisComponent as default};
+export default TimeAxisComponent;

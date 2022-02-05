@@ -143,4 +143,4 @@ class Clear extends Base {
 
 Neo.applyClassConfig(Clear);
 
-export {Clear as default};
+export default Clear;

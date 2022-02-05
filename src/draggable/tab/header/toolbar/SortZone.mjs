@@ -67,4 +67,4 @@ class SortZone extends BaseSortZone {
 
 Neo.applyClassConfig(SortZone);
 
-export {SortZone as default};
+export default SortZone;

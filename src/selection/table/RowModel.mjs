@@ -191,4 +191,4 @@ class RowModel extends Model {
 
 Neo.applyClassConfig(RowModel);
 
-export {RowModel as default};
+export default RowModel;

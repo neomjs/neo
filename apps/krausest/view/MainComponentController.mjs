@@ -32,4 +32,4 @@ class MainComponentController extends ComponentController {
 
 Neo.applyClassConfig(MainComponentController);
 
-export {MainComponentController as default};
+export default MainComponentController;

@@ -609,4 +609,4 @@ class MembersList extends Base {
 
 Neo.applyClassConfig(MembersList);
 
-export {MembersList as default};
+export default MembersList;

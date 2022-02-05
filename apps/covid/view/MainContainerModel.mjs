@@ -47,4 +47,4 @@ class MainContainerModel extends Component {
 
 Neo.applyClassConfig(MainContainerModel);
 
-export {MainContainerModel as default};
+export default MainContainerModel;

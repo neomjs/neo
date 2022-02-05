@@ -152,4 +152,4 @@ class TableComponent extends Base {
 
 Neo.applyClassConfig(TableComponent);
 
-export {TableComponent as default};
+export default TableComponent;

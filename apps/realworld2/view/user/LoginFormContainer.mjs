@@ -79,4 +79,4 @@ class LoginFormContainer extends Container {
 
 Neo.applyClassConfig(LoginFormContainer);
 
-export {LoginFormContainer as default};
+export default LoginFormContainer;

@@ -150,4 +150,4 @@ class List extends ComponentList {
 
 Neo.applyClassConfig(List);
 
-export {List as default};
+export default List;

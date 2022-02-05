@@ -137,4 +137,4 @@ class TagListComponent extends Component {
 
 Neo.applyClassConfig(TagListComponent);
 
-export {TagListComponent as default};
+export default TagListComponent;

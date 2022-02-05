@@ -119,4 +119,4 @@ class CellColumnRowModel extends CellRowModel {
 
 Neo.applyClassConfig(CellColumnRowModel);
 
-export {CellColumnRowModel as default};
+export default CellColumnRowModel;

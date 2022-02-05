@@ -39,4 +39,4 @@ class AttributionComponent extends Component {
 
 Neo.applyClassConfig(AttributionComponent);
 
-export {AttributionComponent as default};
+export default AttributionComponent;

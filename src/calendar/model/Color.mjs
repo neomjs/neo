@@ -4,7 +4,7 @@ import Model from '../../data/Model.mjs';
  * @class Neo.calendar.model.Color
  * @extends Neo.data.Model
  */
-class Calendar extends Model {
+class Color extends Model {
     static getConfig() {return {
         /**
          * @member {String} className='Neo.calendar.model.Color'
@@ -25,6 +25,6 @@ class Calendar extends Model {
     }}
 }
 
-Neo.applyClassConfig(Calendar);
+Neo.applyClassConfig(Color);
 
-export {Calendar as default};
+export default Color;

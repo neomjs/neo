@@ -3,6 +3,8 @@ import DateUtil      from '../../../../util/Date.mjs';
 import EventDragZone from '../EventDragZone.mjs';
 import VDomUtil      from '../../../../util/VDom.mjs';
 
+const newRecordSymbol = Symbol.for('newRecordSymbol');
+
 /**
  * @class Neo.calendar.view.week.plugin.DragDrop
  * @extends Neo.plugin.Base
@@ -85,7 +87,7 @@ class DragDrop extends Base {
             owner.eventDragZone = eventDragZone = Neo.create({
                 module           : EventDragZone,
                 appName          : me.appName,
-                owner            : owner,
+                owner,
                 scrollContainerId: owner.getScrollContainer().id,
                 ...config,
 
@@ -101,6 +103,18 @@ class DragDrop extends Base {
         }
 
         return eventDragZone;
+    }
+
+    /**
+     * Returns the active field value of the active or first calendar record
+     * @returns {Boolean}
+     */
+    isActiveCalendar() {
+        let owner         = this.owner,
+            calendarStore = owner.calendarStore,
+            calendarId    = owner.data.activeCalendarId || calendarStore.getAt(0)[calendarStore.keyProperty];
+
+        return calendarStore.get(calendarId).active;
     }
 
     /**
@@ -123,15 +137,14 @@ class DragDrop extends Base {
      * @param {Object} data
      */
     onColumnDragEnd(data) {
-        let me           = this,
-            owner        = me.owner,
-            recordSymbol = Symbol.for('addedRecord'),
-            record       = me[recordSymbol];
+        let me     = this,
+            owner  = me.owner,
+            record = me[newRecordSymbol];
 
         if (record && me.isTopLevelColumn(data.path)) {
             me.isDragging = false;
 
-            delete me[recordSymbol];
+            delete me[newRecordSymbol];
 
             Neo.applyDeltas(me.appName, {
                 id   : owner.getEventId(record.id),
@@ -147,8 +160,10 @@ class DragDrop extends Base {
      * @param {Object} data
      */
     onColumnDragMove(data) {
-        if (this.isTopLevelColumn(data.path)) {
-            this.owner.eventDragZone?.dragMove(data);
+        let me = this;
+
+        if (me.isActiveCalendar() && me.isTopLevelColumn(data.path)) {
+            me.owner.eventDragZone?.dragMove(data);
         }
     }
 
@@ -158,7 +173,7 @@ class DragDrop extends Base {
     onColumnDragStart(data) {
         let me = this;
 
-        if (me.isTopLevelColumn(data.targetPath)) {
+        if (me.isActiveCalendar() && me.isTopLevelColumn(data.targetPath)) {
             let owner           = me.owner,
                 axisStartTime   = owner.timeAxis.getTime(owner.startTime),
                 calendarStore   = owner.calendarStore,
@@ -191,7 +206,7 @@ class DragDrop extends Base {
             })[0];
 
             // we need to cache a reference to make the record accessible for onColumnDragEnd()
-            me[Symbol.for('addedRecord')] = record;
+            me[newRecordSymbol] = record;
 
             // wait until the new event got mounted
             setTimeout(() => {
@@ -295,4 +310,4 @@ class DragDrop extends Base {
 
 Neo.applyClassConfig(DragDrop);
 
-export {DragDrop as default};
+export default DragDrop;

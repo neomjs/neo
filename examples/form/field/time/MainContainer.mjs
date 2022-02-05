@@ -149,4 +149,4 @@ class MainContainer extends ConfigurationViewport {
 
 Neo.applyClassConfig(MainContainer);
 
-export {MainContainer as default};
+export default MainContainer;

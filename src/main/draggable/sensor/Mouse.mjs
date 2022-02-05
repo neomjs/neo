@@ -213,4 +213,4 @@ function preventDefault(event) {
 
 Neo.applyClassConfig(Mouse);
 
-export {Mouse as default};
+export default Mouse;

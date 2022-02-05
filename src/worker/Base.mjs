@@ -71,8 +71,8 @@ class Base extends CoreBase {
             gt.onmessage = me.onMessage.bind(me);
         }
 
-        Neo.workerId      = me.workerId;
         Neo.currentWorker = me;
+        Neo.workerId      = me.workerId;
     }
 
     /**
@@ -205,6 +205,25 @@ class Base extends CoreBase {
     }
 
     /**
+     * Only relevant for SharedWorkers
+     * @param {Object} msg
+     * @param {String} msg.appName
+     */
+    onRegisterApp(msg) {
+        let me      = this,
+            appName = msg.appName,
+            port;
+
+        for (port of me.ports) {
+            if (!port.appName) {
+                port.appName = appName;
+                me.onConnect({ appName });
+                break;
+            }
+        }
+    }
+
+    /**
      * @param {Object} msg
      */
     onRegisterNeoConfig(msg) {
@@ -275,4 +294,4 @@ class Base extends CoreBase {
 
 Neo.applyClassConfig(Base);
 
-export {Base as default};
+export default Base;

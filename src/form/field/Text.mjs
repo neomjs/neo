@@ -975,4 +975,4 @@ class Text extends Base {
 
 Neo.applyClassConfig(Text);
 
-export {Text as default};
+export default Text;

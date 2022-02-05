@@ -155,8 +155,8 @@ class Main extends core.Base {
      * @returns {Object}
      */
     getWindowData() {
-        const win    = window,
-              screen = win.screen;
+        let win    = window,
+            screen = win.screen;
 
         return {
             innerHeight: win.innerHeight,
@@ -228,7 +228,7 @@ class Main extends core.Base {
     }
 
     /**
-     * @param data
+     * @param {Object} data
      */
     onMountDom(data) {
         this.queueWrite(data);
@@ -241,7 +241,7 @@ class Main extends core.Base {
     }
 
     /**
-     * @param data
+     * @param {Object} data
      */
     onRender(data) {
         data.data.replyId = data.replyId;
@@ -249,14 +249,14 @@ class Main extends core.Base {
     }
 
     /**
-     * @param data
+     * @param {Object} data
      */
     onUpdateDom(data) {
         this.queueUpdate(data);
     }
 
     /**
-     * @param data
+     * @param {Object} data
      */
     onUpdateVdom(data) {
         data.data.replyId = data.replyId;

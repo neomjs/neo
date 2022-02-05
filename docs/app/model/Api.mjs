@@ -47,4 +47,4 @@ class Api extends Model {
 
 Neo.applyClassConfig(Api);
 
-export {Api as default};
+export default Api;

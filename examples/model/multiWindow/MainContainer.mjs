@@ -61,4 +61,4 @@ class MainContainer extends Panel {
 
 Neo.applyClassConfig(MainContainer);
 
-export {MainContainer as default};
+export default MainContainer;

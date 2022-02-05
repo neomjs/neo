@@ -209,4 +209,4 @@ Object.assign(DefaultConfig, {
     workerBasePath: `${Neo.config.basePath || DefaultConfig.basePath}src/worker/`,
 });
 
-export {DefaultConfig as default};
+export default DefaultConfig;

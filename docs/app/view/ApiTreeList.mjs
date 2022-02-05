@@ -48,4 +48,4 @@ class ApiTreeList extends TreeList {
 
 Neo.applyClassConfig(ApiTreeList);
 
-export {ApiTreeList as default};
+export default ApiTreeList;

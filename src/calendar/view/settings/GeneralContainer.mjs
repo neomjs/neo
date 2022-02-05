@@ -288,4 +288,4 @@ class GeneralContainer extends Container {
 
 Neo.applyClassConfig(GeneralContainer);
 
-export {GeneralContainer as default};
+export default GeneralContainer;

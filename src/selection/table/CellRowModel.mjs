@@ -161,4 +161,4 @@ class CellRowModel extends CellModel {
 
 Neo.applyClassConfig(CellRowModel);
 
-export {CellRowModel as default};
+export default CellRowModel;

@@ -22,4 +22,4 @@ class Viewport extends BaseViewport {
 
 Neo.applyClassConfig(Viewport);
 
-export {Viewport as default};
+export default Viewport;

@@ -170,4 +170,4 @@ class CommentComponent extends Component {
 
 Neo.applyClassConfig(CommentComponent);
 
-export {CommentComponent as default};
+export default CommentComponent;

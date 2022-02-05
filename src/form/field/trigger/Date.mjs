@@ -26,4 +26,4 @@ class Date extends Picker {
 
 Neo.applyClassConfig(Date);
 
-export {Date as default};
+export default Date;

@@ -80,4 +80,4 @@ class HeaderComponent extends Component {
 
 Neo.applyClassConfig(HeaderComponent);
 
-export {HeaderComponent as default};
+export default HeaderComponent;

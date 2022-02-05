@@ -32,4 +32,4 @@ class Examples extends Store {
 
 Neo.applyClassConfig(Examples);
 
-export {Examples as default};
+export default Examples;

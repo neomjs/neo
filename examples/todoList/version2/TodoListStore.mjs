@@ -29,4 +29,4 @@ class TodoListStore extends Store {
 
 Neo.applyClassConfig(TodoListStore);
 
-export {TodoListStore as default};
+export default TodoListStore;

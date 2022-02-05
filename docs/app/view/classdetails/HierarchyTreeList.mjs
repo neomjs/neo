@@ -115,4 +115,4 @@ class HierarchyTreeList extends TreeList {
 
 Neo.applyClassConfig(HierarchyTreeList);
 
-export {HierarchyTreeList as default};
+export default HierarchyTreeList;

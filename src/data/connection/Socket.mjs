@@ -21,4 +21,4 @@ class Socket extends Base {
 
 Neo.applyClassConfig(Socket);
 
-export {Socket as default};
+export default Socket;

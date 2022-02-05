@@ -101,4 +101,4 @@ class HomeContainer extends Container {
 
 Neo.applyClassConfig(HomeContainer);
 
-export {HomeContainer as default};
+export default HomeContainer;

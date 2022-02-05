@@ -58,4 +58,4 @@ class Events extends Store {
 
 Neo.applyClassConfig(Events);
 
-export {Events as default};
+export default Events;

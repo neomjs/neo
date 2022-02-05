@@ -25,4 +25,4 @@ class Api extends Store {
 
 Neo.applyClassConfig(Api);
 
-export {Api as default};
+export default Api;

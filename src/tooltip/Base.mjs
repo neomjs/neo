@@ -263,4 +263,4 @@ class Base extends Container {
 
 Neo.applyClassConfig(Base);
 
-export {Base as default};
+export default Base;

@@ -77,4 +77,4 @@ class Helix extends BaseHelix {
 
 Neo.applyClassConfig(Helix);
 
-export {Helix as default};
+export default Helix;

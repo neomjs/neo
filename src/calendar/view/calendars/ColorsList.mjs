@@ -91,4 +91,4 @@ class ColorsList extends List {
 
 Neo.applyClassConfig(ColorsList);
 
-export {ColorsList as default};
+export default ColorsList;

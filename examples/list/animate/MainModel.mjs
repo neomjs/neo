@@ -30,4 +30,4 @@ class MainModel extends Model {
 
 Neo.applyClassConfig(MainModel);
 
-export {MainModel as default};
+export default MainModel;

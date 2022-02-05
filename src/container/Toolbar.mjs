@@ -191,4 +191,4 @@ class Toolbar extends Container {
 
 Neo.applyClassConfig(Toolbar);
 
-export {Toolbar as default};
+export default Toolbar;

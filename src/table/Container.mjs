@@ -479,4 +479,4 @@ class Container extends BaseContainer {
 
 Neo.applyClassConfig(Container);
 
-export {Container as default};
+export default Container;

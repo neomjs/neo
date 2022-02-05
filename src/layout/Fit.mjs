@@ -68,4 +68,4 @@ class Fit extends Base {
 
 Neo.applyClassConfig(Fit);
 
-export {Fit as default};
+export default Fit;

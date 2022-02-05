@@ -26,4 +26,4 @@ class FooterComponent extends Component {
 
 Neo.applyClassConfig(FooterComponent);
 
-export {FooterComponent as default};
+export default FooterComponent;

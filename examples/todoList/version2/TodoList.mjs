@@ -50,4 +50,4 @@ class TodoList extends List {
 
 Neo.applyClassConfig(TodoList);
 
-export {TodoList as default};
+export default TodoList;

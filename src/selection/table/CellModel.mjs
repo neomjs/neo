@@ -181,4 +181,4 @@ class CellModel extends Model {
 
 Neo.applyClassConfig(CellModel);
 
-export {CellModel as default};
+export default CellModel;

@@ -1055,4 +1055,4 @@ Object.defineProperties(Helix.prototype, {
 
 Neo.applyClassConfig(Helix);
 
-export {Helix as default};
+export default Helix;

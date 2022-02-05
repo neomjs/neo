@@ -174,4 +174,4 @@ class DateSelectorModel extends Model {
 
 Neo.applyClassConfig(DateSelectorModel);
 
-export {DateSelectorModel as default};
+export default DateSelectorModel;

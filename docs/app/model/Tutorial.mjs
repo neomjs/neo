@@ -38,4 +38,4 @@ class Tutorial extends Model {
 
 Neo.applyClassConfig(Tutorial);
 
-export {Tutorial as default};
+export default Tutorial;

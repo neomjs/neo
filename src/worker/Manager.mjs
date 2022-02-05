@@ -119,7 +119,7 @@ class Manager extends Base {
 
     /**
      * Sends a message to each worker defined inside the this.workers config.
-     * @param {String} msg
+     * @param {Object} msg
      */
     broadcast(msg) {
         Object.keys(this.workers).forEach(name => {
@@ -261,10 +261,9 @@ class Manager extends Base {
      * @param {Object} e
      */
     onWorkerMessage(e) {
-        let me           = this,
-            data         = e.data,
-            delayPromise = false,
-            transfer     = null,
+        let me       = this,
+            data     = e.data,
+            transfer = null,
             promise;
 
         const {action, destination: dest, replyId} = data;
@@ -273,33 +272,26 @@ class Manager extends Base {
 
         me.fire('message:'+action, data);
 
-        if (promise = action === 'reply' && me.promises[replyId]) {
-            if (data.destination === 'main') {
-                data = data.data;
-            }
+        if (action === 'reply') {
+            promise = me.promises[replyId];
 
-            if (data.reject) {
-                promise.reject(data);
-            } else {
+            if (!promise) {
                 if (data.data) {
-                    if (data.data.autoMount) {
-                        me.fire('automount', data);
-                        delayPromise = true;
-                    }
-                    if (data.data.updateVdom) {
-                        me.fire('updateVdom', data);
-                        delayPromise = true;
-                    }
+                    data.data.autoMount  && me.fire('automount',  data);
+                    data.data.updateVdom && me.fire('updateVdom', data);
+
+                    // we want to delay the message until the rendering queue has processed it
+                    // see: https://github.com/neomjs/neo/issues/2864
+                    me.promiseForwardMessage(data).then(msgData => {
+                        me.sendMessage(msgData.destination, msgData);
+                    });
+                }
+            } else {
+                if (data.destination === 'main') {
+                    data = data.data;
                 }
 
-                if (!delayPromise) {
-                    promise.resolve(data);
-                } else {
-                    me.promises[replyId].data = data;
-                }
-            }
-
-            if (!delayPromise) {
+                promise[data.reject ? 'reject' : 'resolve'](data);
                 delete me.promises[replyId];
             }
         }
@@ -324,6 +316,11 @@ class Manager extends Base {
         // only needed for SharedWorkers
         else if (dest === 'main' && action === 'registerAppName') {
             me.appNames.push(data.appName);
+
+            me.broadcast({
+                action : 'registerApp',
+                appName: data.appName
+            });
         }
 
         else if (dest === 'main' && action === 'remoteMethod') {
@@ -332,7 +329,18 @@ class Manager extends Base {
     }
 
     /**
-     * @param {String} dest app, data or vdom
+     * @param {Object} data
+     * @param {String} data.replyId
+     * @returns {Promise<any>}
+     */
+    promiseForwardMessage(data) {
+        return new Promise((resolve, reject) => {
+            this.promises[data.replyId] = { data, reject, resolve };
+        });
+    }
+
+    /**
+     * @param {String} dest app, canvas, data or vdom
      * @param {Object} opts configs for Neo.worker.Message
      * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.
      * If the ownership of an object is transferred, it becomes unusable (neutered) in the context it was sent from
@@ -346,10 +354,7 @@ class Manager extends Base {
             let message = me.sendMessage(dest, opts, transfer),
                 msgId   = message.id;
 
-            me.promises[msgId] = {
-                reject,
-                resolve
-            };
+            me.promises[msgId] = { reject, resolve };
         });
     }
 
@@ -368,7 +373,7 @@ class Manager extends Base {
     }
 
     /**
-     * @param {String} dest app, data or vdom
+     * @param {String} dest app, canvas, data or vdom
      * @param {Object} opts configs for Neo.worker.Message
      * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.
      * If the ownership of an object is transferred, it becomes unusable (neutered) in the context it was sent from

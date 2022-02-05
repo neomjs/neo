@@ -237,4 +237,4 @@ class SettingsComponent extends Component {
 
 Neo.applyClassConfig(SettingsComponent);
 
-export {SettingsComponent as default};
+export default SettingsComponent;

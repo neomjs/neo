@@ -966,4 +966,4 @@ class DateSelector extends Component {
 
 Neo.applyClassConfig(DateSelector);
 
-export {DateSelector as default};
+export default DateSelector;

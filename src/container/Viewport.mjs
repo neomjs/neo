@@ -42,4 +42,4 @@ class Viewport extends Container {
 
 Neo.applyClassConfig(Viewport);
 
-export {Viewport as default};
+export default Viewport;

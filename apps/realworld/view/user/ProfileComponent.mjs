@@ -335,4 +335,4 @@ class ProfileComponent extends Component {
 
 Neo.applyClassConfig(ProfileComponent);
 
-export {ProfileComponent as default};
+export default ProfileComponent;

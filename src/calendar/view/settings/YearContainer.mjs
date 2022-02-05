@@ -146,4 +146,4 @@ class YearContainer extends Container {
 
 Neo.applyClassConfig(YearContainer);
 
-export {YearContainer as default};
+export default YearContainer;

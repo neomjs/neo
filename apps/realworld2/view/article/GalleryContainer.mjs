@@ -50,4 +50,4 @@ class GalleryContainer extends GalleryMainContainer {
 
 Neo.applyClassConfig(GalleryContainer);
 
-export {GalleryContainer as default};
+export default GalleryContainer;

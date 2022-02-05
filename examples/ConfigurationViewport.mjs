@@ -197,4 +197,4 @@ class ConfigurationViewport extends Viewport {
 
 Neo.applyClassConfig(ConfigurationViewport);
 
-export {ConfigurationViewport as default};
+export default ConfigurationViewport;

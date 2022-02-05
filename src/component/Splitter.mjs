@@ -237,4 +237,4 @@ class Splitter extends Component {
 
 Neo.applyClassConfig(Splitter);
 
-export {Splitter as default};
+export default Splitter;

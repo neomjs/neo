@@ -185,4 +185,4 @@ class Panel extends Container {
 
 Neo.applyClassConfig(Panel);
 
-export {Panel as default};
+export default Panel;

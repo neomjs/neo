@@ -36,4 +36,4 @@ class Model extends BaseModel {
 
 Neo.applyClassConfig(Model);
 
-export {Model as default};
+export default Model;

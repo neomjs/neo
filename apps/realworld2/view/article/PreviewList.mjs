@@ -57,4 +57,4 @@ class PreviewList extends List {
 
 Neo.applyClassConfig(PreviewList);
 
-export {PreviewList as default};
+export default PreviewList;

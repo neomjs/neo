@@ -39,4 +39,4 @@ class SpinUp extends Base {
 
 Neo.applyClassConfig(SpinUp);
 
-export {SpinUp as default};
+export default SpinUp;

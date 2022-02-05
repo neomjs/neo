@@ -65,4 +65,4 @@ class FormContainer extends Container {
 
 Neo.applyClassConfig(FormContainer);
 
-export {FormContainer as default};
+export default FormContainer;

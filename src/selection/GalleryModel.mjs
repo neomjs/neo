@@ -294,4 +294,4 @@ class GalleryModel extends Model {
 
 Neo.applyClassConfig(GalleryModel);
 
-export {GalleryModel as default};
+export default GalleryModel;

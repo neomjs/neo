@@ -55,4 +55,4 @@ class VNode {
 const ns = Neo.ns('Neo.vdom', true);
 ns['VNode'] = VNode;
 
-export {VNode as default};
+export default VNode;
