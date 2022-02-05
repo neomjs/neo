@@ -28,6 +28,27 @@ class VDom extends Base {
          */
         workerId: 'vdom'
     }}
+
+    /**
+     *
+     */
+    afterConnect() {
+        let me      = this,
+            channel = new MessageChannel(),
+            port    = channel.port2;
+
+        channel.port1.onmessage = me.onAppMessage.bind(me);
+
+        me.sendMessage('app', {action: 'registerPort', transfer: port}, [port]);
+    }
+
+    /**
+     * @param args
+     */
+    onAppMessage(...args) {
+        console.log('message received from app worker', ...args);
+        this.onMessage(...args);
+    }
 }
 
 Neo.applyClassConfig(VDom);

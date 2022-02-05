@@ -71,8 +71,8 @@ class Base extends CoreBase {
             gt.onmessage = me.onMessage.bind(me);
         }
 
-        Neo.workerId      = me.workerId;
         Neo.currentWorker = me;
+        Neo.workerId      = me.workerId;
     }
 
     /**
