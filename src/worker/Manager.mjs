@@ -280,6 +280,8 @@ class Manager extends Base {
                     data.data.autoMount  && me.fire('automount',  data);
                     data.data.updateVdom && me.fire('updateVdom', data);
 
+                    // we want to delay the message until the rendering queue has processed it
+                    // see: https://github.com/neomjs/neo/issues/2864
                     me.promiseForwardMessage(data).then(msgData => {
                         me.sendMessage(msgData.destination, msgData);
                     });
