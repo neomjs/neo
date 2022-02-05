@@ -37,17 +37,9 @@ class VDom extends Base {
             channel = new MessageChannel(),
             port    = channel.port2;
 
-        channel.port1.onmessage = me.onAppMessage.bind(me);
+        channel.port1.onmessage = me.onMessage.bind(me);
 
         me.sendMessage('app', {action: 'registerPort', transfer: port}, [port]);
-    }
-
-    /**
-     * @param args
-     */
-    onAppMessage(...args) {
-        console.log('message received from app worker', ...args);
-        this.onMessage(...args);
     }
 }
 
