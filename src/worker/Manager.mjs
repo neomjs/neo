@@ -119,7 +119,7 @@ class Manager extends Base {
 
     /**
      * Sends a message to each worker defined inside the this.workers config.
-     * @param {String} msg
+     * @param {Object} msg
      */
     broadcast(msg) {
         Object.keys(this.workers).forEach(name => {
@@ -316,6 +316,11 @@ class Manager extends Base {
         // only needed for SharedWorkers
         else if (dest === 'main' && action === 'registerAppName') {
             me.appNames.push(data.appName);
+
+            me.broadcast({
+                action : 'registerApp',
+                appName: data.appName
+            });
         }
 
         else if (dest === 'main' && action === 'remoteMethod') {

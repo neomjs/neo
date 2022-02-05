@@ -262,24 +262,15 @@ class App extends Base {
 
     /**
      * Only needed for SharedWorkers
-     * @param {String} name
+     * @param {String} appName
      */
-    registerApp(name) {
-        let me = this;
+    registerApp(appName) {
+        // register the name as fast as possible
+        this.onRegisterApp({ appName });
 
-        me.ports.forEach(port => {
-            if (!port.appName) {
-                port.appName = name;
-
-                me.onConnect({
-                    appName: name
-                });
-
-                me.sendMessage('main', {
-                    action :'registerAppName',
-                    appName: name
-                });
-            }
+        this.sendMessage('main', {
+            action:'registerAppName',
+            appName
         });
     }
 

@@ -205,6 +205,25 @@ class Base extends CoreBase {
     }
 
     /**
+     * Only relevant for SharedWorkers
+     * @param {Object} msg
+     * @param {String} msg.appName
+     */
+    onRegisterApp(msg) {
+        let me      = this,
+            appName = msg.appName,
+            port;
+
+        for (port of me.ports) {
+            if (!port.appName) {
+                port.appName = appName;
+                me.onConnect({ appName });
+                break;
+            }
+        }
+    }
+
+    /**
      * @param {Object} msg
      */
     onRegisterNeoConfig(msg) {
