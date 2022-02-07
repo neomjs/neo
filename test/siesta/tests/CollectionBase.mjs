@@ -160,11 +160,11 @@ StartTest(t => {
             {country: 'Croatia',   firstname: 'Grgur',   githubId: 'grgur',         lastname: 'Grisogono'},
             {country: 'Slovakia',  firstname: 'Jozef',   githubId: 'jsakalos',      lastname: 'Sakalos'},
             {country: 'Argentina', firstname: 'Max',     githubId: 'elmasse',       lastname: 'Fierro'},
+            {country: 'France',    firstname: 'Nigel',   githubId: 'NigeWhite',     lastname: 'White'},
             {country: 'Germany',   firstname: 'Nils',    githubId: 'mrsunshine',    lastname: 'Dehl'},
             {country: 'USA',       firstname: 'Rich',    githubId: 'rwaters',       lastname: 'Waters'},
             {country: 'Germany',   firstname: 'Tobias',  githubId: 'tobiu2',        lastname: 'Uhlig2'},
-            {country: 'Germany',   firstname: 'Tobias',  githubId: 'tobiu',         lastname: 'Uhlig'},
-            {country: 'France',    firstname: 'Nigel',   githubId: 'NigeWhite',     lastname: 'White'}
+            {country: 'Germany',   firstname: 'Tobias',  githubId: 'tobiu',         lastname: 'Uhlig'}
         ], 'collection2.getRange()');
 
         t.notOk(collection2.isFiltered(), 'collection2.isFiltered()');
@@ -186,11 +186,11 @@ StartTest(t => {
             {country: 'Croatia',   firstname: 'Grgur',   githubId: 'grgur',         lastname: 'Grisogono'},
             {country: 'Slovakia',  firstname: 'Jozef',   githubId: 'jsakalos',      lastname: 'Sakalos'},
             {country: 'Argentina', firstname: 'Max',     githubId: 'elmasse',       lastname: 'Fierro'},
+            {country: 'France',    firstname: 'Nigel',   githubId: 'NigeWhite',     lastname: 'White'},
             {country: 'Germany',   firstname: 'Nils',    githubId: 'mrsunshine',    lastname: 'Dehl'},
             {country: 'USA',       firstname: 'Rich',    githubId: 'rwaters',       lastname: 'Waters'},
             {country: 'Germany',   firstname: 'Tobias',  githubId: 'tobiu2',        lastname: 'Uhlig2'},
             {country: 'Germany',   firstname: 'Tobias',  githubId: 'tobiu',         lastname: 'Uhlig'},
-            {country: 'France',    firstname: 'Nigel',   githubId: 'NigeWhite',     lastname: 'White'}
         ], 'collection2.getRange()');
 
         collection2.clearSorters(true);

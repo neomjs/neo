@@ -58,22 +58,28 @@ class TableContainerController extends ComponentController {
 
         if (timeline) {
             Object.entries(timeline.cases || {}).forEach(([key, value]) => {
-                map[key] = {date: new Date(key).toISOString(), cases: value};
+                if (key !== 'undefined') {
+                    map[key] = {date: new Date(key).toISOString(), cases: value};
+                }
             });
 
             Object.entries(timeline.deaths || {}).forEach(([key, value]) => {
-                if (map.hasOwnProperty(key)) {
-                    map[key].deaths = value;
-                } else {
-                    map[key] = {date: new Date(key).toISOString(), deaths: value};
+                if (key !== 'undefined') {
+                    if (map.hasOwnProperty(key)) {
+                        map[key].deaths = value;
+                    } else {
+                        map[key] = {date: new Date(key).toISOString(), deaths: value};
+                    }
                 }
             });
 
             Object.entries(timeline.recovered || {}).forEach(([key, value]) => {
-                if (map.hasOwnProperty(key)) {
-                    map[key].recovered = value;
-                } else {
-                    map[key] = {date: new Date(key).toISOString(), recovered: value};
+                if (key !== 'undefined') {
+                    if (map.hasOwnProperty(key)) {
+                        map[key].recovered = value;
+                    } else {
+                        map[key] = {date: new Date(key).toISOString(), recovered: value};
+                    }
                 }
             });
 
