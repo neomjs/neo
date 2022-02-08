@@ -137,7 +137,7 @@ class TableContainerController extends ComponentController {
             dailyCases    : record.dailyCases     || null,
             dailyDeaths   : record.dailyDeaths    || null,
             dailyRecovered: record.dailyRecovered || null,
-            recovered     : record.recovered      || null
+            recovered     : record.recovered > 0 ? record.recovered : null
         };
     }
 
