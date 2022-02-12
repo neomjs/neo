@@ -62,10 +62,20 @@ class Base extends Component {
          */
         itemCls: 'neo-list-item',
         /**
+         * Defaults to px
+         * @member {Number|null} itemHeight_=null
+         */
+        itemHeight_: null,
+        /**
          * The type of the node / tag for each list item
          * @member {String} itemTagName='li'
          */
         itemTagName: 'li',
+        /**
+         * Defaults to px
+         * @member {Number|null} itemWidth_=null
+         */
+        itemWidth_: null,
         /**
          * Additional used keys for the selection model
          * @member {Object} keys
