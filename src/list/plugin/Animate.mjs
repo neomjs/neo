@@ -328,8 +328,8 @@ class Animate extends Base {
     onStoreSort(data) {
         let me          = this,
             hasChange   = false,
-            keyProperty = data.scope.keyProperty,
             owner       = me.owner,
+            keyProperty = owner.getKeyProperty(),
             newVdomCn   = [],
             vdom        = owner.vdom,
             vdomMap     = vdom.cn.map(e => e.id),
@@ -341,12 +341,12 @@ class Animate extends Base {
                 fromIndex = vdomMap.indexOf(itemId);
 
                 newVdomCn.push(vdom.cn[fromIndex]);
-console.log(fromIndex, index, item.name, itemId);
+
                 if (fromIndex !== index) {
                     hasChange = true;
                 }
             });
-            console.log('onStoreSort', hasChange);
+
             if (hasChange) {
                 owner.vdom.cn = newVdomCn;
 
