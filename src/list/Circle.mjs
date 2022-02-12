@@ -29,14 +29,14 @@ class Circle extends Component {
         },
         /**
          * Defaults to px
-         * @member {Number|null} itemHeight=250
+         * @member {Number|null} itemHeight=300
          */
-        itemHeight: 250,
+        itemHeight: 300,
         /**
          * Defaults to px
-         * @member {Number|null} itemWidth=250
+         * @member {Number|null} itemWidth=300
          */
-        itemWidth: 250
+        itemWidth: 300
     }}
 
     /**
@@ -59,9 +59,12 @@ class Circle extends Component {
             listItem.setSilent(config);
         } else {
             items[index] = listItem = Neo.create({
-                appName  : me.appName,
-                parentId : me.id,
-                tabIndex : -1,
+                appName    : me.appName,
+                height     : me.itemHeight - 10,
+                innerRadius: me.itemHeight / 2 - 64,
+                itemSize   : 40,
+                parentId   : me.id,
+                tabIndex   : -1,
                 ...me.itemDefaults,
                 ...config
             });

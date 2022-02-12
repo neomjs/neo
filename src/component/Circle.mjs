@@ -58,7 +58,7 @@ class Circle extends Component {
          */
         itemImagePath: null,
         /**
-         * @member {Number} itemSize_=30
+         * @member {Number} itemSize_=60
          */
         itemSize_: 60,
         /**
