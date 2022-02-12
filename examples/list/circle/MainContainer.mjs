@@ -42,7 +42,7 @@ class MainContainer extends ConfigurationViewport {
             checked       : sorter.direction === 'ASC',
             hideValueLabel: false,
             labelText     : 'Sort',
-            listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'top')},
+            listeners     : {change: me.changeSorting.bind(me, 'ASC')},
             name          : 'sort',
             style         : {marginTop: '10px'},
             valueLabelText: 'ASC'
@@ -51,7 +51,7 @@ class MainContainer extends ConfigurationViewport {
             checked       : sorter.direction === 'DESC',
             hideValueLabel: false,
             labelText     : '',
-            listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'right')},
+            listeners     : {change: me.changeSorting.bind(me, 'DESC')},
             name          : 'sort',
             style         : {marginTop: '5px'},
             valueLabelText: 'DESC'
@@ -66,6 +66,12 @@ class MainContainer extends ConfigurationViewport {
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
         }];
+    }
+
+    changeSorting(direction, data) {
+        if (data.value) {
+            this.exampleComponent.store.sorters[0].direction = direction;
+        }
     }
 
     createExampleComponent() {
