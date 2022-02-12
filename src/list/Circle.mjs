@@ -1,4 +1,5 @@
-import Component from './Component.mjs';
+import CircleComponent from '../component/Circle.mjs';
+import Component       from './Component.mjs';
 
 /**
  * @class Neo.list.Circle
@@ -19,7 +20,13 @@ class Circle extends Component {
         /**
          * @member {String[]} cls=['neo-circle-list','neo-list']
          */
-        cls: ['neo-circle-list', 'neo-list']
+        cls: ['neo-circle-list', 'neo-list'],
+        /**
+         * @member {Object} itemDefaults
+         */
+        itemDefaults: {
+            module : CircleComponent
+        }
     }}
 }
 
