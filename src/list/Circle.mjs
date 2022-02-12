@@ -26,7 +26,17 @@ class Circle extends Component {
          */
         itemDefaults: {
             module : CircleComponent
-        }
+        },
+        /**
+         * Defaults to px
+         * @member {Number|null} itemHeight=250
+         */
+        itemHeight: 250,
+        /**
+         * Defaults to px
+         * @member {Number|null} itemWidth=250
+         */
+        itemWidth: 250
     }}
 
     /**
