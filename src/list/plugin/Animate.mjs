@@ -195,14 +195,18 @@ class Animate extends Base {
      *
      */
     onOwnerMounted() {
-        let me = this;
+        let me    = this,
+            owner = me.owner;
 
-        me.owner.getDomRect().then(rect => {
+        owner.getDomRect().then(rect => {
             Object.assign(me, {
                 columns  : Math.floor(rect.width / me.itemWidth),
                 ownerRect: rect,
                 rows     : Math.floor(rect.height / me.itemHeight)
             });
+
+            // if the store got loaded before this plugin is ready, create the items now
+            owner.store.getCount() > 0 && owner.createItems();
         });
     }
 
@@ -341,12 +345,12 @@ class Animate extends Base {
                 fromIndex = vdomMap.indexOf(itemId);
 
                 newVdomCn.push(vdom.cn[fromIndex]);
-
+console.log(fromIndex, index, item.name, itemId);
                 if (fromIndex !== index) {
                     hasChange = true;
                 }
             });
-
+            console.log('onStoreSort', hasChange);
             if (hasChange) {
                 owner.vdom.cn = newVdomCn;
 

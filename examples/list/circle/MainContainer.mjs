@@ -78,9 +78,9 @@ class MainContainer extends ConfigurationViewport {
         return Neo.create({
             module : CircleList,
             animate: true,
-            height : 800,
+            height : 1000,
             store  : MainStore,
-            width  : 800
+            width  : 1000
         });
     }
 }

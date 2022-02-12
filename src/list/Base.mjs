@@ -344,19 +344,21 @@ class Base extends Component {
             vdom = me.vdom,
             listItem;
 
-        vdom.cn = [];
+        if (!(me.animate && !me.getPlugin('animate'))) {
+            vdom.cn = [];
 
-        me.store.items.forEach((item, index) => {
-            listItem = me.createItem(item, index);
-            listItem && vdom.cn.push(listItem);
-        });
-
-        if (silent) {
-            me._vdom = vdom;
-        } else {
-            me.promiseVdomUpdate().then(() => {
-                me.fire('createItems');
+            me.store.items.forEach((item, index) => {
+                listItem = me.createItem(item, index);
+                listItem && vdom.cn.push(listItem);
             });
+
+            if (silent) {
+                me._vdom = vdom;
+            } else {
+                me.promiseVdomUpdate().then(() => {
+                    me.fire('createItems');
+                });
+            }
         }
     }
 
