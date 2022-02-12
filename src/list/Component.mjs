@@ -71,10 +71,8 @@ class Component extends Base {
      * @returns {String|Number} itemId
      */
     getItemRecordId(vnodeId) {
-        let itemId = vnodeId.split('__')[1],
-            store  = this.store;
-
-        return store.getAt(parseInt(itemId))[store.model.keyProperty];
+        let itemId = vnodeId.split('__')[1];
+        return this.store.getAt(parseInt(itemId))[this.owner.getKeyProperty()];
     }
 }
 
