@@ -216,7 +216,7 @@ class Animate extends Base {
     onStoreFilter(data) {
         let me                  = this,
             owner               = me.owner,
-            key                 = owner.store.keyProperty,
+            key                 = owner.getKeyProperty(),
             hasAddedItems       = false,
             addedItems          = [],
             movedItems          = [],
@@ -326,19 +326,18 @@ class Animate extends Base {
      * @param {Neo.data.Store} data.scope
      */
     onStoreSort(data) {
-        let me          = this,
-            hasChange   = false,
-            owner       = me.owner,
-            keyProperty = owner.getKeyProperty(),
-            newVdomCn   = [],
-            vdom        = owner.vdom,
-            vdomMap     = vdom.cn.map(e => e.id),
-            fromIndex, itemId;
+        let me            = this,
+            hasChange     = false,
+            owner         = me.owner,
+            key           = owner.getKeyProperty(),
+            newVdomCn     = [],
+            previousKeys  = data.previousItems.map(e => e[key]),
+            vdom          = owner.vdom,
+            fromIndex;
 
-        if (vdomMap.length > 0) {
+        if (vdom.cn.length > 0) {
             data.items.forEach((item, index) => {
-                itemId    = owner.getItemId(item[keyProperty]);
-                fromIndex = vdomMap.indexOf(itemId);
+                fromIndex = previousKeys.indexOf(item[key]);
 
                 newVdomCn.push(vdom.cn[fromIndex]);
 
