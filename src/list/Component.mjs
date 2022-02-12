@@ -30,11 +30,9 @@ class Component extends Base {
      * @protected
      */
     afterSetAppName(value, oldValue) {
-        let me = this;
-
         super.afterSetAppName(value, oldValue);
 
-        value && me.items?.forEach(item => {
+        value && this.items?.forEach(item => {
             item.appName = value;
         });
     }

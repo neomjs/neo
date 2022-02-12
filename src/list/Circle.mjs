@@ -28,6 +28,39 @@ class Circle extends Component {
             module : CircleComponent
         }
     }}
+
+    /**
+     * Override this method for custom renderers
+     * @param {Object} record
+     * @param {Number} index
+     * @returns {Object|Object[]|String} Either a config object to assign to the item, a vdom cn array or a html string
+     */
+    createItemContent(record, index) {
+        let me       = this,
+            items    = me.items || [],
+            listItem = items[index],
+
+            config = {
+                id  : me.getComponentId(index),
+                text: record[me.displayField]
+            };
+
+        if (listItem) {
+            listItem.setSilent(config);
+        } else {
+            items[index] = listItem = Neo.create({
+                appName  : me.appName,
+                parentId : me.id,
+                tabIndex : -1,
+                ...me.itemDefaults,
+                ...config
+            });
+        }
+
+        me.items = items;
+
+        return [listItem.vdom];
+    }
 }
 
 Neo.applyClassConfig(Circle);
