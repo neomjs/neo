@@ -51,8 +51,8 @@ class Circle extends Component {
             listItem = items[index],
 
             config = {
-                id  : me.getComponentId(index),
-                text: record[me.displayField]
+                id   : me.getComponentId(index),
+                title: record[me.displayField]
             };
 
         if (listItem) {
