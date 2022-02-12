@@ -257,6 +257,8 @@ class Base extends Component {
     createItem(record, index) {
         let me             = this,
             cls            = [me.itemCls],
+            hasItemHeight  = me.itemHeight !== null,
+            hasItemWidth   = me.itemWidth  !== null,
             itemContent    = me.createItemContent(record, index),
             itemId         = me.getItemId(record[me.getKeyProperty()]),
             selectionModel = me.selectionModel,
@@ -292,6 +294,18 @@ class Base extends Component {
 
             case 'String': {
                 item.html = itemContent;
+            }
+        }
+
+        if (hasItemHeight || hasItemWidth) {
+            item.style = item.style || {};
+
+            if (hasItemHeight && !item.hasOwnProperty('height')) {
+                item.style.height = `${me.itemHeight}px`;
+            }
+
+            if (hasItemWidth && !item.hasOwnProperty('width')) {
+                item.style.width = `${me.itemWidth}px`;
             }
         }
 
