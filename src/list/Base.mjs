@@ -273,7 +273,7 @@ class Base extends Component {
         item = {
             tag     : me.itemTagName,
             cls     : cls,
-            id      : me.getItemId(record[me.getKeyProperty(itemId)]),
+            id      : itemId,
             tabIndex: -1
         };
 
