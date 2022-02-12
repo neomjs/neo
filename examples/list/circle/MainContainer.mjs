@@ -3,6 +3,7 @@ import CircleList            from '../../../src/list/Circle.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import MainStore             from './MainStore.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
+import Radio                 from '../../../src/form/field/Radio.mjs';
 
 /**
  * @class Neo.examples.list.circle.MainContainer
@@ -18,7 +19,8 @@ class MainContainer extends ConfigurationViewport {
     }}
 
     createConfigurationComponents() {
-        let me = this;
+        let me     = this,
+            sorter = me.exampleComponent.store.sorters[0];
 
         return [{
             module   : CheckBox,
@@ -35,6 +37,24 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 5,
             value    : me.exampleComponent.height,
             style    : {marginTop: '10px'}
+        }, {
+            module        : Radio,
+            checked       : sorter.direction === 'ASC',
+            hideValueLabel: false,
+            labelText     : 'Sort',
+            listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'top')},
+            name          : 'sort',
+            style         : {marginTop: '10px'},
+            valueLabelText: 'ASC'
+        }, {
+            module        : Radio,
+            checked       : sorter.direction === 'DESC',
+            hideValueLabel: false,
+            labelText     : '',
+            listeners     : {change: me.onRadioChange.bind(me, 'iconPosition', 'right')},
+            name          : 'sort',
+            style         : {marginTop: '5px'},
+            valueLabelText: 'DESC'
         }, {
             module   : NumberField,
             clearable: true,

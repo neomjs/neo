@@ -26,7 +26,14 @@ class MainStore extends Store {
         /**
          * @member {Neo.data.Model} model=MainModel
          */
-        model: MainModel
+        model: MainModel,
+        /**
+         * @member {Object[]} sorters
+         */
+        sorters: [{
+            property : 'name',
+            direction: 'ASC'
+        }]
     }}
 }
 
