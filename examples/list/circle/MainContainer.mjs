@@ -1,5 +1,5 @@
 import CheckBox              from '../../../src/form/field/CheckBox.mjs';
-import ColorList             from '../../../src/list/Color.mjs';
+import CircleList            from '../../../src/list/Circle.mjs';
 import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import MainStore             from './MainStore.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
@@ -50,7 +50,7 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create({
-            module: ColorList,
+            module: CircleList,
             store : MainStore,
             width : 100
         });
