@@ -60,11 +60,12 @@ class Circle extends Component {
         } else {
             items[index] = listItem = Neo.create({
                 appName    : me.appName,
-                height     : me.itemHeight - 10,
+                height     : me.itemHeight,
                 innerRadius: me.itemHeight / 2 - 64,
                 itemSize   : 40,
                 parentId   : me.id,
                 tabIndex   : -1,
+                width      : me.itemWidth,
                 ...me.itemDefaults,
                 ...config
             });

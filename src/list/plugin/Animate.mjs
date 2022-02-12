@@ -29,19 +29,9 @@ class Animate extends Base {
         columns: null,
         /**
          * Value in px
-         * @member {Number} itemHeight=200
-         */
-        itemHeight: 200,
-        /**
-         * Value in px
          * @member {Number} itemMargin=10
          */
         itemMargin: 10,
-        /**
-         * Value in px
-         * @member {Number} itemWidth=300
-         */
-        itemWidth: 300,
         /**
          * @member {DOMRect|null} ownerRect=null
          */
@@ -77,6 +67,10 @@ class Animate extends Base {
 
         let me    = this,
             owner = me.owner;
+
+        if (!owner.itemHeight || !owner.itemWidth) {
+            console.error('list.plugin.Animate requires fixed itemHeight and itemWidth values', owner);
+        }
 
         me.adjustCreateItem();
 
@@ -139,6 +133,7 @@ class Animate extends Base {
      */
     createItem(me, record, index) {
         let item     = me.ownerCreateItem(record, index),
+            owner    = me.owner,
             position = me.getItemPosition(record, index),
             style    = item.style || {};
 
@@ -147,10 +142,10 @@ class Animate extends Base {
         }
 
         Object.assign(style, {
-            height   : `${me.itemHeight}px`,
+            height   : `${owner.itemHeight}px`,
             position : 'absolute',
             transform: `translate(${position.x}px, ${position.y}px)`,
-            width    : `${me.itemWidth}px`
+            width    : `${owner.itemWidth}px`
         });
 
         item.style = style;
@@ -167,9 +162,10 @@ class Animate extends Base {
         let me     = this,
             column = index % me.columns,
             margin = me.itemMargin,
+            owner  = me.owner,
             row    = Math.floor(index / me.columns),
-            x      = column * (margin + me.itemWidth)  + margin,
-            y      = row    * (margin + me.itemHeight) + margin;
+            x      = column * (margin + owner.itemWidth)  + margin,
+            y      = row    * (margin + owner.itemHeight) + margin;
 
         return {x, y};
     }
@@ -186,7 +182,7 @@ class Animate extends Base {
         }
 
         let owner = this.owner,
-            key   = owner.store.keyProperty;
+            key   = owner.getKeyProperty();
 
         return map.indexOf(owner.getItemId(obj.record[key]));
     }
@@ -200,9 +196,9 @@ class Animate extends Base {
 
         owner.getDomRect().then(rect => {
             Object.assign(me, {
-                columns  : Math.floor(rect.width / me.itemWidth),
+                columns  : Math.floor(rect.width / owner.itemWidth),
                 ownerRect: rect,
-                rows     : Math.floor(rect.height / me.itemHeight)
+                rows     : Math.floor(rect.height / owner.itemHeight)
             });
 
             // if the store got loaded before this plugin is ready, create the items now

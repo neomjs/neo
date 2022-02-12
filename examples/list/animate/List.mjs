@@ -20,9 +20,19 @@ class List extends BaseList {
          */
         cls: ['neo-examples-list-animate', 'neo-list-container', 'neo-list'],
         /**
+         * Value in px
+         * @member {Number} itemHeight=200
+         */
+        itemHeight: 200,
+        /**
          * @member {String} itemTagName='div'
          */
-        itemTagName: 'div'
+        itemTagName: 'div',
+        /**
+         * Value in px
+         * @member {Number} itemWidth=300
+         */
+        itemWidth: 300
     }}
 
     /**
