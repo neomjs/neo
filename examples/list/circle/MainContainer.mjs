@@ -30,8 +30,8 @@ class MainContainer extends ConfigurationViewport {
             clearable: true,
             labelText: 'height',
             listeners: {change: me.onConfigChange.bind(me, 'height')},
-            maxValue : 300,
-            minValue : 30,
+            maxValue : 1000,
+            minValue : 300,
             stepSize : 5,
             value    : me.exampleComponent.height,
             style    : {marginTop: '10px'}
@@ -40,8 +40,8 @@ class MainContainer extends ConfigurationViewport {
             clearable: true,
             labelText: 'width',
             listeners: {change: me.onConfigChange.bind(me, 'width')},
-            maxValue : 300,
-            minValue : 100,
+            maxValue : 1000,
+            minValue : 300,
             stepSize : 5,
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
@@ -50,9 +50,11 @@ class MainContainer extends ConfigurationViewport {
 
     createExampleComponent() {
         return Neo.create({
-            module: CircleList,
-            store : MainStore,
-            width : 100
+            module : CircleList,
+            animate: true,
+            height : 800,
+            store  : MainStore,
+            width  : 800
         });
     }
 }
