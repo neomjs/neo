@@ -96,9 +96,9 @@ class Circle extends Component {
         title_: 'Circle 1',
         /**
          * The url for the store to load the data
-         * @member {String} url_='../resources/examples/data/ai_contacts.json'
+         * @member {String} url_='../resources/examples/data/circles/group1.json'
          */
-        url_: '../../resources/examples/data/circleContacts.json',
+        url_: '../../resources/examples/data/circles/group1.json',
         /**
          * @member {Object} _vdom
          */
