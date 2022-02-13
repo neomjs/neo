@@ -29,7 +29,7 @@ class Base {
 
     /**
      * The return value will get applied to each class instance
-     * @returns {Object} staticConfig
+     * @returns {Object} config
      * @tutorial 02_ClassSystem
      */
     static getConfig() {return {
