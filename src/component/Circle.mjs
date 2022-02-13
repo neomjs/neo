@@ -633,9 +633,9 @@ class Circle extends Component {
             vdom           = me.vdom,
             circleCenterEl = vdom.cn[0],
             transform = [
-                'rotateX(' + me.rotateX + 'deg)',
-                'rotateY(' + me.rotateY + 'deg)',
-                'rotateZ(' + me.rotateZ + 'deg)'
+                `rotateX(${me.rotateX}deg)`,
+                `rotateY(${me.rotateY}deg)`,
+                `rotateZ(${me.rotateZ}deg)`
             ].join(' ');
 
         if (me.circleCenterHasTransitionCls) {
