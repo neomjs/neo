@@ -56,7 +56,8 @@ class Circle extends Component {
 
             config = {
                 id   : me.getComponentId(index),
-                title: record[me.displayField]
+                title: record[me.displayField],
+                url  : record[me.urlField]
             };
 
         if (listItem) {
@@ -69,7 +70,6 @@ class Circle extends Component {
                 itemSize   : 40,
                 parentId   : me.id,
                 tabIndex   : -1,
-                url        : record[me.urlField],
                 width      : me.itemWidth,
                 ...me.itemDefaults,
                 ...config
