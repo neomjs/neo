@@ -602,17 +602,23 @@ class Circle extends Component {
      * @param {Object} data
      */
     onMouseWheel(data) {
-        let me      = this,
-            deltaY  = data.deltaY,
-            rotateZ = me.rotateZ;
+        let me        = this,
+            deltaY    = data.deltaY,
+            itemAngle = 360 / me.maxItems,
+            maxAngle  = Math.max(0, (me.store.getCount() - me.maxItems) * itemAngle),
+            rotateZ   = me.rotateZ;
 
-        if (deltaY >  1 || deltaY < -1) {rotateZ += deltaY;}
+        if (deltaY >  1 || deltaY < -1) {
+            rotateZ += deltaY;
+        }
 
         if (rotateZ < 0) {
             rotateZ = 0;
+        } else if (rotateZ > maxAngle) {
+            rotateZ = maxAngle;
         }
 
-        if (!(me.rotateZ === 0 && rotateZ === 0)) {
+        if (!(me.rotateZ === 0 && rotateZ === 0) && !(me.rotateZ === maxAngle && rotateZ === maxAngle)) {
             me.rotateZ = rotateZ;
 
             me.rotate();
