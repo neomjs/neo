@@ -4,6 +4,7 @@ import ConfigurationViewport from '../../ConfigurationViewport.mjs';
 import MainStore             from './MainStore.mjs';
 import NumberField           from '../../../src/form/field/Number.mjs';
 import Radio                 from '../../../src/form/field/Radio.mjs';
+import TextField             from '../../../src/form/field/Text.mjs';
 
 /**
  * @class Neo.examples.list.circle.MainContainer
@@ -65,6 +66,20 @@ class MainContainer extends ConfigurationViewport {
             stepSize : 5,
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.width
+        }, {
+            module   : TextField,
+            flex     : 'none',
+            labelText: 'Group1 Name',
+            listeners: {change: me.onGroupNameChange.bind(me, 0)},
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.store.getAt(0).name
+        }, {
+            module   : TextField,
+            flex     : 'none',
+            labelText: 'Group2 Name',
+            listeners: {change: me.onGroupNameChange.bind(me, 1)},
+            style    : {marginTop: '10px'},
+            value    : me.exampleComponent.store.getAt(1).name
         }];
     }
 
@@ -82,6 +97,14 @@ class MainContainer extends ConfigurationViewport {
             store  : MainStore,
             width  : 1000
         });
+    }
+
+    /**
+     * @param {Number} index
+     * @param {Object} data
+     */
+    onGroupNameChange(index, data) {
+        this.exampleComponent.items[index].title = data.value;
     }
 }
 
