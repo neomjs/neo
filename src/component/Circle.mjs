@@ -543,7 +543,7 @@ class Circle extends Component {
      * @returns {String|Number} itemId
      */
     getItemRecordId(vnodeId) {
-        let itemId   = vnodeId.split('__')[1],
+        let itemId   = vnodeId.split('__').pop(),
             model    = this.store.model,
             keyField = model?.getField(model.keyProperty);
 
