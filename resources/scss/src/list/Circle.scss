@@ -11,6 +11,7 @@
 
     .neo-list-item {
         background-color: transparent;
+        padding         : 0;
 
         &:hover {
             background-color: v(list-item-background-color-hover);
