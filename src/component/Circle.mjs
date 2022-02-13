@@ -41,9 +41,9 @@ class Circle extends Component {
         collapsed: true,
         /**
          * Additional used keys for the selection model
-         * @member {Object} keys
+         * @member {Object} keys=null
          */
-        keys: {},
+        keys: null,
         /**
          * @member {Number} innerRadius_=100
          */
@@ -87,11 +87,11 @@ class Circle extends Component {
          */
         rotationIndex_: 0,
         /**
-         * @member {Neo.selection.Model} selectionModel_=null
+         * @member {Neo.selection.Model|null} selectionModel_=null
          */
         selectionModel_: null,
         /**
-         * @member {Neo.collection.Base} store_=null
+         * @member {Neo.collection.Base|null} store_=null
          */
         store_: null,
         /**
