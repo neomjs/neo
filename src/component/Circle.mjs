@@ -41,9 +41,9 @@ class Circle extends Component {
         collapsed: true,
         /**
          * Additional used keys for the selection model
-         * @member {Object} keys=null
+         * @member {Object} keys={}
          */
-        keys: null,
+        keys: {},
         /**
          * @member {Number} innerRadius_=100
          */
