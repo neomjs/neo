@@ -75,11 +75,7 @@ class Animate extends Base {
         me.adjustCreateItem();
 
         owner.onStoreFilter = me.onStoreFilter.bind(me);
-
-        owner.store.on({
-            sort : me.onStoreSort,
-            scope: me
-        });
+        owner.onStoreSort   = me.onStoreSort  .bind(me);
 
         this.updateTransitionDetails(false);
     }
@@ -326,6 +322,22 @@ class Animate extends Base {
      * @param {Neo.data.Store} data.scope
      */
     onStoreSort(data) {
+        let me = this;
+
+        if (Neo.list.Component && me.owner instanceof Neo.list.Component) {
+            me.sortComponentList(data);
+        } else {
+            me.sortBaseList(data);
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Object[]} data.items
+     * @param {Object[]} data.previousItems
+     * @param {Neo.data.Store} data.scope
+     */
+    sortBaseList(data) {
         let me            = this,
             hasChange     = false,
             owner         = me.owner,
@@ -356,6 +368,37 @@ class Animate extends Base {
                     owner.createItems();
                 }, 50);
             }
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Object[]} data.items
+     * @param {Object[]} data.previousItems
+     * @param {Neo.data.Store} data.scope
+     */
+    sortComponentList(data) {
+        let me           = this,
+            owner        = me.owner,
+            key          = owner.getKeyProperty(),
+            previousKeys = data.previousItems.map(e => e[key]),
+            vdom         = owner.vdom,
+            fromIndex, item, position;
+
+        owner.sortItems(data);
+
+        previousKeys = owner.items.map(e => owner.getItemRecordId(e[key]));
+
+        if (vdom.cn.length > 0) {
+            data.items.forEach((record, index) => {
+                fromIndex = previousKeys.indexOf(record[key]);
+                item      = vdom.cn[fromIndex];
+                position  = me.getItemPosition(record, index);
+
+                item.style.transform = `translate(${position.x}px, ${position.y}px)`;
+            });
+
+            owner.vdom = vdom;
         }
     }
 
