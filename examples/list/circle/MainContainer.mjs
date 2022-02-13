@@ -74,6 +74,7 @@ class MainContainer extends ConfigurationViewport {
             flex     : 'none',
             labelText: 'Group1 Name',
             listeners: {change: me.onGroupNameChange.bind(me, 0)},
+            name     : 'group1',
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.store.getAt(0).name
         }, {
@@ -81,6 +82,7 @@ class MainContainer extends ConfigurationViewport {
             flex     : 'none',
             labelText: 'Group2 Name',
             listeners: {change: me.onGroupNameChange.bind(me, 1)},
+            name     : 'group2',
             style    : {marginTop: '10px'},
             value    : me.exampleComponent.store.getAt(1).name
         }];
@@ -100,13 +102,17 @@ class MainContainer extends ConfigurationViewport {
      * @returns {Neo.component.Base}
      */
     createExampleComponent() {
-        return Neo.create({
+        let list = Neo.create({
             module : CircleList,
             animate: true,
             height : 1000,
             store  : MainStore,
             width  : 1000
         });
+
+        list.store.on('sort', this.onStoreSort, this);
+
+        return list;
     }
 
     /**
@@ -115,6 +121,19 @@ class MainContainer extends ConfigurationViewport {
      */
     onGroupNameChange(index, data) {
         this.exampleComponent.items[index].title = data.value;
+    }
+
+    /**
+     * @param {Object} data
+     */
+    onStoreSort(data) {
+        setTimeout(() => {
+            let me    = this,
+                items = me.exampleComponent.items;
+
+            me.down({name: 'group1'}).value = items[0].title;
+            me.down({name: 'group2'}).value = items[1].title;
+        }, 10);
     }
 }
 
