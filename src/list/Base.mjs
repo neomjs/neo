@@ -204,6 +204,7 @@ class Base extends Component {
             filter      : 'onStoreFilter',
             load        : 'onStoreLoad',
             recordChange: 'onStoreRecordChange',
+            sort        : 'onStoreSort',
             scope       : me
         });
 
@@ -523,6 +524,16 @@ class Base extends Component {
             vdom.cn[index] = me.createItem(data.record, index);
             me.vdom = vdom;
         }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Object[]} data.items
+     * @param {Object[]} data.previousItems
+     * @param {Neo.data.Store} data.scope
+     */
+    onStoreSort(data) {
+        this.createItems();
     }
 
     /**
