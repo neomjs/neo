@@ -16,12 +16,12 @@ class MainStore extends Store {
          * @member {Object[]} data
          */
         data: [
-            {id: 1, name: 'red',    url: '../../resources/examples/data/circles/group1.json'},
-            {id: 2, name: 'pink',   url: '../../resources/examples/data/circles/group4.json'},
-            {id: 3, name: 'orange', url: '../../resources/examples/data/circles/group3.json'},
-            {id: 4, name: 'yellow', url: '../../resources/examples/data/circles/group1.json'},
-            {id: 5, name: 'green',  url: '../../resources/examples/data/circles/group2.json'},
-            {id: 6, name: 'blue',   url: '../../resources/examples/data/circles/group1.json'}
+            {id: 1, name: 'Red',    url: '../../resources/examples/data/circles/group1.json'},
+            {id: 2, name: 'Pink',   url: '../../resources/examples/data/circles/group4.json'},
+            {id: 3, name: 'Orange', url: '../../resources/examples/data/circles/group3.json'},
+            {id: 4, name: 'Yellow', url: '../../resources/examples/data/circles/group1.json'},
+            {id: 5, name: 'Green',  url: '../../resources/examples/data/circles/group2.json'},
+            {id: 6, name: 'Blue',   url: '../../resources/examples/data/circles/group1.json'}
         ],
         /**
          * @member {Neo.data.Model} model=MainModel
