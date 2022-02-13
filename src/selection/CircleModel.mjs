@@ -41,15 +41,15 @@ class CircleModel extends Model {
             item     = data.path[0],
             view     = me.view,
             store    = view.store,
-            maxItems = Math.min(store.getCount(), view.maxItems - 1),
+            maxIndex = Math.min(store.getCount(), view.maxItems) - 1,
             index, itemId, recordId;
 
         if (item.cls.includes('neo-circle-item')) {
             recordId = parseInt(view.getItemRecordId(item.id));
             index    = store.indexOf(recordId) + step;
 
-                 if (index < 0)        {index = maxItems;}
-            else if (index > maxItems) {index = 0;}
+                 if (index < 0)        {index = maxIndex;}
+            else if (index > maxIndex) {index = 0;}
         } else {
             index = 0;
         }
