@@ -74,6 +74,38 @@ class Component extends Base {
         let itemId = vnodeId.split('__')[1];
         return this.store.getAt(parseInt(itemId))[this.getKeyProperty()];
     }
+
+    /**
+     * @param {Object} data
+     * @param {Object[]} data.items
+     * @param {Object[]} data.previousItems
+     * @param {Neo.data.Store} data.scope
+     */
+    onStoreSort(data) {
+        this.sortItems(data);
+        super.onStoreSort(data);
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Object[]} data.items
+     * @param {Object[]} data.previousItems
+     * @param {Neo.data.Store} data.scope
+     */
+    sortItems(data) {
+        let me           = this,
+            newItems     = [],
+            key          = me.getKeyProperty(),
+            previousKeys = data.previousItems.map(e => e[key]),
+            fromIndex;
+
+        data.items.forEach(item => {
+            fromIndex = previousKeys.indexOf(item[key]);
+            newItems.push(me.items[fromIndex]);
+        });
+
+        me.items = newItems;
+    }
 }
 
 Neo.applyClassConfig(Component);
