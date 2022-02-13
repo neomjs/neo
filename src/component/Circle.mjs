@@ -73,15 +73,19 @@ class Circle extends Component {
         /**
          * @member {Number} rotateX_=0
          */
-        rotateX_:0,
+        rotateX_: 0,
         /**
          * @member {Number} rotateY_=0
          */
-        rotateY_:0,
+        rotateY_: 0,
         /**
          * @member {Number} rotateZ_=0
          */
-        rotateZ_:0,
+        rotateZ_: 0,
+        /**
+         * @member {Number} rotationIndex_=0
+         */
+        rotationIndex_: 0,
         /**
          * @member {Neo.selection.Model} selectionModel_=null
          */
@@ -281,6 +285,18 @@ class Circle extends Component {
      */
     afterSetRotateZ(value, oldValue) {
         oldValue && this.rendered && this.rotate();
+    }
+
+    /**
+     * Triggered after the rotationIndex config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetRotationIndex(value, oldValue) {
+        if (Neo.isNumber(oldValue)) {
+            console.log('afterSetRotationIndex', value);
+        }
     }
 
     /**
@@ -619,7 +635,8 @@ class Circle extends Component {
         }
 
         if (!(me.rotateZ === 0 && rotateZ === 0) && !(me.rotateZ === maxAngle && rotateZ === maxAngle)) {
-            me.rotateZ = rotateZ;
+            me.rotateZ       = rotateZ;
+            me.rotationIndex = Math.floor(rotateZ / itemAngle);
 
             me.rotate();
         }
