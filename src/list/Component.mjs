@@ -93,18 +93,21 @@ class Component extends Base {
      * @param {Neo.data.Store} data.scope
      */
     sortItems(data) {
-        let me           = this,
-            newItems     = [],
-            key          = me.getKeyProperty(),
-            previousKeys = data.previousItems.map(e => e[key]),
-            fromIndex;
+        let me       = this,
+            newItems = [],
+            fromIndex, key, previousKeys;
 
-        data.items.forEach(item => {
-            fromIndex = previousKeys.indexOf(item[key]);
-            newItems.push(me.items[fromIndex]);
-        });
+        if (me.items) {
+            key          = me.getKeyProperty();
+            previousKeys = data.previousItems.map(e => e[key]);
 
-        me.items = newItems;
+            data.items.forEach(item => {
+                fromIndex = previousKeys.indexOf(item[key]);
+                newItems.push(me.items[fromIndex]);
+            });
+
+            me.items = newItems;
+        }
     }
 }
 
