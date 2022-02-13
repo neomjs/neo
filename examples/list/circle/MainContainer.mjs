@@ -19,6 +19,9 @@ class MainContainer extends ConfigurationViewport {
         layout              : {ntype: 'hbox', align: 'stretch'}
     }}
 
+    /**
+     * @returns {Object[]}
+     */
     createConfigurationComponents() {
         let me     = this,
             sorter = me.exampleComponent.store.sorters[0];
@@ -83,12 +86,19 @@ class MainContainer extends ConfigurationViewport {
         }];
     }
 
+    /**
+     * @param {String} direction
+     * @param {Object} data
+     */
     changeSorting(direction, data) {
         if (data.value) {
             this.exampleComponent.store.sorters[0].direction = direction;
         }
     }
 
+    /**
+     * @returns {Neo.component.Base}
+     */
     createExampleComponent() {
         return Neo.create({
             module : CircleList,

@@ -129,7 +129,7 @@ class ConfigurationViewport extends Viewport {
 
     /**
      * Override this method to create the components to show inside the configuration container
-     * @returns {Neo.component.Base[]|null}
+     * @returns {Object[]|null}
      */
     createConfigurationComponents() {
         return null;
