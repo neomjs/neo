@@ -21,6 +21,9 @@ class MainModel extends Model {
         }, {
             name: 'name',
             type: 'String'
+        }, {
+            name: 'url',
+            type: 'String'
         }]
     }}
 }

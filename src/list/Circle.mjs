@@ -36,7 +36,11 @@ class Circle extends Component {
          * Defaults to px
          * @member {Number|null} itemWidth=300
          */
-        itemWidth: 300
+        itemWidth: 300,
+        /**
+         * @member {String} urlField='url'
+         */
+        urlField: 'url'
     }}
 
     /**
@@ -65,6 +69,7 @@ class Circle extends Component {
                 itemSize   : 40,
                 parentId   : me.id,
                 tabIndex   : -1,
+                url        : record[me.urlField],
                 width      : me.itemWidth,
                 ...me.itemDefaults,
                 ...config
