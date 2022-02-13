@@ -14,7 +14,7 @@
         background-color: transparent;
         padding         : 0;
 
-        &:hover {
+        &.neo-selected {
             background-color: v(list-item-background-color-hover);
         }
     }
