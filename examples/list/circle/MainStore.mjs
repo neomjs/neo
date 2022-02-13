@@ -17,7 +17,7 @@ class MainStore extends Store {
          */
         data: [
             {id: 1, name: 'red',    url: '../../resources/examples/data/circles/group1.json'},
-            {id: 2, name: 'pink',   url: '../../resources/examples/data/circles/group1.json'},
+            {id: 2, name: 'pink',   url: '../../resources/examples/data/circles/group4.json'},
             {id: 3, name: 'orange', url: '../../resources/examples/data/circles/group3.json'},
             {id: 4, name: 'yellow', url: '../../resources/examples/data/circles/group1.json'},
             {id: 5, name: 'green',  url: '../../resources/examples/data/circles/group2.json'},
