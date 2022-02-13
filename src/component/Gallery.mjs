@@ -318,10 +318,7 @@ class Gallery extends Component {
     afterSetSelectionModel(value, oldValue) {
         if (this.rendered) {
             value.register(this);
-
-            if (oldValue) {
-                oldValue.destroy();
-            }
+            oldValue?.destroy();
         }
     }
 

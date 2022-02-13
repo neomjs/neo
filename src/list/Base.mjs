@@ -62,10 +62,20 @@ class Base extends Component {
          */
         itemCls: 'neo-list-item',
         /**
+         * Defaults to px
+         * @member {Number|null} itemHeight_=null
+         */
+        itemHeight_: null,
+        /**
          * The type of the node / tag for each list item
          * @member {String} itemTagName='li'
          */
         itemTagName: 'li',
+        /**
+         * Defaults to px
+         * @member {Number|null} itemWidth_=null
+         */
+        itemWidth_: null,
         /**
          * Additional used keys for the selection model
          * @member {Object} keys
@@ -194,6 +204,7 @@ class Base extends Component {
             filter      : 'onStoreFilter',
             load        : 'onStoreLoad',
             recordChange: 'onStoreRecordChange',
+            sort        : 'onStoreSort',
             scope       : me
         });
 
@@ -247,6 +258,8 @@ class Base extends Component {
     createItem(record, index) {
         let me             = this,
             cls            = [me.itemCls],
+            hasItemHeight  = me.itemHeight !== null,
+            hasItemWidth   = me.itemWidth  !== null,
             itemContent    = me.createItemContent(record, index),
             itemId         = me.getItemId(record[me.getKeyProperty()]),
             selectionModel = me.selectionModel,
@@ -261,7 +274,7 @@ class Base extends Component {
         item = {
             tag     : me.itemTagName,
             cls     : cls,
-            id      : me.getItemId(record[me.getKeyProperty(itemId)]),
+            id      : itemId,
             tabIndex: -1
         };
 
@@ -282,6 +295,18 @@ class Base extends Component {
 
             case 'String': {
                 item.html = itemContent;
+            }
+        }
+
+        if (hasItemHeight || hasItemWidth) {
+            item.style = item.style || {};
+
+            if (hasItemHeight && !item.hasOwnProperty('height')) {
+                item.style.height = `${me.itemHeight}px`;
+            }
+
+            if (hasItemWidth && !item.hasOwnProperty('width')) {
+                item.style.width = `${me.itemWidth}px`;
             }
         }
 
@@ -320,19 +345,21 @@ class Base extends Component {
             vdom = me.vdom,
             listItem;
 
-        vdom.cn = [];
+        if (!(me.animate && !me.getPlugin('animate'))) {
+            vdom.cn = [];
 
-        me.store.items.forEach((item, index) => {
-            listItem = me.createItem(item, index);
-            listItem && vdom.cn.push(listItem);
-        });
-
-        if (silent) {
-            me._vdom = vdom;
-        } else {
-            me.promiseVdomUpdate().then(() => {
-                me.fire('createItems');
+            me.store.items.forEach((item, index) => {
+                listItem = me.createItem(item, index);
+                listItem && vdom.cn.push(listItem);
             });
+
+            if (silent) {
+                me._vdom = vdom;
+            } else {
+                me.promiseVdomUpdate().then(() => {
+                    me.fire('createItems');
+                });
+            }
         }
     }
 
@@ -497,6 +524,16 @@ class Base extends Component {
             vdom.cn[index] = me.createItem(data.record, index);
             me.vdom = vdom;
         }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Object[]} data.items
+     * @param {Object[]} data.previousItems
+     * @param {Neo.data.Store} data.scope
+     */
+    onStoreSort(data) {
+        this.createItems();
     }
 
     /**

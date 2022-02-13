@@ -70,10 +70,10 @@ export default env => {
         content.appPath = content.appPath.replace(regexTopLevel, '');
 
         Object.assign(content, {
-            basePath      : basePath,
-            environment   : 'dist/development',
-            mainPath      : '../main.js',
-            workerBasePath: workerBasePath
+            basePath,
+            environment: 'dist/development',
+            mainPath   : '../main.js',
+            workerBasePath
         });
 
         fs.writeFileSync(outputPath, JSON.stringify(content, null, 4));

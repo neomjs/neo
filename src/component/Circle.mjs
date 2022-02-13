@@ -45,7 +45,7 @@ class Circle extends Component {
          */
         keys: {},
         /**
-         * @member {Number} innerRadius_=60
+         * @member {Number} innerRadius_=100
          */
         innerRadius_: 100,
         /**
@@ -58,7 +58,7 @@ class Circle extends Component {
          */
         itemImagePath: null,
         /**
-         * @member {Number} itemSize_=30
+         * @member {Number} itemSize_=60
          */
         itemSize_: 60,
         /**
@@ -96,9 +96,9 @@ class Circle extends Component {
         title_: 'Circle 1',
         /**
          * The url for the store to load the data
-         * @member {String} url_='../resources/examples/data/ai_contacts.json'
+         * @member {String} url_='../resources/examples/data/circles/group1.json'
          */
-        url_: '../../resources/examples/data/circleContacts.json',
+        url_: '../../resources/examples/data/circles/group1.json',
         /**
          * @member {Object} _vdom
          */
@@ -408,6 +408,7 @@ class Circle extends Component {
         let me            = this,
             frontEl       = me.getFrontEl(),
             itemPositions = me.calculateItemPositions(),
+            itemSize      = me.itemSize,
             countItems    = Math.min(me.store.getCount(), me.maxItems),
             i             = startIndex,
             vdom          = me.vdom;
@@ -418,18 +419,18 @@ class Circle extends Component {
                 cls     : ['neo-circle-item'],
                 tabIndex: -1,
                 style: {
-                    height: me.itemSize           + 'px',
+                    height: itemSize              + 'px',
                     left  : itemPositions[i].left + 'px',
                     top   : itemPositions[i].top  + 'px',
-                    width : me.itemSize           + 'px'
+                    width : itemSize              + 'px'
                 },
                 cn: [{
                     tag  : 'img',
                     cls  : ['neo-circle-item-image'],
                     src  : me.itemImagePath + me.store.getAt(i).image,
                     style: {
-                        height: me.itemSize + 'px',
-                        width : me.itemSize + 'px'
+                        height: itemSize + 'px',
+                        width : itemSize + 'px'
                     }
                 }]
             });
@@ -439,7 +440,7 @@ class Circle extends Component {
     }
 
     /**
-     *
+     * @param {Object} data
      */
     expand(data) {
         let me = this;
@@ -452,7 +453,7 @@ class Circle extends Component {
     }
 
     /**
-     * @param data
+     * @param {Object} data
      */
     expandItem(data) {
         let me   = this,
@@ -586,10 +587,7 @@ class Circle extends Component {
 
         let me = this;
 
-        if (me.selectionModel) {
-            me.selectionModel.register(me);
-        }
-
+        me.selectionModel?.register(me);
         me.loadData();
     }
 

@@ -29,19 +29,9 @@ class Animate extends Base {
         columns: null,
         /**
          * Value in px
-         * @member {Number} itemHeight=200
-         */
-        itemHeight: 200,
-        /**
-         * Value in px
          * @member {Number} itemMargin=10
          */
         itemMargin: 10,
-        /**
-         * Value in px
-         * @member {Number} itemWidth=300
-         */
-        itemWidth: 300,
         /**
          * @member {DOMRect|null} ownerRect=null
          */
@@ -78,14 +68,14 @@ class Animate extends Base {
         let me    = this,
             owner = me.owner;
 
+        if (!owner.itemHeight || !owner.itemWidth) {
+            console.error('list.plugin.Animate requires fixed itemHeight and itemWidth values', owner);
+        }
+
         me.adjustCreateItem();
 
         owner.onStoreFilter = me.onStoreFilter.bind(me);
-
-        owner.store.on({
-            sort : me.onStoreSort,
-            scope: me
-        });
+        owner.onStoreSort   = me.onStoreSort  .bind(me);
 
         this.updateTransitionDetails(false);
     }
@@ -139,6 +129,7 @@ class Animate extends Base {
      */
     createItem(me, record, index) {
         let item     = me.ownerCreateItem(record, index),
+            owner    = me.owner,
             position = me.getItemPosition(record, index),
             style    = item.style || {};
 
@@ -147,10 +138,10 @@ class Animate extends Base {
         }
 
         Object.assign(style, {
-            height   : `${me.itemHeight}px`,
+            height   : `${owner.itemHeight}px`,
             position : 'absolute',
             transform: `translate(${position.x}px, ${position.y}px)`,
-            width    : `${me.itemWidth}px`
+            width    : `${owner.itemWidth}px`
         });
 
         item.style = style;
@@ -167,9 +158,10 @@ class Animate extends Base {
         let me     = this,
             column = index % me.columns,
             margin = me.itemMargin,
+            owner  = me.owner,
             row    = Math.floor(index / me.columns),
-            x      = column * (margin + me.itemWidth)  + margin,
-            y      = row    * (margin + me.itemHeight) + margin;
+            x      = column * (margin + owner.itemWidth)  + margin,
+            y      = row    * (margin + owner.itemHeight) + margin;
 
         return {x, y};
     }
@@ -186,7 +178,7 @@ class Animate extends Base {
         }
 
         let owner = this.owner,
-            key   = owner.store.keyProperty;
+            key   = owner.getKeyProperty();
 
         return map.indexOf(owner.getItemId(obj.record[key]));
     }
@@ -195,14 +187,18 @@ class Animate extends Base {
      *
      */
     onOwnerMounted() {
-        let me = this;
+        let me    = this,
+            owner = me.owner;
 
-        me.owner.getDomRect().then(rect => {
+        owner.getDomRect().then(rect => {
             Object.assign(me, {
-                columns  : Math.floor(rect.width / me.itemWidth),
+                columns  : Math.floor(rect.width / owner.itemWidth),
                 ownerRect: rect,
-                rows     : Math.floor(rect.height / me.itemHeight)
+                rows     : Math.floor(rect.height / owner.itemHeight)
             });
+
+            // if the store got loaded before this plugin is ready, create the items now
+            owner.store.getCount() > 0 && owner.createItems();
         });
     }
 
@@ -216,7 +212,7 @@ class Animate extends Base {
     onStoreFilter(data) {
         let me                  = this,
             owner               = me.owner,
-            key                 = owner.store.keyProperty,
+            key                 = owner.getKeyProperty(),
             hasAddedItems       = false,
             addedItems          = [],
             movedItems          = [],
@@ -326,19 +322,34 @@ class Animate extends Base {
      * @param {Neo.data.Store} data.scope
      */
     onStoreSort(data) {
-        let me          = this,
-            hasChange   = false,
-            keyProperty = data.scope.keyProperty,
-            owner       = me.owner,
-            newVdomCn   = [],
-            vdom        = owner.vdom,
-            vdomMap     = vdom.cn.map(e => e.id),
-            fromIndex, itemId;
+        let me = this;
 
-        if (vdomMap.length > 0) {
+        if (Neo.list.Component && me.owner instanceof Neo.list.Component) {
+            me.sortComponentList(data);
+        } else {
+            me.sortBaseList(data);
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Object[]} data.items
+     * @param {Object[]} data.previousItems
+     * @param {Neo.data.Store} data.scope
+     */
+    sortBaseList(data) {
+        let me            = this,
+            hasChange     = false,
+            owner         = me.owner,
+            key           = owner.getKeyProperty(),
+            newVdomCn     = [],
+            previousKeys  = data.previousItems.map(e => e[key]),
+            vdom          = owner.vdom,
+            fromIndex;
+
+        if (vdom.cn.length > 0) {
             data.items.forEach((item, index) => {
-                itemId    = owner.getItemId(item[keyProperty]);
-                fromIndex = vdomMap.indexOf(itemId);
+                fromIndex = previousKeys.indexOf(item[key]);
 
                 newVdomCn.push(vdom.cn[fromIndex]);
 
@@ -357,6 +368,37 @@ class Animate extends Base {
                     owner.createItems();
                 }, 50);
             }
+        }
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Object[]} data.items
+     * @param {Object[]} data.previousItems
+     * @param {Neo.data.Store} data.scope
+     */
+    sortComponentList(data) {
+        let me           = this,
+            owner        = me.owner,
+            key          = owner.getKeyProperty(),
+            previousKeys = data.previousItems.map(e => e[key]),
+            vdom         = owner.vdom,
+            fromIndex, item, position;
+
+        owner.sortItems(data);
+
+        previousKeys = owner.items.map(e => owner.getItemRecordId(e[key]));
+
+        if (vdom.cn.length > 0) {
+            data.items.forEach((record, index) => {
+                fromIndex = previousKeys.indexOf(record[key]);
+                item      = vdom.cn[fromIndex];
+                position  = me.getItemPosition(record, index);
+
+                item.style.transform = `translate(${position.x}px, ${position.y}px)`;
+            });
+
+            owner.vdom = vdom;
         }
     }
 

@@ -7,11 +7,10 @@ import Store     from '../../../src/data/Store.mjs';
  */
 class MainStore extends Store {
     static getConfig() {return {
-        className  : 'Neo.examples.list.animate.MainStore',
-        autoLoad   : true,
-        keyProperty: 'id',
-        model      : MainModel,
-        url        : '../../resources/examples/data/circleContacts.json',
+        className: 'Neo.examples.list.animate.MainStore',
+        autoLoad : true,
+        model    : MainModel,
+        url      : '../../resources/examples/data/circleContacts.json',
 
         filters: [{
             disabled : true,

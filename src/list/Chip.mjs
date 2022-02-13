@@ -13,10 +13,10 @@ class Chip extends ComponentList {
          */
         className: 'Neo.list.Chip',
         /**
-         * @member {String} ntype='chiplist'
+         * @member {String} ntype='chip-list'
          * @protected
          */
-        ntype: 'chiplist',
+        ntype: 'chip-list',
         /**
          * @member {String[]} cls=['neo-chip-list','neo-list']
          */
@@ -70,7 +70,6 @@ class Chip extends ComponentList {
      */
     createItemContent(record, index) {
         let me       = this,
-            id       = record[me.store.keyProperty],
             items    = me.items || [],
             listItem = items[index],
 

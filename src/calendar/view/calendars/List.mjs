@@ -47,7 +47,7 @@ class List extends ComponentList {
      */
     createItemContent(record, index) {
         let me       = this,
-            id       = record[me.store.keyProperty],
+            id       = record[me.getKeyProperty()],
             items    = me.items || [],
             checkBox = items[index],
 
@@ -112,7 +112,7 @@ class List extends ComponentList {
 
             Object.assign(style, {
                 left: `${listItemRect.right + 13}px`,
-                top : `${listItemRect.top   - 10}px`,
+                top : `${listItemRect.top   - 10}px`
             });
 
             editCalendarContainer[mounted ? 'set' : 'setSilent']({

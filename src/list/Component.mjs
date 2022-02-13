@@ -30,11 +30,9 @@ class Component extends Base {
      * @protected
      */
     afterSetAppName(value, oldValue) {
-        let me = this;
-
         super.afterSetAppName(value, oldValue);
 
-        value && me.items?.forEach(item => {
+        value && this.items?.forEach(item => {
             item.appName = value;
         });
     }
@@ -73,10 +71,43 @@ class Component extends Base {
      * @returns {String|Number} itemId
      */
     getItemRecordId(vnodeId) {
-        let itemId = vnodeId.split('__')[1],
-            store  = this.store;
+        let itemId = vnodeId.split('__')[1];
+        return this.store.getAt(parseInt(itemId))[this.getKeyProperty()];
+    }
 
-        return store.getAt(parseInt(itemId))[store.model.keyProperty];
+    /**
+     * @param {Object} data
+     * @param {Object[]} data.items
+     * @param {Object[]} data.previousItems
+     * @param {Neo.data.Store} data.scope
+     */
+    onStoreSort(data) {
+        this.sortItems(data);
+        super.onStoreSort(data);
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Object[]} data.items
+     * @param {Object[]} data.previousItems
+     * @param {Neo.data.Store} data.scope
+     */
+    sortItems(data) {
+        let me       = this,
+            newItems = [],
+            fromIndex, key, previousKeys;
+
+        if (me.items) {
+            key          = me.getKeyProperty();
+            previousKeys = data.previousItems.map(e => e[key]);
+
+            data.items.forEach(item => {
+                fromIndex = previousKeys.indexOf(item[key]);
+                newItems.push(me.items[fromIndex]);
+            });
+
+            me.items = newItems;
+        }
     }
 }
 
