@@ -1,9 +1,19 @@
-.neo-circle-list {
+.neo-circle-list.neo-list {
+    background-color: v(list-item-background-color);
+
     .neo-circle-component {
         background-color: transparent;
 
         .neo-circle-center {
             top: 50%;
+        }
+    }
+
+    .neo-list-item {
+        background-color: transparent;
+
+        &:hover {
+            background-color: v(list-item-background-color-hover);
         }
     }
 }
