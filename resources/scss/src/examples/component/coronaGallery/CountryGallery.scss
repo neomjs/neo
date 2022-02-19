@@ -42,6 +42,7 @@
 
     .neo-selected {
         .neo-item-wrapper {
+            opacity            : .95;
             transform          : translateZ(180px) scale(1.5);
             -webkit-box-reflect: unset!important;
         }
