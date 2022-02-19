@@ -173,22 +173,9 @@ class Gallery extends Component {
         super.construct(config);
 
         let me           = this,
-            domListeners = Neo.clone(me.domListeners, true),
-            vdom         = me.vdom,
-            origin       = vdom.cn[0],
-            camera       = origin.cn[0],
-            dolly        = camera.cn[0],
-            view         = dolly.cn[0],
-            prefix       = me.id + '__';
+            domListeners = Neo.clone(me.domListeners, true);
 
         me[itemsMounted] = false;
-
-        camera.id = prefix + 'camera';
-        dolly .id = prefix + 'dolly';
-        origin.id = prefix + 'origin';
-        view  .id = prefix + 'view';
-
-        me.vdom = vdom;
 
         domListeners.push({
             click: me.onClick,
@@ -211,6 +198,31 @@ class Gallery extends Component {
 
             me.afterSetOrderByRow(me.orderByRow, !me.orderByRow);
         }
+    }
+
+    /**
+     * Triggered after the id config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetId(value, oldValue) {
+        super.afterSetId(value, oldValue);
+
+        let me     = this,
+            vdom   = me.vdom,
+            origin = vdom.cn[0],
+            camera = origin.cn[0],
+            dolly  = camera.cn[0],
+            view   = dolly.cn[0],
+            prefix = me.id + '__';
+
+        camera.id = prefix + 'camera';
+        dolly .id = prefix + 'dolly';
+        origin.id = prefix + 'origin';
+        view  .id = prefix + 'view';
+
+        me.vdom = vdom;
     }
 
     /**
