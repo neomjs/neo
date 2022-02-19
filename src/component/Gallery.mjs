@@ -250,7 +250,8 @@ class Gallery extends Component {
      * @protected
      */
     afterSetMounted(value, oldValue) {
-        let me = this;
+        let me             = this,
+            selectionModel = me.selectionModel;
 
         if (value) {
             setTimeout(() => {
@@ -266,8 +267,8 @@ class Gallery extends Component {
                     me.offsetHeight = data.attributes.offsetHeight;
                     me.offsetWidth  = data.attributes.offsetWidth;
 
-                    if (me.selectOnMount || me.selectionModel.hasSelection()) {
-                        let selection = me.selectionModel.getSelection(),
+                    if (me.selectOnMount || selectionModel.hasSelection()) {
+                        let selection = selectionModel.getSelection(),
                             key       = selection.length > 0 && selection[0];
 
                         if (!key) {
@@ -276,12 +277,12 @@ class Gallery extends Component {
                             key = me.store.getKeyAt(index);
                         }
 
-                        me.selectionModel.select(key);
+                        selectionModel.select(key);
                     }
                 });
             }, 300);
         } else {
-            me.selectionModel.items = [];
+            selectionModel.items = [];
         }
     }
 
