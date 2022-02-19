@@ -28,15 +28,10 @@ class CountryGallery extends Gallery {
          */
         country_: null,
         /**
-         * The image height of the gallery
-         * @member {Number} imageHeight=240
+         * The item height of the gallery
+         * @member {Number} itemHeight=240
          */
-        imageHeight: 280,
-        /**
-         * The image width of the gallery
-         * @member {Number} imageWidth=320
-         */
-        imageWidth: 340,
+        itemHeight: 280,
         /**
          * @member {Object} itemTpl_
          */
@@ -74,6 +69,11 @@ class CountryGallery extends Gallery {
                 ]}
             ]}
         ]},
+        /**
+         * The item width of the gallery
+         * @member {Number} itemWidth=320
+         */
+        itemWidth: 340,
         /**
          * The unique record field containing the id.
          * @member {String} keyProperty='id'
@@ -121,10 +121,10 @@ class CountryGallery extends Gallery {
 
         vdomItem.id = me.getItemVnodeId(record[me.keyProperty]);
 
-        vdomItem.cn[0].style.height = me.imageHeight + 'px';
+        vdomItem.cn[0].style.height = me.itemHeight + 'px';
 
-        firstChild.style.height = (me.imageHeight - 70) + 'px';
-        firstChild.style.width  = me.imageWidth  + 'px';
+        firstChild.style.height = (me.itemHeight - 70) + 'px';
+        firstChild.style.width  = me.itemWidth  + 'px';
 
         firstChild.cn[0].cn[0].src  = Util.getCountryFlagUrl(record.country);
         firstChild.cn[0].cn[1].html = record.country;
