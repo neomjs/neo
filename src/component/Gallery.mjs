@@ -44,14 +44,9 @@ class Gallery extends Component {
         disableSelection: false,
         /**
          * The image height of the gallery
-         * @member {Number} imageHeight=160
+         * @member {Number} itemHeight=160
          */
-        imageHeight: 160,
-        /**
-         * The image width of the gallery
-         * @member {Number} imageWidth=120
-         */
-        imageWidth: 120,
+        itemHeight: 160,
         /**
          * @member {Object} itemTpl_
          */
@@ -61,6 +56,11 @@ class Gallery extends Component {
                 {tag: 'img', cls: [], style: {}}
             ]}
         ]},
+        /**
+         * The image width of the gallery
+         * @member {Number} itemWidth=120
+         */
+        itemWidth: 120,
         /**
          * The unique record field containing the id.
          * @member {String} keyProperty='id'
@@ -399,8 +399,8 @@ class Gallery extends Component {
 
         imageVdom.src = Neo.config.resourcesPath + 'examples/' + record.image;
 
-        imageVdom.style.height = me.imageHeight + 'px';
-        imageVdom.style.width  = me.imageWidth  + 'px';
+        imageVdom.style.height = me.itemHeight + 'px';
+        imageVdom.style.width  = me.itemWidth  + 'px';
 
         return vdomItem;
     }
@@ -476,7 +476,7 @@ class Gallery extends Component {
     getCameraTransformForCell(index) {
         let me          = this,
             amountRows  = me.amountRows,
-            imageWidth  = me.imageWidth,
+            itemWidth   = me.itemWidth,
             gap         = 10,
             height      = me.offsetHeight / (amountRows + 2),
             spacing     = height + gap,
@@ -490,7 +490,7 @@ class Gallery extends Component {
             y = Math.floor(index / amountColumns);
         }
 
-        let cx = x * (imageWidth + 10),
+        let cx = x * (itemWidth + 10),
             cy = (y + 0.5) * spacing * 1.1 + 50;
 
         return [-cx, -cy, 0];
@@ -532,8 +532,8 @@ class Gallery extends Component {
         }
 
         return this.translate3d(
-            x * (me.imageWidth  + 10),
-            y * (me.imageHeight + 10) + 100,
+            x * (me.itemWidth  + 10),
+            y * (me.itemHeight + 10) + 100,
             0
         );
     }
@@ -622,13 +622,13 @@ class Gallery extends Component {
     onSelectionChange(value) {
         let me             = this,
             index          = me.store.indexOf(value?.[0] || 0),
-            imageHeight    = me.imageHeight,
-            imageWidth     = me.imageWidth,
+            itemHeight     = me.itemHeight,
+            itemWidth      = me.itemWidth,
             vdom           = me.vdom,
             camera         = vdom.cn[0].cn[0],
             dollyTransform = me.getCameraTransformForCell(index),
             height         = me.offsetHeight / (me.amountRows + 2),
-            width          = Math.round(height * imageWidth / imageHeight),
+            width          = Math.round(height * itemWidth / itemHeight),
             spacing        = width + 10,
             timeoutId;
 
