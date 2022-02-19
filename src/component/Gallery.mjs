@@ -349,9 +349,7 @@ class Gallery extends Component {
     beforeSetStore(value, oldValue) {
         let me = this;
 
-        if (oldValue) {
-            oldValue.destroy();
-        }
+        oldValue?.destroy();
 
         // todo: remove the if check once all demos use stores (instead of collections)
         if (value) {
@@ -678,12 +676,12 @@ class Gallery extends Component {
                     translateX, angle;
 
                 if (transform.indexOf('matrix3d') === 0) {
-                    transform = transform.substring(9, transform.length - 1); // remove matrix3d( ... )
-                    transform = transform.split(',').map(e => parseFloat(e));
+                    transform  = transform.substring(9, transform.length - 1); // remove matrix3d( ... )
+                    transform  = transform.split(',').map(e => parseFloat(e));
                     translateX = transform[12]; // bottom left element of the 4x4 matrix
                 } else {
-                    transform = transform.substring(7, transform.length - 1); // remove matrix( ... )
-                    transform = transform.split(',').map(e => parseFloat(e));
+                    transform  = transform.substring(7, transform.length - 1); // remove matrix( ... )
+                    transform  = transform.split(',').map(e => parseFloat(e));
                     translateX = transform[4]; // bottom left element of the 2x3 matrix
                 }
 
