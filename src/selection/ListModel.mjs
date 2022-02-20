@@ -125,7 +125,7 @@ class ListModel extends Model {
             id   = me.id,
             view = me.view;
 
-        view.keys && view.keys._keys.push(
+        view.keys?._keys.push(
             {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
             {fn: 'onKeyDownEnter' ,key: 'Enter' ,scope: id},
             {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
@@ -156,7 +156,7 @@ class ListModel extends Model {
             id   = me.id,
             view = me.view;
 
-        view.keys && view.keys.removeKeys([
+        view.keys?.removeKeys([
             {fn: 'onKeyDownDown'  ,key: 'Down'  ,scope: id},
             {fn: 'onKeyDownEnter' ,key: 'Enter' ,scope: id},
             {fn: 'onKeyDownLeft'  ,key: 'Left'  ,scope: id},
