@@ -313,9 +313,7 @@ class Gallery extends Component {
                     setTimeout(() => {
                         let sm = me.selectionModel;
 
-                        if (sm.hasSelection()) {
-                            me.onSelectionChange(sm.items);
-                        }
+                        sm.hasSelection() && me.onSelectionChange(sm.items);
                     }, 500);
                 }, 50);
             }
@@ -329,10 +327,8 @@ class Gallery extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        if (this.rendered) {
-            value.register(this);
-            oldValue?.destroy();
-        }
+        oldValue?.destroy();
+        this.rendered && value.register(this);
     }
 
     afterSetTranslateX() {this.moveOrigin();}
@@ -637,6 +633,7 @@ class Gallery extends Component {
             itemWidth      = me.itemWidth,
             vdom           = me.vdom,
             camera         = vdom.cn[0].cn[0],
+            cameraStyle    = camera.style,
             dollyTransform = me.getCameraTransformForCell(index),
             height         = me.offsetHeight / (me.amountRows + 2),
             width          = Math.round(height * itemWidth / itemHeight),
@@ -653,7 +650,7 @@ class Gallery extends Component {
             action : 'updateDom',
             appName: me.appName,
             deltas : {
-                id   : me.id + '__' + 'dolly',
+                id   : me.id + '__dolly',
                 style: {
                     transform: me.translate3d(...dollyTransform)
                 }
@@ -665,7 +662,7 @@ class Gallery extends Component {
                 vnodeId  : me.id,
                 functions: [{
                     fn            : 'getComputedStyle',
-                    params        : [me.id + '__' + 'dolly', null],
+                    params        : [me.id + '__dolly', null],
                     paramIsDomNode: [true, false],
                     scope         : 'defaultView',
                     returnFnName  : 'transform',
@@ -688,8 +685,8 @@ class Gallery extends Component {
                 translateX = translateX - dollyTransform[0];
                 angle      = Math.min(Math.max(translateX / (spacing * 3), -1), 1) * 45;
 
-                camera.style.transform          = 'rotateY(' + angle + 'deg)';
-                camera.style.transitionDuration = '330ms';
+                cameraStyle.transform          = `rotateY(${angle}deg)`;
+                cameraStyle.transitionDuration = '330ms';
 
                 me.vdom = vdom;
 
@@ -698,8 +695,8 @@ class Gallery extends Component {
 
                     vdom = me.vdom;
 
-                    camera.style.transform          = 'rotateY(0deg)';
-                    camera.style.transitionDuration = '5000ms';
+                    cameraStyle.transform          = 'rotateY(0deg)';
+                    cameraStyle.transitionDuration = '5000ms';
 
                     me.vdom = vdom;
                 }, 330);
@@ -750,7 +747,7 @@ class Gallery extends Component {
     }
 
     /**
-     * @param {Array} items
+     * @param {Object[]} items
      */
     onStoreLoad(items) {
         this.getItemsRoot().cn = []; // silent update
@@ -791,7 +788,7 @@ class Gallery extends Component {
      * @returns {String}
      */
     translate3d(x, y, z) {
-        return 'translate3d(' + x + 'px, ' + y + 'px, ' + z + 'px)';
+        return `translate3d(${x}px, ${y}px, ${z}px)`;
     }
 }
 
