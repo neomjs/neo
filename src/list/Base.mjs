@@ -233,7 +233,7 @@ class Base extends Component {
      * @protected
      */
     beforeSetSelectionModel(value, oldValue) {
-        oldValue && oldValue.destroy();
+        oldValue?.destroy();
         return ClassSystemUtil.beforeSetInstance(value, ListModel);
     }
 
@@ -245,7 +245,7 @@ class Base extends Component {
      * @protected
      */
     beforeSetStore(value, oldValue) {
-        oldValue && oldValue.destroy();
+        oldValue?.destroy();
         return ClassSystemUtil.beforeSetInstance(value, Store);
     }
 

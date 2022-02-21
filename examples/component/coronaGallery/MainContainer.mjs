@@ -363,14 +363,11 @@ class MainContainer extends Viewport {
         }
     }
 
+    /**
+     * @param {Object[]} data
+     */
     addStoreItems(data) {
         this.getStore().data = data;
-
-        setTimeout(() => {
-            Neo.main.DomAccess.focus({
-                id: this.gallery.id
-            });
-        }, 200);
     }
 
     /**

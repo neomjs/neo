@@ -17,15 +17,15 @@ class Gallery extends BaseGallery {
          */
         cls: ['rw2-article-gallery', 'neo-gallery', 'page', 'view'],
         /**
-         * The image height of the gallery
-         * @member {Number} imageHeight=240
+         * The item height of the gallery
+         * @member {Number} itemHeight=240
          */
-        imageHeight: 240,
+        itemHeight: 240,
         /**
-         * The image width of the gallery
-         * @member {Number} imageWidth=320
+         * The item width of the gallery
+         * @member {Number} itemWidth=320
          */
-        imageWidth: 320,
+        itemWidth: 320,
         /**
          * Array containing the PreviewComponent references
          * @member {Array} items=[]
@@ -69,8 +69,8 @@ class Gallery extends BaseGallery {
             id      : me.getItemVnodeId(record[me.keyProperty]),
             tabIndex: '-1',
             style: {
-                height: me.imageHeight + 'px',
-                width : me.imageWidth  + 'px'
+                height: me.itemHeight + 'px',
+                width : me.itemWidth  + 'px'
             },
             cn: [{
                 cls: ['item-wrapper'],

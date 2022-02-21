@@ -1,5 +1,4 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
-import Collection      from '../collection/Base.mjs'
 import Component       from './Base.mjs';
 import GalleryModel    from '../selection/GalleryModel.mjs';
 import NeoArray        from '../util/Array.mjs';
@@ -38,20 +37,20 @@ class Gallery extends Component {
          */
         cls: ['neo-gallery', 'page', 'view'],
         /**
-         * True disables selection of  gallery items
+         * True disables selection of gallery items
          * @member {Boolean} disableSelection=false
          */
         disableSelection: false,
         /**
-         * The image height of the gallery
-         * @member {Number} imageHeight=160
+         * True will focus the gallery top level DOM node to enable the keyboard navigation right away
+         * @member {Boolean} focusOnMount=true
          */
-        imageHeight: 160,
+        focusOnMount: true,
         /**
-         * The image width of the gallery
-         * @member {Number} imageWidth=120
+         * The image height of the gallery
+         * @member {Number} itemHeight=160
          */
-        imageWidth: 120,
+        itemHeight: 160,
         /**
          * @member {Object} itemTpl_
          */
@@ -61,6 +60,11 @@ class Gallery extends Component {
                 {tag: 'img', cls: [], style: {}}
             ]}
         ]},
+        /**
+         * The image width of the gallery
+         * @member {Number} itemWidth=120
+         */
+        itemWidth: 120,
         /**
          * The unique record field containing the id.
          * @member {String} keyProperty='id'
@@ -116,7 +120,7 @@ class Gallery extends Component {
          */
         selectedItemCls: 'neo-selected',
         /**
-         * uses the selection.GalleryModel by default
+         * Uses the selection.GalleryModel by default
          * @member {Neo.selection.GalleryModel|null} selectionModel_=null
          */
         selectionModel_: null,
@@ -129,7 +133,7 @@ class Gallery extends Component {
          * The store instance or class containing the data for the gallery items
          * @member {Neo.data.Store|null} store_=null
          */
-        store_: null, // todo: use a store once collecitons are integrated
+        store_: null,
         /**
          * The setTimeout() ids for calls which can get cancelled
          * @member {Array} transitionTimeouts=[]
@@ -173,22 +177,9 @@ class Gallery extends Component {
         super.construct(config);
 
         let me           = this,
-            domListeners = Neo.clone(me.domListeners, true),
-            vdom         = me.vdom,
-            origin       = vdom.cn[0],
-            camera       = origin.cn[0],
-            dolly        = camera.cn[0],
-            view         = dolly.cn[0],
-            prefix       = me.id + '__';
+            domListeners = Neo.clone(me.domListeners, true);
 
         me[itemsMounted] = false;
-
-        camera.id = prefix + 'camera';
-        dolly .id = prefix + 'dolly';
-        origin.id = prefix + 'origin';
-        view  .id = prefix + 'view';
-
-        me.vdom = vdom;
 
         domListeners.push({
             click: me.onClick,
@@ -211,6 +202,31 @@ class Gallery extends Component {
 
             me.afterSetOrderByRow(me.orderByRow, !me.orderByRow);
         }
+    }
+
+    /**
+     * Triggered after the id config got changed
+     * @param {String} value
+     * @param {String} oldValue
+     * @protected
+     */
+    afterSetId(value, oldValue) {
+        super.afterSetId(value, oldValue);
+
+        let me     = this,
+            vdom   = me.vdom,
+            origin = vdom.cn[0],
+            camera = origin.cn[0],
+            dolly  = camera.cn[0],
+            view   = dolly.cn[0],
+            prefix = me.id + '__';
+
+        camera.id = prefix + 'camera';
+        dolly .id = prefix + 'dolly';
+        origin.id = prefix + 'origin';
+        view  .id = prefix + 'view';
+
+        me.vdom = vdom;
     }
 
     /**
@@ -238,24 +254,24 @@ class Gallery extends Component {
      * @protected
      */
     afterSetMounted(value, oldValue) {
-        let me = this;
+        let me             = this,
+            selectionModel = me.selectionModel;
 
         if (value) {
+            me.focusOnMount && me.focus(me.id);
+
             setTimeout(() => {
                 Neo.currentWorker.promiseMessage('main', {
                     action    : 'readDom',
                     appName   : me.appName,
-                    vnodeId   : me.id,
-                    attributes: [
-                        'offsetHeight',
-                        'offsetWidth'
-                    ]
+                    attributes: ['offsetHeight', 'offsetWidth'],
+                    vnodeId   : me.id
                 }).then(data => {
                     me.offsetHeight = data.attributes.offsetHeight;
                     me.offsetWidth  = data.attributes.offsetWidth;
 
-                    if (me.selectOnMount || me.selectionModel.hasSelection()) {
-                        let selection = me.selectionModel.getSelection(),
+                    if (me.selectOnMount || selectionModel.hasSelection()) {
+                        let selection = selectionModel.getSelection(),
                             key       = selection.length > 0 && selection[0];
 
                         if (!key) {
@@ -264,12 +280,12 @@ class Gallery extends Component {
                             key = me.store.getKeyAt(index);
                         }
 
-                        me.selectionModel.select(key);
+                        selectionModel.select(key);
                     }
                 });
             }, 300);
         } else {
-            me.selectionModel.items = [];
+            selectionModel.items = [];
         }
     }
 
@@ -300,9 +316,7 @@ class Gallery extends Component {
                     setTimeout(() => {
                         let sm = me.selectionModel;
 
-                        if (sm.hasSelection()) {
-                            me.onSelectionChange(sm.items);
-                        }
+                        sm.hasSelection() && me.onSelectionChange(sm.items);
                     }, 500);
                 }, 50);
             }
@@ -316,15 +330,13 @@ class Gallery extends Component {
      * @protected
      */
     afterSetSelectionModel(value, oldValue) {
-        if (this.rendered) {
-            value.register(this);
-            oldValue?.destroy();
-        }
+        oldValue?.destroy();
+        this.rendered && value.register(this);
     }
 
-    afterSetTranslateX() {this.moveOrigin();}
-    afterSetTranslateY() {this.moveOrigin();}
-    afterSetTranslateZ() {this.moveOrigin();}
+    afterSetTranslateX() {this.moveOrigin()}
+    afterSetTranslateY() {this.moveOrigin()}
+    afterSetTranslateZ() {this.moveOrigin()}
 
     /**
      * Triggered before the store config gets changed.
@@ -336,24 +348,11 @@ class Gallery extends Component {
     beforeSetStore(value, oldValue) {
         let me = this;
 
-        if (oldValue) {
-            oldValue.destroy();
-        }
+        oldValue?.destroy();
 
-        // todo: remove the if check once all demos use stores (instead of collections)
-        if (value) {
-            return ClassSystemUtil.beforeSetInstance(value, Store, {
-                listeners  : {
-                    load : me.onStoreLoad,
-                    sort : me.onSort,
-                    scope: me
-                }
-            });
-        }
-
-        return Neo.create(Collection, {
-            keyProperty: 'id',
+        return ClassSystemUtil.beforeSetInstance(value, Store, {
             listeners  : {
+                load : me.onStoreLoad,
                 sort : me.onSort,
                 scope: me
             }
@@ -361,7 +360,7 @@ class Gallery extends Component {
     }
 
     /**
-     * @returns {*}
+     * @returns {Object}
      */
     beforeGetItemTpl() {
         return Neo.clone(this._itemTpl, true);
@@ -399,8 +398,8 @@ class Gallery extends Component {
 
         imageVdom.src = Neo.config.resourcesPath + 'examples/' + record.image;
 
-        imageVdom.style.height = me.imageHeight + 'px';
-        imageVdom.style.width  = me.imageWidth  + 'px';
+        imageVdom.style.height = me.itemHeight + 'px';
+        imageVdom.style.width  = me.itemWidth  + 'px';
 
         return vdomItem;
     }
@@ -476,7 +475,7 @@ class Gallery extends Component {
     getCameraTransformForCell(index) {
         let me          = this,
             amountRows  = me.amountRows,
-            imageWidth  = me.imageWidth,
+            itemWidth   = me.itemWidth,
             gap         = 10,
             height      = me.offsetHeight / (amountRows + 2),
             spacing     = height + gap,
@@ -490,7 +489,7 @@ class Gallery extends Component {
             y = Math.floor(index / amountColumns);
         }
 
-        let cx = x * (imageWidth + 10),
+        let cx = x * (itemWidth + 10),
             cy = (y + 0.5) * spacing * 1.1 + 50;
 
         return [-cx, -cy, 0];
@@ -532,8 +531,8 @@ class Gallery extends Component {
         }
 
         return this.translate3d(
-            x * (me.imageWidth  + 10),
-            y * (me.imageHeight + 10) + 100,
+            x * (me.itemWidth  + 10),
+            y * (me.itemHeight + 10) + 100,
             0
         );
     }
@@ -570,29 +569,7 @@ class Gallery extends Component {
      */
     onConstructed() {
         super.onConstructed();
-
-        let me = this;
-
-        me.selectionModel?.register(me);
-
-        // load data for the example collection
-        if (!(me.store instanceof Store)) {
-            Neo.Xhr.promiseJson({
-                insideNeo: true,
-                url      : '../../resources/examples/data/ai_contacts.json'
-            }).then(data => {
-                me.store.items = data.json.data;
-                setTimeout(() => { // todo: rendering check
-                    me.createItems();
-
-                    if (me.selectOnMount) {
-                        me.afterSetMounted(true, false);
-                    }
-                }, 100);
-            }).catch(err => {
-                console.log('Error for Neo.Xhr.request', err, me.id);
-            });
-        }
+        this.selectionModel?.register(this);
     }
 
     /**
@@ -622,13 +599,14 @@ class Gallery extends Component {
     onSelectionChange(value) {
         let me             = this,
             index          = me.store.indexOf(value?.[0] || 0),
-            imageHeight    = me.imageHeight,
-            imageWidth     = me.imageWidth,
+            itemHeight     = me.itemHeight,
+            itemWidth      = me.itemWidth,
             vdom           = me.vdom,
             camera         = vdom.cn[0].cn[0],
+            cameraStyle    = camera.style,
             dollyTransform = me.getCameraTransformForCell(index),
             height         = me.offsetHeight / (me.amountRows + 2),
-            width          = Math.round(height * imageWidth / imageHeight),
+            width          = Math.round(height * itemWidth / itemHeight),
             spacing        = width + 10,
             timeoutId;
 
@@ -642,7 +620,7 @@ class Gallery extends Component {
             action : 'updateDom',
             appName: me.appName,
             deltas : {
-                id   : me.id + '__' + 'dolly',
+                id   : me.id + '__dolly',
                 style: {
                     transform: me.translate3d(...dollyTransform)
                 }
@@ -654,7 +632,7 @@ class Gallery extends Component {
                 vnodeId  : me.id,
                 functions: [{
                     fn            : 'getComputedStyle',
-                    params        : [me.id + '__' + 'dolly', null],
+                    params        : [me.id + '__dolly', null],
                     paramIsDomNode: [true, false],
                     scope         : 'defaultView',
                     returnFnName  : 'transform',
@@ -665,20 +643,20 @@ class Gallery extends Component {
                     translateX, angle;
 
                 if (transform.indexOf('matrix3d') === 0) {
-                    transform = transform.substring(9, transform.length - 1); // remove matrix3d( ... )
-                    transform = transform.split(',').map(e => parseFloat(e));
+                    transform  = transform.substring(9, transform.length - 1); // remove matrix3d( ... )
+                    transform  = transform.split(',').map(e => parseFloat(e));
                     translateX = transform[12]; // bottom left element of the 4x4 matrix
                 } else {
-                    transform = transform.substring(7, transform.length - 1); // remove matrix( ... )
-                    transform = transform.split(',').map(e => parseFloat(e));
+                    transform  = transform.substring(7, transform.length - 1); // remove matrix( ... )
+                    transform  = transform.split(',').map(e => parseFloat(e));
                     translateX = transform[4]; // bottom left element of the 2x3 matrix
                 }
 
                 translateX = translateX - dollyTransform[0];
                 angle      = Math.min(Math.max(translateX / (spacing * 3), -1), 1) * 45;
 
-                camera.style.transform          = 'rotateY(' + angle + 'deg)';
-                camera.style.transitionDuration = '330ms';
+                cameraStyle.transform          = `rotateY(${angle}deg)`;
+                cameraStyle.transitionDuration = '330ms';
 
                 me.vdom = vdom;
 
@@ -687,8 +665,8 @@ class Gallery extends Component {
 
                     vdom = me.vdom;
 
-                    camera.style.transform          = 'rotateY(0deg)';
-                    camera.style.transitionDuration = '5000ms';
+                    cameraStyle.transform          = 'rotateY(0deg)';
+                    cameraStyle.transitionDuration = '5000ms';
 
                     me.vdom = vdom;
                 }, 330);
@@ -739,7 +717,7 @@ class Gallery extends Component {
     }
 
     /**
-     * @param {Array} items
+     * @param {Object[]} items
      */
     onStoreLoad(items) {
         this.getItemsRoot().cn = []; // silent update
@@ -780,7 +758,7 @@ class Gallery extends Component {
      * @returns {String}
      */
     translate3d(x, y, z) {
-        return 'translate3d(' + x + 'px, ' + y + 'px, ' + z + 'px)';
+        return `translate3d(${x}px, ${y}px, ${z}px)`;
     }
 }
 

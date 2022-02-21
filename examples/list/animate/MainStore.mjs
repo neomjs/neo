@@ -10,7 +10,7 @@ class MainStore extends Store {
         className: 'Neo.examples.list.animate.MainStore',
         autoLoad : true,
         model    : MainModel,
-        url      : '../../resources/examples/data/circleContacts.json',
+        url      : '../../resources/examples/data/circles/group1.json',
 
         filters: [{
             disabled : true,

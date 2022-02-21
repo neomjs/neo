@@ -41,7 +41,7 @@ class Circle extends Component {
         collapsed: true,
         /**
          * Additional used keys for the selection model
-         * @member {Object} keys
+         * @member {Object} keys={}
          */
         keys: {},
         /**
@@ -73,21 +73,25 @@ class Circle extends Component {
         /**
          * @member {Number} rotateX_=0
          */
-        rotateX_:0,
+        rotateX_: 0,
         /**
          * @member {Number} rotateY_=0
          */
-        rotateY_:0,
+        rotateY_: 0,
         /**
          * @member {Number} rotateZ_=0
          */
-        rotateZ_:0,
+        rotateZ_: 0,
         /**
-         * @member {Neo.selection.Model} selectionModel_=null
+         * @member {Number} rotationIndex_=0
+         */
+        rotationIndex_: 0,
+        /**
+         * @member {Neo.selection.Model|null} selectionModel_=null
          */
         selectionModel_: null,
         /**
-         * @member {Neo.collection.Base} store_=null
+         * @member {Neo.collection.Base|null} store_=null
          */
         store_: null,
         /**
@@ -281,6 +285,18 @@ class Circle extends Component {
      */
     afterSetRotateZ(value, oldValue) {
         oldValue && this.rendered && this.rotate();
+    }
+
+    /**
+     * Triggered after the rotationIndex config got changed
+     * @param {Number} value
+     * @param {Number} oldValue
+     * @protected
+     */
+    afterSetRotationIndex(value, oldValue) {
+        if (Neo.isNumber(oldValue)) {
+            console.log('afterSetRotationIndex', value);
+        }
     }
 
     /**
@@ -527,7 +543,7 @@ class Circle extends Component {
      * @returns {String|Number} itemId
      */
     getItemRecordId(vnodeId) {
-        let itemId   = vnodeId.split('__')[1],
+        let itemId   = vnodeId.split('__').pop(),
             model    = this.store.model,
             keyField = model?.getField(model.keyProperty);
 
@@ -602,18 +618,25 @@ class Circle extends Component {
      * @param {Object} data
      */
     onMouseWheel(data) {
-        let me      = this,
-            deltaY  = data.deltaY,
-            rotateZ = me.rotateZ;
+        let me        = this,
+            deltaY    = data.deltaY,
+            itemAngle = 360 / me.maxItems,
+            maxAngle  = Math.max(0, (me.store.getCount() - me.maxItems) * itemAngle),
+            rotateZ   = me.rotateZ;
 
-        if (deltaY >  1 || deltaY < -1) {rotateZ += deltaY;}
+        if (deltaY >  1 || deltaY < -1) {
+            rotateZ += deltaY;
+        }
 
         if (rotateZ < 0) {
             rotateZ = 0;
+        } else if (rotateZ > maxAngle) {
+            rotateZ = maxAngle;
         }
 
-        if (!(me.rotateZ === 0 && rotateZ === 0)) {
-            me.rotateZ = rotateZ;
+        if (!(me.rotateZ === 0 && rotateZ === 0) && !(me.rotateZ === maxAngle && rotateZ === maxAngle)) {
+            me.rotateZ       = rotateZ;
+            me.rotationIndex = Math.floor(rotateZ / itemAngle);
 
             me.rotate();
         }
@@ -627,9 +650,9 @@ class Circle extends Component {
             vdom           = me.vdom,
             circleCenterEl = vdom.cn[0],
             transform = [
-                'rotateX(' + me.rotateX + 'deg)',
-                'rotateY(' + me.rotateY + 'deg)',
-                'rotateZ(' + me.rotateZ + 'deg)'
+                `rotateX(${me.rotateX}deg)`,
+                `rotateY(${me.rotateY}deg)`,
+                `rotateZ(${me.rotateZ}deg)`
             ].join(' ');
 
         if (me.circleCenterHasTransitionCls) {

@@ -62,6 +62,7 @@
 
     .neo-selected {
         .neo-item-wrapper {
+            opacity  : .95;
             transform: translate3d(0, 0, 180px) scale(1.5);
         }
     }

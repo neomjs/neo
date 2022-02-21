@@ -7,9 +7,19 @@ import Store        from '../../../src/data/Store.mjs';
  */
 class CountryStore extends Store {
     static getConfig() {return {
-        className  : 'Neo.examples.component.coronaGallery.CountryStore',
+        /**
+         * @member {String} className='Neo.examples.component.coronaGallery.CountryStore'
+         * @protected
+         */
+        className: 'Neo.examples.component.coronaGallery.CountryStore',
+        /**
+         * @member {String} keyProperty='country'
+         */
         keyProperty: 'country',
-        model      : CountryModel
+        /**
+         * @member {Neo.data.Model} model=CountryModel
+         */
+        model: CountryModel
     }}
 }
 
