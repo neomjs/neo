@@ -1,5 +1,4 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
-import Collection      from '../collection/Base.mjs'
 import Component       from './Base.mjs';
 import GalleryModel    from '../selection/GalleryModel.mjs';
 import NeoArray        from '../util/Array.mjs';
@@ -38,10 +37,15 @@ class Gallery extends Component {
          */
         cls: ['neo-gallery', 'page', 'view'],
         /**
-         * True disables selection of  gallery items
+         * True disables selection of gallery items
          * @member {Boolean} disableSelection=false
          */
         disableSelection: false,
+        /**
+         * True will focus the gallery top level DOM node to enable the keyboard navigation right away
+         * @member {Boolean} focusOnMount=true
+         */
+        focusOnMount: true,
         /**
          * The image height of the gallery
          * @member {Number} itemHeight=160
@@ -254,6 +258,8 @@ class Gallery extends Component {
             selectionModel = me.selectionModel;
 
         if (value) {
+            me.focusOnMount && me.focus(me.id);
+
             setTimeout(() => {
                 Neo.currentWorker.promiseMessage('main', {
                     action    : 'readDom',
