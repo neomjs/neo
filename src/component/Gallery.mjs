@@ -344,20 +344,9 @@ class Gallery extends Component {
 
         oldValue?.destroy();
 
-        // todo: remove the if check once all demos use stores (instead of collections)
-        if (value) {
-            return ClassSystemUtil.beforeSetInstance(value, Store, {
-                listeners  : {
-                    load : me.onStoreLoad,
-                    sort : me.onSort,
-                    scope: me
-                }
-            });
-        }
-
-        return Neo.create(Collection, {
-            keyProperty: 'id',
+        return ClassSystemUtil.beforeSetInstance(value, Store, {
             listeners  : {
+                load : me.onStoreLoad,
                 sort : me.onSort,
                 scope: me
             }
@@ -574,29 +563,7 @@ class Gallery extends Component {
      */
     onConstructed() {
         super.onConstructed();
-
-        let me = this;
-
-        me.selectionModel?.register(me);
-
-        // load data for the example collection
-        if (!(me.store instanceof Store)) {
-            Neo.Xhr.promiseJson({
-                insideNeo: true,
-                url      : '../../resources/examples/data/ai_contacts.json'
-            }).then(data => {
-                me.store.items = data.json.data;
-                setTimeout(() => { // todo: rendering check
-                    me.createItems();
-
-                    if (me.selectOnMount) {
-                        me.afterSetMounted(true, false);
-                    }
-                }, 100);
-            }).catch(err => {
-                console.log('Error for Neo.Xhr.request', err, me.id);
-            });
-        }
+        this.selectionModel?.register(this);
     }
 
     /**

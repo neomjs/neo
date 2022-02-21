@@ -1,4 +1,5 @@
 import Gallery     from '../../../src/component/Gallery.mjs';
+import ImageStore  from './ImageStore.mjs';
 import NumberField from '../../../src/form/field/Number.mjs';
 import Panel       from '../../../src/container/Panel.mjs';
 import RangeField  from '../../../src/form/field/Range.mjs';
@@ -228,6 +229,7 @@ class MainContainer extends Viewport {
         me.gallery = Neo.create({
             module: Gallery,
             id    : 'neo-gallery-1',
+            store : ImageStore,
             ...me.galleryConfig
         });
 
