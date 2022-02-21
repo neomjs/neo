@@ -116,7 +116,7 @@ class Gallery extends Component {
          */
         selectedItemCls: 'neo-selected',
         /**
-         * uses the selection.GalleryModel by default
+         * Uses the selection.GalleryModel by default
          * @member {Neo.selection.GalleryModel|null} selectionModel_=null
          */
         selectionModel_: null,
@@ -129,7 +129,7 @@ class Gallery extends Component {
          * The store instance or class containing the data for the gallery items
          * @member {Neo.data.Store|null} store_=null
          */
-        store_: null, // todo: use a store once collecitons are integrated
+        store_: null,
         /**
          * The setTimeout() ids for calls which can get cancelled
          * @member {Array} transitionTimeouts=[]
@@ -258,11 +258,8 @@ class Gallery extends Component {
                 Neo.currentWorker.promiseMessage('main', {
                     action    : 'readDom',
                     appName   : me.appName,
-                    vnodeId   : me.id,
-                    attributes: [
-                        'offsetHeight',
-                        'offsetWidth'
-                    ]
+                    attributes: ['offsetHeight', 'offsetWidth'],
+                    vnodeId   : me.id
                 }).then(data => {
                     me.offsetHeight = data.attributes.offsetHeight;
                     me.offsetWidth  = data.attributes.offsetWidth;
