@@ -328,9 +328,9 @@ class Gallery extends Component {
         this.rendered && value.register(this);
     }
 
-    afterSetTranslateX() {this.moveOrigin();}
-    afterSetTranslateY() {this.moveOrigin();}
-    afterSetTranslateZ() {this.moveOrigin();}
+    afterSetTranslateX() {this.moveOrigin()}
+    afterSetTranslateY() {this.moveOrigin()}
+    afterSetTranslateZ() {this.moveOrigin()}
 
     /**
      * Triggered before the store config gets changed.
@@ -365,7 +365,7 @@ class Gallery extends Component {
     }
 
     /**
-     * @returns {*}
+     * @returns {Object}
      */
     beforeGetItemTpl() {
         return Neo.clone(this._itemTpl, true);

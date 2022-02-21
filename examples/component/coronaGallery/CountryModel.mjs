@@ -1,4 +1,4 @@
-import Model  from '../../../src/data/Model.mjs';
+import Model from '../../../src/data/Model.mjs';
 
 /**
  * @class Neo.examples.component.coronaGallery.CountryModel
@@ -6,8 +6,14 @@ import Model  from '../../../src/data/Model.mjs';
  */
 class CountryModel extends Model {
     static getConfig() {return {
+        /**
+         * @member {String} className='Neo.examples.component.coronaGallery.CountryModel'
+         * @protected
+         */
         className: 'Neo.examples.component.coronaGallery.CountryModel',
-
+        /**
+         * @member {Object[]} fields
+         */
         fields: [{
             name: 'cases',
             type: 'int'
