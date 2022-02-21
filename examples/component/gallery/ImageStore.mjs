@@ -13,9 +13,17 @@ class ImageStore extends Store {
          */
         className: 'Neo.examples.component.gallery.ImageStore',
         /**
+         * @member {Boolean} autoLoad=true
+         */
+        autoLoad: true,
+        /**
          * @member {Neo.data.Model} model=ImageModel
          */
-        model: ImageModel
+        model: ImageModel,
+        /**
+         * @member {String} url='../../resources/examples/data/ai_contacts.json'
+         */
+        url: '../../resources/examples/data/ai_contacts.json'
     }}
 }
 
