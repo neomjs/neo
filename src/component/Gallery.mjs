@@ -576,15 +576,11 @@ class Gallery extends Component {
      * @param {Object} data
      */
     onMouseWheel(data) {
-        let me         = this,
-            deltaX     = data.deltaX,
-            deltaY     = data.deltaY,
-            translateX = me.translateX,
-            translateZ = me.translateZ;
+        let me = this;
 
         if (me.mouseWheelEnabled) {
-            me._translateX = translateX - (deltaX * me.mouseWheelDeltaX); // silent update
-            me._translateZ = translateZ + (deltaY * me.mouseWheelDeltaY); // silent update
+            me._translateX = me.translateX - (me.deltaX * me.mouseWheelDeltaX); // silent update
+            me._translateZ = me.translateZ + (me.deltaY * me.mouseWheelDeltaY); // silent update
 
             me.moveOrigin();
 
