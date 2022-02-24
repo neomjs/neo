@@ -1,5 +1,4 @@
 import ClassSystemUtil from '../util/ClassSystem.mjs';
-import Collection      from '../collection/Base.mjs'
 import Component       from './Base.mjs';
 import HelixModel      from '../selection/HelixModel.mjs';
 import Matrix          from '../util/Matrix.mjs';
@@ -436,20 +435,9 @@ class Helix extends Component {
 
         oldValue?.destroy();
 
-        // todo: remove the if check once all demos use stores (instead of collections)
-        if (value) {
-            return ClassSystemUtil.beforeSetInstance(value, Store, {
-                listeners  : {
-                    load : me.onStoreLoad,
-                    sort : me.onSort,
-                    scope: me
-                }
-            });
-        }
-
-        return Neo.create(Collection, {
-            keyProperty: 'id',
+        return ClassSystemUtil.beforeSetInstance(value, Store, {
             listeners  : {
+                load : me.onStoreLoad,
                 sort : me.onSort,
                 scope: me
             }
@@ -746,11 +734,8 @@ class Helix extends Component {
             Neo.currentWorker.promiseMessage('main', {
                 action    : 'readDom',
                 appName   : me.appName,
-                vnodeId   : me.id,
-                attributes: [
-                    'offsetHeight',
-                    'offsetWidth'
-                ]
+                attributes: ['offsetHeight', 'offsetWidth'],
+                vnodeId   : me.id
             }).then(data => {
                 me.offsetHeight = data.attributes.offsetHeight;
                 me.offsetWidth  = data.attributes.offsetWidth;
@@ -795,15 +780,7 @@ class Helix extends Component {
      */
     onConstructed() {
         super.onConstructed();
-
-        let me = this;
-
-        me.selectionModel?.register(me);
-
-        // load data for the example collection
-        if (!(me.store instanceof Store)) {
-            me.loadData();
-        }
+        this.selectionModel?.register(this);
     }
 
     /**
@@ -825,15 +802,11 @@ class Helix extends Component {
      * @param {Object} data
      */
     onMouseWheel(data) {
-        let me            = this,
-            deltaX        = data.deltaX,
-            deltaY        = data.deltaY,
-            rotationAngle = me.rotationAngle,
-            translateZ    = me.translateZ;
+        let me = this;
 
         if (me.mouseWheelEnabled && me[lockWheel]) {
-            me._rotationAngle = rotationAngle + (deltaX * me.mouseWheelDeltaX); // silent update
-            me._translateZ    = translateZ    + (deltaY * me.mouseWheelDeltaY); // silent update
+            me._rotationAngle = me.rotationAngle + (data.deltaX * me.mouseWheelDeltaX); // silent update
+            me._translateZ    = me.translateZ    + (data.deltaY * me.mouseWheelDeltaY); // silent update
 
             me.refresh();
 
@@ -849,7 +822,7 @@ class Helix extends Component {
     onSelectionChange(value, oldValue) {
         let me = this;
 
-        if (me.followSelection && value && value[0]) {
+        if (me.followSelection && value?.[0]) {
             me.applyItemTransitions(me.moveToSelectedItem, 100, value[0]);
         }
     }
@@ -860,7 +833,7 @@ class Helix extends Component {
     onSort() {
         let me = this;
 
-        if (me[itemsMounted] === true) {console.log('sort');
+        if (me[itemsMounted] === true) {
             me.applyItemTransitions(me.sortItems, 1000);
         }
     }
@@ -915,9 +888,9 @@ class Helix extends Component {
             s = Math.sin(angle * Math.PI / 180);
             c = Math.cos(angle * Math.PI / 180);
 
-            x =  -300 + radius * s     + translateX;
-            y =  -400 + angle * deltaY + translateY;
-            z = 99800 + radius * c     + translateZ;
+            x =  -300 + radius * s      + translateX;
+            y =  -400 + angle  * deltaY + translateY;
+            z = 99800 + radius * c      + translateZ;
 
             matrix.items = [
                 [c, 0, -s, 0],
