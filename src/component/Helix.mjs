@@ -272,6 +272,19 @@ class Helix extends Component {
     }
 
     /**
+     * Triggered after the followSelection config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetFollowSelection(value, oldValue) {
+        let cls = this.cls;
+
+        NeoArray[value ? 'add' : 'remove'](cls, 'neo-follow-selection');
+        this.cls = cls;
+    }
+
+    /**
      * Triggered after the flipped config got changed
      * @param {Boolean} value
      * @param {Boolean} oldValue
