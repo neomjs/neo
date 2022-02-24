@@ -554,10 +554,7 @@ class Component extends BaseComponent {
             date.setDate(date.getDate() + 1);
         }
 
-        return {
-            header: header,
-            row   : row
-        }
+        return {header, row}
     }
 
     /**
@@ -626,16 +623,12 @@ class Component extends BaseComponent {
         let oldPath = data.oldPath,
             path    = data.path;
 
-        if (oldPath) {
-            if (oldPath[0]?.cls.includes('neo-event')) {
-                Neo.applyDeltas(this.appName, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
-            }
+        if (oldPath?.[0]?.cls.includes('neo-event')) {
+            Neo.applyDeltas(this.appName, {id: oldPath[0].id, cls: {remove: ['neo-focus']}});
         }
 
-        if (path) {
-            if (path[0]?.cls.includes('neo-event')) {
-                Neo.applyDeltas(this.appName, {id: path[0].id, cls: {add: ['neo-focus']}});
-            }
+        if (path?.[0]?.cls.includes('neo-event')) {
+            Neo.applyDeltas(this.appName, {id: path[0].id, cls: {add: ['neo-focus']}});
         }
     }
 
@@ -668,9 +661,7 @@ class Component extends BaseComponent {
 
                     week = me.createWeek(DateUtil.clone(date));
 
-                    if (week.header) {
-                        container.cn.push(week.header);
-                    }
+                    week.header && container.cn.push(week.header);
 
                     container.cn.push(week.row);
                 }
@@ -702,9 +693,7 @@ class Component extends BaseComponent {
 
                     container.cn.unshift(week.row);
 
-                    if (week.header) {
-                        container.cn.unshift(week.header);
-                    }
+                    week.header && container.cn.unshift(week.header);
                 }
 
                 me.promiseVdomUpdate(me.vdom).then(() => {
@@ -723,9 +712,7 @@ class Component extends BaseComponent {
                 me.vdom = vdom;
             }
 
-            if (me.scrollTaskId) {
-                clearTimeout(me.scrollTaskId);
-            }
+            me.scrollTaskId && clearTimeout(me.scrollTaskId);
 
             me.scrollTaskId = setTimeout(me.onWheelEnd.bind(me), 300);
         }
