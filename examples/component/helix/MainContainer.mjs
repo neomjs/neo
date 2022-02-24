@@ -1,5 +1,6 @@
 import CheckBox    from '../../../src/form/field/CheckBox.mjs';
 import Helix       from '../../../src/component/Helix.mjs';
+import ImageStore  from './ImageStore.mjs';
 import NumberField from '../../../src/form/field/Number.mjs';
 import Panel       from '../../../src/container/Panel.mjs';
 import RangeField  from '../../../src/form/field/Range.mjs';
@@ -312,6 +313,7 @@ class MainContainer extends Viewport {
         me.helix = Neo.create({
             module: Helix,
             id    : 'neo-helix-1',
+            store : ImageStore,
             ...me.helixConfig
         });
 

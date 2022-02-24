@@ -500,7 +500,7 @@ class MainContainer extends Container {
         return import('./SettingsContainer.mjs').then(module => {
             me.items[1].add({
                 module             : module.default,
-                collapsed          : collapsed,
+                collapsed,
                 removeInactiveCards: me.removeInactiveCards,
                 style              : {marginRight: !collapsed ? '0' : `-${me.settingsContainerWidth}px`},
                 width              : me.settingsContainerWidth,

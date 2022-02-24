@@ -146,21 +146,19 @@ class App extends Base {
 
                 themeFolders = Neo.ns(mapClassName || className, false, cssMap.fileInfo);
 
-                if (themeFolders) {
-                    if (!Neo.ns(`${lAppName}.${className}`, false, cssMap)) {
-                        classPath = className.split('.');
-                        fileName  = classPath.pop();
-                        classPath = classPath.join('.');
-                        ns        = Neo.ns(`${lAppName}.${classPath}`, true, cssMap);
+                if (themeFolders && !Neo.ns(`${lAppName}.${className}`, false, cssMap)) {
+                    classPath = className.split('.');
+                    fileName  = classPath.pop();
+                    classPath = classPath.join('.');
+                    ns        = Neo.ns(`${lAppName}.${classPath}`, true, cssMap);
 
-                        ns[fileName] = true;
+                    ns[fileName] = true;
 
-                        Neo.main.addon.Stylesheet.addThemeFiles({
-                            appName,
-                            className: mapClassName || className,
-                            folders  : themeFolders
-                        });
-                    }
+                    Neo.main.addon.Stylesheet.addThemeFiles({
+                        appName,
+                        className: mapClassName || className,
+                        folders  : themeFolders
+                    });
                 }
             }
         }
@@ -236,9 +234,7 @@ class App extends Base {
             .then(response => response.json())
             .then(data => {this.createThemeMap(data)});
 
-        if (!config.useVdomWorker) {
-            import('../vdom/Helper.mjs');
-        }
+        !config.useVdomWorker && import('../vdom/Helper.mjs');
     }
 
     /**
