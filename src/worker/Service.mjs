@@ -34,18 +34,7 @@ class Service extends Base {
         let me = this,
             gt = globalThis;
 
-        Object.assign(me, {
-            channelPorts  : {},
-            isSharedWorker: gt.toString() === '[object SharedWorkerGlobalScope]',
-            ports         : [],
-            promises      : {}
-        });
-
-        if (me.isSharedWorker) {
-            gt.onconnect = me.onConnected.bind(me);
-        } else {
-            gt.onmessage = me.onMessage.bind(me);
-        }
+        gt.onmessage = me.onMessage.bind(me);
 
         Neo.currentWorker = me;
         Neo.workerId      = me.workerId;
