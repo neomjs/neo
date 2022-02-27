@@ -8,6 +8,11 @@ import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
  * @abstract
  */
 class Service extends Base {
+    /**
+     * @member {Object[]} promises=[]
+     */
+    promises = []
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.worker.Service'
