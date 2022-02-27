@@ -96,11 +96,8 @@ class Service extends Base {
      * @param {Object} msg
      */
     onPing(msg) {
-        this.resolve(msg, {
-            originMsg: msg
-        });
+        this.resolve(msg, {originMsg: msg});
     }
-
 
     /**
      * @param {String} dest app, data, main or vdom (excluding the current worker)
@@ -117,10 +114,7 @@ class Service extends Base {
             let message = me.sendMessage(dest, opts, transfer),
                 msgId   = message.id;
 
-            me.promises[msgId] = {
-                resolve,
-                reject
-            };
+            me.promises[msgId] = {reject, resolve};
         });
     }
 
@@ -136,27 +130,9 @@ class Service extends Base {
     sendMessage(dest, opts, transfer) {
         opts.destination = dest;
 
-        let me = this,
-            message, port, portObject;
-
-        if (me.channelPorts[dest]) {
-            port = me.channelPorts[dest];
-        } else if (!me.isSharedWorker) {
-            port = globalThis;
-        } else {
-            if (opts.port) {
-                port = me.getPort({id: opts.port}).port;
-            } else if (opts.appName) {
-                portObject = me.getPort({appName: opts.appName});
-                port       = portObject.port;
-
-                opts.port = portObject.id;
-            } else {
-                port = me.ports[0].port;
-            }
-        }
-
-        message = new Message(opts);
+        let me      = this,
+            port    = me.channelPorts[dest] ? me.channelPorts[dest] : globalThis,
+            message = new Message(opts);
 
         port.postMessage(message, transfer);
         return message;
