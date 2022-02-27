@@ -87,12 +87,7 @@ class Service extends Base {
         if (action !== 'reply') {
             me['on' + Neo.capitalize(action)](data);
         } else if (promise = action === 'reply' && me.promises[replyId]) {
-            if (data.reject) {
-                promise.reject(data.data);
-            } else {
-                promise.resolve(data.data);
-            }
-
+            promise[data.reject ? 'reject' : 'resolve'](data.data);
             delete me.promises[replyId];
         }
     }
