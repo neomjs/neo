@@ -31,13 +31,38 @@ class Service extends Base {
     construct(config) {
         super.construct(config);
 
-        let me = this,
-            gt = globalThis;
+        let me = this;
 
-        gt.onmessage = me.onMessage.bind(me);
+        Object.assign(globalThis, {
+            activate : me.onActivate.bind(me),
+            fetch    : me.onFetch   .bind(me),
+            install  : me.onInstall .bind(me),
+            onmessage: me.onMessage .bind(me)
+        });
 
         Neo.currentWorker = me;
         Neo.workerId      = me.workerId;
+    }
+
+    /**
+     * @param {Object} e
+     */
+    onActivate(e) {
+        console.log('onActivate', e);
+    }
+
+    /**
+     * @param {Object} e
+     */
+    onFetch(e) {
+        console.log('onFetch', e);
+    }
+
+    /**
+     * @param {Object} e
+     */
+    onInstall(e) {
+        console.log('onInstall', e);
     }
 
     /**
