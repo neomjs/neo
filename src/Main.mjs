@@ -190,7 +190,8 @@ class Main extends core.Base {
     async onDomContentLoaded() {
         let me      = this,
             config  = Neo.config,
-            imports = [];
+            imports = [],
+            modules;
 
         DomAccess.onDomContentLoaded();
 
@@ -214,7 +215,7 @@ class Main extends core.Base {
             imports.push(import('./main/addon/AnalyticsByGoogle.mjs'));
         }
 
-        const modules = await Promise.all(imports);
+        modules = await Promise.all(imports);
 
         me.addon = {};
 
