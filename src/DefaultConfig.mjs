@@ -134,7 +134,7 @@ const DefaultConfig = {
      * Experimental flag if an offscreen canvas worker should get created.
      * @default false
      * @memberOf! module:Neo
-     * @name config.useCssVars
+     * @name config.useCanvasWorker
      * @type Boolean
      */
     useCanvasWorker: false,
@@ -163,6 +163,15 @@ const DefaultConfig = {
      * @type Boolean
      */
     useGoogleAnalytics: false,
+    /**
+     * True will add the ServiceWorker main thread addon to support caching of assets (PWA)
+     * See: https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API
+     * @default false
+     * @memberOf! module:Neo
+     * @name config.useServiceWorker
+     * @type Boolean
+     */
+    useServiceWorker: false,
     /**
      * Creates App, Data & VDom as SharedWorkers.
      * Set this one to true in case you want to connect multiple main threads.
