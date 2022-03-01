@@ -20,6 +20,14 @@ class ServiceBase extends Base {
          */
         className: 'Neo.worker.ServiceBase',
         /**
+         * @member {String} cacheName='neo-runtime'
+         */
+        cacheName: 'neo-runtime',
+        /**
+         * @member {String[]|null} cachePaths=null
+         */
+        cachePaths: null,
+        /**
          * @member {String[]|Neo.core.Base[]|null} mixins=[RemoteMethodAccess]
          */
         mixins: [RemoteMethodAccess],
@@ -50,33 +58,48 @@ class ServiceBase extends Base {
     }
 
     /**
-     * @param {Object} e
+     * @param {Object} event
      */
-    onActivate(e) {
-        console.log('onActivate', e);
+    onActivate(event) {
+        console.log('onActivate', event);
     }
 
     /**
-     * @param {Object} e
+     * @param {Object} event
      */
-    onFetch(e) {
-        console.log('onFetch', e);
+    onFetch(event) {
+        let request = event.request;
+
+        event.respondWith(
+            caches.match(request).then(cachedResponse => {
+                if (cachedResponse) {
+                    console.log('cached', cachedResponse);
+                    return cachedResponse;
+                }
+
+                return caches.open(this.cacheName)
+                    .then(cache    => fetch(request)
+                    .then(response => cache.put(request, response.clone())
+                    .then(()       => response)
+                ));
+            })
+        );
     }
 
     /**
-     * @param {Object} e
+     * @param {Object} event
      */
-    onInstall(e) {
-        console.log('onInstall', e);
+    onInstall(event) {
+        console.log('onInstall', event);
         globalThis.skipWaiting();
     }
 
     /**
-     * @param {Object} e
+     * @param {Object} event
      */
-    onMessage(e) {
+    onMessage(event) {
         let me      = this,
-            data    = e.data,
+            data    = event.data,
             action  = data.action,
             replyId = data.replyId,
             promise;
