@@ -24,7 +24,11 @@ class ServiceWorker extends Base {
      * @param {Object} config
      */
     construct(config) {
-        console.log('ServiceWorker construct()');
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('../../../ServiceWorker.mjs', {
+                type: 'module'
+            })
+        }
     }
 }
 

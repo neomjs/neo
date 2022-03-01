@@ -24,10 +24,10 @@ class ServiceBase extends Base {
          */
         mixins: [RemoteMethodAccess],
         /**
-         * @member {String} workerId='service'
+         * @member {String|null} workerId=null
          * @protected
          */
-        workerId: 'service'
+        workerId: null
     }}
 
     /**
@@ -39,10 +39,10 @@ class ServiceBase extends Base {
         let me = this;
 
         Object.assign(globalThis, {
-            activate : me.onActivate.bind(me),
-            fetch    : me.onFetch   .bind(me),
-            install  : me.onInstall .bind(me),
-            onmessage: me.onMessage .bind(me)
+            onactivate: me.onActivate.bind(me),
+            onfetch   : me.onFetch   .bind(me),
+            oninstall : me.onInstall .bind(me),
+            onmessage : me.onMessage .bind(me)
         });
 
         Neo.currentWorker = me;
@@ -68,6 +68,7 @@ class ServiceBase extends Base {
      */
     onInstall(e) {
         console.log('onInstall', e);
+        globalThis.skipWaiting();
     }
 
     /**
