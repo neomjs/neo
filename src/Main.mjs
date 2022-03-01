@@ -188,9 +188,10 @@ class Main extends core.Base {
      *
      */
     async onDomContentLoaded() {
-        let me      = this,
-            config  = Neo.config,
-            imports = [],
+        let me               = this,
+            config           = Neo.config,
+            mainThreadAddons = config.mainThreadAddons,
+            imports          = [],
             modules;
 
         DomAccess.onDomContentLoaded();
@@ -204,16 +205,18 @@ class Main extends core.Base {
             __webpack_require__.p = config.basePath.substring(6);
         }
 
-        config.mainThreadAddons.forEach(addon => {
-            if (addon !== 'AnalyticsByGoogle') {
-                imports.push(import(`./main/addon/${addon}.mjs`));
-            }
-        });
-
         // intended for the online examples where we need an easy way to add GA to every generated app
-        if (config.useGoogleAnalytics || config.mainThreadAddons.includes('AnalyticsByGoogle')) {
-            imports.push(import('./main/addon/AnalyticsByGoogle.mjs'));
+        if (config.useGoogleAnalytics && !mainThreadAddons.includes('AnalyticsByGoogle')) {
+            mainThreadAddons.push('AnalyticsByGoogle');
         }
+
+        if (config.useServiceWorker && !mainThreadAddons.includes('ServiceWorker')) {
+            mainThreadAddons.push('ServiceWorker');
+        }
+
+        mainThreadAddons.forEach(addon => {
+            imports.push(import(`./main/addon/${addon}.mjs`));
+        });
 
         modules = await Promise.all(imports);
 
