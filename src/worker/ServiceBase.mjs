@@ -3,11 +3,11 @@ import Message            from './Message.mjs';
 import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
 
 /**
- * @class Neo.worker.Service
+ * @class Neo.worker.ServiceBase
  * @extends Neo.core.Base
  * @abstract
  */
-class Service extends Base {
+class ServiceBase extends Base {
     /**
      * @member {Object[]} promises=[]
      */
@@ -15,10 +15,10 @@ class Service extends Base {
 
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.worker.Service'
+         * @member {String} className='Neo.worker.ServiceBase'
          * @protected
          */
-        className: 'Neo.worker.Service',
+        className: 'Neo.worker.ServiceBase',
         /**
          * @member {String[]|Neo.core.Base[]|null} mixins=[RemoteMethodAccess]
          */
@@ -139,6 +139,6 @@ class Service extends Base {
     }
 }
 
-Neo.applyClassConfig(Service);
+Neo.applyClassConfig(ServiceBase);
 
-export default Service;
+export default ServiceBase;
