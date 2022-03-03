@@ -37,6 +37,16 @@ class ServiceBase extends Base {
          */
         mixins: [RemoteMethodAccess],
         /**
+         * Remote method access for other workers
+         * @member {Object} remote={app: [//...]}
+         * @protected
+         */
+        remote: {
+            app: [
+                'clearCaches'
+            ]
+        },
+        /**
          * @member {String|null} workerId=null
          * @protected
          */
@@ -60,6 +70,13 @@ class ServiceBase extends Base {
 
         Neo.currentWorker = me;
         Neo.workerId      = me.workerId;
+    }
+
+    /**
+     *
+     */
+    clearCaches() {
+        console.log('clearCaches');
     }
 
     /**
