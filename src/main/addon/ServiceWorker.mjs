@@ -1,4 +1,5 @@
-import Base from '../../core/Base.mjs';
+import Base               from '../../core/Base.mjs';
+import RemoteMethodAccess from '../../worker/mixin/RemoteMethodAccess.mjs';
 
 /**
  * Creates a ServiceWorker instance, in case Neo.config.useServiceWorker is set to true
@@ -13,6 +14,10 @@ class ServiceWorker extends Base {
          * @protected
          */
         className: 'Neo.main.addon.ServiceWorker',
+        /**
+         * @member {String[]|Neo.core.Base[]|null} mixins=[RemoteMethodAccess]
+         */
+        mixins: [RemoteMethodAccess],
         /**
          * @member {ServiceWorkerRegistration|null} registration=null
          * @protected
