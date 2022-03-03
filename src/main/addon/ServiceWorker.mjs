@@ -41,7 +41,6 @@ class ServiceWorker extends Base {
             navigator.serviceWorker.register('../../../ServiceWorker.mjs', {type: 'module'})
                 .then(registration => {
                     me.registration = registration;
-                    console.log(registration);
 
                     me.sendMessage('service', {
                         action: 'registerNeoConfig',
@@ -49,6 +48,13 @@ class ServiceWorker extends Base {
                     });
                 })
         }
+    }
+
+    /**
+     * @returns {ServiceWorker|null}
+     */
+    getWorker() {
+        return this.registration?.active || null;
     }
 
     /**
@@ -62,7 +68,7 @@ class ServiceWorker extends Base {
      */
     sendMessage(dest, opts, transfer) {
         let me     = this,
-            worker = me.registration?.active,
+            worker = me.getWorker(),
             message;
 
             if (!worker) {
