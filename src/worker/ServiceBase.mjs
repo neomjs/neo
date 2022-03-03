@@ -94,6 +94,8 @@ class ServiceBase extends Base {
      */
     onConnect(source) {
         console.log('onConnect', source);
+
+        this.initRemote();
     }
 
     /**
