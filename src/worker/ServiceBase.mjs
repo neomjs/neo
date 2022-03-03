@@ -24,9 +24,14 @@ class ServiceBase extends Base {
          */
         cacheName: 'neo-runtime',
         /**
-         * @member {String[]|null} cachePaths=null
+         * @member {String[]|null} cachePaths
          */
-        cachePaths: null,
+        cachePaths: [
+            'raw.githubusercontent.com/',
+            '/dist/production/',
+            '/fontawesome',
+            '/resources/'
+        ],
         /**
          * @member {String[]|Neo.core.Base[]|null} mixins=[RemoteMethodAccess]
          */
@@ -68,9 +73,18 @@ class ServiceBase extends Base {
      * @param {Object} event
      */
     onFetch(event) {
-        let request = event.request;
+        let hasMatch = false,
+            request  = event.request,
+            key;
 
-        event.respondWith(
+        for (key of this.cachePaths) {
+            if (request.url.includes(key)) {
+                hasMatch = true;
+                break;
+            }
+        }
+
+        hasMatch && event.respondWith(
             caches.match(request).then(cachedResponse => {
                 if (cachedResponse) {
                     // console.log('cached', cachedResponse);
