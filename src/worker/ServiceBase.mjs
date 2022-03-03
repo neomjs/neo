@@ -85,18 +85,12 @@ class ServiceBase extends Base {
         }
 
         hasMatch && event.respondWith(
-            caches.match(request).then(cachedResponse => {
-                if (cachedResponse) {
-                    // console.log('cached', cachedResponse);
-                    return cachedResponse;
-                }
-
-                return caches.open(this.cacheName)
-                    .then(cache    => fetch(request)
-                    .then(response => cache.put(request, response.clone())
-                    .then(()       => response)
-                ));
-            })
+            caches.match(request)
+                .then(cachedResponse => cachedResponse || caches.open(this.cacheName)
+                .then(cache          => fetch(request)
+                .then(response       => cache.put(request, response.clone())
+                .then(()             => response)
+            )))
         );
     }
 
