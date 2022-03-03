@@ -218,6 +218,10 @@ class Manager extends Base {
      * @returns {Worker}
      */
     getWorker(name) {
+        if (name === 'service') {
+            return navigator.serviceWorker?.controller;
+        }
+
         return name instanceof Worker ? name : this.workers[name].worker;
     }
 

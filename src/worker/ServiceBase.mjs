@@ -48,6 +48,16 @@ class ServiceBase extends Base {
          */
         mixins: [RemoteMethodAccess],
         /**
+         * Remote method access for other workers
+         * @member {Object} remote={app: [//...]}
+         * @protected
+         */
+        remote: {
+            app: [
+                'clearCaches'
+            ]
+        },
+        /**
          * @member {String|null} workerId=null
          * @protected
          */
@@ -206,7 +216,7 @@ class ServiceBase extends Base {
         opts.destination = dest;
 
         let me      = this,
-            port    = me.channelPorts[dest] ? me.channelPorts[dest] : globalThis.serviceWorker, // todo: destinations
+            port    = me.channelPorts[dest] ? me.channelPorts[dest] : me.lastClient, // todo: destinations
             message = new Message(opts);
 
         port.postMessage(message, transfer);

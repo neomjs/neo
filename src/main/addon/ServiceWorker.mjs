@@ -1,6 +1,7 @@
 import Base               from '../../core/Base.mjs';
 import Message            from '../../worker/Message.mjs';
 import RemoteMethodAccess from '../../worker/mixin/RemoteMethodAccess.mjs';
+import WorkerManager      from '../../worker/Manager.mjs';
 
 /**
  * Creates a ServiceWorker instance, in case Neo.config.useServiceWorker is set to true
@@ -41,6 +42,8 @@ class ServiceWorker extends Base {
             navigator.serviceWorker.register('../../../ServiceWorker.mjs', {type: 'module'})
                 .then(registration => {
                     me.registration = registration;
+
+                    navigator.serviceWorker.onmessage = WorkerManager.onWorkerMessage.bind(WorkerManager);
 
                     me.sendMessage('service', {
                         action: 'registerNeoConfig',
