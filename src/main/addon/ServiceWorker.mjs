@@ -14,6 +14,11 @@ class ServiceWorker extends Base {
          */
         className: 'Neo.main.addon.ServiceWorker',
         /**
+         * @member {ServiceWorkerRegistration|null} registration=null
+         * @protected
+         */
+        registration: null,
+        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -25,9 +30,13 @@ class ServiceWorker extends Base {
      */
     construct(config) {
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('../../../ServiceWorker.mjs', {
-                type: 'module'
-            })
+            let me = this;
+
+            navigator.serviceWorker.register('../../../ServiceWorker.mjs', {type: 'module'})
+                .then(registration => {
+                    me.registration = registration;
+                    console.log(registration);
+                })
         }
     }
 }
