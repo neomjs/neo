@@ -9,6 +9,11 @@ import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
  */
 class ServiceBase extends Base {
     /**
+     * @member {Object|null} channelPorts=null
+     * @protected
+     */
+    channelPorts = null
+    /**
      * @member {Object[]} promises=[]
      */
     promises = []
@@ -37,16 +42,6 @@ class ServiceBase extends Base {
          */
         mixins: [RemoteMethodAccess],
         /**
-         * Remote method access for other workers
-         * @member {Object} remote={app: [//...]}
-         * @protected
-         */
-        remote: {
-            app: [
-                'clearCaches'
-            ]
-        },
-        /**
          * @member {String|null} workerId=null
          * @protected
          */
@@ -60,6 +55,8 @@ class ServiceBase extends Base {
         super.construct(config);
 
         let me = this;
+
+        me.channelPorts = {};
 
         Object.assign(globalThis, {
             onactivate: me.onActivate.bind(me),
@@ -84,6 +81,13 @@ class ServiceBase extends Base {
      */
     onActivate(event) {
         console.log('onActivate', event);
+    }
+
+    /**
+     * @param {Client} source
+     */
+    onConnect(source) {
+        console.log('onConnect', source);
     }
 
     /**
@@ -134,7 +138,7 @@ class ServiceBase extends Base {
         }
 
         if (action !== 'reply') {
-            me['on' + Neo.capitalize(action)](data);
+            me['on' + Neo.capitalize(action)](data, event);
         } else if (promise = action === 'reply' && me.promises[replyId]) {
             promise[data.reject ? 'reject' : 'resolve'](data.data);
             delete me.promises[replyId];
@@ -143,17 +147,21 @@ class ServiceBase extends Base {
 
     /**
      * @param {Object} msg
+     * @param {ExtendableMessageEvent} event
      */
-    onPing(msg) {
+    onPing(msg, event) {
         this.resolve(msg, {originMsg: msg});
     }
 
     /**
      * @param {Object} msg
+     * @param {ExtendableMessageEvent} event
      */
-    onRegisterNeoConfig(msg) {
+    onRegisterNeoConfig(msg, event) {
         Neo.config = Neo.config || {};
         Object.assign(Neo.config, msg.data);
+
+        this.onConnect(event.source);
     }
 
     /**
@@ -188,7 +196,7 @@ class ServiceBase extends Base {
         opts.destination = dest;
 
         let me      = this,
-            port    = me.channelPorts[dest] ? me.channelPorts[dest] : globalThis,
+            port    = me.channelPorts[dest] ? me.channelPorts[dest] : globalThis.serviceWorker, // todo: destinations
             message = new Message(opts);
 
         port.postMessage(message, transfer);
