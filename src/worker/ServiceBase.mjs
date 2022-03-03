@@ -14,7 +14,13 @@ class ServiceBase extends Base {
      */
     channelPorts = null
     /**
+     * @member {Client|null} lastClient=null
+     * @protected
+     */
+    lastClient = null
+    /**
      * @member {Object[]} promises=[]
+     * @protected
      */
     promises = []
 
@@ -77,7 +83,7 @@ class ServiceBase extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {ExtendableMessageEvent} event
      */
     onActivate(event) {
         console.log('onActivate', event);
@@ -91,7 +97,7 @@ class ServiceBase extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {ExtendableMessageEvent} event
      */
     onFetch(event) {
         let hasMatch = false,
@@ -116,7 +122,7 @@ class ServiceBase extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {ExtendableMessageEvent} event
      */
     onInstall(event) {
         console.log('onInstall', event);
@@ -124,7 +130,7 @@ class ServiceBase extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {ExtendableMessageEvent} event
      */
     onMessage(event) {
         let me      = this,
@@ -132,6 +138,8 @@ class ServiceBase extends Base {
             action  = data.action,
             replyId = data.replyId,
             promise;
+
+        me.lastClient = event.source;
 
         if (!action) {
             throw new Error('Message action is missing: ' + data.id);
