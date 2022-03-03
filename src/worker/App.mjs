@@ -243,7 +243,7 @@ class App extends Base {
     onRegisterPort(msg) {
         let me   = this,
             port = msg.transfer;
-
+console.log('onRegisterPort', msg);
         port.onmessage = me.onMessage.bind(me);
 
         me.channelPorts[msg.origin] = port;

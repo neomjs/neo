@@ -93,6 +93,27 @@ class ServiceBase extends Base {
     }
 
     /**
+     *
+     */
+    createMessageChannel() {
+        let me      = this,
+            channel = new MessageChannel(),
+            port    = channel.port2;
+
+        // channel.port1.onmessage = me.onMessage.bind(me);
+
+        channel.port1.onmessage = event => {
+            console.log('received message from channel', event);
+            me.onMessage(event);
+        }
+
+        console.log('createMessageChannel');
+        me.sendMessage('app', {action: 'registerPort', transfer: port}, [port]);
+
+        me.channelPorts.app = channel.port1;
+    }
+
+    /**
      * @param {ExtendableMessageEvent} event
      */
     onActivate(event) {
@@ -105,6 +126,7 @@ class ServiceBase extends Base {
     onConnect(source) {
         console.log('onConnect', source);
 
+        this.createMessageChannel();
         this.initRemote();
     }
 
@@ -218,6 +240,8 @@ class ServiceBase extends Base {
         let me      = this,
             port    = me.channelPorts[dest] ? me.channelPorts[dest] : me.lastClient, // todo: destinations
             message = new Message(opts);
+
+        console.log('sendMessage', message, port);
 
         port.postMessage(message, transfer);
         return message;
