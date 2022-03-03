@@ -72,7 +72,7 @@ class App extends Base {
     }
 
     /**
-     * @param {JSON} data
+     * @param {Object} data
      */
     createThemeMap(data) {
         Neo.ns('Neo.cssMap.fileInfo', true);
