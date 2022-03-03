@@ -265,7 +265,7 @@ class App extends Base {
         this.onRegisterApp({ appName });
 
         this.sendMessage('main', {
-            action:'registerAppName',
+            action: 'registerAppName',
             appName
         });
     }
