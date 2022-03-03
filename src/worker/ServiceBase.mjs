@@ -73,7 +73,7 @@ class ServiceBase extends Base {
         event.respondWith(
             caches.match(request).then(cachedResponse => {
                 if (cachedResponse) {
-                    console.log('cached', cachedResponse);
+                    // console.log('cached', cachedResponse);
                     return cachedResponse;
                 }
 
@@ -121,6 +121,14 @@ class ServiceBase extends Base {
      */
     onPing(msg) {
         this.resolve(msg, {originMsg: msg});
+    }
+
+    /**
+     * @param {Object} msg
+     */
+    onRegisterNeoConfig(msg) {
+        Neo.config = Neo.config || {};
+        Object.assign(Neo.config, msg.data);
     }
 
     /**

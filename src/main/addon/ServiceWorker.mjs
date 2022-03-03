@@ -42,6 +42,11 @@ class ServiceWorker extends Base {
                 .then(registration => {
                     me.registration = registration;
                     console.log(registration);
+
+                    me.sendMessage('service', {
+                        action: 'registerNeoConfig',
+                        data  : Neo.config
+                    });
                 })
         }
     }
