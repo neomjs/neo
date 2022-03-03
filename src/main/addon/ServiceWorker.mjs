@@ -1,4 +1,5 @@
 import Base               from '../../core/Base.mjs';
+import Message            from '../../worker/Message.mjs';
 import RemoteMethodAccess from '../../worker/mixin/RemoteMethodAccess.mjs';
 
 /**
@@ -43,6 +44,32 @@ class ServiceWorker extends Base {
                     console.log(registration);
                 })
         }
+    }
+
+    /**
+     * @param {String} dest app, canvas, data or vdom
+     * @param {Object} opts configs for Neo.worker.Message
+     * @param {Array} [transfer] An optional array of Transferable objects to transfer ownership of.
+     * If the ownership of an object is transferred, it becomes unusable (neutered) in the context it was sent from
+     * and becomes available only to the worker it was sent to.
+     * @returns {Neo.worker.Message}
+     * @protected
+     */
+    sendMessage(dest, opts, transfer) {
+        let me     = this,
+            worker = me.registration?.active,
+            message;
+
+            if (!worker) {
+                throw new Error('Called sendMessage for a worker that does not exist: ' + dest);
+            }
+
+            opts.destination = dest;
+
+            message = new Message(opts);
+
+            worker.postMessage(message, transfer);
+            return message;
     }
 }
 
