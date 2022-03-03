@@ -9,7 +9,7 @@ import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
  */
 class ServiceBase extends Base {
     /**
-     * @member {Object|null} channelPorts=null
+     * @member {Object[]|null} channelPorts=null
      * @protected
      */
     channelPorts = null
@@ -72,7 +72,7 @@ class ServiceBase extends Base {
 
         let me = this;
 
-        me.channelPorts = {};
+        me.channelPorts = [];
 
         Object.assign(globalThis, {
             onactivate: me.onActivate.bind(me),
@@ -93,24 +93,38 @@ class ServiceBase extends Base {
     }
 
     /**
-     *
+     * @param {Client} client
      */
-    createMessageChannel() {
+    createMessageChannel(client) {
         let me      = this,
             channel = new MessageChannel(),
             port    = channel.port2;
 
-        // channel.port1.onmessage = me.onMessage.bind(me);
+        channel.port1.onmessage = me.onMessage.bind(me);
 
-        channel.port1.onmessage = event => {
-            console.log('received message from channel', event);
-            me.onMessage(event);
-        }
-
-        console.log('createMessageChannel');
         me.sendMessage('app', {action: 'registerPort', transfer: port}, [port]);
 
-        me.channelPorts.app = channel.port1;
+        me.channelPorts.push({
+            clientId   : client.id,
+            destination: 'app',
+            port       : channel.port1
+        });
+    }
+
+    /**
+     *
+     * @param {String} destination
+     * @param {String} clientId=this.lastClient.id
+     * @returns {MessagePort|null}
+     */
+    getPort(destination, clientId=this.lastClient?.id) {
+        for (let port of this.channelPorts) {
+            if (clientId === port.clientId && destination === port.destination) {
+                return port.port;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -126,7 +140,7 @@ class ServiceBase extends Base {
     onConnect(source) {
         console.log('onConnect', source);
 
-        this.createMessageChannel();
+        this.createMessageChannel(source);
         this.initRemote();
     }
 
@@ -164,7 +178,9 @@ class ServiceBase extends Base {
     }
 
     /**
-     * @param {ExtendableMessageEvent} event
+     * For a client based message we receive an ExtendableMessageEvent,
+     * for a MessageChannel based message a MessageEvent
+     * @param {ExtendableMessageEvent|MessageEvent} event
      */
     onMessage(event) {
         let me      = this,
@@ -173,7 +189,9 @@ class ServiceBase extends Base {
             replyId = data.replyId,
             promise;
 
-        me.lastClient = event.source;
+        if (event.source) { // ExtendableMessageEvent
+            me.lastClient = event.source;
+        }
 
         if (!action) {
             throw new Error('Message action is missing: ' + data.id);
@@ -238,10 +256,8 @@ class ServiceBase extends Base {
         opts.destination = dest;
 
         let me      = this,
-            port    = me.channelPorts[dest] ? me.channelPorts[dest] : me.lastClient, // todo: destinations
+            port    = me.getPort(dest) || me.lastClient,
             message = new Message(opts);
-
-        console.log('sendMessage', message, port);
 
         port.postMessage(message, transfer);
         return message;
