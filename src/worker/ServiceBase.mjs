@@ -70,15 +70,16 @@ class ServiceBase extends Base {
     construct(config) {
         super.construct(config);
 
-        let me = this;
+        let me   = this,
+            bind = name => me[name].bind(me);
 
         me.channelPorts = [];
 
         Object.assign(globalThis, {
-            onactivate: me.onActivate.bind(me),
-            onfetch   : me.onFetch   .bind(me),
-            oninstall : me.onInstall .bind(me),
-            onmessage : me.onMessage .bind(me)
+            onactivate: bind('onActivate'),
+            onfetch   : bind('onFetch'),
+            oninstall : bind('onInstall'),
+            onmessage : bind('onMessage')
         });
 
         Neo.currentWorker = me;
