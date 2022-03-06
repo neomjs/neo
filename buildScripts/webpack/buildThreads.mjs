@@ -61,7 +61,7 @@ if (programOpts.info) {
                 type   : 'list',
                 name   : 'threads',
                 message: 'Please choose the threads to build:',
-                choices: ['all', 'app', 'canvas', 'data', 'main', 'vdom'],
+                choices: ['all', 'app', 'canvas', 'data', 'main', 'service', 'vdom'],
                 default: 'all'
             });
         }
@@ -88,11 +88,12 @@ if (programOpts.info) {
         }
 
         function parseThreads(tPath) {
-            (threads === 'all' || threads === 'main')   && spawnSync(webpack, ['--config', `${tPath}.main.mjs`],                                                    cpOpts);
-            (threads === 'all' || threads === 'app')    && spawnSync(webpack, ['--config', `${tPath}.appworker.mjs`, `--env insideNeo=${insideNeo}`],               cpOpts);
-            (threads === 'all' || threads === 'canvas') && spawnSync(webpack, ['--config', `${tPath}.worker.mjs`,    `--env insideNeo=${insideNeo} worker=canvas`], cpOpts);
-            (threads === 'all' || threads === 'data')   && spawnSync(webpack, ['--config', `${tPath}.worker.mjs`,    `--env insideNeo=${insideNeo} worker=data`],   cpOpts);
-            (threads === 'all' || threads === 'vdom')   && spawnSync(webpack, ['--config', `${tPath}.worker.mjs`,    `--env insideNeo=${insideNeo} worker=vdom`],   cpOpts);
+            (threads === 'all' || threads === 'main')    && spawnSync(webpack, ['--config', `${tPath}.main.mjs`],                                                     cpOpts);
+            (threads === 'all' || threads === 'app')     && spawnSync(webpack, ['--config', `${tPath}.appworker.mjs`, `--env insideNeo=${insideNeo}`],                cpOpts);
+            (threads === 'all' || threads === 'canvas')  && spawnSync(webpack, ['--config', `${tPath}.worker.mjs`,    `--env insideNeo=${insideNeo} worker=canvas`],  cpOpts);
+            (threads === 'all' || threads === 'data')    && spawnSync(webpack, ['--config', `${tPath}.worker.mjs`,    `--env insideNeo=${insideNeo} worker=data`],    cpOpts);
+            (threads === 'all' || threads === 'service') && spawnSync(webpack, ['--config', `${tPath}.worker.mjs`,    `--env insideNeo=${insideNeo} worker=service`], cpOpts);
+            (threads === 'all' || threads === 'vdom')    && spawnSync(webpack, ['--config', `${tPath}.worker.mjs`,    `--env insideNeo=${insideNeo} worker=vdom`],    cpOpts);
         }
 
         // dist/development
