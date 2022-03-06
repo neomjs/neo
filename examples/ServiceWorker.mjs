@@ -1,19 +1,19 @@
-import Neo         from './src/Neo.mjs';
-import * as core   from './src/core/_export.mjs';
-import ServiceBase from './src/worker/ServiceBase.mjs';
+import Neo         from '../src/Neo.mjs';
+import * as core   from '../src/core/_export.mjs';
+import ServiceBase from '../src/worker/ServiceBase.mjs';
 
 /**
- * @class Neo.ServiceWorker
+ * @class Neo.examples.ServiceWorker
  * @extends Neo.worker.ServiceBase
  * @singleton
  */
 class ServiceWorker extends ServiceBase {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.ServiceWorker'
+         * @member {String} className='Neo.examples.ServiceWorker'
          * @protected
          */
-        className: 'Neo.ServiceWorker',
+        className: 'Neo.examples.ServiceWorker',
         /**
          * @member {Boolean} singleton=true
          * @protected
