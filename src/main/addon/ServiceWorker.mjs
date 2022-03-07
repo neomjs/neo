@@ -57,10 +57,6 @@ class ServiceWorker extends Base {
                 })
         }
     }
-
-    onStateChange() {
-        console.log('onStateChange', arguments);
-    }
 }
 
 Neo.applyClassConfig(ServiceWorker);
