@@ -36,9 +36,13 @@ class ServiceWorker extends Base {
      */
     construct(config) {
         if ('serviceWorker' in navigator) {
-            let me = this;
+            let me       = this,
+                devMode  = Neo.config.environment === 'development',
+                fileName = devMode ? 'ServiceWorker.mjs' : 'serviceworker.js',
+                folder   = window.location.pathname.includes('/examples/') ? 'examples/' : 'apps/',
+                opts     = devMode ? {type: 'module'} : {};
 
-            navigator.serviceWorker.register('../../../ServiceWorker.mjs', {type: 'module'})
+            navigator.serviceWorker.register(Neo.config.basePath + folder + fileName, opts)
                 .then(registration => {
                     me.registration = registration;
 

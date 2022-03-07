@@ -3,17 +3,17 @@ import * as core   from '../src/core/_export.mjs';
 import ServiceBase from '../src/worker/ServiceBase.mjs';
 
 /**
- * @class Neo.apps.ServiceWorker
+ * @class Neo.ServiceWorker
  * @extends Neo.worker.ServiceBase
  * @singleton
  */
 class ServiceWorker extends ServiceBase {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.apps.ServiceWorker'
+         * @member {String} className='Neo.ServiceWorker'
          * @protected
          */
-        className: 'Neo.apps.ServiceWorker',
+        className: 'Neo.ServiceWorker',
         /**
          * @member {Boolean} singleton=true
          * @protected
