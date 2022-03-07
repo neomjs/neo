@@ -390,7 +390,12 @@ class Manager extends Base {
             message, worker;
 
         if (!me.stopCommunication) {
-            worker = me.getWorker(dest);
+            if (opts.port) {
+                worker = opts.port;
+                delete opts.port;
+            } else {
+                worker = me.getWorker(dest);
+            }
 
             if (!worker) {
                 throw new Error('Called sendMessage for a worker that does not exist: ' + dest);

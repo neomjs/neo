@@ -51,10 +51,15 @@ class ServiceWorker extends Base {
 
                     WorkerManager.sendMessage('service', {
                         action: 'registerNeoConfig',
-                        data  : config
+                        data  : config,
+                        port  : registration.active
                     });
                 })
         }
+    }
+
+    onStateChange() {
+        console.log('onStateChange', arguments);
     }
 }
 

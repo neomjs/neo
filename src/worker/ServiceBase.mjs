@@ -23,6 +23,11 @@ class ServiceBase extends Base {
      * @protected
      */
     promises = []
+    /**
+     * @member {String[]} remotes=[]
+     * @protected
+     */
+    remotes = []
 
     static getConfig() {return {
         /**
@@ -126,6 +131,19 @@ class ServiceBase extends Base {
         }
 
         return null;
+    }
+
+    /**
+     * Ignore the call in case there is no connected client in place yet
+     */
+    initRemote() {
+        let me           = this,
+            lastClientId = me.lastClient?.id;
+
+        if (lastClientId && !me.remotes.includes(lastClientId)) {
+            me.remotes.push(lastClientId);
+            super.initRemote();
+        }
     }
 
     /**
@@ -256,8 +274,7 @@ class ServiceBase extends Base {
     sendMessage(dest, opts, transfer) {
         opts.destination = dest;
 
-        let me      = this,
-            port    = me.getPort(dest) || me.lastClient,
+        let port    = this.getPort(dest) || this.lastClient,
             message = new Message(opts);
 
         port.postMessage(message, transfer);
