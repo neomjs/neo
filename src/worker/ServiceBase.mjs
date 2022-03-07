@@ -59,6 +59,7 @@ class ServiceBase extends Base {
          */
         remote: {
             app: [
+                'clearCache',
                 'clearCaches'
             ]
         },
@@ -89,6 +90,15 @@ class ServiceBase extends Base {
 
         Neo.currentWorker = me;
         Neo.workerId      = me.workerId;
+    }
+
+    /**
+     * @param {String} name=this.cacheName
+     */
+    clearCache(name=this.cacheName) {
+        caches.keys()
+            .then(cacheNames     => cacheNames.filter(cacheName => cacheName === name))
+            .then(cachesToDelete => Promise.all(cachesToDelete.map(cacheToDelete => caches.delete(cacheToDelete))))
     }
 
     /**
