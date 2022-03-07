@@ -285,8 +285,8 @@ class ServiceBase extends Base {
     sendMessage(dest, opts, transfer) {
         opts.destination = dest;
 
-        let port    = this.getPort(dest) || this.lastClient,
-            message = new Message(opts);
+        let message = new Message(opts),
+            port    = this.getPort(dest) || this.lastClient;
 
         port.postMessage(message, transfer);
         return message;
