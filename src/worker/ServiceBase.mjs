@@ -95,7 +95,8 @@ class ServiceBase extends Base {
      *
      */
     clearCaches() {
-        console.log('clearCaches');
+        caches.keys()
+            .then(cachesToDelete => Promise.all(cachesToDelete.map(cacheToDelete => caches.delete(cacheToDelete))))
     }
 
     /**
