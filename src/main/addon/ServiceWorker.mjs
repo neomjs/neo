@@ -37,12 +37,13 @@ class ServiceWorker extends Base {
     construct(config) {
         if ('serviceWorker' in navigator) {
             let me       = this,
-                devMode  = Neo.config.environment === 'development',
+                config   = Neo.config,
+                devMode  = config.environment === 'development',
                 fileName = devMode ? 'ServiceWorker.mjs' : 'serviceworker.js',
                 folder   = window.location.pathname.includes('/examples/') ? 'examples/' : 'apps/',
                 opts     = devMode ? {type: 'module'} : {};
 
-            navigator.serviceWorker.register(Neo.config.basePath + folder + fileName, opts)
+            navigator.serviceWorker.register(config.basePath + folder + fileName, opts)
                 .then(registration => {
                     me.registration = registration;
 
@@ -50,7 +51,7 @@ class ServiceWorker extends Base {
 
                     WorkerManager.sendMessage('service', {
                         action: 'registerNeoConfig',
-                        data  : Neo.config
+                        data  : config
                     });
                 })
         }
