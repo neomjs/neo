@@ -56,7 +56,7 @@ class RemoteMethodAccess extends Base {
                 methods   = remote.methods,
                 pkg       = Neo.ns(className, true);
 
-            methods.forEach(function(method) {
+            methods.forEach(method => {
                 if (remote.origin !== 'main' && pkg[method]) {
                     throw new Error('Duplicate remote method definition ' + className + '.' + method);
                 }

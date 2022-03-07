@@ -72,7 +72,7 @@ class App extends Base {
     }
 
     /**
-     * @param {JSON} data
+     * @param {Object} data
      */
     createThemeMap(data) {
         Neo.ns('Neo.cssMap.fileInfo', true);
@@ -265,7 +265,7 @@ class App extends Base {
         this.onRegisterApp({ appName });
 
         this.sendMessage('main', {
-            action:'registerAppName',
+            action: 'registerAppName',
             appName
         });
     }
