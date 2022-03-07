@@ -41,18 +41,21 @@ class ServiceWorker extends Base {
                 devMode  = config.environment === 'development',
                 fileName = devMode ? 'ServiceWorker.mjs' : 'serviceworker.js',
                 folder   = window.location.pathname.includes('/examples/') ? 'examples/' : 'apps/',
-                opts     = devMode ? {type: 'module'} : {};
+                opts     = devMode ? {type: 'module'} : {},
+                serviceWorker = navigator.serviceWorker;
 
-            navigator.serviceWorker.register(config.basePath + folder + fileName, opts)
+            serviceWorker.register(config.basePath + folder + fileName, opts)
                 .then(registration => {
                     me.registration = registration;
 
-                    navigator.serviceWorker.onmessage = WorkerManager.onWorkerMessage.bind(WorkerManager);
+                    serviceWorker.ready.then(() => {
+                        serviceWorker.onmessage = WorkerManager.onWorkerMessage.bind(WorkerManager);
 
-                    WorkerManager.sendMessage('service', {
-                        action: 'registerNeoConfig',
-                        data  : config,
-                        port  : registration.active
+                        WorkerManager.sendMessage('service', {
+                            action: 'registerNeoConfig',
+                            data  : config,
+                            port  : registration.active
+                        });
                     });
                 })
         }
