@@ -310,7 +310,7 @@ class MainContainer extends Container {
                     style  : {marginLeft: '10px'}
                 });
             }, 10);
-        } else if (value === false && oldValue) {
+        } else if (!value && oldValue) {
             // we only need this logic in case we dynamically change the config from true to false
             me.items[1]         .removeLast();
             me.items[0].items[1].removeLast();
@@ -652,9 +652,7 @@ class MainContainer extends Container {
 
         map[me.activeView]();
 
-        me.model.setData({
-            currentDate: currentDate
-        });
+        me.model.setData({currentDate});
     }
 }
 
