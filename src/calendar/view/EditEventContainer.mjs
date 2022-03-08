@@ -92,10 +92,7 @@ class EditEventContainer extends FormContainer {
      */
     afterSetMounted(value, oldValue) {
         super.afterSetMounted(value, oldValue);
-
-        if (value) {
-            this.getField('title').focus();
-        }
+        value && this.getField('title').focus();
     }
 
     /**
