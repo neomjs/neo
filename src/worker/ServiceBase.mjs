@@ -257,9 +257,39 @@ class ServiceBase extends Base {
 
     /**
      * @param {Object} data
+     * @param {String} [data.cacheName=this.cacheName]
+     * @param {String[]|String} data.files
+     * @param {Boolean} [data.foreReload=false]
      */
-    preloadAssets(data) {
-        console.log('preloadAssets', data);
+    async preloadAssets(data) {
+        let cacheName = data.cacheName || this.cacheName,
+            cache     = await caches.open(cacheName),
+            files     = data.files,
+            items     = [],
+            asset, hasMatch, item;
+
+        if (!Array.isArray(files)) {
+            files = [files];
+        }
+
+        for (item of files) {
+            hasMatch = false;
+
+            if (!data.forceReload) {
+                asset    = await cache.match(item);
+                hasMatch = !!asset;
+            }
+
+            if (!hasMatch) {
+                items.push(item);
+            }
+        }
+
+        if (items.length > 0) {
+            await cache.addAll(items);
+        }
+
+        return {success: true};
     }
 
     /**

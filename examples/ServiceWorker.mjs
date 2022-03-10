@@ -10,7 +10,7 @@ import ServiceBase from '../src/worker/ServiceBase.mjs';
 class ServiceWorker extends ServiceBase {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.ServiceWorker' f
+         * @member {String} className='Neo.ServiceWorker'
          * @protected
          */
         className: 'Neo.ServiceWorker',
