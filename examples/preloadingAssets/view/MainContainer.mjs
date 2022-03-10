@@ -1,6 +1,6 @@
-import Component    from '../../../src/component/Base.mjs';
-import TabContainer from '../../../src/tab/Container.mjs';
-import Viewport     from '../../../src/container/Viewport.mjs';
+import ImageComponent from './ImageComponent.mjs';
+import TabContainer   from '../../../src/tab/Container.mjs';
+import Viewport       from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.preloadingAssets.view.MainContainer
@@ -19,7 +19,7 @@ class MainContainer extends Viewport {
             style : {flex: 'none', margin: '20px'},
 
             itemDefaults: {
-                module: Component,
+                module: ImageComponent,
                 cls   : ['neo-examples-tab-component'],
                 style : {padding: '20px'},
             },
@@ -28,14 +28,12 @@ class MainContainer extends Viewport {
                 tabButtonConfig: {
                     iconCls: 'fa fa-user-astronaut',
                     text   : 'Bob'
-                },
-                vdom: {innerHTML: 'Welcome to your new Neo App.'}
+                }
             }, {
                 tabButtonConfig: {
                     iconCls: 'fa fa-user-ninja',
                     text   : 'Alice'
-                },
-                vdom: {innerHTML: 'Have fun creating something awesome!'}
+                }
             }]
         }]
     }}
