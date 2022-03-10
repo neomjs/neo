@@ -53,7 +53,6 @@ class Stylesheet extends Base {
 
         if (Neo.config.themes.length > 0 && Neo.config.themes[0] !== '') {
             this.addGlobalCss();
-            // this.insertTheme();
         }
     }
 
