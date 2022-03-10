@@ -29,9 +29,7 @@ class VBox extends Flexbox {
      */
     applyChildAttributes(item) {
         // Do not apply flex if fixed height
-        if (!item.height) {
-            super.applyChildAttributes(item);
-        }
+        !item.height && super.applyChildAttributes(item);
     }
 }
 
