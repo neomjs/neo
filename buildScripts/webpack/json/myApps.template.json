@@ -13,23 +13,5 @@
         "SharedDialog",
         "SharedDialog2",
         "Website"
-    ],
-    "workers": {
-        "app": {
-            "input": "./src/worker/App.mjs",
-            "output": "appworker.js"
-        },
-        "canvas": {
-            "input": "./src/worker/Canvas.mjs",
-            "output": "canvasworker.js"
-        },
-        "data": {
-            "input": "./src/worker/Data.mjs",
-            "output": "dataworker.js"
-        },
-        "vdom": {
-            "input": "./src/worker/VDom.mjs",
-            "output": "vdomworker.js"
-        }
-    }
+    ]
 }

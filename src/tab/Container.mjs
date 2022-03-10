@@ -139,9 +139,9 @@ class Container extends BaseContainer {
                     me.updateTabButtons();
 
                     me.fire('activeIndexChange', {
-                        item    : me.getActiveCard(),
-                        oldValue: oldValue,
-                        value   : value
+                        item: me.getActiveCard(),
+                        oldValue,
+                        value
                     });
                 }
             }
@@ -245,7 +245,7 @@ class Container extends BaseContainer {
             tabButtons.push(me.getTabButtonConfig(item.tabButtonConfig, index));
 
             if (!(item instanceof Neo.component.Base)) {
-                item = {...me.itemDefaults, flex: 1, isTab:true, ...item};
+                item = {flex: 1, ...me.itemDefaults, isTab: true, ...item};
             }
 
             tabComponents.push(item);
