@@ -52,9 +52,9 @@ class ServiceWorker extends Base {
                         serviceWorker.onmessage = WorkerManager.onWorkerMessage.bind(WorkerManager);
 
                         WorkerManager.sendMessage('service', {
-                            action: 'registerNeoConfig',
-                            data  : config,
-                            port  : registration.active
+                            action     : 'registerNeoConfig',
+                            channelPort: registration.active,
+                            data       : config
                         });
                     });
                 })

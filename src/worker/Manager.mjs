@@ -390,9 +390,9 @@ class Manager extends Base {
             message, worker;
 
         if (!me.stopCommunication) {
-            if (opts.port) {
-                worker = opts.port;
-                delete opts.port;
+            if (opts.channelPort) {
+                worker = opts.channelPort;
+                delete opts.channelPort;
             } else {
                 worker = me.getWorker(dest);
             }
@@ -405,7 +405,7 @@ class Manager extends Base {
 
             message = new Message(opts);
 
-            (me.sharedWorkersEnabled && NeoConfig.useSharedWorkers ? worker.port : worker).postMessage(message, transfer);
+            (worker.port ? worker.port : worker).postMessage(message, transfer);
             return message;
         }
     }
