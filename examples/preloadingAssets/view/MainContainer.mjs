@@ -9,11 +9,26 @@ import Viewport                from '../../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className : 'Neo.examples.preloadingAssets.view.MainContainer',
-        autoMount : true,
+        /**
+         * @member {String} className='Neo.examples.preloadingAssets.view.MainContainer'
+         * @protected
+         */
+        className: 'Neo.examples.preloadingAssets.view.MainContainer',
+        /**
+         * @member {Boolean} autoMount=true
+         */
+        autoMount: true,
+        /**
+         * @member {Neo.controller.Component} controller=MainContainerController
+         */
         controller: MainContainerController,
-        layout    : {ntype: 'fit'},
-
+        /**
+         * @member {Object} layout={ntype:'fit'}
+         */
+        layout: {ntype: 'fit'},
+        /**
+         * @member {Object[]} items
+         */
         items: [{
             module: TabContainer,
             height: 300,
@@ -46,7 +61,9 @@ class MainContainer extends Viewport {
                     src: 'https://raw.githubusercontent.com/neomjs/pages/master/resources/examples/ai_images/000074.jpg'
                 }
             }],
-
+            /**
+             * @member {Object} listeners
+             */
             listeners: {
                 activeIndexChange: 'onActiveIndexChange',
                 mounted          : 'onMounted'
