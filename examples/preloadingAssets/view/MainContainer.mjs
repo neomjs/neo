@@ -9,10 +9,10 @@ import Viewport                from '../../../src/container/Viewport.mjs';
  */
 class MainContainer extends Viewport {
     static getConfig() {return {
-        className: 'Neo.examples.preloadingAssets.view.MainContainer',
-        autoMount: true,
+        className : 'Neo.examples.preloadingAssets.view.MainContainer',
+        autoMount : true,
         controller: MainContainerController,
-        layout   : {ntype: 'fit'},
+        layout    : {ntype: 'fit'},
 
         items: [{
             module: TabContainer,
@@ -33,7 +33,7 @@ class MainContainer extends Viewport {
 
                 vdom: {
                     tag: 'img',
-                    src: '../../resources/examples/ai_images/000150.jpg'
+                    src: 'https://raw.githubusercontent.com/neomjs/pages/master/resources/examples/ai_images/000150.jpg'
                 }
             }, {
                 tabButtonConfig: {
@@ -43,7 +43,7 @@ class MainContainer extends Viewport {
 
                 vdom: {
                     tag: 'img',
-                    src: '../../resources/examples/ai_images/000074.jpg'
+                    src: 'https://raw.githubusercontent.com/neomjs/pages/master/resources/examples/ai_images/000074.jpg'
                 }
             }],
 
