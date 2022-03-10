@@ -139,9 +139,9 @@ class Container extends BaseContainer {
                     me.updateTabButtons();
 
                     me.fire('activeIndexChange', {
-                        item    : me.getActiveCard(),
-                        oldValue: oldValue,
-                        value   : value
+                        item: me.getActiveCard(),
+                        oldValue,
+                        value
                     });
                 }
             }

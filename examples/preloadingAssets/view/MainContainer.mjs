@@ -1,6 +1,7 @@
-import ImageComponent from './ImageComponent.mjs';
-import TabContainer   from '../../../src/tab/Container.mjs';
-import Viewport       from '../../../src/container/Viewport.mjs';
+import ImageComponent          from './ImageComponent.mjs';
+import MainContainerController from './MainContainerController.mjs'
+import TabContainer            from '../../../src/tab/Container.mjs';
+import Viewport                from '../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.preloadingAssets.view.MainContainer
@@ -10,6 +11,7 @@ class MainContainer extends Viewport {
     static getConfig() {return {
         className: 'Neo.examples.preloadingAssets.view.MainContainer',
         autoMount: true,
+        controller: MainContainerController,
         layout   : {ntype: 'fit'},
 
         items: [{
@@ -37,7 +39,12 @@ class MainContainer extends Viewport {
                     iconCls: 'fa fa-user-ninja',
                     text   : 'Alice'
                 }
-            }]
+            }],
+
+            listeners: {
+                activeIndexChange: 'onActiveIndexChange',
+                mounted: 'onMounted'
+            }
         }]
     }}
 }
