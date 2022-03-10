@@ -28,7 +28,7 @@ class ImageComponent extends Component {
      * @param {String|null} oldValue
      * @protected
      */
-    afterSetHeight(value, oldValue) {
+    afterSetSrc(value, oldValue) {
         this.changeVdomRootKey('src', value);
     }
 }

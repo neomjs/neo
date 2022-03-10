@@ -20,16 +20,19 @@ class MainContainer extends Viewport {
 
             itemDefaults: {
                 module: ImageComponent,
-                cls   : ['neo-examples-tab-component'],
-                style : {padding: '20px'},
+                style : {flex: 'none', padding: '20px'}
             },
 
             items: [{
+                src: '../../../resources/examples/ai_images/000137.jpg',
+
                 tabButtonConfig: {
                     iconCls: 'fa fa-user-astronaut',
                     text   : 'Bob'
                 }
             }, {
+                src: '../../../resources/examples/ai_images/000137.jpg',
+
                 tabButtonConfig: {
                     iconCls: 'fa fa-user-ninja',
                     text   : 'Alice'
