@@ -49,7 +49,7 @@ class MainContainer extends Viewport {
 
             listeners: {
                 activeIndexChange: 'onActiveIndexChange',
-                mounted: 'onMounted'
+                mounted          : 'onMounted'
             }
         }]
     }}
