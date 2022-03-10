@@ -24,14 +24,14 @@ class MainContainer extends Viewport {
             },
 
             items: [{
-                src: '../../../resources/examples/ai_images/000137.jpg',
+                src: '../../../resources/examples/ai_images/000150.jpg',
 
                 tabButtonConfig: {
                     iconCls: 'fa fa-user-astronaut',
                     text   : 'Bob'
                 }
             }, {
-                src: '../../../resources/examples/ai_images/000137.jpg',
+                src: '../../../resources/examples/ai_images/000074.jpg',
 
                 tabButtonConfig: {
                     iconCls: 'fa fa-user-ninja',
