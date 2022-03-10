@@ -42,9 +42,10 @@ class ServiceWorker extends Base {
                 fileName      = devMode ? 'ServiceWorker.mjs' : 'serviceworker.js',
                 folder        = window.location.pathname.includes('/examples/') ? 'examples/' : 'apps/',
                 opts          = devMode ? {type: 'module'} : {},
+                path          = (devMode ? config.basePath : config.workerBasePath) + (devMode ? folder : '') + fileName,
                 serviceWorker = navigator.serviceWorker;
 
-            serviceWorker.register(config.basePath + folder + fileName, opts)
+            serviceWorker.register(path, opts)
                 .then(registration => {
                     me.registration = registration;
 
