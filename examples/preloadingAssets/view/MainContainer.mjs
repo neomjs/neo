@@ -1,4 +1,4 @@
-import ImageComponent          from './ImageComponent.mjs';
+import Component               from '../../../src/component/Base.mjs';
 import MainContainerController from './MainContainerController.mjs'
 import TabContainer            from '../../../src/tab/Container.mjs';
 import Viewport                from '../../../src/container/Viewport.mjs';
@@ -21,23 +21,29 @@ class MainContainer extends Viewport {
             style : {flex: 'none', margin: '20px'},
 
             itemDefaults: {
-                module: ImageComponent,
+                module: Component,
                 style : {flex: 'none', padding: '20px'}
             },
 
             items: [{
-                src: '../../../resources/examples/ai_images/000150.jpg',
-
                 tabButtonConfig: {
                     iconCls: 'fa fa-user-astronaut',
                     text   : 'Bob'
+                },
+
+                vdom: {
+                    tag: 'img',
+                    src: '../../../resources/examples/ai_images/000150.jpg'
                 }
             }, {
-                src: '../../../resources/examples/ai_images/000074.jpg',
-
                 tabButtonConfig: {
                     iconCls: 'fa fa-user-ninja',
                     text   : 'Alice'
+                },
+
+                vdom: {
+                    tag: 'img',
+                    src: '../../../resources/examples/ai_images/000074.jpg'
                 }
             }],
 
