@@ -60,7 +60,8 @@ class ServiceBase extends Base {
         remote: {
             app: [
                 'clearCache',
-                'clearCaches'
+                'clearCaches',
+                'preloadAssets'
             ]
         },
         /**
@@ -252,6 +253,13 @@ class ServiceBase extends Base {
         Object.assign(Neo.config, msg.data);
 
         this.onConnect(event.source);
+    }
+
+    /**
+     * @param {Object} data
+     */
+    preloadAssets(data) {
+        console.log('preloadAssets', data);
     }
 
     /**

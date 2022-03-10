@@ -25,6 +25,12 @@ class MainContainerController extends Component {
      */
     onMounted(id) {
         console.log('onMounted', id);
+
+        setTimeout(() => {
+            Neo.ServiceWorker.preloadAssets({
+                files: ['../resources/examples/ai_images/000074.jpg']
+            });
+        }, 5000)
     }
 }
 
