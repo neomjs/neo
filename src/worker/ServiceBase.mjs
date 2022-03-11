@@ -9,6 +9,19 @@ import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
  */
 class ServiceBase extends Base {
     /**
+     * @member {String} cacheName='neo-runtime'
+     */
+    cacheName = 'neo-runtime'
+    /**
+     * @member {String[]} cachePaths
+     */
+    cachePaths = [
+        'raw.githubusercontent.com/',
+        '/dist/production/',
+        '/fontawesome',
+        '/resources/'
+    ]
+    /**
      * @member {Object[]|null} channelPorts=null
      * @protected
      */
@@ -28,6 +41,11 @@ class ServiceBase extends Base {
      * @protected
      */
     remotes = []
+    /**
+     * @member {String|null} workerId=null
+     * @protected
+     */
+    workerId = null
 
     static getConfig() {return {
         /**
@@ -35,19 +53,6 @@ class ServiceBase extends Base {
          * @protected
          */
         className: 'Neo.worker.ServiceBase',
-        /**
-         * @member {String} cacheName='neo-runtime'
-         */
-        cacheName: 'neo-runtime',
-        /**
-         * @member {String[]|null} cachePaths
-         */
-        cachePaths: [
-            'raw.githubusercontent.com/',
-            '/dist/production/',
-            '/fontawesome',
-            '/resources/'
-        ],
         /**
          * @member {String[]|Neo.core.Base[]|null} mixins=[RemoteMethodAccess]
          */
@@ -63,12 +68,7 @@ class ServiceBase extends Base {
                 'clearCaches',
                 'preloadAssets'
             ]
-        },
-        /**
-         * @member {String|null} workerId=null
-         * @protected
-         */
-        workerId: null
+        }
     }}
 
     /**
