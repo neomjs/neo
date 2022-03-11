@@ -280,9 +280,7 @@ class ServiceBase extends Base {
                 hasMatch = !!asset;
             }
 
-            if (!hasMatch) {
-                items.push(item);
-            }
+            !hasMatch && items.push(item);
         }
 
         if (items.length > 0) {
