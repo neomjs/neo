@@ -16,7 +16,7 @@ class ServiceWorker extends ServiceBase {
 
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.ServiceWorker'
+         * @member {String} className='Neo.ServiceWorker'df
          * @protected
          */
         className: 'Neo.ServiceWorker',

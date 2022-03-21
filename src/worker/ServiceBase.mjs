@@ -66,7 +66,8 @@ class ServiceBase extends Base {
             app: [
                 'clearCache',
                 'clearCaches',
-                'preloadAssets'
+                'preloadAssets',
+                'removeAssets'
             ]
         }
     }}
@@ -308,6 +309,29 @@ class ServiceBase extends Base {
 
             me.promises[msgId] = {reject, resolve};
         });
+    }
+
+    /**
+     *
+     * @param {String | String[]} assets
+     * @param {String} cacheName=this.cacheName
+     * @returns {Object}
+     */
+    async removeAssets(assets, cacheName=this.cacheName) {
+        if (!Array.isArray(assets)) {
+            assets = [assets];
+        }
+
+        let cache    = await caches.open(cacheName),
+            promises = [];
+
+        assets.forEach(asset => {
+            promises.push(cache.delete(asset));
+        });
+
+        await Promise.all(promises);
+
+        return {success: true};
     }
 
     /**
