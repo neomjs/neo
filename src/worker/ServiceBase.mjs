@@ -96,10 +96,9 @@ class ServiceBase extends Base {
     /**
      * @param {String} name=this.cacheName
      */
-    clearCache(name=this.cacheName) {
-        caches.keys()
-            .then(cacheNames     => cacheNames.filter(cacheName => cacheName === name))
-            .then(cachesToDelete => Promise.all(cachesToDelete.map(cacheToDelete => caches.delete(cacheToDelete))))
+    async clearCache(name=this.cacheName) {
+        await caches.delete(name);
+        return {success: true}
     }
 
     /**
