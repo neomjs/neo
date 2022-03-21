@@ -95,6 +95,7 @@ class ServiceBase extends Base {
 
     /**
      * @param {String} name=this.cacheName
+     * @returns {Object}
      */
     async clearCache(name=this.cacheName) {
         await caches.delete(name);
