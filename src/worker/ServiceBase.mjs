@@ -312,21 +312,29 @@ class ServiceBase extends Base {
     }
 
     /**
-     *
-     * @param {String | String[]} assets
-     * @param {String} cacheName=this.cacheName
+     * See: https://developer.mozilla.org/en-US/docs/Web/API/Cache/delete
+     * @param {Object} data
+     * @param {String|String[]} data.assets
+     * @param {String} data.cacheName=this.cacheName
+     * @param {Object} data.options
+     * @param {Boolean} data.options.ignoreMethod=false
+     * @param {Boolean} data.options.ignoreSearch=false
+     * @param {Boolean} data.options.ignoreVary=false
      * @returns {Object}
      */
-    async removeAssets(assets, cacheName=this.cacheName) {
+    async removeAssets(data) {
+        let assets    = data.assets,
+            cacheName = data.cacheName || this.cacheName,
+            options   = data.options || {},
+            cache     = await caches.open(cacheName),
+            promises  = [];
+
         if (!Array.isArray(assets)) {
             assets = [assets];
         }
 
-        let cache    = await caches.open(cacheName),
-            promises = [];
-
         assets.forEach(asset => {
-            promises.push(cache.delete(asset));
+            promises.push(cache.delete(asset, options));
         });
 
         await Promise.all(promises);
