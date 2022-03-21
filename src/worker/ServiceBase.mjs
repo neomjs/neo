@@ -103,11 +103,12 @@ class ServiceBase extends Base {
     }
 
     /**
-     *
+     * @returns {Object}
      */
-    clearCaches() {
-        caches.keys()
-            .then(cachesToDelete => Promise.all(cachesToDelete.map(cacheToDelete => caches.delete(cacheToDelete))))
+    async clearCaches() {
+        let keys = await caches.keys();
+        await Promise.all(keys.map(name => caches.delete(name)));
+        return {success: true}
     }
 
     /**
