@@ -9,6 +9,19 @@ import RemoteMethodAccess from './mixin/RemoteMethodAccess.mjs';
  */
 class ServiceBase extends Base {
     /**
+     * @member {String} cacheName='neo-runtime'
+     */
+    cacheName = 'neo-runtime'
+    /**
+     * @member {String[]} cachePaths
+     */
+    cachePaths = [
+        'raw.githubusercontent.com/',
+        '/dist/production/',
+        '/fontawesome',
+        '/resources/'
+    ]
+    /**
      * @member {Object[]|null} channelPorts=null
      * @protected
      */
@@ -28,6 +41,11 @@ class ServiceBase extends Base {
      * @protected
      */
     remotes = []
+    /**
+     * @member {String|null} workerId=null
+     * @protected
+     */
+    workerId = null
 
     static getConfig() {return {
         /**
@@ -35,19 +53,6 @@ class ServiceBase extends Base {
          * @protected
          */
         className: 'Neo.worker.ServiceBase',
-        /**
-         * @member {String} cacheName='neo-runtime'
-         */
-        cacheName: 'neo-runtime',
-        /**
-         * @member {String[]|null} cachePaths
-         */
-        cachePaths: [
-            'raw.githubusercontent.com/',
-            '/dist/production/',
-            '/fontawesome',
-            '/resources/'
-        ],
         /**
          * @member {String[]|Neo.core.Base[]|null} mixins=[RemoteMethodAccess]
          */
@@ -61,14 +66,10 @@ class ServiceBase extends Base {
             app: [
                 'clearCache',
                 'clearCaches',
-                'preloadAssets'
+                'preloadAssets',
+                'removeAssets'
             ]
-        },
-        /**
-         * @member {String|null} workerId=null
-         * @protected
-         */
-        workerId: null
+        }
     }}
 
     /**
@@ -95,19 +96,20 @@ class ServiceBase extends Base {
 
     /**
      * @param {String} name=this.cacheName
+     * @returns {Object}
      */
-    clearCache(name=this.cacheName) {
-        caches.keys()
-            .then(cacheNames     => cacheNames.filter(cacheName => cacheName === name))
-            .then(cachesToDelete => Promise.all(cachesToDelete.map(cacheToDelete => caches.delete(cacheToDelete))))
+    async clearCache(name=this.cacheName) {
+        await caches.delete(name);
+        return {success: true}
     }
 
     /**
-     *
+     * @returns {Object}
      */
-    clearCaches() {
-        caches.keys()
-            .then(cachesToDelete => Promise.all(cachesToDelete.map(cacheToDelete => caches.delete(cacheToDelete))))
+    async clearCaches() {
+        let keys = await caches.keys();
+        await Promise.all(keys.map(name => caches.delete(name)));
+        return {success: true}
     }
 
     /**
@@ -280,9 +282,7 @@ class ServiceBase extends Base {
                 hasMatch = !!asset;
             }
 
-            if (!hasMatch) {
-                items.push(item);
-            }
+            !hasMatch && items.push(item);
         }
 
         if (items.length > 0) {
@@ -309,6 +309,44 @@ class ServiceBase extends Base {
 
             me.promises[msgId] = {reject, resolve};
         });
+    }
+
+    /**
+     * You can either pass an url, an array of urls or an object with additional options
+     * See: https://developer.mozilla.org/en-US/docs/Web/API/Cache/delete
+     * @param {String|String[]|Object} data
+     * @param {String|String[]} data.assets
+     * @param {String} data.cacheName=this.cacheName
+     * @param {Object} data.options
+     * @param {Boolean} data.options.ignoreMethod=false
+     * @param {Boolean} data.options.ignoreSearch=false
+     * @param {Boolean} data.options.ignoreVary=false
+     * @returns {Object}
+     */
+    async removeAssets(data) {
+        if (!Neo.isObject(data)) {
+            data = {
+                assets: data
+            };
+        }
+
+        let assets    = data.assets,
+            cacheName = data.cacheName || this.cacheName,
+            options   = data.options || {},
+            cache     = await caches.open(cacheName),
+            promises  = [];
+
+        if (!Array.isArray(assets)) {
+            assets = [assets];
+        }
+
+        assets.forEach(asset => {
+            promises.push(cache.delete(asset, options));
+        });
+
+        await Promise.all(promises);
+
+        return {success: true};
     }
 
     /**

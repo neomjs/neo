@@ -8,6 +8,12 @@ import ServiceBase from '../src/worker/ServiceBase.mjs';
  * @singleton
  */
 class ServiceWorker extends ServiceBase {
+    /**
+     * @member {String} workerId='service'
+     * @protected
+     */
+    workerId = 'service'
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.ServiceWorker'
@@ -18,12 +24,7 @@ class ServiceWorker extends ServiceBase {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true,
-        /**
-         * @member {String} workerId='service'
-         * @protected
-         */
-        workerId: 'service'
+        singleton: true
     }}
 }
 
