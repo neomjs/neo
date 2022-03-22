@@ -15,8 +15,10 @@ export default env => {
 
     if (filenameConfig.workers) {
         Object.entries(filenameConfig.workers).forEach(([key, value]) => {
+            // Inside a neo workspace, we want to use the SW inside the top level apps folder,
+            // to allow overriding its logic
             if (key === env.worker) {
-                entry[key] = path.resolve(neoPath, value.input);
+                entry[key] = path.resolve(key === 'service' && !insideNeo ? cwd : neoPath, value.input);
             }
         });
     }
