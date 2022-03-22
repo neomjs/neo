@@ -312,8 +312,9 @@ class ServiceBase extends Base {
     }
 
     /**
+     * You can either pass an url, an array of urls or an object with additional options
      * See: https://developer.mozilla.org/en-US/docs/Web/API/Cache/delete
-     * @param {Object} data
+     * @param {String|String[]|Object} data
      * @param {String|String[]} data.assets
      * @param {String} data.cacheName=this.cacheName
      * @param {Object} data.options
@@ -323,6 +324,12 @@ class ServiceBase extends Base {
      * @returns {Object}
      */
     async removeAssets(data) {
+        if (!Neo.isObject(data)) {
+            data = {
+                assets: data
+            };
+        }
+
         let assets    = data.assets,
             cacheName = data.cacheName || this.cacheName,
             options   = data.options || {},
