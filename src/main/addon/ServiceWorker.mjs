@@ -45,6 +45,8 @@ class ServiceWorker extends Base {
                 path          = (devMode ? config.basePath : config.workerBasePath) + (devMode ? folder : '') + fileName,
                 serviceWorker = navigator.serviceWorker;
 
+            window.addEventListener('beforeunload', me.onBeforeUnload.bind(me));
+
             serviceWorker.register(path, opts)
                 .then(registration => {
                     me.registration = registration;
@@ -60,6 +62,16 @@ class ServiceWorker extends Base {
                     });
                 })
         }
+    }
+
+    /**
+     *
+     */
+    onBeforeUnload() {
+        WorkerManager.sendMessage('service', {
+            action     : 'unregisterPort',
+            channelPort: this.registration.active
+        });
     }
 }
 

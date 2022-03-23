@@ -258,6 +258,19 @@ class ServiceBase extends Base {
     }
 
     /**
+     * @param {Object} msg
+     * @param {ExtendableMessageEvent} event
+     */
+    onUnregisterPort(msg, event) {
+        for (let [index, value] of this.channelPorts.entries()) {
+            if (value.clientId === event.source.id) {
+                this.channelPorts.splice(index, 1);
+                break;
+            }
+        }
+    }
+
+    /**
      * @param {Object} data
      * @param {String} [data.cacheName=this.cacheName]
      * @param {String[]|String} data.files
