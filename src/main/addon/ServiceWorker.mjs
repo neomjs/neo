@@ -64,8 +64,7 @@ class ServiceWorker extends Base {
      */
     onBeforeUnload() {
         WorkerManager.sendMessage('service', {
-            action     : 'unregisterPort',
-            channelPort: this.registration.active
+            action: 'unregisterPort'
         });
     }
 }
