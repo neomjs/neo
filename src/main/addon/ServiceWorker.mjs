@@ -15,11 +15,6 @@ class ServiceWorker extends Base {
          */
         className: 'Neo.main.addon.ServiceWorker',
         /**
-         * @member {ServiceWorkerRegistration|null} registration=null
-         * @protected
-         */
-        registration: null,
-        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -44,15 +39,12 @@ class ServiceWorker extends Base {
 
             serviceWorker.register(path, opts)
                 .then(registration => {
-                    me.registration = registration;
-
                     serviceWorker.ready.then(() => {
                         serviceWorker.onmessage = WorkerManager.onWorkerMessage.bind(WorkerManager);
 
                         WorkerManager.sendMessage('service', {
-                            action     : 'registerNeoConfig',
-                            channelPort: registration.active,
-                            data       : config
+                            action: 'registerNeoConfig',
+                            data  : config
                         });
                     });
                 })
