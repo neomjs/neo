@@ -32,6 +32,7 @@ program
     .option('-i, --info',                     'print environment debug info')
     .option('-a, --appName <value>')
     .option('-m, --mainThreadAddons <value>', `Comma separated list of:\n${addonChoices.join(', ')}\nDefaults to DragDrop, Stylesheet`)
+    .option('-s, --useServiceWorker <value>', '"yes", "no"')
     .option('-t, --themes <value>',           ['all', ...themeFolders, 'none'].join(", "))
     .option('-u, --useSharedWorkers <value>', '"yes", "no"')
     .allowUnknownOption()
@@ -105,11 +106,22 @@ if (programOpts.info) {
         });
     }
 
+    if (!programOpts.useServiceWorker) {
+        questions.push({
+            type   : 'list',
+            name   : 'useServiceWorker',
+            message: 'Do you want to use a ServiceWorker for caching assets?',
+            choices: ['yes', 'no'],
+            default: 'no'
+        });
+    }
+
     inquirer.prompt(questions).then(answers => {
         let appName          = programOpts.appName          || answers.appName,
             mainThreadAddons = programOpts.mainThreadAddons || answers.mainThreadAddons,
             themes           = programOpts.themes           || answers.themes,
             useSharedWorkers = programOpts.useSharedWorkers || answers.useSharedWorkers,
+            useServiceWorker = programOpts.useServiceWorker || answers.useServiceWorker,
             lAppName         = appName.toLowerCase(),
             appPath          = 'apps/' + lAppName + '/',
             dir              = 'apps/' + lAppName,
@@ -179,6 +191,10 @@ if (programOpts.info) {
 
             if (useSharedWorkers !== 'no') {
                 neoConfig.useSharedWorkers = true;
+            }
+
+            if (useServiceWorker !== 'no') {
+                neoConfig.useServiceWorker = true;
             }
 
             if (!insideNeo) {
