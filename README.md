@@ -19,6 +19,8 @@ No need to take care of a workers setup, and the cross channel communication on 
 <a href="https://youtu.be/aEA5333WiWY"><img height="316px" width="400px" src="https://raw.githubusercontent.com/neomjs/pages/master/resources/images/neo-movie.png"></a>
 </p>
 
+<a href="https://tobiasuhlig.medium.com/predictive-offline-support-for-assets-you-have-not-used-yet-aeeccccd3754?source=friends_link&sk=e946e0f25f508e6a8cec4136400291a3">Version 4 release announcement</a>
+
 ## Content
 1. <a href="#slack-channel">Slack Channel for questions & feedback</a>
 2. <a href="#architectures">Scalable frontend architectures</a>
