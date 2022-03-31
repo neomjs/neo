@@ -3,7 +3,7 @@
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Mar 28, 2022",
-        "id"          : 50,
+        "id"          : 51,
         "image"       : "predictive-offline-support-for-assets-you-have-not-used-yet.png",
         "name"        : "Predictive offline support for assets you have not used yet",
         "provider"    : "Medium",
@@ -11,6 +11,19 @@
         "selectedInto": [],
         "type"        : "Blog Post",
         "url"         : "https://itnext.io/predictive-offline-support-for-assets-you-have-not-used-yet-aeeccccd3754?source=friends_link&sk=e946e0f25f508e6a8cec4136400291a3"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Jan 31, 2022",
+        "id"          : 50,
+        "image"       : "clean-architectures-your-benefits-of-using-view-controllers.png",
+        "name"        : "Clean architectures: Your benefits of using view controllers",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/clean-architectures-your-benefits-of-using-view-controllers-7ce6b00f0ad5?source=friends_link&sk=ebef34d36d5d307c7985ba4dedb261f9"
     },
     {
         "author"      : "Tobias Uhlig",
