@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Mar 28, 2022",
+        "id"          : 50,
+        "image"       : "predictive-offline-support-for-assets-you-have-not-used-yet.png",
+        "name"        : "Predictive offline support for assets you have not used yet",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/predictive-offline-support-for-assets-you-have-not-used-yet-aeeccccd3754?source=friends_link&sk=e946e0f25f508e6a8cec4136400291a3"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Jan 17, 2022",
         "id"          : 49,
         "image"       : "scaling-your-micro-frontends-off-the-main-thread.png",
