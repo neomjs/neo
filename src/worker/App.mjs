@@ -216,7 +216,7 @@ class App extends Base {
         super.onRegisterNeoConfig(msg);
 
         let config = Neo.config,
-            url    = `resources/theme-map${Neo.config.useCssVars ? '' : '-no-vars'}.json`;
+            url    = `resources/theme-map${config.useCssVars ? '' : '-no-vars'}.json`;
 
         if (config.environment === 'development') {
             url = `../../${url}`;
