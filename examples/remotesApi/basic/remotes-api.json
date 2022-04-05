@@ -1,0 +1,16 @@
+{
+    "namespace": "Neo.remotes",
+    "url"      : "./",
+
+    "services": [{
+        "name"   : "FriendService",
+        "methods": [{
+            "name": "getAll"
+        }]
+    },{
+        "name"   : "UserService",
+        "methods": [{
+            "name": "getAll"
+        }]
+    }]
+}
