@@ -185,27 +185,26 @@ class App extends Base {
      * @param {Object} data
      */
     onLoadApplication(data) {
-        let me = this,
+        let me     = this,
+            config = Neo.config,
             path;
 
         if (data) {
             me.data = data;
-            Neo.config.resourcesPath = data.resourcesPath;
+            config.resourcesPath = data.resourcesPath;
         }
 
         path = me.data.path;
 
-        if (Neo.config.environment !== 'development') {
+        if (config.environment !== 'development') {
             path = path.startsWith('/') ? path.substring(1) : path;
         }
 
         me.importApp(path).then(module => {
             module.onStart();
 
-            if (Neo.config.hash) {
-                // short delay to ensure Component Controllers are ready
-                setTimeout(() => HashHistory.push(Neo.config.hash), 5);
-            }
+            // short delay to ensure Component Controllers are ready
+            config.hash && setTimeout(() => HashHistory.push(config.hash), 5);
         });
     }
 
