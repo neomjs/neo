@@ -20,12 +20,24 @@ class Api extends Base {
     }}
 
     /**
-     * @param {Object} config
+     *
      */
-    construct(config) {
-        super.construct(config);
+    load() {
+        let config = Neo.config,
+            path   = config.appPath.split('/');
 
-        console.log('Neo.remotes.Api: construct()')
+        path.pop();
+
+        fetch(`../../${path.join('/')}/${config.remotesApiUrl}`)
+            .then(response => response.json())
+            .then(data => {this.register(data)})
+    }
+
+    /**
+     * @param {Object} data
+     */
+    register(data) {
+        console.log('register', data);
     }
 }
 
