@@ -42,6 +42,7 @@ class Api extends Base {
         let config = Neo.config,
             path   = config.remotesApiUrl;
 
+        // relative paths need a special treatment
         if (!path.includes('http')) {
             path = config.appPath.split('/');
             path.pop();
