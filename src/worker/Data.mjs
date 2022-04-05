@@ -54,10 +54,23 @@ class Data extends Base {
     }
 
     /**
-     * @param {Object} data
+     * @param {Object} msg
      */
-    onRpc(data) {
-        console.log('onRpc', data);
+    async onRpc(msg) {
+        console.log('onRpc', msg);
+
+        await this.timeout(2000);
+
+        this.resolve(msg, {success: true})
+    }
+
+    /**
+     * Just for testing
+     * @param {Number} ms
+     * @returns {Promise<unknown>}
+     */
+    timeout(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
 
