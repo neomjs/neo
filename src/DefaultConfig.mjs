@@ -97,6 +97,16 @@ const DefaultConfig = {
      */
     mainThreadAddons: ['DragDrop', 'Stylesheet'],
     /**
+     * Pass the URL of a JSON-file, which contains the services and methods from your backend,
+     * which you want to expose to the client.
+     * See: https://github.com/neomjs/neo/projects/32
+     * @default null
+     * @memberOf! module:Neo
+     * @name config.remotesApiUrl
+     * @type String|null
+     */
+    remotesApiUrl: null,
+    /**
      * You can visually show the amount of delta updates per second using this config.
      * It expects a dom node with the id "neo-delta-updates" as the rendering target.
      * @default false
