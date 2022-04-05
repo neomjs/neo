@@ -17,21 +17,22 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onGetAllFriendsButtonClick(data) {
-        console.log('onGetAllFriendsButtonClick');
+        Neo.remotes.UserService.getAll();
     }
 
     /**
      * @param {Object} data
      */
     onGetAllUsersButtonClick(data) {
-        console.log('onGetAllUsersButtonClick');
+        Neo.remotes.FriendService.getAll();
     }
 
     /**
      * @param {Object} data
      */
     onGetAllUsersPlusFriendsButtonClick(data) {
-        console.log('onGetAllUsersPlusFriendsButtonClick');
+        Neo.remotes.UserService.getAll();
+        Neo.remotes.FriendService.getAll();
     }
 }
 

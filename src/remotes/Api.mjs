@@ -33,11 +33,22 @@ class Api extends Base {
             .then(data => {this.register(data)})
     }
 
+    onRemoteMethod(...args) {
+        console.log('onRemoteMethod', ...args);
+    }
+
     /**
      * @param {Object} data
      */
     register(data) {
-        console.log('register', data);
+        let method, ns, service;
+
+        for (service of data.services) {
+            for (method of service.methods) {
+                ns = Neo.ns(`${data.namespace}.${service.name}`, true);
+                ns[method.name] = this.onRemoteMethod;
+            }
+        }
     }
 }
 
