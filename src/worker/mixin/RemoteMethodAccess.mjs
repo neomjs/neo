@@ -37,8 +37,8 @@ class RemoteMethodAccess extends Base {
             };
 
             if (me.isSharedWorker) {
-                opts.appName = opts.appName || data?.appName;
-                opts.port    = opts.port    || data?.port;
+                opts.appName = data?.appName;
+                opts.port    = data?.port;
             }
 
             return me.promiseMessage(origin, opts, buffer);
