@@ -1,0 +1,6 @@
+{
+    "appPath"    : "examples/remotesApi/basic/app.mjs",
+    "basePath"   : "../../../",
+    "environment": "development",
+    "mainPath"   : "./Main.mjs"
+}
