@@ -20,6 +20,29 @@ class Api extends Base {
     }}
 
     /**
+     * @param {String} service
+     * @param {String} method
+     * @returns {function(*=, *=): Promise<any>}
+     */
+    generateRemote(service, method) {
+        return function(...args) {
+            let opts = {
+                action: 'rpc',
+                method,
+                params: [...args],
+                service
+            };
+
+            if (this.isSharedWorker) {
+                opts.appName = opts.appName || data?.appName;
+                opts.port    = opts.port    || data?.port;
+            }
+
+            return Neo.currentWorker.promiseMessage('data', opts);
+        }
+    }
+
+    /**
      *
      */
     load() {
@@ -33,10 +56,6 @@ class Api extends Base {
             .then(data => {this.register(data)})
     }
 
-    onRemoteMethod(...args) {
-        console.log('onRemoteMethod', ...args);
-    }
-
     /**
      * @param {Object} data
      */
@@ -46,7 +65,7 @@ class Api extends Base {
         for (service of data.services) {
             for (method of service.methods) {
                 ns = Neo.ns(`${data.namespace}.${service.name}`, true);
-                ns[method.name] = this.onRemoteMethod;
+                ns[method.name] = this.generateRemote(service.name, method.name);
             }
         }
     }

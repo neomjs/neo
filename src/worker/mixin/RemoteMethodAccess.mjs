@@ -42,7 +42,7 @@ class RemoteMethodAccess extends Base {
             }
 
             return me.promiseMessage(origin, opts, buffer);
-        };
+        }
     }
 
     /**

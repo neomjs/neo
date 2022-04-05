@@ -52,6 +52,13 @@ class Data extends Base {
     onLoad() {
         console.log('worker.Data onLoad');
     }
+
+    /**
+     * @param {Object} data
+     */
+    onRpc(data) {
+        console.log('onRpc', data);
+    }
 }
 
 Neo.applyClassConfig(Data);
