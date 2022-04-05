@@ -47,11 +47,15 @@ class Api extends Base {
      */
     load() {
         let config = Neo.config,
-            path   = config.appPath.split('/');
+            path   = config.remotesApiUrl;
 
-        path.pop();
+        if (!path.includes('http')) {
+            path = config.appPath.split('/');
+            path.pop();
+            path = `../../${path.join('/')}/${config.remotesApiUrl}`;
+        }
 
-        fetch(`../../${path.join('/')}/${config.remotesApiUrl}`)
+        fetch(path)
             .then(response => response.json())
             .then(data => {this.register(data)})
     }
