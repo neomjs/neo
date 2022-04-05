@@ -26,19 +26,12 @@ class Api extends Base {
      */
     generateRemote(service, method) {
         return function(...args) {
-            let opts = {
+            return Neo.currentWorker.promiseMessage('data', {
                 action: 'rpc',
                 method,
                 params: [...args],
                 service
-            };
-
-            if (this.isSharedWorker) {
-                opts.appName = opts.appName || data?.appName;
-                opts.port    = opts.port    || data?.port;
-            }
-
-            return Neo.currentWorker.promiseMessage('data', opts);
+            })
         }
     }
 
