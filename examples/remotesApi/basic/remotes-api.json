@@ -7,7 +7,7 @@
         "methods": [{
             "name": "getAll"
         }]
-    },{
+    }, {
         "name"   : "UserService",
         "methods": [{
             "name": "getAll"
