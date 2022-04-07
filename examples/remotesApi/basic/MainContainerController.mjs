@@ -17,22 +17,26 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onGetAllFriendsButtonClick(data) {
-        MyApi.UserService.getAll().then(response => console.log(response));
+        MyApi.UserService.getAll().then(response => console.log(response))
     }
 
     /**
      * @param {Object} data
      */
     onGetAllUsersButtonClick(data) {
-        MyApi.FriendService.getAll();
+        MyApi.FriendService.getAll()
     }
 
     /**
      * @param {Object} data
      */
-    onGetAllUsersPlusFriendsButtonClick(data) {
-        MyApi.UserService.getAll();
-        MyApi.FriendService.getAll();
+    async onGetAllUsersPlusFriendsButtonClick(data) {
+        await Promise.all([
+            MyApi.UserService.getAll(),
+            MyApi.FriendService.getAll()
+        ]).then(() => {
+            console.log('Both calls are done')
+        })
     }
 }
 
