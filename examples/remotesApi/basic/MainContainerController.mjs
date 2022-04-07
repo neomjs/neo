@@ -34,9 +34,9 @@ class MainContainerController extends ComponentController {
         await Promise.all([
             MyApi.UserService.getAll(),
             MyApi.FriendService.getAll()
-        ]).then(() => {
-            console.log('Both calls are done')
-        })
+        ]);
+
+        console.log('Both calls are done')
     }
 }
 
