@@ -1,5 +1,5 @@
 {
-    "namespace": "Neo.remotes",
+    "namespace": "MyApi",
     "url"      : "./",
 
     "services": [{
