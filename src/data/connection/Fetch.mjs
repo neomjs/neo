@@ -12,6 +12,19 @@ class Fetch extends Base {
          */
         className: 'Neo.data.connection.Fetch'
     }}
+
+    /**
+     * @param {Object|String} url
+     * @param {Object} config
+     * @param {Function} method
+     * @param {Object} data
+     */
+    request(url, config, method, data) {
+        if (!Neo.isString(url)) {
+            config = url;
+            url    = config.url;
+        }
+    }
 }
 
 Neo.applyClassConfig(Fetch);
