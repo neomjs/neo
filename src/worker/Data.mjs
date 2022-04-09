@@ -60,9 +60,9 @@ class Data extends Base {
     async onRpc(msg) {
         console.log('onRpc', msg);
 
-        await this.timeout(2000);
+        let response = await Neo.Fetch.get(msg);
 
-        this.resolve(msg, {success: true})
+        this.resolve(msg, response);
     }
 
     /**

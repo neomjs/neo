@@ -56,6 +56,8 @@ class Fetch extends Base {
             config = url;
             url    = config.url;
         }
+
+        console.log('fetch', url, config);
     }
 }
 
