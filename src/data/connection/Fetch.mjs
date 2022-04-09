@@ -32,6 +32,14 @@ class Fetch extends Base {
     /**
      * @param {Object|String} url
      * @param {Object} config
+     */
+    post(url, config) {
+        return this.request(url, config, 'post');
+    }
+
+    /**
+     * @param {Object|String} url
+     * @param {Object} config
      * @param {String} method
      * @param {Object} [data]
      */
