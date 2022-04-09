@@ -16,8 +16,16 @@ class Fetch extends Base {
     /**
      * @param {Object|String} url
      * @param {Object} config
-     * @param {Function} method
-     * @param {Object} data
+     */
+    get(url, config) {
+        return this.request(url, config, 'get');
+    }
+
+    /**
+     * @param {Object|String} url
+     * @param {Object} config
+     * @param {String} method
+     * @param {Object} [data]
      */
     request(url, config, method, data) {
         if (!Neo.isString(url)) {
