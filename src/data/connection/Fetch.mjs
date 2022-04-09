@@ -17,6 +17,14 @@ class Fetch extends Base {
      * @param {Object|String} url
      * @param {Object} config
      */
+    delete(url, config) {
+        return this.request(url, config, 'delete');
+    }
+
+    /**
+     * @param {Object|String} url
+     * @param {Object} config
+     */
     get(url, config) {
         return this.request(url, config, 'get');
     }
