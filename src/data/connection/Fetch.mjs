@@ -62,7 +62,22 @@ class Fetch extends Base {
             url    = config.url;
         }
 
-        console.log('fetch', url, config);
+        return fetch(url)
+            .then(resp => {
+                console.log(resp);
+
+                let response = {
+                    ok        : resp.ok,
+                    redirected: resp.redirected,
+                    request   : config,
+                    status    : resp.status,
+                    statusText: resp.statusText,
+                    type      : resp.type,
+                    url       : resp.url
+                };
+
+                return response
+            })
     }
 }
 
