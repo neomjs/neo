@@ -6,9 +6,9 @@ import Base from '../../core/Base.mjs';
  */
 class Fetch extends Base {
     /**
-     * @member {Object} defaults=null
+     * @member {Object} defaultHeaders=null
      */
-    defaults = null
+    defaultHeaders = null
 
     static getConfig() {return {
         /**
