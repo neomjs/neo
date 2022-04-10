@@ -21,6 +21,7 @@ class Fetch extends Base {
     /**
      * @param {Object|String} url
      * @param {Object} config
+     * @returns {Promise<any>}
      */
     delete(url, config) {
         return this.request(url, config, 'delete');
@@ -29,6 +30,7 @@ class Fetch extends Base {
     /**
      * @param {Object|String} url
      * @param {Object} config
+     * @returns {Promise<any>}
      */
     get(url, config) {
         return this.request(url, config, 'get');
@@ -37,6 +39,7 @@ class Fetch extends Base {
     /**
      * @param {Object|String} url
      * @param {Object} config
+     * @returns {Promise<any>}
      */
     post(url, config) {
         return this.request(url, config, 'post');
@@ -45,6 +48,7 @@ class Fetch extends Base {
     /**
      * @param {Object|String} url
      * @param {Object} config
+     * @returns {Promise<any>}
      */
     put(url, config) {
         return this.request(url, config, 'put');
@@ -55,6 +59,7 @@ class Fetch extends Base {
      * @param {Object} config
      * @param {String} method
      * @param {Object} [data]
+     * @returns {Promise<any>}
      */
     request(url, config, method, data) {
         if (!Neo.isString(url)) {
