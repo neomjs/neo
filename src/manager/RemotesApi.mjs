@@ -18,6 +18,17 @@ class RemotesApi extends Base {
          */
         singleton: true
     }}
+
+    /**
+     *
+     * @param msg
+     * @returns {Promise<any>}
+     */
+    async onMessage(msg) {
+        let response = await Neo.Fetch.get(msg);
+
+        return response;
+    }
 }
 
 Neo.applyClassConfig(RemotesApi);

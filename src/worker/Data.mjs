@@ -14,6 +14,12 @@ import Xhr          from '../Xhr.mjs';
  * @singleton
  */
 class Data extends Base {
+    /**
+     * @member {Boolean} remotesManagerLoaded=false
+     * @protected
+     */
+    remotesManagerLoaded = false
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.worker.Data'
@@ -62,7 +68,7 @@ class Data extends Base {
 
         if (Neo.config.remotesApiUrl) {
             import('../manager/RemotesApi.mjs').then(module => {
-                console.log(module.default);
+                this.remotesManagerLoaded = true
             })
         }
     }
@@ -73,9 +79,19 @@ class Data extends Base {
     async onRpc(msg) {
         console.log('onRpc', msg);
 
-        let response = await Neo.Fetch.get(msg);
+        let me = this,
+            response;
 
-        this.resolve(msg, response);
+        if (!me.remotesManagerLoaded) {
+            // todo: we could store calls which arrive too early and pass them to the manager once it is ready
+            console.warn('manager.RemotesApi not loaded yet', msg);
+
+            me.reject(msg);
+        } else {
+            response = await Neo.manager.RemotesApi.onMessage(msg);
+
+            me.resolve(msg, response);
+        }
     }
 }
 
