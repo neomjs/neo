@@ -57,6 +57,17 @@ class Data extends Base {
     /**
      * @param {Object} msg
      */
+    onRegisterNeoConfig(msg) {
+        super.onRegisterNeoConfig(msg);
+
+        if (Neo.config.remotesApiUrl) {
+            // todo: lazy load a new manager singleton
+        }
+    }
+
+    /**
+     * @param {Object} msg
+     */
     async onRpc(msg) {
         console.log('onRpc', msg);
 
