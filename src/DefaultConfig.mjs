@@ -35,6 +35,15 @@ const DefaultConfig = {
      */
     basePath: './',
     /**
+     * Pass a token in case you are using the CesiumJS main thread addon
+     * See: https://github.com/neomjs/neo/blob/dev/src/main/addon/CesiumJS.mjs
+     * @default null
+     * @memberOf! module:Neo
+     * @name config.cesiumJsToken
+     * @type String|null
+     */
+    cesiumJsToken: null,
+    /**
      * The current environment. Valid values: 'development', 'dist/development', 'dist/production'
      * This config will get auto-generated
      * @default 'dist/production'
