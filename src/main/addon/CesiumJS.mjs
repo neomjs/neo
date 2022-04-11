@@ -45,8 +45,6 @@ class CesiumJS extends Base {
      *
      */
     onFilesLoaded() {
-        console.log(Neo.config.cesiumJsToken);
-
         Cesium.Ion.defaultAccessToken = Neo.config.cesiumJsToken;
 
         // Initialize the Cesium Viewer in the HTML element with the `cesiumContainer` ID.
