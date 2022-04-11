@@ -1,6 +1,7 @@
 import Neo          from '../Neo.mjs';
 import Base         from './Base.mjs';
 import Compare      from '../core/Compare.mjs';
+import Fetch        from '../Fetch.mjs';
 import StoreManager from '../manager/Store.mjs';
 import Util         from '../core/Util.mjs';
 import Xhr          from '../Xhr.mjs';
@@ -51,6 +52,26 @@ class Data extends Base {
      */
     onLoad() {
         console.log('worker.Data onLoad');
+    }
+
+    /**
+     * @param {Object} msg
+     */
+    async onRpc(msg) {
+        console.log('onRpc', msg);
+
+        let response = await Neo.Fetch.get(msg);
+
+        this.resolve(msg, response);
+    }
+
+    /**
+     * Just for testing
+     * @param {Number} ms
+     * @returns {Promise<unknown>}
+     */
+    timeout(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
 

@@ -185,27 +185,26 @@ class App extends Base {
      * @param {Object} data
      */
     onLoadApplication(data) {
-        let me = this,
+        let me     = this,
+            config = Neo.config,
             path;
 
         if (data) {
             me.data = data;
-            Neo.config.resourcesPath = data.resourcesPath;
+            config.resourcesPath = data.resourcesPath;
         }
 
         path = me.data.path;
 
-        if (Neo.config.environment !== 'development') {
+        if (config.environment !== 'development') {
             path = path.startsWith('/') ? path.substring(1) : path;
         }
 
         me.importApp(path).then(module => {
             module.onStart();
 
-            if (Neo.config.hash) {
-                // short delay to ensure Component Controllers are ready
-                setTimeout(() => HashHistory.push(Neo.config.hash), 5);
-            }
+            // short delay to ensure Component Controllers are ready
+            config.hash && setTimeout(() => HashHistory.push(config.hash), 5);
         });
     }
 
@@ -216,7 +215,7 @@ class App extends Base {
         super.onRegisterNeoConfig(msg);
 
         let config = Neo.config,
-            url    = `resources/theme-map${Neo.config.useCssVars ? '' : '-no-vars'}.json`;
+            url    = `resources/theme-map${config.useCssVars ? '' : '-no-vars'}.json`;
 
         if (config.environment === 'development') {
             url = `../../${url}`;
@@ -234,6 +233,7 @@ class App extends Base {
             .then(response => response.json())
             .then(data => {this.createThemeMap(data)});
 
+        config.remotesApiUrl  && import('../remotes/Api.mjs').then(module => module.default.load());
         !config.useVdomWorker && import('../vdom/Helper.mjs');
     }
 
