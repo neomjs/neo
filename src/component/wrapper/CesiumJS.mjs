@@ -64,6 +64,10 @@ class CesiumJS extends Component {
         }
     }
 
+    flyTo() {
+        console.log('flyTo');
+    }
+
     /**
      *
      */
