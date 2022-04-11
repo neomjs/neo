@@ -48,6 +48,15 @@ class Fetch extends Base {
     /**
      * @param {Object|String} url
      * @param {Object} config
+     * @returns {Promise<any>}
+     */
+    options(url, config) {
+        return this.request(url, config, 'options');
+    }
+
+    /**
+     * @param {Object|String} url
+     * @param {Object} config
      * @param {Object} data
      * @returns {Promise<any>}
      */
