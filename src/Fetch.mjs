@@ -21,6 +21,7 @@ class Fetch extends FetchConnection {
                 'delete',
                 'get',
                 'head',
+                'patch',
                 'post',
                 'put'
             ]
