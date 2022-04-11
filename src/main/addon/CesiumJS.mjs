@@ -45,7 +45,9 @@ class CesiumJS extends Base {
      *
      */
     onFilesLoaded() {
-        Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4NGY3Y2YyNi1hODY3LTQ2YmMtYWIzNS01NzIxOTM5YzQ5MTUiLCJpZCI6MjQ3NDAsInNjb3BlcyI6WyJhc3IiLCJnYyJdLCJpYXQiOjE1ODU2OTUzMjB9._j_owvL1zmT8KMPPWEWknoryJCIdVL8bY_E3vgoN8KI';
+        console.log(Neo.config.cesiumJsToken);
+
+        Cesium.Ion.defaultAccessToken = Neo.config.cesiumJsToken;
 
         // Initialize the Cesium Viewer in the HTML element with the `cesiumContainer` ID.
         const viewer = new Cesium.Viewer('cesium-container', {
