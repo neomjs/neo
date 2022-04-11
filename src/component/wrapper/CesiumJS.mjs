@@ -1,0 +1,77 @@
+import Component from '../Base.mjs';
+
+/**
+ * Convenience class to render a CesiumJS component
+ * Requires adding the CesiumJS main thread addon
+ * @class Neo.component.wrapper.CesiumJS
+ * @extends Neo.component.Base
+ */
+class CesiumJS extends Component {
+    static getConfig() {return {
+        /**
+         * @member {String} className='Neo.component.wrapper.CesiumJS'
+         * @protected
+         */
+        className: 'Neo.component.wrapper.CesiumJS',
+        /**
+         * @member {String} ntype='cesium-js'
+         * @protected
+         */
+        ntype: 'cesium-js',
+        /**
+         * @member {Object} _vdom
+         */
+        _vdom:
+        {cn: [
+            {}
+        ]}
+    }}
+
+    /**
+     * Triggered after the mounted config got changed
+     * @param {Boolean} value
+     * @param {Boolean} oldValue
+     * @protected
+     */
+    afterSetMounted(value, oldValue) {
+        let me = this;
+
+        if (value === false && oldValue !== undefined) {
+            Neo.main.addon.CesiumJS.destroy({
+                appName: me.appName,
+                id     : me.id
+            });
+        }
+
+        super.afterSetMounted(value, oldValue);
+
+        if (value) {
+            let opts = {
+                appName: me.appName,
+                id     : me.id
+            };
+
+            setTimeout(() => {
+                Neo.main.addon.CesiumJS.create(opts).then(me.onChartMounted);
+            }, 50);
+        }
+    }
+
+    /**
+     *
+     */
+    getVdomRoot() {
+        return this.vdom.cn[0];
+    }
+
+    /**
+     *
+     */
+    getVnodeRoot() {
+        return this.vnode.childNodes[0];
+    }
+}
+
+Neo.applyClassConfig(CesiumJS);
+
+export default CesiumJS;
