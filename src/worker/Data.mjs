@@ -66,11 +66,9 @@ class Data extends Base {
     onRegisterNeoConfig(msg) {
         super.onRegisterNeoConfig(msg);
 
-        if (Neo.config.remotesApiUrl) {
-            import('../manager/RemotesApi.mjs').then(module => {
-                this.remotesManagerLoaded = true
-            })
-        }
+        Neo.config.remotesApiUrl && import('../manager/RemotesApi.mjs').then(module => {
+            this.remotesManagerLoaded = true
+        })
     }
 
     /**
