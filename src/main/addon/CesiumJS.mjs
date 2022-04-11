@@ -15,6 +15,17 @@ class CesiumJS extends Base {
          */
         className: 'Neo.main.addon.CesiumJS',
         /**
+         * Remote method access for other workers
+         * @member {Object} remote
+         * @protected
+         */
+        remote: {
+            app: [
+                'create',
+                'destroy'
+            ]
+        },
+        /**
          * @member {Boolean} singleton=true
          * @protected
          */
@@ -27,6 +38,22 @@ class CesiumJS extends Base {
     construct(config) {
         super.construct(config);
         this.loadFiles();
+    }
+
+    /**
+     * @param {Object} data
+     */
+    create(data) {
+        // todo
+        console.log('main.addon.CesiumJS: create()', data);
+    }
+
+    /**
+     * @param {Object} data
+     */
+    destroy(data) {
+        // todo
+        console.log('main.addon.CesiumJS: destroy()', data);
     }
 
     /**
