@@ -35,7 +35,7 @@ class VDom extends Base {
     afterConnect() {
         let me      = this,
             channel = new MessageChannel(),
-            port2   = channel.port2;
+            {port2} = channel;
 
         channel.port1.onmessage = me.onMessage.bind(me);
 
