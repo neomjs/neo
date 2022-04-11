@@ -14,16 +14,16 @@ class CesiumJS extends Component {
          */
         className: 'Neo.component.wrapper.CesiumJS',
         /**
-         * @member {String} ntype='cesium-js'
+         * @member {String} ntype='cesiumjs-component'
          * @protected
          */
-        ntype: 'cesium-js',
+        ntype: 'cesiumjs-component',
         /**
          * @member {Object} _vdom
          */
         _vdom:
-        {cn: [
-            {}
+        {style: {position: 'relative', height: '100%', width: '100%'}, cn: [
+            {style: {position: 'absolute', height: '100%', width: '100%'}, }
         ]}
     }}
 
@@ -52,7 +52,7 @@ class CesiumJS extends Component {
             };
 
             setTimeout(() => {
-                Neo.main.addon.CesiumJS.create(opts).then(me.onChartMounted);
+                Neo.main.addon.CesiumJS.create(opts).then(me.onComponentMounted.bind(me));
             }, 50);
         }
     }
@@ -69,6 +69,13 @@ class CesiumJS extends Component {
      */
     getVnodeRoot() {
         return this.vnode.childNodes[0];
+    }
+
+    /**
+     *
+     */
+    onComponentMounted() {
+        console.log('onComponentMounted', this.id);
     }
 }
 

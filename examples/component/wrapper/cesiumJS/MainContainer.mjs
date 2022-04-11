@@ -1,6 +1,7 @@
-import Button   from '../../../../src/button/Base.mjs';
-import Toolbar  from '../../../../src/container/Toolbar.mjs';
-import Viewport from '../../../../src/container/Viewport.mjs';
+import Button            from '../../../../src/button/Base.mjs';
+import CesiumJSComponent from '../../../../src/component/wrapper/CesiumJS.mjs';
+import Toolbar           from '../../../../src/container/Toolbar.mjs';
+import Viewport          from '../../../../src/container/Viewport.mjs';
 
 /**
  * @class Neo.examples.component.wrapper.cesiumJS.MainContainer
@@ -13,13 +14,8 @@ class MainContainer extends Viewport {
         layout    : {ntype: 'vbox', align: 'stretch'},
 
         items: [{
-            ntype: 'container',
-            flex : 1,
-            layout: 'fit',
-            items: [{
-                ntype: 'component',
-                id   : 'cesium-container',
-            }]
+            module: CesiumJSComponent,
+            flex  : 1
         }, {
             module: Toolbar,
             flex  : 'none',
