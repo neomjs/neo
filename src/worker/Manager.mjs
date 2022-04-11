@@ -168,8 +168,6 @@ class Manager extends Base {
         // remove configs which are not relevant for the workers scope
         delete config.cesiumJsToken;
 
-        console.log(config);
-
         // pass the initial hash value as Neo.configs
         if (hash) {
             config.hash = {
