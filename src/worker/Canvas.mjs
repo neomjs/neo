@@ -37,15 +37,15 @@ class Canvas extends Base {
      *
      */
     afterConnect() {
-        let me      = this,
-            channel = new MessageChannel(),
-            port    = channel.port2;
+        let me             = this,
+            channel        = new MessageChannel(),
+            {port1, port2} = channel;
 
-        channel.port1.onmessage = me.onMessage.bind(me);
+        port1.onmessage = me.onMessage.bind(me);
 
-        me.sendMessage('app', {action: 'registerPort', transfer: port}, [port]);
+        me.sendMessage('app', {action: 'registerPort', transfer: port2}, [port2]);
 
-        me.channelPorts.app = channel.port1;
+        me.channelPorts.app = port1;
     }
 
     /**

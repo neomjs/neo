@@ -35,6 +35,15 @@ const DefaultConfig = {
      */
     basePath: './',
     /**
+     * Pass a token in case you are using the CesiumJS main thread addon
+     * See: https://github.com/neomjs/neo/blob/dev/src/main/addon/CesiumJS.mjs
+     * @default null
+     * @memberOf! module:Neo
+     * @name config.cesiumJsToken
+     * @type String|null
+     */
+    cesiumJsToken: null,
+    /**
      * The current environment. Valid values: 'development', 'dist/development', 'dist/production'
      * This config will get auto-generated
      * @default 'dist/production'
@@ -44,7 +53,7 @@ const DefaultConfig = {
      */
     environment: 'dist/production',
     /**
-     * In case you are using the GoogleAnalytics mainThreadAddon or useGoogleAnalytics: true,
+     * In case you are using the GoogleAnalytics main thread addon or useGoogleAnalytics: true,
      * you can change the gtag id here. Required for the online examples (gh pages)
      * @default 'UA-153734404-1'
      * @memberOf! module:Neo

@@ -14,6 +14,12 @@ import Xhr          from '../Xhr.mjs';
  * @singleton
  */
 class Data extends Base {
+    /**
+     * @member {Boolean} remotesManagerLoaded=false
+     * @protected
+     */
+    remotesManagerLoaded = false
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.worker.Data'
@@ -36,15 +42,15 @@ class Data extends Base {
      *
      */
     afterConnect() {
-        let me      = this,
-            channel = new MessageChannel(),
-            port    = channel.port2;
+        let me             = this,
+            channel        = new MessageChannel(),
+            {port1, port2} = channel;
 
-        channel.port1.onmessage = me.onMessage.bind(me);
+        port1.onmessage = me.onMessage.bind(me);
 
-        me.sendMessage('app', {action: 'registerPort', transfer: port}, [port]);
+        me.sendMessage('app', {action: 'registerPort', transfer: port2}, [port2]);
 
-        me.channelPorts.app = channel.port1;
+        me.channelPorts.app = port1;
     }
 
     /**
@@ -57,21 +63,33 @@ class Data extends Base {
     /**
      * @param {Object} msg
      */
-    async onRpc(msg) {
-        console.log('onRpc', msg);
+    onRegisterNeoConfig(msg) {
+        super.onRegisterNeoConfig(msg);
 
-        let response = await Neo.Fetch.get(msg);
-
-        this.resolve(msg, response);
+        Neo.config.remotesApiUrl && import('../manager/RemotesApi.mjs').then(module => {
+            this.remotesManagerLoaded = true
+        })
     }
 
     /**
-     * Just for testing
-     * @param {Number} ms
-     * @returns {Promise<unknown>}
+     * @param {Object} msg
      */
-    timeout(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+    async onRpc(msg) {
+        console.log('onRpc', msg);
+
+        let me = this,
+            response;
+
+        if (!me.remotesManagerLoaded) {
+            // todo: we could store calls which arrive too early and pass them to the manager once it is ready
+            console.warn('manager.RemotesApi not loaded yet', msg);
+
+            me.reject(msg);
+        } else {
+            response = await Neo.manager.RemotesApi.onMessage(msg);
+
+            me.resolve(msg, response);
+        }
     }
 }
 

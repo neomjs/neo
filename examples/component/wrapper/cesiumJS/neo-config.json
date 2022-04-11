@@ -1,0 +1,8 @@
+{
+    "appPath"         : "examples/component/wrapper/cesiumJS/app.mjs",
+    "basePath"        : "../../../../",
+    "cesiumJsToken"   : "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4NGY3Y2YyNi1hODY3LTQ2YmMtYWIzNS01NzIxOTM5YzQ5MTUiLCJpZCI6MjQ3NDAsInNjb3BlcyI6WyJhc3IiLCJnYyJdLCJpYXQiOjE1ODU2OTUzMjB9._j_owvL1zmT8KMPPWEWknoryJCIdVL8bY_E3vgoN8KI",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["CesiumJS", "Stylesheet"]
+}
