@@ -75,15 +75,6 @@ class Data extends Base {
 
         this.resolve(msg, response);
     }
-
-    /**
-     * Just for testing
-     * @param {Number} ms
-     * @returns {Promise<unknown>}
-     */
-    timeout(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
 }
 
 Neo.applyClassConfig(Data);
