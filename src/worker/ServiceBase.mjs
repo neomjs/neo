@@ -116,10 +116,9 @@ class ServiceBase extends Base {
      * @param {Client} client
      */
     createMessageChannel(client) {
-        let me      = this,
-            channel = new MessageChannel(),
-            port1   = channel.port1,
-            port2   = channel.port2;
+        let me             = this,
+            channel        = new MessageChannel(),
+            {port1, port2} = channel;
 
         port1.onmessage = me.onMessage.bind(me);
 
