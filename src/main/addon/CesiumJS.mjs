@@ -8,6 +8,12 @@ import DomAccess from '../DomAccess.mjs';
  * @singleton
  */
 class CesiumJS extends Base {
+    /**
+     * @member {Object} viewers={}
+     * @protected
+     */
+    viewers = {}
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.main.addon.CesiumJS'
@@ -45,13 +51,11 @@ class CesiumJS extends Base {
      * @param {String} data.id
      */
     create(data) {
-        // todo
-        console.log('main.addon.CesiumJS: create()', data);
-
-        // Initialize the Cesium Viewer in the HTML element with the `cesiumContainer` ID.
-        const viewer = new Cesium.Viewer(data.id, {
+        this.viewers[data.id] = new Cesium.Viewer(data.id, {
             terrainProvider: Cesium.createWorldTerrain()
         });
+
+        return;
 
         // Add Cesium OSM Buildings, a global 3D buildings layer.
         const buildingTileset = viewer.scene.primitives.add(Cesium.createOsmBuildings());
@@ -68,6 +72,7 @@ class CesiumJS extends Base {
 
     /**
      * @param {Object} data
+     * @param {String} data.id
      */
     destroy(data) {
         // todo
