@@ -64,8 +64,17 @@ class CesiumJS extends Component {
         }
     }
 
-    flyTo() {
-        console.log('flyTo');
+    /**
+     * @param {Object} data
+     * @param {Number[]} data.destination
+     * @param {Number} data.heading
+     * @param {Number} data.pitch
+     */
+    flyTo(data) {
+        Neo.main.addon.CesiumJS.flyTo({
+            ...data,
+            id: this.id
+        });
     }
 
     /**

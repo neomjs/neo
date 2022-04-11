@@ -29,7 +29,8 @@ class CesiumJS extends Base {
             app: [
                 'create',
                 'createOsmBuildings',
-                'destroy'
+                'destroy',
+                'flyTo'
             ]
         },
         /**
@@ -60,17 +61,6 @@ class CesiumJS extends Base {
         data.createOsmBuildings && this.createOsmBuildings({
             id: data.id
         });
-
-        return;
-
-        // Fly the camera to San Francisco at the given longitude, latitude, and height.
-        viewer.camera.flyTo({
-            destination : Cesium.Cartesian3.fromDegrees(-122.4175, 37.655, 400),
-            orientation : {
-                heading : Cesium.Math.toRadians(0.0),
-                pitch : Cesium.Math.toRadians(-15.0),
-            }
-        });
     }
 
     /**
@@ -88,6 +78,23 @@ class CesiumJS extends Base {
     destroy(data) {
         // todo
         console.log('main.addon.CesiumJS: destroy()', data);
+    }
+
+    /**
+     * @param {Object} data
+     * @param {Number[]} data.destination
+     * @param {Number} data.heading
+     * @param {String} data.id
+     * @param {Number} data.pitch
+     */
+    flyTo(data) {
+        this.viewers[data.id].camera.flyTo({
+            destination: Cesium.Cartesian3.fromDegrees(...data.destination),
+            orientation: {
+                heading: Cesium.Math.toRadians(data.heading),
+                pitch  : Cesium.Math.toRadians(data.pitch),
+            }
+        });
     }
 
     /**

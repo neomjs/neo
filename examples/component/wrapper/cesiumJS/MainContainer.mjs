@@ -27,7 +27,7 @@ class MainContainer extends Viewport {
                 module : Button,
                 handler: 'onFlyToButtonClick',
                 iconCls: 'fa-solid fa-plane',
-                text   : 'Fly to'
+                text   : 'Fly to San Fran'
             }]
         }]
     }}

@@ -17,7 +17,11 @@ class MainContainerController extends ComponentController {
      * @param {Object} data
      */
     onFlyToButtonClick(data) {
-        this.getReference('cesium-component').flyTo();
+        this.getReference('cesium-component').flyTo({
+            destination: [-122.4175, 37.655, 400],
+            heading    : 0.0,
+            pitch      : -15.0
+        });
     }
 }
 
