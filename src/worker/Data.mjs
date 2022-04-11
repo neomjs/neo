@@ -61,7 +61,9 @@ class Data extends Base {
         super.onRegisterNeoConfig(msg);
 
         if (Neo.config.remotesApiUrl) {
-            // todo: lazy load a new manager singleton
+            import('../manager/RemotesApi.mjs').then(module => {
+                console.log(module.default);
+            })
         }
     }
 
