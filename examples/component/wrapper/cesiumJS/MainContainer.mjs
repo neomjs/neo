@@ -13,6 +13,14 @@ class MainContainer extends Viewport {
         layout    : {ntype: 'vbox', align: 'stretch'},
 
         items: [{
+            ntype: 'container',
+            flex : 1,
+            layout: 'fit',
+            items: [{
+                ntype: 'component',
+                id   : 'cesium-container',
+            }]
+        }, {
             module: Toolbar,
             flex  : 'none',
             style : {margin: '20px'},
