@@ -20,6 +20,7 @@ class Fetch extends FetchConnection {
             app: [
                 'delete',
                 'get',
+                'head',
                 'post',
                 'put'
             ]

@@ -41,6 +41,15 @@ class Fetch extends Base {
      * @param {Object} config
      * @returns {Promise<any>}
      */
+    head(url, config) {
+        return this.request(url, config, 'head');
+    }
+
+    /**
+     * @param {Object|String} url
+     * @param {Object} config
+     * @returns {Promise<any>}
+     */
     post(url, config) {
         return this.request(url, config, 'post');
     }
