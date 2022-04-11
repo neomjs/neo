@@ -19,6 +19,10 @@ class CesiumJS extends Component {
          */
         ntype: 'cesiumjs-component',
         /**
+         * @member {Boolean} createOsmBuildings=true
+         */
+        createOsmBuildings: true,
+        /**
          * @member {Object} _vdom
          */
         _vdom:
@@ -47,12 +51,15 @@ class CesiumJS extends Component {
 
         if (value) {
             let opts = {
-                appName: me.appName,
-                id     : me.id
+                appName           : me.appName,
+                createOsmBuildings: me.createOsmBuildings,
+                id                : me.id
             };
 
             setTimeout(() => {
-                Neo.main.addon.CesiumJS.create(opts).then(me.onComponentMounted.bind(me));
+                Neo.main.addon.CesiumJS.create(opts).then(() => {
+                    me.onComponentMounted();
+                });
             }, 50);
         }
     }

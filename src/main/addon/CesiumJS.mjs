@@ -28,6 +28,7 @@ class CesiumJS extends Base {
         remote: {
             app: [
                 'create',
+                'createOsmBuildings',
                 'destroy'
             ]
         },
@@ -48,6 +49,7 @@ class CesiumJS extends Base {
 
     /**
      * @param {Object} data
+     * @param {Boolean} data.createOsmBuildings
      * @param {String} data.id
      */
     create(data) {
@@ -55,10 +57,11 @@ class CesiumJS extends Base {
             terrainProvider: Cesium.createWorldTerrain()
         });
 
-        return;
+        data.createOsmBuildings && this.createOsmBuildings({
+            id: data.id
+        });
 
-        // Add Cesium OSM Buildings, a global 3D buildings layer.
-        const buildingTileset = viewer.scene.primitives.add(Cesium.createOsmBuildings());
+        return;
 
         // Fly the camera to San Francisco at the given longitude, latitude, and height.
         viewer.camera.flyTo({
@@ -68,6 +71,14 @@ class CesiumJS extends Base {
                 pitch : Cesium.Math.toRadians(-15.0),
             }
         });
+    }
+
+    /**
+     * @param {Object} data
+     * @param {String} data.id
+     */
+    createOsmBuildings(data) {
+        this.viewers[data.id].scene.primitives.add(Cesium.createOsmBuildings());
     }
 
     /**
