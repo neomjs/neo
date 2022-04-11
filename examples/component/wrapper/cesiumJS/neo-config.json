@@ -1,0 +1,7 @@
+{
+    "appPath"         : "examples/component/wrapper/cesiumJS/app.mjs",
+    "basePath"        : "../../../../",
+    "environment"     : "development",
+    "mainPath"        : "./Main.mjs",
+    "mainThreadAddons": ["CesiumJS", "Stylesheet"]
+}
