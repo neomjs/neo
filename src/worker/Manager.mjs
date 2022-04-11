@@ -160,21 +160,27 @@ class Manager extends Base {
      * Calls createWorker for each worker inside the this.workers config.
      */
     createWorkers() {
-        let me   = this,
-            hash = location.hash,
+        let me     = this,
+            config = Neo.clone(NeoConfig, true),
+            hash   = location.hash,
             key, value;
+
+        // remove configs which are not relevant for the workers scope
+        delete config.cesiumJsToken;
+
+        console.log(config);
 
         // pass the initial hash value as Neo.configs
         if (hash) {
-            NeoConfig.hash = {
+            config.hash = {
                 hash      : DomEvents.parseHash(hash.substr(1)),
                 hashString: hash.substr(1)
             };
         }
 
         for ([key, value] of Object.entries(me.workers)) {
-            if (key === 'canvas' && !NeoConfig.useCanvasWorker ||
-                key === 'vdom'   && !NeoConfig.useVdomWorker
+            if (key === 'canvas' && !config.useCanvasWorker ||
+                key === 'vdom'   && !config.useVdomWorker
             ) {
                 continue;
             }
@@ -189,7 +195,7 @@ class Manager extends Base {
 
             me.sendMessage(key, {
                 action: 'registerNeoConfig',
-                data  : NeoConfig
+                data  : config
             });
         }
     }

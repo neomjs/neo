@@ -53,7 +53,7 @@ const DefaultConfig = {
      */
     environment: 'dist/production',
     /**
-     * In case you are using the GoogleAnalytics mainThreadAddon or useGoogleAnalytics: true,
+     * In case you are using the GoogleAnalytics main thread addon or useGoogleAnalytics: true,
      * you can change the gtag id here. Required for the online examples (gh pages)
      * @default 'UA-153734404-1'
      * @memberOf! module:Neo
