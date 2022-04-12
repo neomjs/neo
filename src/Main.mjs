@@ -170,7 +170,7 @@ class Main extends core.Base {
                 availWidth : screen.availWidth,
                 colorDepth : screen.colorDepth,
                 height     : screen.height,
-                orientation: {angle: screen.orientation.angle, type: screen.orientation.type},
+                orientation: {angle: screen.orientation?.angle, type: screen.orientation?.type},
                 pixelDepth : screen.pixelDepth,
                 width      : screen.width
             },

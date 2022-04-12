@@ -61,11 +61,12 @@ class Card extends Base {
      * @protected
      */
     async afterSetActiveIndex(value, oldValue) {
-        let me          = this,
-            containerId = me.containerId,
-            container   = Neo.getComponent(containerId) || Neo.get(containerId), // the instance might not be registered yet
-            sCfg        = me.getStaticConfig(),
-            needsUpdate = false,
+        let me                  = this,
+            containerId         = me.containerId,
+            container           = Neo.getComponent(containerId) || Neo.get(containerId), // the instance might not be registered yet
+            sCfg                = me.getStaticConfig(),
+            needsUpdate         = false,
+            removeInactiveCards = me.removeInactiveCards,
             cls, i, isActiveIndex, item, items, len, module, proto, vdom;
 
         if (Neo.isNumber(value) && container) {
@@ -119,14 +120,14 @@ class Card extends Base {
                     NeoArray.remove(cls, isActiveIndex ? sCfg.inactiveItemCls : sCfg.activeItemCls);
                     NeoArray.add(   cls, isActiveIndex ? sCfg.activeItemCls   : sCfg.inactiveItemCls);
 
-                    if (me.removeInactiveCards || needsUpdate) {
+                    if (removeInactiveCards || needsUpdate) {
                         item._cls = cls; // silent update
                         item.getVdomRoot().cls = cls;
 
                         if (isActiveIndex) {
                             delete item.vdom.removeDom;
                             item.activate?.();
-                        } else {
+                        } else if (removeInactiveCards) {
                             item.mounted = false;
                             item.vdom.removeDom = true;
                         }
@@ -136,7 +137,7 @@ class Card extends Base {
                 }
             }
 
-            if (me.removeInactiveCards || needsUpdate) {
+            if (removeInactiveCards || needsUpdate) {
                 container.vdom = vdom;
             }
         }
