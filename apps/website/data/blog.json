@@ -2,6 +2,19 @@
     {
         "author"      : "Tobias Uhlig",
         "authorImage" : "author_TobiasUhlig.jpeg",
+        "date"        : "Apr 13, 2022",
+        "id"          : 52,
+        "image"       : "safari-now-fully-supports-sharedworkers.png",
+        "name"        : "Safari now fully supports SharedWorkers",
+        "provider"    : "Medium",
+        "publisher"   : "ITNEXT",
+        "selectedInto": [],
+        "type"        : "Blog Post",
+        "url"         : "https://itnext.io/safari-now-fully-supports-sharedworkers-534733b56b4c?source=friends_link&sk=97b83b39629cf79dbe8feff0042c19b3"
+    },
+    {
+        "author"      : "Tobias Uhlig",
+        "authorImage" : "author_TobiasUhlig.jpeg",
         "date"        : "Mar 28, 2022",
         "id"          : 51,
         "image"       : "predictive-offline-support-for-assets-you-have-not-used-yet.png",
