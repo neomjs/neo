@@ -2,15 +2,16 @@
     "namespace": "MyApi",
     "url"      : "./",
 
-    "services": [{
-        "name"   : "FriendService",
-        "methods": [{
-            "name": "getAll"
-        }]
-    }, {
-        "name"   : "UserService",
-        "methods": [{
-            "name": "getAll"
-        }]
-    }]
+    "services": {
+        "FriendService": {
+            "methods": {
+                "getAll": {}
+            }
+        },
+        "UserService": {
+            "methods": {
+                "getAll": {}
+            }
+        }
+    }
 }
