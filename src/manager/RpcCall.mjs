@@ -33,7 +33,14 @@ class RpcCall extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
+        singleton: true,
+        /**
+         * @member {Object[]} sorters
+         */
+        sorters: [{
+            direction: 'ASC',
+            property : 'id'
+        }]
     }}
 
     /**
