@@ -16,6 +16,12 @@ class RpcCall extends Base {
      * @member {String[]} endPointTimeouts=[]
      */
     endPointTimeouts = []
+    /**
+     * internal incrementing flag
+     * @member {Number} transactionId=1
+     * @protected
+     */
+    transactionId = 1
 
     static getConfig() {return {
         /**
@@ -43,6 +49,16 @@ class RpcCall extends Base {
         console.log(msg);
         console.log(method);
 
+        me.register({
+            id     : me.transactionId,
+            method : msg.method,
+            params : msg.params,
+            service: msg.service,
+            url
+        });
+
+        me.transactionId++;
+
         if (!me.endPointTimeouts.includes(url)) {
             me.endPointTimeouts.push(url);
 
@@ -61,6 +77,7 @@ class RpcCall extends Base {
      */
     resolveBufferTimeout(url) {
         console.log('resolveBufferTimeout', url);
+        console.log(this.items);
     }
 }
 
