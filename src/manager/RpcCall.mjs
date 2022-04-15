@@ -42,34 +42,31 @@ class RpcCall extends Base {
      * @returns {Promise<any>}
      */
     async onMessage(msg) {
-        let me     = this,
-            method = Neo.manager.RpcApi.get(`${msg.service}.${msg.method}`),
-            url    = method.url;
+        return new Promise((resolve, reject) => {
+            let me     = this,
+                method = Neo.manager.RpcApi.get(`${msg.service}.${msg.method}`),
+                url    = method.url;
 
-        console.log(msg);
-        console.log(method);
+            me.register({
+                id     : me.transactionId,
+                method : msg.method,
+                params : msg.params,
+                reject,
+                resolve,
+                service: msg.service,
+                url
+            });
 
-        me.register({
-            id     : me.transactionId,
-            method : msg.method,
-            params : msg.params,
-            service: msg.service,
-            url
+            me.transactionId++;
+
+            if (!me.endPointTimeouts.includes(url)) {
+                me.endPointTimeouts.push(url);
+
+                setTimeout(() => {
+                    me.resolveBufferTimeout(url);
+                }, me.callBuffer)
+            }
         });
-
-        me.transactionId++;
-
-        if (!me.endPointTimeouts.includes(url)) {
-            me.endPointTimeouts.push(url);
-
-            setTimeout(() => {
-                me.resolveBufferTimeout(url);
-            }, me.callBuffer)
-        }
-
-        let response = await Neo.Fetch.get(msg);
-
-        return response;
     }
 
     /**
@@ -78,6 +75,8 @@ class RpcCall extends Base {
     resolveBufferTimeout(url) {
         console.log('resolveBufferTimeout', url);
         console.log(this.items);
+
+        //let response = await Neo.Fetch.get(msg);
     }
 }
 
