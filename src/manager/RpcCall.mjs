@@ -7,15 +7,21 @@ import Base from './Base.mjs';
  */
 class RpcCall extends Base {
     /**
-     * Time window in ms for buffering incoming call requests
-     * @member {Number} callBuffer=20
-     */
-    callBuffer = 20
-    /**
      * Stores the urls of endpoints for which a setTimeout() call is in progress
      * @member {String[]} endPointTimeouts=[]
      */
     endPointTimeouts = []
+    /**
+     * internal incrementing flag
+     * @member {Number} messageId=1
+     * @protected
+     */
+    messageId = 1
+    /**
+     * Time window in ms for buffering incoming call requests
+     * @member {Number} requestBuffer=20
+     */
+    requestBuffer = 20
     /**
      * internal incrementing flag
      * @member {Number} transactionId=1
@@ -55,23 +61,24 @@ class RpcCall extends Base {
                 url    = method.url;
 
             me.register({
-                id     : me.transactionId,
-                method : msg.method,
-                params : msg.params,
+                id           : me.messageId,
+                method       : msg.method,
+                params       : msg.params,
                 reject,
                 resolve,
-                service: msg.service,
+                service      : msg.service,
+                transactionId: 0,
                 url
             });
 
-            me.transactionId++;
+            me.messageId++;
 
             if (!me.endPointTimeouts.includes(url)) {
                 me.endPointTimeouts.push(url);
 
                 setTimeout(() => {
                     me.resolveBufferTimeout(url);
-                }, me.callBuffer)
+                }, me.requestBuffer)
             }
         });
     }
