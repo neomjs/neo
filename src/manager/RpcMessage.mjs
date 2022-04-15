@@ -51,10 +51,10 @@ class RpcMessage extends Base {
 
     /**
      *
-     * @param msg
+     * @param {Object} msg
      * @returns {Promise<any>}
      */
-    async onMessage(msg) {
+    onMessage(msg) {
         return new Promise((resolve, reject) => {
             let me     = this,
                 method = Neo.manager.RpcApi.get(`${msg.service}.${msg.method}`),
