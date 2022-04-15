@@ -62,6 +62,14 @@ class Data extends Base {
 
     /**
      * @param {Object} msg
+     * @param {Object} msg.data the API content
+     */
+    onRegisterApi(msg) {
+        console.log('onRegisterApi', msg.data);
+    }
+
+    /**
+     * @param {Object} msg
      */
     onRegisterNeoConfig(msg) {
         super.onRegisterNeoConfig(msg);

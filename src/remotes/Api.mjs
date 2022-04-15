@@ -51,7 +51,10 @@ class Api extends Base {
 
         fetch(path)
             .then(response => response.json())
-            .then(data => {this.register(data)})
+            .then(data => {
+                Neo.currentWorker.sendMessage('data', {action: 'registerApi', data});
+                this.register(data)
+            })
     }
 
     /**
