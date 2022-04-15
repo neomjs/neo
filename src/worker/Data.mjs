@@ -19,6 +19,11 @@ class Data extends Base {
      * @protected
      */
     remotesManagerLoaded = false
+    /**
+     * @member {Boolean} rpcApiManagerLoaded=false
+     * @protected
+     */
+    rpcApiManagerLoaded = false
 
     static getConfig() {return {
         /**
@@ -65,7 +70,10 @@ class Data extends Base {
      * @param {Object} msg.data the API content
      */
     onRegisterApi(msg) {
-        console.log('onRegisterApi', msg.data);
+        import('../manager/RpcApi.mjs').then(module => {
+            module.default.registerApi(msg.data);
+            this.rpcApiManagerLoaded = true
+        })
     }
 
     /**

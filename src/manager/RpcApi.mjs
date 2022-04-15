@@ -18,6 +18,14 @@ class RpcApi extends Base {
          */
         singleton: true
     }}
+
+    /**
+     * Registers each service & method combination into the collection
+     * @param data
+     */
+    registerApi(data) {
+        console.log('registerApi', data);
+    }
 }
 
 Neo.applyClassConfig(RpcApi);
