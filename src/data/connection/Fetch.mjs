@@ -95,14 +95,14 @@ class Fetch extends Base {
         if (!Neo.isString(url)) {
             config = url;
             url    = config.url;
+        } else {
+            config.url = config;
         }
 
         return fetch(url, {
             body  : data,
             method: method || config.method
         }).then(resp => {
-            console.log(resp);
-
             let response = {
                 ok        : resp.ok,
                 redirected: resp.redirected,
@@ -116,9 +116,6 @@ class Fetch extends Base {
             return resp[config.responseType || 'json']()
                 .then(data => {
                     response.data = data;
-
-                    // does not override the value in case it fails
-                    response.data = JSON.parse(data);
                 })
                 .then(() => (resp.ok ? response : Promise.reject(response)));
         })

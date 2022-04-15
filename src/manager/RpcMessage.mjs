@@ -1,4 +1,5 @@
-import Base from './Base.mjs';
+import Base     from './Base.mjs';
+import NeoArray from '../util/Array.mjs';
 
 /**
  * @class Neo.manager.RpcMessage
@@ -86,14 +87,18 @@ class RpcMessage extends Base {
     /**
      * @param {String} url
      */
-    resolveBufferTimeout(url) {
+    async resolveBufferTimeout(url) {
         let me            = this,
+            itemIds       = [],
             processItems  = me.find({transactionId: 0, url}),
             requests      = [],
-            transactionId = me.transactionId;
+            transactionId = me.transactionId,
+            response;
 
         processItems.forEach(item => {
             item.transactionId = transactionId;
+
+            itemIds.push(item.id);
 
             requests.push({
                 id     : item.id,
@@ -103,16 +108,21 @@ class RpcMessage extends Base {
             });
         });
 
+        NeoArray.remove(me.endPointTimeouts, url);
+
         me.transactionId++;
 
-        console.log(requests);
+        response = await Neo.Fetch.request(url, {}, 'post', JSON.stringify({tid: transactionId, requests}));
 
-        Neo.Fetch.request(url, {}, 'post', JSON.stringify({tid: transactionId, requests}))
-            .then(response => {
-                console.log(response)
-            })
+        processItems.forEach(item => {
+            // todo: pass the item which is included inside the response object
+            // todo: reject the Promise in case the item is missing
 
-        //let response = await Neo.Fetch.get(msg);
+            item.resolve();
+        });
+
+        // todo: remove only the items which are included inside the response
+        me.remove(itemIds);
     }
 }
 
