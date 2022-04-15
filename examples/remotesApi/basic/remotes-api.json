@@ -1,6 +1,6 @@
 {
     "namespace": "MyApi",
-    "url"      : "./",
+    "url"      : "../../examples/remotesApi/basic/remotes-api-response.json",
 
     "services": {
         "FriendService": {
