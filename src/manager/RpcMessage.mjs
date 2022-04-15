@@ -87,8 +87,30 @@ class RpcMessage extends Base {
      * @param {String} url
      */
     resolveBufferTimeout(url) {
-        console.log('resolveBufferTimeout', url);
-        console.log(this.items);
+        let me            = this,
+            processItems  = me.find({transactionId: 0, url}),
+            requests      = [],
+            transactionId = me.transactionId;
+
+        processItems.forEach(item => {
+            item.transactionId = transactionId;
+
+            requests.push({
+                id     : item.id,
+                method : item.method,
+                params : item.params,
+                service: item.service
+            });
+        });
+
+        me.transactionId++;
+
+        console.log(requests);
+
+        Neo.Fetch.request(url, {}, 'post', JSON.stringify({tid: transactionId, requests}))
+            .then(response => {
+                console.log(response)
+            })
 
         //let response = await Neo.Fetch.get(msg);
     }

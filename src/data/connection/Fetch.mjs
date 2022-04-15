@@ -97,22 +97,31 @@ class Fetch extends Base {
             url    = config.url;
         }
 
-        return fetch(url)
-            .then(resp => {
-                console.log(resp);
+        return fetch(url, {
+            body  : data,
+            method: method || config.method
+        }).then(resp => {
+            console.log(resp);
 
-                let response = {
-                    ok        : resp.ok,
-                    redirected: resp.redirected,
-                    request   : config,
-                    status    : resp.status,
-                    statusText: resp.statusText,
-                    type      : resp.type,
-                    url       : resp.url
-                };
+            let response = {
+                ok        : resp.ok,
+                redirected: resp.redirected,
+                request   : config,
+                status    : resp.status,
+                statusText: resp.statusText,
+                type      : resp.type,
+                url       : resp.url
+            };
 
-                return response
-            })
+            return resp[config.responseType || 'json']()
+                .then(data => {
+                    response.data = data;
+
+                    // does not override the value in case it fails
+                    response.data = JSON.parse(data);
+                })
+                .then(() => (resp.ok ? response : Promise.reject(response)));
+        })
     }
 }
 
