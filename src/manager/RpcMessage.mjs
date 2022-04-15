@@ -19,7 +19,7 @@ class RpcMessage extends Base {
      */
     messageId = 1
     /**
-     * Time window in ms for buffering incoming call requests
+     * Time window in ms for buffering incoming message requests
      * @member {Number} requestBuffer=20
      */
     requestBuffer = 20
