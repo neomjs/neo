@@ -15,10 +15,10 @@ import Xhr          from '../Xhr.mjs';
  */
 class Data extends Base {
     /**
-     * @member {Boolean} remotesManagerLoaded=false
+     * @member {Boolean} rpcCallManagerLoaded=false
      * @protected
      */
-    remotesManagerLoaded = false
+    rpcCallManagerLoaded = false
     /**
      * @member {Boolean} rpcApiManagerLoaded=false
      * @protected
@@ -82,8 +82,8 @@ class Data extends Base {
     onRegisterNeoConfig(msg) {
         super.onRegisterNeoConfig(msg);
 
-        Neo.config.remotesApiUrl && import('../manager/RemotesApi.mjs').then(module => {
-            this.remotesManagerLoaded = true
+        Neo.config.remotesApiUrl && import('../manager/RpcCall.mjs').then(module => {
+            this.rpcCallManagerLoaded = true
         })
     }
 
@@ -96,13 +96,13 @@ class Data extends Base {
         let me = this,
             response;
 
-        if (!me.remotesManagerLoaded) {
+        if (!me.rpcCallManagerLoaded) {
             // todo: we could store calls which arrive too early and pass them to the manager once it is ready
             console.warn('manager.RemotesApi not loaded yet', msg);
 
             me.reject(msg);
         } else {
-            response = await Neo.manager.RemotesApi.onMessage(msg);
+            response = await Neo.manager.RpcCall.onMessage(msg);
 
             me.resolve(msg, response);
         }

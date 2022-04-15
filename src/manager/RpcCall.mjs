@@ -1,17 +1,17 @@
 import Base from './Base.mjs';
 
 /**
- * @class Neo.manager.RemotesApi
+ * @class Neo.manager.RpcCall
  * @extends Neo.manager.Base
  * @singleton
  */
-class RemotesApi extends Base {
+class RpcCall extends Base {
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.manager.RemotesApi'
+         * @member {String} className='Neo.manager.RpcCall'
          * @protected
          */
-        className: 'Neo.manager.RemotesApi',
+        className: 'Neo.manager.RpcCall',
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -31,9 +31,9 @@ class RemotesApi extends Base {
     }
 }
 
-Neo.applyClassConfig(RemotesApi);
+Neo.applyClassConfig(RpcCall);
 
-let instance = Neo.create(RemotesApi);
+let instance = Neo.create(RpcCall);
 
 Neo.applyToGlobalNs(instance);
 
