@@ -21,10 +21,19 @@ class RpcApi extends Base {
 
     /**
      * Registers each service & method combination into the collection
-     * @param data
+     * @param api
      */
-    registerApi(data) {
-        console.log('registerApi', data);
+    registerApi(api) {
+        Object.entries(api.services).forEach(([service, serviceValue]) => {
+            Object.entries(serviceValue.methods).forEach(([method, methodValue]) => {
+                this.register({
+                    id : `${service}.${method}`,
+                    method,
+                    service,
+                    url: methodValue.url || serviceValue.url || api.url
+                })
+            })
+        })
     }
 }
 
