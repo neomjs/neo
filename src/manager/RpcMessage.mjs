@@ -1,11 +1,11 @@
 import Base from './Base.mjs';
 
 /**
- * @class Neo.manager.RpcCall
+ * @class Neo.manager.RpcMessage
  * @extends Neo.manager.Base
  * @singleton
  */
-class RpcCall extends Base {
+class RpcMessage extends Base {
     /**
      * Stores the urls of endpoints for which a setTimeout() call is in progress
      * @member {String[]} endPointTimeouts=[]
@@ -31,10 +31,10 @@ class RpcCall extends Base {
 
     static getConfig() {return {
         /**
-         * @member {String} className='Neo.manager.RpcCall'
+         * @member {String} className='Neo.manager.RpcMessage'
          * @protected
          */
-        className: 'Neo.manager.RpcCall',
+        className: 'Neo.manager.RpcMessage',
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -94,9 +94,9 @@ class RpcCall extends Base {
     }
 }
 
-Neo.applyClassConfig(RpcCall);
+Neo.applyClassConfig(RpcMessage);
 
-let instance = Neo.create(RpcCall);
+let instance = Neo.create(RpcMessage);
 
 Neo.applyToGlobalNs(instance);
 
