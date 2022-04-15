@@ -705,7 +705,7 @@ class Base extends CoreBase {
     /**
      * Returns all items which match the property and value
      * @param {Object|String} property
-     * @param {String|Number} value
+     * @param {String|Number} [value] Optional, in case the first param is an object
      * @returns {Array} Returns an empty Array in case no items are found
      */
     find(property, value) {
