@@ -58,13 +58,13 @@ class Api extends Base {
     }
 
     /**
-     * @param {Object} data
+     * @param {Object} api
      */
-    register(data) {
+    register(api) {
         let ns;
 
-        Object.entries(data.services).forEach(([service, serviceValue]) => {
-            ns = Neo.ns(`${data.namespace}.${service}`, true);
+        Object.entries(api.services).forEach(([service, serviceValue]) => {
+            ns = Neo.ns(`${api.namespace}.${service}`, true);
 
             Object.entries(serviceValue.methods).forEach(([method, methodValue]) => {
                 ns[method] = this.generateRemote(service, method);
