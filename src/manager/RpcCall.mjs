@@ -25,6 +25,11 @@ class RpcCall extends Base {
      * @returns {Promise<any>}
      */
     async onMessage(msg) {
+        let method = Neo.manager.RpcApi.get(`${msg.service}.${msg.method}`);
+
+        console.log(msg);
+        console.log(method);
+
         let response = await Neo.Fetch.get(msg);
 
         return response;
