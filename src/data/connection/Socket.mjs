@@ -20,7 +20,12 @@ class Socket extends Base {
          * @member {String} ntype='socket-connection'
          * @protected
          */
-        ntype: 'socket-connection'
+        ntype: 'socket-connection',
+        /**
+         * @member {WebSocket|null} socket=null
+         * @protected
+         */
+        socket: null
     }}
 }
 
