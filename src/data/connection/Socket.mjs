@@ -48,7 +48,8 @@ class Socket extends Base {
             let me = this;
 
             Object.assign(value, {
-                onclose: me.onClose.bind(me)
+                onclose: me.onClose.bind(me),
+                onerror: me.onError.bind(me)
             });
         }
 
@@ -78,6 +79,13 @@ class Socket extends Base {
      */
     onClose(event, reason, wasClean) {
         console.log('onClose', event, reason, wasClean);
+    }
+
+    /**
+     *
+     */
+    onError() {
+        console.log('onError', arguments);
     }
 }
 
