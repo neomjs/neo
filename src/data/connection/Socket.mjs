@@ -5,6 +5,11 @@ import Base from '../../core/Base.mjs';
  * @extends Neo.core.Base
  */
 class Socket extends Base {
+    /**
+     * @member {String|null} serverAddress=null
+     */
+    serverAddress = null
+
     static getConfig() {return {
         /**
          * @member {String} className='Neo.data.connection.WebSocket'
