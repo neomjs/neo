@@ -22,11 +22,19 @@ class Socket extends Base {
          */
         ntype: 'socket-connection',
         /**
-         * @member {WebSocket|null} socket=null
+         * @member {WebSocket|null} socket_=null
          * @protected
          */
-        socket: null
+        socket_: null
     }}
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+        this.socket = new WebSocket(this.serverAddress);
+    }
 }
 
 Neo.applyClassConfig(Socket);
