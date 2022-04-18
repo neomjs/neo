@@ -51,21 +51,25 @@ class Api extends Base {
 
         fetch(path)
             .then(response => response.json())
-            .then(data => {this.register(data)})
+            .then(data => {
+                Neo.currentWorker.sendMessage('data', {action: 'registerApi', data});
+                this.register(data)
+            })
     }
 
     /**
-     * @param {Object} data
+     * @param {Object} api
      */
-    register(data) {
-        let method, ns, service;
+    register(api) {
+        let ns;
 
-        for (service of data.services) {
-            for (method of service.methods) {
-                ns = Neo.ns(`${data.namespace}.${service.name}`, true);
-                ns[method.name] = this.generateRemote(service.name, method.name);
-            }
-        }
+        Object.entries(api.services).forEach(([service, serviceValue]) => {
+            ns = Neo.ns(`${api.namespace}.${service}`, true);
+
+            Object.entries(serviceValue.methods).forEach(([method, methodValue]) => {
+                ns[method] = this.generateRemote(service, method);
+            })
+        })
     }
 }
 

@@ -95,24 +95,30 @@ class Fetch extends Base {
         if (!Neo.isString(url)) {
             config = url;
             url    = config.url;
+        } else {
+            config.url = config;
         }
 
-        return fetch(url)
-            .then(resp => {
-                console.log(resp);
+        return fetch(url, {
+            body  : data,
+            method: method || config.method
+        }).then(resp => {
+            let response = {
+                ok        : resp.ok,
+                redirected: resp.redirected,
+                request   : config,
+                status    : resp.status,
+                statusText: resp.statusText,
+                type      : resp.type,
+                url       : resp.url
+            };
 
-                let response = {
-                    ok        : resp.ok,
-                    redirected: resp.redirected,
-                    request   : config,
-                    status    : resp.status,
-                    statusText: resp.statusText,
-                    type      : resp.type,
-                    url       : resp.url
-                };
-
-                return response
-            })
+            return resp[config.responseType || 'json']()
+                .then(data => {
+                    response.data = data;
+                })
+                .then(() => (resp.ok ? response : Promise.reject(response)));
+        })
     }
 }
 
