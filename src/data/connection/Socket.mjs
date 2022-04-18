@@ -1,5 +1,6 @@
-import Base       from '../../core/Base.mjs';
-import Observable from '../../core/Observable.mjs';
+import Base        from '../../core/Base.mjs';
+import NeoFunction from '../../util/Function.mjs';
+import Observable  from '../../core/Observable.mjs';
 
 /**
  * @class Neo.data.connection.WebSocket
@@ -105,10 +106,11 @@ class Socket extends Base {
             let me = this;
 
             Object.assign(value, {
-                onclose  : me.onClose.bind(me),
-                onerror  : me.onError.bind(me),
+                onclose  : me.onClose  .bind(me),
+                onerror  : me.onError  .bind(me),
                 onmessage: me.onMessage.bind(me),
-                onopen   : me.onOpen.bind(me)
+                onopen   : me.onOpen   .bind(me),
+                send     : NeoFunction.intercept(value, 'send', me.beforeSend, me)
             });
         }
 
