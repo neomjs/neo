@@ -47,15 +47,15 @@ class NeoFunction extends Base {
      * @param {Object} target
      * @param {String} targetMethodName
      * @param {Function} interceptFunction
-     * @param {Object} scope=this
+     * @param {Object} scope=target
      * @param {*} preventedReturnValue=null The value to return in case the interceptFunction returns false
      * @returns {Function}
      */
-    static intercept(target, targetMethodName, interceptFunction, scope=this, preventedReturnValue=null) {
+    static intercept(target, targetMethodName, interceptFunction, scope, preventedReturnValue=null) {
         let targetMethod = target[targetMethodName];
 
         return (target[targetMethodName] = function() {
-            return (interceptFunction.apply(scope, arguments) === false)
+            return (interceptFunction.apply(scope || target, arguments) === false)
                 ? preventedReturnValue
                 : targetMethod.apply(target, arguments);
         });
