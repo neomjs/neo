@@ -7,6 +7,11 @@ import Observable from '../../core/Observable.mjs';
  */
 class Socket extends Base {
     /**
+     * @member {Number} maxReconnectAttempts=5
+     * @protected
+     */
+    maxReconnectAttempts = 5
+    /**
      * @member {String|null} serverAddress=null
      */
     serverAddress = null
