@@ -89,7 +89,7 @@ class Socket extends Base {
         let me      = this,
             channel = me.channel;
 
-        console.debug('WS: Sending message', (channel ? '\nChannel: ' + channel : ''), '\nData:', data);
+        console.log('WS: Sending message', (channel ? '\nChannel: ' + channel : ''), '\nData:', data);
 
         return JSON.stringify(channel ? {channel, data} : data);
     }
