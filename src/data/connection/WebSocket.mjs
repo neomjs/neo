@@ -112,7 +112,7 @@ class Socket extends Base {
                 onopen   : me.onOpen   .bind(me)
             });
 
-            NeoFunction.intercept(value, 'send', me.beforeSend, me);
+            NeoFunction.createInterceptor(value, 'send', me.beforeSend, me);
         }
 
         return value;
