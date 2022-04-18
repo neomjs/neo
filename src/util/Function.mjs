@@ -44,21 +44,18 @@ class NeoFunction extends Base {
     }
 
     /**
-     * @param {Neo.core.Base} target
-     * @param {String} methodName
-     * @param {Function} fn
+     * @param {Function} targetFunction
+     * @param {Function} interceptFunction
      * @param {Object} scope
+     * @param {*} preventedReturnValue=null The value to return in case the interceptFunction returns false
      * @returns {Function}
      */
-    static intercept(target, methodName, fn, scope) {
-        let method = target[methodName] || Neo.emptyFn;
-
-        return (target[methodName] = function() {
-            let returnValue = fn.apply(scope || this, arguments);
-            method.apply(this, arguments);
-
-            return returnValue;
-        });
+    static intercept(targetFunction, interceptFunction, scope, preventedReturnValue=null) {
+        return function() {
+            return (interceptFunction.apply(scope || this, arguments) === false)
+                ? preventedReturnValue
+                : targetFunction.apply(this, arguments);
+        };
     }
 }
 
