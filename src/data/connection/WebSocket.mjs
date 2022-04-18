@@ -57,7 +57,7 @@ class Socket extends Base {
      */
     construct(config) {
         super.construct(config);
-        this.socket = new WebSocket(this.serverAddress);
+        this.createSocket();
     }
 
     /**
@@ -70,7 +70,7 @@ class Socket extends Base {
         me.reconnectAttempts++;
 
         if (me.reconnectAttempts < me.maxReconnectAttempts) {
-            me.socket = new WebSocket(me.serverAddress);
+            me.createSocket();
 
             callback && me.on('open', {
                 callback,
@@ -116,6 +116,13 @@ class Socket extends Base {
         }
 
         return value;
+    }
+
+    /**
+     *
+     */
+    createSocket() {
+        this.socket = new WebSocket(this.serverAddress);
     }
 
     /**
