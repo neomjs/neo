@@ -105,6 +105,38 @@ class Socket extends Base {
     onMessage(event) {
         console.log('onMessage', event);
     }
+
+    /**
+     * @param {Object} data
+     */
+    send(data) {
+        let me     = this,
+            socket = me.socket,
+            d      = data;
+
+        // CONNECTING  0   The connection is not yet open.
+        // OPEN        1   The connection is open and ready to communicate.
+        // CLOSING     2   The connection is in the process of closing.
+        // CLOSED      3   The connection is closed or couldn't be opened.
+
+        // If socket is not yet ready let's defer to open then resend
+        switch (socket.readyState) {
+            case WebSocket.CLOSED:
+            case WebSocket.CLOSING:
+                me.attemptReconnect(function() {
+                    me.send(d);
+                });
+                break;
+            case WebSocket.CONNECTING:
+                me.on('open', function() {
+                    me.send(d);
+                }, me, {single: true});
+                break;
+            case WebSocket.OPEN:
+                socket.send(data);
+                break;
+        }
+    }
 }
 
 Neo.applyClassConfig(Socket);
