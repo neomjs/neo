@@ -56,6 +56,26 @@ class Socket extends Base {
     }
 
     /**
+     * @param {Function} callback
+     * @param {Object} scope
+     */
+    attemptReconnect(callback, scope) {
+        let me = this;
+
+        me.reconnectAttempts++;
+
+        if (me.reconnectAttempts < me.maxReconnectAttempts) {
+            me.socket = new WebSocket(me.serverAddress);
+
+            callback && me.on('open', {
+                callback,
+                scope : scope || me,
+                single: true
+            });
+        }
+    }
+
+    /**
      * Triggered before the socket config gets changed.
      * @param {WebSocket|null} value
      * @param {WebSocket|null} oldValue
