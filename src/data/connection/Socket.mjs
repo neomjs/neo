@@ -109,9 +109,10 @@ class Socket extends Base {
                 onclose  : me.onClose  .bind(me),
                 onerror  : me.onError  .bind(me),
                 onmessage: me.onMessage.bind(me),
-                onopen   : me.onOpen   .bind(me),
-                send     : NeoFunction.intercept(value, 'send', me.beforeSend, me)
+                onopen   : me.onOpen   .bind(me)
             });
+
+            NeoFunction.intercept(value, 'send', me.beforeSend, me);
         }
 
         return value;
