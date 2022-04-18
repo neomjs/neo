@@ -89,7 +89,8 @@ class Socket extends Base {
             Object.assign(value, {
                 onclose  : me.onClose.bind(me),
                 onerror  : me.onError.bind(me),
-                onmessage: me.onMessage.bind(me)
+                onmessage: me.onMessage.bind(me),
+                onopen   : me.onOpen.bind(me)
             });
         }
 
@@ -133,6 +134,13 @@ class Socket extends Base {
      */
     onMessage(event) {
         console.log('onMessage', event);
+    }
+
+    /**
+     *
+     */
+    onOpen() {
+        this.fire('open', {scope: this});
     }
 
     /**
