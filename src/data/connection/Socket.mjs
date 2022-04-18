@@ -7,6 +7,10 @@ import Observable from '../../core/Observable.mjs';
  */
 class Socket extends Base {
     /**
+     * @member {String|null} channel=null
+     */
+    channel = null
+    /**
      * @member {Number} maxReconnectAttempts=5
      */
     maxReconnectAttempts = 5
@@ -73,6 +77,20 @@ class Socket extends Base {
                 single: true
             });
         }
+    }
+
+    /**
+     * Intercepts the WebSocket send calls
+     * @param {Object} data
+     * @returns {String}
+     */
+    beforeSend(data) {
+        let me      = this,
+            channel = me.channel;
+
+        console.debug('WS: Sending message', (channel ? '\nChannel: ' + channel : ''), '\nData:', data);
+
+        return JSON.stringify(channel ? {channel, data} : data);
     }
 
     /**
