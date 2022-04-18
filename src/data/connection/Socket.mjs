@@ -1,4 +1,5 @@
-import Base from '../../core/Base.mjs';
+import Base       from '../../core/Base.mjs';
+import Observable from '../../core/Observable.mjs';
 
 /**
  * @class Neo.data.connection.WebSocket
@@ -9,6 +10,15 @@ class Socket extends Base {
      * @member {String|null} serverAddress=null
      */
     serverAddress = null
+
+    static getStaticConfig() {return {
+        /**
+         * True automatically applies the core.Observable mixin
+         * @member {Boolean} observable=true
+         * @static
+         */
+        observable: true
+    }}
 
     static getConfig() {return {
         /**
