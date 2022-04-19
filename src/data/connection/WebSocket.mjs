@@ -134,6 +134,14 @@ class Socket extends Base {
     }
 
     /**
+     *
+     */
+    destroy(...args) {
+        this.close();
+        super.destroy(...args);
+    }
+
+    /**
      * @param {CloseEvent} event The Websocket generated CloseEvent
      * @param {Number}     event.code The WebSocket connection close code provided by the server
      *
