@@ -119,6 +119,14 @@ class Socket extends Base {
     }
 
     /**
+     * @param {Number} [code] defaults to 1000
+     * @param {String} [reason]
+     */
+    close(code, reason) {
+        this.socket.close(code, reason);
+    }
+
+    /**
      *
      */
     createSocket() {
