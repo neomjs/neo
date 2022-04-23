@@ -186,9 +186,15 @@ class Socket extends Base {
      * @param {MessageEvent} event
      */
     onMessage(event) {
-        let data = JSON.parse(event.data);
+        let me   = this,
+            data = JSON.parse(event.data);
 
         console.log('onMessage', data);
+
+        if (data.mId) {
+            me.messageCallbacks[data.mId](data.data);
+            delete me.messageCallbacks[data.mId];
+        }
     }
 
     /**
