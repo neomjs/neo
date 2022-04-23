@@ -192,7 +192,7 @@ class Socket extends Base {
     /**
      * @param {Object} data
      */
-    send(data) {
+    sendMessage(data) {
         let me     = this,
             socket = me.socket,
             d      = data;
