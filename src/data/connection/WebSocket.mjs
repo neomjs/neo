@@ -16,6 +16,10 @@ class Socket extends Base {
      */
     maxReconnectAttempts = 5
     /**
+     * @member {Object} messageCallbacks={}
+     */
+    messageCallbacks = {}
+    /**
      * @member {Number} reconnectAttempts=0
      * @protected
      */
