@@ -174,10 +174,12 @@ class Socket extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {MessageEvent} event
      */
     onMessage(event) {
-        console.log('onMessage', event);
+        let data = JSON.parse(event.data);
+
+        console.log('onMessage', data);
     }
 
     /**
