@@ -27,10 +27,11 @@ class RpcApi extends Base {
         Object.entries(api.services).forEach(([service, serviceValue]) => {
             Object.entries(serviceValue.methods).forEach(([method, methodValue]) => {
                 this.register({
-                    id : `${service}.${method}`,
+                    id  : `${service}.${method}`,
                     method,
                     service,
-                    url: methodValue.url || serviceValue.url || api.url
+                    type: methodValue.type || serviceValue.type || api.type || 'ajax',
+                    url : methodValue.url  || serviceValue.url  || api.url
                 })
             })
         })
