@@ -57,7 +57,7 @@ class Socket extends Base {
      */
     construct(config) {
         super.construct(config);
-        this.socket = new WebSocket(this.serverAddress);
+        this.createSocket();
     }
 
     /**
@@ -70,7 +70,7 @@ class Socket extends Base {
         me.reconnectAttempts++;
 
         if (me.reconnectAttempts < me.maxReconnectAttempts) {
-            me.socket = new WebSocket(me.serverAddress);
+            me.createSocket();
 
             callback && me.on('open', {
                 callback,
@@ -89,7 +89,7 @@ class Socket extends Base {
         let me      = this,
             channel = me.channel;
 
-        console.debug('WS: Sending message', (channel ? '\nChannel: ' + channel : ''), '\nData:', data);
+        console.log('WS: Sending message', (channel ? '\nChannel: ' + channel : ''), '\nData:', data);
 
         return JSON.stringify(channel ? {channel, data} : data);
     }
@@ -116,6 +116,29 @@ class Socket extends Base {
         }
 
         return value;
+    }
+
+    /**
+     * @param {Number} [code] defaults to 1000
+     * @param {String} [reason]
+     */
+    close(code, reason) {
+        this.socket.close(code, reason);
+    }
+
+    /**
+     *
+     */
+    createSocket() {
+        this.socket = new WebSocket(this.serverAddress);
+    }
+
+    /**
+     *
+     */
+    destroy(...args) {
+        this.close();
+        super.destroy(...args);
     }
 
     /**
@@ -151,10 +174,12 @@ class Socket extends Base {
     }
 
     /**
-     * @param {Object} event
+     * @param {MessageEvent} event
      */
     onMessage(event) {
-        console.log('onMessage', event);
+        let data = JSON.parse(event.data);
+
+        console.log('onMessage', data);
     }
 
     /**
@@ -167,7 +192,7 @@ class Socket extends Base {
     /**
      * @param {Object} data
      */
-    send(data) {
+    sendMessage(data) {
         let me     = this,
             socket = me.socket,
             d      = data;
