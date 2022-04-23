@@ -192,7 +192,7 @@ class Socket extends Base {
         console.log('onMessage', data);
 
         if (data.mId) {
-            me.messageCallbacks[data.mId](data.data);
+            me.messageCallbacks[data.mId].resolve(data.data);
             delete me.messageCallbacks[data.mId];
         }
     }
@@ -212,7 +212,7 @@ class Socket extends Base {
         let me = this;
 
         return new Promise((resolve, reject) => {
-            me.messageCallbacks[me.messageId] = resolve;
+            me.messageCallbacks[me.messageId] = {reject, resolve};
 
             me.sendMessage({data, mId: me.messageId});
             me.messageId++;
