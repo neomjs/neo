@@ -20,6 +20,11 @@ class Socket extends Base {
      */
     messageCallbacks = {}
     /**
+     * @member {Number} messageId=1
+     * @protected
+     */
+    messageId = 1
+    /**
      * @member {Number} reconnectAttempts=0
      * @protected
      */
@@ -191,6 +196,21 @@ class Socket extends Base {
      */
     onOpen() {
         this.fire('open', {scope: this});
+    }
+
+    /**
+     * @param {Object} data
+     * @returns {Promise<any>}
+     */
+    promiseMessage(data) {
+        let me = this;
+
+        return new Promise((resolve, reject) => {
+            me.messageCallbacks[me.messageId] = resolve;
+
+            me.sendMessage({data, mId: me.messageId});
+            me.messageId++;
+        });
     }
 
     /**
