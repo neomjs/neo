@@ -24,6 +24,10 @@ class Message extends Base {
      */
     requestBuffer = 20
     /**
+     * @member {Object} socketConnections={}
+     */
+    socketConnections = {}
+    /**
      * internal incrementing flag
      * @member {Number} transactionId=1
      * @protected
@@ -56,13 +60,22 @@ class Message extends Base {
      * @returns {Promise<any>}
      */
     onMessage(msg) {
-        return new Promise((resolve, reject) => {
-            let me     = this,
-                method = Neo.manager.rpc.Api.get(`${msg.service}.${msg.method}`),
-                url    = method.url;
+        let api = Neo.manager.rpc.Api.get(`${msg.service}.${msg.method}`);
 
-            // todo: separate the logic for method.type ajax vs websocket
-            console.log('onMessage', method);
+        return this[`onMessage${Neo.capitalize(method.type)}`](msg, api);
+    }
+
+    /**
+     *
+     * @param {Object} msg
+     * @param {Object} api
+     * @protected
+     * @returns {Promise<any>}
+     */
+    onMessageAjax(msg, api) {
+        return new Promise((resolve, reject) => {
+            let me  = this,
+                url = api.url;
 
             me.register({
                 id           : me.messageId,
@@ -84,6 +97,32 @@ class Message extends Base {
                     me.resolveBufferTimeout(url);
                 }, me.requestBuffer)
             }
+        });
+    }
+
+    /**
+     *
+     * @param {Object} msg
+     * @param {Object} api
+     * @protected
+     * @returns {Promise<any>}
+     */
+    async onMessageWebsocket(msg, api) {
+        console.log('onMessageWebsocket', msg, url);
+
+        let me         = this,
+            connection = me.socketConnections[url];
+
+        if (!connection) {
+            let module = await import('../../data/connection/WebSocket.mjs');
+
+            me.socketConnections[url] = connection = Neo.create(module.default, {serverAddress: url});
+        }
+
+        return await connection.promiseMessage({
+            data   : msg,
+            method : api.method,
+            service: api.service
         });
     }
 
